@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("ENGINEER") // ADMIN, AREA_MANAGER, OSP_MANAGER, ENGINEER, QC_OFFICER, AREA_COORDINATOR
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  status        String   @default("PLANNING")
+  progress      Float    @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Staff {
+  id        String   @id @default(cuid())
+  name      String
+  position  String
+  area      String?
+  reportsTo String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  contractorName String
+  invoiceId      String   @unique
+  amount         Float
+  status         String   @default("PENDING") // PENDING, PAID
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Vehicle {
+  id             String   @id @default(cuid())
+  registration   String   @unique
+  licenseExpiry  DateTime
+  licensePhotoUrl String?
+  driverName     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
