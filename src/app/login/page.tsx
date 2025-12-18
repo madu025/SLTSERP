@@ -4,19 +4,37 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Mock login logic
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        router.push('/dashboard');
+      } else {
+        setError(data.message || 'Login failed');
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
-      router.push('/dashboard');
-    }, 1500);
+    }
   };
 
   return (
@@ -39,15 +57,24 @@ export default function LoginPage() {
           <p className="text-slate-500 mt-2">Telecom OSP Construction Management</p>
         </div>
 
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl flex items-center">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-white/50"
-              placeholder="name@company.com"
+              placeholder="Enter your username"
               required
             />
           </div>
@@ -65,17 +92,6 @@ export default function LoginPage() {
               placeholder="••••••••"
               required
             />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              id="remember-me"
-              type="checkbox"
-              className="h-4 w-4 text-primary focus:ring-primary border-slate-300 rounded"
-            />
-            <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600">
-              Remember me
-            </label>
           </div>
 
           <button
@@ -96,7 +112,7 @@ export default function LoginPage() {
 
         <div className="mt-8 pt-6 border-t border-slate-200 text-center">
           <p className="text-sm text-slate-600">
-            Powered by <span className="font-semibold text-slate-900 underline decoration-primary/30">Prisma</span> & <span className="font-semibold text-slate-900 underline decoration-primary/30">Next.js</span>
+            Secure Database Access Active
           </p>
         </div>
       </div>

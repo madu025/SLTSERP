@@ -1,32 +1,106 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --primary: #0284c7;
+  --color-primary: 59 130 246;
+  --color-primary-dark: 37 99 235;
+  --color-background: 248 250 252;
+  --color-foreground: 15 23 42;
+  --color-sidebar: 15 23 42;
+  --color-card: 255 255 255;
+  --color-border: 226 232 240;
   --primary-foreground: #ffffff;
   --secondary: #64748b;
   --accent: #38bdf8;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --sidebar: #1e293b;
   --sidebar-foreground: #f1f5f9;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
+  --color-primary: rgb(var(--color-primary));
+  --color-primary-dark: rgb(var(--color-primary-dark));
+  --color-background: rgb(var(--color-background));
+  --color-foreground: rgb(var(--color-foreground));
+  --color-sidebar: rgb(var(--color-sidebar));
+  --color-card: rgb(var(--color-card));
+  --color-border: rgb(var(--color-border));
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-accent: var(--accent);
-  --color-sidebar: var(--sidebar);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: rgb(var(--color-background));
+  color: rgb(var(--color-foreground));
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark mode specific styles */
+body.dark-mode {
+  background: rgb(var(--color-background)) !important;
+  color: rgb(var(--color-foreground)) !important;
+}
+
+body.dark-mode .bg-white {
+  background-color: rgb(var(--color-card)) !important;
+}
+
+body.dark-mode .bg-slate-50 {
+  background-color: rgba(100, 116, 139, 0.1) !important;
+}
+
+body.dark-mode .bg-slate-100 {
+  background-color: rgba(100, 116, 139, 0.15) !important;
+}
+
+body.dark-mode .text-slate-900,
+body.dark-mode .text-slate-800 {
+  color: rgb(248, 250, 252) !important;
+}
+
+body.dark-mode .text-slate-700,
+body.dark-mode .text-slate-600 {
+  color: rgb(226, 232, 240) !important;
+}
+
+body.dark-mode .text-slate-500 {
+  color: rgb(148, 163, 184) !important;
+}
+
+body.dark-mode .text-slate-400 {
+  color: rgb(148, 163, 184) !important;
+}
+
+body.dark-mode .border-slate-200,
+body.dark-mode .border-slate-100 {
+  border-color: rgb(51, 65, 85) !important;
+}
+
+body.dark-mode .shadow-sm,
+body.dark-mode .shadow-lg,
+body.dark-mode .shadow-xl {
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+  background-color: rgba(100, 116, 139, 0.1) !important;
+  color: rgb(248, 250, 252) !important;
+  border-color: rgb(51, 65, 85) !important;
+}
+
+body.dark-mode input::placeholder {
+  color: rgb(148, 163, 184) !important;
+}
+
+body.dark-mode .hover\:bg-slate-50:hover {
+  background-color: rgba(100, 116, 139, 0.15) !important;
+}
+
+body.dark-mode .hover\:bg-slate-100:hover {
+  background-color: rgba(100, 116, 139, 0.2) !important;
 }
 
 .glass-panel {

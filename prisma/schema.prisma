@@ -7,14 +7,123 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  // OSP Category
+  MANAGER
+  OSP_MANAGER
+  AREA_MANAGER
+  ENGINEER
+  ASSISTANT_ENGINEER
+  AREA_COORDINATOR
+  QC_OFFICER
+  // Office Admin Category
+  OFFICE_ADMIN
+  OFFICE_ADMIN_ASSISTANT
+  // Finance Category
+  FINANCE_MANAGER
+  FINANCE_ASSISTANT
+  // Invoice Section
+  INVOICE_MANAGER
+  INVOICE_ASSISTANT
+  // Stores Category
+  STORES_MANAGER
+  STORES_ASSISTANT
+  // Service Fulfillment
+  SA_MANAGER
+  SA_ASSISTANT
+}
+
+model OPMC {
   id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      String   @default("ENGINEER") // ADMIN, AREA_MANAGER, OSP_MANAGER, ENGINEER, QC_OFFICER, AREA_COORDINATOR
+  name      String   @default("")
+  rtom      String   @unique
+  region    String   @default("METRO")
+  province  String   @default("METRO 01")
+  projects  Project[]
+  staff     Staff[]
+  users     User[]   @relation("UserOpmcs") // Managed access for users
+  serviceOrders ServiceOrder[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ServiceOrder {
+  id                    String   @id @default(cuid())
+  rtom                  String
+  lea                   String?
+  soNum                 String   // SO_NUM - Service Order Number
+  voiceNumber           String?
+  orderType             String?
+  serviceType           String?  // S_TYPE
+  customerName          String?  // CON_CUS_NAME
+  techContact           String?  // CON_TEC_CONTACT
+  status                String   // CON_STATUS
+  statusDate            DateTime?
+  address               String?
+  dp                    String?
+  package               String?  // PKG
+  ospPhoneClass         String?
+  phonePurchase         String?
+  sales                 String?  // CON_SALES
+  woroTaskName          String?
+  iptv                  String?
+  woroSeit              String?
+  ftthInstSeit          String?
+  ftthWifi              String?
+  sltsStatus            String   @default("INPROGRESS") // SLTS Status: INPROGRESS, COMPLETED, RETURN
+  
+  // Scheduling fields
+  scheduledDate         DateTime? // Appointment date
+  scheduledTime         String?   // Appointment time (e.g., "10:30 AM")
+  
+  // Comments field
+  comments              String?   @db.Text
+  
+  opmcId                String
+  opmc                  OPMC     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@unique([soNum, status])
+  @@index([opmcId])
+  @@index([rtom])
+  @@index([status])
+  @@index([soNum])
+  @@index([scheduledDate])
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  username        String   @unique
+  password        String
+  name            String?
+  role            Role     @default(ENGINEER)
+  staffId         String?  @unique
+  staff           Staff?   @relation(fields: [staffId], references: [id])
+  accessibleOpmcs OPMC[]   @relation("UserOpmcs")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Staff {
+  id          String   @id @default(cuid())
+  name        String
+  employeeId  String   @unique
+  designation Role
+  area        String?
+  opmcId      String?
+  opmc        OPMC?    @relation(fields: [opmcId], references: [id]) // Home OPMC
+  reportsToId String?
+  reportsTo   Staff?   @relation("Hierarchy", fields: [reportsToId], references: [id])
+  subordinates Staff[] @relation("Hierarchy")
+  projects     Project[]
+  user        User?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Project {
@@ -23,37 +132,116 @@ model Project {
   description   String?
   status        String   @default("PLANNING")
   progress      Float    @default(0)
-  active        Boolean  @default(true)
+  budget        Float?
+  actualCost    Float    @default(0)
+  startDate     DateTime?
+  endDate       DateTime?
+  areaManagerId String?
+  areaManager   Staff?   @relation(fields: [areaManagerId], references: [id])
+  opmcId        String?
+  opmc          OPMC?    @relation(fields: [opmcId], references: [id])
+  sods          SOD[]
+  invoices      Invoice[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
-model Staff {
-  id        String   @id @default(cuid())
-  name      String
-  position  String
-  area      String?
-  reportsTo String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Material {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  unit        String
+  quantity    Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sodItems    SODItem[]
+}
+
+model SOD {
+  id          String   @id @default(cuid())
+  sodNumber   String   @unique
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  status      String   @default("PENDING")
+  rtom        String?
+  items       SODItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SODItem {
+  id          String   @id @default(cuid())
+  sodId       String
+  sod         SOD      @relation(fields: [sodId], references: [id])
+  materialId  String
+  material    Material @relation(fields: [materialId], references: [id])
+  quantity    Float
+  used        Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum ContractorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+model Contractor {
+  id                    String            @id @default(cuid())
+  name                  String
+  address               String
+  registrationNumber    String            @unique
+  brNumber              String?
+  status                ContractorStatus  @default(PENDING)
+  registrationFeePaid   Boolean           @default(false)
+  agreementSigned       Boolean           @default(false)
+  agreementDate         DateTime?
+  bankAccountNumber     String?
+  bankBranch            String?
+  teamMembers           TeamMember[]
+  invoices              Invoice[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model TeamMember {
+  id                    String      @id @default(cuid())
+  name                  String
+  idCopyNumber          String
+  contractorIdCopyNumber String
+  contractorId          String
+  contractor            Contractor  @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 }
 
 model Invoice {
-  id             String   @id @default(cuid())
-  contractorName String
-  invoiceId      String   @unique
+  id             String     @id @default(cuid())
+  invoiceNumber  String     @unique
+  contractorId   String
+  contractor     Contractor @relation(fields: [contractorId], references: [id])
+  projectId      String?
+  project        Project?   @relation(fields: [projectId], references: [id])
   amount         Float
-  status         String   @default("PENDING") // PENDING, PAID
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status         String     @default("PENDING") // PENDING, APPROVED, PAID
+  date           DateTime   @default(now())
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 }
 
 model Vehicle {
-  id             String   @id @default(cuid())
-  registration   String   @unique
-  licenseExpiry  DateTime
+  id              String   @id @default(cuid())
+  registration    String   @unique
+  make            String?
+  model           String?
+  status          String   @default("ACTIVE")
+  licenseExpiry   DateTime
   licensePhotoUrl String?
-  driverName     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  driverName      String?
+  ownerType       String   @default("HIRED") // OWNED, HIRED
+  rentAmount      Float?
+  fuelLimit       Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
