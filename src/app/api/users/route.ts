@@ -3,8 +3,19 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 // GET all users
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        // Security Check: Role Based Access Control
+        // The middleware sets 'x-user-role' header
+        const role = request.headers.get('x-user-role');
+
+        if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+            return NextResponse.json(
+                { message: 'Forbidden: Insufficient Permissions' },
+                { status: 403 }
+            );
+        }
+
         const users = await prisma.user.findMany({
             select: {
                 id: true,
@@ -14,21 +25,29 @@ export async function GET() {
                 role: true,
                 createdAt: true,
                 staffId: true,
-                accessibleOpmcs: { select: { id: true, rtom: true } }
+                accessibleOpmcs: { select: { id: true, rtom: true } },
+                supervisor: { select: { id: true, name: true, username: true, role: true } }
             },
             orderBy: { createdAt: 'desc' }
         });
         return NextResponse.json(users);
     } catch (error) {
-        return NextResponse.json({ message: 'Error fetching users' }, { status: 500 });
+        console.error('Error fetching users:', error);
+        return NextResponse.json({ message: 'Error fetching users', details: (error as any).message }, { status: 500 });
     }
 }
 
 // POST new user with enhanced registration and access control
 export async function POST(request: Request) {
     try {
+        // Security Check
+        const currentUserRole = request.headers.get('x-user-role');
+        if (currentUserRole !== 'ADMIN' && currentUserRole !== 'SUPER_ADMIN') {
+            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+        }
+
         const body = await request.json();
-        const { username, email, password, name, role, employeeId, opmcIds } = body;
+        const { username, email, password, name, role, employeeId, opmcIds, supervisorId } = body;
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -63,12 +82,13 @@ export async function POST(request: Request) {
                     password: hashedPassword,
                     name,
                     role: role || 'ENGINEER',
-                    staffId: staffId,
+                    staff: staffId ? { connect: { id: staffId } } : undefined,
                     accessibleOpmcs: {
                         connect: opmcIds && Array.isArray(opmcIds)
                             ? opmcIds.map((id: string) => ({ id }))
                             : []
-                    }
+                    },
+                    supervisor: supervisorId ? { connect: { id: supervisorId } } : undefined
                 },
                 include: {
                     accessibleOpmcs: { select: { rtom: true } }
@@ -91,8 +111,14 @@ export async function POST(request: Request) {
 // UPDATE user
 export async function PUT(request: Request) {
     try {
+        // Security Check
+        const currentUserRole = request.headers.get('x-user-role');
+        if (currentUserRole !== 'ADMIN' && currentUserRole !== 'SUPER_ADMIN') {
+            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+        }
+
         const body = await request.json();
-        const { id, username, email, password, name, role, employeeId, opmcIds } = body;
+        const { id, username, email, password, name, role, employeeId, opmcIds, supervisorId } = body;
 
         // Protection: Prevent modifying Super Admin role or username
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
@@ -139,11 +165,12 @@ export async function PUT(request: Request) {
                 where: { id },
                 data: {
                     ...dataToUpdate,
-                    staffId,
+                    staff: staffId ? { connect: { id: staffId } } : undefined,
                     accessibleOpmcs: {
                         set: [], // Clear existing
                         connect: opmcIds ? opmcIds.map((oid: string) => ({ id: oid })) : []
-                    }
+                    },
+                    supervisor: supervisorId ? { connect: { id: supervisorId } } : { disconnect: true }
                 }
             });
             return updatedUser;
@@ -160,6 +187,12 @@ export async function PUT(request: Request) {
 // DELETE user
 export async function DELETE(request: Request) {
     try {
+        // Security Check
+        const currentUserRole = request.headers.get('x-user-role');
+        if (currentUserRole !== 'SUPER_ADMIN') {
+            return NextResponse.json({ message: 'Forbidden: Only Super Admin can delete users' }, { status: 403 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 

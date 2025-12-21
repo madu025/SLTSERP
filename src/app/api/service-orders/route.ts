@@ -7,15 +7,31 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const opmcId = searchParams.get('opmcId');
+        const filter = searchParams.get('filter'); // 'pending', 'completed', 'return', or 'all'
 
         if (!opmcId) {
             return NextResponse.json({ message: 'OPMC ID required' }, { status: 400 });
         }
 
+        // Build where clause based on filter
+        let whereClause: any = { opmcId };
+
+        if (filter === 'pending') {
+            // Pending = NOT completed and NOT return
+            whereClause.sltsStatus = {
+                notIn: ['COMPLETED', 'RETURN']
+            };
+        } else if (filter === 'completed') {
+            whereClause.sltsStatus = 'COMPLETED';
+        } else if (filter === 'return') {
+            whereClause.sltsStatus = 'RETURN';
+        }
+        // If filter is 'all' or not provided, fetch all orders
+
         // Fetch service orders for the selected OPMC
         const serviceOrders = await prisma.serviceOrder.findMany({
-            where: { opmcId },
-            orderBy: { statusDate: 'desc' },
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
             take: 500 // Limit to prevent huge responses
         });
 
@@ -94,28 +110,53 @@ export async function PUT(request: Request) {
     }
 }
 
-// PATCH - Update SLTS Status only
+// PATCH - Update SLTS Status query or Contractor assignment
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, sltsStatus } = body;
+        const { id, sltsStatus, completedDate, contractorId } = body;
 
-        if (!id || !sltsStatus) {
-            return NextResponse.json({ message: 'Service Order ID and SLTS Status required' }, { status: 400 });
+        if (!id) {
+            return NextResponse.json({ message: 'Service Order ID required' }, { status: 400 });
         }
 
-        if (!['INPROGRESS', 'COMPLETED', 'RETURN'].includes(sltsStatus)) {
-            return NextResponse.json({ message: 'Invalid SLTS Status' }, { status: 400 });
+        const updateData: any = {};
+
+        if (sltsStatus) {
+            if (!['INPROGRESS', 'COMPLETED', 'RETURN'].includes(sltsStatus)) {
+                return NextResponse.json({ message: 'Invalid SLTS Status' }, { status: 400 });
+            }
+            updateData.sltsStatus = sltsStatus;
+
+            // Require completedDate for COMPLETED or RETURN status
+            if ((sltsStatus === 'COMPLETED' || sltsStatus === 'RETURN') && !completedDate) {
+                return NextResponse.json({ message: 'Completed date is required for COMPLETED or RETURN status' }, { status: 400 });
+            }
+        }
+
+        // Add completedDate if provided
+        if (completedDate) {
+            updateData.completedDate = new Date(completedDate);
+        }
+
+        // Handle contractor assignment
+        if (contractorId !== undefined) {
+            updateData.contractorId = contractorId;
+        }
+
+        // If no fields to update
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json({ message: 'No fields to update' }, { status: 400 });
         }
 
         const serviceOrder = await prisma.serviceOrder.update({
             where: { id },
-            data: { sltsStatus }
+            data: updateData
         });
 
         return NextResponse.json(serviceOrder);
     } catch (error) {
-        console.error('Error updating SLTS status:', error);
-        return NextResponse.json({ message: 'Error updating SLTS status' }, { status: 500 });
+        console.error('Error updating service order:', error);
+        return NextResponse.json({ message: 'Error updating service order' }, { status: 500 });
     }
 }

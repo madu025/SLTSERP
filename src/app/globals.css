@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: 59 130 246;
-  --color-primary-dark: 37 99 235;
+  --color-primary: 6 182 212;
+  /* Cyan to match logo */
+  --color-primary-dark: 8 145 178;
+  /* Darker cyan */
   --color-background: 248 250 252;
   --color-foreground: 15 23 42;
   --color-sidebar: 15 23 42;
@@ -10,7 +12,8 @@
   --color-border: 226 232 240;
   --primary-foreground: #ffffff;
   --secondary: #64748b;
-  --accent: #38bdf8;
+  --accent: #06b6d4;
+  /* Cyan accent */
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;

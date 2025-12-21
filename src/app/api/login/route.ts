@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { signJWT } from '@/lib/auth';
+import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
     try {
-        const { username, password } = await request.json();
+        const body = await request.json();
+        const { username, password } = body;
 
         if (!username || !password) {
             return NextResponse.json(
@@ -33,8 +36,23 @@ export async function POST(request: Request) {
             );
         }
 
-        // In a real app, you would set a session cookie or JWT here
-        // For now, we'll just return success
+        // Generate JWT Token
+        const token = await signJWT({
+            id: user.id,
+            username: user.username,
+            role: user.role,
+        });
+
+        // Set HttpOnly Cookie
+        const cookieStore = await cookies();
+        cookieStore.set('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 86400, // 24 hours
+            path: '/',
+        });
+
         return NextResponse.json({
             message: 'Login successful',
             user: {

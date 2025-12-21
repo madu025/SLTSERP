@@ -67,6 +67,7 @@ export async function POST(request: Request) {
                                 woroSeit: item.CON_WORO_SEIT,
                                 ftthInstSeit: item.FTTH_INST_SIET,
                                 ftthWifi: item.FTTH_WIFI,
+                                // Don't update sltsStatus - preserve user's status changes
                             },
                             create: {
                                 opmcId,
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
                                 woroSeit: item.CON_WORO_SEIT,
                                 ftthInstSeit: item.FTTH_INST_SIET,
                                 ftthWifi: item.FTTH_WIFI,
+                                sltsStatus: 'INPROGRESS', // New orders start with INPROGRESS status
                             }
                         });
 

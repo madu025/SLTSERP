@@ -1,72 +1,340 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    PieChart, Pie, Cell
+} from 'recharts';
+
+interface Stats {
+    monthly: {
+        total: number;
+        completed: number;
+        pending: number;
+        returned: number;
+    };
+    allTime: {
+        total: number;
+        completed: number;
+        returned: number;
+        pending: number;
+    };
+    pat: {
+        passed: number;
+        rejected: number;
+        pending: number;
+    };
+    contractors: Array<{
+        name: string;
+        completed: number;
+        total: number;
+        percentage: number;
+    }>;
+    rtoms: Array<{
+        name: string;
+        completed: number;
+        pending: number;
+        returned: number;
+        total: number;
+    }>;
+}
+
+const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
 export default function DashboardPage() {
+    const [stats, setStats] = useState<Stats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState<any>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            fetchStats(parsedUser.id);
+        }
+    }, []);
+
+    const fetchStats = async (userId: string) => {
+        try {
+            const resp = await fetch(`/api/dashboard/stats?userId=${userId}`);
+            if (!resp.ok) {
+                console.error('API Error:', await resp.text());
+                setStats(null);
+                return;
+            }
+            const data = await resp.json();
+            if (data.monthly) {
+                setStats(data);
+            } else {
+                setStats(null);
+            }
+        } catch (err) {
+            console.error('Failed to fetch dashboard stats');
+            setStats(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading || !mounted) {
+        return (
+            <div className="min-h-screen flex bg-slate-50">
+                <Sidebar />
+                <main className="flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
+                        <p className="text-slate-500 font-medium">{!mounted ? 'Initializing...' : 'Loading Statistics...'}</p>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    if (!stats) {
+        return (
+            <div className="min-h-screen flex bg-slate-50">
+                <Sidebar />
+                <main className="flex-1 flex items-center justify-center">
+                    <div className="text-slate-500 font-medium">Failed to load statistics. Please try again later.</div>
+                </main>
+            </div>
+        );
+    }
+
+    const monthlyPieData = [
+        { name: 'Completed', value: stats.monthly?.completed || 0 },
+        { name: 'Pending', value: stats.monthly?.pending || 0 },
+        { name: 'Returned', value: stats.monthly?.returned || 0 },
+    ].filter(d => d.value > 0);
+
+    const patData = [
+        { name: 'PAT Pass', value: stats.pat?.passed || 0 },
+        { name: 'PAT Rejected', value: stats.pat?.rejected || 0 },
+        { name: 'Pending', value: stats.pat?.pending || 0 },
+    ].filter(d => d.value > 0);
+
+    const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
+    const isHigherManagement = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user?.role);
+
     return (
-        <div className="min-h-screen flex bg-slate-50">
+        <div className="min-h-screen flex bg-white">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0">
                 <Header />
 
-                {/* Dashboard Content */}
-                <div className="flex-1 overflow-y-auto p-8">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-8">
                     <div className="max-w-7xl mx-auto">
+                        {/* Welcome Section */}
                         <div className="mb-8">
-                            <h1 className="text-2xl font-bold text-slate-900">Project Overview</h1>
-                            <p className="text-slate-500">Real-time monitoring of all active construction projects.</p>
+                            <h1 className="text-2xl font-bold text-slate-900">Welcome, {user?.name}</h1>
+                            <p className="text-slate-500 text-sm">Here is the performance overview for {isAreaCoordinator ? 'your assigned areas' : 'all RTOMs'}.</p>
                         </div>
 
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            {[
-                                { label: 'Active Projects', value: '12', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', color: 'bg-primary' },
-                                { label: 'Staff Count', value: '400', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 005.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', color: 'bg-emerald-500' },
-                                { label: 'Weekly Progress', value: '72%', icon: 'M13 10V3L4 14h7v7l9-11h-7z', color: 'bg-amber-500' },
-                                { label: 'Open Invoices', value: '15', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'bg-rose-500' },
-                            ].map((stat, i) => (
-                                <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4 transition-transform hover:scale-[1.02] cursor-pointer">
-                                    <div className={`${stat.color} p-3 rounded-xl text-white shadow-lg shadow-inherit/20`}>
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={stat.icon} />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                                        <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                                    </div>
-                                </div>
-                            ))}
+                        {/* Top Stats Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                            <StatCard
+                                label="Monthly Received"
+                                value={stats.monthly?.total || 0}
+                                icon="📥"
+                                color="bg-blue-500"
+                            />
+                            <StatCard
+                                label="Monthly Completed"
+                                value={stats.monthly?.completed || 0}
+                                icon="✅"
+                                color="bg-emerald-500"
+                            />
+                            <StatCard
+                                label="Monthly Pending"
+                                value={stats.monthly?.pending || 0}
+                                icon="⏳"
+                                color="bg-amber-500"
+                            />
+                            <StatCard
+                                label="Monthly Return"
+                                value={stats.monthly?.returned || 0}
+                                icon="🔄"
+                                color="bg-rose-500"
+                            />
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                            {/* Material Visualization Placeholder */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-                                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center">
-                                    <span className="w-2 h-6 bg-primary rounded-full mr-3"></span>
-                                    Material Consumption
+                        {/* Overall Stats Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <p className="text-xs font-semibold text-slate-500 uppercase">Total Received</p>
+                                <p className="text-xl font-bold text-slate-900">{stats.allTime?.total || 0}</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <p className="text-xs font-semibold text-slate-500 uppercase">Total Completed</p>
+                                <p className="text-xl font-bold text-slate-900">{stats.allTime?.completed || 0}</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <p className="text-xs font-semibold text-slate-500 uppercase">PAT Pass</p>
+                                <p className="text-xl font-bold text-slate-900">{stats.pat?.passed || 0}</p>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <p className="text-xs font-semibold text-slate-500 uppercase">PAT Rejected</p>
+                                <p className="text-xl font-bold text-slate-900 text-red-600">{stats.pat?.rejected || 0}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                            {/* Monthly Distribution */}
+                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                    <span className="w-1.5 h-4 bg-primary rounded-full"></span>
+                                    Monthly Status
                                 </h3>
-                                <div className="aspect-[16/9] flex items-center justify-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
-                                    [Recharts Pie Chart Placeholder]
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={monthlyPieData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={80}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                            >
+                                                {monthlyPieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
                                 </div>
                             </div>
 
-                            {/* Progress Chart Placeholder */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-                                <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center">
-                                    <span className="w-2 h-6 bg-emerald-500 rounded-full mr-3"></span>
-                                    Project Progress (Weekly)
+                            {/* PAT Status Distribution */}
+                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                    <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
+                                    PAT Distribution
                                 </h3>
-                                <div className="aspect-[16/9] flex items-center justify-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
-                                    [Recharts Bar Chart Placeholder]
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={patData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={80}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                            >
+                                                <Cell fill="#10b981" />
+                                                <Cell fill="#ef4444" />
+                                                <Cell fill="#6366f1" />
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+
+                            {/* Contractor Performance */}
+                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                    <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
+                                    Contractor Performance
+                                </h3>
+                                <div className="space-y-4 overflow-y-auto max-h-[250px] pr-2">
+                                    {stats.contractors?.map((c, i) => (
+                                        <div key={i}>
+                                            <div className="flex justify-between text-xs mb-1">
+                                                <span className="font-medium text-slate-700">{c.name}</span>
+                                                <span className="text-slate-500">{c.completed}/{c.total} SODs</span>
+                                            </div>
+                                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-blue-500 rounded-full transition-all duration-1000"
+                                                    style={{ width: `${c.percentage}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!stats.contractors || stats.contractors.length === 0) && (
+                                        <p className="text-center text-slate-400 text-sm py-4">No contractor data found</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
+
+                        {/* RTOM Comparison for Management */}
+                        {isHigherManagement && (
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                <div className="p-6 border-b border-slate-100">
+                                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                        <span className="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
+                                        RTOM Wise Performance
+                                    </h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-slate-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM Name</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Return</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {stats.rtoms?.map((r, i) => (
+                                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4 text-sm font-semibold text-slate-900">{r.name}</td>
+                                                    <td className="px-6 py-4 text-sm text-emerald-600 font-medium">{r.completed}</td>
+                                                    <td className="px-6 py-4 text-sm text-amber-600 font-medium">{r.pending}</td>
+                                                    <td className="px-6 py-4 text-sm text-rose-600 font-medium">{r.returned}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[100px]">
+                                                                <div
+                                                                    className="h-full bg-indigo-500 rounded-full"
+                                                                    style={{ width: `${(r.completed / (r.total || 1)) * 100}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-xs font-medium text-slate-600">
+                                                                {Math.round((r.completed / (r.total || 1)) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>
         </div>
     );
 }
+
+function StatCard({ label, value, icon, color }: any) {
+    return (
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+            <div className={`${color} w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-lg shadow-inherit/20`}>
+                {icon}
+            </div>
+            <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</p>
+                <p className="text-2xl font-bold text-slate-900">{value}</p>
+            </div>
+        </div>
+    );
+}
+

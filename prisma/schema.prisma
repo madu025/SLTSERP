@@ -81,8 +81,20 @@ model ServiceOrder {
   // Comments field
   comments              String?   @db.Text
   
+  // Completed/Return date
+  completedDate         DateTime? // Date when marked as COMPLETED or RETURN
+  
+  // PAT details
+  patStatus             String?   // PASS, REJECTED, PENDING
+  patDate               DateTime?
+  
   opmcId                String
   opmc                  OPMC     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
+
+  contractorId          String?
+  contractor            Contractor? @relation(fields: [contractorId], references: [id])
+  
+  restoreRequests       RestoreRequest[]
   
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -96,17 +108,44 @@ model ServiceOrder {
 }
 
 model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  username          String   @unique
+  password          String
+  name              String?
+  role              Role     @default(ENGINEER)
+  staffId           String?  @unique
+  staff             Staff?   @relation(fields: [staffId], references: [id])
+  accessibleOpmcs   OPMC[]   @relation("UserOpmcs")
+  requestedRestores RestoreRequest[] @relation("RequestedRestores")
+  approvedRestores  RestoreRequest[] @relation("ApprovedRestores")
+  
+  // Hierarchy
+  supervisorId      String?
+  supervisor        User?    @relation("UserSupervisor", fields: [supervisorId], references: [id])
+  subordinates      User[]   @relation("UserSupervisor")
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model RestoreRequest {
   id              String   @id @default(cuid())
-  email           String   @unique
-  username        String   @unique
-  password        String
-  name            String?
-  role            Role     @default(ENGINEER)
-  staffId         String?  @unique
-  staff           Staff?   @relation(fields: [staffId], references: [id])
-  accessibleOpmcs OPMC[]   @relation("UserOpmcs")
+  serviceOrderId  String
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  requestedById   String
+  requestedBy     User     @relation("RequestedRestores", fields: [requestedById], references: [id])
+  reason          String   @db.Text
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedById    String?
+  approvedBy      User?    @relation("ApprovedRestores", fields: [approvedById], references: [id])
+  approvalComment String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  
+  @@index([status])
+  @@index([serviceOrderId])
+  @@index([requestedById])
 }
 
 model Staff {
@@ -190,8 +229,11 @@ enum ContractorStatus {
 model Contractor {
   id                    String            @id @default(cuid())
   name                  String
-  address               String
-  registrationNumber    String            @unique
+  contactNumber         String?
+  email                 String?
+  nic                   String?
+  address               String?
+  registrationNumber    String?           @unique
   brNumber              String?
   status                ContractorStatus  @default(PENDING)
   registrationFeePaid   Boolean           @default(false)
@@ -199,8 +241,11 @@ model Contractor {
   agreementDate         DateTime?
   bankAccountNumber     String?
   bankBranch            String?
+  
+  serviceOrders         ServiceOrder[]
   teamMembers           TeamMember[]
   invoices              Invoice[]
+  
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 }
@@ -244,4 +289,13 @@ model Vehicle {
   fuelLimit       Float?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// Table Column Settings - stores which columns are visible for each table
+model TableColumnSettings {
+  id          String   @id @default(cuid())
+  tableName   String   @unique // pending_sod, completed_sod, return_sod, restore_request
+  columns     String   @db.Text // JSON array of visible column names
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

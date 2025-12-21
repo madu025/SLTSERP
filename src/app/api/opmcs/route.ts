@@ -24,6 +24,14 @@ export async function GET() {
 // POST new OPMC
 export async function POST(request: Request) {
     try {
+        const role = request.headers.get('x-user-role');
+        if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+            return NextResponse.json(
+                { message: 'Forbidden: Insufficient Permissions' },
+                { status: 403 }
+            );
+        }
+
         const body = await request.json();
         const { name, rtom, region, province } = body;
 
@@ -43,6 +51,14 @@ export async function POST(request: Request) {
 // PUT update OPMC
 export async function PUT(request: Request) {
     try {
+        const role = request.headers.get('x-user-role');
+        if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+            return NextResponse.json(
+                { message: 'Forbidden: Insufficient Permissions' },
+                { status: 403 }
+            );
+        }
+
         const body = await request.json();
         const { id, name, rtom, region, province } = body;
 
@@ -67,6 +83,14 @@ export async function PUT(request: Request) {
 // DELETE OPMC
 export async function DELETE(request: Request) {
     try {
+        const role = request.headers.get('x-user-role');
+        if (role !== 'SUPER_ADMIN') {
+            return NextResponse.json(
+                { message: 'Forbidden: Only Super Admin can delete OPMCs' },
+                { status: 403 }
+            );
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
