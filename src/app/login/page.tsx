@@ -3,8 +3,21 @@
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
-// Static premium quotes for instant loading (Performance Boost)
+// Static premium quotes (Performance Boost)
 const premiumQuotes = [
   { content: "Quality means doing it right when no one is looking.", author: "Henry Ford" },
   { content: "Innovation distinguishes between a leader and a follower.", author: "Steve Jobs" },
@@ -14,15 +27,29 @@ const premiumQuotes = [
   { content: "Excellence is not a skill, it is an attitude.", author: "Ralph Marston" },
 ];
 
+const loginSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const router = useRouter();
 
-  // Cycle through quotes every 5 seconds
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
+  const { isSubmitting } = form.formState;
+
+  // Cycle through quotes
   useEffect(() => {
     const interval = setInterval(() => {
       setQuoteIndex((prev) => (prev + 1) % premiumQuotes.length);
@@ -30,16 +57,14 @@ export default function LoginPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const onSubmit = async (values: LoginFormValues) => {
     setError("");
 
     try {
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify(values),
       });
 
       const data = await response.json();
@@ -52,8 +77,6 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -69,7 +92,7 @@ export default function LoginPage() {
       {/* Main Card Container */}
       <div className="relative z-10 w-full max-w-6xl bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 flex flex-col md:flex-row min-h-[600px] transition-all duration-300 hover:shadow-primary/5">
 
-        {/* Left Side - Brand & Inspiration (Hidden on small mobile, visible on desktop) */}
+        {/* Left Side - Brand & Inspiration */}
         <div className="hidden md:flex w-full md:w-1/2 bg-gradient-to-br from-primary to-primary-dark relative overflow-hidden p-12 flex-col justify-between text-white">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-10"></div>
 
@@ -147,68 +170,81 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-slate-700 ml-1">Username</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-200"
-                    placeholder="Enter your username"
-                    required
-                  />
-                </div>
-              </div>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-700 font-semibold">Username</FormLabel>
+                      <FormControl>
+                        <div className="relative group">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <svg className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                          <Input
+                            placeholder="Enter your username"
+                            className="bg-slate-50 border-slate-200 text-slate-900 pl-11 py-6 rounded-xl focus-visible:ring-primary/20 focus-visible:border-primary"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-slate-700 ml-1">Password</label>
-                  <a href="#" className="text-xs font-semibold text-primary hover:text-primary-dark transition-colors">Forgot password?</a>
-                </div>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-200"
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-              </div>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel className="text-slate-700 font-semibold">Password</FormLabel>
+                        <a href="#" className="text-xs font-semibold text-primary hover:text-primary-dark transition-colors">Forgot password?</a>
+                      </div>
+                      <FormControl>
+                        <div className="relative group">
+                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <svg className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                          </div>
+                          <Input
+                            type="password"
+                            placeholder="••••••••"
+                            className="bg-slate-50 border-slate-200 text-slate-900 pl-11 py-6 rounded-xl focus-visible:ring-primary/20 focus-visible:border-primary"
+                            {...field}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <div className="pt-2">
-                <button
+                <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-4 bg-gradient-to-r from-primary to-primary-dark hover:to-primary text-white font-bold rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 transform active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className="w-full py-6 bg-gradient-to-r from-primary to-primary-dark hover:to-primary text-white font-bold rounded-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] text-base"
                 >
-                  {loading ? (
+                  {isSubmitting ? (
                     <>
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Signing in...</span>
+                      Signing in...
                     </>
                   ) : (
-                    <span>Sign In</span>
+                    "Sign In"
                   )}
-                </button>
-              </div>
-            </form>
+                </Button>
+              </form>
+            </Form>
 
             <div className="pt-4 text-center">
               <p className="text-xs text-slate-400">
@@ -220,7 +256,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-
       {/* Background Shapes */}
       <style jsx global>{`
         @keyframes fadeIn {

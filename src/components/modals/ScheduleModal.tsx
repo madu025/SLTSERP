@@ -1,78 +1,182 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { Calendar } from "@/components/ui/calendar";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+
+const scheduleSchema = z.object({
+    contactNumber: z.string().optional(),
+    date: z.date({
+        required_error: "Appointment date is required.",
+    }),
+    time: z.string().min(1, "Appointment time is required"),
+});
+
+type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
 interface ScheduleModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: () => void;
+    onSubmit: (data: any) => void;
     selectedOrder: any;
-    scheduleData: any;
-    setScheduleData: (data: any) => void;
 }
 
-export default function ScheduleModal({ isOpen, onClose, onSubmit, selectedOrder, scheduleData, setScheduleData }: ScheduleModalProps) {
-    if (!isOpen || !selectedOrder) return null;
+export default function ScheduleModal({ isOpen, onClose, onSubmit, selectedOrder }: ScheduleModalProps) {
+    const form = useForm<ScheduleFormValues>({
+        resolver: zodResolver(scheduleSchema),
+        defaultValues: {
+            contactNumber: selectedOrder?.techContact || selectedOrder?.contactNumber || "",
+            time: "",
+        },
+    });
+
+    useEffect(() => {
+        if (isOpen && selectedOrder) {
+            form.reset({
+                contactNumber: selectedOrder.techContact || selectedOrder.voiceNumber || "",
+                time: selectedOrder.scheduledTime || "",
+                date: selectedOrder.scheduledDate ? new Date(selectedOrder.scheduledDate) : undefined,
+            });
+        }
+    }, [isOpen, selectedOrder, form]);
+
+    const handleSubmit = (values: ScheduleFormValues) => {
+        onSubmit({
+            date: values.date.toISOString(),
+            time: values.time,
+            contactNumber: values.contactNumber
+        });
+        onClose();
+    };
+
+    if (!selectedOrder) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-slate-900">Schedule Appointment</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <p className="text-sm text-slate-600 mb-2">SO Number: <span className="font-mono font-semibold">{selectedOrder.soNum}</span></p>
-                        <p className="text-sm text-slate-600 mb-2">Customer: <span className="font-semibold">{selectedOrder.customerName}</span></p>
-                        <p className="text-sm text-slate-600 mb-4">Voice Number: <span className="font-semibold">{selectedOrder.voiceNumber || '-'}</span></p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Contact Number</label>
-                        <input
-                            type="text"
-                            value={scheduleData.contactNumber}
-                            onChange={e => setScheduleData({ ...scheduleData, contactNumber: e.target.value })}
-                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                            placeholder="Enter contact number"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Appointment Date *</label>
-                        <input
-                            type="date"
-                            value={scheduleData.date}
-                            onChange={e => setScheduleData({ ...scheduleData, date: e.target.value })}
-                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Appointment Time *</label>
-                        <input
-                            type="time"
-                            value={scheduleData.time}
-                            onChange={e => setScheduleData({ ...scheduleData, time: e.target.value })}
-                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                    </div>
-                    <div className="flex gap-3 pt-4">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={onSubmit}
-                            className="flex-1 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl"
-                        >
-                            Schedule
-                        </button>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Schedule Appointment</DialogTitle>
+                </DialogHeader>
+
+                <div className="mb-4 space-y-1">
+                    <div className="text-sm text-slate-600 grid grid-cols-3 gap-2">
+                        <span className="font-semibold">SO Number:</span>
+                        <span className="col-span-2 font-mono text-slate-900">{selectedOrder.soNum}</span>
+                        <span className="font-semibold">Customer:</span>
+                        <span className="col-span-2 text-slate-900 truncate">{selectedOrder.customerName}</span>
                     </div>
                 </div>
-            </div>
-        </div>
+
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+
+                        <FormField
+                            control={form.control}
+                            name="contactNumber"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Contact Number</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Enter contact number" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="date"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Appointment Date *</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full pl-3 text-left font-normal",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {field.value ? (
+                                                        format(field.value, "PPP")
+                                                    ) : (
+                                                        <span>Pick a date</span>
+                                                    )}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) =>
+                                                    date < new Date(new Date().setHours(0, 0, 0, 0))
+                                                }
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="time"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Appointment Time *</FormLabel>
+                                    <FormControl>
+                                        <Input type="time" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <div className="flex gap-3 justify-end pt-4">
+                            <Button type="button" variant="outline" onClick={onClose}>
+                                Cancel
+                            </Button>
+                            <Button type="submit">
+                                Schedule
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }

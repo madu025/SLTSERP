@@ -1,59 +1,110 @@
-import React from 'react';
+"use client";
+
+import React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+
+const commentSchema = z.object({
+    comment: z.string().min(1, "Comment cannot be empty"),
+});
+
+type CommentFormValues = z.infer<typeof commentSchema>;
 
 interface CommentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: () => void;
+    onSubmit: (comment: string) => void;
     selectedOrder: any;
-    commentText: string;
-    setCommentText: (text: string) => void;
+    // We can allow passing initial comment if editing
+    initialComment?: string;
 }
 
-export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder, commentText, setCommentText }: CommentModalProps) {
-    if (!isOpen || !selectedOrder) return null;
+export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder, initialComment = "" }: CommentModalProps) {
+    const form = useForm<CommentFormValues>({
+        resolver: zodResolver(commentSchema),
+        defaultValues: {
+            comment: initialComment,
+        },
+    });
+
+    // Reset form when modal opens
+    React.useEffect(() => {
+        if (isOpen) {
+            form.reset({ comment: initialComment });
+        }
+    }, [isOpen, initialComment, form]);
+
+    const handleSubmit = (values: CommentFormValues) => {
+        onSubmit(values.comment);
+        onClose();
+    };
+
+    if (!selectedOrder) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-slate-900">Add Comment</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Add Comment</DialogTitle>
+                </DialogHeader>
+
+                <div className="mb-4 space-y-1">
+                    <p className="text-sm text-slate-600">
+                        SO Number: <span className="font-mono font-semibold text-slate-900">{selectedOrder.soNum}</span>
+                    </p>
+                    <p className="text-sm text-slate-600">
+                        Customer: <span className="font-semibold text-slate-900">{selectedOrder.customerName}</span>
+                    </p>
                 </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <p className="text-sm text-slate-600 mb-4">SO Number: <span className="font-mono font-semibold">{selectedOrder.soNum}</span></p>
-                        <p className="text-sm text-slate-600 mb-4">Customer: <span className="font-semibold">{selectedOrder.customerName}</span></p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Comment</label>
-                        <textarea
-                            value={commentText}
-                            onChange={e => setCommentText(e.target.value)}
-                            rows={4}
-                            placeholder="Enter your comment here..."
-                            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
+
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="comment"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Comment</FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            placeholder="Enter your comment here..."
+                                            rows={4}
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
                         />
-                    </div>
-                    <div className="flex gap-3 pt-4">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={onSubmit}
-                            className="flex-1 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl"
-                        >
-                            Save Comment
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+                        <div className="flex gap-3 justify-end pt-4">
+                            <Button type="button" variant="outline" onClick={onClose}>
+                                Cancel
+                            </Button>
+                            <Button type="submit">
+                                Save Comment
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
     );
 }

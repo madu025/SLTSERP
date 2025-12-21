@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google"; // Removed Inter as it was not used or replaced
 import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ThemeSettings from "@/components/ThemeSettings";
+import Providers from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,10 +30,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider>
-          {children}
-          <ThemeSettings />
-        </ThemeProvider>
+        <Providers>
+          <ThemeProvider>
+            {children}
+            <ThemeSettings />
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );
