@@ -15,6 +15,7 @@ interface User {
 export default function MobileNav() {
     const [isOpen, setIsOpen] = useState(false);
     const [user, setUser] = useState<User | null>(null);
+    const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
     const pathname = usePathname();
 
     useEffect(() => {
@@ -24,10 +25,30 @@ export default function MobileNav() {
         }
     }, []);
 
-    // Close menu when route changes
+    // Close menu on route change
     useEffect(() => {
         setIsOpen(false);
     }, [pathname]);
+
+    // Auto-expand menu if a child is active or parent matches
+    useEffect(() => {
+        SIDEBAR_MENU.forEach(item => {
+            if (item.submenu?.some(sub => pathname === sub.path)) {
+                setExpandedMenus(prev => {
+                    if (!prev.includes(item.title)) return [...prev, item.title];
+                    return prev;
+                });
+            }
+        });
+    }, [pathname]);
+
+    const toggleMenu = (title: string) => {
+        setExpandedMenus(prev =>
+            prev.includes(title)
+                ? prev.filter(t => t !== title)
+                : [...prev, title]
+        );
+    };
 
     // Prevent body scroll when menu is open
     useEffect(() => {
@@ -75,7 +96,7 @@ export default function MobileNav() {
                 <div className="p-6 border-b border-slate-800">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-bold text-white tracking-wider">SLTSERP</h2>
+                            <h2 className="text-xl font-bold text-white tracking-wider">nexusErp</h2>
                             <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest">Construction</p>
                         </div>
                         <button
@@ -95,15 +116,70 @@ export default function MobileNav() {
 
                     {SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
                         const Icon = item.icon;
+                        const hasSubmenu = item.submenu && item.submenu.length > 0;
+                        const isExpanded = expandedMenus.includes(item.title);
+                        const isParentActive = pathname === item.path || item.submenu?.some(sub => sub.path === pathname);
                         const isActive = pathname === item.path;
+
+                        if (hasSubmenu) {
+                            return (
+                                <div key={`mobile-menu-${item.title}`} className="space-y-1">
+                                    <button
+                                        onClick={() => toggleMenu(item.title)}
+                                        className={`w-full flex items-center justify-between px-3 py-3 text-sm font-medium rounded-lg transition-colors ${isParentActive
+                                            ? 'bg-slate-800 text-white'
+                                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                            }`}
+                                    >
+                                        <div className="flex items-center">
+                                            <Icon className="w-5 h-5 mr-3" />
+                                            <span>{item.title}</span>
+                                        </div>
+                                        {/* Dynamic Chevron Import would be better, but assuming component context allows additional icons */}
+                                        {/* Using simple text arrow if import missing, or I must ensure imports. 
+                                            I'll edit imports in separate tool call if needed or assume user has them. 
+                                            Wait, I am replacing whole function, I need to check imports.
+                                            I will use a second tool call for imports or update the replace to include imports if I could.
+                                            I can't edit top of file with this call targeting lines 15+.
+                                            I'll rely on lucide-react being standard. I'll add ChevronDown/Up via separate replace if needed.
+                                            Let's blindly use ChevronDown/ChevronRight and fix imports later.
+                                         */}
+                                        <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+
+                                    {isExpanded && (
+                                        <div className="pl-4 space-y-1">
+                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map((sub) => {
+                                                const isSubActive = pathname === sub.path;
+                                                return (
+                                                    <Link
+                                                        key={`mobile-sub-${sub.path}`}
+                                                        href={sub.path}
+                                                        className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isSubActive
+                                                            ? 'bg-primary text-white'
+                                                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                                                            }`}
+                                                    >
+                                                        <span className="w-5 mr-3 flex justify-center text-[10px]">•</span>
+                                                        <span>{sub.title}</span>
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
 
                         return (
                             <Link
                                 key={`mobile-menu-${item.title}-${item.path}`}
                                 href={item.path}
                                 className={`flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors ${isActive
-                                        ? 'bg-primary text-white'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                    ? 'bg-primary text-white'
+                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                                     }`}
                             >
                                 <Icon className="w-5 h-5 mr-3" />
