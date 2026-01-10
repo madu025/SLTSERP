@@ -48,9 +48,10 @@ export default function UserPermissionsPage() {
             const data = await res.json();
 
             // Extract permissions from assignments
-            const perms = data.flatMap((a: any) => {
+            const perms: string[] = (data as any[]).flatMap((a: any) => {
                 try {
-                    return JSON.parse(a.role.permissions || '[]');
+                    const parsed = JSON.parse(a.role.permissions || '[]');
+                    return Array.isArray(parsed) ? (parsed as string[]) : [];
                 } catch {
                     return [];
                 }
@@ -187,8 +188,8 @@ export default function UserPermissionsPage() {
                                                         <label
                                                             key={page.id}
                                                             className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${hasAccess
-                                                                    ? 'border-green-500 bg-green-50'
-                                                                    : 'border-slate-200 bg-white hover:border-slate-300'
+                                                                ? 'border-green-500 bg-green-50'
+                                                                : 'border-slate-200 bg-white hover:border-slate-300'
                                                                 }`}
                                                         >
                                                             <div className="flex items-center gap-3">
