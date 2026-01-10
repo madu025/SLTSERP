@@ -176,7 +176,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             // Fetch all items (no pagination on API side)
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
             const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
-            const res = await fetch(`/api/service-orders?opmcId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}&page=1&limit=10000`);
+            const res = await fetch(`/api/service-orders?opmcId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}&page=1&limit=500`);
             return res.json();
         },
         enabled: !!selectedOpmcId,

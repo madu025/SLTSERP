@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { NotificationService } from '@/services/notification.service';
-
-const prisma = new PrismaClient();
 
 // GET - List restore requests (filtered by role and OPMC)
 export async function GET(request: Request) {

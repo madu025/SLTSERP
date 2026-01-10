@@ -52,8 +52,10 @@ export default function Sidebar() {
             const data = await res.json();
             return Array.isArray(data) ? data.length : 0;
         },
-        enabled: hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR']), // Only fetch if allowed
-        refetchInterval: 30000
+        enabled: !!userRole && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR']), // Only fetch if allowed
+        refetchInterval: 60000, // Poll every minute
+        staleTime: 45000,       // Consider data fresh for 45s
+        refetchOnWindowFocus: false
     });
 
     return (
