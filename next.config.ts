@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === "production",
   },
   experimental: {
-    reactCompiler: true,
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts'],
     // Deduplicate identical requests within 30 seconds
     staleTimes: {
