@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ThemeProvider } from "@/components/theme-provider";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     LineChart, Line, AreaChart, Area, ComposedChart
@@ -231,7 +230,7 @@ export default function ManagerReportsPage() {
                                         <XAxis type="number" hide />
                                         <YAxis dataKey="name" type="category" width={50} axisLine={false} tickLine={false} />
                                         <Tooltip cursor={{ fill: 'transparent' }} />
-                                        <Bar dataKey="completion" fill="#10B981" radius={[0, 4, 4, 0]} name="Completion Rate %" background={{ fill: '#F1F5F9', radius: [0, 4, 4, 0] }} />
+                                        <Bar dataKey="completion" fill="#10B981" radius={[0, 4, 4, 0] as any} name="Completion Rate %" background={{ fill: '#F1F5F9', radius: [0, 4, 4, 0] as any }} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -255,9 +254,9 @@ export default function ManagerReportsPage() {
                                     <YAxis axisLine={false} tickLine={false} />
                                     <Tooltip cursor={{ fill: '#F8FAFC' }} />
                                     <Legend />
-                                    <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completed" radius={[0, 0, 4, 4]} />
+                                    <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completed" radius={[0, 0, 4, 4] as any} />
                                     <Bar dataKey="pending" stackId="a" fill="#F59E0B" name="Pending" />
-                                    <Bar dataKey="returned" stackId="a" fill="#EF4444" name="Returned" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="returned" stackId="a" fill="#EF4444" name="Returned" radius={[4, 4, 0, 0] as any} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
