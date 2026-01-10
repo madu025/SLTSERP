@@ -22,16 +22,19 @@ export default function AdminPanel() {
                 fetch('/api/contractors')
             ]);
 
-            const users = await usersRes.json();
+            const usersData = await usersRes.json();
             const staff = await staffRes.json();
             const opmcs = await opmcsRes.json();
-            const contractors = await contractorsRes.json();
+            const contractorsData = await contractorsRes.json();
+
+            const usersCount = usersData.users ? usersData.users.length : (Array.isArray(usersData) ? usersData.length : 0);
+            const contractorsCount = contractorsData.contractors ? contractorsData.contractors.length : (Array.isArray(contractorsData) ? contractorsData.length : 0);
 
             return {
-                users: Array.isArray(users) ? users.length : 0,
+                users: usersCount,
                 staff: Array.isArray(staff) ? staff.length : 0,
                 opmcs: Array.isArray(opmcs) ? opmcs.length : 0,
-                contractors: Array.isArray(contractors) ? contractors.length : 0
+                contractors: contractorsCount
             };
         }
     });

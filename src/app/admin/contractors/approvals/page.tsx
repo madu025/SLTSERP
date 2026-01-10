@@ -24,11 +24,12 @@ export default function ContractorApprovalsPage() {
     const { data: contractors = [], isLoading } = useQuery({
         queryKey: ['contractor-approvals'],
         queryFn: async () => {
-            const res = await fetch('/api/contractors');
+            const res = await fetch('/api/contractors?page=1&limit=1000');
             if (!res.ok) throw new Error('Failed to fetch contractors');
             const data = await res.json();
+            const contractorsList = Array.isArray(data.contractors) ? data.contractors : [];
             // Filter only those pending ARM or OSP approval
-            return data.filter((c: any) => c.status === 'ARM_PENDING' || c.status === 'OSP_PENDING');
+            return contractorsList.filter((c: any) => c.status === 'ARM_PENDING' || c.status === 'OSP_PENDING');
         }
     });
 

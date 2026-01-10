@@ -31,10 +31,11 @@ export default function MaterialIssuePage() {
     const [itemJobFilter, setItemJobFilter] = useState("ALL");
 
     // --- FETCH DATA ---
-    const { data: contractors = [] } = useQuery({
+    const { data: contractorsData } = useQuery({
         queryKey: ['contractors'],
-        queryFn: async () => (await fetch('/api/contractors')).json()
+        queryFn: async () => (await fetch('/api/contractors?page=1&limit=1000')).json()
     });
+    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
 
     const { data: stores = [] } = useQuery({
         queryKey: ['stores'],

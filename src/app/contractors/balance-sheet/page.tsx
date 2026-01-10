@@ -85,13 +85,17 @@ export default function ContractorBalanceSheetPage() {
     );
 
     // Fetch contractors with teams
-    const { data: contractors = [] } = useQuery<Contractor[]>({
+    const { data: contractorsData } = useQuery<any>({
         queryKey: ["contractors"],
         queryFn: async () => {
-            const res = await fetch("/api/contractors");
+            const res = await fetch("/api/contractors?page=1&limit=1000");
             return res.json();
         }
     });
+
+    const contractors: Contractor[] = Array.isArray(contractorsData?.contractors)
+        ? contractorsData.contractors
+        : [];
 
     // Get selected contractor's teams
     const selectedContractor = contractors.find(c => c.id === selectedContractorId);
