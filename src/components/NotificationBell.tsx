@@ -51,11 +51,23 @@ export default function NotificationBell() {
                 console.log("New real-time notification received:", newNotification);
 
                 // Update local query cache immediately
-                queryClient.setQueryData(["notifications", userId], (oldData: Notification[] | undefined) => {
-                    if (!oldData) return [newNotification];
-                    // Avoid duplicates if SSE and polling overlap
-                    if (oldData.some(n => n.id === newNotification.id)) return oldData;
-                    return [newNotification, ...oldData];
+                queryClient.setQueryData(["notifications", userId], (oldData: any) => {
+                    const currentData = Array.isArray(oldData) ? oldData : [];
+
+                    // Avoid duplicates
+                    if (newNotification.id && currentData.some((n: any) => n.id === newNotification.id)) {
+                        return currentData;
+                    }
+
+                    // Add standard fields if missing (for broadcast/non-persisted events)
+                    const sanitized = {
+                        id: newNotification.id || `temp-${Date.now()}`,
+                        isRead: false,
+                        createdAt: new Date().toISOString(),
+                        ...newNotification
+                    };
+
+                    return [sanitized, ...currentData].slice(0, 50); // Keep limit
                 });
 
                 // Play a subtle notification sound or show a toast if needed
@@ -81,13 +93,22 @@ export default function NotificationBell() {
         queryKey: ["notifications", userId],
         queryFn: async () => {
             if (!userId) return [];
-            const res = await fetch(`/api/notifications`);
-            if (!res.ok) throw new Error("Failed to fetch");
-            return res.json();
+            try {
+                const res = await fetch(`/api/notifications`);
+                if (!res.ok) return [];
+                const data = await res.json();
+                return Array.isArray(data) ? data : [];
+            } catch (err) {
+                console.error("Fetch notifications error:", err);
+                return [];
+            }
         },
         enabled: !!userId,
-        refetchInterval: 60000 // Polling frequency reduced as SSE handles real-time updates
+        refetchInterval: 60000
     });
+
+    const safeNotifications = Array.isArray(notifications) ? notifications : [];
+    const unreadCount = safeNotifications.filter(n => !n.isRead).length;
 
     // Mark as read mutation
     const markAsReadMutation = useMutation({
@@ -113,7 +134,6 @@ export default function NotificationBell() {
         }
     });
 
-    const unreadCount = notifications.filter(n => !n.isRead).length;
 
     const handleNotificationClick = (notification: Notification) => {
         // Mark as read
@@ -195,13 +215,13 @@ export default function NotificationBell() {
                     )}
                 </div>
                 <ScrollArea className="h-[400px]">
-                    {notifications.length === 0 ? (
+                    {safeNotifications.length === 0 ? (
                         <div className="p-8 text-center text-slate-500 text-sm">
                             No notifications
                         </div>
                     ) : (
                         <div className="divide-y">
-                            {notifications.map((notification) => (
+                            {safeNotifications.map((notification) => (
                                 <div
                                     key={notification.id}
                                     onClick={() => handleNotificationClick(notification)}
