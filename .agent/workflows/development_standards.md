@@ -35,9 +35,17 @@ const MyHeavyModal = dynamic(() => import('@/components/modals/MyHeavyModal'), {
 
 ### A. React Hook Form & Zod
 - **Forms**: ALL forms (Login, Registration, Data Entry) MUST use **React Hook Form** for state management and submission handling.
-- **Validation**: Use **Zod** schemas for validation. Define schemas in the component file (if small) or in `src/lib/schemas.ts` (if shared).
-- **Integration**: Use `@hookform/resolvers/zod` to connect Zod schemas to React Hook Form.
+- **Validation**: Use **Zod** schemas for EVERY API input and form. Define schemas in `src/lib/validations/`.
+- **Integration**: Use `@hookform/resolvers/zod` for forms and `src/lib/api-utils.ts` for API validation.
 - **UI Components**: Use the standard `Form`, `FormControl`, `FormField`, `FormItem`, `FormLabel`, `FormMessage` components from Shadcn/UI to render form fields.
+
+### B. Server-Side Pagination & Filtering (CRITICAL)
+- **Standard**: For tables with more than 100 records, DO NOT fetch all data.
+- **Implementation**:
+    1.  Execute Pagination (Take/Skip) on the **Database level**.
+    2.  Perform Search and Filtering on the **Database level** (Prisma `where` and `contains`).
+    3.  Frontend must pass `page`, `limit`, and `search` params to the API.
+- **Goal**: Ensure "Lightning Speed" page loads regardless of database size.
 
 ```tsx
 // Example
@@ -53,13 +61,18 @@ const form = useForm<z.infer<typeof formSchema>>({
 - **Role Validation**: Every write operation (POST, PUT, PATCH, DELETE) MUST verify the user's role using the `x-user-role` header (injected by middleware).
 - **Identity Verification**: For strict actions (e.g., approvals), verify that the action performer matches the authenticated user (`x-user-id`).
 
-```typescript
+```tsx
 // Example RBAC Check
 const role = request.headers.get('x-user-role');
 if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 }
 ```
+
+### B. Centralized Error Handling & Validation
+- **Requirement**: Use `src/lib/api-utils.ts` for all API routes.
+- **Handle Errors**: Use `handleApiError(error)` in catch blocks to ensure consistent error responses.
+- **Validate Input**: Use `validateBody(request, schema)` to parse and validate JSON input at the entrance of the API.
 
 ### B. Middleware
 - Ensure `src/middleware.ts` is up to date and correctly verifying JWT tokens for all `/api/` routes and protected pages.
@@ -131,3 +144,14 @@ if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
 
 ### B. Instant UI Updates
 - **Standard**: When a real-time event is received, update the UI state (e.g., `queryClient.setQueryData`) immediately instead of waiting for a manual page refresh.
+
+## 11. Audit Logging & State Traceability (NEW)
+
+### A. Audit Mandate
+- **Standard**: Every operation that **mutates** data (Create, Update, Delete, Status Change) MUST be logged using `AuditService.log`.
+- **Content**: Log the `userId`, `action`, `entity`, `entityId`, and provide both `oldValue` and `newValue` (JSON format).
+- **Goal**: Full history and accountability of "Who changed What and When".
+
+### B. Selectivity for Performance
+- **Standard**: NEVER fetch entire rows if only specific fields are needed.
+- **Implementation**: Use Prisma's `select` to minimize the payload size sent over the network.
