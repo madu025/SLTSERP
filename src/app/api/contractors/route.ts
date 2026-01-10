@@ -5,6 +5,10 @@ import { prisma } from '@/lib/prisma';
 // GET
 export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '50');
+
         const userId = request.headers.get('x-user-id');
         const role = request.headers.get('x-user-role');
 
@@ -21,8 +25,8 @@ export async function GET(request: Request) {
             }
         }
 
-        const contractors = await ContractorService.getAllContractors(opmcIds);
-        return NextResponse.json(contractors);
+        const result = await ContractorService.getAllContractors(opmcIds, page, limit);
+        return NextResponse.json(result);
     } catch (error: any) {
         console.error('CRITICAL: Error fetching contractors:', error);
         return NextResponse.json({

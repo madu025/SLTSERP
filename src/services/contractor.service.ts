@@ -5,16 +5,58 @@ import { NotificationService } from './notification.service';
 export class ContractorService {
 
     /**
-     * Get all contractors with full details (Teams, Members, OPMC, Stores)
+     * Get all contractors (Lightweight for List View)
      */
-    static async getAllContractors(opmcIds?: string[]) {
+    static async getAllContractors(opmcIds?: string[], page: number = 1, limit: number = 50) {
         const where: any = {};
         if (opmcIds && opmcIds.length > 0) {
             where.opmcId = { in: opmcIds };
         }
 
-        return await prisma.contractor.findMany({
-            where,
+        const skip = (page - 1) * limit;
+
+        const [total, contractors] = await Promise.all([
+            prisma.contractor.count({ where }),
+            prisma.contractor.findMany({
+                where,
+                select: {
+                    id: true,
+                    name: true,
+                    registrationNumber: true,
+                    contactNumber: true,
+                    email: true,
+                    type: true,
+                    status: true,
+                    createdAt: true,
+                    opmc: { select: { id: true, name: true } },
+                    siteOfficeStaff: { select: { id: true, name: true } },
+                    _count: {
+                        select: { teams: true }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            })
+        ]);
+
+        return {
+            contractors,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    /**
+     * Get full contractor details (for Detail View)
+     */
+    static async getContractorById(id: string) {
+        return await prisma.contractor.findUnique({
+            where: { id },
             include: {
                 opmc: { select: { id: true, name: true } },
                 siteOfficeStaff: { select: { id: true, name: true, role: true } },
@@ -34,8 +76,7 @@ export class ContractorService {
                         }
                     }
                 }
-            } as any,
-            orderBy: { createdAt: 'desc' }
+            } as any
         });
     }
 

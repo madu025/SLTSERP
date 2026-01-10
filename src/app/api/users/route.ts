@@ -5,8 +5,11 @@ import bcrypt from 'bcryptjs';
 // GET all users
 export async function GET(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '50');
+
         // Security Check: Role Based Access Control
-        // The middleware sets 'x-user-role' header
         const role = request.headers.get('x-user-role');
 
         if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
@@ -16,22 +19,38 @@ export async function GET(request: Request) {
             );
         }
 
-        const users = await prisma.user.findMany({
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                name: true,
-                role: true,
-                createdAt: true,
-                staffId: true,
-                assignedStoreId: true,
-                accessibleOpmcs: { select: { id: true, rtom: true } },
-                supervisor: { select: { id: true, name: true, username: true, role: true } }
-            },
-            orderBy: { createdAt: 'desc' }
+        const skip = (page - 1) * limit;
+
+        const [total, users] = await Promise.all([
+            prisma.user.count(),
+            prisma.user.findMany({
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    name: true,
+                    role: true,
+                    createdAt: true,
+                    staffId: true,
+                    assignedStoreId: true,
+                    accessibleOpmcs: { select: { id: true, rtom: true } },
+                    supervisor: { select: { id: true, name: true, username: true, role: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            })
+        ]);
+
+        return NextResponse.json({
+            users,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         });
-        return NextResponse.json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
         return NextResponse.json({ message: 'Error fetching users', details: (error as any).message }, { status: 500 });

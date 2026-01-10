@@ -9,6 +9,8 @@ export async function GET(request: Request) {
         const status = searchParams.get('status') || 'PENDING';
         const opmcId = searchParams.get('opmcId');
         const userId = searchParams.get('userId');
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '50');
 
         const where: any = { status };
 
@@ -19,34 +21,55 @@ export async function GET(request: Request) {
             };
         }
 
-        const requests = await prisma.restoreRequest.findMany({
-            where,
-            include: {
-                serviceOrder: {
-                    include: {
-                        opmc: true
-                    }
-                },
-                requestedBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        username: true,
-                        email: true
-                    }
-                },
-                approvedBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        username: true
-                    }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+        const skip = (page - 1) * limit;
 
-        return NextResponse.json(requests);
+        const [total, requests] = await Promise.all([
+            prisma.restoreRequest.count({ where }),
+            prisma.restoreRequest.findMany({
+                where,
+                include: {
+                    serviceOrder: {
+                        select: {
+                            id: true,
+                            soNum: true,
+                            customerName: true,
+                            voiceNumber: true,
+                            address: true,
+                            rtom: true,
+                            opmc: { select: { id: true, name: true } }
+                        }
+                    },
+                    requestedBy: {
+                        select: {
+                            id: true,
+                            name: true,
+                            username: true,
+                            email: true
+                        }
+                    },
+                    approvedBy: {
+                        select: {
+                            id: true,
+                            name: true,
+                            username: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            })
+        ]);
+
+        return NextResponse.json({
+            requests,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
     } catch (error) {
         console.error('Error fetching restore requests:', error);
         return NextResponse.json({ message: 'Error fetching restore requests' }, { status: 500 });
