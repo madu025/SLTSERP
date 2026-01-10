@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],
+    // Deduplicate identical requests within 30 seconds
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
 };
 
