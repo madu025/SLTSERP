@@ -30,3 +30,16 @@ export async function POST(request: Request, context: { params: Promise<{ token:
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+export async function PATCH(request: Request, context: { params: Promise<{ token: string }> }) {
+    try {
+        const data = await request.json();
+        const { token } = await context.params;
+
+        await ContractorService.saveRegistrationDraft(token, data);
+
+        return NextResponse.json({ success: true, message: 'Draft saved.' });
+    } catch (error: any) {
+        console.error('Draft save error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}

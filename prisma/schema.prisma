@@ -438,6 +438,8 @@ model Contractor {
   
   registrationToken     String?           @unique
   registrationTokenExpiry DateTime?
+  registrationStartedAt DateTime?
+  registrationDraft   Json?             // To save partial form data (Step persistence)
   siteOfficeStaffId     String?           // Who generated the link
   siteOfficeStaff       User?             @relation("ContractorLinkGenerator", fields: [siteOfficeStaffId], references: [id])
   

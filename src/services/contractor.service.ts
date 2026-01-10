@@ -128,11 +128,39 @@ export class ContractorService {
         }) as any;
 
         if (!contractor) throw new Error('INVALID_TOKEN');
+
+        // Expiry check
         if (contractor.registrationTokenExpiry && new Date(contractor.registrationTokenExpiry) < new Date()) {
             throw new Error('TOKEN_EXPIRED');
         }
 
+        // Handle First Access - Start the 3-day clock
+        if (!contractor.registrationStartedAt && contractor.status === 'PENDING') {
+            const now = new Date();
+            const expiry = new Date();
+            expiry.setDate(now.getDate() + 3); // Link active for 3 days from first access
+
+            return await prisma.contractor.update({
+                where: { id: contractor.id },
+                data: {
+                    registrationStartedAt: now,
+                    registrationTokenExpiry: expiry
+                } as any
+            });
+        }
+
         return contractor;
+    }
+
+    /**
+     * Save partial registration data as draft
+     */
+    static async saveRegistrationDraft(token: string, draftData: any) {
+        const contractor = await this.getContractorByToken(token);
+        return await prisma.contractor.update({
+            where: { id: contractor.id },
+            data: { registrationDraft: draftData } as any
+        });
     }
 
     /**
@@ -166,6 +194,8 @@ export class ContractorService {
                 status: 'ARM_PENDING' as any,
                 registrationToken: null,
                 registrationTokenExpiry: null,
+                registrationDraft: null,
+                registrationStartedAt: null,
             } as any
         });
 

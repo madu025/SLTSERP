@@ -52,10 +52,22 @@ export default function PublicContractorRegistrationPage() {
         const fetchInitialData = async () => {
             try {
                 const res = await fetch(`/api/contractors/public-register/${token}`);
-                if (!res.ok) throw new Error("Invalid or expired link");
+                if (!res.ok) {
+                    const errData = await res.json();
+                    if (errData.error === 'TOKEN_EXPIRED') throw new Error("Registration link has expired (3-day limit exceeded).");
+                    throw new Error("Invalid or expired link");
+                }
                 const data = await res.json();
                 setContractor(data);
-                setFormData(prev => ({ ...prev, contactNumber: data.contactNumber || "" }));
+
+                // Restore from draft
+                if (data.registrationDraft) {
+                    setFormData(data.registrationDraft);
+                    // Use small timeout to ensure UI updates after loading state clears
+                    setTimeout(() => toast.info("Your previous progress has been restored."), 500);
+                } else {
+                    setFormData(prev => ({ ...prev, contactNumber: data.contactNumber || "" }));
+                }
             } catch (error: any) {
                 toast.error(error.message);
             } finally {
@@ -142,6 +154,18 @@ export default function PublicContractorRegistrationPage() {
         setFormData({ ...formData, teams: updated });
     };
 
+    const saveDraft = async () => {
+        try {
+            await fetch(`/api/contractors/public-register/${token}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData)
+            });
+        } catch (error) {
+            console.error("Draft save failed:", error);
+        }
+    };
+
     const handleAddMember = (tIdx: number) => {
         const updated = [...formData.teams];
         updated[tIdx].members = [
@@ -224,6 +248,11 @@ export default function PublicContractorRegistrationPage() {
                             <span className="hidden sm:inline text-slate-400">•</span>
                             <span className="text-sm font-medium text-slate-600 truncate max-w-[200px] sm:max-w-none">{contractor.name}</span>
                         </div>
+                        {contractor.registrationTokenExpiry && (
+                            <div className="mt-2 text-[10px] text-amber-600 font-bold bg-amber-50 py-1 px-3 rounded-full w-fit mx-auto">
+                                ⏳ Link Expiry: {new Date(contractor.registrationTokenExpiry).toLocaleDateString()} {new Date(contractor.registrationTokenExpiry).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -303,7 +332,7 @@ export default function PublicContractorRegistrationPage() {
                                         <Textarea rows={3} value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                                     </div>
                                 </div>
-                                <div className="flex justify-end pt-4"><Button onClick={() => setStep(2)} className="bg-blue-600 px-8" disabled={!formData.contactNumber || !formData.address}>Continue</Button></div>
+                                <div className="flex justify-end pt-4"><Button onClick={() => { setStep(2); saveDraft(); }} className="bg-blue-600 px-8" disabled={!formData.contactNumber || !formData.address}>Continue</Button></div>
                             </div>
                         )}
 
@@ -389,7 +418,7 @@ export default function PublicContractorRegistrationPage() {
                                 <div className="flex justify-between pt-4">
                                     <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
                                     <Button
-                                        onClick={() => setStep(3)}
+                                        onClick={() => { setStep(3); saveDraft(); }}
                                         className="bg-blue-600 px-8"
                                         disabled={!formData.bankName || !formData.bankBranch || !formData.bankAccountNumber}
                                     >
@@ -456,7 +485,7 @@ export default function PublicContractorRegistrationPage() {
                                 <div className="flex justify-between pt-4">
                                     <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
                                     <Button
-                                        onClick={() => setStep(isSOD ? 4 : 5)}
+                                        onClick={() => { setStep(isSOD ? 4 : 5); saveDraft(); }}
                                         className="bg-blue-600 px-8"
                                         disabled={!formData.photoUrl || !formData.nicFrontUrl || !formData.nicBackUrl || !formData.gramaCertUrl}
                                     >
@@ -569,7 +598,7 @@ export default function PublicContractorRegistrationPage() {
                                 <div className="flex justify-between pt-6 border-t mt-8">
                                     <Button variant="outline" onClick={() => setStep(3)}>Back</Button>
                                     <Button
-                                        onClick={() => setStep(5)}
+                                        onClick={() => { setStep(5); saveDraft(); }}
                                         className="bg-blue-600 px-10 shadow-lg shadow-blue-200"
                                         disabled={formData.teams.some((t: any) => t.members.length === 0 || !t.primaryStoreId || !t.name)}
                                     >
