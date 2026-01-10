@@ -77,10 +77,10 @@ export default function InvoicesPage() {
 
     const fetchContractors = async () => {
         try {
-            const res = await fetch('/api/contractors');
+            const res = await fetch('/api/contractors?page=1&limit=1000');
             if (res.ok) {
                 const data = await res.json();
-                setContractors(data);
+                setContractors(Array.isArray(data.contractors) ? data.contractors : []);
             }
         } catch (error) {
             console.error('Error fetching contractors:', error);

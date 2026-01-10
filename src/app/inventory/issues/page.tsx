@@ -54,10 +54,11 @@ export default function StockIssuePage() {
     });
 
     // Fetch contractors
-    const { data: contractors = [] } = useQuery({
+    const { data: contractorsData } = useQuery({
         queryKey: ["contractors"],
-        queryFn: async () => (await fetch("/api/contractors")).json()
+        queryFn: async () => (await fetch("/api/contractors?page=1&limit=1000")).json()
     });
+    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
 
     // Fetch stock issues history
     const { data: issues = [], isLoading } = useQuery({
@@ -172,8 +173,8 @@ export default function StockIssuePage() {
                             <button
                                 onClick={() => setActiveTab('NEW')}
                                 className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'NEW'
-                                        ? 'border-b-2 border-blue-600 text-blue-600'
-                                        : 'text-slate-500 hover:text-slate-700'
+                                    ? 'border-b-2 border-blue-600 text-blue-600'
+                                    : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 Recent Issues
@@ -181,8 +182,8 @@ export default function StockIssuePage() {
                             <button
                                 onClick={() => setActiveTab('HISTORY')}
                                 className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'HISTORY'
-                                        ? 'border-b-2 border-blue-600 text-blue-600'
-                                        : 'text-slate-500 hover:text-slate-700'
+                                    ? 'border-b-2 border-blue-600 text-blue-600'
+                                    : 'text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 All History

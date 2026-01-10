@@ -145,15 +145,18 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     });
 
     // Fetch Contractors
-    const { data: contractors = [] } = useQuery<Contractor[]>({
+    // Fetch Contractors
+    const { data: contractorsData } = useQuery({
         queryKey: ["contractors"],
         queryFn: async () => {
-            const res = await fetch("/api/contractors");
+            // Fetch all contractors for dropdowns
+            const res = await fetch("/api/contractors?page=1&limit=1000");
             return res.json();
         },
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000
     });
+    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
 
     // Fetch Inventory Items
     const { data: items = [] } = useQuery({
