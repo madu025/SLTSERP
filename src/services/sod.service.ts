@@ -318,18 +318,19 @@ export class ServiceOrderService {
         let created = 0;
         let updated = 0;
 
-        // Optimization 2: Process in larger batches and avoid findMany inside the loop
-        const batchSize = 100;
+        // Optimization 2: Process in parallel batches (No explicit transaction to avoid session timeouts)
+        const batchSize = 25; // Smaller chunks for parallel execution
         for (let i = 0; i < syncableData.length; i += batchSize) {
             const batch = syncableData.slice(i, i + batchSize);
 
-            await prisma.$transaction(async (tx) => {
-                for (const item of batch) {
+            // Execute batch in parallel
+            const results = await Promise.all(
+                batch.map(async (item) => {
                     try {
                         const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
 
                         // Upsert: create if not exists, update if status changed
-                        const result = await tx.serviceOrder.upsert({
+                        return await prisma.serviceOrder.upsert({
                             where: {
                                 soNum_status: {
                                     soNum: item.SO_NUM,
@@ -382,18 +383,22 @@ export class ServiceOrderService {
                                 sltsStatus: 'INPROGRESS',
                             }
                         });
-
-                        if (result.createdAt.getTime() === result.updatedAt.getTime()) {
-                            created++;
-                        } else {
-                            updated++;
-                        }
                     } catch (err) {
                         console.error(`Error syncing SO ${item.SO_NUM}:`, err);
+                        return null;
+                    }
+                })
+            );
+
+            // Calculate stats
+            results.forEach(result => {
+                if (result) {
+                    if (result.createdAt.getTime() === result.updatedAt.getTime()) {
+                        created++;
+                    } else {
+                        updated++;
                     }
                 }
-            }, {
-                timeout: 20000 // Higher timeout for batches
             });
         }
 
