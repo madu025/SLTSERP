@@ -156,7 +156,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000
     });
-    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+    const contractors: any[] = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
 
     // Fetch Inventory Items
     const { data: items = [] } = useQuery({
@@ -717,7 +717,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                 </td>
                                                                 <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
                                                                     {order.contractor?.name ? order.contractor.name : (
-                                                                        contractors.find(c => c.id === order.contractorId)?.name || "Unassigned"
+                                                                        contractors.find((c: any) => c.id === order.contractorId)?.name || "Unassigned"
                                                                     )}
                                                                 </td>
                                                                 <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
@@ -776,7 +776,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                 )}
                                                                 {filterType === 'completed' && (
                                                                     <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">
-                                                                        {order.contractor?.name || contractors.find(c => c.id === order.contractorId)?.name || '-'}
+                                                                        {order.contractor?.name || contractors.find((c: any) => c.id === order.contractorId)?.name || '-'}
                                                                     </td>
                                                                 )}
                                                                 {filterType === 'completed' && (
