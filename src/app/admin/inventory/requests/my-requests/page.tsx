@@ -29,7 +29,8 @@ export default function MyRequestsPage() {
         queryFn: async () => {
             if (!user?.id) return [];
             const res = await fetch(`/api/inventory/requests`);
-            const allRequests = await res.json();
+            const data = await res.json();
+            const allRequests = Array.isArray(data) ? data : (data.requests || []);
             // Filter to show only this user's requests
             return allRequests.filter((r: any) => r.requestedById === user.id);
         },

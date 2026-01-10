@@ -48,12 +48,20 @@ export default function MaterialRequestPage() {
     // --- QUERIES ---
     const { data: stores = [] } = useQuery({
         queryKey: ["stores"],
-        queryFn: async () => (await fetch("/api/stores")).json()
+        queryFn: async () => {
+            const res = await fetch("/api/stores?page=1&limit=1000");
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.stores || []);
+        }
     });
 
     const { data: items = [] } = useQuery<InventoryItem[]>({
         queryKey: ["inventory-items"],
-        queryFn: async () => (await fetch("/api/inventory/items")).json()
+        queryFn: async () => {
+            const res = await fetch("/api/inventory/items?page=1&limit=1000");
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.items || []);
+        }
     });
 
     const { data: currentStocks = [] } = useQuery({
@@ -61,7 +69,8 @@ export default function MaterialRequestPage() {
         queryFn: async () => {
             if (!selectedStore) return [];
             const res = await fetch(`/api/inventory/stock?storeId=${selectedStore}`, { cache: 'no-store' });
-            return res.json();
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.stock || data.data || []);
         },
         enabled: !!selectedStore
     });

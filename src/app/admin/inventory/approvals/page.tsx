@@ -71,7 +71,8 @@ export default function ApprovalsPage() {
             const stage = getWorkflowStageFilter();
             const res = await fetch(`/api/inventory/requests?workflowStage=${stage}`);
             if (!res.ok) throw new Error('Failed to fetch requests');
-            return res.json();
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.requests || []);
         },
         enabled: !!userRole
     });
@@ -276,7 +277,7 @@ export default function ApprovalsPage() {
                                                         Requested by: {request.requestedBy.name} •
                                                         Source: <span className="font-medium">{request.sourceType}</span> •
                                                         Priority: <span className={`font-medium ${request.priority === 'URGENT' ? 'text-red-600' :
-                                                                request.priority === 'HIGH' ? 'text-orange-600' : 'text-blue-600'
+                                                            request.priority === 'HIGH' ? 'text-orange-600' : 'text-blue-600'
                                                             }`}>{request.priority}</span>
                                                     </p>
                                                 </div>

@@ -36,8 +36,9 @@ export default function InitialStockPage() {
     const { data: stores = [] } = useQuery({
         queryKey: ["stores"],
         queryFn: async () => {
-            const res = await fetch("/api/stores");
-            return res.json();
+            const res = await fetch("/api/stores?page=1&limit=1000");
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.stores || []);
         }
     });
 
@@ -45,8 +46,9 @@ export default function InitialStockPage() {
     const { data: items = [], isLoading: isLoadingItems } = useQuery<InventoryItem[]>({
         queryKey: ["inventory-items"],
         queryFn: async () => {
-            const res = await fetch("/api/inventory/items");
-            return res.json();
+            const res = await fetch("/api/inventory/items?page=1&limit=1000");
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.items || []);
         }
     });
 
@@ -56,7 +58,8 @@ export default function InitialStockPage() {
         queryFn: async () => {
             if (!selectedStore) return [];
             const res = await fetch(`/api/inventory/stock?storeId=${selectedStore}`, { cache: 'no-store' });
-            return res.json();
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.stock || data.data || []);
         },
         enabled: !!selectedStore
     });
