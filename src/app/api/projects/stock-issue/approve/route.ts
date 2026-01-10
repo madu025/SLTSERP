@@ -55,31 +55,36 @@ export async function POST(request: Request) {
                     data: { quantity: { decrement: item.quantity } }
                 });
 
-                // Update BOQ Actuals
-                // @ts-ignore
-                const boqItem = await tx.projectBOQItem.findFirst({
-                    where: { projectId: issue.projectId, materialId: item.itemId }
-                });
-
-                if (boqItem) {
-                    const cost = item.quantity * boqItem.unitRate;
-                    // @ts-ignore
-                    await tx.projectBOQItem.update({
-                        where: { id: boqItem.id },
-                        data: {
-                            actualQuantity: { increment: item.quantity },
-                            actualCost: { increment: cost }
+                // Update BOQ Actuals - Only if this is a project issue
+                if (issue.projectId) {
+                    const boqItem = await tx.projectBOQItem.findFirst({
+                        where: {
+                            projectId: issue.projectId,
+                            materialId: item.itemId
                         }
                     });
-                    totalIssueCost += cost;
+
+                    if (boqItem) {
+                        const cost = item.quantity * boqItem.unitRate;
+                        await tx.projectBOQItem.update({
+                            where: { id: boqItem.id },
+                            data: {
+                                actualQuantity: { increment: item.quantity },
+                                actualCost: { increment: cost }
+                            }
+                        });
+                        totalIssueCost += cost;
+                    }
                 }
             }
 
-            // 3. Update Project Cost
-            await tx.project.update({
-                where: { id: issue.projectId },
-                data: { actualCost: { increment: totalIssueCost } }
-            });
+            // 3. Update Project Cost - Only if this is a project issue
+            if (issue.projectId) {
+                await tx.project.update({
+                    where: { id: issue.projectId },
+                    data: { actualCost: { increment: totalIssueCost } }
+                });
+            }
         });
 
         return NextResponse.json({ success: true });
