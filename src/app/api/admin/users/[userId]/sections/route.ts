@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 // GET - Fetch user's section assignments
 export async function GET(
     request: NextRequest,
-    { params }: { params: { userId: string } }
+    { params }: { params: Promise<{ userId: string }> }
 ) {
     try {
+        const { userId } = await params;
         const assignments = await prisma.userSectionAssignment.findMany({
-            where: { userId: params.userId },
+            where: { userId: userId },
             include: {
                 section: true,
                 role: true
@@ -29,9 +30,10 @@ export async function GET(
 // POST - Assign section/role to user
 export async function POST(
     request: NextRequest,
-    { params }: { params: { userId: string } }
+    { params }: { params: Promise<{ userId: string }> }
 ) {
     try {
+        const { userId } = await params;
         const body = await request.json();
         const { sectionId, roleId, isPrimary } = body;
 
@@ -42,14 +44,14 @@ export async function POST(
         // If setting as primary, unset other primary assignments
         if (isPrimary) {
             await prisma.userSectionAssignment.updateMany({
-                where: { userId: params.userId, isPrimary: true },
+                where: { userId: userId, isPrimary: true },
                 data: { isPrimary: false }
             });
         }
 
         const assignment = await prisma.userSectionAssignment.create({
             data: {
-                userId: params.userId,
+                userId: userId,
                 sectionId,
                 roleId,
                 isPrimary: isPrimary || false

@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 // GET - Fetch roles for a section
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const roles = await prisma.systemRole.findMany({
-            where: { sectionId: params.id },
+            where: { sectionId: id },
             include: {
                 _count: {
                     select: { userAssignments: true }
@@ -30,9 +31,10 @@ export async function GET(
 // POST - Create new role for section
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const body = await request.json();
         const { name, code, description, level, permissions } = body;
 
@@ -44,7 +46,7 @@ export async function POST(
             data: {
                 name,
                 code: code.toUpperCase(),
-                sectionId: params.id,
+                sectionId: id,
                 description,
                 level: level || 1,
                 permissions: permissions || '[]'

@@ -3,10 +3,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
     request: Request,
-    { params }: { params: { bankId: string } }
+    { params }: { params: Promise<{ bankId: string }> }
 ) {
     try {
-        const { bankId } = params;
+        const { bankId } = await params;
         const branches = await prisma.bankBranch.findMany({
             where: { bankId },
             orderBy: { name: 'asc' }

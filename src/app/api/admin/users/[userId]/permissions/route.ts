@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 // GET - Fetch user's permissions
 export async function GET(
     request: NextRequest,
-    { params }: { params: { userId: string } }
+    { params }: { params: Promise<{ userId: string }> }
 ) {
     try {
+        const { userId } = await params;
         const assignments = await prisma.userSectionAssignment.findMany({
-            where: { userId: params.userId },
+            where: { userId: userId },
             include: {
                 section: true,
                 role: true
@@ -25,9 +26,10 @@ export async function GET(
 // PATCH - Update user's permissions
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { userId: string } }
+    { params }: { params: Promise<{ userId: string }> }
 ) {
     try {
+        const { userId } = await params;
         const body = await request.json();
         const { permissions } = body;
 
@@ -37,7 +39,7 @@ export async function PATCH(
 
         // Get user's section assignments
         const assignments = await prisma.userSectionAssignment.findMany({
-            where: { userId: params.userId },
+            where: { userId: userId },
             include: { role: true }
         });
 

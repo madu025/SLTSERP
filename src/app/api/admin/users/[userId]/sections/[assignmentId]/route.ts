@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 // DELETE - Remove section assignment
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { userId: string; assignmentId: string } }
+    { params }: { params: Promise<{ userId: string; assignmentId: string }> }
 ) {
     try {
+        const { assignmentId } = await params;
         await prisma.userSectionAssignment.delete({
-            where: { id: params.assignmentId }
+            where: { id: assignmentId }
         });
 
         return NextResponse.json({ message: 'Assignment removed successfully' });

@@ -4,14 +4,15 @@ import { prisma } from '@/lib/prisma';
 // PATCH - Update section
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const body = await request.json();
         const { name, code, description, icon, color, isActive } = body;
 
         const section = await prisma.section.update({
-            where: { id: params.id },
+            where: { id: id },
             data: {
                 ...(name && { name }),
                 ...(code && { code: code.toUpperCase() }),
@@ -32,11 +33,12 @@ export async function PATCH(
 // DELETE - Delete section
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         await prisma.section.delete({
-            where: { id: params.id }
+            where: { id: id }
         });
 
         return NextResponse.json({ message: 'Section deleted successfully' });
