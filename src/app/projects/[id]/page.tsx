@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -14,9 +14,9 @@ import ProjectMilestones from '@/components/projects/ProjectMilestones';
 import ProjectExpenses from '@/components/projects/ProjectExpenses';
 import ProjectMaterialIssues from '@/components/projects/ProjectMaterialIssues';
 
-export default function ProjectDetailsPage({ params }: { params: { id: string } }) {
+export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
-    const { id } = params;
+    const { id } = use(params);
     const [project, setProject] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');

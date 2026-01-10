@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ContractorService } from '@/services/contractor.service';
 
-export async function GET(request: Request, context: { params: { token: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
     try {
         const { token } = await context.params;
         const contractor = await ContractorService.getContractorByToken(token);
@@ -14,7 +14,7 @@ export async function GET(request: Request, context: { params: { token: string }
     }
 }
 
-export async function POST(request: Request, context: { params: { token: string } }) {
+export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
     try {
         const data = await request.json();
         const { token } = await context.params;
