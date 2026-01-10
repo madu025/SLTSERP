@@ -438,9 +438,9 @@ export default function PublicContractorRegistrationPage() {
                                                     <div className="w-full h-32 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center bg-white hover:border-blue-400 hover:bg-blue-50/30 transition-all group relative cursor-pointer">
                                                         <Upload className="w-8 h-8 text-slate-300 group-hover:text-blue-500 transition-colors mb-2" />
                                                         <span className="text-[10px] text-slate-400 group-hover:text-blue-600 font-medium">Click to upload file</span>
-                                                        <Input
+                                                        <input
                                                             type="file"
-                                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                                             accept="image/*,.pdf"
                                                             onChange={async (e) => {
                                                                 const url = await uploadFile(e);
@@ -531,9 +531,9 @@ export default function PublicContractorRegistrationPage() {
                                                                     <div className="w-16 h-16 rounded-lg border-2 border-dashed flex flex-col items-center justify-center text-[8px] text-slate-400 gap-1 bg-slate-50/50 relative overflow-hidden group hover:border-blue-400 hover:bg-blue-50 transition-all">
                                                                         <ImageIcon className="w-5 h-5 text-slate-300 group-hover:text-blue-500" />
                                                                         <span>Photo</span>
-                                                                        <Input
+                                                                        <input
                                                                             type="file"
-                                                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                                                             onChange={async (e) => {
                                                                                 const url = await uploadFile(e);
                                                                                 if (url) handleMemberChange(tIdx, mIdx, 'passportPhotoUrl', url);
