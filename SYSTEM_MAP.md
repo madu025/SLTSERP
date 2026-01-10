@@ -6,6 +6,7 @@ This document serves as a comprehensive reference for the SLTSERP project struct
 - **Framework**: Next.js 15
 - **ORM**: Prisma (with Supabase connection pooling)
 - **Database**: PostgreSQL (Supabase)
+- **Charts**: Recharts (with TS fixes)
 - **Authentication**: NextAuth.js
 - **Design Pattern**: Service-Repository Pattern (Migrating)
 - **UI Components**: Shadcn/UI (Radix UI)
@@ -36,6 +37,7 @@ This document serves as a comprehensive reference for the SLTSERP project struct
 - **/procurement**: Purchase request and approval workflow.
 - **/invoices**: Finance/billing tracking.
 - **/reports**: Operational and management analytics.
+    - `/manager`: Executive dashboard. (Fixed chart type errors & missing imports)
 
 ---
 

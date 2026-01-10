@@ -35,7 +35,7 @@ const serviceOrderSchema = z.object({
     voiceNumber: z.string().optional(),
     customerName: z.string().optional(),
     techContact: z.string().optional(),
-    status: z.enum(["INPROGRESS", "INSTALL_CLOSED"]).default("INPROGRESS"),
+    status: z.enum(["INPROGRESS", "INSTALL_CLOSED"]),
     orderType: z.string().optional(),
     serviceType: z.string().optional(),
     package: z.string().optional(),
