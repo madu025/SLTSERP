@@ -169,7 +169,9 @@ export default function ContractorsPage() {
     });
 
     // Extract contractors array from paginated response
-    const contractors = contractorsData?.contractors || [];
+    const contractors = Array.isArray(contractorsData?.contractors)
+        ? contractorsData.contractors
+        : [];
 
     const { data: stores = [] } = useQuery({
         queryKey: ['stores'],
