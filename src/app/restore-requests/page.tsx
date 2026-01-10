@@ -60,9 +60,10 @@ export default function RestoreRequestsPage() {
     const { data: requests = [], isLoading } = useQuery<RestoreRequest[]>({
         queryKey: ["restore-requests", statusFilter],
         queryFn: async () => {
-            const res = await fetch(`/api/restore-requests?status=${statusFilter}`);
+            const res = await fetch(`/api/restore-requests?status=${statusFilter}&page=1&limit=1000`);
             if (!res.ok) return [];
-            return res.json();
+            const data = await res.json();
+            return data.requests || (Array.isArray(data) ? data : []);
         }
     });
 
