@@ -140,6 +140,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 })) || [];
             }
         },
+        staleTime: 10 * 60 * 1000, // Consider configuration fresh for 10 minutes
+        gcTime: 30 * 60 * 1000,    // Keep in cache for 30 minutes
     });
 
     // Fetch Contractors
@@ -509,7 +511,16 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     };
 
     if (isLoadingOpmcs && !selectedOpmcId) {
-        return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">Loading Configuration...</div>;
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+                <div className="relative flex items-center justify-center mb-4">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                    <div className="absolute w-6 h-6 bg-primary/10 rounded-full animate-pulse"></div>
+                </div>
+                <h2 className="text-sm font-bold text-slate-900 tracking-tight">nexusErp</h2>
+                <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-medium">Loading Configuration...</p>
+            </div>
+        );
     }
 
     // Helper for summary cards - Fixed Height Compact
