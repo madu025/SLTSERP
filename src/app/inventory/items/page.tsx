@@ -25,9 +25,9 @@ const itemSchema = z.object({
     unit: z.enum(['Nos', 'kg', 'L', 'm', 'km', 'pkts', 'Box', 'Bot', 'Set', 'Roll']),
     type: z.enum(['SLT', 'SLTS']),
     category: z.string().min(1, "Category is required"),
-    commonFor: z.array(z.string()).optional(), // Made optional
+    commonFor: z.array(z.string()).optional(),
     minLevel: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
-    isWastageAllowed: z.boolean().default(true),
+    isWastageAllowed: z.boolean(),
     maxWastagePercentage: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     description: z.string().optional()
 });

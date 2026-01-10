@@ -50,9 +50,10 @@ This document serves as a comprehensive reference for the SLTSERP project struct
 
 ### Business Logic APIs
 - **/api/admin/sections/[id]**: Section management (Async Params fixed).
-- **/api/admin/users/[userId]/permissions**: User permission overrides.
+- **/api/admin/users/[userId]/permissions**: User permission overrides. (Fixed unknown[] type error)
 - **/api/contractors/public-register/[token]**: Public portal for contractor self-registration.
 - **/api/projects/[id]**: Project details retrieval.
+- **/api/projects/stock-issue/approve**: Approving material issues to projects. (Fixed nullable projectId build error)
 
 ---
 
@@ -88,8 +89,11 @@ This document serves as a comprehensive reference for the SLTSERP project struct
 ## 7. Missing/Required UI Components
 - [x] **Tabs** (Added as `tabs-new.tsx`)
 - [x] **Switch** (Recently added)
-- [ ] **DropdownMenu** (To be verified)
-- [ ] **Tooltip** (To be verified)
+- [ ] **DropdownMenu** (To be verified if needed)
+- [ ] **Tooltip** (To be verified if needed)
 
----
+## 8. Next Priorities
+1. **Monitor Vercel Build**: Ensure the current deployment finishes successfully.
+2. **Post-Deployment Migration**: Run `npx prisma db push` or migrations on the live database.
+3. **Verify Async Params**: Double-check any remaining dynamic routes.
 *Last Updated: 2026-01-10*
