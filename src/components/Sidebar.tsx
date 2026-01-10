@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface User {
     name: string;
@@ -53,10 +53,26 @@ export default function Sidebar() {
             return Array.isArray(data) ? data.length : 0;
         },
         enabled: !!userRole && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR']), // Only fetch if allowed
-        refetchInterval: 60000, // Poll every minute
-        staleTime: 45000,       // Consider data fresh for 45s
+        staleTime: 5 * 60 * 1000, // Data stays fresh for 5 mins
         refetchOnWindowFocus: false
     });
+
+    const queryClient = useQueryClient();
+
+    // SSE Integration: Listen for notifications and invalidate count
+    useEffect(() => {
+        const handleNewNotification = (e: any) => {
+            const notification = e.detail;
+            // If it's a restore request notification, refetch the count
+            if (notification.link === '/restore-requests' || notification.type === 'SYSTEM') {
+                console.log("SSE Trigger: Updating restore requests count in sidebar");
+                queryClient.invalidateQueries({ queryKey: ['restore-requests-count'] });
+            }
+        };
+
+        window.addEventListener('slts-notification', handleNewNotification);
+        return () => window.removeEventListener('slts-notification', handleNewNotification);
+    }, [queryClient]);
 
     return (
         <aside

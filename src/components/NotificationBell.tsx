@@ -70,6 +70,9 @@ export default function NotificationBell() {
                     return [sanitized, ...currentData].slice(0, 50); // Keep limit
                 });
 
+                // Dispatch a custom event for other components (like Sidebar) to react
+                window.dispatchEvent(new CustomEvent('slts-notification', { detail: newNotification }));
+
                 // Play a subtle notification sound or show a toast if needed
             } catch (error) {
                 console.error("Failed to parse SSE notification:", error);
