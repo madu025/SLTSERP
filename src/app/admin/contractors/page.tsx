@@ -152,17 +152,24 @@ export default function ContractorsPage() {
     });
 
     // --- QUERIES ---
-    const { data: contractors = [], isLoading } = useQuery<Contractor[]>({
+    const { data: contractorsData, isLoading } = useQuery({
         queryKey: ["contractors"],
         queryFn: async () => {
-            const res = await fetch("/api/contractors");
+            const res = await fetch("/api/contractors?page=1&limit=1000");
             if (!res.ok) {
                 const error = await res.json();
                 throw new Error(error.message || "Failed to fetch contractors");
             }
             return res.json();
-        }
+        },
+        staleTime: 10 * 60 * 1000, // 10 minutes - prevents re-fetching
+        gcTime: 30 * 60 * 1000, // 30 minutes - keeps in cache
+        refetchOnWindowFocus: false, // Don't refetch on tab focus
+        refetchOnMount: false // Don't refetch on component mount if data exists
     });
+
+    // Extract contractors array from paginated response
+    const contractors = contractorsData?.contractors || [];
 
     const { data: stores = [] } = useQuery({
         queryKey: ['stores'],
@@ -170,16 +177,20 @@ export default function ContractorsPage() {
             const res = await fetch('/api/stores');
             if (!res.ok) throw new Error("Failed to fetch stores");
             return res.json();
-        }
+        },
+        staleTime: 10 * 60 * 1000,
+        gcTime: 30 * 60 * 1000
     });
 
     const { data: opmcs = [], isLoading: isLoadingOpmcs } = useQuery({
         queryKey: ['opmcs'],
         queryFn: async () => {
-            const res = await fetch('/api/opmcs'); // Fixed endpoint
+            const res = await fetch('/api/opmcs');
             if (!res.ok) throw new Error("Failed to fetch OPMCs");
             return res.json();
-        }
+        },
+        staleTime: 10 * 60 * 1000,
+        gcTime: 30 * 60 * 1000
     });
 
     // Auto-select OPMC for site staff if they have only one
