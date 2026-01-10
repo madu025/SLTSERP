@@ -130,8 +130,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 const res = await fetch("/api/opmcs");
                 return res.json();
             } else {
-                const res = await fetch("/api/users");
-                const users = await res.json();
+                const res = await fetch("/api/users?page=1&limit=1000");
+                const data = await res.json();
+                const users = data.users || (Array.isArray(data) ? data : []);
                 const currentUser = users.find((u: any) => u.username === user.username);
                 return currentUser?.accessibleOpmcs?.map((opmc: any) => ({
                     id: opmc.id,

@@ -25,9 +25,10 @@ export default function UserAssignmentPage() {
     const { data: users = [] } = useQuery({
         queryKey: ['users'],
         queryFn: async () => {
-            const res = await fetch('/api/users');
+            const res = await fetch('/api/users?page=1&limit=1000');
             if (!res.ok) throw new Error('Failed');
-            return res.json();
+            const data = await res.json();
+            return data.users || (Array.isArray(data) ? data : []);
         }
     });
 

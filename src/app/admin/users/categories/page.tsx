@@ -89,8 +89,9 @@ export default function UsersCategoryPage() {
     const { data: users = [], isLoading } = useQuery({
         queryKey: ['users'],
         queryFn: async () => {
-            const res = await fetch('/api/users');
-            return res.json();
+            const res = await fetch('/api/users?page=1&limit=1000');
+            const data = await res.json();
+            return data.users || (Array.isArray(data) ? data : []);
         }
     });
 
@@ -147,8 +148,8 @@ export default function UsersCategoryPage() {
                                 <button
                                     onClick={() => setSelectedCategory('ALL')}
                                     className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === 'ALL'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-white text-slate-600 hover:bg-slate-100'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-white text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
                                     All Users ({users.length})
@@ -161,8 +162,8 @@ export default function UsersCategoryPage() {
                                         key={key}
                                         onClick={() => setSelectedCategory(key)}
                                         className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === key
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-white text-slate-600 hover:bg-slate-100'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-white text-slate-600 hover:bg-slate-100'
                                             }`}
                                     >
                                         {category.name} ({count})

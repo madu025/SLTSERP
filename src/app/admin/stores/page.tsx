@@ -66,8 +66,9 @@ export default function StoresPage() {
     const { data: users = [] } = useQuery({
         queryKey: ["users"],
         queryFn: async () => {
-            const res = await fetch("/api/users");
-            return res.json();
+            const res = await fetch("/api/users?page=1&limit=1000");
+            const data = await res.json();
+            return data.users || [];
         }
     });
 
