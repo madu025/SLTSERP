@@ -6,12 +6,13 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs-new';
 import { ArrowLeft, Calendar, MapPin, Building2, User, Phone, Mail } from 'lucide-react';
 import ProjectOverview from '@/components/projects/ProjectOverview';
 import ProjectBOQ from '@/components/projects/ProjectBOQ';
 import ProjectMilestones from '@/components/projects/ProjectMilestones';
 import ProjectExpenses from '@/components/projects/ProjectExpenses';
+import ProjectMaterialIssues from '@/components/projects/ProjectMaterialIssues';
 
 export default function ProjectDetailsPage({ params }: { params: { id: string } }) {
     const router = useRouter();
