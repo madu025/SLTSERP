@@ -5,13 +5,16 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { GripVertical, Plus, Check } from "lucide-react";
+import { GripVertical, Plus, Check, Users, Building2, UserCog, HardHat, Warehouse, FileText, Settings, Database, ChevronDown, ChevronUp, Layers, Table as TableIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { MaterialAssignment } from './MaterialAssignment';
+import { cn } from "@/lib/utils";
 
 interface ColumnConfig {
     key: string;
@@ -32,10 +35,9 @@ const TABLE_LABELS: Record<string, string> = {
     'restore_request': 'Restore Requests'
 };
 
-export default function TableSettingsPage() {
-    const queryClient = useQueryClient();
+const AdminDashboard = () => {
     const router = useRouter();
-    const [draggedItem, setDraggedItem] = useState<{ tableName: string; index: number } | null>(null);
+    const queryClient = useQueryClient();
 
     // --- ACCESS CHECK ---
     useEffect(() => {
@@ -51,7 +53,7 @@ export default function TableSettingsPage() {
     }, [router]);
 
     // --- QUERIES ---
-    const { data: settings, isLoading } = useQuery<Record<string, TableSettings>>({
+    const { data: settings = {}, isLoading } = useQuery<Record<string, TableSettings>>({
         queryKey: ['table-settings'],
         queryFn: async () => {
             const res = await fetch('/api/admin/table-settings');
@@ -78,46 +80,160 @@ export default function TableSettingsPage() {
         onError: () => toast.error("Failed to save settings")
     });
 
-    // --- HANDLERS (Optimistic UI handled by simple local state overrides could be redundant if we just rely on react-query invalidation, but for dnd we need local state usually. 
-    // For simplicity, we will assume direct mutation on Drop for "Save on change" or local state management.
-    // Let's implement independent local state for editing, initialized from data)
-
-    // Actually, handling complex local state derived from query props is tricky. 
-    // We'll trust the query data but we need a way to mutate it locally for DnD before saving.
-    // simpler: We will just use the query data and optimistic updates or just wait for re-fetch?
-    // DnD feels laggy if we wait for server. Let's create a local copy component for each table.
-
-    if (isLoading || !settings) {
-        return <div className="min-h-screen flex bg-slate-50 items-center justify-center text-slate-500">Loading settings...</div>;
+    if (isLoading) {
+        return (
+            <div className="h-screen flex bg-slate-50 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 flex flex-col min-w-0 h-full">
+                    <Header />
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="text-slate-500">Loading settings...</div>
+                    </div>
+                </main>
+            </div>
+        );
     }
 
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="fixed inset-0 flex bg-slate-50 overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
                 <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-5xl mx-auto space-y-6">
+                    <div className="max-w-6xl mx-auto space-y-6">
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">Table Configuration</h1>
-                            <p className="text-xs text-slate-500">Customize column visibility and ordering for system tables.</p>
+                            <h1 className="text-2xl font-bold text-slate-900">System Settings</h1>
+                            <p className="text-slate-500">Configure global application settings and table preferences.</p>
                         </div>
 
-                        <div className="grid gap-6">
-                            {Object.entries(settings).map(([tableName, tableSettings]) => (
-                                <TableConfigCard
-                                    key={tableName}
-                                    tableName={tableName}
-                                    settings={tableSettings}
-                                    onSave={(cols) => mutation.mutate({ tableName, visibleColumns: cols })}
-                                    isSaving={mutation.isPending}
-                                />
-                            ))}
-                        </div>
+                        {/* System Configs */}
+                        <CollapsibleSection title="Global Configurations" icon={<Settings className="w-5 h-5" />} defaultOpen={false}>
+                            <SystemSettingsCard />
+                        </CollapsibleSection>
+
+                        <CollapsibleSection title="Material Assignment" icon={<Database className="w-5 h-5" />} defaultOpen={true}>
+                            <MaterialAssignment />
+                        </CollapsibleSection>
+
+                        <CollapsibleSection title="Table Configuration" icon={<TableIcon className="w-5 h-5" />} defaultOpen={false}>
+                            <div>
+                                <p className="text-slate-500 mb-4 px-1">Customize column visibility and ordering for system tables.</p>
+                                <div className="grid gap-6">
+                                    {Object.entries(settings).map(([tableName, tableSettings]) => (
+                                        <TableConfigCard
+                                            key={tableName}
+                                            tableName={tableName}
+                                            settings={tableSettings}
+                                            onSave={(cols) => mutation.mutate({ tableName, visibleColumns: cols })}
+                                            isSaving={mutation.isPending}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </CollapsibleSection>
                     </div>
                 </div>
             </main>
         </div>
+    );
+};
+
+export default AdminDashboard;
+
+// Component for Global System Settings
+function SystemSettingsCard() {
+    const queryClient = useQueryClient();
+
+    // Fetch Configs
+    const { data: configs = {} } = useQuery<Record<string, string>>({
+        queryKey: ['system-config'],
+        queryFn: async () => (await fetch('/api/admin/system-config')).json()
+    });
+
+    const mutation = useMutation({
+        mutationFn: async ({ key, value }: { key: string, value: string }) => {
+            const res = await fetch('/api/admin/system-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value })
+            });
+            if (!res.ok) throw new Error('Failed');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['system-config'] });
+            toast.success("Configuration updated");
+        },
+        onError: () => toast.error("Failed to update configuration")
+    });
+
+    const ospSource = configs['OSP_MATERIAL_SOURCE'] || 'SLT';
+
+    return (
+        <Card className="border-l-4 border-l-blue-600 mb-8">
+            <CardHeader className="py-4">
+                <div className="flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-lg">Global Configurations</CardTitle>
+                </div>
+                <CardDescription>Manage project-wide settings and defaults.</CardDescription>
+            </CardHeader>
+            <CardContent className="py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* OSP FTTH Material Source Setting */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">OSP FTTH Material Source</h4>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Determines the primary stock source for OSP FTTH Service Orders.
+                                    <br /><span className="italic opacity-70">(Future projects like High-rise will support mixed material sources).</span>
+                                </p>
+                            </div>
+                            <Badge variant="outline" className={ospSource === 'SLT' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}>
+                                {ospSource}
+                            </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                                <Label className="text-xs font-semibold text-slate-500 mb-1.5 block">Default Source for OSP FTTH</Label>
+                                <Select
+                                    value={ospSource}
+                                    onValueChange={(val) => mutation.mutate({ key: 'OSP_MATERIAL_SOURCE', value: val })}
+                                    disabled={mutation.isPending}
+                                >
+                                    <SelectTrigger className="bg-white h-9">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="SLT">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">SLT Provided (Default)</span>
+                                                <span className="text-[10px] text-slate-400">Materials issued by SLT, no company stock deduction.</span>
+                                            </div>
+                                        </SelectItem>
+                                        <SelectItem value="COMPANY">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">Company (SLTS) Supplied</span>
+                                                <span className="text-[10px] text-slate-400">Deducts from Contractor/Company Inventory.</span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {ospSource === 'COMPANY' && (
+                            <div className="mt-3 p-2 bg-yellow-50 text-yellow-700 text-xs rounded border border-yellow-200 flex items-start gap-2">
+                                <Database className="w-3 h-3 mt-0.5" />
+                                <span>Caution: Switching to COMPANY mode will affect stock levels for all new OSP completions.</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -238,5 +354,40 @@ function TableConfigCard({ tableName, settings, onSave, isSaving }: { tableName:
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function CollapsibleSection({ title, icon, children, defaultOpen = false }: { title: string, icon: React.ReactNode, children: React.ReactNode, defaultOpen?: boolean }) {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    return (
+        <div className="border rounded-xl bg-white shadow-sm overflow-hidden transition-all duration-200">
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                className={cn(
+                    "flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors select-none",
+                    isOpen ? "border-b border-slate-100 bg-slate-50/50" : ""
+                )}
+            >
+                <div className="flex items-center gap-3">
+                    <div className={cn("p-2 rounded-lg transition-colors", isOpen ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-600")}>
+                        {icon}
+                    </div>
+                    <h3 className={cn("font-bold text-lg", isOpen ? "text-blue-900" : "text-slate-700")}>{title}</h3>
+                </div>
+                <div className={cn("p-1 rounded-full text-slate-400 transition-transform duration-200", isOpen && "transform rotate-180 text-blue-500")}>
+                    <ChevronDown className="w-5 h-5" />
+                </div>
+            </div>
+
+            <div className={cn(
+                "transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden",
+                isOpen ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"
+            )}>
+                <div className="p-6 bg-slate-50/30">
+                    {children}
+                </div>
+            </div>
+        </div>
     );
 }

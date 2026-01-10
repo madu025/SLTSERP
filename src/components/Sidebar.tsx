@@ -101,7 +101,7 @@ export default function Sidebar() {
                     };
 
                     return (
-                        <div key={item.path} className="space-y-1">
+                        <div key={`menu-${item.title}-${item.path}`} className="space-y-1">
                             <Link
                                 href={hasSubmenu ? '#' : item.path}
                                 onClick={handleMenuClick}
@@ -145,7 +145,7 @@ export default function Sidebar() {
                 })}
             </nav>
 
-            <div className="p-4 border-t border-slate-800">
+            <Link href="/profile" className="p-4 border-t border-slate-800 block hover:bg-slate-800/50 transition-colors">
                 <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
                     <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                         {user?.name?.substring(0, 2).toUpperCase() || '??'}
@@ -157,7 +157,7 @@ export default function Sidebar() {
                         </div>
                     )}
                 </div>
-            </div>
+            </Link>
         </aside>
     );
 }

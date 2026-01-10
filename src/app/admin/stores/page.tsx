@@ -122,7 +122,7 @@ export default function StoresPage() {
             type: store.type,
             location: store.location || "",
             managerId: store.manager?.id || "NONE",
-            opmcIds: store.opmcs.map(o => o.id)
+            opmcIds: store.opmcs?.map(o => o.id) || []
         });
         setShowModal(true);
     };
@@ -223,9 +223,9 @@ export default function StoresPage() {
                                                 <div className="flex items-start gap-2 text-slate-600">
                                                     <Building2 className="w-4 h-4 mt-0.5" />
                                                     <div>
-                                                        <div className="font-medium">OPMCs ({store.opmcs.length})</div>
+                                                        <div className="font-medium">OPMCs ({store.opmcs?.length || 0})</div>
                                                         <div className="text-xs mt-1">
-                                                            {store.opmcs.map(o => o.name).join(", ") || "No OPMCs assigned"}
+                                                            {store.opmcs?.map(o => o.name).join(", ") || "No OPMCs assigned"}
                                                         </div>
                                                     </div>
                                                 </div>

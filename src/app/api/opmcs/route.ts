@@ -7,6 +7,10 @@ export async function GET() {
         const opmcs = await prisma.oPMC.findMany({
             include: {
                 store: { select: { id: true, name: true } },
+                users: {
+                    where: { role: 'AREA_MANAGER' },
+                    select: { id: true, name: true }
+                },
                 _count: {
                     select: {
                         staff: true,

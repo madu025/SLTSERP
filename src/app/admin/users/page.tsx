@@ -25,6 +25,7 @@ interface UserData {
     role: string;
     employeeId?: string | null;
     createdAt: string;
+    assignedStoreId?: string | null;
     accessibleOpmcs: { id: string, rtom: string }[];
     supervisor?: { id: string, name: string | null, username: string };
 }
@@ -33,6 +34,12 @@ interface OPMC {
     id: string;
     name: string;
     rtom: string;
+}
+
+interface Store {
+    id: string;
+    name: string;
+    location: string | null;
 }
 
 // Zod Schema
@@ -45,16 +52,20 @@ const userSchema = z.object({
     employeeId: z.string().optional(),
     opmcIds: z.array(z.string()),
     supervisorId: z.string().optional(),
+    assignedStoreId: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>
 
+// Roles that strictly require OPMC selection
+const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT', 'SITE_OFFICE_STAFF'];
+
 const roleCategories = {
     'OSP Category': ['MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
-    'Office Admin Category': ['OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'],
+    'Office Admin Category': ['OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
     'Finance Category': ['FINANCE_MANAGER', 'FINANCE_ASSISTANT'],
     'Invoice Section': ['INVOICE_MANAGER', 'INVOICE_ASSISTANT'],
-    'Stores Category': ['STORES_MANAGER', 'STORES_ASSISTANT'],
+    'Stores Category': ['STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'],
     'Service Fulfillment': ['SA_MANAGER', 'SA_ASSISTANT'],
     'System Admin': ['SUPER_ADMIN', 'ADMIN']
 };
@@ -66,13 +77,6 @@ export default function UserRegistrationPage() {
     // Modal & Selection State
     const [showModal, setShowModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
-
-    const form = useForm<UserFormValues>({
-        resolver: zodResolver(userSchema),
-        defaultValues: {
-            username: '', email: '', password: '', name: '', role: 'ENGINEER', employeeId: '', opmcIds: [], supervisorId: ''
-        }
-    });
 
     // --- QUERIES ---
     const { data: users = [], isLoading: usersLoading } = useQuery<UserData[]>({
@@ -88,6 +92,15 @@ export default function UserRegistrationPage() {
         queryKey: ["opmcs"],
         queryFn: async () => {
             const res = await fetch("/api/opmcs");
+            if (!res.ok) return [];
+            return res.json();
+        }
+    });
+
+    const { data: stores = [] } = useQuery<Store[]>({
+        queryKey: ["stores"],
+        queryFn: async () => {
+            const res = await fetch("/api/inventory/stores");
             if (!res.ok) return [];
             return res.json();
         }
@@ -124,24 +137,33 @@ export default function UserRegistrationPage() {
         }
     });
 
-    // --- HANDLERS ---
+    const form = useForm<UserFormValues>({
+        resolver: zodResolver(userSchema),
+        defaultValues: {
+            username: '', email: '', password: '', name: '', role: 'ENGINEER', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
+        }
+    });
+
+    // ... (handlers)
     const handleOpenModal = (user?: UserData) => {
         if (user) {
             setSelectedUser(user);
             form.reset({
+                // ... other fields
                 username: user.username,
                 email: user.email,
-                password: '', // Don't fill password
+                password: '',
                 name: user.name || '',
                 role: user.role,
                 employeeId: user.employeeId || '',
                 opmcIds: user.accessibleOpmcs?.map(o => o.id) || [],
-                supervisorId: user.supervisor?.id || ''
+                supervisorId: user.supervisor?.id || '',
+                assignedStoreId: (user as any).assignedStoreId || 'none' // Need to ensure API returns this
             });
         } else {
             setSelectedUser(null);
             form.reset({
-                username: '', email: '', password: '', name: '', role: 'ENGINEER', employeeId: '', opmcIds: [], supervisorId: ''
+                username: '', email: '', password: '', name: '', role: 'ENGINEER', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
             });
         }
         setShowModal(true);
@@ -173,6 +195,8 @@ export default function UserRegistrationPage() {
     const potentialSupervisors = useMemo(() => {
         return users.filter(u => u.id !== selectedUser?.id);
     }, [users, selectedUser]);
+
+    {/* ... Buttons ... */ }
 
     return (
         <div className="h-screen flex bg-slate-50 overflow-hidden">
@@ -419,6 +443,29 @@ export default function UserRegistrationPage() {
                                                     </div>
                                                 ))}
                                             </ScrollArea>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+
+                                    {/* Assigned Store (New Field) */}
+                                    <FormField control={form.control} name="assignedStoreId" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Assigned Store (For Inventory Access)</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                                                <FormControl>
+                                                    <SelectTrigger className="h-8 text-xs">
+                                                        <SelectValue placeholder="Select a store (optional)" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="none">None (All / No Store)</SelectItem>
+                                                    {stores.map(store => (
+                                                        <SelectItem key={store.id} value={store.id} className="text-xs">
+                                                            {store.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )} />

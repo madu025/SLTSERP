@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { InventoryService } from '@/services/inventory.service';
 
 // GET - Get all stores with their OPMCs (Filtered by User Role)
 export async function GET(request: Request) {
@@ -59,29 +60,7 @@ export async function GET(request: Request) {
             }
         }
 
-        const stores = await prisma.inventoryStore.findMany({
-            where: whereClause,
-            include: {
-                opmcs: {
-                    select: {
-                        id: true,
-                        name: true,
-                        rtom: true
-                    }
-                },
-                manager: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true
-                    }
-                }
-            },
-            orderBy: {
-                name: 'asc'
-            }
-        });
-
+        const stores = await InventoryService.getStores(whereClause);
         return NextResponse.json(stores);
     } catch (error) {
         console.error('Error fetching stores:', error);
@@ -92,29 +71,13 @@ export async function GET(request: Request) {
 // POST - Create new store
 export async function POST(request: Request) {
     try {
-        const { name, type, location, managerId, opmcIds } = await request.json();
+        const body = await request.json();
 
-        if (!name) {
+        if (!body.name) {
             return NextResponse.json({ error: 'Store name is required' }, { status: 400 });
         }
 
-        const store = await prisma.inventoryStore.create({
-            data: {
-                name,
-                type: type || 'SUB',
-                location,
-                managerId: managerId || null
-            }
-        });
-
-        // Assign OPMCs to store
-        if (opmcIds && opmcIds.length > 0) {
-            await prisma.oPMC.updateMany({
-                where: { id: { in: opmcIds } },
-                data: { storeId: store.id }
-            });
-        }
-
+        const store = await InventoryService.createStore(body);
         return NextResponse.json(store);
     } catch (error) {
         console.error('Error creating store:', error);

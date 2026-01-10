@@ -1,376 +1,384 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Plus, X, Save, ArrowLeft, Search, CheckCircle2 } from "lucide-react";
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Package, CheckCircle, Eye } from "lucide-react";
+import { toast } from "sonner";
 
 export default function GRNPage() {
-    const router = useRouter();
     const queryClient = useQueryClient();
-    const [user, setUser] = useState<any>(null);
-    const [activeStep, setActiveStep] = useState(1); // 1: Info, 2: Items, 3: Review
+    const [activeTab, setActiveTab] = useState<'READY' | 'COMPLETED'>('READY');
+    const [selectedRequest, setSelectedRequest] = useState<any>(null);
+    const [showGRNDialog, setShowGRNDialog] = useState(false);
+    const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
-    // Form State
-    const [selectedStoreId, setSelectedStoreId] = useState("");
-    const [sourceType, setSourceType] = useState("SLT");
-    const [supplier, setSupplier] = useState("");
-    const [grnItems, setGrnItems] = useState<{ item: any, qty: string }[]>([]);
+    // GRN Form State
+    const [grnNumber, setGRNNumber] = useState('');
+    const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [receivedItems, setReceivedItems] = useState<any[]>([]);
+    const [grnRemarks, setGRNRemarks] = useState('');
 
-    // Item Selection State
-    const [itemSearch, setItemSearch] = useState("");
-    const [itemFilterType, setItemFilterType] = useState("ALL"); // ALL, SLT, SLTS
-
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (stored) setUser(JSON.parse(stored));
-    }, []);
-
-    // Queries
-    const { data: stores = [] } = useQuery({
-        queryKey: ['stores'],
-        queryFn: async () => (await fetch('/api/inventory/stores')).json()
+    // Fetch requests ready for GRN
+    const { data: requests = [], isLoading } = useQuery({
+        queryKey: ['grn-requests', activeTab],
+        queryFn: async () => {
+            const res = await fetch(`/api/inventory/requests?workflowStage=${activeTab === 'READY' ? 'GRN_PENDING' : 'COMPLETED'}`);
+            return res.json();
+        }
     });
 
-    const { data: items = [] } = useQuery({
-        queryKey: ['items'],
-        queryFn: async () => (await fetch('/api/inventory/items')).json()
-    });
-
-    // Validations
-    const canProceedToItems = selectedStoreId && (sourceType === 'SLT' || (sourceType === 'LOCAL_PURCHASE' && supplier));
-    const canReview = grnItems.length > 0;
-
-    // Mutation
-    const mutation = useMutation({
-        mutationFn: async () => {
-            if (!selectedStoreId) throw new Error("Select a store");
+    // Create GRN mutation
+    const createGRNMutation = useMutation({
+        mutationFn: async (data: any) => {
             const res = await fetch('/api/inventory/grn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    storeId: selectedStoreId,
-                    sourceType,
-                    supplier: sourceType === 'SLT' ? 'SLT' : supplier,
-                    receivedById: user?.id,
-                    items: grnItems.map(i => ({ itemId: i.item.id, quantity: i.qty }))
-                })
+                body: JSON.stringify(data)
             });
-            if (!res.ok) throw new Error('Failed');
+            if (!res.ok) throw new Error('Failed to create GRN');
+            return res.json();
         },
         onSuccess: () => {
-            toast.success("GRN Created Successfully");
-            // Reset or Redirect
-            setGrnItems([]);
-            setActiveStep(1);
-            setSupplier("");
+            toast.success('GRN created successfully! Stock updated.');
+            queryClient.invalidateQueries({ queryKey: ['grn-requests'] });
+            handleCloseGRNDialog();
         },
-        onError: () => toast.error("Failed to process GRN")
+        onError: () => toast.error('Failed to create GRN')
     });
 
-    // Helper
-    const filteredItems = Array.isArray(items) ? items.filter((i: any) => {
-        const matchSearch = i.name.toLowerCase().includes(itemSearch.toLowerCase()) || i.code.toLowerCase().includes(itemSearch.toLowerCase());
-        const matchType = itemFilterType === 'ALL' || i.type === itemFilterType;
-        return matchSearch && matchType;
-    }) : [];
+    const handleOpenGRNDialog = (request: any) => {
+        setSelectedRequest(request);
+        setGRNNumber(`GRN-${Date.now()}`);
 
-    // Add item logic
-    const handleAddItem = (item: any) => {
-        const existing = grnItems.find(g => g.item.id === item.id);
-        if (existing) {
-            toast.info("Item already added to list");
-            return;
-        }
-        // Default qty empty
-        setGrnItems([...grnItems, { item, qty: "1" }]);
+        // Initialize received items with requested quantities
+        const items = request.items.map((item: any) => ({
+            itemId: item.itemId,
+            itemName: item.item?.name,
+            requestedQty: item.requestedQty,
+            receivedQty: item.requestedQty, // Default to requested qty
+            remarks: ''
+        }));
+        setReceivedItems(items);
+        setShowGRNDialog(true);
     };
 
-    const updateQty = (idx: number, val: string) => {
-        const newItems = [...grnItems];
-        newItems[idx].qty = val;
-        setGrnItems(newItems);
+    const handleCloseGRNDialog = () => {
+        setShowGRNDialog(false);
+        setSelectedRequest(null);
+        setReceivedItems([]);
+        setGRNRemarks('');
+    };
+
+    const handleCreateGRN = () => {
+        if (!grnNumber) {
+            toast.error('GRN Number is required');
+            return;
+        }
+
+        // Get user from localStorage
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+        const payload = {
+            storeId: selectedRequest.fromStoreId,
+            sourceType: selectedRequest.sourceType,
+            supplier: selectedRequest.vendor,
+            receivedById: user.id,
+            requestId: selectedRequest.id,
+            sltReferenceId: selectedRequest.irNumber || null,
+            items: receivedItems.map(item => ({
+                itemId: item.itemId,
+                quantity: parseFloat(item.receivedQty)
+            }))
+        };
+
+        createGRNMutation.mutate(payload);
+    };
+
+    const updateReceivedQty = (index: number, value: string) => {
+        const updated = [...receivedItems];
+        updated[index].receivedQty = value;
+        setReceivedItems(updated);
+    };
+
+    const updateItemRemarks = (index: number, value: string) => {
+        const updated = [...receivedItems];
+        updated[index].remarks = value;
+        setReceivedItems(updated);
     };
 
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="flex h-screen bg-slate-50 overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-5xl mx-auto space-y-6">
-
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-4">
-                                <Button variant="ghost" size="sm" onClick={() => router.back()}>
-                                    <ArrowLeft className="w-4 h-4 mr-2" /> Back
-                                </Button>
-                                <div>
-                                    <h1 className="text-2xl font-bold text-slate-900">New GRN Entry</h1>
-                                    <p className="text-slate-500 text-xs">Steps: Details &gt; Select Items &gt; Review & Confirm</p>
-                                </div>
-                            </div>
-
-                            {/* Step Indicator */}
-                            <div className="flex items-center gap-2">
-                                {[1, 2, 3].map(step => (
-                                    <div key={step} className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-colors 
-                                        ${activeStep === step ? 'bg-blue-600 text-white shadow-md' :
-                                            activeStep > step ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                                        {activeStep > step ? <CheckCircle2 className="w-5 h-5" /> : step}
-                                    </div>
-                                ))}
-                            </div>
+                <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                    <div className="max-w-7xl mx-auto space-y-6">
+                        {/* Header */}
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-900">Goods Receipt Note (GRN)</h1>
+                            <p className="text-slate-500">Receive goods and update stock levels</p>
                         </div>
 
-                        {/* STEP 1: Details */}
-                        {activeStep === 1 && (
-                            <Card className="animate-in fade-in slide-in-from-bottom-2">
-                                <CardHeader>
-                                    <CardTitle>Step 1: GRN Details</CardTitle>
-                                    <CardDescription>Select where the items are coming from and where they are going.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6 max-w-2xl">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-slate-700">Receiving Store</label>
-                                            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                                                <SelectTrigger><SelectValue placeholder="Select Store" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {stores.map((s: any) => (
-                                                        <SelectItem key={s.id} value={s.id}>{s.name} ({s.type})</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                        {/* Tabs */}
+                        <div className="flex gap-2 border-b">
+                            <button
+                                onClick={() => setActiveTab('READY')}
+                                className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'READY'
+                                    ? 'border-b-2 border-blue-600 text-blue-600'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                Ready for GRN
+                                {requests.length > 0 && activeTab === 'READY' && (
+                                    <Badge className="ml-2 bg-blue-600">{requests.length}</Badge>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('COMPLETED')}
+                                className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'COMPLETED'
+                                    ? 'border-b-2 border-blue-600 text-blue-600'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                Completed GRNs
+                            </button>
+                        </div>
 
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-slate-700">Source Type</label>
-                                            <Select value={sourceType} onValueChange={setSourceType}>
-                                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="SLT">SLT (Head Office)</SelectItem>
-                                                    <SelectItem value="LOCAL_PURCHASE">Local Purchase</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
+                        {/* Requests List */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>
+                                    {activeTab === 'READY' ? 'Pending GRN' : 'Completed GRNs'}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {isLoading ? (
+                                    <div className="text-center p-8 text-slate-500">Loading...</div>
+                                ) : requests.length === 0 ? (
+                                    <div className="text-center p-8 text-slate-500">
+                                        {activeTab === 'READY' ? 'No pending GRNs' : 'No completed GRNs'}
                                     </div>
-
-                                    {sourceType === 'LOCAL_PURCHASE' && (
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-slate-700">Supplier Name</label>
-                                            <Input placeholder="e.g. ABC Hardware Pvt Ltd" value={supplier} onChange={e => setSupplier(e.target.value)} />
-                                        </div>
-                                    )}
-
-                                    <div className="pt-4 flex justify-end">
-                                        <Button disabled={!canProceedToItems} onClick={() => setActiveStep(2)}>
-                                            Next: Add Items <ArrowRight className="w-4 h-4 ml-2" />
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* STEP 2: Items */}
-                        {activeStep === 2 && (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-4">
-                                {/* Item Selector */}
-                                <Card className="lg:col-span-1 h-[600px] flex flex-col">
-                                    <CardHeader className="py-4">
-                                        <CardTitle className="text-sm">Available Items</CardTitle>
-                                        <div className="space-y-2 mt-2">
-                                            <div className="relative">
-                                                <Search className="w-4 h-4 absolute left-2 top-2.5 text-slate-400" />
-                                                <Input
-                                                    className="pl-8 text-xs"
-                                                    placeholder="Search code or name..."
-                                                    value={itemSearch}
-                                                    onChange={e => setItemSearch(e.target.value)}
-                                                />
-                                            </div>
-                                            <Select value={itemFilterType} onValueChange={setItemFilterType}>
-                                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="ALL">All Types</SelectItem>
-                                                    <SelectItem value="SLT">SLT Items</SelectItem>
-                                                    <SelectItem value="SLTS">SLTS Items</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="flex-1 overflow-y-auto px-2">
-                                        <div className="space-y-2">
-                                            {filteredItems.map((item: any) => (
-                                                <div
-                                                    key={item.id}
-                                                    className="p-3 bg-white border rounded-lg shadow-sm hover:border-blue-400 cursor-pointer transition-all flex flex-col gap-1 group"
-                                                    onClick={() => handleAddItem(item)}
-                                                >
-                                                    <div className="flex justify-between items-start">
-                                                        <span className="font-bold text-xs text-slate-800">{item.name}</span>
-                                                        <Badge variant="secondary" className="text-[10px] h-5">{item.type}</Badge>
-                                                    </div>
-                                                    <div className="flex justify-between text-[10px] text-slate-500">
-                                                        <span className="font-mono bg-slate-100 px-1 rounded">{item.code}</span>
-                                                        <span>{item.unit}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                                                        <span>{item.category.replace('_', ' ')}</span>
-                                                        <span className="text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                                            Add <Plus className="w-3 h-3" />
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {filteredItems.length === 0 && <div className="text-center text-xs text-slate-400 py-4">No items found</div>}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Added Items */}
-                                <Card className="lg:col-span-2 h-[600px] flex flex-col">
-                                    <CardHeader className="py-4 flex flex-row justify-between items-center">
-                                        <CardTitle className="text-sm">Items to Receive ({grnItems.length})</CardTitle>
-                                        <div className="flex gap-2">
-                                            <Button variant="outline" size="sm" onClick={() => setActiveStep(1)}>Back</Button>
-                                            <Button size="sm" disabled={!canReview} onClick={() => setActiveStep(3)}>Review GRN</Button>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="flex-1 overflow-y-auto">
-                                        {grnItems.length === 0 ? (
-                                            <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                                <div className="bg-slate-100 p-4 rounded-full mb-2"><Plus className="w-8 h-8 opacity-20" /></div>
-                                                <p className="text-sm">Select items from the list to add to GRN</p>
-                                            </div>
-                                        ) : (
-                                            <table className="w-full text-xs text-left">
-                                                <thead className="bg-slate-50 border-b sticky top-0">
-                                                    <tr>
-                                                        <th className="px-3 py-2 w-10">#</th>
-                                                        <th className="px-3 py-2">Item</th>
-                                                        <th className="px-3 py-2">Details</th>
-                                                        <th className="px-3 py-2 w-32">Rec. Qty</th>
-                                                        <th className="px-3 py-2 w-10"></th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y">
-                                                    {grnItems.map((entry, idx) => (
-                                                        <tr key={idx} className="hover:bg-slate-50">
-                                                            <td className="px-3 py-2 text-slate-400">{idx + 1}</td>
-                                                            <td className="px-3 py-2">
-                                                                <div className="font-bold text-slate-800">{entry.item.name}</div>
-                                                                <div className="text-[10px] text-slate-500 font-mono">{entry.item.code}</div>
-                                                            </td>
-                                                            <td className="px-3 py-2">
-                                                                <Badge variant="outline" className="text-[10px] mr-1">{entry.item.type}</Badge>
-                                                                <span className="text-[10px] text-slate-500">{entry.item.category.replace('_', ' ')}</span>
-                                                            </td>
-                                                            <td className="px-3 py-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="h-7 w-20 text-right"
-                                                                        value={entry.qty}
-                                                                        onChange={(e) => updateQty(idx, e.target.value)}
-                                                                        min="0"
-                                                                    />
-                                                                    <span className="text-slate-500 font-medium">{entry.item.unit}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-2 text-right">
-                                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={() => setGrnItems(grnItems.filter((_, i) => i !== idx))}>
-                                                                    <X className="w-3 h-3" />
-                                                                </Button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-
-                        {/* STEP 3: Review */}
-                        {activeStep === 3 && (
-                            <Card className="animate-in fade-in zoom-in-95 max-w-4xl mx-auto border-t-4 border-t-emerald-500">
-                                <CardHeader className="text-center pb-2">
-                                    <div className="mx-auto bg-emerald-100 text-emerald-600 p-3 rounded-full w-12 h-12 flex items-center justify-center mb-4">
-                                        <CheckCircle2 className="w-6 h-6" />
-                                    </div>
-                                    <CardTitle>Confirm GRN Entry</CardTitle>
-                                    <CardDescription>Review the details below before submitting to inventory.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="bg-slate-50 p-4 rounded-xl border grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <span className="text-slate-500 block text-xs uppercase tracking-wider">Store</span>
-                                            <span className="font-bold text-slate-800">
-                                                {stores.find((s: any) => s.id === selectedStoreId)?.name}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <span className="text-slate-500 block text-xs uppercase tracking-wider">Source</span>
-                                            <span className="font-bold text-slate-800">
-                                                {sourceType === 'SLT' ? 'SLT Head Office' : supplier}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="border rounded-lg overflow-hidden">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-slate-100 border-b text-slate-600">
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-100 border-b">
                                                 <tr>
-                                                    <th className="px-4 py-2">Item</th>
-                                                    <th className="px-4 py-2">Unit</th>
-                                                    <th className="px-4 py-2 text-right">Quantity</th>
+                                                    <th className="px-4 py-3 text-left">Request No</th>
+                                                    <th className="px-4 py-3 text-left">PO Number</th>
+                                                    <th className="px-4 py-3 text-left">Vendor</th>
+                                                    <th className="px-4 py-3 text-left">Items</th>
+                                                    <th className="px-4 py-3 text-left">Expected Delivery</th>
+                                                    <th className="px-4 py-3 text-right">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y">
-                                                {grnItems.map((g, i) => (
-                                                    <tr key={i}>
-                                                        <td className="px-4 py-2">
-                                                            <div className="font-medium">{g.item.name}</div>
-                                                            <div className="text-xs text-slate-500">{g.item.code}</div>
+                                                {requests.map((req: any) => (
+                                                    <tr key={req.id} className="hover:bg-slate-50">
+                                                        <td className="px-4 py-3 font-medium">{req.requestNr}</td>
+                                                        <td className="px-4 py-3">
+                                                            <Badge variant="outline">{req.poNumber}</Badge>
                                                         </td>
-                                                        <td className="px-4 py-2 text-slate-500">{g.item.unit}</td>
-                                                        <td className="px-4 py-2 text-right font-bold font-mono">{g.qty}</td>
+                                                        <td className="px-4 py-3">{req.vendor || '-'}</td>
+                                                        <td className="px-4 py-3 text-center">{req.items?.length || 0}</td>
+                                                        <td className="px-4 py-3">
+                                                            {req.expectedDelivery
+                                                                ? new Date(req.expectedDelivery).toLocaleDateString()
+                                                                : '-'
+                                                            }
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className="flex justify-end gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setSelectedRequest(req);
+                                                                        setShowDetailsDialog(true);
+                                                                    }}
+                                                                >
+                                                                    <Eye className="w-4 h-4" />
+                                                                </Button>
+                                                                {activeTab === 'READY' && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="bg-green-600 hover:bg-green-700"
+                                                                        onClick={() => handleOpenGRNDialog(req)}
+                                                                    >
+                                                                        <Package className="w-4 h-4 mr-1" />
+                                                                        Create GRN
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     </div>
-
-                                    <div className="flex justify-between items-center pt-4">
-                                        <Button variant="outline" onClick={() => setActiveStep(2)}>Back to Edit</Button>
-                                        <Button
-                                            className="bg-emerald-600 hover:bg-emerald-700 w-40"
-                                            onClick={() => mutation.mutate()}
-                                            disabled={mutation.isPending}
-                                        >
-                                            {mutation.isPending ? 'Submitting...' : 'Confirm & Save'}
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
             </main>
+
+            {/* Create GRN Dialog */}
+            <Dialog open={showGRNDialog} onOpenChange={setShowGRNDialog}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Create Goods Receipt Note</DialogTitle>
+                    </DialogHeader>
+                    {selectedRequest && (
+                        <div className="space-y-4">
+                            {/* GRN Header Info */}
+                            <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded">
+                                <div className="text-sm">
+                                    <span className="font-bold">Request No:</span> {selectedRequest.requestNr}
+                                </div>
+                                <div className="text-sm">
+                                    <span className="font-bold">PO Number:</span> {selectedRequest.poNumber}
+                                </div>
+                                <div className="text-sm">
+                                    <span className="font-bold">Vendor:</span> {selectedRequest.vendor}
+                                </div>
+                                <div className="text-sm">
+                                    <span className="font-bold">Source:</span> {selectedRequest.sourceType}
+                                </div>
+                            </div>
+
+                            {/* GRN Form */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 uppercase">GRN Number</label>
+                                    <Input
+                                        className="mt-1"
+                                        value={grnNumber}
+                                        onChange={e => setGRNNumber(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 uppercase">Received Date</label>
+                                    <Input
+                                        type="date"
+                                        className="mt-1"
+                                        value={receivedDate}
+                                        onChange={e => setReceivedDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Items Table */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 uppercase mb-2 block">Received Items</label>
+                                <div className="border rounded overflow-hidden">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-slate-100">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">Item</th>
+                                                <th className="px-3 py-2 text-center">Ordered Qty</th>
+                                                <th className="px-3 py-2 text-center">Received Qty</th>
+                                                <th className="px-3 py-2 text-left">Remarks</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {receivedItems.map((item, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="px-3 py-2">{item.itemName}</td>
+                                                    <td className="px-3 py-2 text-center font-medium">{item.requestedQty}</td>
+                                                    <td className="px-3 py-2">
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-center"
+                                                            value={item.receivedQty}
+                                                            onChange={e => updateReceivedQty(idx, e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <Input
+                                                            className="h-8 text-xs"
+                                                            placeholder="Optional"
+                                                            value={item.remarks}
+                                                            onChange={e => updateItemRemarks(idx, e.target.value)}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* GRN Remarks */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 uppercase">GRN Remarks</label>
+                                <Textarea
+                                    className="mt-1"
+                                    rows={3}
+                                    value={grnRemarks}
+                                    onChange={e => setGRNRemarks(e.target.value)}
+                                    placeholder="Quality check notes, delivery condition, etc."
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={handleCloseGRNDialog}>Cancel</Button>
+                        <Button
+                            onClick={handleCreateGRN}
+                            disabled={createGRNMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                        >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            {createGRNMutation.isPending ? 'Creating...' : 'Create GRN & Update Stock'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Details Dialog */}
+            <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Request Details</DialogTitle>
+                    </DialogHeader>
+                    {selectedRequest && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded">
+                                <div><span className="font-bold">Request No:</span> {selectedRequest.requestNr}</div>
+                                <div><span className="font-bold">PO Number:</span> {selectedRequest.poNumber}</div>
+                                <div><span className="font-bold">Vendor:</span> {selectedRequest.vendor}</div>
+                                <div><span className="font-bold">Source:</span> {selectedRequest.sourceType}</div>
+                            </div>
+                            <table className="w-full text-xs border">
+                                <thead className="bg-slate-100">
+                                    <tr>
+                                        <th className="p-2 border text-left">Item</th>
+                                        <th className="p-2 border text-center">Quantity</th>
+                                        <th className="p-2 border text-left">Make/Model</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {selectedRequest.items?.map((item: any) => (
+                                        <tr key={item.id}>
+                                            <td className="p-2 border">{item.item?.name}</td>
+                                            <td className="p-2 border text-center">{item.requestedQty}</td>
+                                            <td className="p-2 border">{item.make} {item.model}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
-}
-
-function ArrowRight({ className }: { className?: string }) {
-    return <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
 }

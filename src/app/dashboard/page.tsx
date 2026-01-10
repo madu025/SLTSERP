@@ -127,16 +127,16 @@ export default function DashboardPage() {
             <main className="flex-1 flex flex-col min-w-0">
                 <Header />
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-8">
-                    <div className="max-w-7xl mx-auto">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
+                    <div className="max-w-7xl mx-auto w-full">
                         {/* Welcome Section */}
-                        <div className="mb-8">
-                            <h1 className="text-2xl font-bold text-slate-900">Welcome, {user?.name}</h1>
-                            <p className="text-slate-500 text-sm">Here is the performance overview for {isAreaCoordinator ? 'your assigned areas' : 'all RTOMs'}.</p>
+                        <div className="mb-6 md:mb-8">
+                            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Welcome, {user?.name}</h1>
+                            <p className="text-slate-500 text-xs md:text-sm mt-1">Here is the performance overview for {isAreaCoordinator ? 'your assigned areas' : 'all RTOMs'}.</p>
                         </div>
 
                         {/* Top Stats Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
                             <StatCard
                                 label="Monthly Received"
                                 value={stats.monthly?.total || 0}
@@ -164,21 +164,21 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Overall Stats Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <p className="text-xs font-semibold text-slate-500 uppercase">Total Received</p>
+                                <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} Total Received</p>
                                 <p className="text-xl font-bold text-slate-900">{stats.allTime?.total || 0}</p>
                             </div>
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <p className="text-xs font-semibold text-slate-500 uppercase">Total Completed</p>
+                                <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} Total Completed</p>
                                 <p className="text-xl font-bold text-slate-900">{stats.allTime?.completed || 0}</p>
                             </div>
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <p className="text-xs font-semibold text-slate-500 uppercase">PAT Pass</p>
+                                <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} PAT Pass</p>
                                 <p className="text-xl font-bold text-slate-900">{stats.pat?.passed || 0}</p>
                             </div>
                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <p className="text-xs font-semibold text-slate-500 uppercase">PAT Rejected</p>
+                                <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} PAT Rejected</p>
                                 <p className="text-xl font-bold text-slate-900 text-red-600">{stats.pat?.rejected || 0}</p>
                             </div>
                         </div>
@@ -326,13 +326,13 @@ export default function DashboardPage() {
 
 function StatCard({ label, value, icon, color }: any) {
     return (
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
-            <div className={`${color} w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-lg shadow-inherit/20`}>
+        <div className="bg-white p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-3 md:space-x-4">
+            <div className={`${color} w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-lg shadow-inherit/20`}>
                 {icon}
             </div>
-            <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</p>
-                <p className="text-2xl font-bold text-slate-900">{value}</p>
+            <div className="min-w-0 flex-1">
+                <p className="text-[10px] md:text-xs font-medium text-slate-500 uppercase tracking-wider truncate">{label}</p>
+                <p className="text-lg md:text-2xl font-bold text-slate-900">{value}</p>
             </div>
         </div>
     );

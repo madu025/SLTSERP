@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 const TABLE_COLUMNS = {
     pending_sod: [
         { key: 'soNum', label: 'SO Number', required: true },
-        { key: 'statusDate', label: 'Status Date' },
+        { key: 'statusDate', label: 'Received Date' },
         { key: 'lea', label: 'LEA' },
         { key: 'customerName', label: 'Customer Name' },
         { key: 'voiceNumber', label: 'Voice Number' },
@@ -17,6 +17,7 @@ const TABLE_COLUMNS = {
         { key: 'sltsStatus', label: 'SLTS Status' },
         { key: 'scheduledDate', label: 'Appointment' },
         { key: 'orderType', label: 'Order Type' },
+        { key: 'createdAt', label: 'Imported Date' },
         { key: 'serviceType', label: 'Service Type' },
         { key: 'techContact', label: 'Tech Contact' },
         { key: 'address', label: 'Address' },
@@ -26,7 +27,7 @@ const TABLE_COLUMNS = {
     ],
     completed_sod: [
         { key: 'soNum', label: 'SO Number', required: true },
-        { key: 'statusDate', label: 'Status Date' },
+        { key: 'statusDate', label: 'Received Date' },
         { key: 'completedDate', label: 'Completed Date' },
         { key: 'lea', label: 'LEA' },
         { key: 'customerName', label: 'Customer Name' },
@@ -39,7 +40,7 @@ const TABLE_COLUMNS = {
     ],
     return_sod: [
         { key: 'soNum', label: 'SO Number', required: true },
-        { key: 'statusDate', label: 'Status Date' },
+        { key: 'statusDate', label: 'Received Date' },
         { key: 'completedDate', label: 'Return Date' },
         { key: 'lea', label: 'LEA' },
         { key: 'customerName', label: 'Customer Name' },

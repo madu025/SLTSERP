@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Search, Plus, Edit2, Trash2, AlertTriangle } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Square, Layers, Tag, Package } from "lucide-react";
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,10 +21,14 @@ import { toast } from 'sonner';
 const itemSchema = z.object({
     code: z.string().min(2, "Code is required"),
     name: z.string().min(2, "Name is required"),
-    unit: z.enum(['Nos', 'kg', 'L', 'm', 'pkts', 'ml', 'gram']),
+    commonName: z.string().optional(), // Added Common Name
+    unit: z.enum(['Nos', 'kg', 'L', 'm', 'km', 'pkts', 'Box', 'Bot', 'Set', 'Roll']),
     type: z.enum(['SLT', 'SLTS']),
-    category: z.enum(['OSP_NEW_CONN', 'OSP_PROJECT', 'OTHERS']),
+    category: z.string().min(1, "Category is required"),
+    commonFor: z.array(z.string()).optional(), // Made optional
     minLevel: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
+    isWastageAllowed: z.boolean().default(true),
+    maxWastagePercentage: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     description: z.string().optional()
 });
 
@@ -35,6 +40,15 @@ export default function ItemMasterPage() {
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+    // Filter & Batch State
+    const [categoryFilter, setCategoryFilter] = useState("ALL");
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showBulkEdit, setShowBulkEdit] = useState(false);
+    const [bulkEditType, setBulkEditType] = useState<'CATEGORY' | 'JOB_TYPE' | 'TYPE' | null>(null);
+    const [bulkCategory, setBulkCategory] = useState("OTHERS");
+    const [bulkType, setBulkType] = useState("SLTS");
+    const [bulkCommonFor, setBulkCommonFor] = useState<string[]>([]);
 
     // --- QUERIES ---
     const { data: items = [], isLoading } = useQuery({
@@ -86,16 +100,51 @@ export default function ItemMasterPage() {
         onError: (err: any) => toast.error(err.message)
     });
 
+    const bulkMutation = useMutation({
+        mutationFn: async () => {
+            const promises = Array.from(selectedIds).map(async (id) => {
+                const item = items.find((i: any) => i.id === id);
+                if (!item) return;
+
+                const body = {
+                    ...item,
+                    category: bulkEditType === 'CATEGORY' ? bulkCategory : item.category,
+                    type: bulkEditType === 'TYPE' ? bulkType : item.type,
+                    commonFor: bulkEditType === 'JOB_TYPE' ? bulkCommonFor : (item.commonFor || [])
+                };
+
+                const res = await fetch('/api/inventory/items', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (!res.ok) throw new Error("Failed");
+            });
+            await Promise.all(promises);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['items'] });
+            setShowBulkEdit(false);
+            setSelectedIds(new Set());
+            toast.success("Bulk update successful");
+        },
+        onError: () => toast.error("Failed to update items")
+    });
+
     // --- FORM ---
     const form = useForm<ItemFormValues>({
         resolver: zodResolver(itemSchema),
         defaultValues: {
             code: '',
             name: '',
+            commonName: '',
             unit: 'Nos',
             type: 'SLTS',
             category: 'OTHERS',
+            commonFor: ['OTHERS'], // Default tag
             minLevel: '0',
+            isWastageAllowed: true,
+            maxWastagePercentage: '0',
             description: ''
         }
     });
@@ -107,20 +156,28 @@ export default function ItemMasterPage() {
                 form.reset({
                     code: editingItem.code,
                     name: editingItem.name,
+                    commonName: editingItem.commonName || '',
                     unit: editingItem.unit,
                     type: editingItem.type,
                     category: editingItem.category,
+                    commonFor: editingItem.commonFor || ['OTHERS'],
                     minLevel: (editingItem.minLevel ?? 0).toString(),
+                    isWastageAllowed: editingItem.isWastageAllowed ?? true,
+                    maxWastagePercentage: (editingItem.maxWastagePercentage ?? 0).toString(),
                     description: editingItem.description || ''
                 });
             } else {
                 form.reset({
                     code: '',
                     name: '',
+                    commonName: '',
                     unit: 'Nos',
                     type: 'SLTS',
                     category: 'OTHERS',
+                    commonFor: ['OTHERS'],
                     minLevel: '0',
+                    isWastageAllowed: true,
+                    maxWastagePercentage: '0',
                     description: ''
                 });
             }
@@ -128,20 +185,33 @@ export default function ItemMasterPage() {
     }, [showModal, editingItem, form]);
 
     const filteredItems = Array.isArray(items) ? items.filter((i: any) =>
-        i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        i.code.toLowerCase().includes(searchTerm.toLowerCase())
+        (categoryFilter === "ALL" || i.category === categoryFilter) &&
+        (i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            i.code.toLowerCase().includes(searchTerm.toLowerCase()))
     ) : [];
 
-    const categoryLabel = (cat: string) => {
-        switch (cat) {
-            case 'OSP_NEW_CONN': return 'OSP New Connection';
-            case 'OSP_PROJECT': return 'OSP Project';
-            default: return 'Others';
+    // Batch Selection Logic
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredItems.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredItems.map((i: any) => i.id)));
         }
     };
 
+    const toggleSelect = (id: string) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedIds(newSet);
+    };
+
+    const categoryLabel = (cat: string) => {
+        return cat ? cat.replace(/_/g, ' ') : '-';
+    };
+
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="h-screen flex bg-slate-50 overflow-hidden" >
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
@@ -150,8 +220,8 @@ export default function ItemMasterPage() {
 
                         <div className="flex justify-between items-center">
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900">Item Master</h1>
-                                <p className="text-xs text-slate-500">Register and manage inventory items</p>
+                                <h1 className="text-xl font-bold text-slate-900">Material Registration</h1>
+                                <p className="text-xs text-slate-500">Register SLT and Private materials</p>
                             </div>
                             <Button size="sm" onClick={() => { setEditingItem(null); setShowModal(true); }} className="h-8 text-xs">
                                 <Plus className="w-4 h-4 mr-2" /> New Item
@@ -160,26 +230,79 @@ export default function ItemMasterPage() {
 
                         <div className="bg-white rounded-xl border shadow-sm flex flex-col min-h-[500px]">
                             {/* Toolbar */}
-                            <div className="p-4 border-b flex justify-between items-center bg-slate-50/50">
-                                <div className="relative w-64">
-                                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                                    <Input
-                                        placeholder="Search by name or code..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        className="pl-9 h-9 text-xs"
-                                    />
+                            {selectedIds.size > 0 ? (
+                                <div className="p-4 border-b flex justify-between items-center bg-blue-50 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-sm font-bold text-blue-700 flex items-center gap-2">
+                                            <CheckSquare className="w-4 h-4" />
+                                            {selectedIds.size} Items Selected
+                                        </span>
+                                        <div className="h-4 w-[1px] bg-blue-200" />
+                                        <div className="flex gap-2">
+                                            <Button size="sm" variant="outline" className="h-8 bg-white border-blue-200 text-blue-700 hover:bg-blue-100" onClick={() => { setBulkEditType('TYPE'); setShowBulkEdit(true); }}>
+                                                <Package className="w-3.5 h-3.5 mr-2" /> Type
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="h-8 bg-white border-blue-200 text-blue-700 hover:bg-blue-100" onClick={() => { setBulkEditType('JOB_TYPE'); setShowBulkEdit(true); }}>
+                                                <Layers className="w-3.5 h-3.5 mr-2" /> Applicable Job
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="h-8 bg-white border-blue-200 text-blue-700 hover:bg-blue-100" onClick={() => { setBulkEditType('CATEGORY'); setShowBulkEdit(true); }}>
+                                                <Tag className="w-3.5 h-3.5 mr-2" /> Category
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <Button size="sm" variant="ghost" className="h-8 text-blue-700 hover:bg-blue-100" onClick={() => setSelectedIds(new Set())}>
+                                        Cancel Selection
+                                    </Button>
                                 </div>
-                                <div className="text-xs text-slate-500">
-                                    Total Items: <strong>{items.length}</strong>
+                            ) : (
+                                <div className="p-4 border-b flex justify-between items-center bg-slate-50/50">
+                                    <div className="flex items-center gap-3 flex-1">
+                                        <div className="relative w-64">
+                                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                                            <Input
+                                                placeholder="Search by name or code..."
+                                                value={searchTerm}
+                                                onChange={e => setSearchTerm(e.target.value)}
+                                                className="pl-9 h-9 text-xs"
+                                            />
+                                        </div>
+                                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                            <SelectTrigger className="h-9 w-[180px] text-xs">
+                                                <SelectValue placeholder="All Categories" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ALL" className="text-xs">All Categories</SelectItem>
+                                                <SelectItem value="CABLES" className="text-xs">Cables & Wires</SelectItem>
+                                                <SelectItem value="POLES" className="text-xs">Poles & Concrete</SelectItem>
+                                                <SelectItem value="FIBER_ACCESSORIES" className="text-xs">Fiber Accessories</SelectItem>
+                                                <SelectItem value="COPPER_ACCESSORIES" className="text-xs">Copper Accessories</SelectItem>
+                                                <SelectItem value="HARDWARE" className="text-xs">General Hardware</SelectItem>
+                                                <SelectItem value="EQUIPMENT" className="text-xs">Equipment / Tools</SelectItem>
+                                                <SelectItem value="OTHERS" className="text-xs">Others</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="text-xs text-slate-500">
+                                        Total Items: <strong>{items.length}</strong>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Table */}
                             <div className="flex-1 overflow-auto">
                                 <table className="w-full text-xs text-left">
                                     <thead className="bg-slate-50 text-slate-600 font-bold border-b sticky top-0">
                                         <tr>
+                                            <th className="px-4 py-3 w-[40px]">
+                                                <div className="flex items-center justify-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                                        checked={selectedIds.size === filteredItems.length && filteredItems.length > 0}
+                                                        onChange={toggleSelectAll}
+                                                    />
+                                                </div>
+                                            </th>
                                             <th className="px-4 py-3">Code</th>
                                             <th className="px-4 py-3">Item Name</th>
                                             <th className="px-4 py-3">Unit</th>
@@ -197,6 +320,16 @@ export default function ItemMasterPage() {
                                         ) : (
                                             filteredItems.map((item: any) => (
                                                 <tr key={item.id} className="hover:bg-slate-50 group">
+                                                    <td className="px-4 py-2">
+                                                        <div className="flex items-center justify-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                                                                checked={selectedIds.has(item.id)}
+                                                                onChange={() => toggleSelect(item.id)}
+                                                            />
+                                                        </div>
+                                                    </td>
                                                     <td className="px-4 py-2 font-mono text-slate-500">{item.code}</td>
                                                     <td className="px-4 py-2 font-bold text-slate-800">{item.name}</td>
                                                     <td className="px-4 py-2 text-slate-600">{item.unit}</td>
@@ -271,7 +404,12 @@ export default function ItemMasterPage() {
                                                     <SelectItem value="gram" className="text-xs">Gram</SelectItem>
                                                     <SelectItem value="L" className="text-xs">Liter (L)</SelectItem>
                                                     <SelectItem value="ml" className="text-xs">Milliliter (ml)</SelectItem>
+                                                    <SelectItem value="Box" className="text-xs">Box</SelectItem>
                                                     <SelectItem value="pkts" className="text-xs">Packets (pkts)</SelectItem>
+                                                    <SelectItem value="km" className="text-xs">Kilometer (km)</SelectItem>
+                                                    <SelectItem value="Set" className="text-xs">Set</SelectItem>
+                                                    <SelectItem value="Roll" className="text-xs">Roll</SelectItem>
+                                                    <SelectItem value="Bot" className="text-xs">Bottle (Bot)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -304,12 +442,16 @@ export default function ItemMasterPage() {
 
                                     <FormField control={form.control} name="category" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs">Usage Category</FormLabel>
+                                            <FormLabel className="text-xs">Item Category</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="OSP_NEW_CONN" className="text-xs">OSP New Connection</SelectItem>
-                                                    <SelectItem value="OSP_PROJECT" className="text-xs">OSP Project</SelectItem>
+                                                    <SelectItem value="CABLES" className="text-xs">Cables & Wires</SelectItem>
+                                                    <SelectItem value="POLES" className="text-xs">Poles & Concrete</SelectItem>
+                                                    <SelectItem value="FIBER_ACCESSORIES" className="text-xs">Fiber Accessories</SelectItem>
+                                                    <SelectItem value="COPPER_ACCESSORIES" className="text-xs">Copper Accessories</SelectItem>
+                                                    <SelectItem value="HARDWARE" className="text-xs">General Hardware</SelectItem>
+                                                    <SelectItem value="EQUIPMENT" className="text-xs">Equipment / Tools</SelectItem>
                                                     <SelectItem value="OTHERS" className="text-xs">Others</SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -317,6 +459,15 @@ export default function ItemMasterPage() {
                                         </FormItem>
                                     )} />
                                 </div>
+
+                                <FormField control={form.control} name="commonName" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs">Common Name (Grouping)</FormLabel>
+                                        <FormControl><Input {...field} placeholder="e.g. Drop Wire" className="h-8 text-xs" /></FormControl>
+                                        <FormMessage />
+                                        <p className="text-[10px] text-slate-400">Used to group SLT and Company items together in Quick Add.</p>
+                                    </FormItem>
+                                )} />
 
                                 <FormField control={form.control} name="minLevel" render={({ field }) => (
                                     <FormItem>
@@ -330,6 +481,39 @@ export default function ItemMasterPage() {
                                         <p className="text-[10px] text-slate-400">Set minimum quantity to trigger alerts.</p>
                                     </FormItem>
                                 )} />
+
+                                <div className="p-3 bg-slate-50 rounded border space-y-3">
+                                    <FormField control={form.control} name="isWastageAllowed" render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg p-0 space-y-0">
+                                            <div>
+                                                <FormLabel className="text-xs font-semibold">Allow Wastage</FormLabel>
+                                                <p className="text-[10px] text-slate-500">Enable wastage entry for this item in SOD.</p>
+                                            </div>
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                    className="data-[state=checked]:bg-blue-600 border-slate-300"
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )} />
+
+                                    {form.watch("isWastageAllowed") && (
+                                        <FormField control={form.control} name="maxWastagePercentage" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Max Wastage %</FormLabel>
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <Input {...field} type="number" placeholder="e.g. 5" className="h-8 text-xs pr-6" />
+                                                        <span className="absolute right-2 top-2 text-xs text-slate-400">%</span>
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    )}
+                                </div>
 
                                 <FormField control={form.control} name="description" render={({ field }) => (
                                     <FormItem>
@@ -372,7 +556,83 @@ export default function ItemMasterPage() {
                     </DialogContent>
                 </Dialog>
 
+                {/* BULK EDIT MODAL */}
+                <Dialog open={showBulkEdit} onOpenChange={setShowBulkEdit}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Bulk Update {selectedIds.size} Items</DialogTitle>
+                            <DialogDescription>
+                                Updating {bulkEditType === 'CATEGORY' ? 'Category' : bulkEditType === 'TYPE' ? 'Type' : 'Applicable Job Types'} for selected items.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="py-4">
+                            {bulkEditType === 'CATEGORY' && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Select Category</label>
+                                    <Select value={bulkCategory} onValueChange={setBulkCategory}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="CABLES">Cables & Wires</SelectItem>
+                                            <SelectItem value="POLES">Poles & Concrete</SelectItem>
+                                            <SelectItem value="FIBER_ACCESSORIES">Fiber Accessories</SelectItem>
+                                            <SelectItem value="COPPER_ACCESSORIES">Copper Accessories</SelectItem>
+                                            <SelectItem value="HARDWARE">General Hardware</SelectItem>
+                                            <SelectItem value="EQUIPMENT">Equipment / Tools</SelectItem>
+                                            <SelectItem value="OTHERS">Others</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {bulkEditType === 'JOB_TYPE' && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Select Job Types</label>
+                                    <div className="flex flex-wrap gap-4">
+                                        {['FTTH', 'PSTN', 'OSP', 'OTHERS'].map(type => (
+                                            <div key={type} className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`bulk-${type}`}
+                                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                    checked={bulkCommonFor.includes(type)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setBulkCommonFor([...bulkCommonFor, type]);
+                                                        else setBulkCommonFor(bulkCommonFor.filter(t => t !== type));
+                                                    }}
+                                                />
+                                                <label htmlFor={`bulk-${type}`} className="text-sm cursor-pointer">{type}</label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-slate-500 pt-2">Note: This will overwrite existing job types for selected items.</p>
+                                </div>
+                            )}
+
+                            {bulkEditType === 'TYPE' && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Select Type (Source)</label>
+                                    <Select value={bulkType} onValueChange={setBulkType}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="SLTS">SLTS</SelectItem>
+                                            <SelectItem value="SLT">SLT</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </div>
+
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setShowBulkEdit(false)}>Cancel</Button>
+                            <Button onClick={() => bulkMutation.mutate()} disabled={bulkMutation.isPending}>
+                                {bulkMutation.isPending ? 'Updating...' : 'Update All'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
             </main>
-        </div>
+        </div >
     );
 }

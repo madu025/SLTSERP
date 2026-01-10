@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw } from "lucide-react";
+import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList } from "lucide-react";
 import { Form } from "@/components/ui/form";
 import { toast } from "sonner";
 
@@ -18,7 +18,7 @@ const ManualEntryModal = dynamic(() => import("@/components/modals/ManualEntryMo
 const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"), { ssr: false });
 const CommentModal = dynamic(() => import("@/components/modals/CommentModal"), { ssr: false });
 const DetailModal = dynamic(() => import("@/components/modals/DetailModal"), { ssr: false });
-const DatePickerModal = dynamic(() => import("@/components/modals/DatePickerModal"), { ssr: false });
+const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionModal"), { ssr: false });
 const RestoreRequestModal = dynamic(() => import("@/components/modals/RestoreRequestModal"), { ssr: false });
 
 interface ServiceOrder {
@@ -45,11 +45,14 @@ interface ServiceOrder {
     comments: string | null;
     createdAt: string;
     contractorId?: string | null;
+    teamId?: string | null;
     contractor?: { name: string };
     completedDate?: string | null;
     ontSerialNumber?: string | null;
     iptvSerialNumbers?: string | null;
     dpDetails?: string | null;
+    patStatus?: string | null;
+    materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
 }
 
 interface OPMC {
@@ -75,11 +78,18 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     // State
     const [selectedOpmcId, setSelectedOpmcId] = useState<string>("");
     const [selectedRtom, setSelectedRtom] = useState<string>("");
+    const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
+    const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("DEFAULT");
-    const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({ key: "createdAt", direction: "desc" });
+    const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
+    const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
+        key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' ? 'statusDate' : 'createdAt'),
+        direction: "desc"
+    });
     const [page, setPage] = useState(1);
     const [limit] = useState(50);
+    const [patFilter, setPatFilter] = useState("ALL");
+    const [matFilter, setMatFilter] = useState("ALL");
     const [user, setUser] = useState<any>(null);
 
     // Modals State
@@ -87,7 +97,15 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [showCommentModal, setShowCommentModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [showDateModal, setShowDateModal] = useState(false);
+    const [showActionModal, setShowActionModal] = useState(false);
+
+    useEffect(() => {
+        setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT');
+        setSortConfig({
+            key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' ? 'statusDate' : 'createdAt'),
+            direction: "desc"
+        });
+    }, [filterType]);
     const [showRestoreModal, setShowRestoreModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
     const [pendingStatusChange, setPendingStatusChange] = useState<{ orderId: string, newStatus: string } | null>(null);
@@ -139,16 +157,26 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const { data: items = [] } = useQuery({
         queryKey: ["inventory-items"],
         queryFn: async () => (await fetch("/api/inventory/items")).json(),
-        staleTime: 5 * 60 * 1000
+        staleTime: 0 // Fetch fresh items every time to ensure config changes are reflected
     });
+
+    // Fetch System Config for Material Source
+    const { data: config = {} } = useQuery({
+        queryKey: ["system-config"],
+        queryFn: async () => (await fetch("/api/admin/system-config")).json(),
+        staleTime: 0 // Fetch fresh config every time component mounts to avoid stale settings
+    });
+    const materialSource = config['OSP_MATERIAL_SOURCE'] || 'SLT';
 
     // Fetch Service Orders (fetch ALL to enable proper sorting of missing SODs)
     const { data: qData, isLoading: isLoadingOrders, isRefetching } = useQuery<{ items: ServiceOrder[], meta: any, summary: any }>({
-        queryKey: ["service-orders", selectedOpmcId, filterType],
+        queryKey: ["service-orders", selectedOpmcId, filterType, selectedMonth, selectedYear],
         queryFn: async () => {
             if (!selectedOpmcId) return { items: [], meta: {}, summary: {} };
             // Fetch all items (no pagination on API side)
-            const res = await fetch(`/api/service-orders?opmcId=${selectedOpmcId}&filter=${filterType}&page=1&limit=10000`);
+            const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
+            const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
+            const res = await fetch(`/api/service-orders?opmcId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}&page=1&limit=10000`);
             return res.json();
         },
         enabled: !!selectedOpmcId,
@@ -229,7 +257,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             dpDetails,
             contractorId,
             teamId,
-            materialUsage
+            directTeamName,
+            materialUsage,
+            patStatus,
+            completionMode
         }: {
             id: string;
             status: string;
@@ -242,7 +273,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             dpDetails?: string;
             contractorId?: string;
             teamId?: string;
+            directTeamName?: string;
             materialUsage?: any;
+            patStatus?: string;
+            completionMode?: 'ONLINE' | 'OFFLINE';
         }) => {
             const res = await fetch("/api/service-orders", {
                 method: "PATCH",
@@ -250,7 +284,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 body: JSON.stringify({
                     id,
                     sltsStatus: status,
-                    scheduledDate: date,
+                    ...(status === 'COMPLETED' || status === 'RETURN'
+                        ? { completedDate: date }
+                        : { scheduledDate: date }
+                    ),
                     comments: comment,
                     returnReason: reason,
                     ontSerialNumber,
@@ -259,7 +296,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     dpDetails,
                     contractorId,
                     teamId,
-                    materialUsage
+                    directTeamName,
+                    materialUsage,
+                    patStatus,
+                    completionMode
                 })
             });
             if (!res.ok) throw new Error("Failed");
@@ -367,13 +407,13 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 setSelectedOrder(order); // Set selected order for modal data
             }
             setPendingStatusChange({ orderId, newStatus });
-            setShowDateModal(true);
+            setShowActionModal(true);
         } else {
             updateStatusMutation.mutate({ id: orderId, status: newStatus });
         }
     };
 
-    const handleDateSubmit = (date: string, comment?: string, reason?: string) => {
+    const handleActionSubmit = (date: string, comment?: string, reason?: string) => {
         if (pendingStatusChange) {
             updateStatusMutation.mutate({
                 id: pendingStatusChange.orderId,
@@ -383,7 +423,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 reason
             });
             setPendingStatusChange(null);
-            setShowDateModal(false);
+            setShowActionModal(false);
         }
     };
 
@@ -400,7 +440,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 ? ["ASSIGNED", "INPROGRESS", "PROV_CLOSED", "INSTALL_CLOSED"].includes(order.status)
                 : order.status === statusFilter;
 
-        return matchesSearch && matchesStatus;
+        const matchesPat = patFilter === 'ALL' ? true : (patFilter === 'PENDING' ? !(['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '')) : (['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '')));
+        const matchesMat = matFilter === 'ALL' ? true : (matFilter === 'PENDING' ? !order.comments?.includes('[MATERIAL_COMPLETED]') : order.comments?.includes('[MATERIAL_COMPLETED]'));
+
+        return matchesSearch && matchesStatus && matchesPat && matchesMat;
     });
 
     // Separate missing and normal orders
@@ -415,6 +458,15 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     // Sort each group separately
     const sortFunction = (a: ServiceOrder, b: ServiceOrder) => {
         if (!sortConfig) return 0;
+
+        // Custom Sort for Completed View (PAT Pending -> Top)
+        if (filterType === 'completed' && (sortConfig.key === 'completedDate' || sortConfig.key === 'createdAt')) {
+            const aPending = !['COMPLETED', 'VERIFIED', 'PASS'].includes(a.patStatus || '');
+            const bPending = !['COMPLETED', 'VERIFIED', 'PASS'].includes(b.patStatus || '');
+            if (aPending && !bPending) return -1;
+            if (!aPending && bPending) return 1;
+        }
+
         const { key, direction } = sortConfig;
         let aValue: any = a[key] ?? "";
         let bValue: any = b[key] ?? "";
@@ -553,7 +605,36 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 </Select>
                             </div>
                             <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
-                            <div className="flex items-center gap-2 flex-1 min-w-[150px]">
+
+                            {/* Date Filters - Only for Completed/Return views */}
+                            {filterType !== 'pending' && (
+                                <>
+                                    <div className="flex items-center gap-1">
+                                        <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                            <SelectTrigger className="h-7 w-[75px] text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => (
+                                                    <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                            <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {[
+                                                    { v: '1', l: 'January' }, { v: '2', l: 'February' }, { v: '3', l: 'March' }, { v: '4', l: 'April' },
+                                                    { v: '5', l: 'May' }, { v: '6', l: 'June' }, { v: '7', l: 'July' }, { v: '8', l: 'August' },
+                                                    { v: '9', l: 'September' }, { v: '10', l: 'October' }, { v: '11', l: 'November' }, { v: '12', l: 'December' }
+                                                ].map(m => (
+                                                    <SelectItem key={m.v} value={m.v} className="text-xs">{m.l}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
+                                </>
+                            )}
+                            <div className="flex items-center gap-2 w-[240px]">
                                 <Input
                                     placeholder="Search SO Number, Name..."
                                     value={searchTerm}
@@ -561,17 +642,48 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     className="h-7 text-xs w-full"
                                 />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="h-7 w-[120px] text-xs"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="DEFAULT" className="font-semibold text-xs">Standard View</SelectItem>
-                                        <SelectItem value="ALL" className="text-xs">All Status</SelectItem>
-                                        <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
-                                        <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {filterType === 'pending' && (
+                                <div className="flex items-center gap-2">
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger className="h-7 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="DEFAULT" className="font-semibold text-xs">Standard View</SelectItem>
+                                            <SelectItem value="ALL" className="text-xs">All Status</SelectItem>
+                                            <SelectItem value="ASSIGNED" className="text-xs">Assigned</SelectItem>
+                                            <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
+                                            <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
+                                            <SelectItem value="PROV_CLOSED" className="text-xs">Prov. Closed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                            {filterType === 'completed' && (
+                                <>
+                                    <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">PAT</label>
+                                        <Select value={patFilter} onValueChange={setPatFilter}>
+                                            <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ALL" className="text-xs">All</SelectItem>
+                                                <SelectItem value="PENDING" className="text-xs">Pending</SelectItem>
+                                                <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">Mat</label>
+                                        <Select value={matFilter} onValueChange={setMatFilter}>
+                                            <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="ALL" className="text-xs">All</SelectItem>
+                                                <SelectItem value="PENDING" className="text-xs">Pending</SelectItem>
+                                                <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -590,21 +702,30 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                             {isColumnVisible('customerName') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('customerName')}>Customer <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'customerName' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                             {isColumnVisible('voiceNumber') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('voiceNumber')}>Voice <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'voiceNumber' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                             {isColumnVisible('package') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('package')}>Package <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'package' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                            {isColumnVisible('orderType') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('orderType')}>Order Type <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'orderType' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                            {isColumnVisible('statusDate') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('statusDate')}>Received Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'statusDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                            {isColumnVisible('createdAt') && filterType === 'pending' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('createdAt')}>Imported Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'createdAt' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
 
                                             {filterType === 'return' ? (
                                                 // Specific columns for Return View
                                                 <>
                                                     <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('status')}>Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
                                                     <th className="px-3 py-2 whitespace-nowrap">Contractor</th>
-                                                    <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('statusDate')}>Return Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'statusDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
+                                                    <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('statusDate')}>Received Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'statusDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
+                                                    <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('completedDate')}>Return Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'completedDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
                                                     <th className="px-3 py-2 whitespace-nowrap">Return Reason/Comment</th>
                                                 </>
                                             ) : (
                                                 // Standard columns for other views
                                                 <>
-                                                    {isColumnVisible('status') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('status')}>Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                    {isColumnVisible('sltsStatus') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('sltsStatus')}>SLTS Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'sltsStatus' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                    {isColumnVisible('scheduledDate') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('scheduledDate')}>Appointment <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'scheduledDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                    {isColumnVisible('status') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('status')}>Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                    {isColumnVisible('sltsStatus') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('sltsStatus')}>SLTS Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'sltsStatus' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                    {isColumnVisible('scheduledDate') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('scheduledDate')}>Appointment <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'scheduledDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('completedDate')}>Completed Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'completedDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Contractor</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">ONT Serial</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Mat Status</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">PAT</th>}
                                                     {isColumnVisible('dp') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('dp')}>DP <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'dp' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                                     {isColumnVisible('iptv') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('iptv')}>IPTV <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'iptv' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                                 </>
@@ -620,7 +741,11 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                             paginatedOrders.map(order => {
                                                 const isMissingFromSync = order.comments?.includes('[MISSING FROM SYNC');
                                                 return (
-                                                    <tr key={order.id} className={`transition-colors ${isMissingFromSync ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-slate-50/50'}`}>
+                                                    <tr key={order.id} className={`transition-colors ${isMissingFromSync ? 'bg-orange-50 hover:bg-orange-100' :
+                                                        (filterType === 'completed' && order.patStatus === 'PENDING') ? 'bg-yellow-50 hover:bg-yellow-100' :
+                                                            (filterType === 'completed' && (order.patStatus === 'COMPLETED' || order.patStatus === 'VERIFIED')) ? 'bg-emerald-50 hover:bg-emerald-100' :
+                                                                'hover:bg-slate-50/50'
+                                                        }`}>
                                                         {isColumnVisible('soNum') && (
                                                             <td className="px-3 py-1.5 font-mono font-medium text-primary whitespace-nowrap">
                                                                 <button onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>{order.soNum}</button>
@@ -630,6 +755,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                         {isColumnVisible('customerName') && <td className="px-3 py-1.5 max-w-[120px] truncate" title={order.customerName || ''}>{order.customerName || '-'}</td>}
                                                         {isColumnVisible('voiceNumber') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.voiceNumber || '-'}</td>}
                                                         {isColumnVisible('package') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-semibold">{order.package || '-'}</span></td>}
+                                                        {isColumnVisible('orderType') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-medium">{order.orderType || '-'}</span></td>}
+                                                        {isColumnVisible('statusDate') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.statusDate ? new Date(order.statusDate).toLocaleDateString() : '-'}</td>}
+                                                        {isColumnVisible('createdAt') && filterType === 'pending' && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</td>}
 
                                                         {filterType === 'return' ? (
                                                             <>
@@ -652,7 +780,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                             </>
                                                         ) : (
                                                             <>
-                                                                {isColumnVisible('status') && (
+                                                                {isColumnVisible('status') && filterType !== 'completed' && (
                                                                     <td className="px-3 py-1.5 whitespace-nowrap">
                                                                         <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${order.status === 'INPROGRESS' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                                                                             order.status === 'INSTALL_CLOSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'
@@ -661,7 +789,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                         </span>
                                                                     </td>
                                                                 )}
-                                                                {isColumnVisible('sltsStatus') && (
+                                                                {isColumnVisible('sltsStatus') && filterType !== 'completed' && (
                                                                     <td className="px-3 py-1.5">
                                                                         <Select
                                                                             value={order.sltsStatus}
@@ -681,7 +809,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                         </Select>
                                                                     </td>
                                                                 )}
-                                                                {isColumnVisible('scheduledDate') && (
+                                                                {isColumnVisible('scheduledDate') && filterType !== 'completed' && (
                                                                     <td className="px-3 py-1.5 text-[10px] text-slate-600 whitespace-nowrap">
                                                                         {order.scheduledDate ? (
                                                                             <div className="flex items-center gap-1">
@@ -691,6 +819,40 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                             </div>
                                                                         ) : '-'}
                                                                     </td>
+                                                                )}
+                                                                {filterType === 'completed' && (
+                                                                    <td className="px-3 py-1.5 text-[10px] text-slate-600 whitespace-nowrap">
+                                                                        {order.completedDate ? new Date(order.completedDate).toLocaleDateString() : '-'}
+                                                                    </td>
+                                                                )}
+                                                                {filterType === 'completed' && (
+                                                                    <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">
+                                                                        {order.contractor?.name || contractors.find(c => c.id === order.contractorId)?.name || '-'}
+                                                                    </td>
+                                                                )}
+                                                                {filterType === 'completed' && (
+                                                                    <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap font-mono">
+                                                                        {order.ontSerialNumber || '-'}
+                                                                    </td>
+                                                                )}
+                                                                {filterType === 'completed' && (
+                                                                    <>
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                                            {order.comments?.includes('[MATERIAL_COMPLETED]') ? (
+                                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 border border-green-200">DONE</span>
+                                                                            ) : (
+                                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">PENDING</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'bg-green-100 text-green-700 border-green-200' :
+                                                                                order.patStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                                                    'bg-yellow-100 text-yellow-700 border-yellow-200'
+                                                                                }`}>
+                                                                                {['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'OK' : (order.patStatus || 'PENDING')}
+                                                                            </span>
+                                                                        </td>
+                                                                    </>
                                                                 )}
                                                                 {isColumnVisible('dp') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.dp || '-'}</td>}
                                                                 {isColumnVisible('iptv') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap text-center">{order.iptv || '-'}</td>}
@@ -711,12 +873,34 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     </Button>
                                                                 ) : (
                                                                     <>
-                                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-600 hover:bg-blue-50" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}>
-                                                                            <Calendar className="w-3.5 h-3.5" />
-                                                                        </Button>
-                                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}>
-                                                                            <MessageSquare className="w-3.5 h-3.5" />
-                                                                        </Button>
+                                                                        {filterType !== 'completed' && (
+                                                                            <>
+                                                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-600 hover:bg-blue-50" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}>
+                                                                                    <Calendar className="w-3.5 h-3.5" />
+                                                                                </Button>
+                                                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}>
+                                                                                    <MessageSquare className="w-3.5 h-3.5" />
+                                                                                </Button>
+                                                                            </>
+                                                                        )}
+                                                                        {filterType === 'completed' && (
+                                                                            <Button
+                                                                                size="icon"
+                                                                                variant="ghost"
+                                                                                className="h-6 w-6 text-purple-600 hover:bg-purple-50"
+                                                                                onClick={() => {
+                                                                                    setPendingStatusChange({
+                                                                                        orderId: order.id,
+                                                                                        newStatus: 'COMPLETED'
+                                                                                    });
+                                                                                    setSelectedOrder(order);
+                                                                                    setShowActionModal(true);
+                                                                                }}
+                                                                                title="Update Material & Photo Status"
+                                                                            >
+                                                                                <ClipboardList className="w-3.5 h-3.5" />
+                                                                            </Button>
+                                                                        )}
                                                                     </>
                                                                 )}
                                                             </div>
@@ -765,47 +949,72 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     onSubmit={(data) => addOrderMutation.mutate(data)}
                 />
 
-                {selectedOrder && (
-                    <>
-                        <ScheduleModal
-                            isOpen={showScheduleModal}
-                            onClose={() => setShowScheduleModal(false)}
-                            onSubmit={(data) => scheduleMutation.mutate(data)}
-                            selectedOrder={selectedOrder}
-                        />
+                {
+                    selectedOrder && (
+                        <>
+                            <ScheduleModal
+                                isOpen={showScheduleModal}
+                                onClose={() => setShowScheduleModal(false)}
+                                onSubmit={(data) => scheduleMutation.mutate(data)}
+                                selectedOrder={selectedOrder}
+                            />
 
-                        <CommentModal
-                            isOpen={showCommentModal}
-                            onClose={() => setShowCommentModal(false)}
-                            onSubmit={(comment) => commentMutation.mutate(comment)}
-                            selectedOrder={selectedOrder}
-                            initialComment={selectedOrder.comments || ""}
-                        />
+                            <CommentModal
+                                isOpen={showCommentModal}
+                                onClose={() => setShowCommentModal(false)}
+                                onSubmit={(comment) => commentMutation.mutate(comment)}
+                                selectedOrder={selectedOrder}
+                                initialComment={selectedOrder.comments || ""}
+                            />
 
-                        <DetailModal
-                            isOpen={showDetailModal}
-                            onClose={() => setShowDetailModal(false)}
-                            selectedOrder={selectedOrder}
-                        />
+                            <DetailModal
+                                isOpen={showDetailModal}
+                                onClose={() => setShowDetailModal(false)}
+                                selectedOrder={selectedOrder}
+                            />
 
-                        <RestoreRequestModal
-                            isOpen={showRestoreModal}
-                            onClose={() => setShowRestoreModal(false)}
-                            onSubmit={(data) => restoreRequestMutation.mutate(data)}
-                        />
-                    </>
-                )}
+                            <RestoreRequestModal
+                                isOpen={showRestoreModal}
+                                onClose={() => setShowRestoreModal(false)}
+                                onSubmit={(data) => restoreRequestMutation.mutate(data)}
+                            />
+                        </>
+                    )
+                }
 
-                <DatePickerModal
-                    isOpen={showDateModal}
-                    onClose={() => setShowDateModal(false)}
+                <OrderActionModal
+                    isOpen={showActionModal}
+                    onClose={() => setShowActionModal(false)}
                     onConfirm={(data) => {
+                        let finalComment = data.comment || "";
+                        let statusToUpdate = pendingStatusChange?.newStatus;
+
+                        if (data.materialStatus === 'COMPLETED') {
+                            if (!finalComment.includes('[MATERIAL_COMPLETED]')) finalComment += " [MATERIAL_COMPLETED]";
+                        } else {
+                            finalComment = finalComment.replace(' [MATERIAL_COMPLETED]', '').replace('[MATERIAL_COMPLETED]', '');
+                        }
+
+                        // Wired Only Logic - Keep as INPROGRESS
+                        if (data.wiredOnly) {
+                            statusToUpdate = 'INPROGRESS';
+                            if (!finalComment.includes('[WIRED_ONLY]')) finalComment += " [WIRED_ONLY]";
+
+                            const reasons = [];
+                            if (data.ontShortage) reasons.push('ONT_SHORTAGE');
+                            if (data.stbShortage) reasons.push('STB_SHORTAGE');
+                            if (data.delayReasons?.cxDelay) reasons.push('CX_DELAY');
+                            if (data.delayReasons?.system) reasons.push('SYSTEM_ISSUE');
+
+                            if (reasons.length > 0) finalComment += ` [${reasons.join(',')}]`;
+                        }
+
                         if (pendingStatusChange) {
                             updateStatusMutation.mutate({
                                 id: pendingStatusChange.orderId,
-                                status: pendingStatusChange.newStatus,
+                                status: statusToUpdate!,
                                 date: data.date,
-                                comment: data.comment,
+                                comment: finalComment,
                                 reason: data.reason,
                                 ontSerialNumber: data.ontSerialNumber,
                                 ontType: data.ontType,
@@ -813,26 +1022,46 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 dpDetails: data.dpDetails,
                                 contractorId: data.contractorId,
                                 teamId: data.teamId,
-                                materialUsage: data.materialUsage
+                                directTeamName: data.directTeamName,
+                                materialUsage: data.materialUsage,
+                                patStatus: data.patStatus,
+                                completionMode: data.completionMode
                             });
-                            setShowDateModal(false);
+                            setShowActionModal(false);
                             setPendingStatusChange(null);
                         }
                     }}
-                    title={pendingStatusChange?.newStatus === 'RETURN' ? "Mark as Return" : "Complete Order"}
+                    title={pendingStatusChange?.newStatus === 'RETURN' ? "Mark as Return" : filterType === 'completed' ? "Update Installation Details" : "Complete Order"}
                     isReturn={pendingStatusChange?.newStatus === 'RETURN'}
                     isComplete={pendingStatusChange?.newStatus === 'COMPLETED'}
                     orderData={selectedOrder ? {
                         package: selectedOrder.package,
+                        serviceType: selectedOrder.serviceType, // Pass Service Type
+                        orderType: selectedOrder.orderType,     // Pass Order Type
+                        comments: selectedOrder.comments,
                         iptv: selectedOrder.iptv,
                         dp: selectedOrder.dp,
-                        voiceNumber: selectedOrder.voiceNumber
+                        voiceNumber: selectedOrder.voiceNumber,
+                        contractorId: selectedOrder.contractorId,
+                        teamId: selectedOrder.teamId,
+                        completedDate: selectedOrder.completedDate,
+                        ontSerialNumber: selectedOrder.ontSerialNumber,
+                        iptvSerialNumbers: selectedOrder.iptvSerialNumbers ? selectedOrder.iptvSerialNumbers.split(',').map(s => s.trim()).filter(Boolean) : [],
+                        patStatus: selectedOrder.patStatus as any,
+                        materialUsage: selectedOrder.materialUsage,
+                        directTeam: (selectedOrder as any).directTeam,
+                        completionMode: (selectedOrder as any).completionMode
                     } : undefined}
                     contractors={contractors}
                     items={items}
+                    materialSource={materialSource}
+                    itemSortOrder={(() => {
+                        try { return JSON.parse(config['OSP_ITEM_ORDER'] || '[]'); } catch { return []; }
+                    })()}
+                    showExtendedFields={filterType === 'completed'}
                 />
 
-            </main>
-        </div>
+            </main >
+        </div >
     );
 }

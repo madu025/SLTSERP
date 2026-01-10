@@ -63,16 +63,20 @@ export default function InitialStockPage() {
 
     // Initialize inputs when current stock loads
     useEffect(() => {
-        if (currentStocks && items.length > 0) {
+        if (selectedStore && currentStocks && items.length > 0) {
             const initialValues: Record<string, string> = {};
             items.forEach(item => {
                 const stock = currentStocks.find((s: any) => s.itemId === item.id);
-                // Default to 0 if not found, or use current value
                 initialValues[item.id] = stock ? stock.quantity.toString() : "0";
             });
             setStockValues(initialValues);
+        } else if (!selectedStore) {
+            // Clear when no store selected
+            setStockValues({});
         }
-    }, [currentStocks, items, selectedStore]);
+        // Only run when selectedStore changes or when data first loads
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedStore]);
 
 
     const saveMutation = useMutation({

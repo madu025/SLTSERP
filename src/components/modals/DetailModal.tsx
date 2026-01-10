@@ -38,6 +38,14 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                     <DetailItem label="Tech Contact" value={selectedOrder.techContact} />
                     <DetailItem label="Sales Person" value={selectedOrder.sales} />
                     <DetailItem label="RTOM" value={selectedOrder.rtom} />
+                    <DetailItem label="LEA" value={selectedOrder.lea} />
+                    <DetailItem label="IPTV Number" value={selectedOrder.iptv} />
+                    <DetailItem label="WORO Task" value={selectedOrder.woroTaskName} />
+                    <DetailItem label="Received Date" value={selectedOrder.statusDate ? new Date(selectedOrder.statusDate).toLocaleDateString() : '-'} />
+                    <DetailItem label="Imported Date" value={selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString() : '-'} />
+                    <DetailItem label="SEIT Number (OSP)" value={selectedOrder.woroSeit} />
+                    <DetailItem label="SEIT Number (Inst)" value={selectedOrder.ftthInstSeit} />
+                    {selectedOrder.completionMode && <DetailItem label="Completion Mode" value={selectedOrder.completionMode} />}
 
                     <div className="md:col-span-2">
                         <DetailItem label="Address" value={selectedOrder.address} />

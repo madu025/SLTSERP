@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
 export async function GET(request: Request) {
     try {
@@ -23,37 +23,52 @@ export async function GET(request: Request) {
         }
 
         const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN';
-        const isManager = user.role === 'MANAGER' || user.role === 'SA_MANAGER';
-        const isAreaManager = user.role === 'AREA_MANAGER';
-        const isAreaCoordinator = user.role === 'AREA_COORDINATOR';
+        const isManager = user.role === 'MANAGER' || user.role === 'SA_MANAGER' || user.role === 'OSP_MANAGER';
+        // Area Manager & Coordinator logic is handled by the else block below
 
         // Base where clause based on accessible OPMCs
         let whereClause: any = {};
         if (!isAdmin && !isManager) {
-            const accessibleOpmcIds = user.accessibleOpmcs.map(o => o.id);
+            // Filter for Area Managers, Coordinators, QC Officers etc.
+            const accessibleOpmcIds = user.accessibleOpmcs.map((o: any) => o.id);
+            // If no assigned OPMCs, they see nothing (or user should be assigned OPMCs)
             whereClause.opmcId = { in: accessibleOpmcIds };
         }
 
-        const now = new Date();
+        const now = new Date(); // 2026-xx-xx
         const firstDayOfMonth = startOfMonth(now);
         const lastDayOfMonth = endOfMonth(now);
+        const firstDayOfYear = startOfYear(now);
+        const lastDayOfYear = endOfYear(now);
 
-        // 1. Monthly Stats
+        // Add Year Filter to Base Where Clause (All data restricted to 2026)
+        whereClause.createdAt = {
+            gte: firstDayOfYear,
+            lte: lastDayOfYear
+        };
+
+        // 1. Monthly Stats (Current Month)
+        // Need specific date range for month, overriding the year range in 'whereClause'?
+        // No, 'whereClause' has year range. We need strictly month range.
+        // We will create a separate where object for monthly to be safe/clear.
+        const monthlyWhere = {
+            ...whereClause,
+            createdAt: {
+                gte: firstDayOfMonth,
+                lte: lastDayOfMonth
+            }
+        };
+
         const monthlyStats = await (prisma.serviceOrder as any).groupBy({
             by: ['sltsStatus'],
-            where: {
-                ...whereClause,
-                createdAt: {
-                    gte: firstDayOfMonth,
-                    lte: lastDayOfMonth
-                }
-            },
+            where: monthlyWhere,
             _count: {
                 _all: true
             }
         });
 
-        // 2. Total Stats
+        // 2. Total Stats (Yearly Default)
+        // Uses base whereClause which now includes 2026 year filter
         const totalStats = await (prisma.serviceOrder as any).groupBy({
             by: ['sltsStatus'],
             where: whereClause,

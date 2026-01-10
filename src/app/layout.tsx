@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google"; // Removed Inter as it was not used or replaced
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import Providers from "@/components/Providers";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "nexusErp - Construction ERP",
+  title: "SLTSERP - Construction ERP",
   description: "OSP Construction Management System",
 };
 
@@ -31,11 +32,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>
-          <ThemeProvider>
-            {children}
-          </ThemeProvider>
-        </Providers>
+        <ErrorBoundary>
+          <Providers>
+            <ThemeProvider>
+              {children}
+            </ThemeProvider>
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { InventoryService } from '@/services/inventory.service';
 
 // GET - Get single store
 export async function GET(
     request: Request,
-    { params }: { params: { storeId: string } }
+    props: { params: Promise<{ storeId: string }> }
 ) {
+    const params = await props.params;
     try {
-        const store = await prisma.inventoryStore.findUnique({
-            where: { id: params.storeId },
-            include: {
-                opmcs: true,
-                manager: true
-            }
-        });
+        const store = await InventoryService.getStore(params.storeId);
 
         if (!store) {
             return NextResponse.json({ error: 'Store not found' }, { status: 404 });
@@ -29,37 +24,12 @@ export async function GET(
 // PUT - Update store
 export async function PUT(
     request: Request,
-    { params }: { params: { storeId: string } }
+    props: { params: Promise<{ storeId: string }> }
 ) {
+    const params = await props.params;
     try {
-        const { name, type, location, managerId, opmcIds } = await request.json();
-
-        // Update store
-        const store = await prisma.inventoryStore.update({
-            where: { id: params.storeId },
-            data: {
-                name,
-                type,
-                location,
-                managerId: managerId || null
-            }
-        });
-
-        // Update OPMC assignments
-        // First, remove all current assignments
-        await prisma.oPMC.updateMany({
-            where: { storeId: params.storeId },
-            data: { storeId: null }
-        });
-
-        // Then assign new OPMCs
-        if (opmcIds && opmcIds.length > 0) {
-            await prisma.oPMC.updateMany({
-                where: { id: { in: opmcIds } },
-                data: { storeId: params.storeId }
-            });
-        }
-
+        const body = await request.json();
+        const store = await InventoryService.updateStore(params.storeId, body);
         return NextResponse.json(store);
     } catch (error) {
         console.error('Error updating store:', error);
@@ -70,22 +40,16 @@ export async function PUT(
 // DELETE - Delete store
 export async function DELETE(
     request: Request,
-    { params }: { params: { storeId: string } }
+    props: { params: Promise<{ storeId: string }> }
 ) {
+    const params = await props.params;
     try {
-        // Remove OPMC assignments first
-        await prisma.oPMC.updateMany({
-            where: { storeId: params.storeId },
-            data: { storeId: null }
-        });
-
-        // Delete store
-        await prisma.inventoryStore.delete({
-            where: { id: params.storeId }
-        });
-
+        await InventoryService.deleteStore(params.storeId);
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
+        if (error.message === 'STORE_HAS_STOCK' || error.message === 'STORE_HAS_TRANSACTIONS') {
+            return NextResponse.json({ error: 'Store cannot be deleted as it has associated stock or transactions' }, { status: 400 });
+        }
         console.error('Error deleting store:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }

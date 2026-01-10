@@ -25,6 +25,7 @@ export async function GET(request: Request) {
                 role: true,
                 createdAt: true,
                 staffId: true,
+                assignedStoreId: true,
                 accessibleOpmcs: { select: { id: true, rtom: true } },
                 supervisor: { select: { id: true, name: true, username: true, role: true } }
             },
@@ -47,7 +48,15 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { username, email, password, name, role, employeeId, opmcIds, supervisorId } = body;
+        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = body;
+
+        // Validate OPMC requirement for New Connection & Service Assurance
+        const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
+        if (requiresOPMC && (!opmcIds || opmcIds.length === 0)) {
+            return NextResponse.json({
+                message: 'OPMC selection is required for New Connection and Service Assurance roles'
+            }, { status: 400 });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -55,7 +64,6 @@ export async function POST(request: Request) {
             // 1. Create Staff record if employeeId is present
             let staffId = undefined;
             if (employeeId) {
-                // Check if staff exists to link or create new
                 const existingStaff = await tx.staff.findUnique({ where: { employeeId } });
 
                 if (existingStaff) {
@@ -66,7 +74,6 @@ export async function POST(request: Request) {
                             name: name || username,
                             employeeId,
                             designation: role,
-                            // Link to primary OPMC if provided (using first for home base)
                             opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
                         }
                     });
@@ -83,6 +90,7 @@ export async function POST(request: Request) {
                     name,
                     role: role || 'ENGINEER',
                     staff: staffId ? { connect: { id: staffId } } : undefined,
+                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : undefined,
                     accessibleOpmcs: {
                         connect: opmcIds && Array.isArray(opmcIds)
                             ? opmcIds.map((id: string) => ({ id }))
@@ -94,6 +102,70 @@ export async function POST(request: Request) {
                     accessibleOpmcs: { select: { rtom: true } }
                 }
             });
+
+            // 3. Auto-assign to Section based on Role (Existing logic kept same)
+            const sectionMapping: Record<string, string> = {
+                'OSP_MANAGER': 'PROJECTS',
+                'AREA_MANAGER': 'PROJECTS',
+                'ENGINEER': 'PROJECTS',
+                'ASSISTANT_ENGINEER': 'PROJECTS',
+                'AREA_COORDINATOR': 'PROJECTS',
+                'QC_OFFICER': 'PROJECTS',
+                'MANAGER': 'NEW_CONNECTION',
+                'SA_MANAGER': 'SERVICE_ASSURANCE',
+                'SA_ASSISTANT': 'SERVICE_ASSURANCE',
+                'STORES_MANAGER': 'STORES',
+                'STORES_ASSISTANT': 'STORES',
+                'PROCUREMENT_OFFICER': 'PROCUREMENT',
+                'FINANCE_MANAGER': 'FINANCE',
+                'FINANCE_ASSISTANT': 'FINANCE',
+                'INVOICE_MANAGER': 'INVOICE',
+                'INVOICE_ASSISTANT': 'INVOICE',
+                'OFFICE_ADMIN': 'OFFICE_ADMIN',
+                'OFFICE_ADMIN_ASSISTANT': 'OFFICE_ADMIN',
+                'SUPER_ADMIN': 'ADMIN',
+                'ADMIN': 'ADMIN'
+            };
+
+            const sectionCode = sectionMapping[role];
+            if (sectionCode) {
+                // Find or create section
+                let section = await tx.section.findUnique({ where: { code: sectionCode } });
+                if (!section) {
+                    // Create section if it doesn't exist
+                    section = await tx.section.create({
+                        data: {
+                            name: sectionCode.replace(/_/g, ' '),
+                            code: sectionCode
+                        }
+                    });
+                }
+
+                // Find or create role for this section
+                const roleCode = `${sectionCode}_${role}`;
+                let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
+                if (!systemRole) {
+                    systemRole = await tx.systemRole.create({
+                        data: {
+                            name: role.replace(/_/g, ' '),
+                            code: roleCode,
+                            sectionId: section.id,
+                            permissions: JSON.stringify(['dashboard']) // Default permission
+                        }
+                    });
+                }
+
+                // Create user section assignment
+                await tx.userSectionAssignment.create({
+                    data: {
+                        userId: user.id,
+                        sectionId: section.id,
+                        roleId: systemRole.id,
+                        isPrimary: true
+                    }
+                });
+            }
+
             return user;
         });
 
@@ -118,7 +190,7 @@ export async function PUT(request: Request) {
         }
 
         const body = await request.json();
-        const { id, username, email, password, name, role, employeeId, opmcIds, supervisorId } = body;
+        const { id, username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = body;
 
         // Protection: Prevent modifying Super Admin role or username
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
@@ -166,6 +238,7 @@ export async function PUT(request: Request) {
                 data: {
                     ...dataToUpdate,
                     staff: staffId ? { connect: { id: staffId } } : undefined,
+                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : { disconnect: true },
                     accessibleOpmcs: {
                         set: [], // Clear existing
                         connect: opmcIds ? opmcIds.map((oid: string) => ({ id: oid })) : []

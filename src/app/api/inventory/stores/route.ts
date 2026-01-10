@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { InventoryService } from '@/services/inventory.service';
 
 export async function GET(request: Request) {
     try {
-        const stores = await prisma.inventoryStore.findMany({
-            include: {
-                manager: {
-                    select: { name: true, username: true }
-                }
-            },
-            orderBy: { createdAt: 'asc' }
-        });
+        const stores = await InventoryService.getStores();
         return NextResponse.json(stores);
     } catch (error) {
         return NextResponse.json({ error: 'Failed to fetch stores' }, { status: 500 });
@@ -20,17 +13,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { name, type, location, managerId } = body;
-
-        const store = await prisma.inventoryStore.create({
-            data: {
-                name,
-                type,
-                location,
-                managerId: managerId === 'none' ? null : managerId
-            }
-        });
-
+        const store = await InventoryService.createStore(body);
         return NextResponse.json(store);
     } catch (error) {
         return NextResponse.json({ error: 'Failed to create store' }, { status: 500 });
@@ -40,20 +23,11 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { id, name, type, location, managerId } = body;
+        const { id, ...data } = body;
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        const store = await prisma.inventoryStore.update({
-            where: { id },
-            data: {
-                name,
-                type,
-                location,
-                managerId: managerId === 'none' ? null : managerId
-            }
-        });
-
+        const store = await InventoryService.updateStore(id, data);
         return NextResponse.json(store);
     } catch (error) {
         return NextResponse.json({ error: 'Failed to update store' }, { status: 500 });
@@ -67,17 +41,13 @@ export async function DELETE(request: Request) {
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        // Check for dependencies before delete
-        const hasStock = await prisma.inventoryStock.findFirst({ where: { storeId: id, quantity: { gt: 0 } } });
-        if (hasStock) return NextResponse.json({ error: 'Cannot delete store with active stock.' }, { status: 400 });
-
-        const hasTx = await prisma.inventoryTransaction.findFirst({ where: { storeId: id } });
-        if (hasTx) return NextResponse.json({ error: 'Cannot delete store with transaction history.' }, { status: 400 });
-
-        await prisma.inventoryStore.delete({ where: { id } });
-
+        await InventoryService.deleteStore(id);
         return NextResponse.json({ message: 'Store deleted' });
-    } catch (error) {
+
+    } catch (error: any) {
+        if (error.message === 'STORE_HAS_STOCK') return NextResponse.json({ error: 'Cannot delete store with active stock.' }, { status: 400 });
+        if (error.message === 'STORE_HAS_TRANSACTIONS') return NextResponse.json({ error: 'Cannot delete store with transaction history.' }, { status: 400 });
+
         return NextResponse.json({ error: 'Failed to delete store' }, { status: 500 });
     }
 }

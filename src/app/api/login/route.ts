@@ -1,47 +1,14 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { signJWT } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { UserService } from '@/services/user.service';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
         const { username, password } = body;
 
-        if (!username || !password) {
-            return NextResponse.json(
-                { message: 'Username and password are required' },
-                { status: 400 }
-            );
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { username: username.toLowerCase() },
-        });
-
-        if (!user) {
-            return NextResponse.json(
-                { message: 'Invalid credentials' },
-                { status: 401 }
-            );
-        }
-
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-
-        if (!isPasswordValid) {
-            return NextResponse.json(
-                { message: 'Invalid credentials' },
-                { status: 401 }
-            );
-        }
-
-        // Generate JWT Token
-        const token = await signJWT({
-            id: user.id,
-            username: user.username,
-            role: user.role,
-        });
+        // Call Service
+        const { token, user } = await UserService.login({ username, password });
 
         // Set HttpOnly Cookie
         const cookieStore = await cookies();
@@ -55,14 +22,18 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             message: 'Login successful',
-            user: {
-                id: user.id,
-                username: user.username,
-                name: user.name,
-                role: user.role,
-            },
+            user,
         });
+
     } catch (error: any) {
+        // Handle known errors from Service
+        if (error.message === 'USERNAME_PASSWORD_REQUIRED') {
+            return NextResponse.json({ message: 'Username and password are required' }, { status: 400 });
+        }
+        if (error.message === 'INVALID_CREDENTIALS') {
+            return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
+        }
+
         console.error('CRITICAL LOGIN ERROR:', error);
         return NextResponse.json(
             { message: 'Internal server error', debug: error.message },

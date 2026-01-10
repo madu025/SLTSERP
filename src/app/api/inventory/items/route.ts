@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { InventoryService } from '@/services/inventory.service';
 
 export async function GET(request: Request) {
     try {
-        const items = await prisma.inventoryItem.findMany({
-            orderBy: { code: 'asc' }
-        });
+        const { searchParams } = new URL(request.url);
+        const context = searchParams.get('context') || undefined;
+
+        const items = await InventoryService.getItems(context);
         return NextResponse.json(items);
     } catch (error) {
+        console.error("Fetch items error:", error);
         return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 });
     }
 }
@@ -15,30 +17,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { code, name, description, unit, type, category, minLevel } = body;
-
-        // Basic Validation
-        if (!code || !name) {
-            return NextResponse.json({ error: 'Code and Name are required' }, { status: 400 });
-        }
-
-        const item = await prisma.inventoryItem.create({
-            data: {
-                code,
-                name,
-                description,
-                unit: unit || 'Nos',
-                type: type || 'SLTS',
-                category: category || 'OTHERS',
-                minLevel: minLevel ? parseFloat(minLevel) : 0
-            }
-        });
-
+        const item = await InventoryService.createItem(body);
         return NextResponse.json(item);
     } catch (error: any) {
-        if (error.code === 'P2002') { // Prisma unique constraint error
+        if (error.message === 'CODE_AND_NAME_REQUIRED') {
+            return NextResponse.json({ error: 'Code and Name are required' }, { status: 400 });
+        }
+        if (error.message === 'ITEM_EXISTS') {
             return NextResponse.json({ error: 'Item code already exists' }, { status: 409 });
         }
+        console.error("Create item error:", error);
         return NextResponse.json({ error: 'Failed to create item' }, { status: 500 });
     }
 }
@@ -46,22 +34,29 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { id, name, description, unit, type, category, minLevel } = body;
-
-        const item = await prisma.inventoryItem.update({
-            where: { id },
-            data: {
-                name,
-                description,
-                unit,
-                type,
-                category,
-                minLevel: minLevel ? parseFloat(minLevel) : 0
-            }
-        });
+        const { id, ...data } = body;
+        const item = await InventoryService.updateItem(id, data);
         return NextResponse.json(item);
-    } catch (error) {
+    } catch (error: any) {
+        if (error.message === 'ID_REQUIRED') {
+            return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        }
         return NextResponse.json({ error: 'Failed to update item' }, { status: 500 });
+    }
+}
+
+// Bulk Update
+export async function PATCH(request: Request) {
+    try {
+        const body = await request.json();
+        const { updates } = body;
+        const result = await InventoryService.patchBulkItems(updates);
+        return NextResponse.json({ success: true, ...result });
+    } catch (error: any) {
+        if (error.message === 'UPDATES_MUST_BE_ARRAY') {
+            return NextResponse.json({ error: 'Updates must be an array' }, { status: 400 });
+        }
+        return NextResponse.json({ error: 'Failed to update items' }, { status: 500 });
     }
 }
 
@@ -70,17 +65,19 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (id) {
+            await InventoryService.deleteItem(id);
+            return NextResponse.json({ message: 'Item deleted' });
+        }
+        return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        // Check usage
-        const hasStock = await prisma.inventoryStock.findFirst({ where: { itemId: id, quantity: { gt: 0 } } });
-        if (hasStock) return NextResponse.json({ error: 'Cannot delete item with existing stock.' }, { status: 400 });
-
-        await prisma.inventoryItem.delete({ where: { id } });
-
-        return NextResponse.json({ message: 'Item deleted' });
-    } catch (error) {
-        // Foreign key constraint failures will allow us to catch used items
-        return NextResponse.json({ error: 'Failed to delete item. It may be used in transactions.' }, { status: 500 });
+    } catch (error: any) {
+        if (error.message === 'ITEM_HAS_STOCK') {
+            return NextResponse.json({ error: 'Cannot delete item with existing stock.' }, { status: 400 });
+        }
+        if (error.message === 'ITEM_USED_IN_TRANSACTIONS') {
+            return NextResponse.json({ error: 'Failed to delete item. It may be used in transactions.' }, { status: 500 });
+        }
+        return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 });
     }
 }

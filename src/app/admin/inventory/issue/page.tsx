@@ -26,6 +26,10 @@ export default function MaterialIssuePage() {
         { itemId: '', quantity: 0, unit: '', name: '' }
     ]);
 
+    // Filters
+    const [itemCategoryFilter, setItemCategoryFilter] = useState("ALL");
+    const [itemJobFilter, setItemJobFilter] = useState("ALL");
+
     // --- FETCH DATA ---
     const { data: contractors = [] } = useQuery({
         queryKey: ['contractors'],
@@ -176,6 +180,32 @@ export default function MaterialIssuePage() {
 
             <Card>
                 <CardContent className="p-0">
+                    <div className="p-4 border-b bg-slate-50 flex gap-4 items-center">
+                        <Label className="text-xs font-semibold text-slate-500">Filter Items:</Label>
+                        <Select value={itemCategoryFilter} onValueChange={setItemCategoryFilter}>
+                            <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Category" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All Categories</SelectItem>
+                                <SelectItem value="CABLES">Cables & Wires</SelectItem>
+                                <SelectItem value="POLES">Poles</SelectItem>
+                                <SelectItem value="FIBER_ACCESSORIES">Fiber Accessories</SelectItem>
+                                <SelectItem value="COPPER_ACCESSORIES">Copper Accessories</SelectItem>
+                                <SelectItem value="HARDWARE">Hardware</SelectItem>
+                                <SelectItem value="EQUIPMENT">Equipment</SelectItem>
+                                <SelectItem value="OTHERS">Others</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={itemJobFilter} onValueChange={setItemJobFilter}>
+                            <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Job Type" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All Jobs</SelectItem>
+                                <SelectItem value="FTTH">FTTH</SelectItem>
+                                <SelectItem value="PSTN">PSTN</SelectItem>
+                                <SelectItem value="OSP">OSP</SelectItem>
+                                <SelectItem value="OTHERS">Others</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -194,7 +224,13 @@ export default function MaterialIssuePage() {
                                                 <SelectValue placeholder="Select Item" />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-60">
-                                                {items.map((item: any) => (
+                                                {items.filter((i: any) =>
+                                                    (i.id === row.itemId) ||
+                                                    (
+                                                        (itemCategoryFilter === 'ALL' || i.category === itemCategoryFilter) &&
+                                                        (itemJobFilter === 'ALL' || (i.commonFor && i.commonFor.includes(itemJobFilter)) || (!i.commonFor && itemJobFilter === 'ALL'))
+                                                    )
+                                                ).map((item: any) => (
                                                     <SelectItem key={item.id} value={item.id}>
                                                         {item.code} - {item.name}
                                                     </SelectItem>

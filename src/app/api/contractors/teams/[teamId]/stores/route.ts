@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+
 
 // GET - Get team's assigned stores
 export async function GET(
     request: Request,
-    { params }: { params: { teamId: string } }
+    context: { params: Promise<{ teamId: string }> }
 ) {
+    const params = await context.params;
     try {
         const team = await prisma.contractorTeam.findUnique({
             where: { id: params.teamId },
@@ -44,13 +44,14 @@ export async function GET(
 // POST - Add store to team or update primary
 export async function POST(
     request: Request,
-    { params }: { params: { teamId: string } }
+    context: { params: Promise<{ teamId: string }> }
 ) {
+    const params = await context.params;
     try {
-        const session = await getServerSession(authOptions);
+        const role = request.headers.get('x-user-role');
 
         // Check user role
-        if (!session?.user || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+        if (!role || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(role)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
@@ -104,13 +105,14 @@ export async function POST(
 // DELETE - Remove store from team
 export async function DELETE(
     request: Request,
-    { params }: { params: { teamId: string } }
+    context: { params: Promise<{ teamId: string }> }
 ) {
+    const params = await context.params;
     try {
-        const session = await getServerSession(authOptions);
+        const role = request.headers.get('x-user-role');
 
         // Check user role
-        if (!session?.user || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(session.user.role)) {
+        if (!role || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(role)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
