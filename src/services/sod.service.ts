@@ -99,10 +99,32 @@ export class ServiceOrderService {
             prisma.serviceOrder.count({ where: whereClause }),
             prisma.serviceOrder.findMany({
                 where: whereClause,
-                include: {
-                    materialUsage: true,
-                    contractor: true,
-                    team: true
+                select: {
+                    id: true,
+                    rtom: true,
+                    lea: true,
+                    soNum: true,
+                    voiceNumber: true,
+                    orderType: true,
+                    serviceType: true,
+                    customerName: true,
+                    techContact: true,
+                    status: true,
+                    statusDate: true,
+                    sltsStatus: true,
+                    scheduledDate: true,
+                    scheduledTime: true,
+                    package: true,
+                    address: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    completedDate: true,
+                    contractorId: true,
+                    contractor: {
+                        select: { name: true }
+                    },
+                    comments: true,
+                    patStatus: true
                 },
                 orderBy,
                 skip,
@@ -149,23 +171,39 @@ export class ServiceOrderService {
     /**
      * Update Service Order (General Update)
      */
-    static async updateServiceOrder(id: string, data: any) {
+    static async updateServiceOrder(id: string, data: any, userId?: string) {
         if (!id) throw new Error('ID_REQUIRED');
 
-        return await prisma.serviceOrder.update({
+        const oldOrder = await prisma.serviceOrder.findUnique({ where: { id } });
+
+        const serviceOrder = await prisma.serviceOrder.update({
             where: { id },
             data: {
                 ...data,
                 statusDate: data.statusDate ? new Date(data.statusDate) : undefined
             }
         });
+
+        if (userId) {
+            const { AuditService } = await import('./audit.service');
+            await AuditService.log({
+                userId,
+                action: 'UPDATE',
+                entity: 'ServiceOrder',
+                entityId: id,
+                oldValue: oldOrder,
+                newValue: serviceOrder
+            });
+        }
+
+        return serviceOrder;
     }
 
     /**
      * Patch Update (Status Change, Completion, etc.)
      * Handles complex logic like material deduction, snapshots, etc.
      */
-    static async patchServiceOrder(id: string, data: any) {
+    static async patchServiceOrder(id: string, data: any, userId?: string) {
         if (!id) throw new Error('ID_REQUIRED');
 
         const { sltsStatus, completedDate, contractorId, comments, ...otherData } = data;
@@ -268,6 +306,11 @@ export class ServiceOrderService {
             throw new Error('NO_FIELDS_TO_UPDATE');
         }
 
+        const oldOrder = await prisma.serviceOrder.findUnique({
+            where: { id },
+            include: { materialUsage: true }
+        });
+
         const serviceOrder = await prisma.serviceOrder.update({
             where: { id },
             data: updateData
@@ -275,6 +318,18 @@ export class ServiceOrderService {
 
         // Manual Raw update for materialSource
         await prisma.$executeRaw`UPDATE "ServiceOrder" SET "materialSource" = ${currentSource} WHERE "id" = ${id}`;
+
+        if (userId) {
+            const { AuditService } = await import('./audit.service');
+            await AuditService.log({
+                userId,
+                action: sltsStatus ? `STATUS_CHANGE_${sltsStatus}` : 'PATCH_UPDATE',
+                entity: 'ServiceOrder',
+                entityId: id,
+                oldValue: oldOrder,
+                newValue: { ...serviceOrder, materialSource: currentSource }
+            });
+        }
 
         return serviceOrder;
     }

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ServiceOrderService } from '@/services/sod.service';
+import { serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
+import { z } from 'zod';
 
 // GET service orders with pagination and summary metrics
 export async function GET(request: Request) {
@@ -53,9 +55,16 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { id, ...updateData } = body;
 
-        const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData);
+        // Zod Validation
+        const validation = serviceOrderUpdateSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
+        }
+
+        const { id, ...updateData } = validation.data;
+        const userId = request.headers.get('x-user-id') || undefined;
+        const serviceOrder = await ServiceOrderService.updateServiceOrder(id, updateData, userId);
         return NextResponse.json(serviceOrder);
     } catch (error: any) {
         if (error.message === 'ID_REQUIRED') {
@@ -70,9 +79,17 @@ export async function PUT(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, ...updateData } = body;
 
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData);
+        // Zod Validation
+        const validation = serviceOrderPatchSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
+        }
+
+        const { id, ...updateData } = validation.data;
+        const userId = request.headers.get('x-user-id') || undefined;
+
+        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
         return NextResponse.json(serviceOrder);
     } catch (error: any) {
         if (error.message === 'ID_REQUIRED') {

@@ -148,6 +148,7 @@ model User {
   accessibleOpmcs   OPMC[]   @relation("UserOpmcs")
   requestedRestores RestoreRequest[] @relation("RequestedRestores")
   approvedRestores  RestoreRequest[] @relation("ApprovedRestores")
+  auditLogs         AuditLog[]
   
   // Password Reset Security
   securityQuestion  String?
@@ -236,6 +237,24 @@ model RestoreRequest {
   @@index([status])
   @@index([serviceOrderId])
   @@index([requestedById])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // e.g., "CREATE", "UPDATE", "DELETE", "STATUS_CHANGE"
+  entity      String   // e.g., "ServiceOrder", "InventoryItem"
+  entityId    String
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model Staff {
