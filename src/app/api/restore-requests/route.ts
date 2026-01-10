@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { NotificationService } from '@/services/notification.service';
 
 const prisma = new PrismaClient();
 
@@ -115,6 +116,23 @@ export async function POST(request: Request) {
             }
         });
 
+        // Notify Admins and Supervisors in the OPMC
+        try {
+            const message = `User "${restoreRequest.requestedBy.name || restoreRequest.requestedBy.username}" has requested to restore Service Order ${restoreRequest.serviceOrder.soNum}. Reason: ${restoreRequest.reason}`;
+
+            await NotificationService.notifyByRole({
+                roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN'],
+                title: "New Restore Request",
+                message,
+                type: 'SYSTEM',
+                priority: 'MEDIUM',
+                link: `/restore-requests`,
+                opmcId: restoreRequest.serviceOrder.opmcId
+            });
+        } catch (nErr) {
+            console.error("Failed to send restore request notifications:", nErr);
+        }
+
         return NextResponse.json(restoreRequest);
     } catch (error) {
         console.error('Error creating restore request:', error);
@@ -213,6 +231,23 @@ export async function PATCH(request: Request) {
                     completedDate: null
                 }
             });
+        }
+
+        // Notify the Requester about the decision
+        try {
+            const statusLabel = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+            const message = `Your restore request for Service Order ${restoreRequest.serviceOrder.soNum} has been ${statusLabel}.${comment ? ` Note: ${comment}` : ''}`;
+
+            await NotificationService.send({
+                userId: restoreRequest.requestedById,
+                title: `Restore Request ${statusLabel}`,
+                message,
+                type: 'SYSTEM',
+                priority: action === 'APPROVE' ? 'HIGH' : 'MEDIUM',
+                link: `/service-orders`
+            });
+        } catch (nErr) {
+            console.error("Failed to notify requester:", nErr);
         }
 
         return NextResponse.json(updatedRequest);

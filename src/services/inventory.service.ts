@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { NotificationService } from './notification.service';
 
 export class InventoryService {
 
@@ -222,7 +223,41 @@ export class InventoryService {
             data: { storeId: null }
         });
 
-        await prisma.inventoryStore.delete({ where: { id } });
+        await prisma.inventoryStore.delete({ where: { id: id } });
+    }
+
+    /**
+     * Check if item stock is below minimum level and notify
+     */
+    static async checkLowStock(storeId: string, itemId: string) {
+        try {
+            const stock = await prisma.inventoryStock.findUnique({
+                where: { storeId_itemId: { storeId, itemId } },
+                include: {
+                    item: true,
+                    store: {
+                        include: { opmcs: { select: { id: true } } }
+                    }
+                }
+            });
+
+            if (stock && stock.item.minLevel > 0 && stock.quantity < stock.item.minLevel) {
+                const message = `Item "${stock.item.name}" (${stock.item.code}) in store "${stock.store.name}" is low on stock. Current: ${stock.quantity} ${stock.item.unit}, Min Level: ${stock.item.minLevel}.`;
+
+                // Notify Store Manager and ARMs
+                await NotificationService.notifyByRole({
+                    roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'AREA_MANAGER', 'OFFICE_ADMIN'],
+                    title: "Low Stock Alert",
+                    message,
+                    type: 'INVENTORY',
+                    priority: 'HIGH',
+                    link: `/admin/inventory/stocks`,
+                    opmcId: stock.store.opmcs?.[0]?.id // Best effort OPMC
+                });
+            }
+        } catch (error) {
+            console.error("Failed to check low stock:", error);
+        }
     }
 
     // --- STOCK MANAGEMENT ---
@@ -481,38 +516,32 @@ export class InventoryService {
     }) {
         const { contractorId, storeId, month, items, userId } = data;
 
-        if (!contractorId || !storeId || !month || !items || !Array.isArray(items) || items.length === 0) {
-            throw new Error('MISSING_FIELDS');
-        }
-
-        return await prisma.$transaction(async (tx) => {
-            // 1. Validate stock availability and deduct
-            for (const item of items) {
-                const quantity = parseFloat(item.quantity);
-
-                // Check current stock
-                const currentStock = await tx.inventoryStock.findUnique({
-                    where: {
-                        storeId_itemId: {
-                            storeId,
-                            itemId: item.itemId
-                        }
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Create Material Issue
+            const materialIssue = await tx.contractorMaterialIssue.create({
+                data: {
+                    contractorId,
+                    storeId,
+                    month,
+                    issueDate: new Date(),
+                    issuedBy: userId || 'SYSTEM',
+                    items: {
+                        create: items.map((i) => ({
+                            itemId: i.itemId,
+                            quantity: parseFloat(i.quantity),
+                            unit: i.unit || 'Nos'
+                        }))
                     }
-                });
-
-                if (!currentStock) {
-                    throw new Error(`ITEM_NOT_FOUND: ${item.itemId}`);
                 }
+            });
 
-                if (currentStock.quantity < quantity) {
-                    const itemDetails = await tx.inventoryItem.findUnique({
-                        where: { id: item.itemId },
-                        select: { name: true }
-                    });
-                    throw new Error(`INSUFFICIENT_STOCK: ${itemDetails?.name || item.itemId}`);
-                }
+            // 2. Reduce Stock & Create Transaction Items
+            const transactionItems = [];
 
-                // Deduct from store inventory
+            for (const item of items) {
+                const qty = parseFloat(item.quantity);
+
+                // Reduce Stock
                 await tx.inventoryStock.update({
                     where: {
                         storeId_itemId: {
@@ -521,37 +550,44 @@ export class InventoryService {
                         }
                     },
                     data: {
-                        quantity: {
-                            decrement: quantity
-                        }
+                        quantity: { decrement: qty }
                     }
+                });
+
+                transactionItems.push({
+                    itemId: item.itemId,
+                    quantity: -qty // Negative for issue
                 });
             }
 
-            // 2. Create Issue Header
-            const newIssue = await tx.contractorMaterialIssue.create({
+            // 3. Create Transaction Log
+            await tx.inventoryTransaction.create({
                 data: {
-                    contractorId,
+                    type: 'MATERIAL_ISSUE',
                     storeId,
-                    month,
-                    issuedBy: userId || 'System',
-                    issueDate: new Date()
+                    referenceId: materialIssue.id,
+                    userId: userId || 'SYSTEM',
+                    notes: `Material issued to contractor ${contractorId} for month ${month}`,
+                    items: {
+                        create: transactionItems
+                    }
                 }
             });
 
-            // 3. Create Issue Items
-            await tx.contractorMaterialIssueItem.createMany({
-                data: items.map((item) => ({
-                    issueId: newIssue.id,
-                    itemId: item.itemId,
-                    quantity: parseFloat(item.quantity),
-                    unit: item.unit || 'Nos'
-                }))
-            });
-            return newIssue;
+            return materialIssue;
         });
-    }
 
+        // Trigger Low Stock Alerts (non-blocking)
+        try {
+            for (const item of items) {
+                this.checkLowStock(storeId, item.itemId);
+            }
+        } catch (e) {
+            console.error("Low stock check failed:", e);
+        }
+
+        return result;
+    }
 
 
     // --- TRANSACTION HISTORY ---
@@ -601,7 +637,7 @@ export class InventoryService {
         const { storeId, returnType, returnTo, supplier, reason, grnId, returnedById, items } = data;
 
         // Note: Stock is NOT reduced here. Only after approval.
-        return await prisma.mRN.create({
+        const mrn = await prisma.mRN.create({
             data: {
                 mrnNumber: `MRN-${Date.now()}`,
                 storeId,
@@ -621,6 +657,22 @@ export class InventoryService {
                 }
             }
         });
+
+        // Notify Stores Manager
+        try {
+            await NotificationService.notifyByRole({
+                roles: ['STORES_MANAGER', 'ADMIN'],
+                title: 'New MRN Created',
+                message: `New Material Return Note ${mrn.mrnNumber} has been created and requires approval.`,
+                type: 'INVENTORY',
+                priority: 'MEDIUM',
+                link: '/admin/inventory/mrns'
+            });
+        } catch (nErr) {
+            console.error("Failed to notify for MRN:", nErr);
+        }
+
+        return mrn;
     }
 
     static async getMRNs(storeId?: string, status?: string) {
@@ -644,13 +696,29 @@ export class InventoryService {
 
     static async updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT', approvedById: string) {
         if (action === 'REJECT') {
-            return await prisma.mRN.update({
+            const updated = await prisma.mRN.update({
                 where: { id: mrnId },
                 data: {
                     status: 'REJECTED',
                     approvedById
-                }
+                },
+                include: { returnedBy: true }
             });
+
+            // Notify Requester
+            try {
+                await NotificationService.send({
+                    userId: updated.returnedById,
+                    title: 'MRN Rejected',
+                    message: `Your Material Return Note ${updated.mrnNumber} has been rejected.`,
+                    type: 'INVENTORY',
+                    priority: 'HIGH',
+                    link: '/admin/inventory/mrns'
+                });
+            } catch (nErr) {
+                console.error("Failed to notify MRN rejection:", nErr);
+            }
+            return updated;
         }
 
         if (action === 'APPROVE') {
@@ -703,6 +771,20 @@ export class InventoryService {
                         }
                     }
                 });
+
+                // Notify Requester
+                try {
+                    await NotificationService.send({
+                        userId: updatedMrn.returnedById,
+                        title: 'MRN Strategy Completed',
+                        message: `Your Material Return Note ${updatedMrn.mrnNumber} has been approved and stock updated.`,
+                        type: 'INVENTORY',
+                        priority: 'MEDIUM',
+                        link: '/admin/inventory/mrns'
+                    });
+                } catch (nErr) {
+                    console.error("Failed to notify MRN completion:", nErr);
+                }
 
                 return updatedMrn;
             });
@@ -797,7 +879,10 @@ export class InventoryService {
         const { fromStoreId, toStoreId, requestedById, items, priority, requiredDate, purpose, sourceType, projectTypes, maintenanceMonths, irNumber } = data;
 
         // --- VALIDATION LOGIC ---
-        const fromStore = await prisma.inventoryStore.findUnique({ where: { id: fromStoreId } });
+        const fromStore = await prisma.inventoryStore.findUnique({
+            where: { id: fromStoreId },
+            include: { opmcs: { select: { id: true } } }
+        });
         if (!fromStore) throw new Error("INVALID_STORE");
 
         // Rule: Sub Stores cannot request directly from SLT.
@@ -864,42 +949,30 @@ export class InventoryService {
         });
 
         // Notify appropriate approvers based on store type
-        if (fromStore.type === 'SUB') {
-            // Notify ARM (Area Managers)
-            const armUsers = await prisma.user.findMany({
-                where: { role: 'AREA_MANAGER' },
-                select: { id: true }
-            });
-
-            for (const user of armUsers) {
-                await prisma.notification.create({
-                    data: {
-                        userId: user.id,
-                        type: 'REQUEST_CREATED',
-                        title: 'New Material Request - ARM Approval Required',
-                        message: `New material request ${req.requestNr} from ${fromStore.name} requires your approval`,
-                        link: '/admin/inventory/approvals'
-                    }
+        try {
+            if (fromStore.type === 'SUB') {
+                await NotificationService.notifyByRole({
+                    roles: ['AREA_MANAGER', 'OFFICE_ADMIN'],
+                    title: 'New Material Request',
+                    message: `New material request ${req.requestNr} from ${fromStore.name} requires your ARM approval.`,
+                    type: 'INVENTORY',
+                    priority: 'MEDIUM',
+                    link: '/admin/inventory/approvals',
+                    opmcId: fromStore.opmcs?.[0]?.id
+                });
+            } else {
+                await NotificationService.notifyByRole({
+                    roles: ['OSP_MANAGER'],
+                    title: 'New Material Request',
+                    message: `New material request ${req.requestNr} from ${fromStore.name} requires your OSP Manager approval.`,
+                    type: 'INVENTORY',
+                    priority: 'MEDIUM',
+                    link: '/admin/inventory/approvals',
+                    opmcId: fromStore.opmcs?.[0]?.id
                 });
             }
-        } else {
-            // Notify OSP Managers (Main Store requests)
-            const ospManagers = await prisma.user.findMany({
-                where: { role: 'OSP_MANAGER' },
-                select: { id: true }
-            });
-
-            for (const manager of ospManagers) {
-                await prisma.notification.create({
-                    data: {
-                        userId: manager.id,
-                        type: 'REQUEST_CREATED',
-                        title: 'New Material Request',
-                        message: `New material request ${req.requestNr} requires your approval`,
-                        link: '/admin/inventory/approvals'
-                    }
-                });
-            }
+        } catch (nErr) {
+            console.error("Failed to send stock request notification:", nErr);
         }
 
         return req;
@@ -963,21 +1036,17 @@ export class InventoryService {
             });
 
             // Notify Stores Managers
-            const storesManagers = await prisma.user.findMany({
-                where: { role: 'STORES_MANAGER' },
-                select: { id: true }
-            });
-
-            for (const manager of storesManagers) {
-                await prisma.notification.create({
-                    data: {
-                        userId: manager.id,
-                        type: 'REQUEST_APPROVED',
-                        title: 'Material Request - Stores Manager Approval Required',
-                        message: `Material request ${updated.requestNr} approved by ARM, requires your approval`,
-                        link: '/admin/inventory/approvals'
-                    }
+            try {
+                await NotificationService.notifyByRole({
+                    roles: ['STORES_MANAGER'],
+                    title: 'Request Approved by ARM',
+                    message: `Material request ${updated.requestNr} approved by ARM, requires Stores Manager approval.`,
+                    type: 'INVENTORY',
+                    priority: 'HIGH',
+                    link: '/admin/inventory/approvals'
                 });
+            } catch (nErr) {
+                console.error("Failed to notify Stores Manager:", nErr);
             }
             return updated;
         }
@@ -998,15 +1067,18 @@ export class InventoryService {
             });
 
             // Notify Requester
-            await prisma.notification.create({
-                data: {
+            try {
+                await NotificationService.send({
                     userId: updated.requestedById,
-                    type: 'REQUEST_REJECTED',
-                    title: 'Material Request Returned for Revision',
-                    message: `Your request ${updated.requestNr} has been returned by ARM. Please review and resubmit.`,
+                    title: 'Material Request Returned',
+                    message: `Your request ${updated.requestNr} has been returned by ARM. Reason: ${remarks}`,
+                    type: 'INVENTORY',
+                    priority: 'HIGH',
                     link: '/admin/inventory/requests'
-                }
-            });
+                });
+            } catch (nErr) {
+                console.error("Failed to notify requester:", nErr);
+            }
             return updated;
         }
 
@@ -1024,21 +1096,17 @@ export class InventoryService {
             });
 
             // Notify OSP Managers
-            const ospManagers = await prisma.user.findMany({
-                where: { role: 'OSP_MANAGER' },
-                select: { id: true }
-            });
-
-            for (const manager of ospManagers) {
-                await prisma.notification.create({
-                    data: {
-                        userId: manager.id,
-                        type: 'REQUEST_APPROVED',
-                        title: 'Material Request - OSP Manager Approval Required',
-                        message: `Material request ${updated.requestNr} approved by Stores Manager, requires your final approval`,
-                        link: '/admin/inventory/approvals'
-                    }
+            try {
+                await NotificationService.notifyByRole({
+                    roles: ['OSP_MANAGER'],
+                    title: 'Request Approved by Store Manager',
+                    message: `Material request ${updated.requestNr} approved by Store Manager, requires OSP Manager final approval.`,
+                    type: 'INVENTORY',
+                    priority: 'HIGH',
+                    link: '/admin/inventory/approvals'
                 });
+            } catch (nErr) {
+                console.error("Failed to notify OSP Manager:", nErr);
             }
             return updated;
         }
@@ -1059,15 +1127,18 @@ export class InventoryService {
 
             // Notify ARM who approved it
             if (updated.armApprovedById) {
-                await prisma.notification.create({
-                    data: {
+                try {
+                    await NotificationService.send({
                         userId: updated.armApprovedById,
-                        type: 'REQUEST_REJECTED',
-                        title: 'Material Request Returned by Stores Manager',
-                        message: `Request ${updated.requestNr} has been returned for your review`,
+                        title: 'Material Request Returned',
+                        message: `Request ${updated.requestNr} has been returned by Stores Manager for your review.`,
+                        type: 'INVENTORY',
+                        priority: 'HIGH',
                         link: '/admin/inventory/approvals'
-                    }
-                });
+                    });
+                } catch (nErr) {
+                    console.error("Failed to notify ARM:", nErr);
+                }
             }
             return updated;
         }
@@ -1088,15 +1159,18 @@ export class InventoryService {
 
             // Notify Stores Manager
             if (updated.storesManagerApprovedById) {
-                await prisma.notification.create({
-                    data: {
+                try {
+                    await NotificationService.send({
                         userId: updated.storesManagerApprovedById,
-                        type: 'REQUEST_REJECTED',
-                        title: 'Material Request Returned by OSP Manager',
-                        message: `Request ${updated.requestNr} has been returned for your review`,
+                        title: 'Material Request Returned',
+                        message: `Request ${updated.requestNr} has been returned by OSP Manager for your review.`,
+                        type: 'INVENTORY',
+                        priority: 'HIGH',
                         link: '/admin/inventory/approvals'
-                    }
-                });
+                    });
+                } catch (nErr) {
+                    console.error("Failed to notify Stores Manager:", nErr);
+                }
             }
             return updated;
         }
@@ -1131,28 +1205,24 @@ export class InventoryService {
             });
 
             // Notify Managers
-            const ospManagers = await prisma.user.findMany({
-                where: { role: 'OSP_MANAGER' },
-                select: { id: true }
-            });
-
-            for (const manager of ospManagers) {
-                await prisma.notification.create({
-                    data: {
-                        userId: manager.id,
-                        type: 'REQUEST_CREATED',
-                        title: 'Request Resubmitted',
-                        message: `Material request ${updated.requestNr} has been resubmitted for approval`,
-                        link: '/procurement/approvals'
-                    }
+            try {
+                await NotificationService.notifyByRole({
+                    roles: ['OSP_MANAGER'],
+                    title: 'Request Resubmitted',
+                    message: `Material request ${updated.requestNr} has been resubmitted and requires your approval.`,
+                    type: 'INVENTORY',
+                    priority: 'MEDIUM',
+                    link: '/admin/inventory/approvals'
                 });
+            } catch (nErr) {
+                console.error("Failed to notify OSP Managers:", nErr);
             }
             return updated;
         }
 
         // 2. REJECT
         if (action === 'REJECT') {
-            return await prisma.stockRequest.update({
+            const updated = await prisma.stockRequest.update({
                 where: { id: requestId },
                 data: {
                     status: 'REJECTED',
@@ -1160,6 +1230,21 @@ export class InventoryService {
                     remarks: remarks || null
                 }
             });
+
+            // Notify Requester
+            try {
+                await NotificationService.send({
+                    userId: updated.requestedById,
+                    title: 'Material Request Rejected',
+                    message: `Your material request ${updated.requestNr} has been rejected.`,
+                    type: 'INVENTORY',
+                    priority: 'CRITICAL',
+                    link: '/admin/inventory/requests'
+                });
+            } catch (nErr) {
+                console.error("Failed to notify rejection:", nErr);
+            }
+            return updated;
         }
 
         // 3. MANAGER_APPROVE
@@ -1176,28 +1261,24 @@ export class InventoryService {
             });
 
             // Notify Procurement Officers
-            const procurementOfficers = await prisma.user.findMany({
-                where: { role: 'STORES_MANAGER' },
-                select: { id: true }
-            });
-
-            for (const officer of procurementOfficers) {
-                await prisma.notification.create({
-                    data: {
-                        userId: officer.id,
-                        type: 'REQUEST_APPROVED',
-                        title: 'Request Approved - PO Required',
-                        message: `Material request ${updated.requestNr} has been approved and requires PO creation`,
-                        link: '/procurement/orders'
-                    }
+            try {
+                await NotificationService.notifyByRole({
+                    roles: ['STORES_MANAGER'],
+                    title: 'Request Approved - PO Required',
+                    message: `Material request ${updated.requestNr} has been approved and requires PO creation.`,
+                    type: 'INVENTORY',
+                    priority: 'HIGH',
+                    link: '/admin/inventory/approvals'
                 });
+            } catch (nErr) {
+                console.error("Failed to notify Stores Managers:", nErr);
             }
             return updated;
         }
 
         // 4. PROCUREMENT_COMPLETE
         if (action === 'PROCUREMENT_COMPLETE') {
-            return await prisma.stockRequest.update({
+            const updated = await prisma.stockRequest.update({
                 where: { id: requestId },
                 data: {
                     workflowStage: 'GRN_PENDING',
@@ -1206,6 +1287,21 @@ export class InventoryService {
                     remarks: remarks || undefined
                 }
             });
+
+            // Notify Requester
+            try {
+                await NotificationService.send({
+                    userId: updated.requestedById,
+                    title: 'Procurement Completed',
+                    message: `Procurement for request ${updated.requestNr} is complete. Waiting for GRN.`,
+                    type: 'INVENTORY',
+                    priority: 'MEDIUM',
+                    link: '/admin/inventory/requests'
+                });
+            } catch (nErr) {
+                console.error("Failed to notify procurement complete:", nErr);
+            }
+            return updated;
         }
 
         // 5. CREATE_PO
@@ -1278,21 +1374,17 @@ export class InventoryService {
                     });
 
                     // Notify Procurement/Stores Managers
-                    const procurementOfficers = await tx.user.findMany({
-                        where: { role: 'STORES_MANAGER' },
-                        select: { id: true }
-                    });
-
-                    for (const officer of procurementOfficers) {
-                        await tx.notification.create({
-                            data: {
-                                userId: officer.id,
-                                type: 'REQUEST_APPROVED',
-                                title: 'Local Purchase Approved - PO Required',
-                                message: `Material request ${updated.requestNr} approved, requires PO creation`,
-                                link: '/admin/inventory/approvals'
-                            }
+                    try {
+                        await NotificationService.notifyByRole({
+                            roles: ['STORES_MANAGER'],
+                            title: 'Local Purchase Approved',
+                            message: `Material request ${updated.requestNr} approved for Local Purchase, requires PO creation.`,
+                            type: 'INVENTORY',
+                            priority: 'HIGH',
+                            link: '/admin/inventory/approvals'
                         });
+                    } catch (nErr) {
+                        console.error("Failed to notify Stores Managers:", nErr);
                     }
                     return updated;
                 }
@@ -1313,21 +1405,17 @@ export class InventoryService {
                     });
 
                     // Notify Main Store Assistants
-                    const mainStoreAssistants = await tx.user.findMany({
-                        where: { role: 'STORES_ASSISTANT' },
-                        select: { id: true }
-                    });
-
-                    for (const assistant of mainStoreAssistants) {
-                        await tx.notification.create({
-                            data: {
-                                userId: assistant.id,
-                                type: 'REQUEST_APPROVED',
-                                title: 'Material Release Required',
-                                message: `Request ${updated.requestNr} approved, ready for release to ${stockReq.fromStore?.name}`,
-                                link: '/admin/inventory/approvals'
-                            }
+                    try {
+                        await NotificationService.notifyByRole({
+                            roles: ['STORES_ASSISTANT'],
+                            title: 'Material Release Required',
+                            message: `Request ${updated.requestNr} approved, ready for release from Main Store to ${stockReq.fromStore?.name}.`,
+                            type: 'INVENTORY',
+                            priority: 'HIGH',
+                            link: '/admin/inventory/approvals'
                         });
+                    } catch (nErr) {
+                        console.error("Failed to notify Store Assistants:", nErr);
                     }
                     return updated;
                 }
@@ -1335,7 +1423,7 @@ export class InventoryService {
                 // Scenario C: SLT Request (Main Store → SLT Head Office)
                 // Flow: OSP Approval → GRN Pending
                 if (stockReq.sourceType === 'SLT') {
-                    return await tx.stockRequest.update({
+                    const updated = await tx.stockRequest.update({
                         where: { id: requestId },
                         data: {
                             status: 'APPROVED',
@@ -1346,6 +1434,21 @@ export class InventoryService {
                             remarks: remarks || null
                         }
                     });
+
+                    // Notify Stores Managers (Pending Shipment)
+                    try {
+                        await NotificationService.notifyByRole({
+                            roles: ['STORES_MANAGER'],
+                            title: 'SLT Request Approved',
+                            message: `Request ${updated.requestNr} approved by OSP Manager. Waiting for shipment from SLT.`,
+                            type: 'INVENTORY',
+                            priority: 'MEDIUM',
+                            link: '/admin/inventory/approvals'
+                        });
+                    } catch (nErr) {
+                        console.error("Failed to notify Store Managers:", nErr);
+                    }
+                    return updated;
                 }
 
                 // Fallback
@@ -1430,15 +1533,18 @@ export class InventoryService {
                 });
 
                 // Notify Sub Store Officer
-                await tx.notification.create({
-                    data: {
+                try {
+                    await NotificationService.send({
                         userId: updated.requestedById,
-                        type: 'MATERIALS_RELEASED',
-                        title: 'Materials Released - Confirm Receipt',
+                        title: 'Materials Released',
                         message: `Materials for request ${updated.requestNr} have been released. Please confirm receipt.`,
+                        type: 'INVENTORY',
+                        priority: 'HIGH',
                         link: '/admin/inventory/approvals'
-                    }
-                });
+                    });
+                } catch (nErr) {
+                    console.error("Failed to notify materials release:", nErr);
+                }
 
                 return updated;
             });
@@ -1512,7 +1618,7 @@ export class InventoryService {
                 const isFullyReceived = totalReceived >= totalIssued;
                 const finalStatus = isFullyReceived ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
 
-                return await tx.stockRequest.update({
+                const updated = await tx.stockRequest.update({
                     where: { id: requestId },
                     data: {
                         status: finalStatus,
@@ -1522,6 +1628,22 @@ export class InventoryService {
                         receivedRemarks: remarks
                     }
                 });
+
+                // Notify Main Store / Requester about completion
+                try {
+                    await NotificationService.send({
+                        userId: updated.requestedById,
+                        title: 'Stock Request Completed',
+                        message: `Your request ${updated.requestNr} has been fully received and stock updated.`,
+                        type: 'INVENTORY',
+                        priority: 'MEDIUM',
+                        link: '/admin/inventory/requests'
+                    });
+                } catch (nErr) {
+                    console.error("Failed to notify completion:", nErr);
+                }
+
+                return updated;
             });
         }
 

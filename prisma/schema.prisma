@@ -131,6 +131,9 @@ model ServiceOrder {
   @@index([status])
   @@index([soNum])
   @@index([scheduledDate])
+  @@index([contractorId])
+  @@index([teamId])
+  @@index([sltsStatus])
 }
 
 model User {
@@ -188,8 +191,32 @@ model User {
   ospApprovedContractors    Contractor[] @relation("ContractorOspApproval")
   generatedContractorLinks  Contractor[] @relation("ContractorLinkGenerator")
 
+  notifications     Notification[]
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@index([role])
+  @@index([supervisorId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String   @db.Text
+  type        String   @default("SYSTEM") // SYSTEM, INVENTORY, CONTRACTOR, PROJECT, FINANCE
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  isRead      Boolean  @default(false)
+  link        String?  // Deep link to the relevant page (e.g., /admin/inventory/requests)
+  metadata    Json?    // Optional extra data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
 }
 
 model RestoreRequest {
@@ -226,6 +253,10 @@ model Staff {
   user        User?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([opmcId])
+  @@index([reportsToId])
+  @@index([designation])
 }
 
 model Project {
@@ -478,6 +509,10 @@ model Contractor {
 
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
+
+  @@index([status])
+  @@index([opmcId])
+  @@index([type])
 }
 
 model ContractorStock {
@@ -636,6 +671,9 @@ model InventoryStore {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([managerId])
 }
 
 model InventoryItem {
@@ -677,6 +715,11 @@ model InventoryItem {
   // New Fields for OSP Management
   commonName  String?  // Grouping name (e.g. "FAC", "Drop Wire")
   isOspFtth   Boolean? @default(false) // Filter for OSP FTTH context
+
+  @@index([code])
+  @@index([type])
+  @@index([category])
+  @@index([commonName])
 }
 
 model InventoryStock {
@@ -764,6 +807,13 @@ model StockRequest {
   grns        GRN[]    // Support Multiple GRNs for Partial Delivery
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([fromStoreId])
+  @@index([toStoreId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([workflowStage])
+  @@index([createdAt])
 }
 
 model StockRequestItem {
@@ -800,6 +850,10 @@ model GRN {
   items       GRNItem[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([storeId])
+  @@index([requestId])
+  @@index([grnNumber])
 }
 
 model GRNItem {
@@ -830,6 +884,10 @@ model MRN {
   items       MRNItem[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([storeId])
+  @@index([status])
+  @@index([mrnNumber])
 }
 
 model MRNItem {
@@ -853,6 +911,10 @@ model InventoryTransaction {
   date        DateTime @default(now())
   userId      String
   items       InventoryTransactionItem[]
+
+  @@index([storeId])
+  @@index([type])
+  @@index([date])
 }
 
 model InventoryTransactionItem {
@@ -1075,20 +1137,6 @@ model ContractorBalanceSheetItem {
   @@index([itemId])
 }
 
-// System Notifications
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String   // User to notify
-  type      String   // REQUEST_CREATED, REQUEST_APPROVED, etc.
-  title     String
-  message   String   @db.Text
-  link      String?  // Optional link to relevant page
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  
-  @@index([userId])
-  @@index([read])
-}
 
 // Stock Issue (Materials issued to projects/contractors/teams)
 model StockIssue {

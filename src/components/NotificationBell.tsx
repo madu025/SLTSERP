@@ -18,8 +18,9 @@ interface Notification {
     type: string;
     title: string;
     message: string;
+    priority: string;
     link?: string;
-    read: boolean;
+    isRead: boolean;
     createdAt: string;
 }
 
@@ -37,25 +38,62 @@ export default function NotificationBell() {
         }
     }, []);
 
-    // Fetch notifications
+    // SSE Connection for real-time notifications
+    useEffect(() => {
+        if (!userId) return;
+
+        console.log("Establishing SSE connection for notifications...");
+        const eventSource = new EventSource(`/api/notifications/stream?userId=${userId}`);
+
+        eventSource.onmessage = (event) => {
+            try {
+                const newNotification = JSON.parse(event.data);
+                console.log("New real-time notification received:", newNotification);
+
+                // Update local query cache immediately
+                queryClient.setQueryData(["notifications", userId], (oldData: Notification[] | undefined) => {
+                    if (!oldData) return [newNotification];
+                    // Avoid duplicates if SSE and polling overlap
+                    if (oldData.some(n => n.id === newNotification.id)) return oldData;
+                    return [newNotification, ...oldData];
+                });
+
+                // Play a subtle notification sound or show a toast if needed
+            } catch (error) {
+                console.error("Failed to parse SSE notification:", error);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error("SSE Connection Error:", error);
+            eventSource.close();
+            // Optional: Implement reconnection logic after delay
+        };
+
+        return () => {
+            console.log("Closing SSE connection...");
+            eventSource.close();
+        };
+    }, [userId, queryClient]);
+
+    // Fetch initial notifications (and fallback polling)
     const { data: notifications = [] } = useQuery<Notification[]>({
         queryKey: ["notifications", userId],
         queryFn: async () => {
             if (!userId) return [];
-            const res = await fetch(`/api/notifications?userId=${userId}`);
+            const res = await fetch(`/api/notifications`);
+            if (!res.ok) throw new Error("Failed to fetch");
             return res.json();
         },
         enabled: !!userId,
-        refetchInterval: 30000 // Refresh every 30 seconds
+        refetchInterval: 60000 // Polling frequency reduced as SSE handles real-time updates
     });
 
     // Mark as read mutation
     const markAsReadMutation = useMutation({
         mutationFn: async (notificationId: string) => {
-            await fetch("/api/notifications", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ notificationId })
+            await fetch(`/api/notifications/${notificationId}`, {
+                method: "PATCH"
             });
         },
         onSuccess: () => {
@@ -67,9 +105,7 @@ export default function NotificationBell() {
     const markAllReadMutation = useMutation({
         mutationFn: async () => {
             await fetch("/api/notifications", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId, markAllRead: true })
+                method: "PATCH"
             });
         },
         onSuccess: () => {
@@ -77,11 +113,11 @@ export default function NotificationBell() {
         }
     });
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = notifications.filter(n => !n.isRead).length;
 
     const handleNotificationClick = (notification: Notification) => {
         // Mark as read
-        if (!notification.read) {
+        if (!notification.isRead) {
             markAsReadMutation.mutate(notification.id);
         }
         // Navigate to link if exists
@@ -90,16 +126,26 @@ export default function NotificationBell() {
         }
     };
 
+    const getNotificationColor = (type: string) => {
+        switch (type) {
+            case 'INVENTORY': return 'text-orange-600 bg-orange-50';
+            case 'CONTRACTOR': return 'text-blue-600 bg-blue-50';
+            case 'PROJECT': return 'text-purple-600 bg-purple-50';
+            case 'FINANCE': return 'text-emerald-600 bg-emerald-50';
+            default: return 'text-slate-600 bg-slate-50';
+        }
+    };
+
     const getNotificationIcon = (type: string) => {
         switch (type) {
-            case 'REQUEST_CREATED':
-                return '📝';
-            case 'REQUEST_APPROVED':
-                return '✅';
-            case 'PO_CREATED':
-                return '📄';
-            default:
-                return '🔔';
+            case 'INVENTORY': return '📦';
+            case 'CONTRACTOR': return '🛡️';
+            case 'PROJECT': return '🏗️';
+            case 'FINANCE': return '💰';
+            case 'SYSTEM': return '⚙️';
+            case 'SUCCESS': return '✅';
+            case 'REQUEST_CREATED': return '📝';
+            default: return '🔔';
         }
     };
 
@@ -159,31 +205,34 @@ export default function NotificationBell() {
                                 <div
                                     key={notification.id}
                                     onClick={() => handleNotificationClick(notification)}
-                                    className={`p-3 cursor-pointer transition-colors ${notification.read
-                                        ? 'bg-white hover:bg-slate-50'
-                                        : 'bg-blue-50 hover:bg-blue-100'
+                                    className={`p-3 cursor-pointer transition-colors border-l-4 ${notification.isRead
+                                        ? 'bg-white hover:bg-slate-50 border-l-transparent'
+                                        : `bg-blue-50 hover:bg-blue-100 border-l-blue-600`
                                         }`}
                                 >
                                     <div className="flex gap-3">
-                                        <div className="text-2xl flex-shrink-0">
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0 ${getNotificationColor(notification.type)}`}>
                                             {getNotificationIcon(notification.type)}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between gap-2">
-                                                <h4 className={`text-sm font-semibold ${notification.read ? 'text-slate-700' : 'text-slate-900'
-                                                    }`}>
+                                                <h4 className={`text-sm font-semibold truncate ${notification.isRead ? 'text-slate-700' : 'text-slate-900'}`}>
                                                     {notification.title}
                                                 </h4>
-                                                {!notification.read && (
-                                                    <div className="h-2 w-2 rounded-full bg-blue-600 flex-shrink-0 mt-1"></div>
+                                                {notification.priority === 'CRITICAL' && (
+                                                    <span className="flex h-2 w-2 rounded-full bg-red-600 animate-pulse"></span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                                            <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">
                                                 {notification.message}
                                             </p>
-                                            <p className="text-xs text-slate-400 mt-1">
-                                                {formatTime(notification.createdAt)}
-                                            </p>
+                                            <div className="flex items-center gap-2 mt-1.5">
+                                                <span className="text-[10px] font-medium text-slate-400 capitalize">{notification.type.toLowerCase()}</span>
+                                                <span className="text-[10px] text-slate-300">•</span>
+                                                <span className="text-[10px] text-slate-400">
+                                                    {formatTime(notification.createdAt)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

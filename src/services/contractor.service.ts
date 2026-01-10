@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { NotificationService } from './notification.service';
 
 export class ContractorService {
 
@@ -199,7 +200,37 @@ export class ContractorService {
             } as any
         });
 
-        // 2. Create Teams and Members
+        // 2. Notify Relevant Staff (Generator and OPMC Admins)
+        try {
+            const message = `Contractor "${updated.name}" has submitted their registration form and is waiting for ARM review.`;
+
+            // Notify the person who generated the link
+            if (updated.siteOfficeStaffId) {
+                await NotificationService.send({
+                    userId: updated.siteOfficeStaffId,
+                    title: "New Contractor Submission",
+                    message,
+                    type: 'CONTRACTOR',
+                    priority: 'HIGH',
+                    link: `/admin/contractors`
+                });
+            }
+
+            // Also notify ARMs and Admins in the same OPMC
+            await NotificationService.notifyByRole({
+                roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN'],
+                title: "Contractor Pending Review",
+                message,
+                type: 'CONTRACTOR',
+                priority: 'MEDIUM',
+                link: `/admin/contractors`,
+                opmcId: updated.opmcId || undefined
+            });
+        } catch (nErr) {
+            console.error("Failed to send submission notifications:", nErr);
+        }
+
+        // 3. Create Teams and Members
         if (teams && teams.length > 0) {
             for (const team of teams) {
                 const createdTeam = await prisma.contractorTeam.create({

@@ -101,3 +101,33 @@ if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
 ### A. Anti-Abuse Measures
 - Implement Rate Limiting on public or sensitive API endpoints (like Login) to prevent brute-force attacks.
 - Middleware should track request counts per IP address.
+
+## 9. Database Performance & Optimization (STANDARD)
+
+### A. Strategic Indexing (MUST)
+- **Rule**: Every field used in a `where` clause, `orderBy`, or as a Foreign Key in a relation MUST have an index.
+- **Implementation**: Add `@@index([fieldName])` to the model in `prisma/schema.prisma`.
+- **Target**: IDs (Foreign Keys), Status fields, Dates, and common filter categories (e.g., `opmcId`, `contractorId`).
+
+### B. Selective Querying
+- **Rule**: Avoid fetching unneeded data. NEVER use a plain `findMany()` without filters or specific selects for large tables.
+- **Implementation**: Use Prisma's `select` to pluck specific fields instead of fetching entire rows if only a few columns are needed for a list view.
+
+### C. Connection Pooling
+- **Standard**: Always use connection pooling in production (Prisma Accelerate / PgBouncer) to handle concurrent user spikes without exhausting database connections.
+
+### D. Data Retention & Cleanup
+- **Standard**: For high-volume transaction logs or notifications, implement a 30-day (or relevant) auto-cleanup policy using the `cleanup` methods provided in the service layer.
+
+## 10. Real-time Communication (STANDARD)
+
+### A. Server-Sent Events (SSE) Over Polling (MUST)
+- **Standard**: Avoid traditional "Polling" (sending requests every few seconds) for live updates. This causes unnecessary network load.
+- **Implementation**: ALWAYS use **Server-Sent Events (SSE)** for features requiring real-time reactivity (e.g., Notification Bell, Live Dashboard Stats, Active Stock Monitoring).
+- **Pattern**:
+    1.  Emit an event in the Service Layer when data changes (`lib/events.ts`).
+    2.  Create a stream API route (`/api/.../stream`) to push updates.
+    3.  Use `EventSource` in the React component to listen and update the individual Query Cache.
+
+### B. Instant UI Updates
+- **Standard**: When a real-time event is received, update the UI state (e.g., `queryClient.setQueryData`) immediately instead of waiting for a manual page refresh.
