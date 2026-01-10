@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { handleApiError } from '@/lib/api-utils';
 
 export async function GET(request: Request) {
     try {
@@ -47,68 +48,39 @@ export async function GET(request: Request) {
             lte: lastDayOfYear
         };
 
-        // 1. Monthly Stats (Current Month)
-        // Need specific date range for month, overriding the year range in 'whereClause'?
-        // No, 'whereClause' has year range. We need strictly month range.
-        // We will create a separate where object for monthly to be safe/clear.
-        const monthlyWhere = {
-            ...whereClause,
-            createdAt: {
-                gte: firstDayOfMonth,
-                lte: lastDayOfMonth
-            }
-        };
-
-        const monthlyStats = await (prisma.serviceOrder as any).groupBy({
-            by: ['sltsStatus'],
-            where: monthlyWhere,
-            _count: {
-                _all: true
-            }
-        });
-
-        // 2. Total Stats (Yearly Default)
-        // Uses base whereClause which now includes 2026 year filter
-        const totalStats = await (prisma.serviceOrder as any).groupBy({
-            by: ['sltsStatus'],
-            where: whereClause,
-            _count: {
-                _all: true
-            }
-        });
-
-        // 3. PAT Stats
-        const patStats = await (prisma.serviceOrder as any).groupBy({
-            by: ['patStatus'],
-            where: {
-                ...whereClause,
-                patStatus: { not: null }
-            },
-            _count: {
-                _all: true
-            }
-        });
-
-        // 4. Contractor Performance (Top 5)
-        const contractorPerf = await (prisma.serviceOrder as any).groupBy({
-            by: ['contractorId', 'sltsStatus'],
-            where: {
-                ...whereClause,
-                contractorId: { not: null }
-            },
-            _count: {
-                _all: true
-            }
-        });
-
-        // 5. RTOM Performance (for Manager/Area Manager)
-        const rtomStats = await (prisma.serviceOrder as any).groupBy({
-            by: ['rtom', 'sltsStatus'],
-            where: whereClause,
-            _count: {
-                _all: true
-            }
-        });
+        // Parallel Execution for all major stat blocks
+        const [monthlyStats, totalStats, patStats, contractorPerf, rtomStats] = await Promise.all([
+            // 1. Monthly Stats (Current Month)
+            (prisma.serviceOrder as any).groupBy({
+                by: ['sltsStatus'],
+                where: { ...whereClause, createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
+                _count: { _all: true }
+            }),
+            // 2. Total Stats (Yearly Default)
+            (prisma.serviceOrder as any).groupBy({
+                by: ['sltsStatus'],
+                where: whereClause,
+                _count: { _all: true }
+            }),
+            // 3. PAT Stats
+            (prisma.serviceOrder as any).groupBy({
+                by: ['patStatus'],
+                where: { ...whereClause, patStatus: { not: null } },
+                _count: { _all: true }
+            }),
+            // 4. Contractor Performance (Only if Management)
+            (isAdmin || isManager) ? (prisma.serviceOrder as any).groupBy({
+                by: ['contractorId', 'sltsStatus'],
+                where: { ...whereClause, contractorId: { not: null } },
+                _count: { _all: true }
+            }) : Promise.resolve([]),
+            // 5. RTOM Performance (Only if Management)
+            (isAdmin || isManager) ? (prisma.serviceOrder as any).groupBy({
+                by: ['rtom', 'sltsStatus'],
+                where: whereClause,
+                _count: { _all: true }
+            }) : Promise.resolve([])
+        ]);
 
         // Process data for the response
         const stats = {
@@ -171,7 +143,6 @@ export async function GET(request: Request) {
 
         return NextResponse.json(stats);
     } catch (error) {
-        console.error('Dashboard stats error:', error);
-        return NextResponse.json({ message: 'Error fetching stats' }, { status: 500 });
+        return handleApiError(error);
     }
 }
