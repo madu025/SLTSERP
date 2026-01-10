@@ -522,7 +522,7 @@ export default function ContractorsPage() {
                                                 </div>
                                                 <p className="text-xs text-slate-500 mt-1">{contractor.registrationNumber}</p>
                                                 <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-[10px] sm:text-xs text-slate-600">
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Users className="w-3 h-3 text-slate-400" /> {contractor.teams.length} Teams</div>
+                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Users className="w-3 h-3 text-slate-400" /> {(contractor as any)._count?.teams || 0} Teams</div>
                                                     <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Building2 className="w-3 h-3 text-slate-400" /> {(contractor as any).opmc?.name || 'No Office'}</div>
                                                     <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><UserPlus className="w-3 h-3 text-slate-400" /> {(contractor as any).siteOfficeStaff?.name || 'Manual'}</div>
                                                 </div>
