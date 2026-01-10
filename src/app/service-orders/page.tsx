@@ -170,22 +170,25 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     });
     const materialSource = config['OSP_MATERIAL_SOURCE'] || 'SLT';
 
-    // Fetch Service Orders (fetch ALL to enable proper sorting of missing SODs)
+    // Fetch Service Orders (Server-side search, filter, and pagination)
     const { data: qData, isLoading: isLoadingOrders, isRefetching } = useQuery<{ items: ServiceOrder[], meta: any, summary: any }>({
-        queryKey: ["service-orders", selectedOpmcId, filterType, selectedMonth, selectedYear],
+        queryKey: ["service-orders", selectedOpmcId, filterType, selectedMonth, selectedYear, searchTerm, statusFilter, patFilter, matFilter, page],
         queryFn: async () => {
             if (!selectedOpmcId) return { items: [], meta: {}, summary: {} };
-            // Fetch all items (no pagination on API side)
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
             const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
-            const res = await fetch(`/api/service-orders?opmcId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}&page=1&limit=500`);
+            const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
+            const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
+            const patParam = patFilter ? `&patFilter=${patFilter}` : '';
+            const matParam = matFilter ? `&matFilter=${matFilter}` : '';
+
+            const res = await fetch(`/api/service-orders?opmcId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${page}&limit=${limit}`);
             return res.json();
         },
         enabled: !!selectedOpmcId,
-        refetchInterval: 10 * 60 * 1000,
         refetchOnMount: true,
         refetchOnWindowFocus: true,
-        staleTime: 0 // Always fetch fresh data
+        staleTime: 30000 // Keep data fresh for 30s
     });
 
     const serviceOrders = qData?.items || [];
@@ -429,78 +432,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         }
     };
 
-    // Filter & Sort
-    const filteredOrders = serviceOrders.filter(order => {
-        const matchesSearch =
-            order.soNum.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.voiceNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    const paginatedOrders = serviceOrders;
 
-        const matchesStatus = statusFilter === 'ALL'
-            ? true
-            : statusFilter === 'DEFAULT'
-                ? ["ASSIGNED", "INPROGRESS", "PROV_CLOSED", "INSTALL_CLOSED"].includes(order.status)
-                : order.status === statusFilter;
-
-        const matchesPat = patFilter === 'ALL' ? true : (patFilter === 'PENDING' ? !(['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '')) : (['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '')));
-        const matchesMat = matFilter === 'ALL' ? true : (matFilter === 'PENDING' ? !order.comments?.includes('[MATERIAL_COMPLETED]') : order.comments?.includes('[MATERIAL_COMPLETED]'));
-
-        return matchesSearch && matchesStatus && matchesPat && matchesMat;
-    });
-
-    // Separate missing and normal orders
-    const missingOrders = filteredOrders.filter(order =>
-        order.comments?.includes('[MISSING FROM SYNC')
-    );
-
-    const normalOrders = filteredOrders.filter(order =>
-        !order.comments?.includes('[MISSING FROM SYNC')
-    );
-
-    // Sort each group separately
-    const sortFunction = (a: ServiceOrder, b: ServiceOrder) => {
-        if (!sortConfig) return 0;
-
-        // Custom Sort for Completed View (PAT Pending -> Top)
-        if (filterType === 'completed' && (sortConfig.key === 'completedDate' || sortConfig.key === 'createdAt')) {
-            const aPending = !['COMPLETED', 'VERIFIED', 'PASS'].includes(a.patStatus || '');
-            const bPending = !['COMPLETED', 'VERIFIED', 'PASS'].includes(b.patStatus || '');
-            if (aPending && !bPending) return -1;
-            if (!aPending && bPending) return 1;
-        }
-
-        const { key, direction } = sortConfig;
-        let aValue: any = a[key] ?? "";
-        let bValue: any = b[key] ?? "";
-        // Special case for date sorting
-        if (key === 'scheduledDate' || key === 'createdAt' || key === 'statusDate') {
-            aValue = new Date(aValue).getTime();
-            bValue = new Date(bValue).getTime();
-        }
-        if (aValue < bValue) return direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return direction === "asc" ? 1 : -1;
-        return 0;
-    };
-
-    const sortedMissing = [...missingOrders].sort(sortFunction);
-    const sortedNormal = [...normalOrders].sort(sortFunction);
-
-    // Combine: Missing first, then normal
-    const sortedOrders = [...sortedMissing, ...sortedNormal];
-
-    // Client-side pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedOrders = sortedOrders.slice(startIndex, endIndex);
-    const totalPages = Math.ceil(sortedOrders.length / limit);
-
-    // Update meta with client-side pagination
-    const clientMeta = {
-        total: sortedOrders.length,
-        page,
-        limit,
-        totalPages
-    };
+    // Update meta with server-side response
+    const clientMeta = meta;
 
     const requestSort = (key: keyof ServiceOrder) => {
         let direction: "asc" | "desc" = "asc";

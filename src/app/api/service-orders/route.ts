@@ -8,6 +8,10 @@ export async function GET(request: Request) {
         const params = {
             opmcId: searchParams.get('opmcId') || '',
             filter: searchParams.get('filter') || 'pending',
+            search: searchParams.get('search') || undefined,
+            statusFilter: searchParams.get('statusFilter') || undefined,
+            patFilter: searchParams.get('patFilter') || undefined,
+            matFilter: searchParams.get('matFilter') || undefined,
             page: parseInt(searchParams.get('page') || '1'),
             limit: parseInt(searchParams.get('limit') || '50'),
             month: searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined,

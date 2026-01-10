@@ -10,12 +10,16 @@ export class ServiceOrderService {
     static async getServiceOrders(params: {
         opmcId: string;
         filter?: string;
+        search?: string;
+        statusFilter?: string;
+        patFilter?: string;
+        matFilter?: string;
         page?: number;
         limit?: number;
         month?: number;
         year?: number;
     }) {
-        const { opmcId, filter, page = 1, limit = 50, month, year } = params;
+        const { opmcId, filter, search, statusFilter, patFilter, matFilter, page = 1, limit = 50, month, year } = params;
         const skip = (page - 1) * limit;
 
         if (!opmcId) {
@@ -40,13 +44,46 @@ export class ServiceOrderService {
             }
         }
 
-        // Status Filtering
+        // Status Filtering (Main View Tabs)
         if (filter === 'pending') {
             whereClause.sltsStatus = { notIn: ['COMPLETED', 'RETURN'] };
         } else if (filter === 'completed') {
             whereClause.sltsStatus = 'COMPLETED';
         } else if (filter === 'return') {
             whereClause.sltsStatus = 'RETURN';
+        }
+
+        // Sub-Filtering (Dropdowns/Search)
+        if (search) {
+            whereClause.OR = [
+                { soNum: { contains: search, mode: 'insensitive' } },
+                { customerName: { contains: search, mode: 'insensitive' } },
+                { voiceNumber: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
+            whereClause.status = statusFilter;
+        } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
+            whereClause.status = { in: ["ASSIGNED", "INPROGRESS", "PROV_CLOSED", "INSTALL_CLOSED"] };
+        }
+
+        if (patFilter && patFilter !== 'ALL') {
+            const isPatPending = patFilter === 'PENDING';
+            if (isPatPending) {
+                whereClause.patStatus = { notIn: ['COMPLETED', 'VERIFIED', 'PASS'] };
+            } else {
+                whereClause.patStatus = { in: ['COMPLETED', 'VERIFIED', 'PASS'] };
+            }
+        }
+
+        if (matFilter && matFilter !== 'ALL') {
+            const isMatPending = matFilter === 'PENDING';
+            if (isMatPending) {
+                whereClause.comments = { not: { contains: '[MATERIAL_COMPLETED]' } };
+            } else {
+                whereClause.comments = { contains: '[MATERIAL_COMPLETED]' };
+            }
         }
 
         // Determine sort order
