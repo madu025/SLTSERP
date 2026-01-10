@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -34,8 +34,9 @@ async function main() {
     // Check if InventoryStoreStock exists in schema... usually yes.
     // Assuming it does:
     try {
-        if (prisma.inventoryStoreStock) {
-            await prisma.inventoryStoreStock.deleteMany({});
+        const p = prisma as any;
+        if (p.inventoryStoreStock) {
+            await p.inventoryStoreStock.deleteMany({});
             console.log('✅ Cleared Main Store Stock Levels');
         }
     } catch (e) {
@@ -44,8 +45,9 @@ async function main() {
 
     // 7. Clear Audit Logs / Transactions if any
     try {
-        if (prisma.inventoryTransaction) {
-            await prisma.inventoryTransaction.deleteMany({});
+        const p = prisma as any;
+        if (p.inventoryTransaction) {
+            await p.inventoryTransaction.deleteMany({});
             console.log('✅ Cleared Inventory Transactions/Logs');
         }
     } catch (e) {
@@ -65,3 +67,5 @@ main()
     .finally(async () => {
         await prisma.$disconnect();
     });
+
+export { };
