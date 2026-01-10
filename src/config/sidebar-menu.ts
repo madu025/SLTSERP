@@ -4,11 +4,9 @@ import {
     FileText,
     Users,
     HardHat,
-    Truck,
     Settings,
     Building2,
     UserCog,
-    FileSpreadsheet,
     Receipt,
     Warehouse,
     ClipboardCheck
@@ -44,11 +42,31 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Service Orders',
         path: '/service-orders',
         icon: FileText,
-        allowedRoles: ROLE_GROUPS.OSP_OPS
+        allowedRoles: ROLE_GROUPS.OSP_OPS,
+        submenu: [
+            {
+                title: 'Pending SOD',
+                path: '/service-orders',
+                icon: FileText,
+                allowedRoles: ROLE_GROUPS.OSP_OPS
+            },
+            {
+                title: 'Return SOD',
+                path: '/service-orders/return',
+                icon: FileText,
+                allowedRoles: ROLE_GROUPS.OSP_OPS
+            },
+            {
+                title: 'Completed SOD',
+                path: '/service-orders/completed',
+                icon: FileText,
+                allowedRoles: ROLE_GROUPS.OSP_OPS
+            }
+        ]
     },
     {
         title: 'Contractors',
-        path: '/contractors',
+        path: '/admin/contractors',
         icon: HardHat,
         allowedRoles: [...ROLE_GROUPS.OSP_OPS, ...ROLE_GROUPS.OFFICE_ADMINS]
     },
@@ -68,23 +86,79 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Inventory / Stores',
         path: '/inventory',
         icon: Warehouse,
-        allowedRoles: ROLE_GROUPS.STORES
+        allowedRoles: ROLE_GROUPS.STORES,
+        submenu: [
+            {
+                title: 'Dashboard',
+                path: '/inventory',
+                icon: LayoutDashboard,
+                allowedRoles: ROLE_GROUPS.STORES
+            },
+            {
+                title: 'Stock Levels',
+                path: '/inventory/stock',
+                icon: Warehouse,
+                allowedRoles: ROLE_GROUPS.STORES
+            },
+            {
+                title: 'Stock Requests',
+                path: '/inventory/requests',
+                icon: ClipboardCheck,
+                allowedRoles: ROLE_GROUPS.STORES
+            },
+            {
+                title: 'Item Master',
+                path: '/inventory/items',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+            },
+            {
+                title: 'Bulk Import',
+                path: '/inventory/items/import',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN']
+            },
+            {
+                title: 'Transaction History',
+                path: '/inventory/reports/cardex',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+            },
+            {
+                title: 'GRN Entry',
+                path: '/inventory/grn',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] // Restricted to managers
+            },
+            {
+                title: 'Manage Stores',
+                path: '/admin/stores',
+                icon: Building2,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN']
+            },
+            {
+                title: 'Initial Stock',
+                path: '/admin/inventory/initial',
+                icon: Warehouse,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+            }
+        ]
     },
     {
         title: 'Staff Management',
-        path: '/staff',
+        path: '/admin/staff',
         icon: Users,
         allowedRoles: ROLE_GROUPS.OFFICE_ADMINS
     },
     {
         title: 'User Management',
-        path: '/users',
+        path: '/admin/users',
         icon: UserCog,
         allowedRoles: ROLE_GROUPS.ADMINS
     },
     {
         title: 'OPMCs',
-        path: '/opmcs',
+        path: '/admin/opmcs',
         icon: Building2,
         allowedRoles: ROLE_GROUPS.ADMINS
     },

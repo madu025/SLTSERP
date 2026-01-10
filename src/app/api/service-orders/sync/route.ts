@@ -40,6 +40,22 @@ export async function POST(request: Request) {
                     try {
                         const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
 
+                        // Check if a record exists with this SO number that user has manually completed/returned
+                        const existingRecords = await tx.serviceOrder.findMany({
+                            where: { soNum: item.SO_NUM },
+                            select: { id: true, sltsStatus: true, status: true }
+                        });
+
+                        // Skip if user has already completed or returned this SO
+                        const hasUserAction = existingRecords.some(
+                            r => r.sltsStatus === 'COMPLETED' || r.sltsStatus === 'RETURN'
+                        );
+
+                        if (hasUserAction) {
+                            skipped++;
+                            continue; // Skip this record
+                        }
+
                         // Upsert: create if not exists, update if status changed
                         const result = await tx.serviceOrder.upsert({
                             where: {
@@ -111,12 +127,41 @@ export async function POST(request: Request) {
             });
         }
 
+        // After sync, identify SODs that are missing from the latest sync
+        // These might have been completed in SLT system but not in our system
+        const syncedSoNums = sltData.map(item => item.SO_NUM);
+
+        // Find all INPROGRESS SODs for this OPMC that weren't in the sync
+        const missingSods = await prisma.serviceOrder.findMany({
+            where: {
+                opmcId,
+                sltsStatus: 'INPROGRESS',
+                soNum: {
+                    notIn: syncedSoNums
+                }
+            },
+            select: { id: true, soNum: true, comments: true }
+        });
+
+        // Mark these as potentially completed externally by adding a flag in comments
+        let markedAsMissing = 0;
+        for (const sod of missingSods) {
+            await prisma.serviceOrder.update({
+                where: { id: sod.id },
+                data: {
+                    comments: `[MISSING FROM SYNC - Possibly completed in SLT system]\n${sod.comments || ''}`
+                }
+            });
+            markedAsMissing++;
+        }
+
         return NextResponse.json({
             message: 'Sync completed',
             total: sltData.length,
             created,
             updated,
-            skipped
+            skipped,
+            markedAsMissing
         });
     } catch (error) {
         console.error('Error syncing service orders:', error);

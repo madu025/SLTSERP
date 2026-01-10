@@ -2,17 +2,18 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google"; // Removed Inter as it was not used or replaced
 import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import ThemeSettings from "@/components/ThemeSettings";
 import Providers from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -33,7 +34,6 @@ export default function RootLayout({
         <Providers>
           <ThemeProvider>
             {children}
-            <ThemeSettings />
           </ThemeProvider>
         </Providers>
       </body>

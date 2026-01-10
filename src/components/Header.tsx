@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 
 interface User {
     name: string;
@@ -94,6 +95,8 @@ export default function Header() {
                         </div>
                     )}
                 </div>
+
+                <ThemeCustomizer />
             </div>
         </header>
     );

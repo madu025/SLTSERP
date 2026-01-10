@@ -2,40 +2,92 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sltApiService } from '@/services/slt-api.service';
 
-// GET service orders for user's accessible OPMCs
+// GET service orders with pagination and summary metrics
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const opmcId = searchParams.get('opmcId');
         const filter = searchParams.get('filter'); // 'pending', 'completed', 'return', or 'all'
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '50');
+        const skip = (page - 1) * limit;
 
         if (!opmcId) {
             return NextResponse.json({ message: 'OPMC ID required' }, { status: 400 });
         }
 
-        // Build where clause based on filter
+        // Build where clause
         let whereClause: any = { opmcId };
 
         if (filter === 'pending') {
-            // Pending = NOT completed and NOT return
-            whereClause.sltsStatus = {
-                notIn: ['COMPLETED', 'RETURN']
-            };
+            whereClause.sltsStatus = { notIn: ['COMPLETED', 'RETURN'] };
         } else if (filter === 'completed') {
             whereClause.sltsStatus = 'COMPLETED';
         } else if (filter === 'return') {
             whereClause.sltsStatus = 'RETURN';
         }
-        // If filter is 'all' or not provided, fetch all orders
 
-        // Fetch service orders for the selected OPMC
-        const serviceOrders = await prisma.serviceOrder.findMany({
-            where: whereClause,
-            orderBy: { createdAt: 'desc' },
-            take: 500 // Limit to prevent huge responses
+        // Run queries in parallel for efficiency
+        const [total, items, statusGroups, contractorCount, appointmentCount] = await Promise.all([
+            // 1. Total count
+            prisma.serviceOrder.count({ where: whereClause }),
+
+            // 2. Paginated items
+            prisma.serviceOrder.findMany({
+                where: whereClause,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            }),
+
+            // 3. Status breakdown (group by external 'status')
+            prisma.serviceOrder.groupBy({
+                by: ['status'],
+                where: whereClause,
+                _count: true
+            }),
+
+            // 4. Contractor assigned count
+            prisma.serviceOrder.count({
+                where: {
+                    ...whereClause,
+                    contractorId: { not: null }
+                }
+            }),
+
+            // 5. Appointment count
+            prisma.serviceOrder.count({
+                where: {
+                    ...whereClause,
+                    scheduledDate: { not: null }
+                }
+            })
+        ]);
+
+        const totalPages = Math.ceil(total / limit);
+
+        // Format status breakdown
+        const statusBreakdown = statusGroups.reduce((acc, curr) => {
+            acc[curr.status] = curr._count;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return NextResponse.json({
+            items,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages
+            },
+            summary: {
+                totalSod: total,
+                contractorAssigned: contractorCount,
+                appointments: appointmentCount,
+                statusBreakdown
+            }
         });
 
-        return NextResponse.json(serviceOrders);
     } catch (error) {
         console.error('Error fetching service orders:', error);
         return NextResponse.json({ message: 'Error fetching service orders' }, { status: 500 });
@@ -114,7 +166,7 @@ export async function PUT(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, sltsStatus, completedDate, contractorId } = body;
+        const { id, sltsStatus, completedDate, contractorId, comments } = body;
 
         if (!id) {
             return NextResponse.json({ message: 'Service Order ID required' }, { status: 400 });
@@ -142,6 +194,45 @@ export async function PATCH(request: Request) {
         // Handle contractor assignment
         if (contractorId !== undefined) {
             updateData.contractorId = contractorId;
+        }
+
+        // Add comments update
+        if (comments) {
+            updateData.comments = comments;
+        }
+
+        // Add completion data fields
+        if (body.ontSerialNumber) {
+            updateData.ontSerialNumber = body.ontSerialNumber;
+        }
+
+        if (body.iptvSerialNumbers) {
+            updateData.iptvSerialNumbers = body.iptvSerialNumbers;
+        }
+
+        if (body.dpDetails) {
+            updateData.dpDetails = body.dpDetails;
+        }
+
+        // Handle team assignment
+        if (body.teamId) {
+            updateData.teamId = body.teamId;
+        }
+
+        // Handle Material Usage
+        if (body.materialUsage && Array.isArray(body.materialUsage)) {
+            updateData.materialUsage = {
+                create: body.materialUsage.map((m: any) => ({
+                    itemId: m.itemId,
+                    quantity: parseFloat(m.quantity),
+                    unit: m.unit || 'Nos',
+                    usageType: m.usageType || 'USED',
+                    // Wastage tracking
+                    wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
+                    exceedsLimit: m.exceedsLimit || false,
+                    comment: m.comment
+                }))
+            };
         }
 
         // If no fields to update

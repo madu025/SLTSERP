@@ -45,6 +45,9 @@ model OPMC {
   staff     Staff[]
   users     User[]   @relation("UserOpmcs") // Managed access for users
   serviceOrders ServiceOrder[]
+  contractorTeams ContractorTeam[]
+  storeId   String? // Store assigned to this OPMC
+  store     InventoryStore? @relation(fields: [storeId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -84,6 +87,11 @@ model ServiceOrder {
   // Completed/Return date
   completedDate         DateTime? // Date when marked as COMPLETED or RETURN
   
+  // Equipment Serial Numbers (for completion)
+  ontSerialNumber       String?   // ONT Serial for VOICE_INT packages
+  iptvSerialNumbers     String?   @db.Text // JSON array of IPTV serials for VOICE_IPTV packages
+  dpDetails             String?   @db.Text // Additional DP-specific details
+  
   // PAT details
   patStatus             String?   // PASS, REJECTED, PENDING
   patDate               DateTime?
@@ -94,7 +102,11 @@ model ServiceOrder {
   contractorId          String?
   contractor            Contractor? @relation(fields: [contractorId], references: [id])
   
+  teamId                String?
+  team                  ContractorTeam? @relation(fields: [teamId], references: [id])
+  
   restoreRequests       RestoreRequest[]
+  materialUsage         SODMaterialUsage[] // Material tracking
   
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -120,10 +132,21 @@ model User {
   requestedRestores RestoreRequest[] @relation("RequestedRestores")
   approvedRestores  RestoreRequest[] @relation("ApprovedRestores")
   
+  // Password Reset Security
+  securityQuestion  String?
+  securityAnswer    String?  // Hashed
+  employeeId        String?  // For additional verification
+  
   // Hierarchy
   supervisorId      String?
   supervisor        User?    @relation("UserSupervisor", fields: [supervisorId], references: [id])
   subordinates      User[]   @relation("UserSupervisor")
+
+  // Inventory Relations
+  managedStores     InventoryStore[]
+  requestedStock    StockRequest[]   @relation("RequestUser")
+  approvedStock     StockRequest[]   @relation("ApproveUser")
+  receivedGRNs      GRN[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -242,21 +265,72 @@ model Contractor {
   bankAccountNumber     String?
   bankBranch            String?
   
+  
+  storeId               String?
+  store                 InventoryStore?   @relation(fields: [storeId], references: [id])
+  
   serviceOrders         ServiceOrder[]
-  teamMembers           TeamMember[]
+  teamMembers           TeamMember[] // Direct members (legacy or pool)
+  teams                 ContractorTeam[] // Structured teams
   invoices              Invoice[]
+  
+  // Material Management
+  materialIssues        ContractorMaterialIssue[] @relation("MaterialIssues")
+  materialReturns       ContractorMaterialReturn[] @relation("MaterialReturns")
+  wastageReports        ContractorWastage[]
+  balanceSheets         ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
   
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 }
 
+model ContractorTeam {
+  id           String   @id @default(cuid())
+  name         String
+  contractorId String
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  
+  // Multiple stores assignment (team can work in multiple stores)
+  storeAssignments TeamStoreAssignment[]
+  
+  // Primary OPMC (optional, for reference)
+  opmcId       String?
+  opmc         OPMC?    @relation(fields: [opmcId], references: [id])
+  
+  serviceOrders ServiceOrder[]
+  
+  members      TeamMember[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Junction table for Team-Store many-to-many relationship
+model TeamStoreAssignment {
+  id        String   @id @default(cuid())
+  teamId    String
+  team      ContractorTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     InventoryStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  isPrimary Boolean  @default(false) // Mark primary store
+  createdAt DateTime @default(now())
+  
+  @@unique([teamId, storeId])
+  @@index([teamId])
+  @@index([storeId])
+}
+
 model TeamMember {
   id                    String      @id @default(cuid())
   name                  String
-  idCopyNumber          String
-  contractorIdCopyNumber String
+  idCopyNumber          String?
+  contractorIdCopyNumber String?
+  
   contractorId          String
   contractor            Contractor  @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  
+  teamId                String?
+  team                  ContractorTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 }
@@ -291,11 +365,363 @@ model Vehicle {
   updatedAt       DateTime @updatedAt
 }
 
-// Table Column Settings - stores which columns are visible for each table
+// Table Column Settings
 model TableColumnSettings {
   id          String   @id @default(cuid())
   tableName   String   @unique // pending_sod, completed_sod, return_sod, restore_request
   columns     String   @db.Text // JSON array of visible column names
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// --- INVENTORY MODULE ---
+
+model InventoryStore {
+  id          String   @id @default(cuid())
+  name        String   
+  type        String   @default("SUB") // MAIN, SUB
+  location    String?
+  managerId   String?  
+  manager     User?    @relation(fields: [managerId], references: [id])
+  stocks      InventoryStock[]
+  outRequests StockRequest[] @relation("RequestSource") // Requests FROM this store (Sub Stores)
+  inRequests  StockRequest[] @relation("RequestTarget") // Requests TO this store (Main Store)
+  grns        GRN[]
+  transactions InventoryTransaction[]
+  contractors Contractor[]
+  opmcs       OPMC[]
+  teamAssignments TeamStoreAssignment[] // Teams assigned to this store
+  
+  // Material Management
+  materialIssues  ContractorMaterialIssue[] @relation("MaterialIssues")
+  materialReturns ContractorMaterialReturn[] @relation("MaterialReturns")
+  wastageReports  ContractorWastage[]
+  balanceSheets   ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  unit        String   // Nos, kg, L, m, pkts
+  type        String   @default("SLTS") // SLT, SLTS
+  category    String   @default("OTHERS") // OSP_NEW_CONN, OSP_PROJECT, OTHERS
+  minLevel    Float    @default(0) // Global low stock alert threshold
+  stocks      InventoryStock[]
+  requestItems StockRequestItem[]
+  grnItems    GRNItem[]
+  transactionItems InventoryTransactionItem[]
+  
+  // Material Management
+  materialStandards MaterialStandard[] @relation("MaterialStandards")
+  issueItems        ContractorMaterialIssueItem[] @relation("IssueItems")
+  sodUsage          SODMaterialUsage[] @relation("SODUsage")
+  returnItems       ContractorMaterialReturnItem[] @relation("ReturnItems")
+  wastageItems      ContractorWastageItem[] 
+  balanceSheetItems ContractorBalanceSheetItem[] @relation("BalanceSheetItems")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model InventoryStock {
+  id        String        @id @default(cuid())
+  storeId   String
+  store     InventoryStore @relation(fields: [storeId], references: [id])
+  itemId    String
+  item      InventoryItem  @relation(fields: [itemId], references: [id])
+  quantity  Float         @default(0)
+  minLevel  Float         @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([storeId, itemId])
+}
+
+model StockRequest {
+  id          String   @id @default(cuid())
+  requestNr   String   @unique @default(cuid()) // Can be made more readable later
+  fromStoreId String
+  fromStore   InventoryStore @relation("RequestSource", fields: [fromStoreId], references: [id])
+  toStoreId   String   
+  toStore     InventoryStore @relation("RequestTarget", fields: [toStoreId], references: [id])
+  status      String   @default("PENDING") // PENDING, APPROVED, PARTIALLY_ALLOCATED, REJECTED, COMPLETED
+  requestedById String
+  requestedBy User     @relation("RequestUser", fields: [requestedById], references: [id])
+  approvedById String?
+  approvedBy  User?    @relation("ApproveUser", fields: [approvedById], references: [id])
+  items       StockRequestItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model StockRequestItem {
+  id          String       @id @default(cuid())
+  requestId   String
+  request     StockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        InventoryItem @relation(fields: [itemId], references: [id])
+  requestedQty Float
+  approvedQty  Float        @default(0) 
+  createdAt   DateTime     @default(now())
+}
+
+model GRN {
+  id          String   @id @default(cuid())
+  grnNumber   String   @unique
+  storeId     String   
+  store       InventoryStore @relation(fields: [storeId], references: [id])
+  sourceType  String   // SLT, LOCAL_PURCHASE
+  supplier    String?  
+  receivedById String
+  receivedBy  User     @relation(fields: [receivedById], references: [id])
+  items       GRNItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GRNItem {
+  id        String   @id @default(cuid())
+  grnId     String
+  grn       GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  quantity  Float
+  createdAt DateTime @default(now())
+}
+
+model InventoryTransaction {
+  id          String   @id @default(cuid())
+  type        String   // GRN_IN, TRANSFER_IN, TRANSFER_OUT, WASTAGE, RETURN
+  storeId     String
+  store       InventoryStore @relation(fields: [storeId], references: [id])
+  referenceId String?  
+  notes       String?
+  date        DateTime @default(now())
+  userId      String
+  items       InventoryTransactionItem[]
+}
+
+model InventoryTransactionItem {
+  id            String   @id @default(cuid())
+  transactionId String
+  transaction   InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          InventoryItem @relation(fields: [itemId], references: [id])
+  quantity      Float    
+}
+// Material Categories (OSP New Connection, FAC, etc.)
+model MaterialCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  standards   MaterialStandard[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Standard materials per package type
+model MaterialStandard {
+  id              String   @id @default(cuid())
+  categoryId      String
+  category        MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  packageType     String   // "VOICE_INT", "VOICE_IPTV", etc.
+  itemId          String
+  item            InventoryItem @relation("MaterialStandards", fields: [itemId], references: [id])
+  
+  standardQty     Float    // Standard quantity per SOD
+  maxQty          Float?   // Maximum allowed
+  wastagePercent  Float    @default(5) // Max wastage %
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([categoryId, packageType, itemId])
+  @@index([packageType])
+}
+
+// Material issued to contractor (per store)
+model ContractorMaterialIssue {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           InventoryStore @relation("MaterialIssues", fields: [storeId], references: [id])
+  
+  issueDate       DateTime @default(now())
+  month           String   // "2025-01"
+  issuedBy        String?  // User ID
+  
+  items           ContractorMaterialIssueItem[]
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([contractorId, storeId, month])
+  @@index([month])
+}
+
+model ContractorMaterialIssueItem {
+  id              String   @id @default(cuid())
+  issueId         String
+  issue           ContractorMaterialIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("IssueItems", fields: [itemId], references: [id])
+  
+  quantity        Float
+  unit            String
+  
+  @@index([issueId])
+  @@index([itemId])
+}
+
+// Material used per SOD
+model SODMaterialUsage {
+  id              String   @id @default(cuid())
+  serviceOrderId  String
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("SODUsage", fields: [itemId], references: [id])
+  
+  quantity        Float
+  unit            String
+  usageType       String   // "USED", "WASTAGE"
+  
+  // Wastage tracking
+  wastagePercent  Float?   // Calculated wastage %
+  exceedsLimit    Boolean  @default(false) // If wastage > standard
+  comment         String?  @db.Text // Required if exceeds limit
+  approvedBy      String?  // Store Manager approval
+  approvedAt      DateTime?
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([serviceOrderId])
+  @@index([itemId])
+  @@index([usageType])
+}
+
+// Material returns
+model ContractorMaterialReturn {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           InventoryStore @relation("MaterialReturns", fields: [storeId], references: [id])
+  
+  returnDate      DateTime @default(now())
+  month           String   // Month being returned for
+  reason          String?  @db.Text
+  
+  items           ContractorMaterialReturnItem[]
+  
+  acceptedBy      String?  // Store Manager
+  acceptedAt      DateTime?
+  status          String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([contractorId, storeId, month])
+  @@index([status])
+}
+
+model ContractorMaterialReturnItem {
+  id              String   @id @default(cuid())
+  returnId        String
+  return          ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("ReturnItems", fields: [itemId], references: [id])
+  
+  quantity        Float
+  unit            String
+  condition       String   @default("GOOD") // GOOD, DAMAGED
+  
+  @@index([returnId])
+  @@index([itemId])
+}
+
+// Standalone Wastage (Lost/Damaged by Contractor)
+model ContractorWastage {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           InventoryStore @relation(fields: [storeId], references: [id])
+  
+  date            DateTime @default(now())
+  month           String   // Month of wastage
+  description     String?  // Reason for wastage
+  
+  items           ContractorWastageItem[]
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([contractorId, storeId, month])
+}
+
+model ContractorWastageItem {
+  id              String   @id @default(cuid())
+  wastageId       String
+  wastage         ContractorWastage @relation(fields: [wastageId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation(fields: [itemId], references: [id])
+  
+  quantity        Float
+  unit            String
+  
+  @@index([wastageId])
+  @@index([itemId])
+}
+
+// Monthly balance sheet (per store)
+model ContractorMaterialBalanceSheet {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           InventoryStore @relation("BalanceSheets", fields: [storeId], references: [id])
+  
+  month           String   // "2025-01"
+  
+  items           ContractorBalanceSheetItem[]
+  
+  totalValue      Float?
+  usageRate       Float?   // Percentage
+  wastageRate     Float?   // Percentage
+  
+  generatedAt     DateTime @default(now())
+  generatedBy     String?  // User ID
+  
+  @@unique([contractorId, storeId, month])
+  @@index([month])
+  @@index([contractorId])
+  @@index([storeId])
+}
+
+model ContractorBalanceSheetItem {
+  id              String   @id @default(cuid())
+  balanceSheetId  String
+  balanceSheet    ContractorMaterialBalanceSheet @relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("BalanceSheetItems", fields: [itemId], references: [id])
+  
+  openingBalance  Float    // From previous month
+  received        Float    // Issued this month
+  returned        Float    @default(0) // Returned to store
+  used            Float    // Used in SODs
+  wastage         Float    // Wastage
+  closingBalance  Float    // Opening + Received - Returned - Used - Wastage
+  requiredNext    Float?   // Estimated for next month
+  
+  @@index([balanceSheetId])
+  @@index([itemId])
 }

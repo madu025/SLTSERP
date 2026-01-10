@@ -162,8 +162,12 @@ export async function PATCH(request: Request) {
         }
 
         // PERMISSION CHECK
-        // Fetch the approver to check their role
-        const approver = await prisma.user.findUnique({ where: { id: approvedById } });
+        // Fetch the approver to check their role and OPMC access
+        const approver = await prisma.user.findUnique({
+            where: { id: approvedById },
+            include: { accessibleOpmcs: true }
+        });
+
         if (!approver) {
             return NextResponse.json({ message: 'Approver user not found' }, { status: 404 });
         }
@@ -171,19 +175,23 @@ export async function PATCH(request: Request) {
         const isSuperAdmin = approver.role === 'SUPER_ADMIN';
         const isAdmin = approver.role === 'ADMIN';
         // Check if approver is the supervisor of the requester
-        // The requester might have a supervisorId. If approver.id matches that, they are the supervisor.
         const isSupervisor = restoreRequest.requestedBy.supervisorId === approver.id;
 
-        // Requester cannot approve their own request
-        if (restoreRequest.requestedById === approvedById) {
+        // Requester cannot approve their own request (unless SUPER_ADMIN)
+        if (restoreRequest.requestedById === approvedById && !isSuperAdmin) {
             return NextResponse.json({ message: 'You cannot approve your own restore request.' }, { status: 403 });
         }
 
-        // Must be Admin, Super Admin, or the direct Supervisor
-        if (!isSuperAdmin && !isAdmin && !isSupervisor) {
-            return NextResponse.json({
-                message: 'Permission denied. Only Admins or the requester\'s Supervisor can approve.'
-            }, { status: 403 });
+        // OPMC Access Check (Required for non-SuperAdmins)
+        const hasOpmcAccess = approver.accessibleOpmcs.some(o => o.id === restoreRequest.serviceOrder.opmcId);
+
+        if (!isSuperAdmin) {
+            if (!hasOpmcAccess) {
+                return NextResponse.json({ message: 'Permission denied. You do not have access to this OPMC area.' }, { status: 403 });
+            }
+            if (!isAdmin && !isSupervisor) {
+                return NextResponse.json({ message: 'Permission denied. Only Admins or the requester\'s Supervisor can approve.' }, { status: 403 });
+            }
         }
 
         // Update restore request

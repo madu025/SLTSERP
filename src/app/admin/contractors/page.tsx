@@ -1,14 +1,41 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Trash, Plus, Pencil, Search, Users, ShieldAlert, Building2 } from "lucide-react";
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { toast } from 'sonner';
 
+// Types
 interface TeamMember {
     id?: string;
     name: string;
     idCopyNumber: string;
     contractorIdCopyNumber: string;
+}
+
+interface ContractorTeam {
+    id?: string;
+    name: string;
+    opmcId?: string | null;
+    storeIds?: string[];
+    primaryStoreId?: string | null;
+    members: TeamMember[];
 }
 
 interface Contractor {
@@ -23,420 +50,397 @@ interface Contractor {
     agreementDate?: string | null;
     bankAccountNumber?: string | null;
     bankBranch?: string | null;
-    teamMembers: TeamMember[];
-    _count?: { invoices: number };
+    storeId?: string | null;
+    store?: { name: string };
+    teams: ContractorTeam[];
     createdAt: string;
 }
 
-export default function ContractorsPage() {
-    const [contractors, setContractors] = useState<Contractor[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [editContractorId, setEditContractorId] = useState<string | null>(null);
+// Zod Schema
+const contractorSchema = z.object({
+    name: z.string().min(2, "Name is required"),
+    address: z.string().min(5, "Address is required"),
+    registrationNumber: z.string().min(2, "Reg Num is required"),
+    brNumber: z.string().optional(),
+    status: z.enum(['ACTIVE', 'INACTIVE', 'PENDING']),
+    registrationFeePaid: z.boolean(),
+    agreementSigned: z.boolean(),
+    agreementDate: z.string().optional(),
+    bankAccountNumber: z.string().optional(),
+    bankBranch: z.string().optional(),
+    storeId: z.string().optional(),
+});
 
-    const [formData, setFormData] = useState({
-        name: '',
-        address: '',
-        registrationNumber: '',
-        brNumber: '',
-        status: 'PENDING' as 'ACTIVE' | 'INACTIVE' | 'PENDING',
-        registrationFeePaid: false,
-        agreementSigned: false,
-        agreementDate: '',
-        bankAccountNumber: '',
-        bankBranch: '',
-        teamMembers: [] as TeamMember[]
+type ContractorFormValues = z.infer<typeof contractorSchema>
+
+export default function ContractorsPage() {
+    const queryClient = useQueryClient();
+    const [searchTerm, setSearchTerm] = useState("");
+
+    // Modal State
+    const [showModal, setShowModal] = useState(false);
+    const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
+
+    // Dynamic Team Management State
+    const [teams, setTeams] = useState<ContractorTeam[]>([]);
+
+    const form = useForm<ContractorFormValues>({
+        resolver: zodResolver(contractorSchema),
+        defaultValues: {
+            name: '', address: '', registrationNumber: '', brNumber: '', status: 'PENDING',
+            registrationFeePaid: false, agreementSigned: false, agreementDate: '',
+            bankAccountNumber: '', bankBranch: '', storeId: ''
+        }
     });
 
-    const [submitting, setSubmitting] = useState(false);
+    // --- QUERIES ---
+    const { data: contractors = [], isLoading } = useQuery<Contractor[]>({
+        queryKey: ["contractors"],
+        queryFn: async () => (await fetch("/api/contractors")).json()
+    });
 
-    useEffect(() => {
-        fetchContractors();
-    }, []);
+    const { data: stores = [] } = useQuery({
+        queryKey: ['stores'],
+        queryFn: async () => (await fetch('/api/stores')).json()
+    });
 
-    const fetchContractors = async () => {
-        try {
-            const resp = await fetch('/api/contractors');
-            const data = await resp.json();
-            if (Array.isArray(data)) setContractors(data);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
+    const { data: opmcs = [] } = useQuery({
+        queryKey: ['opmcs'],
+        queryFn: async () => (await fetch('/api/opmc')).json()
+    });
+
+    // --- MUTATIONS ---
+    const mutation = useMutation({
+        mutationFn: async (values: ContractorFormValues & { teams: ContractorTeam[], id?: string }) => {
+            const method = values.id ? 'PUT' : 'POST';
+            const res = await fetch('/api/contractors', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(values)
+            });
+            if (!res.ok) throw new Error('Failed');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["contractors"] });
+            setShowModal(false);
+            toast.success("Contractor saved successfully");
+        },
+        onError: () => toast.error("Failed to save contractor")
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            await fetch(`/api/contractors?id=${id}`, { method: 'DELETE' });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["contractors"] });
+            toast.success("Contractor deleted");
         }
-    };
+    });
 
-    const resetForm = () => {
-        setFormData({
-            name: '',
-            address: '',
-            registrationNumber: '',
-            brNumber: '',
-            status: 'PENDING',
-            registrationFeePaid: false,
-            agreementSigned: false,
-            agreementDate: '',
-            bankAccountNumber: '',
-            bankBranch: '',
-            teamMembers: []
+    // --- HANDLERS ---
+    const handleAdd = () => {
+        setSelectedContractor(null);
+        setTeams([]);
+        form.reset({
+            name: '', address: '', registrationNumber: '', brNumber: '', status: 'PENDING',
+            registrationFeePaid: false, agreementSigned: false, agreementDate: '', storeId: ''
         });
-        setIsEditing(false);
-        setEditContractorId(null);
-        setShowModal(false);
-    };
-
-    const handleEditClick = (contractor: Contractor) => {
-        setFormData({
-            name: contractor.name,
-            address: contractor.address,
-            registrationNumber: contractor.registrationNumber,
-            brNumber: contractor.brNumber || '',
-            status: contractor.status,
-            registrationFeePaid: contractor.registrationFeePaid,
-            agreementSigned: contractor.agreementSigned,
-            agreementDate: contractor.agreementDate ? contractor.agreementDate.split('T')[0] : '',
-            bankAccountNumber: contractor.bankAccountNumber || '',
-            bankBranch: contractor.bankBranch || '',
-            teamMembers: contractor.teamMembers.map(tm => ({
-                name: tm.name,
-                idCopyNumber: tm.idCopyNumber,
-                contractorIdCopyNumber: tm.contractorIdCopyNumber
-            }))
-        });
-        setEditContractorId(contractor.id);
-        setIsEditing(true);
         setShowModal(true);
     };
 
-    const handleDeleteClick = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this contractor? This action cannot be undone.')) return;
+    const handleEdit = (c: Contractor) => {
+        setSelectedContractor(c);
+        setTeams(c.teams.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            opmcId: t.opmcId || undefined,
+            // Map store assignments from backend
+            storeIds: t.storeAssignments?.map((sa: any) => sa.storeId) || [],
+            primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || null,
+            members: t.members
+        })));
 
-        try {
-            const resp = await fetch(`/api/contractors?id=${id}`, { method: 'DELETE' });
-            if (resp.ok) {
-                alert('Contractor deleted successfully');
-                fetchContractors();
-            } else {
-                const data = await resp.json();
-                alert(data.message || 'Failed to delete contractor');
+        form.reset({
+            name: c.name,
+            address: c.address || '',
+            registrationNumber: c.registrationNumber || '',
+            brNumber: c.brNumber || '',
+            status: c.status,
+            registrationFeePaid: c.registrationFeePaid,
+            agreementSigned: c.agreementSigned,
+            agreementDate: c.agreementDate ? new Date(c.agreementDate).toISOString().split('T')[0] : '',
+            bankAccountNumber: c.bankAccountNumber || '',
+            bankBranch: c.bankBranch || '',
+            storeId: c.storeId || ''
+        });
+        setShowModal(true);
+    };
+
+    const handleSubmit = (values: ContractorFormValues) => {
+        mutation.mutate({ ...values, teams, id: selectedContractor?.id });
+    };
+
+    // Team Management Helpers
+    const addTeam = () => {
+        setTeams([...teams, { name: 'New Team', members: [] }]);
+    };
+
+    const updateTeam = (idx: number, field: keyof ContractorTeam, val: any) => {
+        const newTeams = [...teams];
+        (newTeams[idx] as any)[field] = val;
+        setTeams(newTeams);
+    };
+
+    const toggleStore = (teamIdx: number, storeId: string) => {
+        const currentStores = teams[teamIdx].storeIds || [];
+        let newStores;
+        if (currentStores.includes(storeId)) {
+            newStores = currentStores.filter(id => id !== storeId);
+            if (teams[teamIdx].primaryStoreId === storeId) {
+                updateTeam(teamIdx, 'primaryStoreId', null);
             }
-        } catch (err) {
-            alert('Error deleting contractor');
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmitting(true);
-
-        const url = '/api/contractors';
-        const method = isEditing ? 'PUT' : 'POST';
-        const body = isEditing ? { ...formData, id: editContractorId } : formData;
-
-        try {
-            const resp = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const data = await resp.json();
-            if (resp.ok) {
-                resetForm();
-                fetchContractors();
-                alert(isEditing ? 'Contractor updated successfully!' : 'Contractor registered successfully!');
-            } else {
-                alert(data.message || 'Operation failed');
+        } else {
+            newStores = [...currentStores, storeId];
+            if (newStores.length === 1) {
+                updateTeam(teamIdx, 'primaryStoreId', storeId);
             }
-        } catch (err) {
-            alert('Operation failed');
-        } finally {
-            setSubmitting(false);
         }
+        updateTeam(teamIdx, 'storeIds', newStores);
     };
 
-    const addTeamMember = () => {
-        setFormData(prev => ({
-            ...prev,
-            teamMembers: [...prev.teamMembers, { name: '', idCopyNumber: '', contractorIdCopyNumber: '' }]
-        }));
+    const removeTeam = (idx: number) => {
+        setTeams(teams.filter((_, i) => i !== idx));
     };
 
-    const removeTeamMember = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            teamMembers: prev.teamMembers.filter((_, i) => i !== index)
-        }));
+    const addMember = (teamIdx: number) => {
+        const newTeams = [...teams];
+        newTeams[teamIdx].members.push({ name: '', idCopyNumber: '', contractorIdCopyNumber: '' });
+        setTeams(newTeams);
     };
 
-    const updateTeamMember = (index: number, field: keyof TeamMember, value: string) => {
-        setFormData(prev => ({
-            ...prev,
-            teamMembers: prev.teamMembers.map((tm, i) =>
-                i === index ? { ...tm, [field]: value } : tm
-            )
-        }));
+    const updateMember = (teamIdx: number, memberIdx: number, field: keyof TeamMember, val: string) => {
+        const newTeams = [...teams];
+        (newTeams[teamIdx].members[memberIdx] as any)[field] = val;
+        setTeams(newTeams);
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'ACTIVE': return 'bg-emerald-100 text-emerald-600';
-            case 'INACTIVE': return 'bg-red-100 text-red-600';
-            case 'PENDING': return 'bg-amber-100 text-amber-600';
-            default: return 'bg-slate-100 text-slate-600';
-        }
+    const removeMember = (teamIdx: number, memberIdx: number) => {
+        const newTeams = [...teams];
+        newTeams[teamIdx].members = newTeams[teamIdx].members.filter((_, i) => i !== memberIdx);
+        setTeams(newTeams);
     };
+
+    const filteredContractors = contractors.filter(c =>
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.registrationNumber?.includes(searchTerm)
+    );
 
     return (
-        <div className="min-h-screen flex bg-slate-50">
+        <div className="h-screen flex bg-slate-50 overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0">
+            <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
+                <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                    <div className="max-w-7xl mx-auto space-y-6">
 
-                <div className="flex-1 overflow-y-auto p-8">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="flex justify-between items-center mb-10">
+                        <div className="flex justify-between items-center">
                             <div>
-                                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Contractor Management</h1>
-                                <p className="text-slate-500 mt-1">Manage contractor registrations, team members, and agreements.</p>
+                                <h1 className="text-2xl font-bold text-slate-900">Contractor Management</h1>
+                                <p className="text-slate-500">Register and manage contractors, teams, and assignments.</p>
                             </div>
-                            <button
-                                onClick={() => { resetForm(); setShowModal(true); }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center"
-                            >
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                                </svg>
-                                Register Contractor
-                            </button>
+                            <Button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700">
+                                <Plus className="w-4 h-4 mr-2" /> Register Contractor
+                            </Button>
                         </div>
 
-                        {/* Contractors Table */}
-                        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50/50 border-b border-slate-100">
-                                        <th className="px-6 py-4 text-sm font-semibold text-slate-900">Contractor Details</th>
-                                        <th className="px-6 py-4 text-sm font-semibold text-slate-900">Registration</th>
-                                        <th className="px-6 py-4 text-sm font-semibold text-slate-900">Team</th>
-                                        <th className="px-6 py-4 text-sm font-semibold text-slate-900">Status</th>
-                                        <th className="px-6 py-4 text-sm font-semibold text-slate-900">Agreement</th>
-                                        <th className="px-6 py-4 text-sm font-semibold text-slate-900 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {loading ? (
-                                        <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-400">Loading Contractors...</td></tr>
-                                    ) : contractors.length === 0 ? (
-                                        <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-400">No contractors found.</td></tr>
-                                    ) : (
-                                        contractors.map(contractor => (
-                                            <tr key={contractor.id} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div>
-                                                        <p className="font-semibold text-slate-900">{contractor.name}</p>
-                                                        <p className="text-xs text-slate-500">{contractor.address}</p>
-                                                        {contractor.brNumber && <p className="text-xs text-slate-400 mt-1">BR: {contractor.brNumber}</p>}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div>
-                                                        <p className="text-sm font-medium text-slate-700">{contractor.registrationNumber}</p>
-                                                        <div className="flex items-center mt-1">
-                                                            {contractor.registrationFeePaid ? (
-                                                                <span className="text-xs text-emerald-600 flex items-center">
-                                                                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                                    </svg>
-                                                                    Fee Paid
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-xs text-amber-600">Fee Pending</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-                                                        {contractor.teamMembers.length} Members
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(contractor.status)}`}>
+                        <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border">
+                            <Search className="w-4 h-4 text-slate-400" />
+                            <Input
+                                placeholder="Search contractors..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="border-none focus-visible:ring-0 shadow-none h-8"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            {filteredContractors.map(contractor => (
+                                <Card key={contractor.id} className="hover:shadow-md transition-shadow">
+                                    <CardContent className="p-6">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h3 className="text-lg font-bold text-slate-800">{contractor.name}</h3>
+                                                    <Badge variant="outline" className={contractor.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
                                                         {contractor.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    {contractor.agreementSigned ? (
-                                                        <div>
-                                                            <span className="text-xs text-emerald-600 font-medium">Signed</span>
-                                                            {contractor.agreementDate && (
-                                                                <p className="text-xs text-slate-400">{new Date(contractor.agreementDate).toLocaleDateString()}</p>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xs text-slate-400">Not Signed</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end space-x-2">
-                                                        <button
-                                                            onClick={() => handleEditClick(contractor)}
-                                                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
-                                                            title="Edit Contractor"
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteClick(contractor.id)}
-                                                            className="p-2 text-slate-400 hover:text-red-600 transition-colors"
-                                                            title="Delete Contractor"
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                                                    </Badge>
+                                                </div>
+                                                <p className="text-sm text-slate-500 mt-1">{contractor.registrationNumber} • {contractor.store?.name || 'No Store'}</p>
+                                                <div className="flex gap-4 mt-2 text-xs text-slate-600">
+                                                    <div className="flex items-center gap-1"><Users className="w-3 h-3" /> {contractor.teams.length} Teams</div>
+                                                    <div className="flex items-center gap-1"><Building2 className="w-3 h-3" /> {contractor.store?.name || 'Unassigned'}</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button variant="ghost" size="sm" onClick={() => handleEdit(contractor)}><Pencil className="w-4 h-4 text-slate-500 hover:text-blue-600" /></Button>
+                                                <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(contractor.id)}><Trash className="w-4 h-4 text-slate-500 hover:text-red-600" /></Button>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
                         </div>
                     </div>
                 </div>
 
-                {/* Registration Modal */}
-                {showModal && (
-                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[90vh] flex flex-col">
-                            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white flex-shrink-0">
-                                <div>
-                                    <h3 className="text-2xl font-bold text-slate-900">{isEditing ? 'Edit Contractor' : 'New Contractor Registration'}</h3>
-                                    <p className="text-slate-500 text-sm mt-1">
-                                        {isEditing ? 'Modify contractor details and team members.' : 'Fill in the details to register a new contractor.'}
-                                    </p>
-                                </div>
-                                <button onClick={resetForm} className="bg-slate-50 p-2 rounded-xl text-slate-400 hover:text-slate-600">
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
+                {/* Modal */}
+                <Dialog open={showModal} onOpenChange={setShowModal}>
+                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-full">
+                        <DialogHeader>
+                            <DialogTitle>{selectedContractor ? 'Edit Contractor' : 'Register New Contractor'}</DialogTitle>
+                            <DialogDescription>Manage contractor details, store assignment, and teams.</DialogDescription>
+                        </DialogHeader>
 
-                            <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
-                                {/* Basic Information */}
-                                <div>
-                                    <h4 className="text-lg font-bold text-slate-900 mb-4">Basic Information</h4>
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Contractor Name</label>
-                                            <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="e.g. ABC Construction" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Registration Number</label>
-                                            <input type="text" required value={formData.registrationNumber} onChange={e => setFormData({ ...formData, registrationNumber: e.target.value })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="e.g. CR-2024-001" />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Address</label>
-                                            <textarea required value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all" rows={2} placeholder="Full address" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">BR Number (Optional)</label>
-                                            <input type="text" value={formData.brNumber} onChange={e => setFormData({ ...formData, brNumber: e.target.value })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="Business Registration Number" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Status</label>
-                                            <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none appearance-none cursor-pointer font-medium text-slate-700">
-                                                <option value="PENDING">Pending</option>
-                                                <option value="ACTIVE">Active</option>
-                                                <option value="INACTIVE">Inactive</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-4">
 
-                                {/* Financial Information */}
-                                <div>
-                                    <h4 className="text-lg font-bold text-slate-900 mb-4">Financial Information</h4>
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Bank Account Number</label>
-                                            <input type="text" value={formData.bankAccountNumber} onChange={e => setFormData({ ...formData, bankAccountNumber: e.target.value })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="Account Number" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Bank Branch</label>
-                                            <input type="text" value={formData.bankBranch} onChange={e => setFormData({ ...formData, bankBranch: e.target.value })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="Branch Name" />
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <input type="checkbox" id="regFee" checked={formData.registrationFeePaid} onChange={e => setFormData({ ...formData, registrationFeePaid: e.target.checked })} className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300" />
-                                            <label htmlFor="regFee" className="text-sm font-medium text-slate-700">Registration Fee Paid</label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <input type="checkbox" id="agreement" checked={formData.agreementSigned} onChange={e => setFormData({ ...formData, agreementSigned: e.target.checked })} className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300" />
-                                            <label htmlFor="agreement" className="text-sm font-medium text-slate-700">Agreement Signed</label>
-                                        </div>
-                                        {formData.agreementSigned && (
-                                            <div className="col-span-2">
-                                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Agreement Date</label>
-                                                <input type="date" value={formData.agreementDate} onChange={e => setFormData({ ...formData, agreementDate: e.target.value })} className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all" />
-                                            </div>
-                                        )}
-                                    </div>
+                                {/* Basic Details */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="name" render={({ field }) => (
+                                        <FormItem><FormLabel>Contractor Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="registrationNumber" render={({ field }) => (
+                                        <FormItem><FormLabel>Registration No</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="address" render={({ field }) => (
+                                        <FormItem className="col-span-2"><FormLabel>Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="storeId" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Assigned Store / Branch</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select Store" /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {stores.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name} ({s.type})</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="status" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Status</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="ACTIVE">Active</SelectItem>
+                                                    <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                                    <SelectItem value="PENDING">Pending</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 </div>
 
-                                {/* Team Members */}
+                                <Separator />
+
+                                {/* Teams Management */}
                                 <div>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h4 className="text-lg font-bold text-slate-900">Team Members</h4>
-                                        <button type="button" onClick={addTeamMember} className="bg-blue-100 hover:bg-blue-200 text-blue-600 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center text-sm">
-                                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            Add Member
-                                        </button>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className="text-sm font-bold text-slate-800">Teams & Members</h3>
+                                        <Button type="button" size="sm" variant="outline" onClick={addTeam}><Plus className="w-3 h-3 mr-1" /> Add Team</Button>
                                     </div>
+
                                     <div className="space-y-4">
-                                        {formData.teamMembers.map((member, index) => (
-                                            <div key={index} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <span className="text-sm font-semibold text-slate-600">Member {index + 1}</span>
-                                                    <button type="button" onClick={() => removeTeamMember(index)} className="text-red-500 hover:text-red-700">
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
+                                        {teams.map((team, tIdx) => (
+                                            <div key={tIdx} className="border rounded-lg p-4 bg-slate-50 relative">
+                                                <div className="absolute top-2 right-2">
+                                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeTeam(tIdx)} className="h-6 w-6 p-0 text-slate-400 hover:text-red-500"><Trash className="w-4 h-4" /></Button>
                                                 </div>
-                                                <div className="grid grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Name</label>
-                                                        <input type="text" required value={member.name} onChange={e => updateTeamMember(index, 'name', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="Full Name" />
+
+                                                <div className="grid grid-cols-2 gap-4 mb-3">
+                                                    <div className="space-y-1">
+                                                        <Label className="text-xs">Team Name</Label>
+                                                        <Input value={team.name} onChange={e => updateTeam(tIdx, 'name', e.target.value)} className="h-8 text-xs bg-white" />
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">ID Copy Number</label>
-                                                        <input type="text" required value={member.idCopyNumber} onChange={e => updateTeamMember(index, 'idCopyNumber', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="ID Number" />
+                                                    <div className="col-span-2 space-y-2 mt-2 border p-2 rounded bg-white">
+                                                        <Label className="text-xs font-semibold">Assign Stores & Primary Location</Label>
+                                                        <ScrollArea className="h-32 w-full border rounded p-2">
+                                                            {stores.map((store: any) => {
+                                                                const isSelected = (team.storeIds || []).includes(store.id);
+                                                                const isPrimary = team.primaryStoreId === store.id;
+                                                                return (
+                                                                    <div key={store.id} className="flex items-center justify-between py-1 border-b last:border-0 border-slate-100">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Checkbox
+                                                                                checked={isSelected}
+                                                                                onCheckedChange={() => toggleStore(tIdx, store.id)}
+                                                                                id={`team-${tIdx}-store-${store.id}`}
+                                                                            />
+                                                                            <label htmlFor={`team-${tIdx}-store-${store.id}`} className="text-xs cursor-pointer select-none">
+                                                                                {store.name}
+                                                                            </label>
+                                                                        </div>
+                                                                        {isSelected && (
+                                                                            <div className="flex items-center gap-1">
+                                                                                <input
+                                                                                    type="radio"
+                                                                                    name={`team-${tIdx}-primary`}
+                                                                                    checked={isPrimary}
+                                                                                    onChange={() => updateTeam(tIdx, 'primaryStoreId', store.id)}
+                                                                                    className="w-3 h-3 cursor-pointer"
+                                                                                />
+                                                                                <span className="text-[10px] text-slate-500">Primary</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )
+                                                            })}
+                                                        </ScrollArea>
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Contractor ID Copy</label>
-                                                        <input type="text" required value={member.contractorIdCopyNumber} onChange={e => updateTeamMember(index, 'contractorIdCopyNumber', e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:outline-none transition-all" placeholder="Contractor ID" />
+                                                </div>
+
+                                                <div className="pl-2 border-l-2 border-slate-200">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <Label className="text-[10px] text-slate-500 uppercase">Members</Label>
+                                                        <Button type="button" size="sm" variant="ghost" onClick={() => addMember(tIdx)} className="h-5 text-[10px]"><Plus className="w-3 h-3 mr-1" /> Add Member</Button>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {team.members.map((member, mIdx) => (
+                                                            <div key={mIdx} className="flex gap-2 items-center">
+                                                                <Input
+                                                                    placeholder="Name"
+                                                                    value={member.name}
+                                                                    onChange={e => updateMember(tIdx, mIdx, 'name', e.target.value)}
+                                                                    className="h-7 text-xs flex-1 bg-white"
+                                                                />
+                                                                <Input
+                                                                    placeholder="NIC"
+                                                                    value={member.idCopyNumber}
+                                                                    onChange={e => updateMember(tIdx, mIdx, 'idCopyNumber', e.target.value)}
+                                                                    className="h-7 text-xs w-24 bg-white"
+                                                                />
+                                                                <Button type="button" variant="ghost" size="sm" onClick={() => removeMember(tIdx, mIdx)} className="h-7 w-7 p-0 text-slate-400 hover:text-red-500"><Trash className="w-3 h-3" /></Button>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
-                                        {formData.teamMembers.length === 0 && (
-                                            <p className="text-center text-slate-400 py-8">No team members added yet. Click "Add Member" to add team members.</p>
-                                        )}
                                     </div>
                                 </div>
 
-                                <button type="submit" disabled={submitting} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all disabled:opacity-50 text-lg mt-4">
-                                    {submitting ? 'Saving...' : (isEditing ? 'Update Contractor' : 'Register Contractor')}
-                                </button>
+                                <DialogFooter>
+                                    <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+                                    <Button type="submit" disabled={mutation.isPending}>Save Contractor</Button>
+                                </DialogFooter>
                             </form>
-                        </div>
-                    </div>
-                )}
+                        </Form>
+                    </DialogContent>
+                </Dialog>
             </main>
         </div>
     );

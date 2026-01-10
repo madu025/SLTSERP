@@ -4,6 +4,14 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { GripVertical, Plus, Check } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface ColumnConfig {
     key: string;
@@ -25,23 +33,16 @@ const TABLE_LABELS: Record<string, string> = {
 };
 
 export default function TableSettingsPage() {
-    const [settings, setSettings] = useState<Record<string, TableSettings>>({});
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState<string | null>(null);
-    const [successMessage, setSuccessMessage] = useState('');
-    const [isAuthorized, setIsAuthorized] = useState(false);
-    const [draggedItem, setDraggedItem] = useState<{ tableName: string; index: number } | null>(null);
+    const queryClient = useQueryClient();
     const router = useRouter();
+    const [draggedItem, setDraggedItem] = useState<{ tableName: string; index: number } | null>(null);
 
+    // --- ACCESS CHECK ---
     useEffect(() => {
-        // Check if user is Admin or Super Admin
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             const user = JSON.parse(storedUser);
-            if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-                setIsAuthorized(true);
-                fetchSettings();
-            } else {
+            if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
                 router.push('/dashboard');
             }
         } else {
@@ -49,340 +50,193 @@ export default function TableSettingsPage() {
         }
     }, [router]);
 
-    const fetchSettings = async () => {
-        try {
-            const resp = await fetch('/api/admin/table-settings');
-            const data = await resp.json();
-            setSettings(data);
-        } catch (err) {
-            console.error('Failed to fetch settings');
-        } finally {
-            setLoading(false);
+    // --- QUERIES ---
+    const { data: settings, isLoading } = useQuery<Record<string, TableSettings>>({
+        queryKey: ['table-settings'],
+        queryFn: async () => {
+            const res = await fetch('/api/admin/table-settings');
+            if (!res.ok) throw new Error('Failed');
+            return res.json();
         }
-    };
+    });
 
-    const handleColumnToggle = (tableName: string, columnKey: string) => {
-        setSettings(prev => {
-            const tableSettings = prev[tableName];
-            if (!tableSettings) return prev;
-
-            const column = tableSettings.availableColumns.find(c => c.key === columnKey);
-            if (column?.required) return prev;
-
-            const isVisible = tableSettings.visibleColumns.includes(columnKey);
-            let visibleColumns: string[];
-
-            if (isVisible) {
-                visibleColumns = tableSettings.visibleColumns.filter(k => k !== columnKey);
-            } else {
-                // Add at the end of visible columns
-                visibleColumns = [...tableSettings.visibleColumns, columnKey];
-            }
-
-            return {
-                ...prev,
-                [tableName]: {
-                    ...tableSettings,
-                    visibleColumns
-                }
-            };
-        });
-    };
-
-    const handleDragStart = (tableName: string, index: number) => {
-        setDraggedItem({ tableName, index });
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-    };
-
-    const handleDrop = (tableName: string, dropIndex: number) => {
-        if (!draggedItem || draggedItem.tableName !== tableName) return;
-
-        setSettings(prev => {
-            const tableSettings = prev[tableName];
-            if (!tableSettings) return prev;
-
-            const newVisibleColumns = [...tableSettings.visibleColumns];
-            const [draggedColumn] = newVisibleColumns.splice(draggedItem.index, 1);
-            newVisibleColumns.splice(dropIndex, 0, draggedColumn);
-
-            return {
-                ...prev,
-                [tableName]: {
-                    ...tableSettings,
-                    visibleColumns: newVisibleColumns
-                }
-            };
-        });
-
-        setDraggedItem(null);
-    };
-
-    const moveColumn = (tableName: string, index: number, direction: 'up' | 'down') => {
-        setSettings(prev => {
-            const tableSettings = prev[tableName];
-            if (!tableSettings) return prev;
-
-            const newVisibleColumns = [...tableSettings.visibleColumns];
-            const newIndex = direction === 'up' ? index - 1 : index + 1;
-
-            if (newIndex < 0 || newIndex >= newVisibleColumns.length) return prev;
-
-            [newVisibleColumns[index], newVisibleColumns[newIndex]] =
-                [newVisibleColumns[newIndex], newVisibleColumns[index]];
-
-            return {
-                ...prev,
-                [tableName]: {
-                    ...tableSettings,
-                    visibleColumns: newVisibleColumns
-                }
-            };
-        });
-    };
-
-    const handleSave = async (tableName: string) => {
-        setSaving(tableName);
-        try {
-            const resp = await fetch('/api/admin/table-settings', {
+    // --- MUTATIONS ---
+    const mutation = useMutation({
+        mutationFn: async (variables: { tableName: string; visibleColumns: string[] }) => {
+            const res = await fetch('/api/admin/table-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tableName,
-                    visibleColumns: settings[tableName].visibleColumns
-                })
+                body: JSON.stringify(variables)
             });
+            if (!res.ok) throw new Error('Failed');
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['table-settings'] });
+            toast.success("Settings saved successfully");
+        },
+        onError: () => toast.error("Failed to save settings")
+    });
 
-            if (resp.ok) {
-                setSuccessMessage(`${TABLE_LABELS[tableName]} settings saved successfully!`);
-                setTimeout(() => setSuccessMessage(''), 3000);
-            } else {
-                alert('Failed to save settings');
-            }
-        } catch (err) {
-            alert('Failed to save settings');
-        } finally {
-            setSaving(null);
-        }
-    };
+    // --- HANDLERS (Optimistic UI handled by simple local state overrides could be redundant if we just rely on react-query invalidation, but for dnd we need local state usually. 
+    // For simplicity, we will assume direct mutation on Drop for "Save on change" or local state management.
+    // Let's implement independent local state for editing, initialized from data)
 
-    const handleSelectAll = (tableName: string) => {
-        setSettings(prev => {
-            const tableSettings = prev[tableName];
-            if (!tableSettings) return prev;
+    // Actually, handling complex local state derived from query props is tricky. 
+    // We'll trust the query data but we need a way to mutate it locally for DnD before saving.
+    // simpler: We will just use the query data and optimistic updates or just wait for re-fetch?
+    // DnD feels laggy if we wait for server. Let's create a local copy component for each table.
 
-            return {
-                ...prev,
-                [tableName]: {
-                    ...tableSettings,
-                    visibleColumns: tableSettings.availableColumns.map(c => c.key)
-                }
-            };
-        });
-    };
-
-    const handleDeselectAll = (tableName: string) => {
-        setSettings(prev => {
-            const tableSettings = prev[tableName];
-            if (!tableSettings) return prev;
-
-            const requiredColumns = tableSettings.availableColumns
-                .filter(c => c.required)
-                .map(c => c.key);
-
-            return {
-                ...prev,
-                [tableName]: {
-                    ...tableSettings,
-                    visibleColumns: requiredColumns
-                }
-            };
-        });
-    };
-
-    if (!isAuthorized) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="text-slate-500">Checking authorization...</div>
-            </div>
-        );
-    }
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex bg-slate-50">
-                <Sidebar />
-                <main className="flex-1 flex items-center justify-center">
-                    <div className="text-slate-500">Loading settings...</div>
-                </main>
-            </div>
-        );
+    if (isLoading || !settings) {
+        return <div className="min-h-screen flex bg-slate-50 items-center justify-center text-slate-500">Loading settings...</div>;
     }
 
     return (
-        <div className="min-h-screen flex bg-slate-50">
+        <div className="h-screen flex bg-slate-50 overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0">
+            <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
-
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="mb-6">
-                            <h1 className="text-2xl font-bold text-slate-900">Table Column Settings</h1>
-                            <p className="text-sm text-slate-500">Configure which columns are visible and their order in each table. Drag to reorder columns.</p>
+                <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                    <div className="max-w-5xl mx-auto space-y-6">
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-900">Table Configuration</h1>
+                            <p className="text-xs text-slate-500">Customize column visibility and ordering for system tables.</p>
                         </div>
 
-                        {successMessage && (
-                            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
-                                ✅ {successMessage}
-                            </div>
-                        )}
-
                         <div className="grid gap-6">
-                            {Object.entries(settings).map(([tableName, tableSettings]) => {
-                                if (!tableSettings || !tableSettings.availableColumns || !tableSettings.visibleColumns) {
-                                    return null;
-                                }
-
-                                const getColumnLabel = (key: string) => {
-                                    const col = tableSettings.availableColumns.find(c => c.key === key);
-                                    return col?.label || key;
-                                };
-
-                                const isRequired = (key: string) => {
-                                    const col = tableSettings.availableColumns.find(c => c.key === key);
-                                    return col?.required || false;
-                                };
-
-                                return (
-                                    <div key={tableName} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div className="bg-gradient-to-r from-slate-50 to-white px-6 py-4 border-b border-slate-100">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <h2 className="font-semibold text-slate-900">{TABLE_LABELS[tableName] || tableName}</h2>
-                                                    <p className="text-xs text-slate-500">
-                                                        {tableSettings.visibleColumns?.length || 0} of {tableSettings.availableColumns?.length || 0} columns visible
-                                                    </p>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => handleSelectAll(tableName)}
-                                                        className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                                                    >
-                                                        Select All
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeselectAll(tableName)}
-                                                        className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                                                    >
-                                                        Deselect All
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-6">
-                                            {/* Visible Columns - Orderable */}
-                                            <div className="mb-4">
-                                                <h3 className="text-sm font-semibold text-slate-700 mb-2">Visible Columns (drag to reorder)</h3>
-                                                <div className="space-y-2">
-                                                    {tableSettings.visibleColumns.map((columnKey, index) => (
-                                                        <div
-                                                            key={columnKey}
-                                                            draggable={!isRequired(columnKey)}
-                                                            onDragStart={() => handleDragStart(tableName, index)}
-                                                            onDragOver={handleDragOver}
-                                                            onDrop={() => handleDrop(tableName, index)}
-                                                            className={`flex items-center gap-3 p-3 rounded-lg border bg-primary/5 border-primary/30 transition-all ${!isRequired(columnKey) ? 'cursor-move hover:shadow-md' : ''
-                                                                }`}
-                                                        >
-                                                            <span className="text-slate-400 cursor-move">⋮⋮</span>
-                                                            <span className="flex-1 text-sm font-medium text-primary">
-                                                                {getColumnLabel(columnKey)}
-                                                                {isRequired(columnKey) && <span className="text-xs ml-1 text-slate-500">(Required)</span>}
-                                                            </span>
-                                                            <div className="flex gap-1">
-                                                                <button
-                                                                    onClick={() => moveColumn(tableName, index, 'up')}
-                                                                    disabled={index === 0}
-                                                                    className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                                                                    title="Move Up"
-                                                                >
-                                                                    ↑
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => moveColumn(tableName, index, 'down')}
-                                                                    disabled={index === tableSettings.visibleColumns.length - 1}
-                                                                    className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                                                                    title="Move Down"
-                                                                >
-                                                                    ↓
-                                                                </button>
-                                                                {!isRequired(columnKey) && (
-                                                                    <button
-                                                                        onClick={() => handleColumnToggle(tableName, columnKey)}
-                                                                        className="p-1 text-red-400 hover:text-red-600"
-                                                                        title="Remove"
-                                                                    >
-                                                                        ×
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            {/* Hidden Columns */}
-                                            <div>
-                                                <h3 className="text-sm font-semibold text-slate-700 mb-2">Available Columns (click to add)</h3>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {tableSettings.availableColumns
-                                                        .filter(col => !tableSettings.visibleColumns.includes(col.key))
-                                                        .map(column => (
-                                                            <button
-                                                                key={column.key}
-                                                                onClick={() => handleColumnToggle(tableName, column.key)}
-                                                                className="px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
-                                                            >
-                                                                + {column.label}
-                                                            </button>
-                                                        ))}
-                                                    {tableSettings.availableColumns.filter(col => !tableSettings.visibleColumns.includes(col.key)).length === 0 && (
-                                                        <span className="text-sm text-slate-400 italic">All columns are visible</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                                            <button
-                                                onClick={() => handleSave(tableName)}
-                                                disabled={saving === tableName}
-                                                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-                                            >
-                                                {saving === tableName ? (
-                                                    <>
-                                                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                        </svg>
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save Settings'
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            {Object.entries(settings).map(([tableName, tableSettings]) => (
+                                <TableConfigCard
+                                    key={tableName}
+                                    tableName={tableName}
+                                    settings={tableSettings}
+                                    onSave={(cols) => mutation.mutate({ tableName, visibleColumns: cols })}
+                                    isSaving={mutation.isPending}
+                                />
+                            ))}
                         </div>
                     </div>
                 </div>
             </main>
         </div>
+    );
+}
+
+// Sub-component to manage local DnD state
+function TableConfigCard({ tableName, settings, onSave, isSaving }: { tableName: string, settings: TableSettings, onSave: (cols: string[]) => void, isSaving: boolean }) {
+    const [cols, setCols] = useState(settings.visibleColumns);
+    const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+
+    // Sync if server updates (optional, might conflict with typing)
+    useEffect(() => {
+        setCols(settings.visibleColumns);
+    }, [settings.visibleColumns]);
+
+    const getLabel = (key: string) => settings.availableColumns.find(c => c.key === key)?.label || key;
+    const isRequired = (key: string) => settings.availableColumns.find(c => c.key === key)?.required;
+
+    const toggleColumn = (key: string) => {
+        if (cols.includes(key)) {
+            if (isRequired(key)) return;
+            setCols(cols.filter(c => c !== key));
+        } else {
+            setCols([...cols, key]);
+        }
+    };
+
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        if (isRequired(cols[index])) return; // Prevent dragging required if needed? Usually we allow reorder even for required.
+        // Let's allow reordering everything for now.
+        setDraggedIdx(index);
+        e.dataTransfer.effectAllowed = "move";
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+        e.preventDefault();
+        if (draggedIdx === null) return;
+        const newCols = [...cols];
+        const [moved] = newCols.splice(draggedIdx, 1);
+        newCols.splice(dropIndex, 0, moved);
+        setCols(newCols);
+        setDraggedIdx(null);
+    };
+
+    const hasChanges = JSON.stringify(cols) !== JSON.stringify(settings.visibleColumns);
+
+    return (
+        <Card>
+            <CardHeader className="py-4 px-6 bg-slate-50/50 border-b">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle className="text-base font-bold text-slate-800">{TABLE_LABELS[tableName] || tableName}</CardTitle>
+                        <CardDescription className="text-xs">{cols.length} columns visible</CardDescription>
+                    </div>
+                    {hasChanges && (
+                        <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCols(settings.visibleColumns)}>Reset</Button>
+                            <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => onSave(cols)} disabled={isSaving}>
+                                {isSaving ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent className="p-6">
+                <div className="space-y-6">
+                    {/* Active Columns */}
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Visible Columns (Drag to Reorder)</h4>
+                        <div className="space-y-2">
+                            {cols.map((col, idx) => (
+                                <div
+                                    key={col}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, idx)}
+                                    onDragOver={(e) => handleDragOver(e, idx)}
+                                    onDrop={(e) => handleDrop(e, idx)}
+                                    className="flex items-center gap-3 p-2 rounded-lg border bg-white hover:border-blue-300 transition-colors group cursor-move"
+                                >
+                                    <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-slate-500" />
+                                    <span className="text-sm font-medium text-slate-700 flex-1">{getLabel(col)}</span>
+                                    {isRequired(col) && <Badge variant="secondary" className="text-[10px] h-5">Required</Badge>}
+                                    {!isRequired(col) && (
+                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={() => toggleColumn(col)}>
+                                            <span className="sr-only">Remove</span>
+                                            ×
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Available Columns */}
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Available to Add</h4>
+                        <div className="flex flex-wrap gap-2">
+                            {settings.availableColumns.filter(c => !cols.includes(c.key)).map(col => (
+                                <Button
+                                    key={col.key}
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs border-dashed"
+                                    onClick={() => toggleColumn(col.key)}
+                                >
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    {col.label}
+                                </Button>
+                            ))}
+                            {settings.availableColumns.every(c => cols.includes(c.key)) && (
+                                <p className="text-xs text-slate-400 italic">All columns added.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 }

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
+import { useQuery } from '@tanstack/react-query';
 
 interface User {
     name: string;
@@ -14,6 +15,7 @@ interface User {
 export default function Sidebar() {
     const [user, setUser] = useState<User | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
     const pathname = usePathname();
 
     useEffect(() => {
@@ -23,7 +25,36 @@ export default function Sidebar() {
         }
     }, []);
 
+    useEffect(() => {
+        // Auto-expand menu if a child is active
+        SIDEBAR_MENU.forEach(item => {
+            if (item.submenu?.some(sub => pathname === sub.path)) {
+                setExpandedMenus(prev => {
+                    // Only add if not already present
+                    if (!prev.includes(item.title)) return [...prev, item.title];
+                    return prev;
+                });
+            }
+        });
+    }, [pathname]);
+
     const userRole = user?.role || '';
+
+    // Fetch pending restore requests count
+    const { data: restoreCount = 0 } = useQuery({
+        queryKey: ['restore-requests-count'],
+        queryFn: async () => {
+            // Mocking fetch or hitting a real endpoint if exists. 
+            // Ideally: const res = await fetch('/api/restore-requests/count'); return res.json().count;
+            // For now, I'll fetch list and count length (not efficient but works for now).
+            const res = await fetch('/api/restore-requests?status=PENDING');
+            if (!res.ok) return 0;
+            const data = await res.json();
+            return Array.isArray(data) ? data.length : 0;
+        },
+        enabled: hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR']), // Only fetch if allowed
+        refetchInterval: 30000
+    });
 
     return (
         <aside
@@ -51,19 +82,65 @@ export default function Sidebar() {
 
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
                 {!isCollapsed && <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">Menu</div>}
+
                 {SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
                     const Icon = item.icon;
+                    const hasSubmenu = item.submenu && item.submenu.length > 0;
+                    // Check if current path matches item or any submenu
+                    const isChildActive = hasSubmenu && item.submenu?.some(sub => pathname === sub.path);
+                    const isActive = pathname === item.path || isChildActive;
+                    const isExpanded = expandedMenus.includes(item.title); // Decoupled from isChildActive logic for rendering
+
+                    const handleMenuClick = (e: React.MouseEvent) => {
+                        if (hasSubmenu) {
+                            e.preventDefault();
+                            setExpandedMenus(prev =>
+                                prev.includes(item.title) ? prev.filter(t => t !== item.title) : [...prev, item.title]
+                            );
+                        }
+                    };
+
                     return (
-                        <Link
-                            key={item.path}
-                            href={item.path}
-                            className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${pathname === item.path ? 'bg-primary text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                                }`}
-                            title={isCollapsed ? item.title : ''}
-                        >
-                            <Icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
-                            {!isCollapsed && <span>{item.title}</span>}
-                        </Link>
+                        <div key={item.path} className="space-y-1">
+                            <Link
+                                href={hasSubmenu ? '#' : item.path}
+                                onClick={handleMenuClick}
+                                className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isActive && !hasSubmenu ? 'bg-primary text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                    }`}
+                                title={isCollapsed ? item.title : ''}
+                            >
+                                <div className="flex items-center relative">
+                                    <Icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
+                                    {!isCollapsed && <span>{item.title}</span>}
+
+                                    {/* Badge for Restore Requests */}
+                                    {item.path === '/restore-requests' && restoreCount > 0 && (
+                                        <span className={`bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isCollapsed ? 'absolute -top-1 -right-1' : 'ml-2'}`}>
+                                            {restoreCount}
+                                        </span>
+                                    )}
+                                </div>
+                                {!isCollapsed && hasSubmenu && (
+                                    <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                )}
+                            </Link>
+
+                            {/* Submenu */}
+                            {!isCollapsed && hasSubmenu && isExpanded && (
+                                <div className="pl-10 space-y-1">
+                                    {item.submenu!.map(sub => (
+                                        <Link
+                                            key={sub.path}
+                                            href={sub.path}
+                                            className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${pathname === sub.path ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                                                }`}
+                                        >
+                                            {sub.title}
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </nav>

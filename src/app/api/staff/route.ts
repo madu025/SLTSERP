@@ -12,7 +12,7 @@ export async function GET() {
                 designation: true,
                 reportsToId: true,
                 opmcId: true,
-                opmc: { select: { code: true, name: true } },
+                opmc: { select: { rtom: true, name: true } },
                 user: {
                     select: {
                         id: true,

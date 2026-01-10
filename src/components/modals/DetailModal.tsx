@@ -58,6 +58,39 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             <p className="text-sm text-slate-900 whitespace-pre-wrap">{selectedOrder.comments}</p>
                         </div>
                     )}
+
+                    {/* Completion Details */}
+                    {selectedOrder.sltsStatus === 'COMPLETED' && (selectedOrder.ontSerialNumber || selectedOrder.iptvSerialNumbers || selectedOrder.dpDetails) && (
+                        <div className="md:col-span-2 bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                            <label className="text-xs font-semibold text-emerald-700 uppercase block mb-2">Installation Details</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {selectedOrder.ontSerialNumber && (
+                                    <div>
+                                        <span className="text-xs text-slate-500 font-medium">ONT Serial:</span>
+                                        <p className="text-sm font-mono font-bold text-slate-900">{selectedOrder.ontSerialNumber}</p>
+                                    </div>
+                                )}
+                                {selectedOrder.iptvSerialNumbers && (
+                                    <div className="md:col-span-2">
+                                        <span className="text-xs text-slate-500 font-medium">STB Serials:</span>
+                                        <div className="flex flex-wrap gap-2 mt-1">
+                                            {JSON.parse(selectedOrder.iptvSerialNumbers).map((serial: string, idx: number) => (
+                                                <span key={idx} className="px-2 py-1 bg-white border border-emerald-300 rounded text-xs font-mono font-semibold text-slate-800">
+                                                    {serial}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {selectedOrder.dpDetails && (
+                                    <div className="md:col-span-2">
+                                        <span className="text-xs text-slate-500 font-medium">DP Details:</span>
+                                        <p className="text-sm text-slate-900 mt-1 whitespace-pre-wrap">{selectedOrder.dpDetails}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex justify-end pt-2">

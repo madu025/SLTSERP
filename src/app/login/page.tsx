@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -245,6 +246,13 @@ export default function LoginPage() {
                 </Button>
               </form>
             </Form>
+
+            {/* Forgot Password Link */}
+            <div className="mt-4 text-center">
+              <Link href="/forgot-password" className="text-sm text-primary hover:text-primary-dark hover:underline transition-colors">
+                Forgot Password?
+              </Link>
+            </div>
 
             <div className="pt-4 text-center">
               <p className="text-xs text-slate-400">
