@@ -285,7 +285,7 @@ export class ServiceOrderService {
         // Fetch data from SLT API
         const sltData = await sltApiService.fetchServiceOrders(rtom);
 
-        if (sltData.length === 0) {
+        if (!sltData || sltData.length === 0) {
             return {
                 message: 'No data received from SLT API',
                 synced: 0,
@@ -296,35 +296,37 @@ export class ServiceOrderService {
             };
         }
 
+        // Optimization 1: Identify SO numbers that already have user actions (COMPLETED/RETURN)
+        // This avoids querying the DB inside the loop
+        const sltSoNums = sltData.map(item => item.SO_NUM);
+
+        // Find existing records that should NOT be touched
+        const lockedSods = await prisma.serviceOrder.findMany({
+            where: {
+                soNum: { in: sltSoNums },
+                sltsStatus: { in: ['COMPLETED', 'RETURN'] }
+            },
+            select: { soNum: true }
+        });
+
+        const lockedSoNums = new Set(lockedSods.map(s => s.soNum));
+
+        // Filter sltData to only process syncable items
+        const syncableData = sltData.filter(item => !lockedSoNums.has(item.SO_NUM));
+        const skippedCount = sltData.length - syncableData.length;
+
         let created = 0;
         let updated = 0;
-        let skipped = 0;
 
-        // Process in batches to avoid overwhelming database
-        const batchSize = 50;
-        for (let i = 0; i < sltData.length; i += batchSize) {
-            const batch = sltData.slice(i, i + batchSize);
+        // Optimization 2: Process in larger batches and avoid findMany inside the loop
+        const batchSize = 100;
+        for (let i = 0; i < syncableData.length; i += batchSize) {
+            const batch = syncableData.slice(i, i + batchSize);
 
             await prisma.$transaction(async (tx) => {
                 for (const item of batch) {
                     try {
                         const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
-
-                        // Check if a record exists with this SO number that user has manually completed/returned
-                        const existingRecords = await tx.serviceOrder.findMany({
-                            where: { soNum: item.SO_NUM },
-                            select: { id: true, sltsStatus: true, status: true }
-                        });
-
-                        // Skip if user has already completed or returned this SO
-                        const hasUserAction = existingRecords.some(
-                            r => r.sltsStatus === 'COMPLETED' || r.sltsStatus === 'RETURN'
-                        );
-
-                        if (hasUserAction) {
-                            skipped++;
-                            continue; // Skip this record
-                        }
 
                         // Upsert: create if not exists, update if status changed
                         const result = await tx.serviceOrder.upsert({
@@ -353,7 +355,6 @@ export class ServiceOrderService {
                                 woroSeit: item.CON_WORO_SEIT,
                                 ftthInstSeit: item.FTTH_INST_SIET,
                                 ftthWifi: item.FTTH_WIFI,
-                                // Don't update sltsStatus - preserve user's status changes
                             },
                             create: {
                                 opmcId,
@@ -378,51 +379,50 @@ export class ServiceOrderService {
                                 woroSeit: item.CON_WORO_SEIT,
                                 ftthInstSeit: item.FTTH_INST_SIET,
                                 ftthWifi: item.FTTH_WIFI,
-                                sltsStatus: 'INPROGRESS', // New orders start with INPROGRESS status
+                                sltsStatus: 'INPROGRESS',
                             }
                         });
 
-                        // Check if it was created or updated (Primitive check but works for stats)
-                        const wasCreated = result.createdAt.getTime() === result.updatedAt.getTime();
-                        if (wasCreated) {
+                        if (result.createdAt.getTime() === result.updatedAt.getTime()) {
                             created++;
                         } else {
                             updated++;
                         }
-                    } catch (error) {
-                        console.error(`Error upserting SO ${item.SO_NUM}:`, error);
-                        skipped++;
+                    } catch (err) {
+                        console.error(`Error syncing SO ${item.SO_NUM}:`, err);
                     }
                 }
+            }, {
+                timeout: 20000 // Higher timeout for batches
             });
         }
 
-        // After sync, identify SODs that are missing from the latest sync
-        // These might have been completed in SLT system but not in our system
-        const syncedSoNums = sltData.map(item => item.SO_NUM);
-
-        // Find all INPROGRESS SODs for this OPMC that weren't in the sync
+        // Optimization 3: Efficiently mark missing SODs
         const missingSods = await prisma.serviceOrder.findMany({
             where: {
                 opmcId,
                 sltsStatus: 'INPROGRESS',
-                soNum: {
-                    notIn: syncedSoNums
-                }
+                soNum: { notIn: sltSoNums }
             },
             select: { id: true, soNum: true, comments: true }
         });
 
-        // Mark these as potentially completed externally by adding a flag in comments
-        let markedAsMissing = 0;
-        for (const sod of missingSods) {
-            await prisma.serviceOrder.update({
-                where: { id: sod.id },
-                data: {
-                    comments: `[MISSING FROM SYNC - Possibly completed in SLT system]\n${sod.comments || ''}`
-                }
-            });
-            markedAsMissing++;
+        if (missingSods.length > 0) {
+            // Update in 50-item chunks for missing check
+            const missingChunkSize = 50;
+            for (let i = 0; i < missingSods.length; i += missingChunkSize) {
+                const chunk = missingSods.slice(i, i + missingChunkSize);
+                await Promise.all(chunk.map(sod =>
+                    prisma.serviceOrder.update({
+                        where: { id: sod.id },
+                        data: {
+                            comments: sod.comments?.includes('MISSING FROM SYNC')
+                                ? sod.comments
+                                : `[MISSING FROM SYNC - Possibly completed in SLT system]\n${sod.comments || ''}`
+                        }
+                    })
+                ));
+            }
         }
 
         return {
@@ -430,8 +430,9 @@ export class ServiceOrderService {
             total: sltData.length,
             created,
             updated,
-            skipped,
-            markedAsMissing
+            skipped: skippedCount,
+            markedAsMissing: missingSods.length
         };
     }
+
 }
