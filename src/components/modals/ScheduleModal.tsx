@@ -33,7 +33,7 @@ import {
 const scheduleSchema = z.object({
     contactNumber: z.string().optional(),
     date: z.date({
-        required_error: "Appointment date is required.",
+        message: "Appointment date is required.",
     }),
     time: z.string().min(1, "Appointment time is required"),
 });
