@@ -272,61 +272,59 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {/* 🧪 TEST USERS - Development Only */}
-            {process.env.NODE_ENV !== 'production' && (
-              <div className="mt-6 pt-6 border-t border-slate-200">
-                <div className="text-center mb-3">
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
-                    🧪 Quick Test Login
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Development Mode Only</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { username: 'admin', role: 'Super Admin', color: 'from-violet-500 to-purple-600' },
-                    { username: 'testadmin', role: 'Admin', color: 'from-blue-500 to-blue-600' },
-                    { username: 'ospmanager', role: 'OSP Manager', color: 'from-emerald-500 to-green-600' },
-                    { username: 'areamanager', role: 'Area Manager', color: 'from-orange-500 to-amber-600' },
-                    { username: 'storesmanager', role: 'Stores Mgr', color: 'from-cyan-500 to-teal-600' },
-                    { username: 'coordinator', role: 'Coordinator', color: 'from-pink-500 to-rose-600' },
-                    { username: 'qcofficer', role: 'QC Officer', color: 'from-indigo-500 to-blue-600' },
-                  ].map((user) => (
-                    <button
-                      key={user.username}
-                      type="button"
-                      onClick={async () => {
-                        form.setValue('username', user.username);
-                        form.setValue('password', 'Admin@123');
-                        // Auto-submit after 200ms
-                        setTimeout(() => {
-                          form.handleSubmit(onSubmit)();
-                        }, 200);
-                      }}
-                      className={`px-3 py-2 rounded-lg bg-gradient-to-r ${user.color} text-white text-xs font-medium hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95`}
-                    >
-                      {user.role}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="text-[9px] text-slate-400 text-center mt-2 italic">
-                  Password: Admin@123 • Click to auto-login
+            {/* 🧪 TEST USERS - Enabled for Development/Testing phase */}
+            <div className="mt-6 pt-6 border-t border-slate-200">
+              <div className="text-center mb-3">
+                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
+                  🧪 Quick Test Login
                 </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Development & Testing Phase Only</p>
               </div>
-            )}
+
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { username: 'admin', role: 'Super Admin', color: 'from-violet-500 to-purple-600' },
+                  { username: 'testadmin', role: 'Admin', color: 'from-blue-500 to-blue-600' },
+                  { username: 'ospmanager', role: 'OSP Manager', color: 'from-emerald-500 to-green-600' },
+                  { username: 'areamanager', role: 'Area Manager', color: 'from-orange-500 to-amber-600' },
+                  { username: 'storesmanager', role: 'Stores Mgr', color: 'from-cyan-500 to-teal-600' },
+                  { username: 'coordinator', role: 'Coordinator', color: 'from-pink-500 to-rose-600' },
+                  { username: 'qcofficer', role: 'QC Officer', color: 'from-indigo-500 to-blue-600' },
+                ].map((user) => (
+                  <button
+                    key={user.username}
+                    type="button"
+                    onClick={async () => {
+                      form.setValue('username', user.username);
+                      form.setValue('password', 'Admin@123');
+                      // Auto-submit after 200ms
+                      setTimeout(() => {
+                        form.handleSubmit(onSubmit)();
+                      }, 200);
+                    }}
+                    className={`px-3 py-2 rounded-lg bg-gradient-to-r ${user.color} text-white text-xs font-medium hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95`}
+                  >
+                    {user.role}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[9px] text-slate-400 text-center mt-2 italic">
+                Password: Admin@123 • Click to auto-login
+              </p>
+            </div>
 
             <div className="pt-4 text-center space-y-3">
 
               {/* Database Status Indicator */}
               <div className="flex items-center justify-center gap-2 text-xs">
                 <div className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 animate-pulse' :
-                    dbStatus === 'disconnected' ? 'bg-red-500' :
-                      'bg-yellow-500 animate-pulse'
+                  dbStatus === 'disconnected' ? 'bg-red-500' :
+                    'bg-yellow-500 animate-pulse'
                   }`} />
                 <span className={`font-medium ${dbStatus === 'connected' ? 'text-green-600' :
-                    dbStatus === 'disconnected' ? 'text-red-600' :
-                      'text-yellow-600'
+                  dbStatus === 'disconnected' ? 'text-red-600' :
+                    'text-yellow-600'
                   }`}>
                   {dbStatus === 'connected' ? 'Database Connected' :
                     dbStatus === 'disconnected' ? 'Database Offline' :

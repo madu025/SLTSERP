@@ -38,6 +38,7 @@ This document serves as a comprehensive reference for the SLTSERP project struct
 - **/invoices**: Finance/billing tracking.
 - **/reports**: Operational and management analytics.
     - `/manager`: Executive dashboard. (Fixed chart type errors & missing imports)
+- **/service-orders**: Field service order tracking. (Fixed ScheduleModal Zod types)
 
 ---
 
