@@ -124,12 +124,16 @@ export default function PublicContractorRegistrationPage() {
         const toastId = toast.loading("Uploading file...");
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload });
-            if (!res.ok) throw new Error("Upload failed");
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.details || "Upload failed");
+            }
             const data = await res.json();
             toast.success("File uploaded", { id: toastId });
             return data.url;
-        } catch (err) {
-            toast.error("File upload failed", { id: toastId });
+        } catch (err: any) {
+            console.error("Upload Error:", err);
+            toast.error(err.message || "File upload failed", { id: toastId });
             return null;
         }
     };
