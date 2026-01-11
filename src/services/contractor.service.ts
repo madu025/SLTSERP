@@ -117,11 +117,8 @@ export class ContractorService {
         const { name, contactNumber, email, type, siteOfficeStaffId, origin } = data;
         let { opmcId } = data;
 
-        // Check for duplicates by contactNumber
-        const existing = await prisma.contractor.findFirst({
-            where: { contactNumber }
-        });
-        if (existing) throw new Error('CONTRACTOR_ALREADY_EXISTS');
+        // Check for duplicates
+        await this.validateUnique({ contactNumber });
 
         // If OPMC not provided, derive from staff
         if (!opmcId) {
@@ -251,6 +248,12 @@ export class ContractorService {
 
         const { teams, id: _id, createdAt: _c, updatedAt: _u, ...restData } = data;
 
+        // Check for duplicates (NIC and Contact Number) excluding current contractor
+        await this.validateUnique({
+            nic: restData.nic,
+            contactNumber: restData.contactNumber
+        }, contractor.id);
+
         // Use transaction to ensure data integrity
         return await prisma.$transaction(async (tx) => {
             // 1. Update Contractor Basic Details
@@ -361,6 +364,13 @@ export class ContractorService {
             throw new Error('NAME_AND_REGISTRATION_REQUIRED');
         }
 
+        // Check for duplicates
+        await this.validateUnique({
+            nic: data.nic,
+            contactNumber: data.contactNumber,
+            registrationNumber: data.registrationNumber
+        });
+
         const { teams = [], ...contractorData } = data;
 
         // 1. Create Contractor
@@ -435,6 +445,13 @@ export class ContractorService {
      */
     static async updateContractor(id: string, data: any) {
         if (!id) throw new Error('ID_REQUIRED');
+
+        // Check for duplicates excluding current contractor
+        await this.validateUnique({
+            nic: data.nic,
+            contactNumber: data.contactNumber,
+            registrationNumber: data.registrationNumber
+        }, id);
 
         // Exclude ID from data to prevent update attempts on the primary key
         const { teams, id: _removeId, ...contractorData } = data;
@@ -623,5 +640,30 @@ export class ContractorService {
     static async deleteContractor(id: string) {
         if (!id) throw new Error('ID_REQUIRED');
         return await prisma.contractor.delete({ where: { id } });
+    }
+
+    /**
+     * Helper to validate uniqueness of sensitive fields
+     */
+    private static async validateUnique(data: { nic?: string, contactNumber?: string, registrationNumber?: string }, excludeId?: string) {
+        const orFilters = [];
+        if (data.nic) orFilters.push({ nic: data.nic });
+        if (data.contactNumber) orFilters.push({ contactNumber: data.contactNumber });
+        if (data.registrationNumber) orFilters.push({ registrationNumber: data.registrationNumber });
+
+        if (orFilters.length === 0) return;
+
+        const existing = await prisma.contractor.findFirst({
+            where: {
+                OR: orFilters,
+                NOT: excludeId ? { id: excludeId } : undefined
+            } as any
+        }) as any;
+
+        if (existing) {
+            if (data.nic && existing.nic === data.nic) throw new Error('NIC_ALREADY_REGISTERED');
+            if (data.contactNumber && existing.contactNumber === data.contactNumber) throw new Error('CONTACT_NUMBER_ALREADY_EXISTS');
+            if (data.registrationNumber && existing.registrationNumber === data.registrationNumber) throw new Error('REGISTRATION_NUMBER_ALREADY_EXISTS');
+        }
     }
 }

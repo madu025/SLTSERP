@@ -97,7 +97,21 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/admin/contractors',
         icon: HardHat,
         // Contractors managed by Ops & Admin
-        allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS]
+        allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS],
+        submenu: [
+            {
+                title: 'All Contractors',
+                path: '/admin/contractors',
+                icon: HardHat,
+                allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS]
+            },
+            {
+                title: 'Registration Approvals',
+                path: '/admin/contractors/approvals',
+                icon: FileSignature,
+                allowedRoles: ROLE_GROUPS.ALL_OPS
+            }
+        ]
     },
     {
         title: 'Projects',

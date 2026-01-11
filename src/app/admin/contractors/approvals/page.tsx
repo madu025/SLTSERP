@@ -32,6 +32,7 @@ export default function ContractorApprovalsPage() {
     const [teamManagerOpen, setTeamManagerOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editData, setEditData] = useState<any>({});
+    const [previewDoc, setPreviewDoc] = useState<{ label: string, url: string } | null>(null);
 
     // Fetch contractors pending approval
     const { data: contractors = [], isLoading } = useQuery({
@@ -347,11 +348,15 @@ export default function ContractorApprovalsPage() {
                                                                 { label: 'Grama Cert', url: selectedContractor.gramaCertUrl },
                                                             ].map((doc, idx) => (
                                                                 doc.url ? (
-                                                                    <a key={idx} href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-white border rounded text-[10px] hover:bg-slate-50 transition-colors">
-                                                                        <ImageIcon className="w-3 h-3 text-blue-500" />
-                                                                        <span className="truncate flex-1">{doc.label}</span>
-                                                                        <ExternalLink className="w-2.5 h-2.5 opacity-50" />
-                                                                    </a>
+                                                                    <div key={idx} className="flex items-center gap-2 p-2 bg-white border rounded text-[10px] group transition-all hover:border-blue-200">
+                                                                        <div className="flex-1 flex items-center gap-2 cursor-pointer" onClick={() => setPreviewDoc({ label: doc.label, url: doc.url! })}>
+                                                                            <ImageIcon className="w-3 h-3 text-blue-500" />
+                                                                            <span className="truncate flex-1">{doc.label}</span>
+                                                                        </div>
+                                                                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-100 rounded transition-opacity">
+                                                                            <ExternalLink className="w-2.5 h-2.5 text-slate-400" />
+                                                                        </a>
+                                                                    </div>
                                                                 ) : (
                                                                     <div key={idx} className="flex items-center gap-2 p-2 bg-slate-50 border border-dashed rounded text-[10px] opacity-50 grayscale">
                                                                         <ImageIcon className="w-3 h-3" />
@@ -630,6 +635,24 @@ export default function ContractorApprovalsPage() {
                     contractorName={selectedContractor.name}
                 />
             )}
+
+            {/* Document Preview Modal */}
+            <Dialog open={!!previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+                    <DialogHeader className="p-4 border-b">
+                        <DialogTitle className="flex justify-between items-center pr-8">
+                            <span>Document Preview: {previewDoc?.label}</span>
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-auto p-4 bg-slate-900/5 flex items-center justify-center min-h-[400px]">
+                        {previewDoc?.url.endsWith('.pdf') ? (
+                            <iframe src={previewDoc.url} className="w-full h-full min-h-[600px] rounded border bg-white" />
+                        ) : (
+                            <img src={previewDoc?.url} alt={previewDoc?.label} className="max-w-full h-auto shadow-2xl rounded" />
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
