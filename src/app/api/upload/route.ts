@@ -27,8 +27,11 @@ export async function POST(request: NextRequest) {
 
         const url = `/uploads/contractors/${filename}`;
         return NextResponse.json({ url });
-    } catch (error) {
-        console.error("Upload error:", error);
-        return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    } catch (error: any) {
+        console.error("Critical Upload Error:", error);
+        return NextResponse.json({
+            error: "Upload failed",
+            details: error.message
+        }, { status: 500 });
     }
 }
