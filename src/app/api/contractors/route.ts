@@ -14,8 +14,8 @@ export async function GET(request: Request) {
 
         let opmcIds: string[] | undefined = undefined;
 
-        // If user is ARM (AREA_MANAGER), filter by their accessible OPMCs
-        if (role === 'AREA_MANAGER' && userId) {
+        // Filter by accessible OPMCs for relevant roles
+        if (['AREA_MANAGER', 'SITE_OFFICE_STAFF', 'OFFICE_ADMIN'].includes(role || '') && userId) {
             const user = await prisma.user.findUnique({
                 where: { id: userId },
                 include: { accessibleOpmcs: { select: { id: true } } }

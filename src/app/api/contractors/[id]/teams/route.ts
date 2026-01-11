@@ -50,8 +50,14 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
             where: { contractorId },
             select: { id: true }
         });
+        // Fetch contractor's OPMC to inherit if needed
+        const contractor = await prisma.contractor.findUnique({
+            where: { id: contractorId },
+            select: { opmcId: true }
+        });
+
         const existingIds = existingTeams.map(t => t.id);
-        const incomingIds = teams.filter((t: any) => !t.id.startsWith('temp')).map((t: any) => t.id);
+        const incomingIds = teams.filter((t: any) => t.id && !t.id.startsWith('temp')).map((t: any) => t.id);
 
         const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
 
@@ -69,19 +75,21 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                     name: team.name,
                     status: team.status,
                     contractorId: contractorId,
+                    sltCode: team.sltCode || null,
+                    opmcId: team.opmcId || contractor?.opmcId || null
                 };
 
                 let teamId = team.id;
 
-                if (team.id.startsWith('temp')) {
+                if (!team.id || team.id.startsWith('temp')) {
                     // Create New Team
-                    const newTeam = await tx.contractorTeam.create({
+                    const newTeam = await (tx.contractorTeam.create as any)({
                         data: teamData
                     });
                     teamId = newTeam.id;
                 } else {
                     // Update Existing Team
-                    await tx.contractorTeam.update({
+                    await (tx.contractorTeam.update as any)({
                         where: { id: team.id },
                         data: teamData
                     });
@@ -120,6 +128,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                     const memData = {
                         name: member.name,
                         idCopyNumber: member.idCopyNumber,
+                        nic: member.nic || member.idCopyNumber, // Use both for compatibility
                         contactNumber: member.contactNumber,
                         address: member.address,
                         photoUrl: member.photoUrl,

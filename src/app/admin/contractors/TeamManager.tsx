@@ -162,6 +162,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         let newMember = {
             id: `mem-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             name: '',
+            nic: '',
             idCopyNumber: '',
             contactNumber: '',
             address: '',
@@ -178,6 +179,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
             newMember = {
                 ...newMember,
                 name: contractorDetails.name || '',
+                nic: contractorDetails.nic || '',
                 idCopyNumber: contractorDetails.nic || '',
                 contactNumber: contractorDetails.contactNumber || '',
                 address: contractorDetails.address || '',
@@ -427,7 +429,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                                         {/* Compact Fields Grid */}
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
                                                             <div className="sm:col-span-2 space-y-0.5"><Label className="text-[10px] text-slate-400">Name</Label><Input value={member.name} onChange={(e) => updateMember(mIdx, 'name', e.target.value)} className="h-7 text-xs" /></div>
-                                                            <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">NIC</Label><Input value={member.idCopyNumber} onChange={(e) => updateMember(mIdx, 'idCopyNumber', e.target.value)} className="h-7 text-xs" /></div>
+                                                            <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">NIC / ID Card</Label><Input value={member.nic || member.idCopyNumber || ''} onChange={(e) => { updateMember(mIdx, 'nic', e.target.value); updateMember(mIdx, 'idCopyNumber', e.target.value); }} className="h-7 text-xs" /></div>
                                                             <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Contact</Label><Input value={member.contactNumber} onChange={(e) => updateMember(mIdx, 'contactNumber', e.target.value)} className="h-7 text-xs" /></div>
                                                             <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Shoe</Label><Input value={member.shoeSize} onChange={(e) => updateMember(mIdx, 'shoeSize', e.target.value)} className="h-7 text-xs" placeholder="Size" /></div>
                                                             <div className="space-y-0.5"><Label className="text-[10px] text-slate-400">Shirt</Label>

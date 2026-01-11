@@ -39,6 +39,7 @@ interface ContractorTeam {
     opmcId?: string | null;
     storeIds?: string[];
     primaryStoreId?: string | null;
+    sltCode?: string | null;
     status: 'ACTIVE' | 'INACTIVE';
     members: TeamMember[];
 }
@@ -308,6 +309,7 @@ export default function ContractorsPage() {
             id: t.id,
             name: t.name,
             status: t.status,
+            sltCode: t.sltCode,
             opmcId: t.opmcId || null,
             storeIds: (t as any).storeAssignments?.map((sa: any) => sa.storeId) || [],
             primaryStoreId: (t as any).storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || null,

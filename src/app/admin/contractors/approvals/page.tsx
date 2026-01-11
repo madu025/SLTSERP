@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Loader2, Building2, Users, FileText, Banknote, Calendar, ShieldCheck } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Building2, Users, FileText, Banknote, Calendar, ShieldCheck, Pencil, Image as ImageIcon, ExternalLink } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import TeamManager from "../TeamManager";
 
 export default function ContractorApprovalsPage() {
     const queryClient = useQueryClient();
@@ -27,6 +28,9 @@ export default function ContractorApprovalsPage() {
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
     const [rejectionReason, setRejectionReason] = useState("");
     const [teamCodes, setTeamCodes] = useState<Record<string, string>>({});
+    const [teamManagerOpen, setTeamManagerOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editData, setEditData] = useState<any>({});
 
     // Fetch contractors pending approval
     const { data: contractors = [], isLoading } = useQuery({
@@ -206,7 +210,9 @@ export default function ContractorApprovalsPage() {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <h4 className="font-bold text-slate-800">{c.name}</h4>
-                                                        <p className="text-xs text-slate-500 mt-1">{c.type} Contractor</p>
+                                                        <p className="text-xs text-slate-500 mt-1">
+                                                            {c.type} Contractor • {(c.teams || []).length} Teams
+                                                        </p>
                                                     </div>
                                                     <Badge className={cn(
                                                         "text-[10px] uppercase font-bold",
@@ -233,6 +239,28 @@ export default function ContractorApprovalsPage() {
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setEditData({ ...selectedContractor });
+                                                            setIsEditModalOpen(true);
+                                                        }}
+                                                        className="text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+                                                    >
+                                                        <Pencil className="w-4 h-4 mr-2" />
+                                                        Edit info
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setTeamManagerOpen(true)}
+                                                        className="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                                                    >
+                                                        <Users className="w-4 h-4 mr-2" />
+                                                        Manage Teams
+                                                    </Button>
+                                                    <Separator orientation="vertical" className="h-8 mx-1" />
+                                                    <Button
                                                         variant="outline"
                                                         onClick={() => setIsRejectDialogOpen(true)}
                                                         className="text-red-600 border-red-200 hover:bg-red-50"
@@ -243,11 +271,11 @@ export default function ContractorApprovalsPage() {
                                                     </Button>
                                                     <Button
                                                         onClick={() => handleApprove(selectedContractor)}
-                                                        className="bg-green-600 hover:bg-green-700"
+                                                        className="bg-green-600 hover:bg-green-700 font-bold"
                                                         disabled={approveMutation.isPending || rejectMutation.isPending}
                                                     >
                                                         {approveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                                                        Approve Registration
+                                                        Approve
                                                     </Button>
                                                 </div>
                                             </div>
@@ -294,8 +322,36 @@ export default function ContractorApprovalsPage() {
                                                             </div>
                                                         </div>
                                                     </section>
-                                                </div>
 
+                                                    <section>
+                                                        <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                                                            <FileText className="w-3 h-3" /> Documents
+                                                        </h5>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            {[
+                                                                { label: 'NIC Front', url: selectedContractor.nicFrontUrl },
+                                                                { label: 'NIC Back', url: selectedContractor.nicBackUrl },
+                                                                { label: 'BR Cert', url: selectedContractor.brCertUrl },
+                                                                { label: 'Passbook', url: selectedContractor.bankPassbookUrl },
+                                                                { label: 'Police Report', url: selectedContractor.policeReportUrl },
+                                                                { label: 'Grama Cert', url: selectedContractor.gramaCertUrl },
+                                                            ].map((doc, idx) => (
+                                                                doc.url ? (
+                                                                    <a key={idx} href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-white border rounded text-[10px] hover:bg-slate-50 transition-colors">
+                                                                        <ImageIcon className="w-3 h-3 text-blue-500" />
+                                                                        <span className="truncate flex-1">{doc.label}</span>
+                                                                        <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                                                                    </a>
+                                                                ) : (
+                                                                    <div key={idx} className="flex items-center gap-2 p-2 bg-slate-50 border border-dashed rounded text-[10px] opacity-50 grayscale">
+                                                                        <ImageIcon className="w-3 h-3" />
+                                                                        <span className="truncate">{doc.label} (N/A)</span>
+                                                                    </div>
+                                                                )
+                                                            ))}
+                                                        </div>
+                                                    </section>
+                                                </div>
                                                 <div className="p-6 space-y-6">
                                                     <section>
                                                         <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
@@ -338,7 +394,7 @@ export default function ContractorApprovalsPage() {
                                                                 <div className="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-100" />
                                                                 <div className="flex-1">
                                                                     <p className="text-xs font-bold text-slate-700">Form Submitted</p>
-                                                                    <p className="text-[10px] text-slate-400">{new Date(selectedContractor.updatedAt).toLocaleString()}</p>
+                                                                    <p className="text-[10px] text-slate-400">{selectedContractor.updatedAt ? new Date(selectedContractor.updatedAt).toLocaleString() : 'N/A'}</p>
                                                                 </div>
                                                             </div>
                                                             <div className="flex items-center gap-4">
@@ -453,6 +509,70 @@ export default function ContractorApprovalsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Edit Basic Info Dialog */}
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Edit Contractor Details</DialogTitle>
+                        <DialogDescription>Update registration info before final approval.</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Contractor Name</Label>
+                            <Input value={editData.name || ''} onChange={e => setEditData({ ...editData, name: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Registration Number</Label>
+                            <Input value={editData.registrationNumber || ''} onChange={e => setEditData({ ...editData, registrationNumber: e.target.value })} />
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                            <Label>Address</Label>
+                            <Input value={editData.address || ''} onChange={e => setEditData({ ...editData, address: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>NIC Number</Label>
+                            <Input value={editData.nic || ''} onChange={e => setEditData({ ...editData, nic: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Contact Number</Label>
+                            <Input value={editData.contactNumber || ''} onChange={e => setEditData({ ...editData, contactNumber: e.target.value })} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+                        <Button onClick={async () => {
+                            try {
+                                const res = await fetch('/api/contractors', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(editData)
+                                });
+                                if (!res.ok) throw new Error("Update failed");
+                                toast.success("Details updated");
+                                queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
+                                setSelectedContractor({ ...selectedContractor, ...editData });
+                                setIsEditModalOpen(false);
+                            } catch (err) {
+                                toast.error("Failed to update");
+                            }
+                        }}>Save Changes</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Team Manager */}
+            {selectedContractor && (
+                <TeamManager
+                    isOpen={teamManagerOpen}
+                    onClose={() => {
+                        setTeamManagerOpen(false);
+                        queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
+                    }}
+                    contractorId={selectedContractor.id}
+                    contractorName={selectedContractor.name}
+                />
+            )}
         </div>
     );
 }
