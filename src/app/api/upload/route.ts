@@ -14,19 +14,16 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Create unique name
-        const ext = file.name.split('.').pop() || 'jpg'; // Fallback ext
-        const filename = `${crypto.randomUUID()}.${ext}`;
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
 
-        // Ensure directory exists
-        const uploadDir = join(process.cwd(), "public/uploads/contractors");
-        await mkdir(uploadDir, { recursive: true });
+        // Convert to Base64 Data URI
+        const mimeType = file.type || 'application/octet-stream';
+        const base64Data = buffer.toString('base64');
+        const dataUri = `data:${mimeType};base64,${base64Data}`;
 
-        const path = join(uploadDir, filename);
-        await writeFile(path, buffer);
-
-        const url = `/uploads/contractors/${filename}`;
-        return NextResponse.json({ url });
+        // Return the Data URI as the 'url'
+        return NextResponse.json({ url: dataUri });
     } catch (error: any) {
         console.error("Critical Upload Error:", error);
         return NextResponse.json({
