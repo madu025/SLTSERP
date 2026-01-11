@@ -54,6 +54,12 @@ export default function PublicContractorRegistrationPage() {
                 const res = await fetch(`/api/contractors/public-register/${token}`);
                 if (!res.ok) {
                     const errData = await res.json();
+                    if (errData.error === 'ALREADY_SUBMITTED') {
+                        setSubmitted(true);
+                        setContractor({ name: "Contractor" }); // Dummy data to prevent "Invalid Link" UI
+                        setLoading(false);
+                        return;
+                    }
                     if (errData.error === 'TOKEN_EXPIRED') throw new Error("Registration link has expired (3-day limit exceeded).");
                     throw new Error("Invalid or expired link");
                 }
