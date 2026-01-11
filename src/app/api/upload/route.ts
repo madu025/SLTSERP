@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { join } from "path";
-import { writeFile, mkdir } from "fs/promises";
+
 
 export async function POST(request: NextRequest) {
     try {
@@ -14,8 +13,6 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
 
         // Convert to Base64 Data URI
         const mimeType = file.type || 'application/octet-stream';
