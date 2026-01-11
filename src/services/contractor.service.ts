@@ -166,8 +166,7 @@ export class ContractorService {
 
         if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
 
-        // If already active or pending approval, we can still resend, but we should 
-        // ensure status is REJECTED so they can actually edit the form.
+        // If already in approval flow, move back to REJECTED so they can edit
         if (!['PENDING', 'REJECTED'].includes(contractor.status)) {
             await prisma.contractor.update({
                 where: { id },
@@ -175,23 +174,19 @@ export class ContractorService {
             });
         }
 
-        let token = contractor.registrationToken;
-        let expiry = contractor.registrationTokenExpiry;
+        // Always generate a fresh token and 7-day expiry for a re-share request
+        const token = require('crypto').randomUUID();
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 7);
 
-        // If no token or expired, generate a new one
-        if (!token || !expiry || new Date(expiry) < new Date()) {
-            token = require('crypto').randomUUID();
-            expiry = new Date();
-            expiry.setDate(expiry.getDate() + 7);
-
-            await prisma.contractor.update({
-                where: { id },
-                data: {
-                    registrationToken: token,
-                    registrationTokenExpiry: expiry
-                } as any
-            });
-        }
+        await prisma.contractor.update({
+            where: { id },
+            data: {
+                registrationToken: token,
+                registrationTokenExpiry: expiry,
+                registrationStartedAt: null, // Reset the 3-day activation clock
+            } as any
+        });
 
         return {
             contractor,
@@ -311,7 +306,7 @@ export class ContractorService {
                                     photoUrl: m.photoUrl || '',
                                     passportPhotoUrl: m.passportPhotoUrl || '',
                                     nicUrl: m.nicUrl || '',
-                                    idCopyNumber: m.idCopyNumber || '',
+                                    idCopyNumber: m.idCopyNumber || m.nic || '',
                                     contractorId: contractor.id
                                 }))
                             }

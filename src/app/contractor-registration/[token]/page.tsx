@@ -67,13 +67,34 @@ export default function PublicContractorRegistrationPage() {
                 const data = await res.json();
                 setContractor(data);
 
-                // Restore from draft
+                // Restore from draft or existing data
                 if (data.registrationDraft) {
                     setFormData(data.registrationDraft);
                     // Use small timeout to ensure UI updates after loading state clears
                     setTimeout(() => toast.info("Your previous progress has been restored."), 500);
-                } else {
-                    setFormData(prev => ({ ...prev, contactNumber: data.contactNumber || "" }));
+                } else if (data.status === 'REJECTED' || data.status === 'PENDING') {
+                    // Pre-fill from existing contractor record if available
+                    setFormData(prev => ({
+                        ...prev,
+                        nic: data.nic || prev.nic,
+                        address: data.address || prev.address,
+                        contactNumber: data.contactNumber || prev.contactNumber,
+                        brNumber: data.brNumber || prev.brNumber,
+                        bankName: data.bankName || prev.bankName,
+                        bankBranch: data.bankBranch || prev.bankBranch,
+                        bankAccountNumber: data.bankAccountNumber || prev.bankAccountNumber,
+                        bankPassbookUrl: data.bankPassbookUrl || prev.bankPassbookUrl,
+                        photoUrl: data.photoUrl || prev.photoUrl,
+                        nicFrontUrl: data.nicFrontUrl || prev.nicFrontUrl,
+                        nicBackUrl: data.nicBackUrl || prev.nicBackUrl,
+                        policeReportUrl: data.policeReportUrl || prev.policeReportUrl,
+                        gramaCertUrl: data.gramaCertUrl || prev.gramaCertUrl,
+                        brCertUrl: data.brCertUrl || prev.brCertUrl,
+                        teams: data.teams && data.teams.length > 0 ? data.teams.map((t: any) => ({
+                            ...t,
+                            primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || ""
+                        })) : prev.teams
+                    }));
                 }
             } catch (error: any) {
                 toast.error(error.message);
