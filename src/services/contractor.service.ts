@@ -487,13 +487,24 @@ export class ContractorService {
                 const reporterId = updated.siteOfficeStaffId;
                 if (reporterId) {
                     if (contractorData.status === 'OSP_PENDING') {
-                        // ARM Approved
+                        // ARM Approved -> Notify OSP Managers and Site Office Staff
                         await NotificationService.send({
                             userId: reporterId,
                             title: "Contractor ARM Approved",
                             message: `Contractor "${updated.name}" has been approved by the Area Manager and is now waiting for OSP Manager authorization.`,
                             type: 'CONTRACTOR',
                             priority: 'MEDIUM'
+                        });
+
+                        // Also notify OSP Managers in the same OPMC
+                        await NotificationService.notifyByRole({
+                            roles: ['OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+                            title: "New Contractor Pending Authorization",
+                            message: `Contractor "${updated.name}" is waiting for your final authorization.`,
+                            type: 'CONTRACTOR',
+                            priority: 'HIGH',
+                            opmcId: updated.opmcId || undefined,
+                            link: '/admin/contractors/approvals'
                         });
                     } else if (contractorData.status === 'ACTIVE') {
                         // Fully Approved
@@ -563,7 +574,7 @@ export class ContractorService {
                             data: team.members.map((m: any) => ({
                                 name: m.name,
                                 nic: m.nic || m.idCopyNumber || '',
-                                idCopyNumber: m.idCopyNumber || '',
+                                idCopyNumber: m.nic || m.idCopyNumber || '',
                                 contractorIdCopyNumber: m.contractorIdCopyNumber || '',
                                 designation: m.designation || '',
                                 contactNumber: m.contactNumber || '',
@@ -581,7 +592,7 @@ export class ContractorService {
                         data: {
                             name: team.name,
                             contractorId: id,
-                            opmcId: team.opmcId || null,
+                            opmcId: team.opmcId || updated.opmcId || null,
                             sltCode: team.sltCode,
                             storeAssignments: {
                                 create: team.storeIds?.map((storeId: string) => ({

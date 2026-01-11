@@ -38,6 +38,7 @@ export default function PublicContractorRegistrationPage() {
         bankName: "",
         bankBranch: "",
         bankAccountNumber: "",
+        bankPassbookUrl: "",
         teams: [{ name: "Default Team", primaryStoreId: "", members: [] }] as any[],
         photoUrl: "",
         nicFrontUrl: "",
@@ -205,6 +206,31 @@ export default function PublicContractorRegistrationPage() {
     };
 
     const handleSubmit = async () => {
+        // Validation
+        if (!formData.address || !formData.nic || !formData.contactNumber) {
+            toast.error("Please fill in all Basic Information");
+            setStep(1);
+            return;
+        }
+
+        if (!formData.bankName || !formData.bankAccountNumber || !formData.bankPassbookUrl) {
+            toast.error("Please provide complete Banking Details including the Passbook photo.");
+            setStep(2);
+            return;
+        }
+
+        if (formData.teams.length === 0 || formData.teams.some(t => !t.name || !t.primaryStoreId)) {
+            toast.error("Please ensure all teams have a name and a primary store assigned.");
+            setStep(4);
+            return;
+        }
+
+        if (!formData.nicFrontUrl || !formData.nicBackUrl) {
+            toast.error("Please upload both NIC Front and Back images.");
+            setStep(3);
+            return;
+        }
+
         setSubmitting(true);
         try {
             const res = await fetch(`/api/contractors/public-register/${token}`, {
@@ -213,7 +239,10 @@ export default function PublicContractorRegistrationPage() {
                 body: JSON.stringify(formData)
             });
 
-            if (!res.ok) throw new Error("Failed to submit registration");
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || "Failed to submit registration");
+            }
 
             toast.success("Registration submitted successfully!");
             setSubmitted(true);
@@ -446,6 +475,31 @@ export default function PublicContractorRegistrationPage() {
                                     <div className="space-y-2 sm:col-span-2">
                                         <Label>Account Number</Label>
                                         <Input value={formData.bankAccountNumber} onChange={e => setFormData({ ...formData, bankAccountNumber: e.target.value })} />
+                                    </div>
+                                    <div className="space-y-2 sm:col-span-2">
+                                        <Label className="flex justify-between items-center">
+                                            <span>Bank Passbook / Statement Copy</span>
+                                            {formData.bankPassbookUrl && <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none text-[10px]">Uploaded</Badge>}
+                                        </Label>
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative flex-1">
+                                                <Input
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    onChange={async (e) => {
+                                                        const url = await uploadFile(e);
+                                                        if (url) setFormData({ ...formData, bankPassbookUrl: url });
+                                                    }}
+                                                    className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                />
+                                            </div>
+                                            {formData.bankPassbookUrl && (
+                                                <Button size="icon" variant="ghost" onClick={() => setFormData({ ...formData, bankPassbookUrl: "" })} className="text-red-500">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 italic">Clear photo of the bank passbook first page or a recent statement showing the account name and number.</p>
                                     </div>
                                 </div>
                                 <div className="flex justify-between pt-4">
@@ -707,7 +761,8 @@ export default function PublicContractorRegistrationPage() {
                                                 { k: 'nicFrontUrl', l: 'NIC Front' },
                                                 { k: 'nicBackUrl', l: 'NIC Back' },
                                                 { k: 'gramaCertUrl', l: 'GN Cert' },
-                                                { k: 'brCertUrl', l: 'BR Cert' }
+                                                { k: 'brCertUrl', l: 'BR Cert' },
+                                                { k: 'bankPassbookUrl', l: 'Passbook' }
                                             ].map(d => (formData as any)[d.k] && (
                                                 <Badge key={d.k} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 py-1.5 px-3 flex items-center gap-2">
                                                     <CheckCircle className="w-3.5 h-3.5" /> {d.l}

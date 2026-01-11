@@ -12,6 +12,7 @@ import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import TeamManager from "../TeamManager";
@@ -42,6 +43,15 @@ export default function ContractorApprovalsPage() {
             const contractorsList = Array.isArray(data.contractors) ? data.contractors : [];
             // Filter only those pending ARM or OSP approval
             return contractorsList.filter((c: any) => c.status === 'ARM_PENDING' || c.status === 'OSP_PENDING');
+        }
+    });
+
+    const { data: opmcs = [] } = useQuery({
+        queryKey: ['opmcs'],
+        queryFn: async () => {
+            const res = await fetch('/api/opmc');
+            if (!res.ok) return [];
+            return res.json();
         }
     });
 
@@ -95,9 +105,11 @@ export default function ContractorApprovalsPage() {
 
     const handleApprove = (contractor: any) => {
         let nextStatus = '';
-        if (contractor.status === 'ARM_PENDING' && userRole === 'AREA_MANAGER') {
+        const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(userRole);
+
+        if (contractor.status === 'ARM_PENDING' && (userRole === 'AREA_MANAGER' || isAdmin)) {
             nextStatus = 'OSP_PENDING';
-        } else if (contractor.status === 'OSP_PENDING' && userRole === 'OSP_MANAGER') {
+        } else if ((contractor.status === 'OSP_PENDING' || contractor.status === 'ARM_PENDING') && (userRole === 'OSP_MANAGER' || isAdmin)) {
             nextStatus = 'ACTIVE';
         }
 
@@ -106,18 +118,16 @@ export default function ContractorApprovalsPage() {
             return;
         }
 
-        if (nextStatus === 'ACTIVE' && (contractor.teams || []).length > 0) {
-            // Initialize team codes from existing values if any
+        if (nextStatus === 'ACTIVE') {
             const initialCodes: Record<string, string> = {};
-            contractor.teams.forEach((t: any) => {
+            (contractor.teams || []).forEach((t: any) => {
                 initialCodes[t.id] = t.sltCode || '';
             });
             setTeamCodes(initialCodes);
             setIsApproveDialogOpen(true);
-            return;
+        } else if (nextStatus) {
+            approveMutation.mutate({ id: contractor.id, status: nextStatus, approverId: user.id });
         }
-
-        approveMutation.mutate({ id: contractor.id, status: nextStatus, approverId: user.id });
     };
 
     const confirmFinalApproval = () => {
@@ -517,7 +527,7 @@ export default function ContractorApprovalsPage() {
                         <DialogTitle>Edit Contractor Details</DialogTitle>
                         <DialogDescription>Update registration info before final approval.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid grid-cols-2 gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4 py-4 max-h-[60vh] overflow-y-auto pr-2 no-scrollbar">
                         <div className="space-y-2">
                             <Label>Contractor Name</Label>
                             <Input value={editData.name || ''} onChange={e => setEditData({ ...editData, name: e.target.value })} />
@@ -537,6 +547,53 @@ export default function ContractorApprovalsPage() {
                         <div className="space-y-2">
                             <Label>Contact Number</Label>
                             <Input value={editData.contactNumber || ''} onChange={e => setEditData({ ...editData, contactNumber: e.target.value })} />
+                        </div>
+
+                        <div className="col-span-2 pt-2 border-t">
+                            <h4 className="text-xs font-bold uppercase text-slate-400 mb-4">Banking & Internal</h4>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Bank Name</Label>
+                            <Input value={editData.bankName || ''} onChange={e => setEditData({ ...editData, bankName: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Bank Branch</Label>
+                            <Input value={editData.bankBranch || ''} onChange={e => setEditData({ ...editData, bankBranch: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Account Number</Label>
+                            <Input value={editData.bankAccountNumber || ''} onChange={e => setEditData({ ...editData, bankAccountNumber: e.target.value })} />
+                        </div>
+                        <div className="flex items-center space-x-2 pt-8">
+                            <input
+                                type="checkbox"
+                                id="fee-paid"
+                                checked={editData.registrationFeePaid || false}
+                                onChange={e => setEditData({ ...editData, registrationFeePaid: e.target.checked })}
+                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <Label htmlFor="fee-paid" className="cursor-pointer">Registration Fee Paid</Label>
+                        </div>
+
+                        <div className="col-span-2 pt-2 border-t">
+                            <h4 className="text-xs font-bold uppercase text-slate-400 mb-4">Internal Assignment</h4>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Assigned OPMC</Label>
+                            <Select value={editData.opmcId || ''} onValueChange={(v) => setEditData({ ...editData, opmcId: v })}>
+                                <SelectTrigger className="bg-white"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
+                                <SelectContent>
+                                    {opmcs.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Agreement Date</Label>
+                            <Input type="date" value={editData.agreementDate ? new Date(editData.agreementDate).toISOString().split('T')[0] : ''} onChange={e => setEditData({ ...editData, agreementDate: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Agreement Duration (Years)</Label>
+                            <Input type="number" value={editData.agreementDuration || 1} onChange={e => setEditData({ ...editData, agreementDuration: parseInt(e.target.value) })} />
                         </div>
                     </div>
                     <DialogFooter>
