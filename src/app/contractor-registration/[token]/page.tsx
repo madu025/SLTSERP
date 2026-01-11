@@ -450,7 +450,8 @@ export default function PublicContractorRegistrationPage() {
                                                 {showBranchList && (
                                                     <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-60 overflow-y-auto no-scrollbar">
                                                         {branches
-                                                            .filter(b => b.name.toLowerCase().includes(branchSearch.toLowerCase()))
+                                                            .filter(b => b.name.toLowerCase().startsWith(branchSearch.toLowerCase()))
+                                                            .sort((a, b) => a.name.localeCompare(b.name))
                                                             .slice(0, 100)
                                                             .map((br, i) => (
                                                                 <div
