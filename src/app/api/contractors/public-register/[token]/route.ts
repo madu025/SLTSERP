@@ -7,7 +7,7 @@ export async function GET(request: Request, context: { params: Promise<{ token: 
         const contractor = await ContractorService.getContractorByToken(token);
         return NextResponse.json(contractor);
     } catch (error: any) {
-        if (error.message === 'INVALID_TOKEN' || error.message === 'TOKEN_EXPIRED') {
+        if (error.message === 'INVALID_TOKEN' || error.message === 'TOKEN_EXPIRED' || error.message === 'ALREADY_SUBMITTED') {
             return NextResponse.json({ error: error.message }, { status: 400 });
         }
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
         return NextResponse.json({ success: true, message: 'Registration submitted for review.' });
     } catch (error: any) {
         console.error('Registration error:', error);
-        if (error.message === 'INVALID_TOKEN' || error.message === 'TOKEN_EXPIRED') {
+        if (error.message === 'INVALID_TOKEN' || error.message === 'TOKEN_EXPIRED' || error.message === 'ALREADY_SUBMITTED') {
             return NextResponse.json({ error: error.message }, { status: 400 });
         }
         return NextResponse.json({ error: error.message }, { status: 500 });
