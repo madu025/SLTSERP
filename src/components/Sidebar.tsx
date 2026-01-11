@@ -146,7 +146,7 @@ export default function Sidebar() {
                             {/* Submenu */}
                             {!isCollapsed && hasSubmenu && isExpanded && (
                                 <div className="pl-10 space-y-1">
-                                    {item.submenu!.map(sub => (
+                                    {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => (
                                         <Link
                                             key={sub.path}
                                             href={sub.path}

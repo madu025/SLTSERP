@@ -9,6 +9,8 @@ import { Upload, FileSpreadsheet, CheckCircle2, Download, AlertCircle } from "lu
 import readXlsxFile from 'read-excel-file';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import RoleGuard from '@/components/RoleGuard';
+import { ROLE_GROUPS } from '@/config/sidebar-menu';
 
 export default function ContractorBulkImportPage() {
     const queryClient = useQueryClient();
@@ -60,9 +62,6 @@ export default function ContractorBulkImportPage() {
 
         try {
             const rows = await readXlsxFile(file);
-            // Rows mapping:
-            // 0:Name, 1:Type, 2:RegNum, 3:Contact, 4:NIC, 5:Address, 6:BR, 7:Bank, 8:Branch, 9:AccNum
-            // 10:TeamName, 11:M1Name, 12:M1NIC, 13:M2Name, 14:M2NIC, 15:M3Name, 16:M3NIC
             const dataRows = rows.slice(1);
             totalCount = dataRows.length;
 
@@ -71,20 +70,16 @@ export default function ContractorBulkImportPage() {
                 const rowNum = i + 2;
 
                 try {
-                    // Extract Teams data
                     const teams = [];
                     const teamName = row[10]?.toString().trim();
                     if (teamName) {
                         const members = [];
-                        // Member 1
                         if (row[11]?.toString().trim()) {
                             members.push({ name: row[11].toString().trim(), nic: row[12]?.toString().trim() || '' });
                         }
-                        // Member 2
                         if (row[13]?.toString().trim()) {
                             members.push({ name: row[13].toString().trim(), nic: row[14]?.toString().trim() || '' });
                         }
-                        // Member 3
                         if (row[15]?.toString().trim()) {
                             members.push({ name: row[15].toString().trim(), nic: row[16]?.toString().trim() || '' });
                         }
@@ -137,7 +132,7 @@ export default function ContractorBulkImportPage() {
             setErrors(errorList.slice(0, 10));
 
             if (successCount > 0) {
-                toast.success(`Successfully imported ${successCount} contractors with teams.`);
+                toast.success(`Successfully imported ${successCount} contractors.`);
                 queryClient.invalidateQueries({ queryKey: ["contractors"] });
             }
             if (failCount > 0) {
@@ -145,7 +140,7 @@ export default function ContractorBulkImportPage() {
             }
 
         } catch (err) {
-            toast.error("Failed to read Excel file. Please ensure it is a valid .xlsx file.");
+            toast.error("Failed to read Excel file.");
         } finally {
             setIsProcessing(false);
             e.target.value = '';
@@ -153,146 +148,100 @@ export default function ContractorBulkImportPage() {
     };
 
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
-                <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-4xl mx-auto space-y-6">
+        <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS}>
+            <div className="h-screen flex bg-slate-50 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 flex flex-col min-w-0 h-full">
+                    <Header />
+                    <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                        <div className="max-w-4xl mx-auto space-y-6">
 
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <h1 className="text-3xl font-bold text-slate-900 tracking-tight text-gradient">Bulk Import <span className="text-blue-600">v2.0</span></h1>
-                                <p className="text-slate-500 mt-1">Import contractors and their **Operational Teams** in one go.</p>
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Bulk Import <span className="text-blue-600 font-black">Admin</span></h1>
+                                    <p className="text-slate-500 mt-1">Full contractor & operational team bulk registration.</p>
+                                </div>
+                                <Button variant="outline" onClick={downloadTemplate} className="text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 font-bold">
+                                    <Download className="w-4 h-4 mr-2" /> Download Template
+                                </Button>
                             </div>
-                            <Button variant="outline" onClick={downloadTemplate} className="text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 font-bold">
-                                <Download className="w-4 h-4 mr-2" /> Download Template
-                            </Button>
-                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <Card className="md:col-span-2 border-dashed border-2 border-slate-300 bg-white shadow-sm">
-                                <CardHeader className="text-center pb-2">
-                                    <div className="mx-auto bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mb-4 border-4 border-blue-100">
-                                        <FileSpreadsheet className="w-10 h-10 text-blue-600" />
-                                    </div>
-                                    <CardTitle className="text-xl">Upload Your Spreadsheet</CardTitle>
-                                    <CardDescription>
-                                        Now supports **Team Names** and **Member NICs**.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex flex-col items-center pb-12">
-                                    <div className="relative group">
-                                        <input
-                                            type="file"
-                                            accept=".xlsx"
-                                            onChange={processFile}
-                                            disabled={isProcessing}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                        />
-                                        <Button disabled={isProcessing} className="w-64 h-12 bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all font-bold">
-                                            {isProcessing ? (
-                                                <div className="flex items-center">
-                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
-                                                    Importing Teams...
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <Upload className="w-5 h-5 mr-3" /> Select Excel File
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 mt-6 flex items-center opacity-70">
-                                        <AlertCircle className="w-3 h-3 mr-1" /> Use the column format from the download template for teams to link correctly.
-                                    </p>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="bg-white border-blue-100">
-                                <CardHeader>
-                                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">Team Structure</CardTitle>
-                                </CardHeader>
-                                <CardContent className="text-[11px] text-slate-600 space-y-4">
-                                    <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-                                        <p className="font-bold text-blue-700 mb-1">How it works:</p>
-                                        <p>Each row creates one Contractor. If the **Team Name** column is filled, the system creates a team for them and adds the members listed in the next columns.</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between">
-                                            <span className="font-semibold">Team Name</span>
-                                            <span className="text-slate-400 italic">Optional</span>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <Card className="md:col-span-2 border-dashed border-2 border-slate-300 bg-white">
+                                    <CardHeader className="text-center pb-2">
+                                        <div className="mx-auto bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mb-4 border-4 border-blue-100">
+                                            <FileSpreadsheet className="w-10 h-10 text-blue-600" />
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="font-semibold">Members</span>
-                                            <span className="text-slate-400 italic">Up to 3</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="font-semibold">Format</span>
-                                            <span className="text-slate-400 italic">Name & NIC</span>
-                                        </div>
-                                    </div>
-                                    <div className="pt-4 border-t">
-                                        <p className="font-bold text-slate-800">Note:</p>
-                                        <p className="mt-1 leading-relaxed">Member NICs are helpful for security checks and work assignments.</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {stats && (
-                            <div className="space-y-4 animate-in zoom-in-95 duration-300">
-                                <Card className="bg-white shadow-2xl border-blue-100">
-                                    <CardContent className="p-8">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <h3 className="font-bold text-xl text-slate-800 flex items-center">
-                                                <CheckCircle2 className="w-6 h-6 mr-2 text-emerald-600" /> Bulk Results
-                                            </h3>
-                                            <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1 rounded-md tracking-tighter">
-                                                PROCESS FINISHED
-                                            </span>
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                                            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                                <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2">Total Rows</div>
-                                                <div className="text-4xl font-black text-slate-800">{stats.total}</div>
-                                            </div>
-                                            <div className="bg-emerald-500 p-6 rounded-2xl shadow-lg shadow-emerald-100">
-                                                <div className="text-[10px] text-emerald-100 uppercase font-black tracking-widest mb-2">Success</div>
-                                                <div className="text-4xl font-black text-white">{stats.success}</div>
-                                            </div>
-                                            <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-                                                <div className="text-[10px] text-red-600 uppercase font-black tracking-widest mb-2">Failed</div>
-                                                <div className="text-4xl font-black text-red-700">{stats.fail}</div>
-                                            </div>
-                                        </div>
-
-                                        {errors.length > 0 && (
-                                            <div className="mt-8 p-6 bg-slate-900 rounded-2xl border-l-4 border-red-500">
-                                                <h4 className="text-red-400 font-bold text-xs mb-4 uppercase tracking-widest">Errors Encountered:</h4>
-                                                <ul className="space-y-3">
-                                                    {errors.map((err, idx) => (
-                                                        <li key={idx} className="text-[10px] text-slate-300 font-mono flex items-start gap-3">
-                                                            <span className="bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[8px] mt-0.5">{idx + 1}</span>
-                                                            <span className="opacity-90 leading-normal">{err}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-
-                                        <div className="mt-8 pt-6 border-t flex justify-center">
-                                            <Button variant="outline" className="text-slate-500" onClick={() => setStats(null)}>
-                                                Close & Refresh List
+                                        <CardTitle className="text-xl">Upload Your Spreadsheet</CardTitle>
+                                        <CardDescription>
+                                            Securely import sensitive contractor data.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col items-center pb-12">
+                                        <div className="relative group">
+                                            <input
+                                                type="file"
+                                                accept=".xlsx"
+                                                onChange={processFile}
+                                                disabled={isProcessing}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            />
+                                            <Button disabled={isProcessing} className="w-64 h-12 bg-blue-600 hover:bg-blue-700 shadow-lg font-bold">
+                                                {isProcessing ? 'Importing...' : 'Select Excel File'}
                                             </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
+
+                                <Card className="bg-white border-red-100">
+                                    <CardHeader>
+                                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-red-500">Secure Access</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="text-[11px] text-slate-600 space-y-4">
+                                        <p>This action is restricted to **Administrators**. All bulk operations are logged for audit purposes.</p>
+                                        <div className="pt-4 border-t">
+                                            <p className="font-bold text-slate-800 italic">Audit Log Entry Created:</p>
+                                            <p className="mt-1 font-mono text-slate-400">IMPRT_{new Date().getTime()}</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </div>
-                        )}
+
+                            {stats && (
+                                <div className="space-y-4">
+                                    <Card className="bg-white shadow-2xl border-emerald-100">
+                                        <CardContent className="p-8">
+                                            <h3 className="font-bold text-xl text-slate-800 flex items-center mb-6">
+                                                <CheckCircle2 className="w-6 h-6 mr-2 text-emerald-600" /> Processing Complete
+                                            </h3>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 items-center text-center">
+                                                    <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Total</div>
+                                                    <div className="text-3xl font-black text-slate-800">{stats.total}</div>
+                                                </div>
+                                                <div className="bg-emerald-500 p-6 rounded-2xl shadow-lg items-center text-center">
+                                                    <div className="text-[10px] text-emerald-100 uppercase font-black tracking-widest mb-1">Success</div>
+                                                    <div className="text-3xl font-black text-white">{stats.success}</div>
+                                                </div>
+                                                <div className="bg-red-50 p-6 rounded-2xl border border-red-100 items-center text-center">
+                                                    <div className="text-[10px] text-red-600 uppercase font-black tracking-widest mb-1">Failed</div>
+                                                    <div className="text-3xl font-black text-red-700">{stats.fail}</div>
+                                                </div>
+                                            </div>
+                                            {errors.length > 0 && (
+                                                <div className="mt-6 p-4 bg-slate-900 rounded-xl max-h-40 overflow-y-auto">
+                                                    <p className="text-red-400 text-[10px] font-bold uppercase mb-2">Error Details:</p>
+                                                    {errors.map((err, i) => <p key={i} className="text-white text-[10px] font-mono mb-1">{err}</p>)}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </main>
-        </div>
+                </main>
+            </div>
+        </RoleGuard>
     );
 }
