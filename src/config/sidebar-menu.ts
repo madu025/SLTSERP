@@ -105,13 +105,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: FolderKanban,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
     },
-    {
-        title: 'Restore Requests',
-        path: '/restore-requests',
-        icon: ClipboardCheck,
-        // Restore/Faults are specifically for Service Assurance
-        allowedRoles: ROLE_GROUPS.SERVICE_ASSURANCE
-    },
+
     {
         title: 'Inventory / Stores',
         path: '/inventory',

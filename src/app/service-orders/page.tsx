@@ -19,7 +19,7 @@ const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"),
 const CommentModal = dynamic(() => import("@/components/modals/CommentModal"), { ssr: false });
 const DetailModal = dynamic(() => import("@/components/modals/DetailModal"), { ssr: false });
 const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionModal"), { ssr: false });
-const RestoreRequestModal = dynamic(() => import("@/components/modals/RestoreRequestModal"), { ssr: false });
+const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionModal"), { ssr: false });
 
 interface ServiceOrder {
     id: string;
@@ -106,7 +106,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             direction: "desc"
         });
     }, [filterType]);
-    const [showRestoreModal, setShowRestoreModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
     const [pendingStatusChange, setPendingStatusChange] = useState<{ orderId: string, newStatus: string } | null>(null);
 
@@ -373,645 +372,601 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             });
             if (!res.ok) throw new Error("Failed");
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-        }
-    });
-
-    const restoreRequestMutation = useMutation({
-        mutationFn: async (data: { reason: string }) => {
-            const res = await fetch("/api/restore-requests", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    serviceOrderId: selectedOrder?.id,
-                    reason: data.reason,
-                    userId: user?.id,
-                    requestedByUsername: user?.username
-                })
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || "Failed");
-            }
-            return res.json();
-        },
-        onSuccess: () => {
-            setShowRestoreModal(false);
-            alert("Restore request submitted successfully. An Admin or Area Coordinator will review it.");
-        },
-        onError: (err: any) => {
-            alert(err.message);
-        }
-    });
-
-    // --- HANDLERS ---
-
-    const handleStatusChange = (orderId: string, newStatus: string) => {
-        // Find the order to get its data
-        const order = serviceOrders.find(o => o.id === orderId);
-
-        if (newStatus === "COMPLETED" || newStatus === "RETURN") {
-            if (order) {
-                setSelectedOrder(order); // Set selected order for modal data
-            }
-            setPendingStatusChange({ orderId, newStatus });
-            setShowActionModal(true);
-        } else {
-            updateStatusMutation.mutate({ id: orderId, status: newStatus });
-        }
-    };
-
-    const handleActionSubmit = (date: string, comment?: string, reason?: string) => {
-        if (pendingStatusChange) {
-            updateStatusMutation.mutate({
-                id: pendingStatusChange.orderId,
-                status: pendingStatusChange.newStatus,
-                date,
-                comment,
-                reason
-            });
-            setPendingStatusChange(null);
-            setShowActionModal(false);
-        }
-    };
-
-    const paginatedOrders = serviceOrders;
-
-    // Update meta with server-side response
-    const clientMeta = meta;
-
-    const requestSort = (key: keyof ServiceOrder) => {
-        let direction: "asc" | "desc" = "asc";
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
-            direction = "desc";
-        }
-        setSortConfig({ key, direction });
-    };
-
-    if (isLoadingOpmcs && !selectedOpmcId) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-                <div className="relative flex items-center justify-center mb-4">
-                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                    <div className="absolute w-6 h-6 bg-primary/10 rounded-full animate-pulse"></div>
-                </div>
-                <h2 className="text-sm font-bold text-slate-900 tracking-tight">nexusErp</h2>
-                <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-medium">Loading Configuration...</p>
-            </div>
-        );
+        queryClient.invalidateQueries({ queryKey: ["service-orders"] });
     }
+    });
 
-    // Helper for summary cards - Fixed Height Compact
-    const SummaryCard = ({ title, value, icon: Icon, colorClass }: any) => (
-        <Card className="shadow-none border h-14">
-            <CardContent className="h-full px-3 flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{title}</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-0.5">{value}</p>
-                </div>
-                <div className={`p-1.5 rounded-md ${colorClass} bg-opacity-10`}>
-                    <Icon className={`w-4 h-4 ${colorClass.replace('bg-', 'text-')}`} />
-                </div>
-            </CardContent>
-        </Card>
-    );
+// --- HANDLERS ---
 
+const handleStatusChange = (orderId: string, newStatus: string) => {
+    // Find the order to get its data
+    const order = serviceOrders.find(o => o.id === orderId);
+
+    if (newStatus === "COMPLETED" || newStatus === "RETURN") {
+        if (order) {
+            setSelectedOrder(order); // Set selected order for modal data
+        }
+        setPendingStatusChange({ orderId, newStatus });
+        setShowActionModal(true);
+    } else {
+        updateStatusMutation.mutate({ id: orderId, status: newStatus });
+    }
+};
+
+const handleActionSubmit = (date: string, comment?: string, reason?: string) => {
+    if (pendingStatusChange) {
+        updateStatusMutation.mutate({
+            id: pendingStatusChange.orderId,
+            status: pendingStatusChange.newStatus,
+            date,
+            comment,
+            reason
+        });
+        setPendingStatusChange(null);
+        setShowActionModal(false);
+    }
+};
+
+const paginatedOrders = serviceOrders;
+
+// Update meta with server-side response
+const clientMeta = meta;
+
+const requestSort = (key: keyof ServiceOrder) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+        direction = "desc";
+    }
+    setSortConfig({ key, direction });
+};
+
+if (isLoadingOpmcs && !selectedOpmcId) {
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
-                <Header />
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+            <div className="relative flex items-center justify-center mb-4">
+                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                <div className="absolute w-6 h-6 bg-primary/10 rounded-full animate-pulse"></div>
+            </div>
+            <h2 className="text-sm font-bold text-slate-900 tracking-tight">nexusErp</h2>
+            <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-medium">Loading Configuration...</p>
+        </div>
+    );
+}
 
-                    {/* Top Section: Fixed Height (Shrinkable) */}
-                    <div className="flex-none p-3 space-y-3">
+// Helper for summary cards - Fixed Height Compact
+const SummaryCard = ({ title, value, icon: Icon, colorClass }: any) => (
+    <Card className="shadow-none border h-14">
+        <CardContent className="h-full px-3 flex items-center justify-between">
+            <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{title}</p>
+                <p className="text-xl font-bold text-slate-900 leading-none mt-0.5">{value}</p>
+            </div>
+            <div className={`p-1.5 rounded-md ${colorClass} bg-opacity-10`}>
+                <Icon className={`w-4 h-4 ${colorClass.replace('bg-', 'text-')}`} />
+            </div>
+        </CardContent>
+    </Card>
+);
 
-                        {/* Title & Actions */}
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                            <div>
-                                <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">{pageTitle}</h1>
-                                <p className="text-[9px] text-slate-500 mt-0.5">Manage {filterType} OSP installations</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs px-2"
-                                    onClick={() => syncMutation.mutate()}
-                                    disabled={!selectedOpmcId || syncMutation.isPending}
-                                >
-                                    <RefreshCw className={`w-3 h-3 mr-1.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Sync
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    className="h-7 text-xs px-2"
-                                    onClick={() => setShowManualModal(true)}
-                                    disabled={!selectedOpmcId}
-                                >
-                                    <Plus className="w-3 h-3 mr-1.5" />
-                                    Entry
-                                </Button>
-                            </div>
+return (
+    <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 flex flex-col min-w-0 h-full">
+            <Header />
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+
+                {/* Top Section: Fixed Height (Shrinkable) */}
+                <div className="flex-none p-3 space-y-3">
+
+                    {/* Title & Actions */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">{pageTitle}</h1>
+                            <p className="text-[9px] text-slate-500 mt-0.5">Manage {filterType} OSP installations</p>
                         </div>
-
-                        {/* SUMMARY CARDS */}
-                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                            <SummaryCard title="Total SODs" value={summary.totalSod || 0} icon={FileText} colorClass="bg-blue-100 text-blue-600" />
-                            <SummaryCard title="Contractors" value={summary.contractorAssigned || 0} icon={UserCheck} colorClass="bg-purple-100 text-purple-600" />
-                            <SummaryCard title="Appointments" value={summary.appointments || 0} icon={CalendarCheck} colorClass="bg-indigo-100 text-indigo-600" />
-                            <Card className="shadow-none border h-14">
-                                <CardContent className="h-full px-3 py-1 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Activity className="w-4 h-4 text-orange-600" />
-                                        <span className="text-[10px] font-semibold text-slate-600 uppercase">Missing</span>
-                                    </div>
-                                    <span className="text-lg font-bold text-orange-600">{serviceOrders.filter(o => o.comments?.includes('[MISSING FROM SYNC')).length}</span>
-                                </CardContent>
-                            </Card>
-                            <Card className="shadow-none border h-14">
-                                <CardContent className="h-full px-3 py-1 flex flex-col justify-center">
-                                    <div className="w-full">
-                                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">In Progress</span> <span className="font-bold text-slate-700">{summary.statusBreakdown?.INPROGRESS || 0}</span></div>
-                                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Inst. Closed</span> <span className="font-bold text-emerald-600">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span></div>
-                                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Prov. Closed</span> <span className="font-bold text-blue-600">{summary.statusBreakdown?.PROV_CLOSED || 0}</span></div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs px-2"
+                                onClick={() => syncMutation.mutate()}
+                                disabled={!selectedOpmcId || syncMutation.isPending}
+                            >
+                                <RefreshCw className={`w-3 h-3 mr-1.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                                Sync
+                            </Button>
+                            <Button
+                                size="sm"
+                                className="h-7 text-xs px-2"
+                                onClick={() => setShowManualModal(true)}
+                                disabled={!selectedOpmcId}
+                            >
+                                <Plus className="w-3 h-3 mr-1.5" />
+                                Entry
+                            </Button>
                         </div>
+                    </div>
 
-                        {/* Controls */}
-                        <div className="bg-white p-1.5 rounded-lg border shadow-sm flex flex-wrap gap-2 items-center">
-                            <div className="flex items-center gap-2">
-                                <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap hidden sm:block">OPMC</label>
-                                <Select value={selectedOpmcId} onValueChange={handleOpmcChange}>
-                                    <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
-                                    <SelectContent>
-                                        {opmcs.map(o => (
-                                            <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom} - {o.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
-
-                            {/* Date Filters - Only for Completed/Return views */}
-                            {filterType !== 'pending' && (
-                                <>
-                                    <div className="flex items-center gap-1">
-                                        <Select value={selectedYear} onValueChange={setSelectedYear}>
-                                            <SelectTrigger className="h-7 w-[75px] text-xs"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => (
-                                                    <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                                            <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                {[
-                                                    { v: '1', l: 'January' }, { v: '2', l: 'February' }, { v: '3', l: 'March' }, { v: '4', l: 'April' },
-                                                    { v: '5', l: 'May' }, { v: '6', l: 'June' }, { v: '7', l: 'July' }, { v: '8', l: 'August' },
-                                                    { v: '9', l: 'September' }, { v: '10', l: 'October' }, { v: '11', l: 'November' }, { v: '12', l: 'December' }
-                                                ].map(m => (
-                                                    <SelectItem key={m.v} value={m.v} className="text-xs">{m.l}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
-                                </>
-                            )}
-                            <div className="flex items-center gap-2 w-[240px]">
-                                <Input
-                                    placeholder="Search SO Number, Name..."
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                    className="h-7 text-xs w-full"
-                                />
-                            </div>
-                            {filterType === 'pending' && (
+                    {/* SUMMARY CARDS */}
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                        <SummaryCard title="Total SODs" value={summary.totalSod || 0} icon={FileText} colorClass="bg-blue-100 text-blue-600" />
+                        <SummaryCard title="Contractors" value={summary.contractorAssigned || 0} icon={UserCheck} colorClass="bg-purple-100 text-purple-600" />
+                        <SummaryCard title="Appointments" value={summary.appointments || 0} icon={CalendarCheck} colorClass="bg-indigo-100 text-indigo-600" />
+                        <Card className="shadow-none border h-14">
+                            <CardContent className="h-full px-3 py-1 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                        <SelectTrigger className="h-7 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                                    <Activity className="w-4 h-4 text-orange-600" />
+                                    <span className="text-[10px] font-semibold text-slate-600 uppercase">Missing</span>
+                                </div>
+                                <span className="text-lg font-bold text-orange-600">{serviceOrders.filter(o => o.comments?.includes('[MISSING FROM SYNC')).length}</span>
+                            </CardContent>
+                        </Card>
+                        <Card className="shadow-none border h-14">
+                            <CardContent className="h-full px-3 py-1 flex flex-col justify-center">
+                                <div className="w-full">
+                                    <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">In Progress</span> <span className="font-bold text-slate-700">{summary.statusBreakdown?.INPROGRESS || 0}</span></div>
+                                    <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Inst. Closed</span> <span className="font-bold text-emerald-600">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span></div>
+                                    <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Prov. Closed</span> <span className="font-bold text-blue-600">{summary.statusBreakdown?.PROV_CLOSED || 0}</span></div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="bg-white p-1.5 rounded-lg border shadow-sm flex flex-wrap gap-2 items-center">
+                        <div className="flex items-center gap-2">
+                            <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap hidden sm:block">OPMC</label>
+                            <Select value={selectedOpmcId} onValueChange={handleOpmcChange}>
+                                <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
+                                <SelectContent>
+                                    {opmcs.map(o => (
+                                        <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom} - {o.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
+
+                        {/* Date Filters - Only for Completed/Return views */}
+                        {filterType !== 'pending' && (
+                            <>
+                                <div className="flex items-center gap-1">
+                                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                                        <SelectTrigger className="h-7 w-[75px] text-xs"><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="DEFAULT" className="font-semibold text-xs">Standard View</SelectItem>
-                                            <SelectItem value="ALL" className="text-xs">All Status</SelectItem>
-                                            <SelectItem value="ASSIGNED" className="text-xs">Assigned</SelectItem>
-                                            <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
-                                            <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
-                                            <SelectItem value="PROV_CLOSED" className="text-xs">Prov. Closed</SelectItem>
+                                            {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => (
+                                                <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                        <SelectTrigger className="h-7 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {[
+                                                { v: '1', l: 'January' }, { v: '2', l: 'February' }, { v: '3', l: 'March' }, { v: '4', l: 'April' },
+                                                { v: '5', l: 'May' }, { v: '6', l: 'June' }, { v: '7', l: 'July' }, { v: '8', l: 'August' },
+                                                { v: '9', l: 'September' }, { v: '10', l: 'October' }, { v: '11', l: 'November' }, { v: '12', l: 'December' }
+                                            ].map(m => (
+                                                <SelectItem key={m.v} value={m.v} className="text-xs">{m.l}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
-                            {filterType === 'completed' && (
-                                <>
-                                    <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">PAT</label>
-                                        <Select value={patFilter} onValueChange={setPatFilter}>
-                                            <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="ALL" className="text-xs">All</SelectItem>
-                                                <SelectItem value="PENDING" className="text-xs">Pending</SelectItem>
-                                                <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">Mat</label>
-                                        <Select value={matFilter} onValueChange={setMatFilter}>
-                                            <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="ALL" className="text-xs">All</SelectItem>
-                                                <SelectItem value="PENDING" className="text-xs">Pending</SelectItem>
-                                                <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </>
-                            )}
+                                <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
+                            </>
+                        )}
+                        <div className="flex items-center gap-2 w-[240px]">
+                            <Input
+                                placeholder="Search SO Number, Name..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="h-7 text-xs w-full"
+                            />
                         </div>
-                    </div>
-
-                    {/* Table Area (Flex-1 to take remaining space, overflow-hidden on parent to force scroll on child) */}
-                    <div className="flex-1 mx-3 mb-3 bg-white rounded-xl border shadow-none flex flex-col min-h-0">
-                        {/* Table Scrollable Container */}
-                        <div className="flex-1 overflow-auto">
-                            {(isLoadingOrders && !isRefetching) ? (
-                                <div className="p-8 text-center text-slate-500">Loading Orders...</div>
-                            ) : (
-                                <table className="w-full text-xs text-left relative">
-                                    <thead className="bg-slate-50 text-slate-600 font-medium border-b sticky top-0 z-10 shadow-sm">
-                                        <tr>
-                                            {isColumnVisible('soNum') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('soNum')}>SO Number <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'soNum' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('lea') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('lea')}>LEA <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'lea' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('customerName') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('customerName')}>Customer <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'customerName' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('voiceNumber') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('voiceNumber')}>Voice <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'voiceNumber' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('package') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('package')}>Package <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'package' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('orderType') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('orderType')}>Order Type <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'orderType' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('statusDate') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('statusDate')}>Received Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'statusDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('createdAt') && filterType === 'pending' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('createdAt')}>Imported Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'createdAt' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-
-                                            {filterType === 'return' ? (
-                                                // Specific columns for Return View
-                                                <>
-                                                    <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('status')}>Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
-                                                    <th className="px-3 py-2 whitespace-nowrap">Contractor</th>
-                                                    <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('statusDate')}>Received Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'statusDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
-                                                    <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('completedDate')}>Return Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'completedDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
-                                                    <th className="px-3 py-2 whitespace-nowrap">Return Reason/Comment</th>
-                                                </>
-                                            ) : (
-                                                // Standard columns for other views
-                                                <>
-                                                    {isColumnVisible('status') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('status')}>Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                    {isColumnVisible('sltsStatus') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('sltsStatus')}>SLTS Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'sltsStatus' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                    {isColumnVisible('scheduledDate') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('scheduledDate')}>Appointment <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'scheduledDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('completedDate')}>Completed Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'completedDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Contractor</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">ONT Serial</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Mat Status</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">PAT</th>}
-                                                    {isColumnVisible('dp') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('dp')}>DP <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'dp' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                    {isColumnVisible('iptv') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('iptv')}>IPTV <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'iptv' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                                </>
-                                            )}
-
-                                            <th className="px-3 py-2 text-right whitespace-nowrap">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y text-[11px]">
-                                        {paginatedOrders.length === 0 ? (
-                                            <tr><td colSpan={11} className="p-8 text-center text-slate-500">No orders found.</td></tr>
-                                        ) : (
-                                            paginatedOrders.map(order => {
-                                                const isMissingFromSync = order.comments?.includes('[MISSING FROM SYNC');
-                                                return (
-                                                    <tr key={order.id} className={`transition-colors ${isMissingFromSync ? 'bg-orange-50 hover:bg-orange-100' :
-                                                        (filterType === 'completed' && order.patStatus === 'PENDING') ? 'bg-yellow-50 hover:bg-yellow-100' :
-                                                            (filterType === 'completed' && (order.patStatus === 'COMPLETED' || order.patStatus === 'VERIFIED')) ? 'bg-emerald-50 hover:bg-emerald-100' :
-                                                                'hover:bg-slate-50/50'
-                                                        }`}>
-                                                        {isColumnVisible('soNum') && (
-                                                            <td className="px-3 py-1.5 font-mono font-medium text-primary whitespace-nowrap">
-                                                                <button onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>{order.soNum}</button>
-                                                            </td>
-                                                        )}
-                                                        {isColumnVisible('lea') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.lea || '-'}</td>}
-                                                        {isColumnVisible('customerName') && <td className="px-3 py-1.5 max-w-[120px] truncate" title={order.customerName || ''}>{order.customerName || '-'}</td>}
-                                                        {isColumnVisible('voiceNumber') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.voiceNumber || '-'}</td>}
-                                                        {isColumnVisible('package') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-semibold">{order.package || '-'}</span></td>}
-                                                        {isColumnVisible('orderType') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-medium">{order.orderType || '-'}</span></td>}
-                                                        {isColumnVisible('statusDate') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.statusDate ? new Date(order.statusDate).toLocaleDateString() : '-'}</td>}
-                                                        {isColumnVisible('createdAt') && filterType === 'pending' && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</td>}
-
-                                                        {filterType === 'return' ? (
-                                                            <>
-                                                                <td className="px-3 py-1.5 whitespace-nowrap">
-                                                                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border text-rose-700 bg-rose-50 border-rose-200">
-                                                                        RETURN
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
-                                                                    {order.contractor?.name ? order.contractor.name : (
-                                                                        contractors.find((c: any) => c.id === order.contractorId)?.name || "Unassigned"
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
-                                                                    {order.statusDate ? new Date(order.statusDate).toLocaleDateString() : '-'}
-                                                                </td>
-                                                                <td className="px-3 py-1.5 text-slate-600 max-w-[200px] truncate" title={order.comments || ''}>
-                                                                    {order.comments || '-'}
-                                                                </td>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                {isColumnVisible('status') && filterType !== 'completed' && (
-                                                                    <td className="px-3 py-1.5 whitespace-nowrap">
-                                                                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${order.status === 'INPROGRESS' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                                            order.status === 'INSTALL_CLOSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'
-                                                                            }`}>
-                                                                            {order.status}
-                                                                        </span>
-                                                                    </td>
-                                                                )}
-                                                                {isColumnVisible('sltsStatus') && filterType !== 'completed' && (
-                                                                    <td className="px-3 py-1.5">
-                                                                        <Select
-                                                                            value={order.sltsStatus}
-                                                                            onValueChange={(val) => handleStatusChange(order.id, val)}
-                                                                        >
-                                                                            <SelectTrigger className={`h-6 w-[90px] text-[10px] px-2 min-h-0 border-slate-200 font-medium ${order.sltsStatus === 'INPROGRESS' ? 'text-amber-700 bg-amber-50 border-amber-200' :
-                                                                                order.sltsStatus === 'COMPLETED' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
-                                                                                    order.sltsStatus === 'RETURN' ? 'text-rose-700 bg-rose-50 border-rose-200' : ''
-                                                                                }`}>
-                                                                                <SelectValue />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
-                                                                                <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
-                                                                                <SelectItem value="RETURN" className="text-xs">Return</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    </td>
-                                                                )}
-                                                                {isColumnVisible('scheduledDate') && filterType !== 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-[10px] text-slate-600 whitespace-nowrap">
-                                                                        {order.scheduledDate ? (
-                                                                            <div className="flex items-center gap-1">
-                                                                                <span className="font-semibold text-slate-700">{new Date(order.scheduledDate).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}</span>
-                                                                                <span className="text-slate-400">|</span>
-                                                                                <span>{order.scheduledTime}</span>
-                                                                            </div>
-                                                                        ) : '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-[10px] text-slate-600 whitespace-nowrap">
-                                                                        {order.completedDate ? new Date(order.completedDate).toLocaleDateString() : '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">
-                                                                        {order.contractor?.name || contractors.find((c: any) => c.id === order.contractorId)?.name || '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap font-mono">
-                                                                        {order.ontSerialNumber || '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
-                                                                    <>
-                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            {order.comments?.includes('[MATERIAL_COMPLETED]') ? (
-                                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 border border-green-200">DONE</span>
-                                                                            ) : (
-                                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">PENDING</span>
-                                                                            )}
-                                                                        </td>
-                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'bg-green-100 text-green-700 border-green-200' :
-                                                                                order.patStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
-                                                                                    'bg-yellow-100 text-yellow-700 border-yellow-200'
-                                                                                }`}>
-                                                                                {['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'OK' : (order.patStatus || 'PENDING')}
-                                                                            </span>
-                                                                        </td>
-                                                                    </>
-                                                                )}
-                                                                {isColumnVisible('dp') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.dp || '-'}</td>}
-                                                                {isColumnVisible('iptv') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap text-center">{order.iptv || '-'}</td>}
-                                                            </>
-                                                        )}
-
-                                                        <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                                                            <div className="flex justify-end gap-1">
-                                                                {filterType === 'return' ? (
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        className="h-6 text-[10px] px-2 border-amber-200 text-amber-700 hover:bg-amber-50"
-                                                                        onClick={() => { setSelectedOrder(order); setShowRestoreModal(true); }}
-                                                                    >
-                                                                        <RotateCcw className="w-3 h-3 mr-1" />
-                                                                        Request Restore
-                                                                    </Button>
-                                                                ) : (
-                                                                    <>
-                                                                        {filterType !== 'completed' && (
-                                                                            <>
-                                                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-600 hover:bg-blue-50" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}>
-                                                                                    <Calendar className="w-3.5 h-3.5" />
-                                                                                </Button>
-                                                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}>
-                                                                                    <MessageSquare className="w-3.5 h-3.5" />
-                                                                                </Button>
-                                                                            </>
-                                                                        )}
-                                                                        {filterType === 'completed' && (
-                                                                            <Button
-                                                                                size="icon"
-                                                                                variant="ghost"
-                                                                                className="h-6 w-6 text-purple-600 hover:bg-purple-50"
-                                                                                onClick={() => {
-                                                                                    setPendingStatusChange({
-                                                                                        orderId: order.id,
-                                                                                        newStatus: 'COMPLETED'
-                                                                                    });
-                                                                                    setSelectedOrder(order);
-                                                                                    setShowActionModal(true);
-                                                                                }}
-                                                                                title="Update Material & Photo Status"
-                                                                            >
-                                                                                <ClipboardList className="w-3.5 h-3.5" />
-                                                                            </Button>
-                                                                        )}
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                        {/* Pagination Footer - Fixed at bottom of table container */}
-                        <div className="flex-none border-t p-2 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
-                            <div>
-                                Showing {(meta.page - 1) * meta.limit + 1} to {Math.min(meta.page * meta.limit, meta.total)} of {meta.total}
+                        {filterType === 'pending' && (
+                            <div className="flex items-center gap-2">
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger className="h-7 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="DEFAULT" className="font-semibold text-xs">Standard View</SelectItem>
+                                        <SelectItem value="ALL" className="text-xs">All Status</SelectItem>
+                                        <SelectItem value="ASSIGNED" className="text-xs">Assigned</SelectItem>
+                                        <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
+                                        <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
+                                        <SelectItem value="PROV_CLOSED" className="text-xs">Prov. Closed</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-7 p-0"
-                                    disabled={page <= 1}
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-7 p-0"
-                                    disabled={page >= meta.totalPages}
-                                    onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </div>
+                        )}
+                        {filterType === 'completed' && (
+                            <>
+                                <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
+                                <div className="flex items-center gap-2">
+                                    <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">PAT</label>
+                                    <Select value={patFilter} onValueChange={setPatFilter}>
+                                        <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL" className="text-xs">All</SelectItem>
+                                            <SelectItem value="PENDING" className="text-xs">Pending</SelectItem>
+                                            <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">Mat</label>
+                                    <Select value={matFilter} onValueChange={setMatFilter}>
+                                        <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL" className="text-xs">All</SelectItem>
+                                            <SelectItem value="PENDING" className="text-xs">Pending</SelectItem>
+                                            <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                {/* Modals */}
-                <ManualEntryModal
-                    isOpen={showManualModal}
-                    onClose={() => setShowManualModal(false)}
-                    onSubmit={(data) => addOrderMutation.mutate(data)}
-                />
+                {/* Table Area (Flex-1 to take remaining space, overflow-hidden on parent to force scroll on child) */}
+                <div className="flex-1 mx-3 mb-3 bg-white rounded-xl border shadow-none flex flex-col min-h-0">
+                    {/* Table Scrollable Container */}
+                    <div className="flex-1 overflow-auto">
+                        {(isLoadingOrders && !isRefetching) ? (
+                            <div className="p-8 text-center text-slate-500">Loading Orders...</div>
+                        ) : (
+                            <table className="w-full text-xs text-left relative">
+                                <thead className="bg-slate-50 text-slate-600 font-medium border-b sticky top-0 z-10 shadow-sm">
+                                    <tr>
+                                        {isColumnVisible('soNum') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('soNum')}>SO Number <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'soNum' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                        {isColumnVisible('lea') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('lea')}>LEA <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'lea' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                        {isColumnVisible('customerName') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('customerName')}>Customer <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'customerName' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                        {isColumnVisible('voiceNumber') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('voiceNumber')}>Voice <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'voiceNumber' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                        {isColumnVisible('package') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('package')}>Package <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'package' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                        {isColumnVisible('orderType') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('orderType')}>Order Type <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'orderType' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                        {isColumnVisible('statusDate') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('statusDate')}>Received Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'statusDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                        {isColumnVisible('createdAt') && filterType === 'pending' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('createdAt')}>Imported Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'createdAt' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
 
-                {
-                    selectedOrder && (
-                        <>
-                            <ScheduleModal
-                                isOpen={showScheduleModal}
-                                onClose={() => setShowScheduleModal(false)}
-                                onSubmit={(data) => scheduleMutation.mutate(data)}
-                                selectedOrder={selectedOrder}
-                            />
+                                        {filterType === 'return' ? (
+                                            // Specific columns for Return View
+                                            <>
+                                                <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('status')}>Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Contractor</th>
+                                                <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('statusDate')}>Received Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'statusDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
+                                                <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('completedDate')}>Return Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'completedDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>
+                                                <th className="px-3 py-2 whitespace-nowrap">Return Reason/Comment</th>
+                                            </>
+                                        ) : (
+                                            // Standard columns for other views
+                                            <>
+                                                {isColumnVisible('status') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('status')}>Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'status' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                {isColumnVisible('sltsStatus') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('sltsStatus')}>SLTS Status <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'sltsStatus' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                {isColumnVisible('scheduledDate') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('scheduledDate')}>Appointment <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'scheduledDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                {filterType === 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('completedDate')}>Completed Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'completedDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Contractor</th>}
+                                                {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">ONT Serial</th>}
+                                                {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Mat Status</th>}
+                                                {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">PAT</th>}
+                                                {isColumnVisible('dp') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('dp')}>DP <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'dp' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                                {isColumnVisible('iptv') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('iptv')}>IPTV <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'iptv' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                            </>
+                                        )}
 
-                            <CommentModal
-                                isOpen={showCommentModal}
-                                onClose={() => setShowCommentModal(false)}
-                                onSubmit={(comment) => commentMutation.mutate(comment)}
-                                selectedOrder={selectedOrder}
-                                initialComment={selectedOrder.comments || ""}
-                            />
+                                        <th className="px-3 py-2 text-right whitespace-nowrap">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y text-[11px]">
+                                    {paginatedOrders.length === 0 ? (
+                                        <tr><td colSpan={11} className="p-8 text-center text-slate-500">No orders found.</td></tr>
+                                    ) : (
+                                        paginatedOrders.map(order => {
+                                            const isMissingFromSync = order.comments?.includes('[MISSING FROM SYNC');
+                                            return (
+                                                <tr key={order.id} className={`transition-colors ${isMissingFromSync ? 'bg-orange-50 hover:bg-orange-100' :
+                                                    (filterType === 'completed' && order.patStatus === 'PENDING') ? 'bg-yellow-50 hover:bg-yellow-100' :
+                                                        (filterType === 'completed' && (order.patStatus === 'COMPLETED' || order.patStatus === 'VERIFIED')) ? 'bg-emerald-50 hover:bg-emerald-100' :
+                                                            'hover:bg-slate-50/50'
+                                                    }`}>
+                                                    {isColumnVisible('soNum') && (
+                                                        <td className="px-3 py-1.5 font-mono font-medium text-primary whitespace-nowrap">
+                                                            <button onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>{order.soNum}</button>
+                                                        </td>
+                                                    )}
+                                                    {isColumnVisible('lea') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.lea || '-'}</td>}
+                                                    {isColumnVisible('customerName') && <td className="px-3 py-1.5 max-w-[120px] truncate" title={order.customerName || ''}>{order.customerName || '-'}</td>}
+                                                    {isColumnVisible('voiceNumber') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.voiceNumber || '-'}</td>}
+                                                    {isColumnVisible('package') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-semibold">{order.package || '-'}</span></td>}
+                                                    {isColumnVisible('orderType') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-medium">{order.orderType || '-'}</span></td>}
+                                                    {isColumnVisible('statusDate') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.statusDate ? new Date(order.statusDate).toLocaleDateString() : '-'}</td>}
+                                                    {isColumnVisible('createdAt') && filterType === 'pending' && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</td>}
 
-                            <DetailModal
-                                isOpen={showDetailModal}
-                                onClose={() => setShowDetailModal(false)}
-                                selectedOrder={selectedOrder}
-                            />
+                                                    {filterType === 'return' ? (
+                                                        <>
+                                                            <td className="px-3 py-1.5 whitespace-nowrap">
+                                                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border text-rose-700 bg-rose-50 border-rose-200">
+                                                                    RETURN
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
+                                                                {order.contractor?.name ? order.contractor.name : (
+                                                                    contractors.find((c: any) => c.id === order.contractorId)?.name || "Unassigned"
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
+                                                                {order.statusDate ? new Date(order.statusDate).toLocaleDateString() : '-'}
+                                                            </td>
+                                                            <td className="px-3 py-1.5 text-slate-600 max-w-[200px] truncate" title={order.comments || ''}>
+                                                                {order.comments || '-'}
+                                                            </td>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {isColumnVisible('status') && filterType !== 'completed' && (
+                                                                <td className="px-3 py-1.5 whitespace-nowrap">
+                                                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border ${order.status === 'INPROGRESS' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                                        order.status === 'INSTALL_CLOSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                                        }`}>
+                                                                        {order.status}
+                                                                    </span>
+                                                                </td>
+                                                            )}
+                                                            {isColumnVisible('sltsStatus') && filterType !== 'completed' && (
+                                                                <td className="px-3 py-1.5">
+                                                                    <Select
+                                                                        value={order.sltsStatus}
+                                                                        onValueChange={(val) => handleStatusChange(order.id, val)}
+                                                                    >
+                                                                        <SelectTrigger className={`h-6 w-[90px] text-[10px] px-2 min-h-0 border-slate-200 font-medium ${order.sltsStatus === 'INPROGRESS' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                                                                            order.sltsStatus === 'COMPLETED' ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
+                                                                                order.sltsStatus === 'RETURN' ? 'text-rose-700 bg-rose-50 border-rose-200' : ''
+                                                                            }`}>
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
+                                                                            <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
+                                                                            <SelectItem value="RETURN" className="text-xs">Return</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </td>
+                                                            )}
+                                                            {isColumnVisible('scheduledDate') && filterType !== 'completed' && (
+                                                                <td className="px-3 py-1.5 text-[10px] text-slate-600 whitespace-nowrap">
+                                                                    {order.scheduledDate ? (
+                                                                        <div className="flex items-center gap-1">
+                                                                            <span className="font-semibold text-slate-700">{new Date(order.scheduledDate).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}</span>
+                                                                            <span className="text-slate-400">|</span>
+                                                                            <span>{order.scheduledTime}</span>
+                                                                        </div>
+                                                                    ) : '-'}
+                                                                </td>
+                                                            )}
+                                                            {filterType === 'completed' && (
+                                                                <td className="px-3 py-1.5 text-[10px] text-slate-600 whitespace-nowrap">
+                                                                    {order.completedDate ? new Date(order.completedDate).toLocaleDateString() : '-'}
+                                                                </td>
+                                                            )}
+                                                            {filterType === 'completed' && (
+                                                                <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">
+                                                                    {order.contractor?.name || contractors.find((c: any) => c.id === order.contractorId)?.name || '-'}
+                                                                </td>
+                                                            )}
+                                                            {filterType === 'completed' && (
+                                                                <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap font-mono">
+                                                                    {order.ontSerialNumber || '-'}
+                                                                </td>
+                                                            )}
+                                                            {filterType === 'completed' && (
+                                                                <>
+                                                                    <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                                        {order.comments?.includes('[MATERIAL_COMPLETED]') ? (
+                                                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 border border-green-200">DONE</span>
+                                                                        ) : (
+                                                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">PENDING</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'bg-green-100 text-green-700 border-green-200' :
+                                                                            order.patStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                                                'bg-yellow-100 text-yellow-700 border-yellow-200'
+                                                                            }`}>
+                                                                            {['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'OK' : (order.patStatus || 'PENDING')}
+                                                                        </span>
+                                                                    </td>
+                                                                </>
+                                                            )}
+                                                            {isColumnVisible('dp') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">{order.dp || '-'}</td>}
+                                                            {isColumnVisible('iptv') && <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap text-center">{order.iptv || '-'}</td>}
+                                                        </>
+                                                    )}
 
-                            <RestoreRequestModal
-                                isOpen={showRestoreModal}
-                                onClose={() => setShowRestoreModal(false)}
-                                onSubmit={(data) => restoreRequestMutation.mutate(data)}
-                            />
-                        </>
-                    )
-                }
+                                                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                                                        <div className="flex justify-end gap-1">
+                                                            <>
+                                                                {filterType !== 'completed' && (
+                                                                    <>
+                                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-600 hover:bg-blue-50" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}>
+                                                                            <Calendar className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}>
+                                                                            <MessageSquare className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+                                                                {filterType === 'completed' && (
+                                                                    <Button
+                                                                        size="icon"
+                                                                        variant="ghost"
+                                                                        className="h-6 w-6 text-purple-600 hover:bg-purple-50"
+                                                                        onClick={() => {
+                                                                            setPendingStatusChange({
+                                                                                orderId: order.id,
+                                                                                newStatus: 'COMPLETED'
+                                                                            });
+                                                                            setSelectedOrder(order);
+                                                                            setShowActionModal(true);
+                                                                        }}
+                                                                        title="Update Material & Photo Status"
+                                                                    >
+                                                                        <ClipboardList className="w-3.5 h-3.5" />
+                                                                    </Button>
+                                                                )}
+                                                            </>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                    {/* Pagination Footer - Fixed at bottom of table container */}
+                    <div className="flex-none border-t p-2 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
+                        <div>
+                            Showing {(meta.page - 1) * meta.limit + 1} to {Math.min(meta.page * meta.limit, meta.total)} of {meta.total}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                disabled={page <= 1}
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                disabled={page >= meta.totalPages}
+                                onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                <OrderActionModal
-                    isOpen={showActionModal}
-                    onClose={() => setShowActionModal(false)}
-                    onConfirm={(data) => {
-                        let finalComment = data.comment || "";
-                        let statusToUpdate = pendingStatusChange?.newStatus;
+            {/* Modals */}
+            <ManualEntryModal
+                isOpen={showManualModal}
+                onClose={() => setShowManualModal(false)}
+                onSubmit={(data) => addOrderMutation.mutate(data)}
+            />
 
-                        if (data.materialStatus === 'COMPLETED') {
-                            if (!finalComment.includes('[MATERIAL_COMPLETED]')) finalComment += " [MATERIAL_COMPLETED]";
-                        } else {
-                            finalComment = finalComment.replace(' [MATERIAL_COMPLETED]', '').replace('[MATERIAL_COMPLETED]', '');
-                        }
+            {
+                selectedOrder && (
+                    <>
+                        <ScheduleModal
+                            isOpen={showScheduleModal}
+                            onClose={() => setShowScheduleModal(false)}
+                            onSubmit={(data) => scheduleMutation.mutate(data)}
+                            selectedOrder={selectedOrder}
+                        />
 
-                        // Wired Only Logic - Keep as INPROGRESS
-                        if (data.wiredOnly) {
-                            statusToUpdate = 'INPROGRESS';
-                            if (!finalComment.includes('[WIRED_ONLY]')) finalComment += " [WIRED_ONLY]";
+                        <CommentModal
+                            isOpen={showCommentModal}
+                            onClose={() => setShowCommentModal(false)}
+                            onSubmit={(comment) => commentMutation.mutate(comment)}
+                            selectedOrder={selectedOrder}
+                            initialComment={selectedOrder.comments || ""}
+                        />
 
-                            const reasons = [];
-                            if (data.ontShortage) reasons.push('ONT_SHORTAGE');
-                            if (data.stbShortage) reasons.push('STB_SHORTAGE');
-                            if (data.delayReasons?.cxDelay) reasons.push('CX_DELAY');
-                            if (data.delayReasons?.system) reasons.push('SYSTEM_ISSUE');
+                        <DetailModal
+                            isOpen={showDetailModal}
+                            onClose={() => setShowDetailModal(false)}
+                            selectedOrder={selectedOrder}
+                        />
 
-                            if (reasons.length > 0) finalComment += ` [${reasons.join(',')}]`;
-                        }
 
-                        if (pendingStatusChange) {
-                            updateStatusMutation.mutate({
-                                id: pendingStatusChange.orderId,
-                                status: statusToUpdate!,
-                                date: data.date,
-                                comment: finalComment,
-                                reason: data.reason,
-                                ontSerialNumber: data.ontSerialNumber,
-                                ontType: data.ontType,
-                                iptvSerialNumbers: data.iptvSerialNumbers,
-                                dpDetails: data.dpDetails,
-                                contractorId: data.contractorId,
-                                teamId: data.teamId,
-                                directTeamName: data.directTeamName,
-                                materialUsage: data.materialUsage,
-                                patStatus: data.patStatus,
-                                completionMode: data.completionMode
-                            });
-                            setShowActionModal(false);
-                            setPendingStatusChange(null);
-                        }
-                    }}
-                    title={pendingStatusChange?.newStatus === 'RETURN' ? "Mark as Return" : filterType === 'completed' ? "Update Installation Details" : "Complete Order"}
-                    isReturn={pendingStatusChange?.newStatus === 'RETURN'}
-                    isComplete={pendingStatusChange?.newStatus === 'COMPLETED'}
-                    orderData={selectedOrder ? {
-                        package: selectedOrder.package,
-                        serviceType: selectedOrder.serviceType, // Pass Service Type
-                        orderType: selectedOrder.orderType,     // Pass Order Type
-                        comments: selectedOrder.comments,
-                        iptv: selectedOrder.iptv,
-                        dp: selectedOrder.dp,
-                        voiceNumber: selectedOrder.voiceNumber,
-                        contractorId: selectedOrder.contractorId,
-                        teamId: selectedOrder.teamId,
-                        completedDate: selectedOrder.completedDate,
-                        ontSerialNumber: selectedOrder.ontSerialNumber,
-                        iptvSerialNumbers: selectedOrder.iptvSerialNumbers ? selectedOrder.iptvSerialNumbers.split(',').map(s => s.trim()).filter(Boolean) : [],
-                        patStatus: selectedOrder.patStatus as any,
-                        materialUsage: selectedOrder.materialUsage,
-                        directTeam: (selectedOrder as any).directTeam,
-                        completionMode: (selectedOrder as any).completionMode
-                    } : undefined}
-                    contractors={contractors}
-                    items={items}
-                    materialSource={materialSource}
-                    itemSortOrder={(() => {
-                        try { return JSON.parse(config['OSP_ITEM_ORDER'] || '[]'); } catch { return []; }
-                    })()}
-                    showExtendedFields={filterType === 'completed'}
-                />
+                    </>
+                )
+            }
 
-            </main >
-        </div >
-    );
+            <OrderActionModal
+                isOpen={showActionModal}
+                onClose={() => setShowActionModal(false)}
+                onConfirm={(data) => {
+                    let finalComment = data.comment || "";
+                    let statusToUpdate = pendingStatusChange?.newStatus;
+
+                    if (data.materialStatus === 'COMPLETED') {
+                        if (!finalComment.includes('[MATERIAL_COMPLETED]')) finalComment += " [MATERIAL_COMPLETED]";
+                    } else {
+                        finalComment = finalComment.replace(' [MATERIAL_COMPLETED]', '').replace('[MATERIAL_COMPLETED]', '');
+                    }
+
+                    // Wired Only Logic - Keep as INPROGRESS
+                    if (data.wiredOnly) {
+                        statusToUpdate = 'INPROGRESS';
+                        if (!finalComment.includes('[WIRED_ONLY]')) finalComment += " [WIRED_ONLY]";
+
+                        const reasons = [];
+                        if (data.ontShortage) reasons.push('ONT_SHORTAGE');
+                        if (data.stbShortage) reasons.push('STB_SHORTAGE');
+                        if (data.delayReasons?.cxDelay) reasons.push('CX_DELAY');
+                        if (data.delayReasons?.system) reasons.push('SYSTEM_ISSUE');
+
+                        if (reasons.length > 0) finalComment += ` [${reasons.join(',')}]`;
+                    }
+
+                    if (pendingStatusChange) {
+                        updateStatusMutation.mutate({
+                            id: pendingStatusChange.orderId,
+                            status: statusToUpdate!,
+                            date: data.date,
+                            comment: finalComment,
+                            reason: data.reason,
+                            ontSerialNumber: data.ontSerialNumber,
+                            ontType: data.ontType,
+                            iptvSerialNumbers: data.iptvSerialNumbers,
+                            dpDetails: data.dpDetails,
+                            contractorId: data.contractorId,
+                            teamId: data.teamId,
+                            directTeamName: data.directTeamName,
+                            materialUsage: data.materialUsage,
+                            patStatus: data.patStatus,
+                            completionMode: data.completionMode
+                        });
+                        setShowActionModal(false);
+                        setPendingStatusChange(null);
+                    }
+                }}
+                title={pendingStatusChange?.newStatus === 'RETURN' ? "Mark as Return" : filterType === 'completed' ? "Update Installation Details" : "Complete Order"}
+                isReturn={pendingStatusChange?.newStatus === 'RETURN'}
+                isComplete={pendingStatusChange?.newStatus === 'COMPLETED'}
+                orderData={selectedOrder ? {
+                    package: selectedOrder.package,
+                    serviceType: selectedOrder.serviceType, // Pass Service Type
+                    orderType: selectedOrder.orderType,     // Pass Order Type
+                    comments: selectedOrder.comments,
+                    iptv: selectedOrder.iptv,
+                    dp: selectedOrder.dp,
+                    voiceNumber: selectedOrder.voiceNumber,
+                    contractorId: selectedOrder.contractorId,
+                    teamId: selectedOrder.teamId,
+                    completedDate: selectedOrder.completedDate,
+                    ontSerialNumber: selectedOrder.ontSerialNumber,
+                    iptvSerialNumbers: selectedOrder.iptvSerialNumbers ? selectedOrder.iptvSerialNumbers.split(',').map(s => s.trim()).filter(Boolean) : [],
+                    patStatus: selectedOrder.patStatus as any,
+                    materialUsage: selectedOrder.materialUsage,
+                    directTeam: (selectedOrder as any).directTeam,
+                    completionMode: (selectedOrder as any).completionMode
+                } : undefined}
+                contractors={contractors}
+                items={items}
+                materialSource={materialSource}
+                itemSortOrder={(() => {
+                    try { return JSON.parse(config['OSP_ITEM_ORDER'] || '[]'); } catch { return []; }
+                })()}
+                showExtendedFields={filterType === 'completed'}
+            />
+
+        </main >
+    </div >
+);
 }
