@@ -13,7 +13,8 @@ import {
     FileSignature,
     PackageMinus,
     Shield,
-    FolderKanban
+    FolderKanban,
+    Upload
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -110,6 +111,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/contractors/approvals',
                 icon: FileSignature,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
+            },
+            {
+                title: 'Bulk Import',
+                path: '/admin/contractors/import',
+                icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
             }
         ]
     },

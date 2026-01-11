@@ -544,9 +544,9 @@ export default function PublicContractorRegistrationPage() {
                                         { label: "Photo of Contractor", field: "photoUrl" },
                                         { label: "NIC Front Copy", field: "nicFrontUrl" },
                                         { label: "NIC Back Copy", field: "nicBackUrl" },
-                                        { label: "Police Report (Optional)", field: "policeReportUrl" },
-                                        { label: "Grama Niladhari Certificate", field: "gramaCertUrl" },
-                                        { label: "BR Certificate (Optional)", field: "brCertUrl" }
+                                        { label: "Police Report (Skip for now)", field: "policeReportUrl" },
+                                        { label: "Grama Niladhari Cert (Skip for now)", field: "gramaCertUrl" },
+                                        { label: "BR Certificate (Skip for now)", field: "brCertUrl" }
                                     ].map((doc) => (
                                         <div key={doc.field} className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200 transition-all hover:bg-white hover:shadow-sm">
                                             <Label className="text-xs font-bold text-slate-700 uppercase tracking-wider">{doc.label}</Label>
@@ -596,7 +596,7 @@ export default function PublicContractorRegistrationPage() {
                                     <Button
                                         onClick={() => { setStep(isSOD ? 4 : 5); saveDraft(); }}
                                         className="bg-blue-600 px-8"
-                                        disabled={!formData.photoUrl || !formData.nicFrontUrl || !formData.nicBackUrl || !formData.gramaCertUrl}
+                                        disabled={!formData.photoUrl || !formData.nicFrontUrl || !formData.nicBackUrl}
                                     >
                                         {isSOD ? "Continue to Team" : "Review & Submit"}
                                     </Button>
