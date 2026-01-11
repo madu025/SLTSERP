@@ -115,6 +115,13 @@ export default function PublicContractorRegistrationPage() {
         }
     }, [token]);
 
+    useEffect(() => {
+        if (banks.length > 0 && formData.bankName) {
+            const match = banks.find(b => b.name === formData.bankName);
+            setManualBank(!match);
+        }
+    }, [banks, formData.bankName]);
+
     const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return null;
         const file = e.target.files[0];
@@ -346,10 +353,12 @@ export default function PublicContractorRegistrationPage() {
                                     <div className="space-y-2 sm:col-span-2">
                                         <Label>Bank Name</Label>
                                         {!manualBank ? (
-                                            <Select onValueChange={(val) => {
-                                                if (val === "OTHER") { setManualBank(true); setFormData({ ...formData, bankName: "" }); }
-                                                else { const bank = banks.find(b => b.id === val); setFormData({ ...formData, bankName: bank?.name || "" }); }
-                                            }}>
+                                            <Select
+                                                value={banks.find(b => b.name === formData.bankName)?.id}
+                                                onValueChange={(val) => {
+                                                    if (val === "OTHER") { setManualBank(true); setFormData({ ...formData, bankName: "" }); }
+                                                    else { const bank = banks.find(b => b.id === val); setFormData({ ...formData, bankName: bank?.name || "" }); }
+                                                }}>
                                                 <SelectTrigger><SelectValue placeholder={banks.length > 0 ? "Select a bank" : "Loading..."} /></SelectTrigger>
                                                 <SelectContent>{banks.map(b => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}<SelectItem value="OTHER">+ Other (Type manually)</SelectItem></SelectContent>
                                             </Select>
