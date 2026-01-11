@@ -19,7 +19,7 @@ const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"),
 const CommentModal = dynamic(() => import("@/components/modals/CommentModal"), { ssr: false });
 const DetailModal = dynamic(() => import("@/components/modals/DetailModal"), { ssr: false });
 const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionModal"), { ssr: false });
-const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionModal"), { ssr: false });
+
 
 interface ServiceOrder {
     id: string;
