@@ -124,9 +124,10 @@ export class NotificationService {
                 where: {
                     role: { in: roles as any },
                     ...(opmcId ? {
-                        accessibleOpmcs: {
-                            some: { id: opmcId }
-                        }
+                        OR: [
+                            { accessibleOpmcs: { some: { id: opmcId } } },
+                            { role: { in: ['SUPER_ADMIN', 'ADMIN'] } } // Admins/SuperAdmins are global
+                        ]
                     } : {})
                 },
                 select: { id: true }

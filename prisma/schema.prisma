@@ -190,6 +190,7 @@ model User {
   // Contractor Management
   armApprovedContractors    Contractor[] @relation("ContractorArmApproval")
   ospApprovedContractors    Contractor[] @relation("ContractorOspApproval")
+  rejectedContractors       Contractor[] @relation("ContractorRejection")
   generatedContractorLinks  Contractor[] @relation("ContractorLinkGenerator")
 
   notifications     Notification[]
@@ -486,6 +487,11 @@ model Contractor {
   ospApprovedById       String?
   ospApprovedBy         User?             @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
   
+  rejectionReason       String?           // Reason provided if registration is rejected
+  rejectionById         String?
+  rejectionBy           User?             @relation("ContractorRejection", fields: [rejectionById], references: [id])
+  rejectedAt            DateTime?
+  
   registrationToken     String?           @unique
   registrationTokenExpiry DateTime?
   registrationStartedAt DateTime?
@@ -563,6 +569,7 @@ model ContractorTeam {
   serviceOrders ServiceOrder[]
   
   members      TeamMember[]
+  sltCode      String?  // SLT Identification code provided after OSP approval
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

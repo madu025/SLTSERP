@@ -11,6 +11,9 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 export default function ContractorApprovalsPage() {
     const queryClient = useQueryClient();
@@ -19,6 +22,11 @@ export default function ContractorApprovalsPage() {
     // Get current user from localStorage
     const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
     const userRole = user.role || '';
+
+    const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+    const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState("");
+    const [teamCodes, setTeamCodes] = useState<Record<string, string>>({});
 
     // Fetch contractors pending approval
     const { data: contractors = [], isLoading } = useQuery({
@@ -34,13 +42,14 @@ export default function ContractorApprovalsPage() {
     });
 
     const approveMutation = useMutation({
-        mutationFn: async ({ id, status, approverId }: any) => {
+        mutationFn: async ({ id, status, approverId, teams }: any) => {
             const res = await fetch('/api/contractors', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id,
                     status,
+                    teams,
                     ...(userRole === 'AREA_MANAGER' ? { armApprovedById: approverId, armApprovedAt: new Date() } : {}),
                     ...(userRole === 'OSP_MANAGER' ? { ospApprovedById: approverId, ospApprovedAt: new Date() } : {})
                 })
@@ -52,6 +61,31 @@ export default function ContractorApprovalsPage() {
             toast.success('Contractor approved successfully');
             queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
             setSelectedContractor(null);
+        }
+    });
+
+    const rejectMutation = useMutation({
+        mutationFn: async ({ id, reason, userId }: any) => {
+            const res = await fetch('/api/contractors', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id,
+                    status: 'REJECTED',
+                    rejectionReason: reason,
+                    rejectionById: userId,
+                    rejectedAt: new Date()
+                })
+            });
+            if (!res.ok) throw new Error('Failed to reject');
+            return res.json();
+        },
+        onSuccess: () => {
+            toast.success('Contractor registration rejected');
+            queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
+            setSelectedContractor(null);
+            setIsRejectDialogOpen(false);
+            setRejectionReason("");
         }
     });
 
@@ -68,7 +102,54 @@ export default function ContractorApprovalsPage() {
             return;
         }
 
+        if (nextStatus === 'ACTIVE' && (contractor.teams || []).length > 0) {
+            // Initialize team codes from existing values if any
+            const initialCodes: Record<string, string> = {};
+            contractor.teams.forEach((t: any) => {
+                initialCodes[t.id] = t.sltCode || '';
+            });
+            setTeamCodes(initialCodes);
+            setIsApproveDialogOpen(true);
+            return;
+        }
+
         approveMutation.mutate({ id: contractor.id, status: nextStatus, approverId: user.id });
+    };
+
+    const confirmFinalApproval = () => {
+        const teamsToUpdate = selectedContractor.teams.map((t: any) => ({
+            ...t,
+            sltCode: teamCodes[t.id]
+        }));
+
+        // Validation: If SOD, all teams must have a code?
+        if (selectedContractor.type === 'SOD') {
+            const missingCode = teamsToUpdate.some((t: any) => !t.sltCode);
+            if (missingCode) {
+                toast.error("All teams must have an SLT Identification Code before activation.");
+                return;
+            }
+        }
+
+        approveMutation.mutate({
+            id: selectedContractor.id,
+            status: 'ACTIVE',
+            approverId: user.id,
+            teams: teamsToUpdate
+        });
+        setIsApproveDialogOpen(false);
+    };
+
+    const handleReject = () => {
+        if (!rejectionReason.trim()) {
+            toast.error("Please provide a reason for rejection");
+            return;
+        }
+        rejectMutation.mutate({
+            id: selectedContractor.id,
+            reason: rejectionReason,
+            userId: user.id
+        });
     };
 
     if (isLoading) {
@@ -152,9 +233,18 @@ export default function ContractorApprovalsPage() {
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <Button
+                                                        variant="outline"
+                                                        onClick={() => setIsRejectDialogOpen(true)}
+                                                        className="text-red-600 border-red-200 hover:bg-red-50"
+                                                        disabled={approveMutation.isPending || rejectMutation.isPending}
+                                                    >
+                                                        <XCircle className="w-4 h-4 mr-2" />
+                                                        Reject
+                                                    </Button>
+                                                    <Button
                                                         onClick={() => handleApprove(selectedContractor)}
                                                         className="bg-green-600 hover:bg-green-700"
-                                                        disabled={approveMutation.isPending}
+                                                        disabled={approveMutation.isPending || rejectMutation.isPending}
                                                     >
                                                         {approveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
                                                         Approve Registration
@@ -211,27 +301,32 @@ export default function ContractorApprovalsPage() {
                                                         <h5 className="text-[10px] font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
                                                             <Users className="w-3 h-3" /> Team Structure
                                                         </h5>
-                                                        {selectedContractor.type === 'OSP' ? (
-                                                            <div className="p-4 bg-blue-50 text-blue-700 text-xs rounded-lg border border-blue-100 italic">
-                                                                OSP Project contractors do not require team member registration.
-                                                            </div>
-                                                        ) : (
-                                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                                                {(selectedContractor.teamMembers || []).length > 0 ? (
-                                                                    selectedContractor.teamMembers.map((m: any, idx: number) => (
-                                                                        <div key={idx} className="p-3 bg-white border rounded shadow-sm flex items-center gap-3">
-                                                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{idx + 1}</div>
-                                                                            <div>
-                                                                                <p className="text-sm font-bold text-slate-700">{m.name}</p>
-                                                                                <p className="text-[10px] text-slate-500">NIC: {m.nic}</p>
-                                                                            </div>
+                                                        <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
+                                                            {(selectedContractor.teams || []).length > 0 ? (
+                                                                selectedContractor.teams.map((team: any, tIdx: number) => (
+                                                                    <div key={tIdx} className="space-y-2">
+                                                                        <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                                                            <span className="text-xs font-bold text-slate-700">{team.name}</span>
+                                                                            {team.sltCode && (
+                                                                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 text-[10px]">
+                                                                                    SLT: {team.sltCode}
+                                                                                </Badge>
+                                                                            )}
                                                                         </div>
-                                                                    ))
-                                                                ) : (
-                                                                    <p className="text-xs text-slate-400 italic">No team members listed</p>
-                                                                )}
-                                                            </div>
-                                                        )}
+                                                                        <div className="pl-4 space-y-1">
+                                                                            {(team.members || []).map((m: any, mIdx: number) => (
+                                                                                <div key={mIdx} className="flex items-center gap-2 text-[10px] text-slate-500">
+                                                                                    <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                                                                    <span>{m.name} ({m.designation})</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <p className="text-xs text-slate-400 italic">No teams registered</p>
+                                                            )}
+                                                        </div>
                                                     </section>
 
                                                     <section className="pt-4 border-t">
@@ -284,6 +379,80 @@ export default function ContractorApprovalsPage() {
                     </div>
                 </div>
             </main>
+
+            <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Assign SLT Identification Codes</DialogTitle>
+                        <DialogDescription>
+                            Enter the identification codes provided by SLT for each team. These codes are required for SOD assignments.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6 my-4">
+                        {selectedContractor?.teams?.map((team: any) => (
+                            <div key={team.id} className="space-y-2">
+                                <Label htmlFor={`code-${team.id}`} className="text-sm font-bold">{team.name}</Label>
+                                <Input
+                                    id={`code-${team.id}`}
+                                    placeholder="e.g. OSP-TEAM-01"
+                                    value={teamCodes[team.id] || ''}
+                                    onChange={(e) => setTeamCodes({ ...teamCodes, [team.id]: e.target.value })}
+                                    className="h-10"
+                                />
+                            </div>
+                        ))}
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            onClick={confirmFinalApproval}
+                            className="bg-green-600 hover:bg-green-700"
+                        >
+                            Finalize & Activate
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600 flex items-center gap-2">
+                            <XCircle className="w-5 h-5" /> Reject Registration
+                        </DialogTitle>
+                        <DialogDescription>
+                            Please specify why you are rejecting this contractor's registration. This will be visible to the contractor so they can correct it.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 my-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="rejection-reason" className="text-sm font-bold">Reason for Rejection</Label>
+                            <textarea
+                                id="rejection-reason"
+                                className="w-full min-h-[100px] p-3 rounded-md border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                placeholder="e.g. Bank passbook photo is unclear, Please upload a better one..."
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            onClick={handleReject}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            disabled={rejectMutation.isPending}
+                        >
+                            {rejectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <XCircle className="w-4 h-4 mr-2" />}
+                            Confirm Rejection
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

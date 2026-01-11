@@ -32,7 +32,16 @@ export class ContractorService {
                     siteOfficeStaff: { select: { id: true, name: true } },
                     _count: {
                         select: { teams: true }
-                    }
+                    },
+                    teams: {
+                        include: {
+                            members: true,
+                            storeAssignments: {
+                                include: { store: true }
+                            }
+                        }
+                    },
+                    teamMembers: true
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,
@@ -135,7 +144,15 @@ export class ContractorService {
         }) as any;
 
         if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
-        if (contractor.status !== 'PENDING') throw new Error('CONTRACTOR_NOT_PENDING');
+
+        // If already active or pending approval, we can still resend, but we should 
+        // ensure status is REJECTED so they can actually edit the form.
+        if (!['PENDING', 'REJECTED'].includes(contractor.status)) {
+            await prisma.contractor.update({
+                where: { id },
+                data: { status: 'REJECTED' as any }
+            });
+        }
 
         let token = contractor.registrationToken;
         let expiry = contractor.registrationTokenExpiry;
@@ -218,97 +235,105 @@ export class ContractorService {
 
         const { teams, id: _id, createdAt: _c, updatedAt: _u, ...restData } = data;
 
-        // 1. Update Contractor Basic Details
-        const updated = await prisma.contractor.update({
-            where: { id: contractor.id },
-            data: {
-                name: restData.name,
-                email: restData.email,
-                nic: restData.nic,
-                address: restData.address,
-                contactNumber: restData.contactNumber,
-                brNumber: restData.brNumber,
-                bankName: restData.bankName,
-                bankBranch: restData.bankBranch,
-                bankAccountNumber: restData.bankAccountNumber,
-                bankPassbookUrl: restData.bankPassbookUrl,
-                photoUrl: restData.photoUrl,
-                nicFrontUrl: restData.nicFrontUrl,
-                nicBackUrl: restData.nicBackUrl,
-                policeReportUrl: restData.policeReportUrl,
-                gramaCertUrl: restData.gramaCertUrl,
-                brCertUrl: restData.brCertUrl,
-                status: 'ARM_PENDING' as any,
-                // Do not clear token, so we can identify 'Already Submitted' state
-                // registrationToken: null, 
-                // registrationTokenExpiry: null,
-                registrationDraft: null,
-                registrationStartedAt: null,
-            } as any
-        });
+        // Use transaction to ensure data integrity
+        return await prisma.$transaction(async (tx) => {
+            // 1. Update Contractor Basic Details
+            const updated = await tx.contractor.update({
+                where: { id: contractor.id },
+                data: {
+                    name: restData.name || contractor.name,
+                    email: restData.email || contractor.email,
+                    nic: restData.nic,
+                    address: restData.address,
+                    contactNumber: restData.contactNumber,
+                    brNumber: restData.brNumber,
+                    bankName: restData.bankName,
+                    bankBranch: restData.bankBranch,
+                    bankAccountNumber: restData.bankAccountNumber,
+                    bankPassbookUrl: restData.bankPassbookUrl,
+                    photoUrl: restData.photoUrl,
+                    nicFrontUrl: restData.nicFrontUrl,
+                    nicBackUrl: restData.nicBackUrl,
+                    policeReportUrl: restData.policeReportUrl,
+                    gramaCertUrl: restData.gramaCertUrl,
+                    brCertUrl: restData.brCertUrl,
+                    status: 'ARM_PENDING' as any,
+                    registrationDraft: null,
+                    registrationStartedAt: null,
+                } as any
+            });
 
-        // 2. Notify Relevant Staff (Generator and OPMC Admins)
-        try {
-            const message = `Contractor "${updated.name}" has submitted their registration form and is waiting for ARM review.`;
+            // 2. Clean up any existing teams/members (in case of re-submission)
+            await tx.teamMember.deleteMany({ where: { contractorId: contractor.id } });
+            await tx.contractorTeam.deleteMany({ where: { contractorId: contractor.id } });
 
-            // Notify the person who generated the link
-            if (updated.siteOfficeStaffId) {
-                await NotificationService.send({
-                    userId: updated.siteOfficeStaffId,
-                    title: "New Contractor Submission",
+            // 3. Create Teams and Members
+            if (teams && teams.length > 0) {
+                for (const team of teams) {
+                    await tx.contractorTeam.create({
+                        data: {
+                            name: team.name,
+                            contractorId: contractor.id,
+                            opmcId: updated.opmcId, // Inherit from contractor
+                            storeAssignments: team.primaryStoreId ? {
+                                create: {
+                                    storeId: team.primaryStoreId,
+                                    isPrimary: true
+                                }
+                            } : undefined,
+                            members: {
+                                create: (team.members || []).map((m: any) => ({
+                                    name: m.name,
+                                    nic: m.nic || '',
+                                    contactNumber: m.contactNumber || '',
+                                    designation: m.designation || '',
+                                    photoUrl: m.photoUrl || '',
+                                    passportPhotoUrl: m.passportPhotoUrl || '',
+                                    nicUrl: m.nicUrl || '',
+                                    idCopyNumber: m.idCopyNumber || '',
+                                    contractorId: contractor.id
+                                }))
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 4. Notify Relevant Staff (Asynchronously)
+            // We do this outside/at the end to not block user response if possible, 
+            // but for reliability here we stick to simple logic.
+            try {
+                const message = `Contractor "${updated.name}" has submitted their registration form and is waiting for ARM review.`;
+
+                // Notify the person who generated the link
+                if (updated.siteOfficeStaffId) {
+                    await NotificationService.send({
+                        userId: updated.siteOfficeStaffId,
+                        title: "New Contractor Submission",
+                        message,
+                        type: 'CONTRACTOR',
+                        priority: 'HIGH',
+                        link: `/admin/contractors/approvals`
+                    });
+                }
+
+                // Also notify ARMs and Admins in the same OPMC
+                // We notify SUPER_ADMIN and ADMIN globally, others per OPMC
+                await NotificationService.notifyByRole({
+                    roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN'],
+                    title: "Contractor Pending Review",
                     message,
                     type: 'CONTRACTOR',
-                    priority: 'HIGH',
-                    link: `/admin/contractors`
+                    priority: 'MEDIUM',
+                    link: `/admin/contractors/approvals`,
+                    opmcId: updated.opmcId || undefined
                 });
+            } catch (nErr) {
+                console.error("Failed to send submission notifications:", nErr);
             }
 
-            // Also notify ARMs and Admins in the same OPMC
-            await NotificationService.notifyByRole({
-                roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN'],
-                title: "Contractor Pending Review",
-                message,
-                type: 'CONTRACTOR',
-                priority: 'MEDIUM',
-                link: `/admin/contractors`,
-                opmcId: updated.opmcId || undefined
-            });
-        } catch (nErr) {
-            console.error("Failed to send submission notifications:", nErr);
-        }
-
-        // 3. Create Teams and Members
-        if (teams && teams.length > 0) {
-            for (const team of teams) {
-                const createdTeam = await prisma.contractorTeam.create({
-                    data: {
-                        name: team.name,
-                        contractorId: contractor.id,
-                        storeAssignments: team.primaryStoreId ? {
-                            create: {
-                                storeId: team.primaryStoreId,
-                                isPrimary: true
-                            }
-                        } : undefined,
-                        members: {
-                            create: (team.members || []).map((m: any) => ({
-                                name: m.name,
-                                nic: m.nic || '',
-                                contactNumber: m.contactNumber || '',
-                                designation: m.designation || '',
-                                photoUrl: m.photoUrl || '',
-                                passportPhotoUrl: m.passportPhotoUrl || '', // Mandatory for ID
-                                nicUrl: m.nicUrl || '',
-                                idCopyNumber: m.idCopyNumber || '',
-                                contractorId: contractor.id
-                            }))
-                        }
-                    }
-                });
-            }
-        }
-
-        return updated;
+            return updated;
+        });
     }
 
     /**
@@ -428,9 +453,51 @@ export class ContractorService {
                 armApprovedAt: contractorData.armApprovedAt,
                 armApprovedById: contractorData.armApprovedById,
                 ospApprovedAt: contractorData.ospApprovedAt,
-                ospApprovedById: contractorData.ospApprovedById
+                ospApprovedById: contractorData.ospApprovedById,
+                rejectionReason: contractorData.rejectionReason,
+                rejectionById: contractorData.rejectionById,
+                rejectedAt: contractorData.rejectedAt
             } as any
         });
+
+        // 1.1 Notify on Status Change
+        if (contractorData.status) {
+            try {
+                const reporterId = updated.siteOfficeStaffId;
+                if (reporterId) {
+                    if (contractorData.status === 'OSP_PENDING') {
+                        // ARM Approved
+                        await NotificationService.send({
+                            userId: reporterId,
+                            title: "Contractor ARM Approved",
+                            message: `Contractor "${updated.name}" has been approved by the Area Manager and is now waiting for OSP Manager authorization.`,
+                            type: 'CONTRACTOR',
+                            priority: 'MEDIUM'
+                        });
+                    } else if (contractorData.status === 'ACTIVE') {
+                        // Fully Approved
+                        await NotificationService.send({
+                            userId: reporterId,
+                            title: "Contractor Fully Activated",
+                            message: `Contractor "${updated.name}" is now ACTIVE. Teams can now be assigned to SOD jobs.`,
+                            type: 'CONTRACTOR',
+                            priority: 'HIGH'
+                        });
+                    } else if (contractorData.status === 'REJECTED') {
+                        // Rejected
+                        await NotificationService.send({
+                            userId: reporterId,
+                            title: "Contractor Registration Rejected",
+                            message: `Registration for "${updated.name}" was rejected. Reason: ${contractorData.rejectionReason || 'No reason provided'}. Please ask the contractor to fix and re-submit.`,
+                            type: 'CONTRACTOR',
+                            priority: 'CRITICAL'
+                        });
+                    }
+                }
+            } catch (nErr) {
+                console.error("Failed to send status update notification:", nErr);
+            }
+        }
 
         // 2. Full Team Sync (if teams array is provided)
         if (teams) {
@@ -457,6 +524,7 @@ export class ContractorService {
                         data: {
                             name: team.name,
                             opmcId: team.opmcId || null,
+                            sltCode: team.sltCode,
                             storeAssignments: {
                                 deleteMany: {},
                                 create: team.storeIds?.map((storeId: string) => ({
@@ -493,6 +561,7 @@ export class ContractorService {
                             name: team.name,
                             contractorId: id,
                             opmcId: team.opmcId || null,
+                            sltCode: team.sltCode,
                             storeAssignments: {
                                 create: team.storeIds?.map((storeId: string) => ({
                                     storeId,

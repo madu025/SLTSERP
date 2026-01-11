@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Trash2, CheckCircle2, Building2, Users, Banknote, UserPlus, Image as ImageIcon, FileText, Upload, CheckCircle, Plus } from "lucide-react";
+import { Loader2, Trash2, CheckCircle2, Building2, Users, Banknote, UserPlus, Image as ImageIcon, FileText, Upload, CheckCircle, Plus, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -268,6 +268,20 @@ export default function PublicContractorRegistrationPage() {
                         {contractor.registrationTokenExpiry && (
                             <div className="mt-2 text-[10px] text-amber-600 font-bold bg-amber-50 py-1 px-3 rounded-full w-fit mx-auto">
                                 ⏳ Link Expiry: {new Date(contractor.registrationTokenExpiry).toLocaleDateString()} {new Date(contractor.registrationTokenExpiry).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        )}
+                        {contractor.status === 'REJECTED' && (
+                            <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl max-w-2xl mx-auto animate-in fade-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-center gap-3 text-red-600 mb-2">
+                                    <XCircle className="w-5 h-5 shrink-0" />
+                                    <h3 className="font-bold text-sm">Registration Requires Corrections</h3>
+                                </div>
+                                <p className="text-xs text-red-700 leading-relaxed text-left">
+                                    Your previous submission was reviewed and rejected for the following reason:<br />
+                                    <span className="mt-2 block p-2 bg-white rounded border border-red-200 font-bold italic">
+                                        "{contractor.rejectionReason || "No specific reason provided. Please verify all documents and retry."}"
+                                    </span>
+                                </p>
                             </div>
                         )}
                     </div>

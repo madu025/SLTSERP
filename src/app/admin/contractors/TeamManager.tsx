@@ -320,7 +320,16 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                                 <Label className="text-xs text-slate-500">Team Name</Label>
                                                 <Input value={currentTeam.name} onChange={(e) => updateCurrentTeam('name', e.target.value)} className="h-8 text-sm font-medium" />
                                             </div>
-                                            <div className="w-full sm:w-40">
+                                            <div className="w-full sm:w-48">
+                                                <Label className="text-xs text-slate-500 font-bold text-blue-600">SLT Code</Label>
+                                                <Input
+                                                    value={currentTeam.sltCode || ''}
+                                                    onChange={(e) => updateCurrentTeam('sltCode', e.target.value)}
+                                                    className="h-8 text-sm font-bold border-blue-200 focus:border-blue-500"
+                                                    placeholder="e.g. OSP-TEAM-01"
+                                                />
+                                            </div>
+                                            <div className="w-full sm:w-32">
                                                 <Label className="text-xs text-slate-500">Status</Label>
                                                 <Select value={currentTeam.status} onValueChange={(v) => updateCurrentTeam('status', v)}>
                                                     <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>

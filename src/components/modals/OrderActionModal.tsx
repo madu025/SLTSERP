@@ -124,7 +124,7 @@ interface OrderActionModalProps {
     contractors?: Array<{
         id: string;
         name: string;
-        teams?: Array<{ id: string; name: string }>;
+        teams?: Array<{ id: string; name: string; sltCode?: string }>;
     }>;
     items?: Array<{ id: string; name: string; code: string; unit: string; commonFor?: string[]; commonName?: string; isOspFtth?: boolean; type?: string; maxWastagePercentage?: number; isWastageAllowed?: boolean; }>;
     showExtendedFields?: boolean;
@@ -586,6 +586,13 @@ export default function OrderActionModal({
                 alert("Please select the team that completed this order");
                 return;
             }
+            if (assignmentType === 'CONTRACTOR' && selectedTeamId) {
+                const team = availableTeams.find(t => t.id === selectedTeamId);
+                if (!team?.sltCode) {
+                    alert("Selected team does not have an SLT Identification Code. This team cannot be assigned to SOD jobs.");
+                    return;
+                }
+            }
             if (!wiredOnly) {
                 if (!ontSerialNumber.trim()) {
                     alert("ONT Serial Number is required for completion");
@@ -856,7 +863,11 @@ export default function OrderActionModal({
                                                                             <SelectTrigger className="bg-white h-9 text-xs border-slate-200 focus:ring-blue-500"><SelectValue placeholder="Select Team" /></SelectTrigger>
                                                                             <SelectContent>
                                                                                 {availableTeams.length > 0 ? (
-                                                                                    availableTeams.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>)
+                                                                                    availableTeams.map(t => (
+                                                                                        <SelectItem key={t.id} value={t.id} className="text-xs">
+                                                                                            {t.name} {t.sltCode ? `[${t.sltCode}]` : '(No SLT Code)'}
+                                                                                        </SelectItem>
+                                                                                    ))
                                                                                 ) : (
                                                                                     <div className="p-2 text-[10px] text-slate-400 text-center italic">No teams registered</div>
                                                                                 )}
