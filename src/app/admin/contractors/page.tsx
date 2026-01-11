@@ -7,11 +7,12 @@ import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Trash, Plus, Pencil, Search, Users, ShieldAlert, ShieldCheck, Building2, Upload, FileText, Image as ImageIcon, Copy, ExternalLink, MessageCircle, CheckCircle, UserPlus, Share2 } from "lucide-react";
+import { Trash, Plus, Pencil, Search, Users, ShieldAlert, ShieldCheck, Building2, Upload, FileText, Image as ImageIcon, Copy, ExternalLink, MessageCircle, CheckCircle, UserPlus, Share2, Banknote, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -105,6 +106,7 @@ const contractorSchema = z.object({
     policeReportUrl: z.string().optional(),
     gramaCertUrl: z.string().optional(),
     opmcId: z.string().optional(),
+    type: z.enum(['SOD', 'OSP']),
 });
 
 type ContractorFormValues = z.infer<typeof contractorSchema>
@@ -136,6 +138,12 @@ export default function ContractorsPage() {
         type: 'SOD' as 'SOD' | 'OSP'
     });
 
+    const [step, setStep] = useState(1);
+    const [manualBank, setManualBank] = useState(false);
+    const [manualBranch, setManualBranch] = useState(false);
+    const [branchSearch, setBranchSearch] = useState("");
+    const [showBranchList, setShowBranchList] = useState(false);
+
     // Get current user from localStorage
     const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
     const userRole = user.role || '';
@@ -148,7 +156,7 @@ export default function ContractorsPage() {
         defaultValues: {
             name: '', address: '', registrationNumber: '', brNumber: '', status: 'PENDING',
             registrationFeePaid: false, agreementSigned: false, agreementDate: '',
-            bankAccountNumber: '', bankBranch: ''
+            bankAccountNumber: '', bankBranch: '', type: 'SOD'
         }
     });
 
@@ -194,6 +202,24 @@ export default function ContractorsPage() {
         },
         staleTime: 10 * 60 * 1000,
         gcTime: 30 * 60 * 1000
+    });
+
+    const { data: banks = [] } = useQuery({
+        queryKey: ['banks'],
+        queryFn: async () => {
+            const res = await fetch('/api/banks');
+            if (res.ok) return res.json();
+            return [];
+        }
+    });
+
+    const { data: branches = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => {
+            const res = await fetch('/api/branches');
+            if (res.ok) return res.json();
+            return [];
+        }
     });
 
     // Auto-select OPMC for site staff if they have only one
@@ -291,19 +317,22 @@ export default function ContractorsPage() {
     // --- HANDLERS ---
     const handleAdd = () => {
         setSelectedContractor(null);
-        setTeams([]); // Initialize empty teams for new contractor
+        setTeams([]);
+        setStep(1);
         form.reset({
             name: '', address: '', registrationNumber: '', brNumber: '', status: 'PENDING',
             contactNumber: '', agreementDuration: '1', brCertUrl: '', nic: '',
             registrationFeePaid: false, agreementSigned: false, agreementDate: '',
             bankName: '', bankAccountNumber: '', bankBranch: '',
-            opmcId: ''
+            opmcId: '',
+            type: 'SOD'
         });
         setShowModal(true);
     };
 
     const handleEdit = (c: Contractor) => {
         setSelectedContractor(c);
+        setStep(1);
         // Load teams with full details
         setTeams(c.teams.map(t => ({
             id: t.id,
@@ -567,98 +596,101 @@ export default function ContractorsPage() {
 
                 {/* Modal */}
                 <Dialog open={showModal} onOpenChange={setShowModal}>
-                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-full">
+                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-full no-scrollbar">
                         <DialogHeader>
                             <DialogTitle>{selectedContractor ? 'Edit Contractor' : 'Register New Contractor'}</DialogTitle>
-                            <DialogDescription>Manage contractor details, store assignment, and teams.</DialogDescription>
+                            <DialogDescription>
+                                {selectedContractor ? 'Update the details for this contractor.' : 'Enter the details to register a new contractor.'}
+                            </DialogDescription>
                         </DialogHeader>
 
+                        <div className="flex items-center justify-center mb-10 overflow-x-auto pb-4 gap-4 no-scrollbar">
+                            {[
+                                { id: 1, label: "Info", icon: Building2 },
+                                { id: 2, label: "Finc", icon: Banknote },
+                                { id: 3, label: "Docs", icon: FileText },
+                                ...(form.watch('type') === 'SOD' ? [{ id: 4, label: "Team", icon: Users }] : []),
+                                { id: 5, label: "Save", icon: CheckCircle2 }
+                            ].map((s, idx, arr) => (
+                                <React.Fragment key={s.id}>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm",
+                                            step === s.id ? "bg-blue-600 text-white ring-4 ring-blue-100" :
+                                                step > s.id ? "bg-green-500 text-white" : "bg-white text-slate-400 border border-slate-200"
+                                        )}>
+                                            <s.icon className="w-5 h-5" />
+                                        </div>
+                                        <span className={cn(
+                                            "text-[10px] font-bold uppercase tracking-wider text-center",
+                                            step >= s.id ? "text-slate-900" : "text-slate-400"
+                                        )}>{s.label}</span>
+                                    </div>
+                                    {idx < arr.length - 1 && (
+                                        <div className={cn("h-[2px] w-12 transition-colors", step > s.id ? "bg-green-500" : "bg-slate-200")} />
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </div>
+
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-4">
+                            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
 
-                                {/* Basic Details */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="name" render={({ field }) => (
-                                        <FormItem><FormLabel>Contractor Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="registrationNumber" render={({ field }) => (
-                                        <FormItem><FormLabel>Registration No</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="address" render={({ field }) => (
-                                        <FormItem className="col-span-2"><FormLabel>Address</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-
-                                    <FormField control={form.control} name="nic" render={({ field }) => (
-                                        <FormItem><FormLabel>NIC Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-
-                                    <FormField control={form.control} name="contactNumber" render={({ field }) => (
-                                        <FormItem><FormLabel>Contact Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-
-                                    <FormField control={form.control} name="agreementDuration" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Agreement Duration</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select Duration" /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="1">1 Year</SelectItem>
-                                                    <SelectItem value="2">2 Years</SelectItem>
-                                                    <SelectItem value="3">3 Years</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-
-                                    <FormField control={form.control} name="brCertUrl" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>BR Certificate</FormLabel>
-                                            <div className="flex items-center gap-2">
-                                                {field.value && <div className="text-xs text-green-600 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Uploaded</div>}
-                                                <Input type="file" className="text-xs h-9 pt-1" accept="image/*,.pdf" onChange={async (e) => {
-                                                    const url = await uploadFile(e);
-                                                    if (url) field.onChange(url);
-                                                }} />
-                                            </div>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-
-                                    {/* Status Field Removed - Managed via Approval Section */}
-                                </div>
-
-                                {/* Bank Details - Only visible after creation */}
-                                {selectedContractor && (
-                                    <div className="space-y-4 pt-4 border-t">
-                                        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">Bank Details</h3>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            <FormField control={form.control} name="bankName" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs">Bank Name</FormLabel><FormControl><Input {...field} className="h-8" /></FormControl></FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="bankBranch" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs">Branch</FormLabel><FormControl><Input {...field} className="h-8" /></FormControl></FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="bankAccountNumber" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-xs">Account No</FormLabel><FormControl><Input {...field} className="h-8" /></FormControl></FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="bankPassbookUrl" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs">Bank Passbook Header</FormLabel>
-                                                    <div className="flex flex-col gap-2">
-                                                        {field.value && <img src={field.value} alt="Preview" className="h-10 w-16 object-cover rounded border" />}
-                                                        <Input type="file" className="h-8 text-xs bg-white" accept="image/*,.pdf" onChange={async (e) => {
-                                                            const url = await uploadFile(e);
-                                                            if (url) field.onChange(url);
-                                                        }} />
-                                                    </div>
+                                {/* Step 1: Basic Details */}
+                                {step === 1 && (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField control={form.control} name="type" render={({ field }) => (
+                                                <FormItem className="col-span-2">
+                                                    <FormLabel>Contractor Type</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger></FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="SOD">Service Order (SOD)</SelectItem>
+                                                            <SelectItem value="OSP">OSP Project</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </FormItem>
                                             )} />
+
+                                            <FormField control={form.control} name="name" render={({ field }) => (
+                                                <FormItem><FormLabel>Contractor Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="registrationNumber" render={({ field }) => (
+                                                <FormItem><FormLabel>Registration No</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="address" render={({ field }) => (
+                                                <FormItem className="col-span-2"><FormLabel>Address</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+
+                                            <FormField control={form.control} name="nic" render={({ field }) => (
+                                                <FormItem><FormLabel>NIC Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+
+                                            <FormField control={form.control} name="contactNumber" render={({ field }) => (
+                                                <FormItem><FormLabel>Contact Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+
+                                            <FormField control={form.control} name="agreementDuration" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Agreement Duration</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select Duration" /></SelectTrigger></FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="1">1 Year</SelectItem>
+                                                            <SelectItem value="2">2 Years</SelectItem>
+                                                            <SelectItem value="3">3 Years</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+
                                             <FormField control={form.control} name="opmcId" render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="text-xs">Originating Office (OPMC)</FormLabel>
+                                                    <FormLabel>Originating Office (OPMC)</FormLabel>
                                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Office" /></SelectTrigger></FormControl>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select Office" /></SelectTrigger></FormControl>
                                                         <SelectContent>
                                                             {opmcs.map((o: any) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
                                                         </SelectContent>
@@ -666,380 +698,234 @@ export default function ContractorsPage() {
                                                 </FormItem>
                                             )} />
                                         </div>
-                                    </div>
-                                )}
-
-                                {/* Documents Section - Only visible after creation */}
-                                {selectedContractor ? (
-                                    <div className="space-y-4 pt-4 border-t">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><FileText className="w-4 h-4" /> Documents & Review</h3>
-                                            <Button type="button" size="sm" variant="outline" className="h-7 text-xs bg-blue-50 text-blue-700 border-blue-200" onClick={async () => {
-                                                const toastId = toast.loading("Generating link...");
-                                                try {
-                                                    const res = await fetch('/api/contractors/generate-link', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ contractorId: selectedContractor.id })
-                                                    });
-
-                                                    if (!res.ok) throw new Error("Failed to generate link");
-                                                    const data = await res.json();
-
-                                                    const fullUrl = `${window.location.origin}${data.path}`;
-                                                    setShareLink(fullUrl);
-                                                    setShareModalOpen(true);
-                                                    toast.dismiss(toastId);
-                                                } catch (err) {
-                                                    toast.error("Failed to generate link", { id: toastId });
-                                                }
-                                            }}>
-                                                Share Upload Link
-                                            </Button>
-                                        </div>
-                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                            <FormField control={form.control} name="photoUrl" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs">Contractor Photo</FormLabel>
-                                                    <div className="flex flex-col gap-2">
-                                                        {field.value && <img src={field.value} alt="Preview" className="h-16 w-16 object-cover rounded border" />}
-                                                        <Input type="file" className="h-8 text-xs bg-white" onChange={async (e) => {
-                                                            const url = await uploadFile(e);
-                                                            if (url) field.onChange(url);
-                                                        }} />
-                                                    </div>
-                                                </FormItem>
-                                            )} />
-
-
-                                            <FormField control={form.control} name="brCertUrl" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs">BR Certificate</FormLabel>
-                                                    <div className="flex flex-col gap-2">
-                                                        {field.value && <img src={field.value} alt="Preview" className="h-16 w-16 object-cover rounded border" />}
-                                                        <Input type="file" className="h-8 text-xs bg-white" onChange={async (e) => {
-                                                            const url = await uploadFile(e);
-                                                            if (url) field.onChange(url);
-                                                        }} />
-                                                    </div>
-                                                </FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="nicFrontUrl" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs">NIC Front</FormLabel>
-                                                    <div className="flex flex-col gap-2">
-                                                        {field.value && <img src={field.value} alt="Preview" className="h-16 w-24 object-cover rounded border" />}
-                                                        <Input type="file" className="h-8 text-xs bg-white" onChange={async (e) => {
-                                                            const url = await uploadFile(e);
-                                                            if (url) field.onChange(url);
-                                                        }} />
-                                                    </div>
-                                                </FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="nicBackUrl" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs">NIC Back</FormLabel>
-                                                    <div className="flex flex-col gap-2">
-                                                        {field.value && <img src={field.value} alt="Preview" className="h-16 w-24 object-cover rounded border" />}
-                                                        <Input type="file" className="h-8 text-xs bg-white" onChange={async (e) => {
-                                                            const url = await uploadFile(e);
-                                                            if (url) field.onChange(url);
-                                                        }} />
-                                                    </div>
-                                                </FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="policeReportUrl" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs">Police Report</FormLabel>
-                                                    <Input type="file" className="h-8 text-xs bg-white" onChange={async (e) => {
-                                                        const url = await uploadFile(e);
-                                                        if (url) field.onChange(url);
-                                                    }} />
-                                                    {field.value && <a href={field.value} target="_blank" className="text-[10px] text-blue-600 underline">View Report</a>}
-                                                </FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="gramaCertUrl" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-xs">Grama Cert</FormLabel>
-                                                    <Input type="file" className="h-8 text-xs bg-white" onChange={async (e) => {
-                                                        const url = await uploadFile(e);
-                                                        if (url) field.onChange(url);
-                                                    }} />
-                                                    {field.value && <a href={field.value} target="_blank" className="text-[10px] text-blue-600 underline">View Cert</a>}
-                                                </FormItem>
-                                            )} />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="p-6 bg-slate-50 border border-slate-200 border-dashed rounded-lg text-center mt-6">
-                                        <p className="text-sm text-slate-500">Please save the basic details first to enable <b>Documents</b>, <b>Bank Details</b>, and <b>Team Management</b>.</p>
-                                    </div>
-                                )}
-                                <Separator />
-
-                                {/* Document Approval Section (For Admins) */}
-                                {selectedContractor && isAdmin && (selectedContractor.documentStatus === 'PENDING' || selectedContractor.documentStatus === 'REJECTED' || selectedContractor.documentStatus === 'APPROVED') && (
-                                    <div className="bg-slate-50 border rounded-lg p-4 mt-4 flex items-center justify-between">
-                                        <div>
-                                            <h4 className="text-sm font-bold text-slate-800">Document Review Status</h4>
-                                            <p className="text-xs text-slate-500">Current status: <Badge variant={selectedContractor.documentStatus === 'APPROVED' ? 'default' : 'secondary'} className={selectedContractor.documentStatus === 'APPROVED' ? 'bg-green-600' : (selectedContractor.documentStatus === 'REJECTED' ? 'bg-red-500 text-white' : 'bg-amber-100 text-amber-800')}>{selectedContractor.documentStatus}</Badge></p>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            {selectedContractor.documentStatus !== 'APPROVED' && (
-                                                <Button type="button" size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => {
-                                                    // Quick Approve
-                                                    form.setValue('documentStatus', 'APPROVED');
-                                                    form.handleSubmit(handleSubmit)();
-                                                    toast.success("Marked as Approved");
-                                                }}>
-                                                    <CheckCircle className="w-4 h-4 mr-1" /> Approve
-                                                </Button>
-                                            )}
-                                            {selectedContractor.documentStatus !== 'REJECTED' && selectedContractor.documentStatus !== 'APPROVED' && (
-                                                <Button type="button" size="sm" variant="destructive" onClick={() => {
-                                                    form.setValue('documentStatus', 'REJECTED');
-                                                    form.handleSubmit(handleSubmit)();
-                                                }}>
-                                                    <ShieldAlert className="w-4 h-4 mr-1" /> Reject
-                                                </Button>
-                                            )}
+                                        <div className="flex justify-end gap-2 border-t pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(2)}>Continue</Button>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* OSP Manager Approval Section */}
-                                {selectedContractor && (isAdmin || isOspManager) && (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 flex flex-col gap-3">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h4 className="text-sm font-bold text-blue-900 flex items-center gap-2">
-                                                    <ShieldCheck className="w-4 h-4" /> OSP Manager Approval
-                                                </h4>
-                                                <p className="text-xs text-blue-700 mt-1">
-                                                    Final authorization for the contractor to commence work.
-                                                </p>
-                                            </div>
-                                            <Badge className={selectedContractor.status === 'ACTIVE' ? 'bg-green-600' : 'bg-slate-500'}>
-                                                {selectedContractor.status}
-                                            </Badge>
-                                        </div>
-
-                                        <Separator className="bg-blue-200" />
-
-                                        <div className="flex items-center justify-between">
-                                            {selectedContractor.documentStatus === 'APPROVED' ? (
-                                                <div className="flex items-center gap-3 w-full justify-between">
-                                                    <p className="text-xs text-blue-800 italic">
-                                                        Documents verified. Ready for activation.
-                                                    </p>
-                                                    <div className="flex gap-2">
-                                                        {selectedContractor.status !== 'ACTIVE' && (
-                                                            <Button type="button" size="sm" className="bg-blue-700 hover:bg-blue-800 text-white" onClick={() => {
-                                                                form.setValue('status', 'ACTIVE');
-                                                                form.handleSubmit(handleSubmit)();
-                                                                toast.success("Contractor Activated Successfully");
+                                {/* Step 2: Bank Details */}
+                                {step === 2 && (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                            <FormField control={form.control} name="bankName" render={({ field }) => (
+                                                <FormItem className="col-span-2">
+                                                    <FormLabel>Bank Name</FormLabel>
+                                                    {!manualBank ? (
+                                                        <Select
+                                                            value={banks.find((b: any) => b.name === field.value)?.id}
+                                                            onValueChange={(val) => {
+                                                                if (val === "OTHER") { setManualBank(true); field.onChange(""); }
+                                                                else { const bank = banks.find((b: any) => b.id === val); field.onChange(bank?.name || ""); }
                                                             }}>
-                                                                Authorize / Activate
-                                                            </Button>
-                                                        )}
-                                                        {selectedContractor.status === 'ACTIVE' && (
-                                                            <Button type="button" size="sm" variant="destructive" onClick={() => {
-                                                                form.setValue('status', 'INACTIVE');
-                                                                form.handleSubmit(handleSubmit)();
-                                                                toast.info("Contractor Suspended");
-                                                            }}>
-                                                                Suspend / Deactivate
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-2 rounded border border-amber-200 w-full">
-                                                    <ShieldAlert className="w-4 h-4" />
-                                                    <p className="text-xs font-semibold">
-                                                        Cannot activate: Please complete Document Review first.
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+                                                            <FormControl><SelectTrigger><SelectValue placeholder="Select Bank" /></SelectTrigger></FormControl>
+                                                            <SelectContent>{banks.map((b: any) => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}<SelectItem value="OTHER">+ Other (Type manually)</SelectItem></SelectContent>
+                                                        </Select>
+                                                    ) : (<div className="flex gap-2"><Input {...field} /><Button variant="ghost" onClick={() => setManualBank(false)}>List</Button></div>)}
+                                                </FormItem>
+                                            )} />
 
-                                {/* Teams & Members Section */}
-                                <div className="space-y-4 pt-4 border-t">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                            <Users className="w-4 h-4" /> Teams & Members
-                                        </h3>
-                                        <Button type="button" size="sm" variant="outline" onClick={addTeam} className="h-7 text-xs">
-                                            <Plus className="w-3 h-3 mr-1" /> Add Team
-                                        </Button>
-                                    </div>
-
-                                    {teams.length === 0 && (
-                                        <div className="text-center py-8 border-2 border-dashed rounded-lg bg-slate-50">
-                                            <Users className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                                            <p className="text-xs text-slate-500">No teams added yet. Click "Add Team" to get started.</p>
-                                        </div>
-                                    )}
-
-                                    {teams.map((team, tIdx) => (
-                                        <Card key={tIdx} className="bg-slate-50">
-                                            <CardContent className="p-4 space-y-4">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1 grid grid-cols-2 gap-3">
-                                                        <div className="space-y-1">
-                                                            <Label className="text-xs">Team Name</Label>
+                                            <FormField control={form.control} name="bankBranch" render={({ field }) => (
+                                                <FormItem className="col-span-2">
+                                                    <FormLabel>Branch</FormLabel>
+                                                    {!manualBranch ? (
+                                                        <div className="relative">
                                                             <Input
-                                                                value={team.name}
-                                                                onChange={(e) => updateTeam(tIdx, 'name', e.target.value)}
-                                                                className="h-8 text-xs"
-                                                                placeholder="e.g. OSP Team A"
+                                                                placeholder="Type to search branch..."
+                                                                value={field.value || branchSearch}
+                                                                onFocus={() => setShowBranchList(true)}
+                                                                onChange={(e) => {
+                                                                    setBranchSearch(e.target.value);
+                                                                    setShowBranchList(true);
+                                                                }}
                                                             />
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <Label className="text-xs">Status</Label>
-                                                            <Select value={team.status} onValueChange={(v) => updateTeam(tIdx, 'status', v)}>
-                                                                <SelectTrigger className="h-8 text-xs">
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="ACTIVE">Active</SelectItem>
-                                                                    <SelectItem value="INACTIVE">Inactive</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                    </div>
-                                                    {teams.length > 1 && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => setTeams(teams.filter((_, i) => i !== tIdx))}
-                                                            className="ml-2 text-red-500 hover:text-red-700"
-                                                        >
-                                                            <Trash className="w-4 h-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-
-                                                {/* Store Assignments */}
-                                                <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold">Assigned Stores</Label>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto p-2 bg-white rounded border">
-                                                        {stores.map((store: any) => (
-                                                            <div key={store.id} className="flex items-center gap-2">
-                                                                <Checkbox
-                                                                    checked={(team.storeIds || []).includes(store.id)}
-                                                                    onCheckedChange={() => toggleStore(tIdx, store.id)}
-                                                                    id={`store-${tIdx}-${store.id}`}
-                                                                />
-                                                                <Label htmlFor={`store-${tIdx}-${store.id}`} className="text-[10px] cursor-pointer">
-                                                                    {store.name}
-                                                                </Label>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    {(team.storeIds || []).length > 0 && (
-                                                        <div className="space-y-1">
-                                                            <Label className="text-xs">Primary Store</Label>
-                                                            <Select value={team.primaryStoreId || ''} onValueChange={(v) => updateTeam(tIdx, 'primaryStoreId', v)}>
-                                                                <SelectTrigger className="h-8 text-xs">
-                                                                    <SelectValue placeholder="Select primary store" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {(team.storeIds || []).map((storeId) => {
-                                                                        const store = stores.find((s: any) => s.id === storeId);
-                                                                        return store ? (
-                                                                            <SelectItem key={store.id} value={store.id}>
-                                                                                {store.name}
-                                                                            </SelectItem>
-                                                                        ) : null;
-                                                                    })}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Team Members */}
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between items-center">
-                                                        <Label className="text-xs font-semibold">Team Members</Label>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => addMember(tIdx)}
-                                                            className="h-6 text-[10px]"
-                                                        >
-                                                            <Plus className="w-3 h-3 mr-1" /> Add Member
-                                                        </Button>
-                                                    </div>
-
-                                                    {team.members.length === 0 && (
-                                                        <div className="text-center py-4 border border-dashed rounded bg-white">
-                                                            <p className="text-[10px] text-slate-400">No members added</p>
-                                                        </div>
-                                                    )}
-
-                                                    {team.members.map((member, mIdx) => (
-                                                        <div key={mIdx} className="flex gap-2 items-start bg-white p-2 rounded border">
-                                                            <div className="flex-1 grid grid-cols-2 gap-2">
-                                                                <Input
-                                                                    placeholder="Member Name"
-                                                                    value={member.name}
-                                                                    onChange={(e) => updateMember(tIdx, mIdx, 'name', e.target.value)}
-                                                                    className="h-7 text-xs"
-                                                                />
-                                                                <Input
-                                                                    placeholder="NIC / ID Number"
-                                                                    value={member.idCopyNumber}
-                                                                    onChange={(e) => updateMember(tIdx, mIdx, 'idCopyNumber', e.target.value)}
-                                                                    className="h-7 text-xs"
-                                                                />
-                                                                <Input
-                                                                    placeholder="Contractor ID"
-                                                                    value={member.contractorIdCopyNumber}
-                                                                    onChange={(e) => updateMember(tIdx, mIdx, 'contractorIdCopyNumber', e.target.value)}
-                                                                    className="h-7 text-xs"
-                                                                />
-                                                                <div className="flex gap-1">
-                                                                    <div className="flex-1">
-                                                                        <Input
-                                                                            type="file"
-                                                                            accept="image/*,.pdf"
-                                                                            className="h-7 text-[10px]"
-                                                                            onChange={(e) => handleMemberUpload(tIdx, mIdx, 'photoUrl', e)}
-                                                                        />
-                                                                        {member.photoUrl && (
-                                                                            <span className="text-[8px] text-green-600">✓ Photo</span>
-                                                                        )}
+                                                            {showBranchList && (
+                                                                <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-60 overflow-y-auto no-scrollbar">
+                                                                    {branches
+                                                                        .filter((b: any) => b.name.toLowerCase().includes(branchSearch.toLowerCase()))
+                                                                        .slice(0, 50)
+                                                                        .map((br: any, i: number) => (
+                                                                            <div
+                                                                                key={i}
+                                                                                className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                                                onClick={() => {
+                                                                                    field.onChange(br.name);
+                                                                                    setBranchSearch(br.name);
+                                                                                    setShowBranchList(false);
+                                                                                }}
+                                                                            >
+                                                                                {br.name}
+                                                                            </div>
+                                                                        ))
+                                                                    }
+                                                                    <div
+                                                                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm font-bold text-blue-600 border-t sticky bottom-0 bg-white"
+                                                                        onClick={() => {
+                                                                            setManualBranch(true);
+                                                                            field.onChange("");
+                                                                            setShowBranchList(false);
+                                                                        }}
+                                                                    >
+                                                                        + Other (Type manually)
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => removeMember(tIdx, mIdx)}
-                                                                className="h-7 w-7 p-0 text-red-500"
-                                                            >
-                                                                <Trash className="w-3 h-3" />
-                                                            </Button>
+                                                            )}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
+                                                    ) : (<div className="flex gap-2"><Input {...field} /><Button variant="ghost" onClick={() => setManualBranch(false)}>List</Button></div>)}
+                                                </FormItem>
+                                            )} />
 
-                                <DialogFooter>
-                                    <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-                                    <Button type="submit" disabled={mutation.isPending}>Save Contractor</Button>
-                                </DialogFooter>
+                                            <FormField control={form.control} name="bankAccountNumber" render={({ field }) => (
+                                                <FormItem className="col-span-2">
+                                                    <FormLabel>Account Number</FormLabel>
+                                                    <FormControl><Input {...field} /></FormControl>
+                                                </FormItem>
+                                            )} />
+
+                                            <FormField control={form.control} name="bankPassbookUrl" render={({ field }) => (
+                                                <FormItem className="col-span-2">
+                                                    <FormLabel>Bank Passbook Header</FormLabel>
+                                                    <div className="flex flex-col gap-2">
+                                                        {field.value && <img src={field.value} alt="Preview" className="h-20 w-32 object-cover rounded border" />}
+                                                        <Input type="file" accept="image/*,.pdf" onChange={async (e) => {
+                                                            const url = await uploadFile(e);
+                                                            if (url) field.onChange(url);
+                                                        }} />
+                                                    </div>
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                        <div className="flex justify-between border-t pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setStep(1)}>Back</Button>
+                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(3)}>Continue</Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 3: Documents */}
+                                {step === 3 && (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {[
+                                                { label: "Contractor Photo", field: "photoUrl" },
+                                                { label: "BR Certificate", field: "brCertUrl" },
+                                                { label: "NIC Front", field: "nicFrontUrl" },
+                                                { label: "NIC Back", field: "nicBackUrl" },
+                                                { label: "Police Report", field: "policeReportUrl" },
+                                                { label: "Grama Cert", field: "gramaCertUrl" }
+                                            ].map((doc) => (
+                                                <FormField key={doc.field} control={form.control} name={doc.field as any} render={({ field }) => (
+                                                    <FormItem className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                                        <FormLabel className="text-xs font-bold uppercase">{doc.label}</FormLabel>
+                                                        <div className="flex flex-col gap-2 mt-2">
+                                                            {field.value ? (
+                                                                <div className="relative group w-full h-24">
+                                                                    <img src={field.value} alt="Doc" className="w-full h-full object-cover rounded border" />
+                                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
+                                                                        <Button type="button" size="sm" variant="destructive" onClick={() => field.onChange("")}>Remove</Button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="w-full h-24 border-2 border-dashed rounded flex flex-col items-center justify-center bg-white cursor-pointer hover:border-blue-400 transition-colors relative">
+                                                                    <Upload className="w-6 h-6 text-slate-300" />
+                                                                    <span className="text-[10px] text-slate-400 mt-1">Click to upload</span>
+                                                                    <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer h-full" onChange={async (e) => {
+                                                                        const url = await uploadFile(e);
+                                                                        if (url) field.onChange(url);
+                                                                    }} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </FormItem>
+                                                )} />
+                                            ))}
+                                        </div>
+                                        <div className="flex justify-between border-t pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setStep(2)}>Back</Button>
+                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(form.watch('type') === 'SOD' ? 4 : 5)}>Continue</Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 4: Teams (SOD Only) */}
+                                {step === 4 && form.watch('type') === 'SOD' && (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                                        <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border">
+                                            <div>
+                                                <h4 className="font-bold text-slate-800">Team Management</h4>
+                                                <p className="text-xs text-slate-500">Add operational teams and assign members.</p>
+                                            </div>
+                                            <Button type="button" size="sm" variant="outline" onClick={addTeam}><Plus className="w-3 h-3 mr-1" /> Add Team</Button>
+                                        </div>
+
+                                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                                            {teams.map((team, tIdx) => (
+                                                <Card key={tIdx} className="border-slate-200">
+                                                    <CardContent className="p-4 space-y-4">
+                                                        <div className="flex justify-between gap-4">
+                                                            <Input value={team.name} onChange={(e) => updateTeam(tIdx, 'name', e.target.value)} placeholder="Team Name" className="flex-1" />
+                                                            <Button type="button" variant="ghost" size="sm" onClick={() => removeTeam(tIdx)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div>
+                                                                <Label className="text-xs">Primary Store</Label>
+                                                                <Select value={team.primaryStoreId || ""} onValueChange={(val) => updateTeam(tIdx, 'primaryStoreId', val)}>
+                                                                    <SelectTrigger className="h-9"><SelectValue placeholder="Select Store" /></SelectTrigger>
+                                                                    <SelectContent>{stores.map((s: any) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}</SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                            <div className="flex flex-col justify-end">
+                                                                <Button type="button" variant="outline" size="sm" onClick={() => addMember(tIdx)} className="h-9"><UserPlus className="w-3 h-3 mr-2" /> Add Member</Button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2 mt-4">
+                                                            {team.members.map((m, mIdx) => (
+                                                                <div key={mIdx} className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-100">
+                                                                    <Input value={m.name} onChange={(e) => updateMember(tIdx, mIdx, 'name', e.target.value)} placeholder="Member Name" className="h-8 text-xs flex-1" />
+                                                                    <Input value={m.idCopyNumber} onChange={(e) => updateMember(tIdx, mIdx, 'idCopyNumber', e.target.value)} placeholder="NIC" className="h-8 text-xs w-24" />
+                                                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeMember(tIdx, mIdx)} className="h-8 w-8 text-red-400 p-0"><Trash2 className="w-3 h-3" /></Button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                        <div className="flex justify-between border-t pt-4">
+                                            <Button type="button" variant="outline" onClick={() => setStep(3)}>Back</Button>
+                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(5)}>Continue</Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Step 5: Final Review & Save */}
+                                {step === 5 && (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-center py-8">
+                                        <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-blue-100">
+                                            <CheckCircle2 className="w-10 h-10 text-blue-600" />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-slate-900">Ready to Save?</h3>
+                                        <p className="text-slate-500 max-w-sm mx-auto">
+                                            Please review the information provided. Once saved, the contractor will be registered in the system.
+                                        </p>
+                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left space-y-2 text-sm">
+                                            <div className="flex justify-between"><span>Name:</span> <span className="font-bold">{form.getValues('name')}</span></div>
+                                            <div className="flex justify-between"><span>Type:</span> <span className="font-bold">{form.getValues('type')}</span></div>
+                                            <div className="flex justify-between"><span>Contact:</span> <span className="font-bold">{form.getValues('contactNumber')}</span></div>
+                                            {form.getValues('type') === 'SOD' && (
+                                                <div className="flex justify-between"><span>Teams:</span> <span className="font-bold">{teams.length} Team(s)</span></div>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-between border-t pt-6 mt-10">
+                                            <Button type="button" variant="outline" onClick={() => setStep(form.watch('type') === 'SOD' ? 4 : 3)}>Back</Button>
+                                            <Button type="submit" disabled={mutation.isPending} className="bg-blue-600 px-12">
+                                                {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                                Save Contractor
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </form>
                         </Form>
                     </DialogContent>
@@ -1116,7 +1002,7 @@ export default function ContractorsPage() {
                             <div className="space-y-2">
                                 <Label>Originating Office</Label>
                                 <div className="px-3 py-2 bg-slate-50 border rounded-md text-xs font-medium text-slate-600">
-                                    {user.accessibleOpmcs?.[0]?.name || 'Auto-detected from your profile'}
+                                    {(user as any).accessibleOpmcs?.[0]?.name || 'Auto-detected from your profile'}
                                 </div>
                                 <p className="text-[10px] text-slate-400">The registration will be routed to your regional ARM for approval.</p>
                             </div>
@@ -1156,6 +1042,6 @@ export default function ContractorsPage() {
                     />
                 )}
             </main>
-        </div >
+        </div>
     );
 }
