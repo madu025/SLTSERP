@@ -294,7 +294,7 @@ export class ContractorService {
                                     contractorId: contractor.id
                                 }))
                             }
-                        }
+                        } as any
                     });
                 }
             }
@@ -406,7 +406,7 @@ export class ContractorService {
                                 contractorId: contractor.id
                             }))
                         }
-                    }
+                    } as any
                 });
             }
         }
@@ -532,7 +532,7 @@ export class ContractorService {
                                     isPrimary: storeId === team.primaryStoreId
                                 }))
                             }
-                        }
+                        } as any
                     });
 
                     // Sync Members (Replace for simplicity)
@@ -581,7 +581,7 @@ export class ContractorService {
                                     contractorId: id
                                 }))
                             }
-                        }
+                        } as any
                     });
                 }
             }
