@@ -176,6 +176,11 @@ export class ContractorService {
             throw new Error('TOKEN_EXPIRED');
         }
 
+        // Status Check - Only PENDING or REJECTED can access the form
+        if (!['PENDING', 'REJECTED'].includes(contractor.status)) {
+            throw new Error('ALREADY_SUBMITTED');
+        }
+
         // Handle First Access - Start the 3-day clock
         if (!contractor.registrationStartedAt && contractor.status === 'PENDING') {
             const now = new Date();
@@ -234,8 +239,9 @@ export class ContractorService {
                 gramaCertUrl: restData.gramaCertUrl,
                 brCertUrl: restData.brCertUrl,
                 status: 'ARM_PENDING' as any,
-                registrationToken: null,
-                registrationTokenExpiry: null,
+                // Do not clear token, so we can identify 'Already Submitted' state
+                // registrationToken: null, 
+                // registrationTokenExpiry: null,
                 registrationDraft: null,
                 registrationStartedAt: null,
             } as any
