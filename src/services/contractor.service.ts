@@ -113,17 +113,20 @@ export class ContractorService {
     /**
      * Generate a unique registration link for a contractor
      */
-    static async generateRegistrationLink(data: { name: string, contactNumber: string, email?: string, type?: string, siteOfficeStaffId: string, opmcId?: string, origin: string }) {
+    static async generateRegistrationLink(data: { name: string, contactNumber: string, email?: string, type?: string, siteOfficeStaffId: string, origin: string }) {
         console.log("[GENERATE-LINK] Received data:", JSON.stringify(data, null, 2));
 
         const { name, contactNumber, email, siteOfficeStaffId, origin } = data;
-        let { opmcId, type } = data;
+        let { type } = data;
 
         // Default to SOD if type not specified
         if (!type) {
             console.log("[GENERATE-LINK] Type not specified, defaulting to SOD");
             type = 'SOD';
         }
+
+        // Contractors don't get direct OPMC assignment - that happens at team level
+        const opmcId = null;
 
         try {
             // Check for duplicates
@@ -148,7 +151,7 @@ export class ContractorService {
                         registrationTokenExpiry: expiry,
                         registrationStartedAt: null, // Reset activation clock
                         siteOfficeStaffId,
-                        opmcId
+                        opmcId: null // Teams handle OPMC assignment
                     } as any
                 });
                 console.log("[GENERATE-LINK] Successfully updated existing contractor");
@@ -173,7 +176,7 @@ export class ContractorService {
                     registrationToken: token,
                     registrationTokenExpiry: expiry,
                     siteOfficeStaffId,
-                    opmcId
+                    opmcId: null // Teams handle OPMC assignment
                 } as any
             });
 

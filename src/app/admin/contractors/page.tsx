@@ -135,19 +135,21 @@ export default function ContractorsPage() {
 
     // Invite Modal State
     const [inviteModalOpen, setInviteModalOpen] = useState(false);
-    const [inviteData, setInviteData] = useState({
+    const [inviteData, setInviteData] = useState<{
+        name: string;
+        contactNumber: string;
+        type: 'SOD' | 'OSP';
+    }>({
         name: '',
         contactNumber: '',
-        type: 'SOD' as 'SOD' | 'OSP',
-        opmcId: '' as string
+        type: 'SOD'
     });
 
     const handleInviteOpen = () => {
         setInviteData({
             name: '',
             contactNumber: '',
-            type: 'SOD',
-            opmcId: user.accessibleOpmcs?.[0]?.id || ''
+            type: 'SOD'
         });
         setInviteModalOpen(true);
     };
@@ -1105,23 +1107,10 @@ export default function ContractorsPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Originating Office (RTOM)</Label>
-                                {user.accessibleOpmcs && user.accessibleOpmcs.length > 1 ? (
-                                    <Select value={inviteData.opmcId} onValueChange={(v) => setInviteData({ ...inviteData, opmcId: v })}>
-                                        <SelectTrigger><SelectValue placeholder="Select RTOM" /></SelectTrigger>
-                                        <SelectContent>
-                                            {user.accessibleOpmcs.map((o: any) => (
-                                                <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <div className="px-3 py-2 bg-slate-50 border rounded-md text-xs font-medium text-slate-600">
-                                        {user.accessibleOpmcs?.[0]?.name || 'Auto-detected from your profile'}
-                                    </div>
-                                )}
-                                <p className="text-[10px] text-slate-400">The registration will be routed to the respective regional ARM for approval.</p>
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <p className="text-xs text-blue-800">
+                                    <strong>Note:</strong> RTOM and Store assignments will be configured through Teams after registration is completed.
+                                </p>
                             </div>
                         </div>
                         <DialogFooter>
