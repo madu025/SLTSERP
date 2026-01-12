@@ -23,7 +23,7 @@ export class ServiceOrderService {
         const skip = (page - 1) * limit;
 
         if (!opmcId) {
-            throw new Error('OPMC_ID_REQUIRED');
+            throw new Error('RTOM_ID_REQUIRED');
         }
 
         // Build where clause
@@ -371,7 +371,7 @@ export class ServiceOrderService {
      */
     static async syncServiceOrders(opmcId: string, rtom: string) {
         if (!opmcId || !rtom) {
-            throw new Error('OPMC_ID_AND_RTOM_REQUIRED');
+            throw new Error('RTOM_AND_ID_REQUIRED');
         }
 
         // Fetch data from SLT API
