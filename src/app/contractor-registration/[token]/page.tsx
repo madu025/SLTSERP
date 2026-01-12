@@ -75,34 +75,38 @@ export default function PublicContractorRegistrationPage() {
                 const data = await res.json();
                 setContractor(data);
 
-                // Restore from draft or existing data
-                if (data.registrationDraft) {
-                    setFormData(prev => ({ ...prev, ...data.registrationDraft }));
-                    // Use small timeout to ensure UI updates after loading state clears
-                    setTimeout(() => toast.info("Your previous progress has been restored."), 500);
-                } else if (data.status === 'REJECTED' || data.status === 'PENDING') {
-                    // Pre-fill from existing contractor record if available
-                    setFormData(prev => ({
+                // Smart fill: Combine draft data and existing record data
+                setFormData(prev => {
+                    const draft = data.registrationDraft || {};
+                    const existingTeams = data.teams && data.teams.length > 0 ? data.teams.map((t: any) => ({
+                        ...t,
+                        primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || ""
+                    })) : null;
+
+                    return {
                         ...prev,
-                        nic: data.nic || prev.nic,
-                        address: data.address || prev.address,
-                        contactNumber: data.contactNumber || prev.contactNumber,
-                        brNumber: data.brNumber || prev.brNumber,
-                        bankName: data.bankName || prev.bankName,
-                        bankBranch: data.bankBranch || prev.bankBranch,
-                        bankAccountNumber: data.bankAccountNumber || prev.bankAccountNumber,
-                        bankPassbookUrl: data.bankPassbookUrl || prev.bankPassbookUrl,
-                        photoUrl: data.photoUrl || prev.photoUrl,
-                        nicFrontUrl: data.nicFrontUrl || prev.nicFrontUrl,
-                        nicBackUrl: data.nicBackUrl || prev.nicBackUrl,
-                        policeReportUrl: data.policeReportUrl || prev.policeReportUrl,
-                        gramaCertUrl: data.gramaCertUrl || prev.gramaCertUrl,
-                        brCertUrl: data.brCertUrl || prev.brCertUrl,
-                        teams: data.teams && data.teams.length > 0 ? data.teams.map((t: any) => ({
-                            ...t,
-                            primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || ""
-                        })) : prev.teams
-                    }));
+                        ...draft,
+                        // Fallback to existing record if draft field is empty
+                        nic: draft.nic || data.nic || prev.nic,
+                        address: draft.address || data.address || prev.address,
+                        contactNumber: draft.contactNumber || data.contactNumber || prev.contactNumber,
+                        brNumber: draft.brNumber || data.brNumber || prev.brNumber,
+                        bankName: draft.bankName || data.bankName || prev.bankName,
+                        bankBranch: draft.bankBranch || data.bankBranch || prev.bankBranch,
+                        bankAccountNumber: draft.bankAccountNumber || data.bankAccountNumber || prev.bankAccountNumber,
+                        bankPassbookUrl: draft.bankPassbookUrl || data.bankPassbookUrl || prev.bankPassbookUrl,
+                        photoUrl: draft.photoUrl || data.photoUrl || prev.photoUrl,
+                        nicFrontUrl: draft.nicFrontUrl || data.nicFrontUrl || prev.nicFrontUrl,
+                        nicBackUrl: draft.nicBackUrl || data.nicBackUrl || prev.nicBackUrl,
+                        policeReportUrl: draft.policeReportUrl || data.policeReportUrl || prev.policeReportUrl,
+                        gramaCertUrl: draft.gramaCertUrl || data.gramaCertUrl || prev.gramaCertUrl,
+                        brCertUrl: draft.brCertUrl || data.brCertUrl || prev.brCertUrl,
+                        teams: (draft.teams && draft.teams.length > 0) ? draft.teams : (existingTeams || prev.teams)
+                    };
+                });
+
+                if (data.registrationDraft) {
+                    setTimeout(() => toast.info("Your previous progress has been restored."), 500);
                 }
             } catch (error: any) {
                 toast.error(error.message);
@@ -295,48 +299,62 @@ export default function PublicContractorRegistrationPage() {
     }, [formData, token, loading, submitted]);
 
     const handleSubmit = async () => {
+        console.log("Starting registration submission...", formData);
+
         // Validation
         if (!formData.address || !formData.nic || !formData.contactNumber) {
-            toast.error("Please fill in all Basic Information");
+            toast.error("Please fill in all Basic Information (Step 1)");
             setStep(1);
             return;
         }
 
         if (!formData.bankName || !formData.bankAccountNumber || !formData.bankPassbookUrl) {
-            toast.error("Please provide complete Banking Details including the Passbook photo.");
+            toast.error("Please provide complete Banking Details (Step 2)");
             setStep(2);
             return;
         }
 
-        if (formData.teams.length === 0 || formData.teams.some(t => !t.name || !t.primaryStoreId)) {
-            toast.error("Please ensure all teams have a name and a primary store assigned.");
-            setStep(4);
-            return;
-        }
-
-        if (!formData.nicFrontUrl || !formData.nicBackUrl) {
-            toast.error("Please upload both NIC Front and Back images.");
+        if (!formData.nicFrontUrl || !formData.nicBackUrl || !formData.photoUrl) {
+            toast.error("Please upload all required Documents (Step 3)");
             setStep(3);
             return;
         }
 
+        // Team Validation - Only required for SOD type contractors
+        if (isSOD) {
+            if (formData.teams.length === 0 || formData.teams.some(t => !t.name || !t.primaryStoreId)) {
+                toast.error("Please ensure all teams have a name and a primary store assigned (Step 4)");
+                setStep(4);
+                return;
+            }
+        }
+
         setSubmitting(true);
         try {
+            // Prepare final data - if not SOD, we might want to ensure a default team structure
+            const finalData = { ...formData };
+            if (!isSOD && finalData.teams.length === 1 && !finalData.teams[0].primaryStoreId) {
+                // For non-SOD, we can auto-assign the first team to the contractor's OPMC store if needed
+                // but for now, we just skip it to avoid validation errors
+            }
+
             const res = await fetch(`/api/contractors/public-register/${token}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(finalData)
             });
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.message || "Failed to submit registration");
+                console.error("Submission failed server-side:", err);
+                throw new Error(err.error || err.message || "Failed to submit registration");
             }
 
             toast.success("Registration submitted successfully!");
             setSubmitted(true);
         } catch (error: any) {
-            toast.error(error.message);
+            console.error("Submission error:", error);
+            toast.error(error.message || "Something went wrong during submission");
         } finally {
             setSubmitting(false);
         }

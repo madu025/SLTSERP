@@ -270,7 +270,24 @@ export class ContractorService {
 
         // Merge with existing draft to prevent data loss from client-side race conditions
         const currentDraft = (contractor.registrationDraft as any) || {};
-        const mergedDraft = { ...currentDraft, ...draftData };
+        const mergedDraft = { ...currentDraft };
+
+        // Smart merge: Only update if the new value is "meaningful" (not empty/null/stale)
+        // This protects against a full form-state upload with empty fields overwriting specific uploads
+        for (const key in draftData) {
+            const newVal = draftData[key];
+
+            // If it's an object/array (like teams), we might want to be more specific, 
+            // but for now, we only update if the value is not empty.
+            if (newVal !== "" && newVal !== null && newVal !== undefined) {
+                // Special case for teams: only update if the incoming teams array has content or members
+                if (key === 'teams' && Array.isArray(newVal)) {
+                    if (newVal.length > 0) mergedDraft[key] = newVal;
+                } else {
+                    mergedDraft[key] = newVal;
+                }
+            }
+        }
 
         return await prisma.contractor.update({
             where: { id: contractor.id },
@@ -363,10 +380,12 @@ export class ContractorService {
 
         // 4. Notify Relevant Staff (Outside transaction for reliability)
         try {
+            console.log("Submission successful. Sending notifications for contractor:", result.name);
             const message = `Contractor "${result.name}" has submitted their registration form and is waiting for ARM review.`;
 
             // Notify the person who generated the link
             if (result.siteOfficeStaffId) {
+                console.log("Notifying link generator (siteOfficeStaffId):", result.siteOfficeStaffId);
                 await NotificationService.send({
                     userId: result.siteOfficeStaffId,
                     title: "New Contractor Submission",
@@ -378,6 +397,7 @@ export class ContractorService {
             }
 
             // Also notify ARMs and Admins
+            console.log("Broadcasting notifications to management roles...");
             await NotificationService.notifyByRole({
                 roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN', 'ENGINEER'],
                 title: "Contractor Pending Review",
@@ -387,6 +407,7 @@ export class ContractorService {
                 link: `/admin/contractors`,
                 opmcId: result.opmcId || undefined
             });
+            console.log("All notifications sent successfully.");
         } catch (nErr) {
             console.error("Failed to send submission notifications:", nErr);
         }
