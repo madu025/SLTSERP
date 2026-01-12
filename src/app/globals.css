@@ -104,11 +104,15 @@ body.dark-mode {
 
 body.dark-mode .bg-white,
 body.dark-mode .bg-white\/90,
-body.dark-mode .bg-white\/80 {
+body.dark-mode .bg-white\/80,
+.dark .bg-white,
+.dark .bg-white\/90,
+.dark .bg-white\/80 {
   background-color: rgb(var(--color-card)) !important;
 }
 
-body.dark-mode .bg-slate-50 {
+body.dark-mode .bg-slate-50,
+.dark .bg-slate-50 {
   background-color: rgba(100, 116, 139, 0.1) !important;
 }
 
@@ -117,22 +121,30 @@ body.dark-mode .bg-slate-100 {
 }
 
 body.dark-mode .text-slate-900,
-body.dark-mode .text-slate-800 {
+body.dark-mode .text-slate-800,
+.dark .text-slate-900,
+.dark .text-slate-800 {
   color: rgb(248, 250, 252) !important;
 }
 
 body.dark-mode .text-slate-700,
-body.dark-mode .text-slate-600 {
+body.dark-mode .text-slate-600,
+.dark .text-slate-700,
+.dark .text-slate-600 {
   color: rgb(226, 232, 240) !important;
 }
 
 body.dark-mode .text-slate-500,
-body.dark-mode .text-slate-400 {
+body.dark-mode .text-slate-400,
+.dark .text-slate-500,
+.dark .text-slate-400 {
   color: rgb(148, 163, 184) !important;
 }
 
 body.dark-mode .border-slate-200,
-body.dark-mode .border-slate-100 {
+body.dark-mode .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-100 {
   border-color: rgb(51, 65, 85) !important;
 }
 
