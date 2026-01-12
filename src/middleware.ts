@@ -16,7 +16,8 @@ const publicPaths = [
     '/api/inventory/stores',
     '/api/upload',
     '/team-upload',
-    '/api/team-members/public'
+    '/api/team-members/public',
+    '/api/health'
 ];
 
 export async function middleware(request: NextRequest) {
