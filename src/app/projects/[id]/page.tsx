@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs-new';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Calendar, MapPin, Building2, User, Phone, Mail } from 'lucide-react';
 import ProjectOverview from '@/components/projects/ProjectOverview';
 import ProjectBOQ from '@/components/projects/ProjectBOQ';
