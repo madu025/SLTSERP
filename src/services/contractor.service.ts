@@ -118,20 +118,37 @@ export class ContractorService {
         let { opmcId } = data;
 
         // Check for duplicates
-        await this.validateUnique({ contactNumber });
-
-        // If OPMC not provided, derive from staff
-        if (!opmcId) {
-            const staff = await prisma.user.findUnique({
-                where: { id: siteOfficeStaffId },
-                include: { accessibleOpmcs: { select: { id: true } } }
-            });
-            opmcId = staff?.accessibleOpmcs?.[0]?.id || undefined;
-        }
+        const existing = await prisma.contractor.findFirst({
+            where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] as any } }
+        });
 
         const token = require('crypto').randomUUID();
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + 7);
+
+        if (existing) {
+            // Update existing record with fresh token
+            const updated = await prisma.contractor.update({
+                where: { id: existing.id },
+                data: {
+                    name,
+                    type,
+                    registrationToken: token,
+                    registrationTokenExpiry: expiry,
+                    registrationStartedAt: null, // Reset activation clock
+                    siteOfficeStaffId,
+                    opmcId
+                } as any
+            });
+            return {
+                contractor: updated,
+                registrationLink: `${origin}/contractor-registration/${token}`,
+                isUpdate: true
+            };
+        }
+
+        // Validate other unique fields for brand new contractors
+        await this.validateUnique({ contactNumber });
 
         const contractor = await prisma.contractor.create({
             data: {
@@ -176,7 +193,7 @@ export class ContractorService {
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + 7);
 
-        await prisma.contractor.update({
+        const updated = await prisma.contractor.update({
             where: { id },
             data: {
                 registrationToken: token,
@@ -186,7 +203,7 @@ export class ContractorService {
         });
 
         return {
-            contractor,
+            contractor: updated,
             registrationLink: `${origin}/contractor-registration/${token}`
         };
     }
@@ -336,8 +353,8 @@ export class ContractorService {
                     });
                 }
 
-                // Also notify ARMs and Admins in the same OPMC
-                // We notify SUPER_ADMIN and ADMIN globally, others per OPMC
+                // Also notify ARMs and Admins in the same RTOM
+                // We notify SUPER_ADMIN and ADMIN globally, others per RTOM
                 await NotificationService.notifyByRole({
                     roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN'],
                     title: "Contractor Pending Review",
@@ -508,7 +525,7 @@ export class ContractorService {
                             priority: 'MEDIUM'
                         });
 
-                        // Also notify OSP Managers in the same OPMC
+                        // Also notify OSP Managers in the same RTOM
                         await NotificationService.notifyByRole({
                             roles: ['OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
                             title: "New Contractor Pending Authorization",

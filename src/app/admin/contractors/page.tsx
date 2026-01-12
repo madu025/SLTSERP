@@ -995,11 +995,21 @@ export default function ContractorsPage() {
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
                                 <Label>Contractor Name</Label>
-                                <Input placeholder="Company name or Individual" value={inviteData.name} onChange={e => setInviteData({ ...inviteData, name: e.target.value })} />
+                                <Input
+                                    placeholder="Company name or Individual"
+                                    value={inviteData.name}
+                                    onChange={e => setInviteData({ ...inviteData, name: e.target.value })}
+                                    autoComplete="off"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Phone Number (Mobile)</Label>
-                                <Input placeholder="07XXXXXXXX" value={inviteData.contactNumber} onChange={e => setInviteData({ ...inviteData, contactNumber: e.target.value })} />
+                                <Input
+                                    placeholder="07XXXXXXXX"
+                                    value={inviteData.contactNumber}
+                                    onChange={e => setInviteData({ ...inviteData, contactNumber: e.target.value })}
+                                    autoComplete="off"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label>Contractor Type</Label>
