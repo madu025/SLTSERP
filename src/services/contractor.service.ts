@@ -267,9 +267,14 @@ export class ContractorService {
      */
     static async saveRegistrationDraft(token: string, draftData: any) {
         const contractor = await this.getContractorByToken(token);
+
+        // Merge with existing draft to prevent data loss from client-side race conditions
+        const currentDraft = (contractor.registrationDraft as any) || {};
+        const mergedDraft = { ...currentDraft, ...draftData };
+
         return await prisma.contractor.update({
             where: { id: contractor.id },
-            data: { registrationDraft: draftData } as any
+            data: { registrationDraft: mergedDraft } as any
         });
     }
 

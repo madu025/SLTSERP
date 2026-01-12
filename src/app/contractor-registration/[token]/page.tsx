@@ -50,6 +50,12 @@ export default function PublicContractorRegistrationPage() {
         brCertUrl: ""
     });
     const [stores, setStores] = useState<any[]>([]);
+    const formDataRef = React.useRef(formData);
+
+    // Keep ref in sync
+    useEffect(() => {
+        formDataRef.current = formData;
+    }, [formData]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -71,7 +77,7 @@ export default function PublicContractorRegistrationPage() {
 
                 // Restore from draft or existing data
                 if (data.registrationDraft) {
-                    setFormData(data.registrationDraft);
+                    setFormData(prev => ({ ...prev, ...data.registrationDraft }));
                     // Use small timeout to ensure UI updates after loading state clears
                     setTimeout(() => toast.info("Your previous progress has been restored."), 500);
                 } else if (data.status === 'REJECTED' || data.status === 'PENDING') {
@@ -230,7 +236,7 @@ export default function PublicContractorRegistrationPage() {
         });
     };
 
-    const saveDraft = async (dataToSave = formData) => {
+    const saveDraft = async (dataToSave: any = formDataRef.current) => {
         try {
             await fetch(`/api/contractors/public-register/${token}`, {
                 method: "PATCH",
@@ -276,6 +282,17 @@ export default function PublicContractorRegistrationPage() {
             return { ...prev, teams: updated };
         });
     };
+
+    // Auto-save draft on changes
+    useEffect(() => {
+        if (!token || loading || submitted) return;
+
+        const timer = setTimeout(() => {
+            saveDraft();
+        }, 2000); // 2 second debounce
+
+        return () => clearTimeout(timer);
+    }, [formData, token, loading, submitted]);
 
     const handleSubmit = async () => {
         // Validation
@@ -449,19 +466,19 @@ export default function PublicContractorRegistrationPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label>NIC Number</Label>
-                                        <Input value={formData.nic} onChange={e => setFormData({ ...formData, nic: e.target.value })} />
+                                        <Input value={formData.nic} onChange={e => setFormData(p => ({ ...p, nic: e.target.value }))} />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>BR Number</Label>
-                                        <Input value={formData.brNumber} onChange={e => setFormData({ ...formData, brNumber: e.target.value })} />
+                                        <Input value={formData.brNumber} onChange={e => setFormData(p => ({ ...p, brNumber: e.target.value }))} />
                                     </div>
                                     <div className="space-y-2 sm:col-span-2">
                                         <Label>Contact Number</Label>
-                                        <Input value={formData.contactNumber} onChange={e => setFormData({ ...formData, contactNumber: e.target.value })} />
+                                        <Input value={formData.contactNumber} onChange={e => setFormData(p => ({ ...p, contactNumber: e.target.value }))} />
                                     </div>
                                     <div className="space-y-2 sm:col-span-2">
                                         <Label>Business Address</Label>
-                                        <Textarea rows={3} value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                                        <Textarea rows={3} value={formData.address} onChange={e => setFormData(p => ({ ...p, address: e.target.value }))} />
                                     </div>
                                 </div>
                                 <div className="flex justify-end pt-4"><Button onClick={() => { setStep(2); saveDraft(); }} className="bg-blue-600 px-8" disabled={!formData.contactNumber || !formData.address}>Continue</Button></div>
@@ -477,13 +494,13 @@ export default function PublicContractorRegistrationPage() {
                                             <Select
                                                 value={banks.find(b => b.name === formData.bankName)?.id}
                                                 onValueChange={(val) => {
-                                                    if (val === "OTHER") { setManualBank(true); setFormData({ ...formData, bankName: "" }); }
-                                                    else { const bank = banks.find(b => b.id === val); setFormData({ ...formData, bankName: bank?.name || "" }); }
+                                                    if (val === "OTHER") { setManualBank(true); setFormData(p => ({ ...p, bankName: "" })); }
+                                                    else { const bank = banks.find(b => b.id === val); setFormData(p => ({ ...p, bankName: bank?.name || "" })); }
                                                 }}>
                                                 <SelectTrigger><SelectValue placeholder={banks.length > 0 ? "Select a bank" : "Loading..."} /></SelectTrigger>
                                                 <SelectContent>{banks.map(b => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}<SelectItem value="OTHER">+ Other (Type manually)</SelectItem></SelectContent>
                                             </Select>
-                                        ) : (<div className="flex gap-2"><Input value={formData.bankName} onChange={e => setFormData({ ...formData, bankName: e.target.value })} /><Button variant="ghost" onClick={() => setManualBank(false)}>List</Button></div>)}
+                                        ) : (<div className="flex gap-2"><Input value={formData.bankName} onChange={e => setFormData(p => ({ ...p, bankName: e.target.value }))} /><Button variant="ghost" onClick={() => setManualBank(false)}>List</Button></div>)}
                                     </div>
                                     <div className="space-y-2 sm:col-span-2">
                                         <Label>Branch</Label>
@@ -509,7 +526,7 @@ export default function PublicContractorRegistrationPage() {
                                                                     key={i}
                                                                     className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-sm transition-colors border-b border-slate-50 last:border-0"
                                                                     onClick={() => {
-                                                                        setFormData({ ...formData, bankBranch: br.name });
+                                                                        setFormData(p => ({ ...p, bankBranch: br.name }));
                                                                         setBranchSearch(br.name);
                                                                         setShowBranchList(false);
                                                                     }}
@@ -539,7 +556,7 @@ export default function PublicContractorRegistrationPage() {
                                                 <Input
                                                     placeholder="Enter branch name"
                                                     value={formData.bankBranch}
-                                                    onChange={e => setFormData({ ...formData, bankBranch: e.target.value })}
+                                                    onChange={e => setFormData(p => ({ ...p, bankBranch: e.target.value }))}
                                                 />
                                                 <Button variant="ghost" size="sm" onClick={() => setManualBranch(false)}>Select List</Button>
                                             </div>
@@ -547,7 +564,7 @@ export default function PublicContractorRegistrationPage() {
                                     </div>
                                     <div className="space-y-2 sm:col-span-2">
                                         <Label>Account Number</Label>
-                                        <Input value={formData.bankAccountNumber} onChange={e => setFormData({ ...formData, bankAccountNumber: e.target.value })} />
+                                        <Input value={formData.bankAccountNumber} onChange={e => setFormData(p => ({ ...p, bankAccountNumber: e.target.value }))} />
                                     </div>
                                     <div className="space-y-2 sm:col-span-2">
                                         <Label className="flex justify-between items-center">
@@ -562,11 +579,8 @@ export default function PublicContractorRegistrationPage() {
                                                     onChange={async (e) => {
                                                         const url = await uploadFile(e, 'bankPassbookUrl');
                                                         if (url) {
-                                                            setFormData(prev => {
-                                                                const next = { ...prev, bankPassbookUrl: url };
-                                                                saveDraft(next);
-                                                                return next;
-                                                            });
+                                                            setFormData(p => ({ ...p, bankPassbookUrl: url }));
+                                                            saveDraft({ bankPassbookUrl: url });
                                                         }
                                                     }}
                                                     className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
@@ -645,11 +659,8 @@ export default function PublicContractorRegistrationPage() {
                                                             onChange={async (e) => {
                                                                 const url = await uploadFile(e, doc.field);
                                                                 if (url) {
-                                                                    setFormData(prev => {
-                                                                        const next = { ...prev, [doc.field]: url };
-                                                                        saveDraft(next);
-                                                                        return next;
-                                                                    });
+                                                                    setFormData(prev => ({ ...prev, [doc.field]: url }));
+                                                                    saveDraft({ [doc.field]: url });
                                                                 }
                                                             }}
                                                         />
