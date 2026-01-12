@@ -272,7 +272,7 @@ export class ContractorService {
         }, contractor.id);
 
         // Use transaction to ensure data integrity
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             // 1. Update Contractor Basic Details
             const updated = await tx.contractor.update({
                 where: { id: contractor.id },
@@ -296,6 +296,8 @@ export class ContractorService {
                     status: 'ARM_PENDING' as any,
                     registrationDraft: null,
                     registrationStartedAt: null,
+                    registrationToken: null,
+                    registrationTokenExpiry: null,
                 } as any
             });
 
@@ -335,41 +337,40 @@ export class ContractorService {
                 }
             }
 
-            // 4. Notify Relevant Staff (Asynchronously)
-            // We do this outside/at the end to not block user response if possible, 
-            // but for reliability here we stick to simple logic.
-            try {
-                const message = `Contractor "${updated.name}" has submitted their registration form and is waiting for ARM review.`;
-
-                // Notify the person who generated the link
-                if (updated.siteOfficeStaffId) {
-                    await NotificationService.send({
-                        userId: updated.siteOfficeStaffId,
-                        title: "New Contractor Submission",
-                        message,
-                        type: 'CONTRACTOR',
-                        priority: 'HIGH',
-                        link: `/admin/contractors/approvals`
-                    });
-                }
-
-                // Also notify ARMs and Admins in the same RTOM
-                // We notify SUPER_ADMIN and ADMIN globally, others per RTOM
-                await NotificationService.notifyByRole({
-                    roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN'],
-                    title: "Contractor Pending Review",
-                    message,
-                    type: 'CONTRACTOR',
-                    priority: 'MEDIUM',
-                    link: `/admin/contractors/approvals`,
-                    opmcId: updated.opmcId || undefined
-                });
-            } catch (nErr) {
-                console.error("Failed to send submission notifications:", nErr);
-            }
-
             return updated;
         });
+
+        // 4. Notify Relevant Staff (Outside transaction for reliability)
+        try {
+            const message = `Contractor "${result.name}" has submitted their registration form and is waiting for ARM review.`;
+
+            // Notify the person who generated the link
+            if (result.siteOfficeStaffId) {
+                await NotificationService.send({
+                    userId: result.siteOfficeStaffId,
+                    title: "New Contractor Submission",
+                    message,
+                    type: 'CONTRACTOR',
+                    priority: 'HIGH',
+                    link: `/admin/contractors`
+                });
+            }
+
+            // Also notify ARMs and Admins
+            await NotificationService.notifyByRole({
+                roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN', 'ENGINEER'],
+                title: "Contractor Pending Review",
+                message,
+                type: 'CONTRACTOR',
+                priority: 'MEDIUM',
+                link: `/admin/contractors`,
+                opmcId: result.opmcId || undefined
+            });
+        } catch (nErr) {
+            console.error("Failed to send submission notifications:", nErr);
+        }
+
+        return result;
     }
 
     /**
