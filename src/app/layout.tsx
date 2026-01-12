@@ -20,6 +20,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SLTSERP - Construction ERP",
   description: "OSP Construction Management System",
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
