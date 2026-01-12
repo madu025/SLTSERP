@@ -23,6 +23,7 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  colorScheme: 'light dark',
 };
 
 export default function RootLayout({
