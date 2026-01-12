@@ -213,7 +213,15 @@ export class ContractorService {
      */
     static async getContractorByToken(token: string) {
         const contractor = await prisma.contractor.findFirst({
-            where: { registrationToken: token } as any
+            where: { registrationToken: token } as any,
+            include: {
+                teams: {
+                    include: {
+                        members: true,
+                        storeAssignments: true
+                    }
+                }
+            }
         }) as any;
 
         if (!contractor) throw new Error('INVALID_TOKEN');
@@ -239,7 +247,15 @@ export class ContractorService {
                 data: {
                     registrationStartedAt: now,
                     registrationTokenExpiry: expiry
-                } as any
+                } as any,
+                include: {
+                    teams: {
+                        include: {
+                            members: true,
+                            storeAssignments: true
+                        }
+                    }
+                }
             });
         }
 
