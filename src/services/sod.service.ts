@@ -8,7 +8,7 @@ export class ServiceOrderService {
      * Get all service orders with filtering and sorting
      */
     static async getServiceOrders(params: {
-        opmcId: string;
+        rtomId: string;
         filter?: string;
         search?: string;
         statusFilter?: string;
@@ -19,7 +19,7 @@ export class ServiceOrderService {
         month?: number;
         year?: number;
     }) {
-        const { opmcId, filter, search, statusFilter, patFilter, matFilter, page = 1, limit = 50, month, year } = params;
+        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, page = 1, limit = 50, month, year } = params;
         const skip = (page - 1) * limit;
 
         if (!opmcId) {

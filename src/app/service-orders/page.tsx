@@ -185,7 +185,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
 
-            const res = await fetch(`/api/service-orders?opmcId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${page}&limit=${limit}`);
+            const res = await fetch(`/api/service-orders?rtomId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${page}&limit=${limit}`);
             return res.json();
         },
         enabled: !!selectedOpmcId,

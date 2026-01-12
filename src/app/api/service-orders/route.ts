@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const params = {
-            opmcId: searchParams.get('opmcId') || '',
+            rtomId: searchParams.get('rtomId') || searchParams.get('opmcId') || '',
             filter: searchParams.get('filter') || 'pending',
             search: searchParams.get('search') || undefined,
             statusFilter: searchParams.get('statusFilter') || undefined,
@@ -20,8 +20,8 @@ export async function GET(request: Request) {
             year: searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined,
         };
 
-        if (!params.opmcId) {
-            return NextResponse.json({ message: 'RTOM ID required' }, { status: 400 });
+        if (!params.rtomId) {
+            return NextResponse.json({ message: 'RTOM selection is required' }, { status: 400 });
         }
 
         const result = await ServiceOrderService.getServiceOrders(params);
