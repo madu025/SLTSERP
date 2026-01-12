@@ -266,10 +266,12 @@ export class ContractorService {
      * Save partial registration data as draft
      */
     static async saveRegistrationDraft(token: string, draftData: any) {
+        console.log("[DRAFT-SAVE] Incoming data:", JSON.stringify(draftData, null, 2));
         const contractor = await this.getContractorByToken(token);
 
         // Merge with existing draft to prevent data loss from client-side race conditions
         const currentDraft = (contractor.registrationDraft as any) || {};
+        console.log("[DRAFT-SAVE] Current DB draft:", JSON.stringify(currentDraft, null, 2));
         const mergedDraft = { ...currentDraft };
 
         // Smart merge: Only update if the new value is "meaningful" (not empty/null/stale)
@@ -282,12 +284,20 @@ export class ContractorService {
             if (newVal !== "" && newVal !== null && newVal !== undefined) {
                 // Special case for teams: only update if the incoming teams array has content or members
                 if (key === 'teams' && Array.isArray(newVal)) {
-                    if (newVal.length > 0) mergedDraft[key] = newVal;
+                    if (newVal.length > 0) {
+                        console.log(`[DRAFT-SAVE] Updating teams (${newVal.length} items)`);
+                        mergedDraft[key] = newVal;
+                    }
                 } else {
+                    console.log(`[DRAFT-SAVE] Updating ${key}`);
                     mergedDraft[key] = newVal;
                 }
+            } else {
+                console.log(`[DRAFT-SAVE] Skipping empty ${key}`);
             }
         }
+
+        console.log("[DRAFT-SAVE] Final merged:", JSON.stringify(mergedDraft, null, 2));
 
         return await prisma.contractor.update({
             where: { id: contractor.id },

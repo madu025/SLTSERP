@@ -287,16 +287,8 @@ export default function PublicContractorRegistrationPage() {
         });
     };
 
-    // Auto-save draft on changes
-    useEffect(() => {
-        if (!token || loading || submitted) return;
-
-        const timer = setTimeout(() => {
-            saveDraft();
-        }, 2000); // 2 second debounce
-
-        return () => clearTimeout(timer);
-    }, [formData, token, loading, submitted]);
+    // Auto-save disabled - relying on explicit saves after each action to prevent race conditions
+    // The previous auto-save was overwriting partial uploads with stale form state
 
     const handleSubmit = async () => {
         console.log("Starting registration submission...", formData);
@@ -595,10 +587,19 @@ export default function PublicContractorRegistrationPage() {
                                                     type="file"
                                                     accept="image/*,.pdf"
                                                     onChange={async (e) => {
+                                                        console.log("[UPLOAD] Starting upload for bankPassbookUrl");
                                                         const url = await uploadFile(e, 'bankPassbookUrl');
                                                         if (url) {
-                                                            setFormData(p => ({ ...p, bankPassbookUrl: url }));
-                                                            saveDraft({ bankPassbookUrl: url });
+                                                            console.log("[UPLOAD] Success for bankPassbookUrl:", url);
+                                                            setFormData(p => {
+                                                                const updated = { ...p, bankPassbookUrl: url };
+                                                                console.log("[STATE] Updated bankPassbookUrl in form state");
+                                                                return updated;
+                                                            });
+                                                            const saveResult = await saveDraft({ bankPassbookUrl: url });
+                                                            console.log("[SAVE] Draft saved for bankPassbookUrl:", saveResult);
+                                                        } else {
+                                                            console.error("[UPLOAD] Failed for bankPassbookUrl");
                                                         }
                                                     }}
                                                     className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
@@ -675,10 +676,20 @@ export default function PublicContractorRegistrationPage() {
                                                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                                             accept="image/*,.pdf"
                                                             onChange={async (e) => {
+                                                                console.log(`[UPLOAD] Starting upload for ${doc.field}`);
                                                                 const url = await uploadFile(e, doc.field);
                                                                 if (url) {
-                                                                    setFormData(prev => ({ ...prev, [doc.field]: url }));
-                                                                    saveDraft({ [doc.field]: url });
+                                                                    console.log(`[UPLOAD] Success for ${doc.field}:`, url);
+                                                                    setFormData(prev => {
+                                                                        const updated = { ...prev, [doc.field]: url };
+                                                                        console.log(`[STATE] Updated ${doc.field} in form state`);
+                                                                        return updated;
+                                                                    });
+                                                                    // Immediate save with just this field
+                                                                    const saveResult = await saveDraft({ [doc.field]: url });
+                                                                    console.log(`[SAVE] Draft saved for ${doc.field}:`, saveResult);
+                                                                } else {
+                                                                    console.error(`[UPLOAD] Failed for ${doc.field}`);
                                                                 }
                                                             }}
                                                         />
@@ -779,13 +790,24 @@ export default function PublicContractorRegistrationPage() {
                                                                             type="file"
                                                                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                                                             onChange={async (e) => {
+                                                                                console.log(`[UPLOAD] Starting upload for member-${tIdx}-${mIdx}`);
                                                                                 const url = await uploadFile(e, `member-${tIdx}-${mIdx}`);
                                                                                 if (url) {
-                                                                                    const updatedTeams = [...formData.teams];
-                                                                                    updatedTeams[tIdx].members[mIdx].passportPhotoUrl = url;
-                                                                                    const next = { ...formData, teams: updatedTeams };
-                                                                                    setFormData(next);
-                                                                                    saveDraft(next);
+                                                                                    console.log(`[UPLOAD] Success for member photo:`, url);
+                                                                                    setFormData(prev => {
+                                                                                        const newTeams = [...prev.teams];
+                                                                                        const newMembers = [...newTeams[tIdx].members];
+                                                                                        newMembers[mIdx] = { ...newMembers[mIdx], passportPhotoUrl: url, photoUrl: url };
+                                                                                        newTeams[tIdx] = { ...newTeams[tIdx], members: newMembers };
+                                                                                        console.log(`[STATE] Updated member photo`);
+                                                                                        return { ...prev, teams: newTeams };
+                                                                                    });
+                                                                                    // Wait a tick for state to update, then save from ref
+                                                                                    await new Promise(r => setTimeout(r, 100));
+                                                                                    const saveResult = await saveDraft({ teams: formDataRef.current.teams });
+                                                                                    console.log(`[SAVE] Draft saved for member photo`);
+                                                                                } else {
+                                                                                    console.error(`[UPLOAD] Failed for member photo`);
                                                                                 }
                                                                             }}
                                                                         />
