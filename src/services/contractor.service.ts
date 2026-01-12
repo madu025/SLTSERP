@@ -113,61 +113,79 @@ export class ContractorService {
     /**
      * Generate a unique registration link for a contractor
      */
-    static async generateRegistrationLink(data: { name: string, contactNumber: string, email?: string, type: string, siteOfficeStaffId: string, opmcId?: string, origin: string }) {
-        const { name, contactNumber, email, type, siteOfficeStaffId, origin } = data;
-        let { opmcId } = data;
+    static async generateRegistrationLink(data: { name: string, contactNumber: string, email?: string, type?: string, siteOfficeStaffId: string, opmcId?: string, origin: string }) {
+        console.log("[GENERATE-LINK] Received data:", JSON.stringify(data, null, 2));
 
-        // Check for duplicates
-        const existing = await prisma.contractor.findFirst({
-            where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] as any } }
-        });
+        const { name, contactNumber, email, siteOfficeStaffId, origin } = data;
+        let { opmcId, type } = data;
 
-        const token = require('crypto').randomUUID();
-        const expiry = new Date();
-        expiry.setDate(expiry.getDate() + 7);
+        // Default to SOD if type not specified
+        if (!type) {
+            console.log("[GENERATE-LINK] Type not specified, defaulting to SOD");
+            type = 'SOD';
+        }
 
-        if (existing) {
-            // Update existing record with fresh token
-            const updated = await prisma.contractor.update({
-                where: { id: existing.id },
+        try {
+            // Check for duplicates
+            console.log("[GENERATE-LINK] Checking for existing contractor with contactNumber:", contactNumber);
+            const existing = await prisma.contractor.findFirst({
+                where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] as any } }
+            });
+
+            const token = require('crypto').randomUUID();
+            const expiry = new Date();
+            expiry.setDate(expiry.getDate() + 7);
+
+            if (existing) {
+                console.log("[GENERATE-LINK] Found existing contractor, updating with new token");
+                // Update existing record with fresh token
+                const updated = await prisma.contractor.update({
+                    where: { id: existing.id },
+                    data: {
+                        name,
+                        type: type as any,
+                        registrationToken: token,
+                        registrationTokenExpiry: expiry,
+                        registrationStartedAt: null, // Reset activation clock
+                        siteOfficeStaffId,
+                        opmcId
+                    } as any
+                });
+                console.log("[GENERATE-LINK] Successfully updated existing contractor");
+                return {
+                    contractor: updated,
+                    registrationLink: `${origin}/contractor-registration/${token}`,
+                    isUpdate: true
+                };
+            }
+
+            // Validate other unique fields for brand new contractors
+            console.log("[GENERATE-LINK] Creating new contractor");
+            await this.validateUnique({ contactNumber });
+
+            const contractor = await prisma.contractor.create({
                 data: {
                     name,
-                    type,
+                    contactNumber,
+                    email,
+                    type: type as any,
+                    status: 'PENDING',
                     registrationToken: token,
                     registrationTokenExpiry: expiry,
-                    registrationStartedAt: null, // Reset activation clock
                     siteOfficeStaffId,
                     opmcId
                 } as any
             });
+
+            console.log("[GENERATE-LINK] Successfully created new contractor");
             return {
-                contractor: updated,
-                registrationLink: `${origin}/contractor-registration/${token}`,
-                isUpdate: true
+                contractor,
+                registrationLink: `${origin}/contractor-registration/${token}`
             };
+        } catch (error) {
+            console.error("[GENERATE-LINK] Error:", error);
+            throw error;
         }
-
-        // Validate other unique fields for brand new contractors
-        await this.validateUnique({ contactNumber });
-
-        const contractor = await prisma.contractor.create({
-            data: {
-                name,
-                contactNumber,
-                email,
-                type,
-                status: 'PENDING',
-                registrationToken: token,
-                registrationTokenExpiry: expiry,
-                siteOfficeStaffId,
-                opmcId
-            } as any
-        });
-
-        return {
-            contractor,
-            registrationLink: `${origin}/contractor-registration/${token}`
-        };
     }
 
     /**

@@ -1127,19 +1127,36 @@ export default function ContractorsPage() {
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setInviteModalOpen(false)}>Cancel</Button>
                             <Button className="bg-blue-600 hover:bg-blue-700" onClick={async () => {
+                                console.log("[FRONTEND] Generate Link clicked");
+                                console.log("[FRONTEND] Invite data:", inviteData);
+
                                 if (!inviteData.name || !inviteData.contactNumber) {
                                     toast.error("Please fill in basic details");
                                     return;
                                 }
+
                                 const toastId = toast.loading("Generating link...");
                                 try {
+                                    const payload = {
+                                        ...inviteData,
+                                        siteOfficeStaffId: user.id
+                                    };
+                                    console.log("[FRONTEND] Sending payload:", payload);
+
                                     const res = await fetch('/api/contractors/generate-link', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ ...inviteData, siteOfficeStaffId: user.id })
+                                        body: JSON.stringify(payload)
                                     });
-                                    if (!res.ok) throw new Error("Failed");
+
+                                    if (!res.ok) {
+                                        const errorData = await res.json();
+                                        console.error("[FRONTEND] API Error:", errorData);
+                                        throw new Error(errorData.error || errorData.message || "Failed to generate link");
+                                    }
+
                                     const data = await res.json();
+                                    console.log("[FRONTEND] Success! Received:", data);
                                     setShareLink(data.registrationLink);
 
                                     // Try to copy to clipboard immediately
@@ -1152,8 +1169,12 @@ export default function ContractorsPage() {
 
                                     setInviteModalOpen(false);
                                     setShareModalOpen(true);
-                                } catch (err) {
-                                    toast.error("Generation failed", { id: toastId });
+
+                                    // Refresh contractor list
+                                    queryClient.invalidateQueries({ queryKey: ['contractors'] });
+                                } catch (err: any) {
+                                    console.error("[FRONTEND] Full error:", err);
+                                    toast.error(err.message || "Generation failed", { id: toastId });
                                 }
                             }}>Generate & Copy Link</Button>
                         </DialogFooter>
