@@ -77,6 +77,8 @@ export default function UserRegistrationPage() {
     // Modal & Selection State
     const [showModal, setShowModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+    const [step, setStep] = useState(1);
+    const [selectedSection, setSelectedSection] = useState<string | null>(null);
 
     // --- QUERIES ---
     const { data: users = [], isLoading: usersLoading } = useQuery<UserData[]>({
@@ -145,12 +147,16 @@ export default function UserRegistrationPage() {
         }
     });
 
-    // ... (handlers)
+    // --- LOGIC ---
     const handleOpenModal = (user?: UserData) => {
+        setStep(1);
         if (user) {
             setSelectedUser(user);
+            // Identify section from role
+            const section = Object.entries(roleCategories).find(([_, roles]) => roles.includes(user.role))?.[0] || null;
+            setSelectedSection(section);
+
             form.reset({
-                // ... other fields
                 username: user.username,
                 email: user.email,
                 password: '',
@@ -159,12 +165,13 @@ export default function UserRegistrationPage() {
                 employeeId: user.employeeId || '',
                 opmcIds: user.accessibleOpmcs?.map(o => o.id) || [],
                 supervisorId: user.supervisor?.id || '',
-                assignedStoreId: (user as any).assignedStoreId || 'none' // Need to ensure API returns this
+                assignedStoreId: (user as any).assignedStoreId || 'none'
             });
         } else {
             setSelectedUser(null);
+            setSelectedSection(null);
             form.reset({
-                username: '', email: '', password: '', name: '', role: 'ENGINEER', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
+                username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
             });
         }
         setShowModal(true);
@@ -173,6 +180,7 @@ export default function UserRegistrationPage() {
     const handleCloseModal = () => {
         setShowModal(false);
         setSelectedUser(null);
+        setStep(1);
         form.reset();
     };
 
@@ -192,10 +200,32 @@ export default function UserRegistrationPage() {
             u.role.toLowerCase().includes(searchLower);
     });
 
-    // Supervisor Logic (Simple: exclude self)
+    // Supervisor Logic: Filter by OPMC (Point 5)
     const potentialSupervisors = useMemo(() => {
-        return users.filter(u => u.id !== selectedUser?.id);
-    }, [users, selectedUser]);
+        const selectedOpmcIds = form.watch('opmcIds') || [];
+        if (selectedOpmcIds.length === 0) return users.filter(u => u.id !== selectedUser?.id);
+
+        return users.filter(u => {
+            if (u.id === selectedUser?.id) return false;
+            // Check if supervisor shares at least one OPMC
+            const supervisorOpmcs = u.accessibleOpmcs?.map(o => o.id) || [];
+            return supervisorOpmcs.some(id => selectedOpmcIds.includes(id)) || u.role === 'SUPER_ADMIN' || u.role === 'ADMIN';
+        });
+    }, [users, selectedUser, form.watch('opmcIds')]);
+
+    // Store Filtering: Filter by selected OPMCs (Point 5)
+    const filteredStores = useMemo(() => {
+        const selectedOpmcIds = form.watch('opmcIds') || [];
+        if (selectedOpmcIds.length === 0) return stores;
+
+        // Find stores linked to selected OPMCs
+        const linkedStoreIds = opmcs
+            .filter((o: any) => selectedOpmcIds.includes(o.id) && (o as any).storeId)
+            .map((o: any) => (o as any).storeId);
+
+        if (linkedStoreIds.length === 0) return stores;
+        return stores.filter(s => linkedStoreIds.includes(s.id));
+    }, [stores, opmcs, form.watch('opmcIds')]);
 
     {/* ... Buttons ... */ }
 
@@ -213,9 +243,14 @@ export default function UserRegistrationPage() {
                                 <h1 className="text-xl font-bold text-slate-900">System Users</h1>
                                 <p className="text-xs text-slate-500 mt-0.5">Manage user accounts, roles & permissions</p>
                             </div>
-                            <Button size="sm" onClick={() => handleOpenModal()} className="h-8 text-xs">
-                                <Plus className="w-4 h-4 mr-2" /> New User
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => window.location.href = '/admin/users/import'} className="h-8 text-xs border-dashed border-slate-300">
+                                    <Plus className="w-4 h-4 mr-2" /> Bulk Import
+                                </Button>
+                                <Button size="sm" onClick={() => handleOpenModal()} className="h-8 text-xs">
+                                    <Plus className="w-4 h-4 mr-2" /> New User
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="bg-white p-2 rounded-lg border shadow-sm flex items-center gap-2">
@@ -247,7 +282,7 @@ export default function UserRegistrationPage() {
                                             <th className="px-4 py-3 whitespace-nowrap text-right">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y">
+                                    <tbody className="divide-y text-[11px]">
                                         {filteredUsers.map((u) => (
                                             <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-4 py-2">
@@ -262,21 +297,21 @@ export default function UserRegistrationPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-600 border border-slate-200 font-semibold tracking-wide">
+                                                    <span className="px-2 py-0.5 rounded-full text-[9px] bg-slate-100 text-slate-600 border border-slate-200 font-semibold tracking-wide">
                                                         {u.role.replace(/_/g, ' ')}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-2">
+                                                <td className="px-4 py-2 text-slate-500">
                                                     <div className="flex flex-wrap gap-1">
                                                         {u.accessibleOpmcs?.length > 0 ? (
                                                             u.accessibleOpmcs.slice(0, 3).map(opmc => (
-                                                                <span key={opmc.id} className="px-1.5 py-0.5 rounded text-[9px] bg-slate-50 text-slate-500 border border-slate-100">
+                                                                <span key={opmc.id} className="px-1.5 py-0.5 rounded text-[8px] bg-slate-50 text-slate-500 border border-slate-100">
                                                                     {opmc.rtom}
                                                                 </span>
                                                             ))
-                                                        ) : <span className="text-[10px] text-slate-400 italic">None</span>}
+                                                        ) : <span className="text-[9px] text-slate-400 italic">None</span>}
                                                         {u.accessibleOpmcs?.length > 3 && (
-                                                            <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-50 text-slate-500 border border-slate-100">+{u.accessibleOpmcs.length - 3} more</span>
+                                                            <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-50 text-slate-500 border border-slate-100">+{u.accessibleOpmcs.length - 3}</span>
                                                         )}
                                                     </div>
                                                 </td>
@@ -286,7 +321,7 @@ export default function UserRegistrationPage() {
                                                             <Shield className="w-3 h-3 text-slate-400" />
                                                             <span>{u.supervisor.name || u.supervisor.username}</span>
                                                         </div>
-                                                    ) : <span className="text-slate-400 italic text-[10px]">None</span>}
+                                                    ) : <span className="text-slate-400 italic text-[9px]">None</span>}
                                                 </td>
                                                 <td className="px-4 py-2 text-right">
                                                     <div className="flex justify-end gap-1">
@@ -311,175 +346,225 @@ export default function UserRegistrationPage() {
 
                 {/* MODAL */}
                 <Dialog open={showModal} onOpenChange={setShowModal}>
-                    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                            <DialogTitle>{selectedUser ? 'Edit User' : 'Register New User'}</DialogTitle>
-                            <DialogDescription>Fill in the user details and access permissions below.</DialogDescription>
-                        </DialogHeader>
+                    <DialogContent className="max-w-xl p-0 overflow-hidden border-none shadow-2xl">
+                        <div className="bg-slate-900 p-6 text-white relative">
+                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                <User className="w-32 h-32" />
+                            </div>
+                            <DialogHeader>
+                                <DialogTitle className="text-xl font-bold">{selectedUser ? 'Update Profile' : 'Assign New User'}</DialogTitle>
+                                <DialogDescription className="text-slate-400 text-xs">
+                                    Step {step} of 3: {step === 1 ? 'Personal Identity' : step === 2 ? 'Professional Access' : 'Supervision & Stocks'}
+                                </DialogDescription>
+                            </DialogHeader>
 
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Step Progress */}
+                            <div className="flex gap-2 mt-6">
+                                {[1, 2, 3].map(s => (
+                                    <div key={s} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${s <= step ? 'bg-blue-500' : 'bg-slate-800'}`} />
+                                ))}
+                            </div>
+                        </div>
 
-                                {/* Left Col: Identity */}
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-2">Identity</h4>
+                        <div className="p-8 bg-white">
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-                                    <FormField control={form.control} name="name" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Full Name</FormLabel>
-                                            <FormControl><Input className="h-8 text-xs" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                                    {step === 1 && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <FormField control={form.control} name="name" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Full Name</FormLabel>
+                                                    <FormControl><Input placeholder="Prasad Kumara" className="h-10 text-sm" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <FormField control={form.control} name="username" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs">Username</FormLabel>
-                                                <FormControl><Input className="h-8 text-xs" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="employeeId" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs">Emp ID</FormLabel>
-                                                <FormControl><Input className="h-8 text-xs" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </div>
-
-                                    <FormField control={form.control} name="email" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Email</FormLabel>
-                                            <FormControl><Input type="email" className="h-8 text-xs" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-
-                                    <FormField control={form.control} name="password" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Password {selectedUser && '(Leave empty to keep)'}</FormLabel>
-                                            <FormControl><Input type="password" className="h-8 text-xs" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </div>
-
-                                {/* Right Col: Role & Access */}
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-2">Role & Access</h4>
-
-                                    <FormField control={form.control} name="role" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Role</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className="h-8 text-xs">
-                                                        <SelectValue placeholder="Select a role" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {Object.entries(roleCategories).map(([cat, roles]) => (
-                                                        <SelectGroup key={cat}>
-                                                            <SelectLabel className="text-[10px] text-slate-400 uppercase tracking-widest">{cat}</SelectLabel>
-                                                            {roles.map(r => (
-                                                                <SelectItem key={r} value={r} className="text-xs pl-6">{r.replace(/_/g, ' ')}</SelectItem>
-                                                            ))}
-                                                        </SelectGroup>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-
-                                    <FormField control={form.control} name="supervisorId" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Supervisor</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className="h-8 text-xs">
-                                                        <SelectValue placeholder="Select supervisor..." />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="none">None</SelectItem>
-                                                    {potentialSupervisors.map(u => (
-                                                        <SelectItem key={u.id} value={u.id} className="text-xs">{u.name || u.username} ({u.role})</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-
-                                    {/* OPMC Multi Select */}
-                                    <FormField control={form.control} name="opmcIds" render={({ field }) => (
-                                        <FormItem>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <FormLabel className="text-xs">OPMC Access</FormLabel>
-                                                <Button type="button" variant="link" className="h-auto p-0 text-[10px]" onClick={() => {
-                                                    if (field.value.length === opmcs.length) field.onChange([]);
-                                                    else field.onChange(opmcs.map(o => o.id));
-                                                }}>
-                                                    {field.value.length === opmcs.length ? 'None' : 'All'}
-                                                </Button>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField control={form.control} name="username" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Username</FormLabel>
+                                                        <FormControl><Input placeholder="prasad_k" className="h-10 text-sm" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                                <FormField control={form.control} name="employeeId" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Staff ID</FormLabel>
+                                                        <FormControl><Input placeholder="E12345" className="h-10 text-sm" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
                                             </div>
-                                            <ScrollArea className="h-[150px] border rounded-md p-2 bg-slate-50">
-                                                {opmcs.map((opmc) => (
-                                                    <div key={opmc.id} className="flex items-center space-x-2 py-1">
-                                                        <Checkbox
-                                                            id={`opmc-${opmc.id}`}
-                                                            checked={field.value.includes(opmc.id)}
-                                                            onCheckedChange={(checked) => {
-                                                                return checked
-                                                                    ? field.onChange([...field.value, opmc.id])
-                                                                    : field.onChange(field.value.filter((val) => val !== opmc.id))
-                                                            }}
-                                                        />
-                                                        <label htmlFor={`opmc-${opmc.id}`} className="text-xs leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer w-full">
-                                                            {opmc.rtom} - {opmc.name}
-                                                        </label>
+
+                                            <FormField control={form.control} name="email" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Corporate Email</FormLabel>
+                                                    <FormControl><Input type="email" placeholder="prasad@slt.lk" className="h-10 text-sm" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+
+                                            <FormField control={form.control} name="password" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Access Password {selectedUser && '(Leave blank to skip)'}</FormLabel>
+                                                    <FormControl><Input type="password" placeholder="••••••••" className="h-10 text-sm" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                    )}
+
+                                    {step === 2 && (
+                                        <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <div className="space-y-2">
+                                                <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Department / Section</FormLabel>
+                                                <Select onValueChange={(val) => {
+                                                    setSelectedSection(val);
+                                                    form.setValue('role', ''); // Reset role when section changes
+                                                }} value={selectedSection || ''}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="h-10 text-sm">
+                                                            <SelectValue placeholder="Select Department..." />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {Object.keys(roleCategories).map(cat => (
+                                                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <FormField control={form.control} name="role" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Specific Role</FormLabel>
+                                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSection}>
+                                                        <FormControl>
+                                                            <SelectTrigger className="h-10 text-sm">
+                                                                <SelectValue placeholder={selectedSection ? "Choose Role..." : "Select Department First"} />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {selectedSection && roleCategories[selectedSection as keyof typeof roleCategories].map(r => (
+                                                                <SelectItem key={r} value={r}>{r.replace(/_/g, ' ')}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+
+                                            <FormField control={form.control} name="opmcIds" render={({ field }) => (
+                                                <FormItem>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <FormLabel className="text-[11px] font-bold uppercase text-slate-500">OPMC Jurisdictions</FormLabel>
+                                                        <Button type="button" variant="link" className="h-auto p-0 text-[10px]" onClick={() => {
+                                                            if (field.value.length === opmcs.length) field.onChange([]);
+                                                            else field.onChange(opmcs.map(o => o.id));
+                                                        }}>
+                                                            {field.value.length === opmcs.length ? 'Clear All' : 'Select All'}
+                                                        </Button>
                                                     </div>
-                                                ))}
-                                            </ScrollArea>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                                                    <ScrollArea className="h-[180px] border border-slate-100 rounded-xl p-3 bg-slate-50">
+                                                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                                            {opmcs.map((opmc) => (
+                                                                <div key={opmc.id} className="flex items-center space-x-2 py-1">
+                                                                    <Checkbox
+                                                                        id={`opmc-${opmc.id}`}
+                                                                        checked={field.value.includes(opmc.id)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            return checked
+                                                                                ? field.onChange([...field.value, opmc.id])
+                                                                                : field.onChange(field.value.filter((val) => val !== opmc.id))
+                                                                        }}
+                                                                    />
+                                                                    <label htmlFor={`opmc-${opmc.id}`} className="cursor-pointer truncate">
+                                                                        {opmc.rtom} - {opmc.name}
+                                                                    </label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </ScrollArea>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                    )}
 
-                                    {/* Assigned Store (New Field) */}
-                                    <FormField control={form.control} name="assignedStoreId" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Assigned Store (For Inventory Access)</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                                                <FormControl>
-                                                    <SelectTrigger className="h-8 text-xs">
-                                                        <SelectValue placeholder="Select a store (optional)" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="none">None (All / No Store)</SelectItem>
-                                                    {stores.map(store => (
-                                                        <SelectItem key={store.id} value={store.id} className="text-xs">
-                                                            {store.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </div>
+                                    {step === 3 && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                            <FormField control={form.control} name="supervisorId" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Operations Supervisor</FormLabel>
+                                                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                                                        <FormControl>
+                                                            <SelectTrigger className="h-10 text-sm">
+                                                                <SelectValue placeholder="Select Supervisor..." />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">No Supervisor (Independent)</SelectItem>
+                                                            {potentialSupervisors.map(u => (
+                                                                <SelectItem key={u.id} value={u.id}>
+                                                                    {u.name || u.username} ({u.role.replace(/_/g, ' ')})
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <p className="text-[10px] text-slate-400 mt-1 italic">Filtered based on OPMC access selected in Step 2.</p>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
 
-                                <div className="md:col-span-2 pt-4 flex justify-end gap-2 border-t">
-                                    <Button type="button" variant="outline" onClick={handleCloseModal}>Cancel</Button>
-                                    <Button type="submit" disabled={mutation.isPending}>
-                                        {mutation.isPending ? 'Saving...' : 'Save User'}
-                                    </Button>
-                                </div>
-                            </form>
-                        </Form>
+                                            <FormField control={form.control} name="assignedStoreId" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Primary Inventory Store</FormLabel>
+                                                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                                                        <FormControl>
+                                                            <SelectTrigger className="h-10 text-sm">
+                                                                <SelectValue placeholder="Select Base Store..." />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">General Access (No Base Store)</SelectItem>
+                                                            {filteredStores.map(store => (
+                                                                <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+
+                                            <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
+                                                <Shield className="w-5 h-5 text-amber-500 shrink-0" />
+                                                <div className="text-[10px] text-amber-800 leading-relaxed">
+                                                    <strong>Final Check:</strong> By saving this user, you grant them access to the selected OPMCs and Store. Ensure the roles are correctly assigned to prevent unauthorized data access.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="pt-6 flex justify-between gap-3 border-t">
+                                        <div className="flex gap-2">
+                                            {step > 1 && (
+                                                <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>Back</Button>
+                                            )}
+                                            <Button type="button" variant="ghost" onClick={handleCloseModal} className="text-slate-400">Cancel</Button>
+                                        </div>
+
+                                        {step < 3 ? (
+                                            <Button type="button" onClick={() => setStep(step + 1)} className="bg-blue-600 px-10 shadow-lg shadow-blue-100">Next Step</Button>
+                                        ) : (
+                                            <Button type="submit" disabled={mutation.isPending} className="bg-green-600 px-10 shadow-lg shadow-green-100">
+                                                {mutation.isPending ? 'Processing...' : selectedUser ? 'Update Profile' : 'Confirm Registration'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </form>
+                            </Form>
+                        </div>
                     </DialogContent>
                 </Dialog>
 

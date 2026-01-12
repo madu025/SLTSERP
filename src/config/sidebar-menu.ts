@@ -305,6 +305,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
+                title: 'Bulk User Import',
+                path: '/admin/users/import',
+                icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
                 title: 'User Permissions',
                 path: '/admin/user-permissions',
                 icon: Shield,
