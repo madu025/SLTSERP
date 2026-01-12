@@ -330,19 +330,26 @@ export class ContractorService {
      * Submit public registration data
      */
     static async submitPublicRegistration(token: string, data: any) {
+        console.log("[SUBMIT] Starting registration submission for token:", token);
+
+        // 1. Fetch and validate contractor OUTSIDE transaction to prevent conflicts
         const contractor = await this.getContractorByToken(token);
+        console.log("[SUBMIT] Contractor found:", contractor.id, contractor.name);
 
         const { teams, id: _id, createdAt: _c, updatedAt: _u, ...restData } = data;
 
-        // Check for duplicates (NIC and Contact Number) excluding current contractor
+        // 2. Validate uniqueness OUTSIDE transaction
+        console.log("[SUBMIT] Validating unique fields...");
         await this.validateUnique({
             nic: restData.nic,
             contactNumber: restData.contactNumber
         }, contractor.id);
 
-        // Use transaction to ensure data integrity
+        // 3. Use transaction ONLY for database mutations
+        console.log("[SUBMIT] Starting database transaction...");
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Update Contractor Basic Details
+            console.log("[SUBMIT-TX] Updating contractor details...");
+            // Update Contractor Basic Details
             const updated = await tx.contractor.update({
                 where: { id: contractor.id },
                 data: {
@@ -370,12 +377,14 @@ export class ContractorService {
                 } as any
             });
 
-            // 2. Clean up any existing teams/members (in case of re-submission)
+            console.log("[SUBMIT-TX] Cleaning up existing teams/members...");
+            // Clean up any existing teams/members (in case of re-submission)
             await tx.teamMember.deleteMany({ where: { contractorId: contractor.id } });
             await tx.contractorTeam.deleteMany({ where: { contractorId: contractor.id } });
 
-            // 3. Create Teams and Members
+            // Create Teams and Members
             if (teams && teams.length > 0) {
+                console.log(`[SUBMIT-TX] Creating ${teams.length} teams...`);
                 for (const team of teams) {
                     await tx.contractorTeam.create({
                         data: {
@@ -406,17 +415,18 @@ export class ContractorService {
                 }
             }
 
+            console.log("[SUBMIT-TX] Transaction completed successfully");
             return updated;
         });
 
         // 4. Notify Relevant Staff (Outside transaction for reliability)
+        console.log("[SUBMIT] Sending notifications...");
         try {
-            console.log("Submission successful. Sending notifications for contractor:", result.name);
             const message = `Contractor "${result.name}" has submitted their registration form and is waiting for ARM review.`;
 
             // Notify the person who generated the link
             if (result.siteOfficeStaffId) {
-                console.log("Notifying link generator (siteOfficeStaffId):", result.siteOfficeStaffId);
+                console.log("[SUBMIT] Notifying link generator (siteOfficeStaffId):", result.siteOfficeStaffId);
                 await NotificationService.send({
                     userId: result.siteOfficeStaffId,
                     title: "New Contractor Submission",
@@ -428,7 +438,7 @@ export class ContractorService {
             }
 
             // Also notify ARMs and Admins
-            console.log("Broadcasting notifications to management roles...");
+            console.log("[SUBMIT] Broadcasting notifications to management roles...");
             await NotificationService.notifyByRole({
                 roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN', 'ENGINEER'],
                 title: "Contractor Pending Review",
@@ -438,11 +448,12 @@ export class ContractorService {
                 link: `/admin/contractors`,
                 opmcId: result.opmcId || undefined
             });
-            console.log("All notifications sent successfully.");
+            console.log("[SUBMIT] All notifications sent successfully.");
         } catch (nErr) {
-            console.error("Failed to send submission notifications:", nErr);
+            console.error("[SUBMIT] Failed to send submission notifications:", nErr);
         }
 
+        console.log("[SUBMIT] Registration submission completed successfully");
         return result;
     }
 
