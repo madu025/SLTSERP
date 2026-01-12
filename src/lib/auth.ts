@@ -13,11 +13,14 @@ export async function signJWT(payload: any, expiresIn: string = '24h') {
 
 export async function verifyJWT(token: string) {
     try {
+        if (!token) return null;
+
         const { payload } = await jwtVerify(token, key, {
             algorithms: ['HS256'],
         });
         return payload;
-    } catch (error) {
+    } catch (error: any) {
+        console.error('[AUTH] Token verification failed:', error.message);
         return null;
     }
 }
