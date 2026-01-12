@@ -209,23 +209,25 @@ export default function PublicContractorRegistrationPage() {
     };
 
     const handleAddTeam = () => {
-        setFormData({
-            ...formData,
-            teams: [...formData.teams, { name: "", primaryStoreId: "", members: [] }]
-        });
+        setFormData(prev => ({
+            ...prev,
+            teams: [...prev.teams, { name: "", primaryStoreId: "", members: [] }]
+        }));
     };
 
     const handleRemoveTeam = (tIdx: number) => {
-        setFormData({
-            ...formData,
-            teams: formData.teams.filter((_, i) => i !== tIdx)
-        });
+        setFormData(prev => ({
+            ...prev,
+            teams: prev.teams.filter((_, i) => i !== tIdx)
+        }));
     };
 
     const handleTeamChange = (tIdx: number, field: string, value: any) => {
-        const updated = [...formData.teams];
-        updated[tIdx][field] = value;
-        setFormData({ ...formData, teams: updated });
+        setFormData(prev => {
+            const updated = [...prev.teams];
+            updated[tIdx] = { ...updated[tIdx], [field]: value };
+            return { ...prev, teams: updated };
+        });
     };
 
     const saveDraft = async (dataToSave = formData) => {
@@ -241,24 +243,38 @@ export default function PublicContractorRegistrationPage() {
     };
 
     const handleAddMember = (tIdx: number) => {
-        const updated = [...formData.teams];
-        updated[tIdx].members = [
-            ...updated[tIdx].members,
-            { name: "", nic: "", contactNumber: "", designation: "", passportPhotoUrl: "" }
-        ];
-        setFormData({ ...formData, teams: updated });
+        setFormData(prev => {
+            const updated = [...prev.teams];
+            updated[tIdx] = {
+                ...updated[tIdx],
+                members: [
+                    ...updated[tIdx].members,
+                    { name: "", nic: "", contactNumber: "", designation: "", passportPhotoUrl: "", photoUrl: "" }
+                ]
+            };
+            return { ...prev, teams: updated };
+        });
     };
 
     const handleRemoveMember = (tIdx: number, mIdx: number) => {
-        const updated = [...formData.teams];
-        updated[tIdx].members = updated[tIdx].members.filter((_: any, i: number) => i !== mIdx);
-        setFormData({ ...formData, teams: updated });
+        setFormData(prev => {
+            const updated = [...prev.teams];
+            updated[tIdx] = {
+                ...updated[tIdx],
+                members: updated[tIdx].members.filter((_: any, i: number) => i !== mIdx)
+            };
+            return { ...prev, teams: updated };
+        });
     };
 
     const handleMemberChange = (tIdx: number, mIdx: number, field: string, value: string) => {
-        const updated = [...formData.teams];
-        updated[tIdx].members[mIdx][field] = value;
-        setFormData({ ...formData, teams: updated });
+        setFormData(prev => {
+            const updated = [...prev.teams];
+            const members = [...updated[tIdx].members];
+            members[mIdx] = { ...members[mIdx], [field]: value };
+            updated[tIdx] = { ...updated[tIdx], members };
+            return { ...prev, teams: updated };
+        });
     };
 
     const handleSubmit = async () => {
@@ -546,9 +562,11 @@ export default function PublicContractorRegistrationPage() {
                                                     onChange={async (e) => {
                                                         const url = await uploadFile(e, 'bankPassbookUrl');
                                                         if (url) {
-                                                            const next = { ...formData, bankPassbookUrl: url };
-                                                            setFormData(next);
-                                                            saveDraft(next);
+                                                            setFormData(prev => {
+                                                                const next = { ...prev, bankPassbookUrl: url };
+                                                                saveDraft(next);
+                                                                return next;
+                                                            });
                                                         }
                                                     }}
                                                     className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
@@ -627,9 +645,11 @@ export default function PublicContractorRegistrationPage() {
                                                             onChange={async (e) => {
                                                                 const url = await uploadFile(e, doc.field);
                                                                 if (url) {
-                                                                    const next = { ...formData, [doc.field]: url };
-                                                                    setFormData(next);
-                                                                    saveDraft(next);
+                                                                    setFormData(prev => {
+                                                                        const next = { ...prev, [doc.field]: url };
+                                                                        saveDraft(next);
+                                                                        return next;
+                                                                    });
                                                                 }
                                                             }}
                                                         />

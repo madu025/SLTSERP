@@ -33,6 +33,7 @@ interface TeamMember {
     contractorIdCopyNumber: string;
     photoUrl?: string;
     nicUrl?: string;
+    passportPhotoUrl?: string;
 }
 
 interface ContractorTeam {
@@ -395,6 +396,7 @@ export default function ContractorsPage() {
                 idCopyNumber: m.idCopyNumber || m.nic || '',
                 contractorIdCopyNumber: m.contractorIdCopyNumber || '',
                 photoUrl: m.photoUrl || '',
+                passportPhotoUrl: m.passportPhotoUrl || m.photoUrl || '',
                 nicUrl: m.nicUrl || ''
             }))
         })));
@@ -437,9 +439,11 @@ export default function ContractorsPage() {
     };
 
     const updateTeam = (idx: number, field: keyof ContractorTeam, val: any) => {
-        const newTeams = [...teams];
-        (newTeams[idx] as any)[field] = val;
-        setTeams(newTeams);
+        setTeams(prev => {
+            const newTeams = [...prev];
+            newTeams[idx] = { ...newTeams[idx], [field]: val };
+            return newTeams;
+        });
     };
 
     const toggleStore = (teamIdx: number, storeId: string) => {
@@ -460,19 +464,35 @@ export default function ContractorsPage() {
     };
 
     const removeTeam = (idx: number) => {
-        setTeams(teams.filter((_, i) => i !== idx));
+        setTeams(prev => prev.filter((_, i) => i !== idx));
     };
 
     const addMember = (teamIdx: number) => {
-        const newTeams = [...teams];
-        newTeams[teamIdx].members.push({ name: '', idCopyNumber: '', contractorIdCopyNumber: '' });
-        setTeams(newTeams);
+        setTeams(prev => {
+            const newTeams = [...prev];
+            const team = { ...newTeams[teamIdx] };
+            team.members = [...team.members, { name: '', idCopyNumber: '', contractorIdCopyNumber: '', photoUrl: '', passportPhotoUrl: '' }];
+            newTeams[teamIdx] = team;
+            return newTeams;
+        });
     };
 
-    const updateMember = (teamIdx: number, memberIdx: number, field: keyof TeamMember, val: string) => {
-        const newTeams = [...teams];
-        (newTeams[teamIdx].members[memberIdx] as any)[field] = val;
-        setTeams(newTeams);
+    const updateMember = (teamIdx: number, memberIdx: number, field: string, val: string) => {
+        setTeams(prev => {
+            const newTeams = [...prev];
+            const team = { ...newTeams[teamIdx] };
+            const members = [...team.members];
+            const member = { ...members[memberIdx], [field]: val };
+
+            // Sync photo fields
+            if (field === 'passportPhotoUrl') member.photoUrl = val;
+            else if (field === 'photoUrl') member.passportPhotoUrl = val;
+
+            members[memberIdx] = member;
+            team.members = members;
+            newTeams[teamIdx] = team;
+            return newTeams;
+        });
     };
 
     const removeMember = (teamIdx: number, memberIdx: number) => {
@@ -973,7 +993,22 @@ export default function ContractorsPage() {
                                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left space-y-2 text-sm">
                                             <div className="flex justify-between"><span>Name:</span> <span className="font-bold">{form.getValues('name')}</span></div>
                                             <div className="flex justify-between"><span>Type:</span> <span className="font-bold">{form.getValues('type')}</span></div>
-                                            <div className="flex justify-between"><span>Contact:</span> <span className="font-bold">{form.getValues('contactNumber')}</span></div>
+                                            <div className="flex justify-between border-t pt-2 mt-2">
+                                                <span>Documents:</span>
+                                                <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
+                                                    {['photoUrl', 'nicFrontUrl', 'nicBackUrl', 'brCertUrl', 'bankPassbookUrl'].map(f => (
+                                                        form.getValues(f as any) ? (
+                                                            <div key={f} className="w-6 h-6 rounded bg-green-100 flex items-center justify-center" title={f}>
+                                                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                                            </div>
+                                                        ) : (
+                                                            <div key={f} className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center opacity-40" title={f}>
+                                                                <ImageIcon className="w-3 h-3 text-slate-400" />
+                                                            </div>
+                                                        )
+                                                    ))}
+                                                </div>
+                                            </div>
                                             {form.getValues('type') === 'SOD' && (
                                                 <div className="flex justify-between"><span>Teams:</span> <span className="font-bold">{teams.length} Team(s)</span></div>
                                             )}

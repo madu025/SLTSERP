@@ -340,6 +340,7 @@ export default function ContractorApprovalsPage() {
                                                         </h5>
                                                         <div className="grid grid-cols-2 gap-2">
                                                             {[
+                                                                { label: 'Contractor Photo', url: selectedContractor.photoUrl },
                                                                 { label: 'NIC Front', url: selectedContractor.nicFrontUrl },
                                                                 { label: 'NIC Back', url: selectedContractor.nicBackUrl },
                                                                 { label: 'BR Cert', url: selectedContractor.brCertUrl },

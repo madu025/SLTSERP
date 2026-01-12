@@ -199,9 +199,18 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
 
     const updateMember = (memberIdx: number, field: string, value: any) => {
         if (selectedTeamIndex === null) return;
-        const newTeams = [...teams];
-        newTeams[selectedTeamIndex].members[memberIdx][field] = value;
-        setTeams(newTeams);
+        setTeams(prev => {
+            const newTeams = [...prev];
+            const member = { ...newTeams[selectedTeamIndex].members[memberIdx] };
+            member[field] = value;
+
+            // Sync photo fields for consistency
+            if (field === 'passportPhotoUrl') member.photoUrl = value;
+            else if (field === 'photoUrl') member.passportPhotoUrl = value;
+
+            newTeams[selectedTeamIndex].members[memberIdx] = member;
+            return newTeams;
+        });
     };
 
     const removeMember = (memberIdx: number) => {
