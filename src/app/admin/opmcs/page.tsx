@@ -237,15 +237,15 @@ export default function RTOMRegistrationPage() {
                                                 <SelectContent>
                                                     <SelectItem value="METRO 01">METRO 01</SelectItem>
                                                     <SelectItem value="METRO 02">METRO 02</SelectItem>
-                                                    <SelectItem value="WP">Western (WP)</SelectItem>
-                                                    <SelectItem value="CP">Central (CP)</SelectItem>
-                                                    <SelectItem value="NWP">North Western (NWP)</SelectItem>
-                                                    <SelectItem value="SP">Southern (SP)</SelectItem>
-                                                    <SelectItem value="NP">Northern (NP)</SelectItem>
-                                                    <SelectItem value="EP">Eastern (EP)</SelectItem>
-                                                    <SelectItem value="NCP">North Central (NCP)</SelectItem>
-                                                    <SelectItem value="UP">Uva (UP)</SelectItem>
-                                                    <SelectItem value="SabP">Sabaragamuwa (SabP)</SelectItem>
+                                                    <SelectItem value="CP">CP</SelectItem>
+                                                    <SelectItem value="NWP">NWP</SelectItem>
+                                                    <SelectItem value="WPN">WPN</SelectItem>
+                                                    <SelectItem value="UVA">UVA</SelectItem>
+                                                    <SelectItem value="SAB">SAB</SelectItem>
+                                                    <SelectItem value="SP">SP</SelectItem>
+                                                    <SelectItem value="WPS">WPS</SelectItem>
+                                                    <SelectItem value="EP">EP</SelectItem>
+                                                    <SelectItem value="NP">NP</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
