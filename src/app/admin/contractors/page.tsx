@@ -23,6 +23,7 @@ import TeamManager from './TeamManager';
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
+import { Progress } from "@/components/ui/progress";
 
 // Types
 interface TeamMember {
@@ -118,6 +119,7 @@ export default function ContractorsPage() {
     // Modal State
     const [showModal, setShowModal] = useState(false);
     const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
     // Dynamic Team Management State
     const [teams, setTeams] = useState<ContractorTeam[]>([]);
@@ -308,21 +310,55 @@ export default function ContractorsPage() {
         }
     };
 
-    const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
         if (!e.target.files || e.target.files.length === 0) return null;
         const file = e.target.files[0];
         const formData = new FormData();
         formData.append('file', file);
 
-        try {
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
-            if (!res.ok) throw new Error("Upload failed");
-            const data = await res.json();
-            return data.url;
-        } catch (err) {
-            toast.error("File upload failed");
-            return null;
-        }
+        return new Promise<string | null>((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload', true);
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    setUploadProgress(prev => ({ ...prev, [fieldName]: percentComplete }));
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    setUploadProgress(prev => {
+                        const next = { ...prev };
+                        delete next[fieldName];
+                        return next;
+                    });
+                    resolve(response.url);
+                } else {
+                    toast.error("Upload failed");
+                    setUploadProgress(prev => {
+                        const next = { ...prev };
+                        delete next[fieldName];
+                        return next;
+                    });
+                    resolve(null);
+                }
+            };
+
+            xhr.onerror = () => {
+                toast.error("Network error");
+                setUploadProgress(prev => {
+                    const next = { ...prev };
+                    delete next[fieldName];
+                    return next;
+                });
+                resolve(null);
+            };
+
+            xhr.send(formData);
+        });
     };
 
     // --- HANDLERS ---
@@ -446,7 +482,8 @@ export default function ContractorsPage() {
     };
 
     const handleMemberUpload = async (teamIdx: number, memberIdx: number, field: 'photoUrl' | 'nicUrl', e: React.ChangeEvent<HTMLInputElement>) => {
-        const url = await uploadFile(e);
+        const fieldName = `member-${teamIdx}-${memberIdx}-${field}`;
+        const url = await uploadFile(e, fieldName);
         if (url) {
             updateMember(teamIdx, memberIdx, field, url);
         }
@@ -798,12 +835,19 @@ export default function ContractorsPage() {
                                             <FormField control={form.control} name="bankPassbookUrl" render={({ field }) => (
                                                 <FormItem className="col-span-2">
                                                     <FormLabel>Bank Passbook Header</FormLabel>
-                                                    <div className="flex flex-col gap-2">
+                                                    <div className="flex flex-col gap-2 mt-1">
                                                         {field.value && <img src={field.value} alt="Preview" className="h-20 w-32 object-cover rounded border" />}
-                                                        <Input type="file" accept="image/*,.pdf" onChange={async (e) => {
-                                                            const url = await uploadFile(e);
-                                                            if (url) field.onChange(url);
-                                                        }} />
+                                                        <div className="relative">
+                                                            <Input type="file" accept="image/*,.pdf" onChange={async (e) => {
+                                                                const url = await uploadFile(e, 'bankPassbookUrl');
+                                                                if (url) field.onChange(url);
+                                                            }} />
+                                                            {uploadProgress['bankPassbookUrl'] !== undefined && (
+                                                                <div className="absolute -bottom-1 left-0 right-0 px-1">
+                                                                    <Progress value={uploadProgress['bankPassbookUrl']} className="h-1" />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </FormItem>
                                             )} />
@@ -843,9 +887,14 @@ export default function ContractorsPage() {
                                                                     <Upload className="w-6 h-6 text-slate-300" />
                                                                     <span className="text-[10px] text-slate-400 mt-1">Click to upload</span>
                                                                     <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer h-full" onChange={async (e) => {
-                                                                        const url = await uploadFile(e);
+                                                                        const url = await uploadFile(e, doc.field);
                                                                         if (url) field.onChange(url);
                                                                     }} />
+                                                                    {uploadProgress[doc.field] !== undefined && (
+                                                                        <div className="absolute bottom-0 left-0 right-0 px-1 pb-1">
+                                                                            <Progress value={uploadProgress[doc.field]} className="h-1" />
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>

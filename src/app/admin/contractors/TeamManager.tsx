@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Users, Plus, Trash, CheckCircle, ShieldAlert, FileText, MapPin, ExternalLink, Shirt, Footprints, LayoutGrid } from "lucide-react";
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 interface TeamManagerProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
     const [teams, setTeams] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [stores, setStores] = useState<any[]>([]);
+    const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
     // Selection State for Master-Detail View
     const [selectedTeamIndex, setSelectedTeamIndex] = useState<number | null>(null);
@@ -209,18 +211,55 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         setTeams(newTeams);
     };
 
-    const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
         if (!e.target.files?.[0]) return null;
+        const file = e.target.files[0];
         const formData = new FormData();
-        formData.append('file', e.target.files[0]);
-        try {
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
-            const data = await res.json();
-            return data.url;
-        } catch (err) {
-            toast.error("Upload failed");
-            return null;
-        }
+        formData.append('file', file);
+
+        return new Promise<string | null>((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload', true);
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    setUploadProgress(prev => ({ ...prev, [fieldName]: percentComplete }));
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    setUploadProgress(prev => {
+                        const next = { ...prev };
+                        delete next[fieldName];
+                        return next;
+                    });
+                    resolve(response.url);
+                } else {
+                    toast.error("Upload failed");
+                    setUploadProgress(prev => {
+                        const next = { ...prev };
+                        delete next[fieldName];
+                        return next;
+                    });
+                    resolve(null);
+                }
+            };
+
+            xhr.onerror = () => {
+                toast.error("Network error");
+                setUploadProgress(prev => {
+                    const next = { ...prev };
+                    delete next[fieldName];
+                    return next;
+                });
+                resolve(null);
+            };
+
+            xhr.send(formData);
+        });
     };
 
     const generateMemberLink = async (memberId: string) => {
@@ -457,13 +496,14 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                                             ].map((doc, dIdx) => (
                                                                 <div key={dIdx} className="shrink-0 relative group/file">
                                                                     <Input type="file" id={`f-${selectedTeamIndex}-${mIdx}-${doc.field}`} className="hidden" accept="image/*,.pdf" onChange={async (e) => {
-                                                                        const url = await uploadFile(e);
+                                                                        const fieldName = `member-${selectedTeamIndex}-${mIdx}-${doc.field}`;
+                                                                        const url = await uploadFile(e, fieldName);
                                                                         if (url) updateMember(mIdx, doc.field, url);
                                                                     }} />
                                                                     <Label
                                                                         htmlFor={`f-${selectedTeamIndex}-${mIdx}-${doc.field}`}
                                                                         className={cn(
-                                                                            "flex items-center gap-1.5 px-2 py-1.5 rounded border cursor-pointer transition-all bg-white min-w-[120px]",
+                                                                            "flex items-center gap-1.5 px-2 py-1.5 rounded border cursor-pointer transition-all bg-white min-w-[120px] relative overflow-hidden",
                                                                             member[doc.field]
                                                                                 ? "bg-green-50/50 border-green-300 text-green-700"
                                                                                 : (doc.field === 'passportPhotoUrl'
@@ -475,6 +515,14 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                                                         <span className="text-[10px] font-medium truncate max-w-[100px]">
                                                                             {doc.label} {doc.field === 'passportPhotoUrl' && "(ID Card)"}
                                                                         </span>
+                                                                        {uploadProgress[`member-${selectedTeamIndex}-${mIdx}-${doc.field}`] !== undefined && (
+                                                                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100">
+                                                                                <Progress
+                                                                                    value={uploadProgress[`member-${selectedTeamIndex}-${mIdx}-${doc.field}`]}
+                                                                                    className="h-1 rounded-none border-none"
+                                                                                />
+                                                                            </div>
+                                                                        )}
                                                                     </Label>
                                                                 </div>
                                                             ))}

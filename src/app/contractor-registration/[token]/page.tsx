@@ -12,6 +12,7 @@ import { Loader2, Trash2, CheckCircle2, Building2, Users, Banknote, UserPlus, Im
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 
 export default function PublicContractorRegistrationPage() {
     const { token } = useParams();
@@ -28,6 +29,7 @@ export default function PublicContractorRegistrationPage() {
     const [submitted, setSubmitted] = useState(false);
     const [branchSearch, setBranchSearch] = useState("");
     const [showBranchList, setShowBranchList] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
     // Form State
     const [formData, setFormData] = useState({
@@ -150,27 +152,60 @@ export default function PublicContractorRegistrationPage() {
         }
     }, [banks, formData.bankName]);
 
-    const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
         if (!e.target.files || e.target.files.length === 0) return null;
         const file = e.target.files[0];
         const formDataUpload = new FormData();
         formDataUpload.append('file', file);
 
-        const toastId = toast.loading("Uploading file...");
-        try {
-            const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload });
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.details || "Upload failed");
-            }
-            const data = await res.json();
-            toast.success("File uploaded", { id: toastId });
-            return data.url;
-        } catch (err: any) {
-            console.error("Upload Error:", err);
-            toast.error(err.message || "File upload failed", { id: toastId });
-            return null;
-        }
+        return new Promise<string | null>((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/upload', true);
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    setUploadProgress(prev => ({ ...prev, [fieldName]: percentComplete }));
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    setUploadProgress(prev => {
+                        const next = { ...prev };
+                        delete next[fieldName];
+                        return next;
+                    });
+                    resolve(response.url);
+                } else {
+                    let errorMsg = "Upload failed";
+                    try {
+                        const errorData = JSON.parse(xhr.responseText);
+                        errorMsg = errorData.details || errorMsg;
+                    } catch (e) { }
+                    toast.error(errorMsg);
+                    setUploadProgress(prev => {
+                        const next = { ...prev };
+                        delete next[fieldName];
+                        return next;
+                    });
+                    resolve(null);
+                }
+            };
+
+            xhr.onerror = () => {
+                toast.error("Network error during upload");
+                setUploadProgress(prev => {
+                    const next = { ...prev };
+                    delete next[fieldName];
+                    return next;
+                });
+                resolve(null);
+            };
+
+            xhr.send(formDataUpload);
+        });
     };
 
     const handleAddTeam = () => {
@@ -193,12 +228,12 @@ export default function PublicContractorRegistrationPage() {
         setFormData({ ...formData, teams: updated });
     };
 
-    const saveDraft = async () => {
+    const saveDraft = async (dataToSave = formData) => {
         try {
             await fetch(`/api/contractors/public-register/${token}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(dataToSave)
             });
         } catch (error) {
             console.error("Draft save failed:", error);
@@ -509,8 +544,12 @@ export default function PublicContractorRegistrationPage() {
                                                     type="file"
                                                     accept="image/*,.pdf"
                                                     onChange={async (e) => {
-                                                        const url = await uploadFile(e);
-                                                        if (url) setFormData({ ...formData, bankPassbookUrl: url });
+                                                        const url = await uploadFile(e, 'bankPassbookUrl');
+                                                        if (url) {
+                                                            const next = { ...formData, bankPassbookUrl: url };
+                                                            setFormData(next);
+                                                            saveDraft(next);
+                                                        }
                                                     }}
                                                     className="cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                                 />
@@ -519,6 +558,11 @@ export default function PublicContractorRegistrationPage() {
                                                 <Button size="icon" variant="ghost" onClick={() => setFormData({ ...formData, bankPassbookUrl: "" })} className="text-red-500">
                                                     <Trash2 className="w-4 h-4" />
                                                 </Button>
+                                            )}
+                                            {uploadProgress['bankPassbookUrl'] !== undefined && (
+                                                <div className="absolute -bottom-2 left-0 right-0 z-10 px-1">
+                                                    <Progress value={uploadProgress['bankPassbookUrl']} className="h-1" />
+                                                </div>
                                             )}
                                         </div>
                                         <p className="text-[10px] text-slate-400 italic">Clear photo of the bank passbook first page or a recent statement showing the account name and number.</p>
@@ -581,10 +625,23 @@ export default function PublicContractorRegistrationPage() {
                                                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                                             accept="image/*,.pdf"
                                                             onChange={async (e) => {
-                                                                const url = await uploadFile(e);
-                                                                if (url) setFormData({ ...formData, [doc.field]: url });
+                                                                const url = await uploadFile(e, doc.field);
+                                                                if (url) {
+                                                                    const next = { ...formData, [doc.field]: url };
+                                                                    setFormData(next);
+                                                                    saveDraft(next);
+                                                                }
                                                             }}
                                                         />
+                                                    </div>
+                                                )}
+                                                {uploadProgress[doc.field] !== undefined && (
+                                                    <div className="mt-1">
+                                                        <div className="flex justify-between text-[10px] text-blue-600 font-bold mb-1">
+                                                            <span>Uploading...</span>
+                                                            <span>{uploadProgress[doc.field]}%</span>
+                                                        </div>
+                                                        <Progress value={uploadProgress[doc.field]} className="h-1.5" />
                                                     </div>
                                                 )}
                                             </div>
@@ -673,10 +730,21 @@ export default function PublicContractorRegistrationPage() {
                                                                             type="file"
                                                                             className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                                                             onChange={async (e) => {
-                                                                                const url = await uploadFile(e);
-                                                                                if (url) handleMemberChange(tIdx, mIdx, 'passportPhotoUrl', url);
+                                                                                const url = await uploadFile(e, `member-${tIdx}-${mIdx}`);
+                                                                                if (url) {
+                                                                                    const updatedTeams = [...formData.teams];
+                                                                                    updatedTeams[tIdx].members[mIdx].passportPhotoUrl = url;
+                                                                                    const next = { ...formData, teams: updatedTeams };
+                                                                                    setFormData(next);
+                                                                                    saveDraft(next);
+                                                                                }
                                                                             }}
                                                                         />
+                                                                        {uploadProgress[`member-${tIdx}-${mIdx}`] !== undefined && (
+                                                                            <div className="absolute inset-x-0 bottom-0 p-1 bg-white/80">
+                                                                                <Progress value={uploadProgress[`member-${tIdx}-${mIdx}`]} className="h-1" />
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 )}
                                                             </div>
