@@ -330,7 +330,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
-                title: 'OPMC Management',
+                title: 'RTOM Management',
                 path: '/admin/opmcs',
                 icon: Building2,
                 allowedRoles: ROLE_GROUPS.ADMINS

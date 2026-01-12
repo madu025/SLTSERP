@@ -584,9 +584,9 @@ export default function ContractorApprovalsPage() {
                             <h4 className="text-xs font-bold uppercase text-slate-400 mb-4">Internal Assignment</h4>
                         </div>
                         <div className="space-y-2">
-                            <Label>Assigned OPMC</Label>
+                            <Label>Assigned RTOM</Label>
                             <Select value={editData.opmcId || ''} onValueChange={(v) => setEditData({ ...editData, opmcId: v })}>
-                                <SelectTrigger className="bg-white"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
+                                <SelectTrigger className="bg-white"><SelectValue placeholder="Select RTOM" /></SelectTrigger>
                                 <SelectContent>
                                     {opmcs.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                                 </SelectContent>

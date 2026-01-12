@@ -197,7 +197,7 @@ export default function ContractorsPage() {
         queryKey: ['opmcs'],
         queryFn: async () => {
             const res = await fetch('/api/opmcs');
-            if (!res.ok) throw new Error("Failed to fetch OPMCs");
+            if (!res.ok) throw new Error("Failed to fetch RTOMs");
             return res.json();
         },
         staleTime: 10 * 60 * 1000,
@@ -222,14 +222,14 @@ export default function ContractorsPage() {
         }
     });
 
-    // Auto-select OPMC for site staff if they have only one
+    // Auto-select RTOM for site staff if they have only one
     React.useEffect(() => {
         if (inviteModalOpen && isSiteStaff && user.accessibleOpmcs?.length === 1) {
             setInviteData(prev => ({ ...prev, opmcId: user.accessibleOpmcs[0].id }));
         }
     }, [inviteModalOpen, isSiteStaff, user.accessibleOpmcs, opmcs]);
 
-    // Filter OPMCs based on user access
+    // Filter RTOMs based on user access
     const filteredOpmcs = React.useMemo(() => {
         // If data hasn't loaded yet, return empty
         if (!opmcs || opmcs.length === 0) return [];
@@ -237,10 +237,10 @@ export default function ContractorsPage() {
         // If it's a Super Admin or OSP Manager, show everything
         if (['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'].includes(userRole)) return opmcs;
 
-        // For others, use their assigned OPMCs
+        // For others, use their assigned RTOMs
         const userOpmcIds = (user.accessibleOpmcs || []).map((o: any) => o.id);
 
-        // Fallback for old sessions: If they are site staff but have NO assigned OPMCs in localStorage,
+        // Fallback for old sessions: If they are site staff but have NO assigned RTOMs in localStorage,
         // we might allow them to see all for now OR better, we tell them to re-login.
         // For now, let's allow all if the list is empty to prevent blockers, but warn them.
         if (isSiteStaff && userOpmcIds.length === 0) return opmcs;
@@ -688,7 +688,7 @@ export default function ContractorsPage() {
 
                                             <FormField control={form.control} name="opmcId" render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Originating Office (OPMC)</FormLabel>
+                                                    <FormLabel>Originating Office (RTOM)</FormLabel>
                                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                         <FormControl><SelectTrigger><SelectValue placeholder="Select Office" /></SelectTrigger></FormControl>
                                                         <SelectContent>

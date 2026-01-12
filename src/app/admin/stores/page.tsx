@@ -167,7 +167,7 @@ export default function StoresPage() {
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h1 className="text-3xl font-bold text-slate-800">Stores Management</h1>
-                                <p className="text-slate-500 mt-1">Manage inventory stores and OPMC assignments</p>
+                                <p className="text-slate-500 mt-1">Manage inventory stores and RTOM assignments</p>
                             </div>
                             <Button onClick={() => { resetForm(); setShowModal(true); }}>
                                 <Plus className="w-4 h-4 mr-2" />
@@ -224,9 +224,9 @@ export default function StoresPage() {
                                                 <div className="flex items-start gap-2 text-slate-600">
                                                     <Building2 className="w-4 h-4 mt-0.5" />
                                                     <div>
-                                                        <div className="font-medium">OPMCs ({store.opmcs?.length || 0})</div>
+                                                        <div className="font-medium">RTOMs ({store.opmcs?.length || 0})</div>
                                                         <div className="text-xs mt-1">
-                                                            {store.opmcs?.map(o => o.name).join(", ") || "No OPMCs assigned"}
+                                                            {store.opmcs?.map(o => o.name).join(", ") || "No RTOMs assigned"}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -242,7 +242,7 @@ export default function StoresPage() {
                             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                                 <DialogHeader>
                                     <DialogTitle>{selectedStore ? "Edit Store" : "Create New Store"}</DialogTitle>
-                                    <DialogDescription>Manage store details and OPMC assignments</DialogDescription>
+                                    <DialogDescription>Manage store details and RTOM assignments</DialogDescription>
                                 </DialogHeader>
 
                                 <div className="space-y-4 mt-4">
@@ -298,9 +298,9 @@ export default function StoresPage() {
                                         </Select>
                                     </div>
 
-                                    {/* OPMCs */}
+                                    {/* RTOMs */}
                                     <div>
-                                        <Label>Assigned OPMCs</Label>
+                                        <Label>Assigned RTOMs</Label>
                                         <div className="border rounded-lg p-4 max-h-60 overflow-y-auto mt-2">
                                             {opmcs.map((opmc) => (
                                                 <div key={opmc.id} className="flex items-center gap-2 py-2">
@@ -317,7 +317,7 @@ export default function StoresPage() {
                                             ))}
                                         </div>
                                         <p className="text-xs text-slate-500 mt-1">
-                                            Selected: {formData.opmcIds.length} OPMCs
+                                            Selected: {formData.opmcIds.length} RTOMs
                                         </p>
                                     </div>
 

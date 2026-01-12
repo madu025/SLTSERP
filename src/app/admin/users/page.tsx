@@ -277,7 +277,7 @@ export default function UserRegistrationPage() {
                                         <tr>
                                             <th className="px-4 py-3 whitespace-nowrap">User</th>
                                             <th className="px-4 py-3 whitespace-nowrap">Role</th>
-                                            <th className="px-4 py-3 whitespace-nowrap">OPMC Access</th>
+                                            <th className="px-4 py-3 whitespace-nowrap">RTOM Access</th>
                                             <th className="px-4 py-3 whitespace-nowrap">Supervisor</th>
                                             <th className="px-4 py-3 whitespace-nowrap text-right">Actions</th>
                                         </tr>
@@ -458,7 +458,7 @@ export default function UserRegistrationPage() {
                                             <FormField control={form.control} name="opmcIds" render={({ field }) => (
                                                 <FormItem>
                                                     <div className="flex justify-between items-center mb-1">
-                                                        <FormLabel className="text-[11px] font-bold uppercase text-slate-500">OPMC Jurisdictions</FormLabel>
+                                                        <FormLabel className="text-[11px] font-bold uppercase text-slate-500">RTOM Jurisdictions</FormLabel>
                                                         <Button type="button" variant="link" className="h-auto p-0 text-[10px]" onClick={() => {
                                                             if (field.value.length === opmcs.length) field.onChange([]);
                                                             else field.onChange(opmcs.map(o => o.id));
@@ -512,7 +512,7 @@ export default function UserRegistrationPage() {
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
-                                                    <p className="text-[10px] text-slate-400 mt-1 italic">Filtered based on OPMC access selected in Step 2.</p>
+                                                    <p className="text-[10px] text-slate-400 mt-1 italic">Filtered based on RTOM access selected in Step 2.</p>
                                                     <FormMessage />
                                                 </FormItem>
                                             )} />
@@ -540,7 +540,7 @@ export default function UserRegistrationPage() {
                                             <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
                                                 <Shield className="w-5 h-5 text-amber-500 shrink-0" />
                                                 <div className="text-[10px] text-amber-800 leading-relaxed">
-                                                    <strong>Final Check:</strong> By saving this user, you grant them access to the selected OPMCs and Store. Ensure the roles are correctly assigned to prevent unauthorized data access.
+                                                    <strong>Final Check:</strong> By saving this user, you grant them access to the selected RTOMs and Store. Ensure the roles are correctly assigned to prevent unauthorized data access.
                                                 </div>
                                             </div>
                                         </div>

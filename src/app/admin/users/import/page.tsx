@@ -30,7 +30,7 @@ export default function UserBulkImportPage() {
     const { data: stores = [] } = useQuery({ queryKey: ['stores'], queryFn: () => fetch('/api/inventory/stores').then(res => res.json()) });
 
     const downloadTemplate = () => {
-        const headers = ["Username", "Email", "Full Name", "Staff ID", "Password", "Role", "OPMC_RTOMs", "Supervisor_Username", "Store_Name"];
+        const headers = ["Username", "Email", "Full Name", "Staff ID", "Password", "Role", "RTOMs", "Supervisor_Username", "Store_Name"];
         const csvContent = headers.join(",") + "\n" +
             "jdoe,jane@slt.lk,Jane Doe,E12345,Pass123!,ENGINEER,\"MT,GM\",admin_user,MAIN_STORE";
 
@@ -69,8 +69,8 @@ export default function UserBulkImportPage() {
             });
 
             try {
-                // Map OPMC RTOMs to IDs
-                const rtoms = String(rowData['OPMC_RTOMs'] || '').split(',').map(s => s.trim());
+                // Map RTOMs to IDs
+                const rtoms = String(rowData['RTOMs'] || '').split(',').map(s => s.trim());
                 const opmcIds = opmcs
                     .filter((o: any) => rtoms.includes(o.rtom))
                     .map((o: any) => o.id);
@@ -204,7 +204,7 @@ export default function UserBulkImportPage() {
                                                     <Link2 className="w-3 h-3" /> Linkage Fields
                                                 </div>
                                                 <ul className="list-disc list-inside space-y-1 pl-1">
-                                                    <li><strong>OPMC_RTOMs:</strong> Comma separated RTOM codes (e.g. "MT, GM")</li>
+                                                    <li><strong>RTOMs:</strong> Comma separated RTOM codes (e.g. "MT, GM")</li>
                                                     <li><strong>Supervisor:</strong> SLT Username of the supervisor</li>
                                                     <li><strong>Store_Name:</strong> Exact name as in Inventory module</li>
                                                 </ul>

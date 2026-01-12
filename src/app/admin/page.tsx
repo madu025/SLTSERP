@@ -63,12 +63,12 @@ export default function AdminPanel() {
             borderColor: 'border-indigo-100'
         },
         {
-            title: 'OPMC Registration',
-            description: 'Manage Outside Plant Maintenance Centers',
+            title: 'RTOM Registration',
+            description: 'Manage Regional Telecom Offices',
             href: '/admin/opmcs',
             icon: Briefcase,
             stat: stats.opmcs,
-            statLabel: 'OPMCs',
+            statLabel: 'RTOMs',
             color: 'text-emerald-600',
             bgColor: 'bg-emerald-50',
             borderColor: 'border-emerald-100'

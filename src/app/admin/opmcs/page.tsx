@@ -44,7 +44,7 @@ const opmcSchema = z.object({
 
 type OPMCFormValues = z.infer<typeof opmcSchema>
 
-export default function OPMCRegistrationPage() {
+export default function RTOMRegistrationPage() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -85,9 +85,9 @@ export default function OPMCRegistrationPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["opmcs"] });
             handleCloseModal();
-            toast.success("OPMC saved successfully");
+            toast.success("RTOM saved successfully");
         },
-        onError: () => toast.error("Error saving OPMC")
+        onError: () => toast.error("Error saving RTOM")
     });
 
     const deleteMutation = useMutation({
@@ -97,7 +97,7 @@ export default function OPMCRegistrationPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["opmcs"] });
-            toast.success("OPMC deleted");
+            toast.success("RTOM deleted");
         }
     });
 
@@ -145,18 +145,18 @@ export default function OPMCRegistrationPage() {
 
                         <div className="flex justify-between items-center">
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-900">OPMC Management</h1>
-                                <p className="text-slate-500">Manage Operational Maintenance Centers and Store Assignments.</p>
+                                <h1 className="text-2xl font-bold text-slate-900">RTOM Management</h1>
+                                <p className="text-slate-500">Manage Regional Telecom Offices and Store Assignments.</p>
                             </div>
                             <Button onClick={() => handleOpenModal()} className="bg-blue-600 hover:bg-blue-700">
-                                <Plus className="w-4 h-4 mr-2" /> Add OPMC
+                                <Plus className="w-4 h-4 mr-2" /> Add RTOM
                             </Button>
                         </div>
 
                         <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border w-full md:w-1/3">
                             <Search className="w-4 h-4 text-slate-400" />
                             <Input
-                                placeholder="Search OPMC..."
+                                placeholder="Search RTOM..."
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 className="border-none focus-visible:ring-0 shadow-none h-8"
@@ -201,8 +201,8 @@ export default function OPMCRegistrationPage() {
                 <Dialog open={showModal} onOpenChange={setShowModal}>
                     <DialogContent className="max-w-md">
                         <DialogHeader>
-                            <DialogTitle>{selectedOPMC ? 'Edit OPMC' : 'Register OPMC'}</DialogTitle>
-                            <DialogDescription>Enter OPMC details and assign a store.</DialogDescription>
+                            <DialogTitle>{selectedOPMC ? 'Edit RTOM' : 'Register RTOM'}</DialogTitle>
+                            <DialogDescription>Enter RTOM details and assign a store.</DialogDescription>
                         </DialogHeader>
 
                         <Form {...form}>
@@ -211,7 +211,7 @@ export default function OPMCRegistrationPage() {
                                     <FormItem><FormLabel>RTOM Code *</FormLabel><FormControl><Input {...field} placeholder="e.g. KAD" className="uppercase" /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem><FormLabel>OPMC Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Kaduwela" /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>RTOM Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Kaduwela" /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField control={form.control} name="region" render={({ field }) => (
