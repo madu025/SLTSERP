@@ -164,8 +164,20 @@ export default function PublicContractorRegistrationPage() {
     }, [banks, formData.bankName]);
 
     const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-        if (!e.target.files || e.target.files.length === 0) return null;
+        console.log(`[UPLOAD-FRONTEND] Starting upload for field: ${fieldName}`);
+
+        if (!e.target.files || e.target.files.length === 0) {
+            console.log(`[UPLOAD-FRONTEND] No file selected for ${fieldName}`);
+            return null;
+        }
+
         const file = e.target.files[0];
+        console.log(`[UPLOAD-FRONTEND] File selected:`, {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
+
         const formDataUpload = new FormData();
         formDataUpload.append('file', file);
 
@@ -176,25 +188,48 @@ export default function PublicContractorRegistrationPage() {
             xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable) {
                     const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    console.log(`[UPLOAD-FRONTEND] Progress for ${fieldName}: ${percentComplete}%`);
                     setUploadProgress(prev => ({ ...prev, [fieldName]: percentComplete }));
                 }
             };
 
             xhr.onload = () => {
+                console.log(`[UPLOAD-FRONTEND] Upload completed with status: ${xhr.status}`);
+
                 if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    setUploadProgress(prev => {
-                        const next = { ...prev };
-                        delete next[fieldName];
-                        return next;
-                    });
-                    resolve(response.url);
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        console.log(`[UPLOAD-FRONTEND] Upload successful for ${fieldName}:`, response);
+
+                        setUploadProgress(prev => {
+                            const next = { ...prev };
+                            delete next[fieldName];
+                            return next;
+                        });
+                        resolve(response.url);
+                    } catch (parseError) {
+                        console.error(`[UPLOAD-FRONTEND] Failed to parse response:`, parseError);
+                        toast.error("Upload response error");
+                        setUploadProgress(prev => {
+                            const next = { ...prev };
+                            delete next[fieldName];
+                            return next;
+                        });
+                        resolve(null);
+                    }
                 } else {
+                    console.error(`[UPLOAD-FRONTEND] Upload failed with status ${xhr.status}`);
+                    console.error(`[UPLOAD-FRONTEND] Response:`, xhr.responseText);
+
                     let errorMsg = "Upload failed";
                     try {
                         const errorData = JSON.parse(xhr.responseText);
-                        errorMsg = errorData.details || errorMsg;
-                    } catch (e) { }
+                        errorMsg = errorData.details || errorData.error || errorMsg;
+                        console.error(`[UPLOAD-FRONTEND] Error details:`, errorData);
+                    } catch (e) {
+                        console.error(`[UPLOAD-FRONTEND] Could not parse error response`);
+                    }
+
                     toast.error(errorMsg);
                     setUploadProgress(prev => {
                         const next = { ...prev };
@@ -206,6 +241,7 @@ export default function PublicContractorRegistrationPage() {
             };
 
             xhr.onerror = () => {
+                console.error(`[UPLOAD-FRONTEND] Network error for ${fieldName}`);
                 toast.error("Network error during upload");
                 setUploadProgress(prev => {
                     const next = { ...prev };
@@ -215,6 +251,7 @@ export default function PublicContractorRegistrationPage() {
                 resolve(null);
             };
 
+            console.log(`[UPLOAD-FRONTEND] Sending XHR request for ${fieldName}`);
             xhr.send(formDataUpload);
         });
     };
@@ -661,6 +698,7 @@ export default function PublicContractorRegistrationPage() {
                                                 {(formData as any)[doc.field] ? (
                                                     <div className="relative w-full h-32 bg-emerald-50 rounded-lg border border-emerald-100 overflow-hidden group">
                                                         <img
+                                                            key={(formData as any)[doc.field]}
                                                             src={(formData as any)[doc.field]}
                                                             alt="Preview"
                                                             className="w-full h-full object-cover"
@@ -786,7 +824,11 @@ export default function PublicContractorRegistrationPage() {
                                                             <div className="shrink-0">
                                                                 {member.passportPhotoUrl ? (
                                                                     <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                                                                        <img src={member.passportPhotoUrl} className="w-full h-full object-cover" />
+                                                                        <img
+                                                                            key={member.passportPhotoUrl}
+                                                                            src={member.passportPhotoUrl}
+                                                                            className="w-full h-full object-cover"
+                                                                        />
                                                                         <button
                                                                             onClick={() => handleMemberChange(tIdx, mIdx, 'passportPhotoUrl', '')}
                                                                             className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
