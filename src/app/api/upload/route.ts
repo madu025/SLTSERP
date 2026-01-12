@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { existsSync } from "fs";
 
 export async function POST(request: NextRequest) {
     console.log("[UPLOAD-API] Received upload request");
@@ -22,38 +23,39 @@ export async function POST(request: NextRequest) {
             type: file.type
         });
 
-        // Generate unique filename to prevent overwrites
+        // Generate unique filename
         const timestamp = Date.now();
         const randomString = Math.random().toString(36).substring(7);
-        const ext = path.extname(file.name);
+        const ext = path.extname(file.name) || '.jpg';
         const filename = `${timestamp}-${randomString}${ext}`;
 
-        console.log("[UPLOAD-API] Generated filename:", filename);
+        // Resolve absolute path to public/uploads/contractors
+        const publicDir = path.join(process.cwd(), "public");
+        const uploadDir = path.join(publicDir, "uploads", "contractors");
 
-        // Create uploads directory structure
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "contractors");
-        console.log("[UPLOAD-API] Upload directory:", uploadDir);
+        console.log("[UPLOAD-API] Target directory:", uploadDir);
 
-        try {
+        // Ensure directory exists
+        if (!existsSync(uploadDir)) {
+            console.log("[UPLOAD-API] Directory does not exist, creating...");
             await mkdir(uploadDir, { recursive: true });
-            console.log("[UPLOAD-API] Directory created/verified");
-        } catch (err) {
-            console.log("[UPLOAD-API] Directory already exists or error:", err);
+            console.log("[UPLOAD-API] Directory created successfully");
+        } else {
+            console.log("[UPLOAD-API] Directory already exists");
         }
 
         // Convert file to buffer and save
-        console.log("[UPLOAD-API] Converting file to buffer...");
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const filePath = path.join(uploadDir, filename);
 
-        console.log("[UPLOAD-API] Saving file to:", filePath);
+        console.log("[UPLOAD-API] Attempting to write file to:", filePath);
         await writeFile(filePath, buffer);
-        console.log("[UPLOAD-API] File saved successfully");
+        console.log("[UPLOAD-API] File written successfully");
 
-        // Return the public URL path (not the full file system path)
+        // Return the public URL path
         const publicUrl = `/uploads/contractors/${filename}`;
-        console.log("[UPLOAD-API] Returning public URL:", publicUrl);
+        console.log("[UPLOAD-API] Success, returning URL:", publicUrl);
 
         return NextResponse.json({
             url: publicUrl,
@@ -62,12 +64,11 @@ export async function POST(request: NextRequest) {
             type: file.type
         });
     } catch (error: any) {
-        console.error("[UPLOAD-API] Critical error:", error);
-        console.error("[UPLOAD-API] Error stack:", error.stack);
+        console.error("[UPLOAD-API] Fatal error during upload:", error);
         return NextResponse.json({
             error: "Upload failed",
             details: error.message,
-            stack: error.stack
+            code: error.code
         }, { status: 500 });
     }
 }

@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Trash2, CheckCircle2, Building2, Users, Banknote, UserPlus, Image as ImageIcon, FileText, Upload, CheckCircle, Plus, XCircle } from "lucide-react";
+import {
+    Loader2, Trash2, CheckCircle2, Building2, Users, Banknote, UserPlus,
+    Image as ImageIcon, FileText, Upload, CheckCircle, Plus, XCircle,
+    ShieldCheck, AlertCircle, User, Info
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -853,30 +857,18 @@ export default function PublicContractorRegistrationPage() {
                                                                                         const newMembers = [...newTeams[tIdx].members];
                                                                                         newMembers[mIdx] = { ...newMembers[mIdx], passportPhotoUrl: url, photoUrl: url };
                                                                                         newTeams[tIdx] = { ...newTeams[tIdx], members: newMembers };
-                                                                                        console.log(`[STATE] Updated member photo`);
                                                                                         return { ...prev, teams: newTeams };
                                                                                     });
-                                                                                    // Wait a tick for state to update, then save from ref
-                                                                                    await new Promise(r => setTimeout(r, 100));
-                                                                                    const saveResult = await saveDraft({ teams: formDataRef.current.teams });
-                                                                                    console.log(`[SAVE] Draft saved for member photo`);
-                                                                                } else {
-                                                                                    console.error(`[UPLOAD] Failed for member photo`);
+                                                                                    saveDraft();
                                                                                 }
                                                                             }}
                                                                         />
-                                                                        {uploadProgress[`member-${tIdx}-${mIdx}`] !== undefined && (
-                                                                            <div className="absolute inset-x-0 bottom-0 p-1 bg-white/80">
-                                                                                <Progress value={uploadProgress[`member-${tIdx}-${mIdx}`]} className="h-1" />
-                                                                            </div>
-                                                                        )}
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
-                                                                <Input placeholder="Full Name" value={member.name} onChange={e => handleMemberChange(tIdx, mIdx, 'name', e.target.value)} />
-                                                                <Input placeholder="NIC Number" value={member.nic} onChange={e => handleMemberChange(tIdx, mIdx, 'nic', e.target.value)} />
-                                                                <Input placeholder="Designation" value={member.designation} onChange={e => handleMemberChange(tIdx, mIdx, 'designation', e.target.value)} />
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                                                                <Input placeholder="Full Name" value={member.name} onChange={e => handleMemberChange(tIdx, mIdx, 'name', e.target.value)} className="h-8 text-xs" />
+                                                                <Input placeholder="NIC Number" value={member.nic} onChange={e => handleMemberChange(tIdx, mIdx, 'nic', e.target.value)} className="h-8 text-xs" />
                                                             </div>
                                                             <button
                                                                 onClick={() => handleRemoveMember(tIdx, mIdx)}
@@ -911,92 +903,172 @@ export default function PublicContractorRegistrationPage() {
                         )}
 
                         {!submitted && step === 5 && (
-                            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                            <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-8">
                                 <div className="text-center mb-8">
-                                    <h3 className="text-xl font-bold">Registration Summary</h3>
-                                    <p className="text-sm text-slate-500">Please verify all information before final submission.</p>
+                                    <h3 className="text-xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">Final Review</h3>
+                                    <p className="text-sm text-slate-500">Please verify all your registration details below before final submission.</p>
                                 </div>
 
                                 <div className="space-y-6">
-                                    {/* Bank Info Review */}
-                                    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                                        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                                            <Banknote className="w-3.5 h-3.5" /> Banking Details
+                                    {/* 1. Basic Info Review */}
+                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                                            <ShieldCheck className="w-4 h-4 text-blue-500" /> Basic Information
                                         </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            <div><Label className="text-[10px] uppercase text-slate-500 font-bold">Bank</Label><p className="font-medium text-slate-900">{formData.bankName}</p></div>
-                                            <div><Label className="text-[10px] uppercase text-slate-500 font-bold">Branch</Label><p className="font-medium text-slate-900">{formData.bankBranch}</p></div>
-                                            <div><Label className="text-[10px] uppercase text-slate-500 font-bold">Account</Label><p className="font-medium text-slate-900 tracking-wider">{formData.bankAccountNumber}</p></div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">Contact Name</Label>
+                                                <p className="text-sm font-semibold text-slate-900">{contractor?.name}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">NIC Number</Label>
+                                                <p className="text-sm font-semibold text-slate-900">{formData.nic}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">Contact Number</Label>
+                                                <p className="text-sm font-semibold text-slate-900">{formData.contactNumber}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">Email Address</Label>
+                                                <p className="text-sm font-semibold text-slate-900">{contractor?.email || 'Not Provided'}</p>
+                                            </div>
+                                            <div className="space-y-1 md:col-span-2">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">Residential/Business Address</Label>
+                                                <p className="text-sm font-semibold text-slate-900">{formData.address}</p>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Teams Review */}
-                                    <div className="space-y-4">
-                                        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2 px-1">
-                                            <Users className="w-3.5 h-3.5" /> Teams Summary ({formData.teams.length})
+                                    {/* 2. Banking Details Review */}
+                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                                            <Banknote className="w-4 h-4 text-emerald-500" /> Banking Details
                                         </h4>
-                                        <div className="grid grid-cols-1 gap-4">
-                                            {formData.teams.map((team, tIdx) => (
-                                                <div key={tIdx} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                                    <div className="bg-slate-50 px-4 py-3 border-b flex justify-between items-center text-sm font-bold">
-                                                        <span>{team.name}</span>
-                                                        <Badge variant="secondary" className="bg-blue-50 text-blue-700">
-                                                            {stores.find(s => s.id === team.primaryStoreId)?.name || 'No Store'}
-                                                        </Badge>
-                                                    </div>
-                                                    <div className="p-4">
-                                                        <div className="space-y-2">
-                                                            {team.members.map((m: any, mIdx: number) => (
-                                                                <div key={mIdx} className="flex items-center gap-3 text-sm">
-                                                                    <div className="w-8 h-8 rounded-full border bg-slate-100 overflow-hidden shrink-0">
-                                                                        {m.passportPhotoUrl ? <img src={m.passportPhotoUrl} className="w-full h-full object-cover" /> : <Users className="w-4 h-4 m-auto mt-2 text-slate-300" />}
-                                                                    </div>
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="font-medium truncate">{m.name}</p>
-                                                                        <p className="text-[10px] text-slate-500">{m.designation} • {m.nic}</p>
-                                                                    </div>
-                                                                    {m.passportPhotoUrl && <CheckCircle className="w-3 h-3 text-green-500" />}
-                                                                </div>
-                                                            ))}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">Bank Name</Label>
+                                                <p className="text-sm font-semibold text-slate-900">{formData.bankName}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">Branch</Label>
+                                                <p className="text-sm font-semibold text-slate-900">{formData.bankBranch}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase text-slate-400 font-bold">Account Number</Label>
+                                                <p className="text-sm font-semibold text-slate-900 tracking-wider font-mono">{formData.bankAccountNumber}</p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-6 p-3 bg-slate-50 rounded-xl border border-dashed flex items-center gap-4">
+                                            {formData.bankPassbookUrl && (
+                                                <div className="w-12 h-12 rounded bg-white border overflow-hidden">
+                                                    <img src={formData.bankPassbookUrl} className="w-full h-full object-cover" />
+                                                </div>
+                                            )}
+                                            <span className="text-xs text-slate-500 font-medium italic">Bank Passbook / Statement Copy Uploaded</span>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Documents Review */}
+                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                                            <FileText className="w-4 h-4 text-orange-500" /> Uploaded Documents
+                                        </h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                            {[
+                                                { label: "Photo", url: formData.photoUrl },
+                                                { label: "NIC Front", url: formData.nicFrontUrl },
+                                                { label: "NIC Back", url: formData.nicBackUrl },
+                                                { label: "Police Report", url: formData.policeReportUrl },
+                                                { label: "Grama Niladbari", url: formData.gramaCertUrl },
+                                                { label: "BR Certificate", url: formData.brCertUrl }
+                                            ].filter(doc => doc.url).map((doc, idx) => (
+                                                <div key={idx} className="space-y-2">
+                                                    <div className="aspect-square rounded-lg border bg-slate-50 overflow-hidden relative group">
+                                                        <img src={doc.url} className="w-full h-full object-cover" />
+                                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <a href={doc.url} target="_blank" className="text-[10px] text-white underline">View Large</a>
                                                         </div>
                                                     </div>
+                                                    <p className="text-[10px] font-bold text-center text-slate-500 uppercase">{doc.label}</p>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* Docs Review */}
-                                    <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                                        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                                            <FileText className="w-3.5 h-3.5" /> Documents Checklist
+                                    {/* 4. Teams Review */}
+                                    <div className="space-y-4">
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 px-1">
+                                            <Users className="w-4 h-4 text-purple-500" /> Teams & Members ({formData.teams.length})
                                         </h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            {[
-                                                { k: 'photoUrl', l: 'Photo' },
-                                                { k: 'nicFrontUrl', l: 'NIC Front' },
-                                                { k: 'nicBackUrl', l: 'NIC Back' },
-                                                { k: 'gramaCertUrl', l: 'GN Cert' },
-                                                { k: 'brCertUrl', l: 'BR Cert' },
-                                                { k: 'bankPassbookUrl', l: 'Passbook' }
-                                            ].map(d => (formData as any)[d.k] && (
-                                                <Badge key={d.k} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 py-1.5 px-3 flex items-center gap-2">
-                                                    <CheckCircle className="w-3.5 h-3.5" /> {d.l}
-                                                </Badge>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {formData.teams.map((team, tIdx) => (
+                                                <div key={tIdx} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                                    <div className="bg-slate-50 px-5 py-4 border-b flex justify-between items-center">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-bold text-slate-800">{team.name}</span>
+                                                            <span className="text-[10px] text-slate-500">Assigned Store: {stores.find(s => s.id === team.primaryStoreId)?.name || 'Pending'}</span>
+                                                        </div>
+                                                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-none px-3">
+                                                            {team.members.length} Members
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                        {team.members.map((m: any, mIdx: number) => (
+                                                            <div key={mIdx} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50/50 border border-slate-100">
+                                                                <div className="w-10 h-10 rounded-full bg-white border overflow-hidden shrink-0">
+                                                                    <img src={m.passportPhotoUrl || m.photoUrl} className="w-full h-full object-cover" />
+                                                                </div>
+                                                                <div className="flex flex-col min-w-0">
+                                                                    <span className="text-xs font-bold text-slate-700 truncate">{m.name}</span>
+                                                                    <span className="text-[10px] text-slate-400">{m.nic || 'No NIC'}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-12 max-w-sm mx-auto space-y-4">
+                                <div className="p-6 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-4">
+                                    <div className="p-2 bg-blue-500 rounded-full text-white shrink-0">
+                                        <AlertCircle className="w-5 h-5" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h5 className="text-sm font-bold text-blue-900">Final Confirmation</h5>
+                                        <p className="text-xs text-blue-700/80 leading-relaxed">
+                                            By submitting this registration, you confirm that all the information provided is accurate and authentic.
+                                            Our team will review your application and notify you via email/contact number once approved.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row gap-4 pt-6">
                                     <Button
-                                        onClick={handleSubmit}
-                                        className="w-full bg-blue-600 hover:bg-blue-700 py-7 h-auto text-lg font-bold shadow-xl shadow-blue-100 flex items-center justify-center gap-2"
+                                        variant="outline"
+                                        onClick={() => setStep(4)}
+                                        className="sm:w-1/3 h-12"
                                         disabled={submitting}
                                     >
-                                        {submitting ? <Loader2 className="animate-spin" /> : <>Complete Registration <CheckCircle2 className="w-5 h-5" /></>}
+                                        Back to Edit
                                     </Button>
-                                    <Button variant="ghost" className="w-full text-slate-500 hover:text-blue-600 transition-colors" onClick={() => setStep(4)} disabled={submitting}>
-                                        Back to edit
+                                    <Button
+                                        onClick={handleSubmit}
+                                        disabled={submitting}
+                                        className="sm:w-2/3 h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-200 transition-all active:scale-95 text-base font-bold"
+                                    >
+                                        {submitting ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                Processing Submission...
+                                            </>
+                                        ) : (
+                                            "Submit Registration Now"
+                                        )}
                                     </Button>
                                 </div>
                             </div>
