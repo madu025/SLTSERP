@@ -28,6 +28,10 @@ jobs:
 
             # Create/Update .env file with secrets
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > .env
+            echo "DIRECT_URL=${{ secrets.DIRECT_URL }}" >> .env
+            echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
+            echo "NEXTAUTH_URL=http://54.255.90.86:3000" >> .env
+            echo "NEXT_PUBLIC_APP_URL=http://54.255.90.86:3000" >> .env
             
             # Docker container එක update කරන්න
             docker compose up -d --build
