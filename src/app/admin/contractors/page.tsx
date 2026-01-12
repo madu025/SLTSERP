@@ -135,8 +135,19 @@ export default function ContractorsPage() {
     const [inviteData, setInviteData] = useState({
         name: '',
         contactNumber: '',
-        type: 'SOD' as 'SOD' | 'OSP'
+        type: 'SOD' as 'SOD' | 'OSP',
+        opmcId: '' as string
     });
+
+    const handleInviteOpen = () => {
+        setInviteData({
+            name: '',
+            contactNumber: '',
+            type: 'SOD',
+            opmcId: user.accessibleOpmcs?.[0]?.id || ''
+        });
+        setInviteModalOpen(true);
+    };
 
     const [step, setStep] = useState(1);
     const [manualBank, setManualBank] = useState(false);
@@ -479,7 +490,7 @@ export default function ContractorsPage() {
                                 <p className="text-sm text-slate-500">Register and manage contractors, teams, and assignments.</p>
                             </div>
                             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                                <Button onClick={() => setInviteModalOpen(true)} variant="outline" className="flex-1 sm:flex-none border-blue-200 text-blue-700 hover:bg-blue-50 text-xs sm:text-sm h-9">
+                                <Button onClick={handleInviteOpen} variant="outline" className="flex-1 sm:flex-none border-blue-200 text-blue-700 hover:bg-blue-50 text-xs sm:text-sm h-9">
                                     <UserPlus className="w-4 h-4 mr-2" /> Invite
                                 </Button>
                                 <Button onClick={handleAdd} className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm h-9">
@@ -1001,16 +1012,31 @@ export default function ContractorsPage() {
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Originating Office</Label>
-                                <div className="px-3 py-2 bg-slate-50 border rounded-md text-xs font-medium text-slate-600">
-                                    {(user as any).accessibleOpmcs?.[0]?.name || 'Auto-detected from your profile'}
-                                </div>
-                                <p className="text-[10px] text-slate-400">The registration will be routed to your regional ARM for approval.</p>
+                                <Label>Originating Office (RTOM)</Label>
+                                {user.accessibleOpmcs && user.accessibleOpmcs.length > 1 ? (
+                                    <Select value={inviteData.opmcId} onValueChange={(v) => setInviteData({ ...inviteData, opmcId: v })}>
+                                        <SelectTrigger><SelectValue placeholder="Select RTOM" /></SelectTrigger>
+                                        <SelectContent>
+                                            {user.accessibleOpmcs.map((o: any) => (
+                                                <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <div className="px-3 py-2 bg-slate-50 border rounded-md text-xs font-medium text-slate-600">
+                                        {user.accessibleOpmcs?.[0]?.name || 'Auto-detected from your profile'}
+                                    </div>
+                                )}
+                                <p className="text-[10px] text-slate-400">The registration will be routed to the respective regional ARM for approval.</p>
                             </div>
                         </div>
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setInviteModalOpen(false)}>Cancel</Button>
                             <Button className="bg-blue-600 hover:bg-blue-700" onClick={async () => {
+                                if (!inviteData.name || !inviteData.contactNumber) {
+                                    toast.error("Please fill in basic details");
+                                    return;
+                                }
                                 const toastId = toast.loading("Generating link...");
                                 try {
                                     const res = await fetch('/api/contractors/generate-link', {
@@ -1021,10 +1047,17 @@ export default function ContractorsPage() {
                                     if (!res.ok) throw new Error("Failed");
                                     const data = await res.json();
                                     setShareLink(data.registrationLink);
+
+                                    // Try to copy to clipboard immediately
+                                    try {
+                                        await navigator.clipboard.writeText(data.registrationLink);
+                                        toast.success("Link generated & copied to clipboard!", { id: toastId });
+                                    } catch (copyErr) {
+                                        toast.success("Link generated!", { id: toastId });
+                                    }
+
                                     setInviteModalOpen(false);
                                     setShareModalOpen(true);
-                                    toast.dismiss(toastId);
-                                    toast.success("Invitation generated!");
                                 } catch (err) {
                                     toast.error("Generation failed", { id: toastId });
                                 }
