@@ -51,6 +51,7 @@ export default function PublicContractorRegistrationPage() {
     });
     const [stores, setStores] = useState<any[]>([]);
     const formDataRef = React.useRef(formData);
+    const submittingRef = React.useRef(false);
 
     // Keep ref in sync
     useEffect(() => {
@@ -241,12 +242,20 @@ export default function PublicContractorRegistrationPage() {
     };
 
     const saveDraft = async (dataToSave: any = formDataRef.current) => {
+        // Don't save drafts while submitting to prevent transaction conflicts
+        if (submittingRef.current) {
+            console.log("[DRAFT] Skipping draft save - submission in progress");
+            return;
+        }
+
         try {
+            console.log("[DRAFT] Saving draft...");
             await fetch(`/api/contractors/public-register/${token}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(dataToSave)
             });
+            console.log("[DRAFT] Draft saved successfully");
         } catch (error) {
             console.error("Draft save failed:", error);
         }
@@ -322,6 +331,8 @@ export default function PublicContractorRegistrationPage() {
         }
 
         setSubmitting(true);
+        submittingRef.current = true; // Block draft saves during submission
+
         try {
             // Prepare final data - if not SOD, we might want to ensure a default team structure
             const finalData = { ...formData };
@@ -349,6 +360,7 @@ export default function PublicContractorRegistrationPage() {
             toast.error(error.message || "Something went wrong during submission");
         } finally {
             setSubmitting(false);
+            submittingRef.current = false; // Re-enable draft saves
         }
     };
 
