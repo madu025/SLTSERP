@@ -887,7 +887,7 @@ export default function OrderActionModal({
                                                                             className="bg-white pl-9 h-10 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-500 shadow-sm"
                                                                         />
                                                                     </div>
-                                                                    <p className="text-[9px] text-slate-400 mt-1.5 ml-1 italic">* Use this for internal staff or OPMC direct maintenance teams.</p>
+                                                                    <p className="text-[9px] text-slate-400 mt-1.5 ml-1 italic">* Use this for internal staff or RTOM direct maintenance teams.</p>
                                                                 </div>
                                                             )}
                                                         </div>

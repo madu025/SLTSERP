@@ -516,12 +516,12 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                         {/* Controls */}
                         <div className="bg-white p-1.5 rounded-lg border shadow-sm flex flex-wrap gap-2 items-center">
                             <div className="flex items-center gap-2">
-                                <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap hidden sm:block">OPMC</label>
+                                <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap hidden sm:block">RTOM</label>
                                 <Select value={selectedOpmcId} onValueChange={handleOpmcChange}>
-                                    <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
+                                    <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue placeholder="Select RTOM" /></SelectTrigger>
                                     <SelectContent>
                                         {opmcs.map(o => (
-                                            <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom} - {o.name}</SelectItem>
+                                            <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

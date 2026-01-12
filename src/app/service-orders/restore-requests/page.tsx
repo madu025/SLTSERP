@@ -167,16 +167,16 @@ export default function RestoreRequestsPage() {
                         <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-slate-100">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Filter by OPMC</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Filter by RTOM</label>
                                     <select
                                         value={selectedOpmcId}
                                         onChange={(e) => setSelectedOpmcId(e.target.value)}
                                         className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20"
                                     >
-                                        <option value="ALL">All OPMCs</option>
+                                        <option value="ALL">All RTOMs</option>
                                         {opmcs.map(opmc => (
                                             <option key={opmc.id} value={opmc.id}>
-                                                {opmc.rtom} {opmc.name && `- ${opmc.name}`}
+                                                {opmc.rtom}
                                             </option>
                                         ))}
                                     </select>
@@ -198,7 +198,7 @@ export default function RestoreRequestsPage() {
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">SO Number</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Customer</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Voice Number</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">OPMC</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">RTOM</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Current Status</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Requested By</th>
                                             <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Reason</th>
