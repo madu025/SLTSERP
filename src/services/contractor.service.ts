@@ -417,6 +417,9 @@ export class ContractorService {
 
             console.log("[SUBMIT-TX] Transaction completed successfully");
             return updated;
+        }, {
+            maxWait: 10000, // Maximum time to wait for a transaction slot (10s)
+            timeout: 30000, // Maximum time the transaction can run (30s)
         });
 
         // 4. Notify Relevant Staff (Outside transaction for reliability)
