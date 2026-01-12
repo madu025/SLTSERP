@@ -12,10 +12,12 @@ export async function POST(request: Request) {
 
         // Set HttpOnly Cookie
         const cookieStore = await cookies();
+        const isProduction = process.env.NODE_ENV === 'production';
+
         cookieStore.set('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: isProduction, // Still keep secure in production (HTTPS)
+            sameSite: 'lax',      // Changed from 'strict' to 'lax' for better proxy support
             maxAge: 86400, // 24 hours
             path: '/',
         });
