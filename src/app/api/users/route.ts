@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { SystemService } from '@/services/system.service';
 
 // GET all users
 export async function GET(request: Request) {
@@ -189,6 +190,21 @@ export async function POST(request: Request) {
         });
 
         const { password: _, ...userWithoutPassword } = result;
+
+        // Log the creation and Notify the user
+        const currentUserId = request.headers.get('x-user-id') || 'system';
+        await SystemService.logEvent({
+            userId: currentUserId,
+            action: 'USER_CREATE',
+            entity: 'User',
+            entityId: result.id as string,
+            newValue: userWithoutPassword,
+            notify: true,
+            notifyTitle: 'Welcome to SLT ERP',
+            notifyMessage: `An administrator has created your account as ${role}. Please setup your security profile.`,
+            notifyType: 'SYSTEM'
+        });
+
         return NextResponse.json(userWithoutPassword);
     } catch (error) {
         console.error('Registration Error:', error);
@@ -228,6 +244,7 @@ export async function PUT(request: Request) {
 
         if (password && password.length > 0) {
             dataToUpdate.password = await bcrypt.hash(password, 10);
+            dataToUpdate.mustChangePassword = true; // Force change if admin reset it
         }
 
         const result = await prisma.$transaction(async (tx) => {
@@ -269,6 +286,22 @@ export async function PUT(request: Request) {
         });
 
         const { password: _, ...userWithoutPassword } = result;
+
+        // Log the update
+        const currentUserId = request.headers.get('x-user-id') || 'system';
+        await SystemService.logEvent({
+            userId: currentUserId,
+            action: 'USER_UPDATE',
+            entity: 'User',
+            entityId: result.id as string,
+            oldValue: existingUser,
+            newValue: userWithoutPassword,
+            notify: true,
+            notifyTitle: 'Profile Updated',
+            notifyMessage: `Your account details have been updated by an administrator.`,
+            notifyType: 'SYSTEM'
+        });
+
         return NextResponse.json(userWithoutPassword);
     } catch (error) {
         console.error('Update Error:', error);

@@ -46,7 +46,8 @@ export class UserService {
                 username: user.username,
                 name: user.name,
                 role: user.role,
-                accessibleOpmcs: user.accessibleOpmcs
+                accessibleOpmcs: user.accessibleOpmcs,
+                mustChangePassword: (user as any).mustChangePassword
             }
         };
     }

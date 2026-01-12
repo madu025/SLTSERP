@@ -1,496 +1,280 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { User, Mail, Shield, MapPin, Building2, Users, Lock, Eye, EyeOff } from 'lucide-react';
-
-interface ProfileData {
-    id: string;
-    username: string;
-    email: string;
-    name: string;
-    role: string;
-    employeeId?: string;
-    createdAt: string;
-    updatedAt: string;
-    accessibleOpmcs: Array<{
-        id: string;
-        rtom: string;
-        region: string;
-        province: string;
-    }>;
-    assignedStore?: {
-        id: string;
-        name: string;
-        type: string;
-        location: string;
-    };
-    sectionAssignments: Array<{
-        section: {
-            id: string;
-            name: string;
-            code: string;
-        };
-        role: {
-            id: string;
-            name: string;
-            code: string;
-        };
-        isPrimary: boolean;
-    }>;
-    supervisor?: {
-        id: string;
-        name: string;
-        username: string;
-        role: string;
-    };
-}
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { User, Shield, Building2, Warehouse, Users, History, Lock, Mail, CreditCard, ChevronRight, Bell } from "lucide-react";
+import { format } from 'date-fns';
 
 export default function ProfilePage() {
-    const router = useRouter();
-    const [profile, setProfile] = useState<ProfileData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [editMode, setEditMode] = useState(false);
-    const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-
-    // Edit form state
-    const [editForm, setEditForm] = useState({
-        name: '',
-        email: ''
-    });
-
-    // Password change state
-    const [passwordForm, setPasswordForm] = useState({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-    });
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-    const [saveLoading, setSaveLoading] = useState(false);
-    const [passwordLoading, setPasswordLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
-        if (!storedUser) {
-            router.push('/login');
-            return;
-        }
-
-        const user = JSON.parse(storedUser);
-        fetchProfile(user.id);
+        if (storedUser) setUser(JSON.parse(storedUser));
     }, []);
 
-    const fetchProfile = async (userId: string) => {
-        try {
-            const res = await fetch(`/api/profile?userId=${userId}`);
-            if (!res.ok) throw new Error('Failed to fetch profile');
+    const { data: profileDetails } = useQuery({
+        queryKey: ["profile-details"],
+        queryFn: async () => {
+            const res = await fetch("/api/profile");
+            if (!res.ok) return null;
+            return res.json();
+        },
+        enabled: !!user,
+    });
 
-            const data = await res.json();
-            setProfile(data);
-            setEditForm({
-                name: data.name || '',
-                email: data.email || ''
-            });
-        } catch (error) {
-            console.error('Error fetching profile:', error);
-            setMessage({ type: 'error', text: 'Failed to load profile' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleUpdateProfile = async () => {
-        if (!profile) return;
-
-        setSaveLoading(true);
-        setMessage(null);
-
-        try {
-            const res = await fetch(`/api/profile?userId=${profile.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(editForm)
-            });
-
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.message || 'Failed to update profile');
-            }
-
-            const updatedData = await res.json();
-            setProfile({ ...profile, ...updatedData });
-            setEditMode(false);
-            setMessage({ type: 'success', text: 'Profile updated successfully!' });
-
-            // Update localStorage
-            const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-            localStorage.setItem('user', JSON.stringify({ ...storedUser, name: updatedData.name, email: updatedData.email }));
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message });
-        } finally {
-            setSaveLoading(false);
-        }
-    };
-
-    const handleChangePassword = async () => {
-        if (!profile) return;
-
-        setMessage(null);
-
-        // Validation
-        if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-            setMessage({ type: 'error', text: 'All password fields are required' });
-            return;
-        }
-
-        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            setMessage({ type: 'error', text: 'New passwords do not match' });
-            return;
-        }
-
-        if (passwordForm.newPassword.length < 6) {
-            setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
-            return;
-        }
-
-        setPasswordLoading(true);
-
-        try {
-            const res = await fetch('/api/profile/change-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: profile.id,
-                    currentPassword: passwordForm.currentPassword,
-                    newPassword: passwordForm.newPassword
-                })
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.message || 'Failed to change password');
-            }
-
-            setMessage({ type: 'success', text: 'Password changed successfully!' });
-            setPasswordDialogOpen(false);
-            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message });
-        } finally {
-            setPasswordLoading(false);
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex bg-slate-50">
-                <Sidebar />
-                <main className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
-                </main>
-            </div>
-        );
-    }
-
-    if (!profile) {
-        return (
-            <div className="min-h-screen flex bg-slate-50">
-                <Sidebar />
-                <main className="flex-1 flex items-center justify-center">
-                    <p className="text-slate-500">Failed to load profile</p>
-                </main>
-            </div>
-        );
-    }
+    if (!user) return null;
 
     return (
-        <div className="min-h-screen flex bg-white">
+        <div className="h-screen flex bg-[#f8fafc] overflow-hidden text-xs">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-                    <div className="max-w-4xl mx-auto space-y-6">
-                        {/* Header */}
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
-                                <p className="text-sm text-slate-500 mt-1">Manage your account settings and preferences</p>
-                            </div>
-                            <Button
-                                onClick={() => setPasswordDialogOpen(true)}
-                                variant="outline"
-                                className="gap-2"
-                            >
-                                <Lock className="w-4 h-4" />
-                                Change Password
-                            </Button>
-                        </div>
+                <main className="flex-1 overflow-y-auto pt-0">
 
-                        {/* Message */}
-                        {message && (
-                            <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                                {message.text}
-                            </div>
-                        )}
-
-                        {/* Basic Information Card */}
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                                <h2 className="text-lg font-semibold text-slate-900">Basic Information</h2>
-                                {!editMode ? (
-                                    <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
-                                        Edit
-                                    </Button>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <Button onClick={() => setEditMode(false)} variant="outline" size="sm">
-                                            Cancel
-                                        </Button>
-                                        <Button onClick={handleUpdateProfile} size="sm" disabled={saveLoading}>
-                                            {saveLoading ? 'Saving...' : 'Save'}
-                                        </Button>
+                    {/* Hero Header */}
+                    <div className="h-48 bg-slate-900 relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent" />
+                        <div className="max-w-5xl mx-auto px-8 h-full flex items-end pb-8 relative z-10">
+                            <div className="flex items-center gap-6">
+                                <div className="w-24 h-24 rounded-3xl bg-white shadow-2xl border-4 border-white flex items-center justify-center text-4xl font-bold text-slate-900">
+                                    {user.name?.[0] || user.username?.[0]}
+                                </div>
+                                <div className="text-white space-y-1">
+                                    <h1 className="text-3xl font-bold tracking-tight">{user.name}</h1>
+                                    <div className="flex items-center gap-2 text-slate-300 font-medium">
+                                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] py-0">
+                                            {user.role}
+                                        </Badge>
+                                        <span>•</span>
+                                        <span className="opacity-80">@{user.username}</span>
                                     </div>
-                                )}
-                            </div>
-                            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-slate-700">Username</Label>
-                                    <p className="text-slate-900">{profile.username}</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-slate-700">Full Name</Label>
-                                    {editMode ? (
-                                        <Input
-                                            value={editForm.name}
-                                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                        />
-                                    ) : (
-                                        <p className="text-slate-900">{profile.name || '-'}</p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-slate-700">Email</Label>
-                                    {editMode ? (
-                                        <Input
-                                            type="email"
-                                            value={editForm.email}
-                                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                        />
-                                    ) : (
-                                        <p className="text-slate-900">{profile.email}</p>
-                                    )}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium text-slate-700">Role</Label>
-                                    <Badge className="bg-primary text-white">{profile.role.replace(/_/g, ' ')}</Badge>
-                                </div>
-                                {profile.employeeId && (
-                                    <div className="space-y-2">
-                                        <Label className="text-sm font-medium text-slate-700">Employee ID</Label>
-                                        <p className="text-slate-900">{profile.employeeId}</p>
-                                    </div>
-                                )}
                             </div>
                         </div>
+                    </div>
 
-                        {/* Assigned OPMCs */}
-                        {profile.accessibleOpmcs && profile.accessibleOpmcs.length > 0 && (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-200">
-                                    <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                        <MapPin className="w-5 h-5" />
-                                        Assigned Areas (OPMCs)
-                                    </h2>
-                                </div>
-                                <div className="p-6">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {profile.accessibleOpmcs.map((opmc) => (
-                                            <div key={opmc.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                                                <p className="font-semibold text-slate-900">{opmc.rtom}</p>
-                                                <p className="text-xs text-slate-600">{opmc.region} - {opmc.province}</p>
+                    <div className="max-w-5xl mx-auto px-8 -mt-8 relative z-20 pb-12">
+                        <Tabs defaultValue="overview" className="space-y-6">
+                            <TabsList className="bg-white border p-1 rounded-2xl shadow-sm h-12 w-full max-w-md">
+                                <TabsTrigger value="overview" className="flex-1 rounded-xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">Overview</TabsTrigger>
+                                <TabsTrigger value="access" className="flex-1 rounded-xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">Access & Scope</TabsTrigger>
+                                <TabsTrigger value="security" className="flex-1 rounded-xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">Security</TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="overview" className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+                                {/* Info Cards */}
+                                <Card className="md:col-span-2 border-none shadow-sm rounded-3xl">
+                                    <CardHeader>
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                            <User className="w-4 h-4 text-blue-500" /> Account Identity
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="grid grid-cols-2 gap-8 py-6">
+                                        <div className="space-y-1.5">
+                                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Corporate Email</div>
+                                            <div className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                                <Mail className="w-3.5 h-3.5 text-slate-300" /> {profileDetails?.email || 'Loading...'}
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Assigned Store */}
-                        {profile.assignedStore && (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-200">
-                                    <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                        <Building2 className="w-5 h-5" />
-                                        Assigned Store
-                                    </h2>
-                                </div>
-                                <div className="p-6">
-                                    <div className="flex items-start gap-4">
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-slate-900">{profile.assignedStore.name}</p>
-                                            <p className="text-sm text-slate-600 mt-1">{profile.assignedStore.location}</p>
-                                            <Badge variant="outline" className="mt-2">{profile.assignedStore.type}</Badge>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                                        <div className="space-y-1.5">
+                                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Employee ID</div>
+                                            <div className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                                <CreditCard className="w-3.5 h-3.5 text-slate-300" /> {profileDetails?.staff?.employeeId || 'N/A'}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Department</div>
+                                            <div className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                                <Building2 className="w-3.5 h-3.5 text-slate-300" /> {profileDetails?.sectionAssignments?.[0]?.section?.name || 'Operations'}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Active Since</div>
+                                            <div className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                                <History className="w-3.5 h-3.5 text-slate-300" /> {profileDetails?.createdAt ? format(new Date(profileDetails.createdAt), 'MMMM yyyy') : '...'}
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                        {/* Section Assignments */}
-                        {profile.sectionAssignments && profile.sectionAssignments.length > 0 && (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-200">
-                                    <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                        <Users className="w-5 h-5" />
-                                        Section Assignments
-                                    </h2>
-                                </div>
-                                <div className="p-6">
-                                    <div className="space-y-3">
-                                        {profile.sectionAssignments.map((assignment, idx) => (
-                                            <div key={idx} className="p-4 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-semibold text-slate-900">{assignment.section.name}</p>
-                                                    <p className="text-sm text-slate-600 mt-1">Role: {assignment.role.name}</p>
+                                {/* Hierarchy Card */}
+                                <Card className="border-none shadow-sm rounded-3xl bg-blue-600 text-white overflow-hidden relative">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                                        <Users className="w-24 h-24" />
+                                    </div>
+                                    <CardHeader>
+                                        <CardTitle className="text-sm font-bold">Organization Tree</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6 pb-6">
+                                        <div className="space-y-2">
+                                            <div className="text-[9px] uppercase font-bold opacity-60">Reports To</div>
+                                            <div className="p-3 bg-white/10 rounded-2xl flex items-center gap-3 backdrop-blur-md border border-white/10">
+                                                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold">
+                                                    {profileDetails?.supervisor?.name?.[0] || '?'}
                                                 </div>
-                                                {assignment.isPrimary && (
-                                                    <Badge className="bg-emerald-500 text-white">Primary</Badge>
-                                                )}
+                                                <div className="min-w-0">
+                                                    <div className="font-bold truncate text-[11px]">{profileDetails?.supervisor?.name || 'Direct Management'}</div>
+                                                    <div className="text-[10px] opacity-60 truncate">{profileDetails?.supervisor?.role || 'System'}</div>
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Supervisor */}
-                        {profile.supervisor && (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-200">
-                                    <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                                        <Shield className="w-5 h-5" />
-                                        Supervisor
-                                    </h2>
-                                </div>
-                                <div className="p-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                                            <User className="w-6 h-6 text-primary" />
                                         </div>
+
+                                        <div className="space-y-2 pt-2 border-t border-white/10">
+                                            <div className="text-[9px] uppercase font-bold opacity-60">Supervised Staff</div>
+                                            <div className="text-2xl font-bold">{profileDetails?.subordinates?.length || 0}</div>
+                                            <div className="text-[10px] opacity-80 underline cursor-pointer">View Team Directory</div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* System Activity Log Widget */}
+                                <Card className="md:col-span-3 border-none shadow-sm rounded-3xl">
+                                    <CardHeader className="flex flex-row items-center justify-between">
                                         <div>
-                                            <p className="font-semibold text-slate-900">{profile.supervisor.name}</p>
-                                            <p className="text-sm text-slate-600">@{profile.supervisor.username}</p>
-                                            <Badge variant="outline" className="mt-1">{profile.supervisor.role.replace(/_/g, ' ')}</Badge>
+                                            <CardTitle className="text-sm font-bold">Recent System Activity</CardTitle>
+                                            <CardDescription className="text-[10px]">Your latest administrative interactions</CardDescription>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                                        <Button variant="ghost" size="sm" className="text-xs h-7 px-2">Export Log</Button>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <div className="divide-y border-t">
+                                            {profileDetails?.auditLogs?.length > 0 ? profileDetails.auditLogs.map((log: any) => (
+                                                <div key={log.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                                                            <History className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-bold text-slate-900">{log.action}</div>
+                                                            <div className="text-[10px] text-slate-400">{log.entity} • {format(new Date(log.createdAt), 'MMM dd, HH:mm')}</div>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                                                </div>
+                                            )) : (
+                                                <div className="p-10 text-center text-slate-400 italic">No recent activity detected.</div>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
 
-                        {/* Account Information */}
-                        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <p className="text-slate-500">Member Since</p>
-                                    <p className="font-medium text-slate-900">{new Date(profile.createdAt).toLocaleDateString()}</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-500">Last Updated</p>
-                                    <p className="font-medium text-slate-900">{new Date(profile.updatedAt).toLocaleDateString()}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
+                            <TabsContent value="access" className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <Card className="border-none shadow-sm rounded-3xl">
+                                    <CardHeader>
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                            <Building2 className="w-4 h-4 text-orange-500" /> OPMC Jurisdictions
+                                        </CardTitle>
+                                        <CardDescription className="text-[10px]">Operational areas you are authorized to manage</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="flex flex-wrap gap-2">
+                                            {profileDetails?.accessibleOpmcs?.length > 0 ? profileDetails.accessibleOpmcs.map((opmc: any) => (
+                                                <div key={opmc.id} className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-white shadow-sm border rounded-xl flex items-center justify-center font-bold text-blue-600">
+                                                        {opmc.rtom}
+                                                    </div>
+                                                    <div className="font-semibold text-slate-700">{opmc.name}</div>
+                                                </div>
+                                            )) : <div className="text-slate-400 italic">No OPMC access assigned.</div>}
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-            {/* Password Change Dialog */}
-            <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Change Password</DialogTitle>
-                        <DialogDescription>
-                            Enter your current password and choose a new password.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="current-password">Current Password</Label>
-                            <div className="relative">
-                                <Input
-                                    id="current-password"
-                                    type={showCurrentPassword ? "text" : "password"}
-                                    value={passwordForm.currentPassword}
-                                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                >
-                                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="new-password">New Password</Label>
-                            <div className="relative">
-                                <Input
-                                    id="new-password"
-                                    type={showNewPassword ? "text" : "password"}
-                                    value={passwordForm.newPassword}
-                                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowNewPassword(!showNewPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                >
-                                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="confirm-password">Confirm New Password</Label>
-                            <div className="relative">
-                                <Input
-                                    id="confirm-password"
-                                    type={showConfirmPassword ? "text" : "password"}
-                                    value={passwordForm.confirmPassword}
-                                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                >
-                                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                        </div>
+                                <Card className="border-none shadow-sm rounded-3xl">
+                                    <CardHeader>
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                            <Warehouse className="w-4 h-4 text-green-500" /> Assigned Inventory Store
+                                        </CardTitle>
+                                        <CardDescription className="text-[10px]">Primary store for material allocations</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {profileDetails?.assignedStore ? (
+                                            <div className="p-6 bg-slate-900 rounded-3xl text-white flex items-center justify-between overflow-hidden relative">
+                                                <div className="relative z-10">
+                                                    <div className="text-xs opacity-60 uppercase font-bold tracking-widest mb-1">Current Base</div>
+                                                    <div className="text-xl font-bold">{profileDetails.assignedStore.name}</div>
+                                                    <div className="mt-4 flex items-center gap-4">
+                                                        <div className="text-center">
+                                                            <div className="text-[10px] opacity-60">Items</div>
+                                                            <div className="font-bold">142</div>
+                                                        </div>
+                                                        <div className="w-px h-6 bg-white/20" />
+                                                        <div className="text-center">
+                                                            <div className="text-[10px] opacity-60">Status</div>
+                                                            <Badge className="bg-green-500/20 text-green-400 border-none text-[8px]">Active</Badge>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Warehouse className="w-32 h-32 absolute -right-8 -bottom-8 opacity-10" />
+                                            </div>
+                                        ) : (
+                                            <div className="p-10 border-2 border-dashed rounded-3xl text-center text-slate-400 italic">
+                                                No specific store assigned.
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            <TabsContent value="security" className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                                <Card className="border-none shadow-sm rounded-3xl overflow-hidden">
+                                    <CardHeader className="bg-white border-b">
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                            <Lock className="w-4 h-4 text-slate-400" /> Change Access Password
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-8 space-y-6">
+                                        <div className="space-y-2">
+                                            <div className="text-[10px] font-bold uppercase text-slate-500">Current Password</div>
+                                            <Input type="password" placeholder="••••••••" className="h-12 rounded-xl" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-bold uppercase text-slate-500">New Password</div>
+                                                <Input type="password" placeholder="••••••••" className="h-12 rounded-xl" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-bold uppercase text-slate-500">Confirm New</div>
+                                                <Input type="password" placeholder="••••••••" className="h-12 rounded-xl" />
+                                            </div>
+                                        </div>
+                                        <Button className="w-full h-12 bg-slate-900 rounded-xl font-bold shadow-xl shadow-slate-200 mt-4">
+                                            Update Password
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-slate-50">
+                                    <CardContent className="p-6 flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 bg-white border rounded-xl flex items-center justify-center text-slate-500 shadow-sm">
+                                                <Bell className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-slate-900">Push Notifications</div>
+                                                <div className="text-[10px] text-slate-400">Receive real-time alerts on system events</div>
+                                            </div>
+                                        </div>
+                                        <div className="w-12 h-6 bg-blue-600 rounded-full flex items-center justify-end px-1 cursor-pointer">
+                                            <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </Tabs>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleChangePassword} disabled={passwordLoading}>
-                            {passwordLoading ? 'Changing...' : 'Change Password'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                </main>
+            </div>
         </div>
     );
 }

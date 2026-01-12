@@ -14,7 +14,8 @@ import {
     PackageMinus,
     Shield,
     FolderKanban,
-    Upload
+    Upload,
+    History
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -320,6 +321,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Access Rules',
                 path: '/admin/access-rules',
                 icon: Settings,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'System Audit Log',
+                path: '/admin/audit-logs',
+                icon: History,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {

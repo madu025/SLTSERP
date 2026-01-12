@@ -194,6 +194,7 @@ model User {
   generatedContractorLinks  Contractor[] @relation("ContractorLinkGenerator")
 
   notifications     Notification[]
+  mustChangePassword Boolean  @default(false)
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
