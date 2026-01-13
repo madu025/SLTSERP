@@ -137,6 +137,9 @@ export class ServiceOrderService {
                     address: true,
                     dp: true,
                     iptv: true,
+                    revenueAmount: true,
+                    contractorAmount: true,
+                    dropWireDistance: true,
                     createdAt: true
                 },
                 orderBy,
@@ -208,6 +211,42 @@ export class ServiceOrderService {
         if (otherData.dpDetails) updateData.dpDetails = otherData.dpDetails;
         if (otherData.teamId) updateData.teamId = otherData.teamId || null;
         if (otherData.directTeamName) updateData.directTeam = otherData.directTeamName;
+        if (otherData.dropWireDistance !== undefined) updateData.dropWireDistance = parseFloat(otherData.dropWireDistance || '0');
+
+        // Capture Snapshots at Completion
+        if (updateData.sltsStatus === 'COMPLETED' || (oldOrder.sltsStatus !== 'COMPLETED' && sltsStatus === 'COMPLETED')) {
+            const rtomId = oldOrder.opmcId;
+            const distance = updateData.dropWireDistance ?? oldOrder.dropWireDistance ?? 0;
+
+            // 1. Calculate Revenue (Flat Rate per RTOM)
+            const revConfig = await (prisma as any).sODRevenueConfig.findFirst({
+                where: { OR: [{ rtomId }, { rtomId: null }], isActive: true },
+                orderBy: { rtomId: { sort: 'asc', nulls: 'last' } } // Specific RTOM first
+            });
+            if (revConfig) updateData.revenueAmount = revConfig.revenuePerSOD;
+
+            // 2. Calculate Contractor Payment (Tiered Distance)
+            const payConfig = await (prisma as any).contractorPaymentConfig.findFirst({
+                where: { OR: [{ rtomId }, { rtomId: null }], isActive: true },
+                include: { tiers: true },
+                orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
+            });
+
+            if (payConfig && payConfig.tiers && payConfig.tiers.length > 0) {
+                const matchingTier = payConfig.tiers.find((t: any) =>
+                    distance >= t.minDistance && distance <= t.maxDistance
+                );
+                if (matchingTier) {
+                    updateData.contractorAmount = matchingTier.amount;
+                } else {
+                    // Fallback to highest tier if over distance mentioned
+                    const sortedTiers = [...payConfig.tiers].sort((a: any, b: any) => b.maxDistance - a.maxDistance);
+                    if (distance > sortedTiers[0].maxDistance) {
+                        updateData.contractorAmount = sortedTiers[0].amount;
+                    }
+                }
+            }
+        }
 
         // PAT Updates from UI
         if (otherData.sltsPatStatus) {

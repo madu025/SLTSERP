@@ -76,6 +76,7 @@ interface OrderActionModalProps {
         opmcPatStatus?: string;
         sltsPatStatus?: string;
         hoPatStatus?: string;
+        dropWireDistance?: number;
         wiredOnly?: boolean;
         delayReasons?: {
             ontShortage: boolean;
@@ -643,6 +644,13 @@ export default function OrderActionModal({
             opmcPatStatus: isComplete ? opmcPatStatus : undefined,
             sltsPatStatus: isComplete ? sltsPatStatus : undefined,
             hoPatStatus: isComplete ? hoPatStatus : undefined,
+            dropWireDistance: isComplete ? (() => {
+                const dwRow = extendedMaterialRows.find(r => items.find(i => i.id === r.itemId)?.code === 'OSPFTA003');
+                if (dwRow) {
+                    return parseFloat(dwRow.f1Qty || '0') + parseFloat(dwRow.g1Qty || '0');
+                }
+                return 0;
+            })() : undefined,
             wiredOnly: isComplete ? wiredOnly : undefined,
             delayReasons: isComplete ? delayReasons : undefined,
             stbShortage: isComplete ? stbShortage : undefined,

@@ -53,6 +53,7 @@ model OPMC {
   storeId   String? // Store assigned to this OPMC
   store     InventoryStore? @relation(fields: [storeId], references: [id])
   revenueConfigs SODRevenueConfig[] // Revenue configurations for this RTOM
+  contractorPaymentConfigs ContractorPaymentConfig[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -124,6 +125,11 @@ model ServiceOrder {
   materialSource        String?   // 'SLT' or 'COMPANY' (Snapshot at completion)
   directTeam            String?   // Internal Team Name (if no contractor)
   photoUrls             String[]  @default([]) // Completion evidence photos
+  
+  // Financial Snapshots (Captured at completion)
+  dropWireDistance      Float?    // Actual Drop Wire distance (meters)
+  revenueAmount         Float?    // Snapshot of SLT Revenue (RTOM-wide flat rate)
+  contractorAmount      Float?    // Snapshot of Contractor Payment (Tiered rate)
   
   opmcId                String
   opmc                  OPMC     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
@@ -1423,4 +1429,42 @@ model SODRevenueConfig {
   @@index([rtomId])
   @@index([effectiveFrom, effectiveTo])
   @@index([isActive])
+}
+
+// Contractor Payment Tiered Configuration
+model ContractorPaymentConfig {
+  id            String   @id @default(cuid())
+  
+  // RTOM (null = Default for all RTOMs)
+  rtomId        String?
+  rtom          OPMC?    @relation(fields: [rtomId], references: [id], onDelete: Cascade)
+  
+  // Tiers defined for this config
+  tiers         ContractorPaymentTier[]
+  
+  // Time Period
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  
+  isActive      Boolean  @default(true)
+  notes         String?  @db.Text
+  
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([rtomId])
+  @@index([isActive])
+}
+
+model ContractorPaymentTier {
+  id          String   @id @default(cuid())
+  configId    String
+  config      ContractorPaymentConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  
+  minDistance Float    // Inclusive, e.g. 0
+  maxDistance Float    // Inclusive, e.g. 99 (use a very high number like 99999 for "501+")
+  amount      Float    // Payment amount for this range
+  
+  @@index([configId])
 }

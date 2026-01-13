@@ -354,6 +354,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
+                title: 'Contractor Pricing',
+                path: '/admin/contractor-payment',
+                icon: Receipt,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
                 title: 'Settings',
                 path: '/admin/settings',
                 icon: Settings,

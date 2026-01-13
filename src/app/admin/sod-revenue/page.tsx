@@ -53,7 +53,7 @@ export default function SODRevenueConfigPage() {
     });
 
     // Fetch RTOMs
-    const { data: rtoms } = useQuery<{ success: boolean; data: any[] }>({
+    const { data: rtoms } = useQuery<any[]>({
         queryKey: ["opmcs"],
         queryFn: async () => {
             const res = await fetch("/api/opmcs");
@@ -102,7 +102,7 @@ export default function SODRevenueConfigPage() {
 
     const resetForm = () => {
         setFormData({
-            rtomId: "",
+            rtomId: "GLOBAL",
             revenuePerSOD: "10500",
             effectiveFrom: "",
             effectiveTo: "",
@@ -117,7 +117,7 @@ export default function SODRevenueConfigPage() {
     const handleEdit = (config: RevenueConfig) => {
         setEditingConfig(config);
         setFormData({
-            rtomId: config.rtomId || "",
+            rtomId: config.rtomId || "GLOBAL",
             revenuePerSOD: config.revenuePerSOD.toString(),
             effectiveFrom: config.effectiveFrom ? config.effectiveFrom.split('T')[0] : "",
             effectiveTo: config.effectiveTo ? config.effectiveTo.split('T')[0] : "",
@@ -132,7 +132,7 @@ export default function SODRevenueConfigPage() {
         e.preventDefault();
 
         const submitData: any = {
-            rtomId: formData.rtomId || null,
+            rtomId: formData.rtomId === "GLOBAL" ? null : formData.rtomId,
             revenuePerSOD: parseFloat(formData.revenuePerSOD),
             circularRef: formData.circularRef || null,
             notes: formData.notes || null
@@ -216,8 +216,8 @@ export default function SODRevenueConfigPage() {
                                                     <SelectValue placeholder="Select RTOM" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="">All RTOMs (Default)</SelectItem>
-                                                    {rtoms?.data?.map((rtom: any) => (
+                                                    <SelectItem value="GLOBAL">All RTOMs (Default)</SelectItem>
+                                                    {rtoms?.map((rtom: any) => (
                                                         <SelectItem key={rtom.id} value={rtom.id}>
                                                             {rtom.rtom} - {rtom.name}
                                                         </SelectItem>
