@@ -135,7 +135,8 @@ export class ContractorService {
                 where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] as any } }
             });
 
-            const token = require('crypto').randomUUID();
+            // Generate a shorter, more user-friendly token
+            const token = Math.random().toString(36).substring(2, 12).toUpperCase();
             const expiry = new Date();
             expiry.setDate(expiry.getDate() + 7);
 
@@ -210,7 +211,8 @@ export class ContractorService {
         }
 
         // Always generate a fresh token and 7-day expiry for a re-share request
-        const token = require('crypto').randomUUID();
+        // Generate a shorter, user-friendly token
+        const token = Math.random().toString(36).substring(2, 12).toUpperCase();
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + 7);
 
@@ -260,6 +262,8 @@ export class ContractorService {
         // Handle First Access - Start the 3-day clock
         if (!contractor.registrationStartedAt && contractor.status === 'PENDING') {
             const now = new Date();
+            // Generate a shorter, user-friendly token
+            const newToken = Math.random().toString(36).substring(2, 12).toUpperCase();
             const expiry = new Date();
             expiry.setDate(now.getDate() + 3); // Link active for 3 days from first access
 

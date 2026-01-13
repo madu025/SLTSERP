@@ -117,12 +117,10 @@ export default function LoginPage() {
 
           {/* Top Branding */}
           <div className="relative z-10 flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
+            <div className="bg-white/10 p-1.5 rounded-xl backdrop-blur-md border border-white/20">
+              <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
             </div>
-            <span className="text-xl font-bold tracking-wider opacity-90">SLTSERP</span>
+            <span className="text-xl font-bold tracking-wider opacity-95">SLTSERP</span>
           </div>
 
           {/* Center Content */}

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Member ID is required" }, { status: 400 });
         }
 
-        const token = crypto.randomBytes(32).toString('hex');
+        const token = Math.random().toString(36).substring(2, 12).toUpperCase();
         const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
         await prisma.teamMember.update({

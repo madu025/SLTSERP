@@ -92,12 +92,16 @@ export default function MobileNav() {
                 className={`fixed top-0 left-0 h-full w-72 bg-sidebar text-sidebar-foreground z-50 transform transition-transform duration-300 ease-in-out md:hidden ${isOpen ? 'translate-x-0' : '-translate-x-full'
                     }`}
             >
-                {/* Header */}
-                <div className="p-6 border-b border-slate-800">
+                <div className="p-6 border-b border-white/5 bg-sidebar-dark">
                     <div className="flex items-center justify-between">
-                        <div>
-                            <h2 className="text-xl font-bold text-white tracking-wider">nexusErp</h2>
-                            <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest">Construction</p>
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/10 p-1.5 rounded-lg border border-white/10">
+                                <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-white tracking-wider leading-none">SLTSERP</h2>
+                                <p className="text-[10px] text-sky-400 mt-1 uppercase tracking-widest font-medium">Construction</p>
+                            </div>
                         </div>
                         <button
                             onClick={() => setIsOpen(false)}
