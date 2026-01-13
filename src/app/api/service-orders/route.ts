@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         return NextResponse.json(serviceOrder);
     } catch (error: any) {
         if (error.message === 'REQUIRED_FIELDS_MISSING') {
-            return NextResponse.json({ message: 'RTOM ID, SO Number, and Status are required' }, { status: 400 });
+            return NextResponse.json({ message: 'RTOM selection, SO Number, and Status are required' }, { status: 400 });
         }
         if (error.message === 'ORDER_EXISTS') {
             return NextResponse.json({ message: 'Service order with this SO Number and Status already exists' }, { status: 409 });

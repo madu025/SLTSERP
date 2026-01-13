@@ -5,9 +5,10 @@ import { ServiceOrderService } from '@/services/sod.service';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { opmcId, rtom } = body;
+        const { rtomId, opmcId, rtom } = body;
+        const targetId = rtomId || opmcId;
 
-        const result = await ServiceOrderService.syncServiceOrders(opmcId, rtom);
+        const result = await ServiceOrderService.syncServiceOrders(targetId, rtom);
 
         return NextResponse.json(result);
 

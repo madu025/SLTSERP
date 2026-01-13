@@ -76,7 +76,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const { isColumnVisible } = useTableColumnSettings("pending_sod");
 
     // State
-    const [selectedOpmcId, setSelectedOpmcId] = useState<string>("");
+    const [selectedRtomId, setSelectedRtomId] = useState<string>("");
     const [selectedRtom, setSelectedRtom] = useState<string>("");
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
     const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
@@ -175,9 +175,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
 
     // Fetch Service Orders (Server-side search, filter, and pagination)
     const { data: qData, isLoading: isLoadingOrders, isRefetching } = useQuery<{ items: ServiceOrder[], meta: any, summary: any }>({
-        queryKey: ["service-orders", selectedOpmcId, filterType, selectedMonth, selectedYear, searchTerm, statusFilter, patFilter, matFilter, page],
+        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, searchTerm, statusFilter, patFilter, matFilter, page],
         queryFn: async () => {
-            if (!selectedOpmcId) return { items: [], meta: {}, summary: {} };
+            if (!selectedRtomId) return { items: [], meta: {}, summary: {} };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
             const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
             const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
@@ -185,10 +185,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
 
-            const res = await fetch(`/api/service-orders?rtomId=${selectedOpmcId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${page}&limit=${limit}`);
+            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${page}&limit=${limit}`);
             return res.json();
         },
-        enabled: !!selectedOpmcId,
+        enabled: !!selectedRtomId,
         refetchOnMount: true,
         refetchOnWindowFocus: true,
         staleTime: 30000 // Keep data fresh for 30s
@@ -200,16 +200,16 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
 
     // Set default OPMC
     useEffect(() => {
-        if (opmcs.length > 0 && !selectedOpmcId) {
-            setSelectedOpmcId(opmcs[0].id);
+        if (opmcs.length > 0 && !selectedRtomId) {
+            setSelectedRtomId(opmcs[0].id);
             setSelectedRtom(opmcs[0].rtom);
         }
-    }, [opmcs, selectedOpmcId]);
+    }, [opmcs, selectedRtomId]);
 
     const handleOpmcChange = (value: string) => {
         const opmc = opmcs.find(o => o.id === value);
         if (opmc) {
-            setSelectedOpmcId(value);
+            setSelectedRtomId(value);
             setSelectedRtom(opmc.rtom);
             setPage(1); // Reset page on OPMC change
         }
@@ -222,7 +222,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             const res = await fetch("/api/service-orders/sync", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ opmcId: selectedOpmcId, rtom: selectedRtom })
+                body: JSON.stringify({ rtomId: selectedRtomId, rtom: selectedRtom })
             });
             return res.json();
         },
@@ -239,7 +239,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             const res = await fetch("/api/service-orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...data, opmcId: selectedOpmcId, rtom: selectedRtom })
+                body: JSON.stringify({ ...data, rtomId: selectedRtomId, rtom: selectedRtom })
             });
             if (!res.ok) throw new Error("Failed");
             return res.json();
@@ -421,7 +421,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         setSortConfig({ key, direction });
     };
 
-    if (isLoadingOpmcs && !selectedOpmcId) {
+    if (isLoadingOpmcs && !selectedRtomId) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
                 <div className="relative flex items-center justify-center mb-4">
@@ -471,7 +471,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     size="sm"
                                     className="h-7 text-xs px-2"
                                     onClick={() => syncMutation.mutate()}
-                                    disabled={!selectedOpmcId || syncMutation.isPending}
+                                    disabled={!selectedRtomId || syncMutation.isPending}
                                 >
                                     <RefreshCw className={`w-3 h-3 mr-1.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
                                     Sync
@@ -480,7 +480,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     size="sm"
                                     className="h-7 text-xs px-2"
                                     onClick={() => setShowManualModal(true)}
-                                    disabled={!selectedOpmcId}
+                                    disabled={!selectedRtomId}
                                 >
                                     <Plus className="w-3 h-3 mr-1.5" />
                                     Entry
@@ -517,7 +517,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                         <div className="bg-white p-1.5 rounded-lg border shadow-sm flex flex-wrap gap-2 items-center">
                             <div className="flex items-center gap-2">
                                 <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap hidden sm:block">RTOM</label>
-                                <Select value={selectedOpmcId} onValueChange={handleOpmcChange}>
+                                <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
                                     <SelectTrigger className="h-7 w-[160px] text-xs"><SelectValue placeholder="Select RTOM" /></SelectTrigger>
                                     <SelectContent>
                                         {opmcs.map(o => (
