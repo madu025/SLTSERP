@@ -7,7 +7,7 @@ export async function POST(
 ) {
     try {
         const { id } = await params;
-        const origin = new URL(request.url).origin;
+        const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
 
         if (!id) {
             return NextResponse.json({ error: 'Contractor ID is required' }, { status: 400 });

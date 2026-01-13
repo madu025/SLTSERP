@@ -4,7 +4,7 @@ import { ContractorService } from '@/services/contractor.service';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const origin = new URL(request.url).origin;
+        const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
 
         const result = await ContractorService.generateRegistrationLink({
             ...body,
