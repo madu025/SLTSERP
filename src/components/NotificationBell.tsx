@@ -107,7 +107,7 @@ export default function NotificationBell() {
             }
         },
         enabled: !!userId,
-        refetchInterval: 60000
+        refetchInterval: 20000 // Reduced to 20s for faster updates
     });
 
     const safeNotifications = Array.isArray(notifications) ? notifications : [];

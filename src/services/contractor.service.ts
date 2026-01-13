@@ -447,12 +447,12 @@ export class ContractorService {
             // Also notify ARMs and Admins
             console.log("[SUBMIT] Broadcasting notifications to management roles...");
             await NotificationService.notifyByRole({
-                roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OFFICE_ADMIN', 'ENGINEER'],
+                roles: ['SUPER_ADMIN', 'ADMIN', 'AREA_MANAGER', 'OSP_MANAGER', 'MANAGER', 'OFFICE_ADMIN', 'ENGINEER'],
                 title: "Contractor Pending Review",
                 message,
                 type: 'CONTRACTOR',
-                priority: 'MEDIUM',
-                link: `/admin/contractors`,
+                priority: 'HIGH', // Increased to HIGH
+                link: `/admin/contractors/approvals`, // Direct to approvals page
                 opmcId: result.opmcId || undefined
             });
             console.log("[SUBMIT] All notifications sent successfully.");
