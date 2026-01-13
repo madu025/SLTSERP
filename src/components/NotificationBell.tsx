@@ -42,54 +42,66 @@ export default function NotificationBell() {
     useEffect(() => {
         if (!userId) return;
 
-        console.log("Establishing SSE connection for notifications...");
-        const eventSource = new EventSource(`/api/notifications/stream?userId=${userId}`);
+        let eventSource: EventSource | null = null;
+        let reconnectTimeout: NodeJS.Timeout;
 
-        eventSource.onmessage = (event) => {
-            try {
-                const newNotification = JSON.parse(event.data);
-                console.log("New real-time notification received:", newNotification);
+        const connect = () => {
+            console.log("Establishing SSE connection for notifications...");
+            eventSource = new EventSource(`/api/notifications/stream?userId=${userId}`);
 
-                // Update local query cache immediately
-                queryClient.setQueryData(["notifications", userId], (oldData: any) => {
-                    const currentData = Array.isArray(oldData) ? oldData : [];
+            eventSource.onmessage = (event) => {
+                try {
+                    const newNotification = JSON.parse(event.data);
+                    console.log("New real-time notification received:", newNotification);
 
-                    // Avoid duplicates
-                    if (newNotification.id && currentData.some((n: any) => n.id === newNotification.id)) {
-                        return currentData;
-                    }
+                    // Show a real-time Toast for instant feedback
+                    const { toast } = require("sonner");
+                    toast.info(newNotification.title || "New Notification", {
+                        description: newNotification.message,
+                        action: newNotification.link ? {
+                            label: "View",
+                            onClick: () => router.push(newNotification.link)
+                        } : undefined,
+                        duration: 8000,
+                    });
 
-                    // Add standard fields if missing (for broadcast/non-persisted events)
-                    const sanitized = {
-                        id: newNotification.id || `temp-${Date.now()}`,
-                        isRead: false,
-                        createdAt: new Date().toISOString(),
-                        ...newNotification
-                    };
+                    // Update local query cache immediately
+                    queryClient.setQueryData(["notifications", userId], (oldData: any) => {
+                        const currentData = Array.isArray(oldData) ? oldData : [];
+                        if (newNotification.id && currentData.some((n: any) => n.id === newNotification.id)) {
+                            return currentData;
+                        }
+                        const sanitized = {
+                            id: newNotification.id || `temp-${Date.now()}`,
+                            isRead: false,
+                            createdAt: new Date().toISOString(),
+                            ...newNotification
+                        };
+                        return [sanitized, ...currentData].slice(0, 50);
+                    });
 
-                    return [sanitized, ...currentData].slice(0, 50); // Keep limit
-                });
+                    window.dispatchEvent(new CustomEvent('slts-notification', { detail: newNotification }));
+                } catch (error) {
+                    console.error("Failed to parse SSE notification:", error);
+                }
+            };
 
-                // Dispatch a custom event for other components (like Sidebar) to react
-                window.dispatchEvent(new CustomEvent('slts-notification', { detail: newNotification }));
-
-                // Play a subtle notification sound or show a toast if needed
-            } catch (error) {
-                console.error("Failed to parse SSE notification:", error);
-            }
+            eventSource.onerror = (error) => {
+                console.error("SSE Connection Error, attempting to reconnect...");
+                if (eventSource) eventSource.close();
+                // Attempt to reconnect after 5 seconds
+                reconnectTimeout = setTimeout(connect, 5000);
+            };
         };
 
-        eventSource.onerror = (error) => {
-            console.error("SSE Connection Error:", error);
-            eventSource.close();
-            // Optional: Implement reconnection logic after delay
-        };
+        connect();
 
         return () => {
             console.log("Closing SSE connection...");
-            eventSource.close();
+            if (eventSource) eventSource.close();
+            clearTimeout(reconnectTimeout);
         };
-    }, [userId, queryClient]);
+    }, [userId, queryClient, router]);
 
     // Fetch initial notifications (and fallback polling)
     const { data: notifications = [] } = useQuery<Notification[]>({
