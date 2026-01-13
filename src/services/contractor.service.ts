@@ -408,10 +408,15 @@ export class ContractorService {
                                     name: m.name,
                                     nic: m.nic || '',
                                     contactNumber: m.contactNumber || '',
+                                    address: m.address || '',
                                     designation: m.designation || '',
                                     photoUrl: m.photoUrl || '',
                                     passportPhotoUrl: m.passportPhotoUrl || '',
                                     nicUrl: m.nicUrl || '',
+                                    policeReportUrl: m.policeReportUrl || '',
+                                    gramaCertUrl: m.gramaCertUrl || '',
+                                    shoeSize: m.shoeSize || '',
+                                    tshirtSize: m.tshirtSize || '',
                                     idCopyNumber: m.idCopyNumber || m.nic || '',
                                     contractorId: contractor.id
                                 }))
@@ -542,8 +547,14 @@ export class ContractorService {
                                 contractorIdCopyNumber: m.contractorIdCopyNumber || '',
                                 designation: m.designation || '',
                                 contactNumber: m.contactNumber || '',
+                                address: m.address || '',
                                 photoUrl: m.photoUrl || '',
                                 passportPhotoUrl: m.passportPhotoUrl || '',
+                                nicUrl: m.nicUrl || '',
+                                policeReportUrl: m.policeReportUrl || '',
+                                gramaCertUrl: m.gramaCertUrl || '',
+                                shoeSize: m.shoeSize || '',
+                                tshirtSize: m.tshirtSize || '',
                                 contractorId: contractor.id
                             }))
                         }
@@ -707,8 +718,14 @@ export class ContractorService {
                                 contractorIdCopyNumber: m.contractorIdCopyNumber || '',
                                 designation: m.designation || '',
                                 contactNumber: m.contactNumber || '',
+                                address: m.address || '',
                                 photoUrl: m.photoUrl || '',
                                 passportPhotoUrl: m.passportPhotoUrl || '',
+                                nicUrl: m.nicUrl || '',
+                                policeReportUrl: m.policeReportUrl || '',
+                                gramaCertUrl: m.gramaCertUrl || '',
+                                shoeSize: m.shoeSize || '',
+                                tshirtSize: m.tshirtSize || '',
                                 contractorId: id,
                                 teamId: team.id
                             }))
@@ -737,8 +754,14 @@ export class ContractorService {
                                     contractorIdCopyNumber: m.contractorIdCopyNumber || '',
                                     designation: m.designation || '',
                                     contactNumber: m.contactNumber || '',
+                                    address: m.address || '',
                                     photoUrl: m.photoUrl || '',
                                     passportPhotoUrl: m.passportPhotoUrl || '',
+                                    nicUrl: m.nicUrl || '',
+                                    policeReportUrl: m.policeReportUrl || '',
+                                    gramaCertUrl: m.gramaCertUrl || '',
+                                    shoeSize: m.shoeSize || '',
+                                    tshirtSize: m.tshirtSize || '',
                                     contractorId: id
                                 }))
                             }

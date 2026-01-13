@@ -61,13 +61,15 @@ type UserFormValues = z.infer<typeof userSchema>
 const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT', 'SITE_OFFICE_STAFF'];
 
 const roleCategories = {
-    'OSP Category': ['MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
-    'Office Admin Category': ['OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
-    'Finance Category': ['FINANCE_MANAGER', 'FINANCE_ASSISTANT'],
+    'System Admin': ['SUPER_ADMIN', 'ADMIN'],
+    'Main Management': ['OSP_MANAGER'],
+    'OSP & Operations': ['AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+    'Stores & Inventory': ['STORES_MANAGER', 'STORES_ASSISTANT'],
+    'Finance': ['FINANCE_MANAGER', 'FINANCE_ASSISTANT'],
     'Invoice Section': ['INVOICE_MANAGER', 'INVOICE_ASSISTANT'],
-    'Stores Category': ['STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'],
-    'Service Fulfillment': ['SA_MANAGER', 'SA_ASSISTANT'],
-    'System Admin': ['SUPER_ADMIN', 'ADMIN']
+    'Service Assurance': ['SA_MANAGER', 'SA_ASSISTANT'],
+    'Office Admin': ['OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT', 'SITE_OFFICE_STAFF'],
+    'Procurement': ['PROCUREMENT_OFFICER']
 };
 
 export default function UserRegistrationPage() {
@@ -146,6 +148,50 @@ export default function UserRegistrationPage() {
             username: '', email: '', password: '', name: '', role: 'ENGINEER', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
         }
     });
+
+    // --- AUTO-SUPERVISOR LOGIC ---
+    React.useEffect(() => {
+        const subscription = form.watch((value, { name }) => {
+            if (name === 'role' || name === 'opmcIds') {
+                const role = value.role;
+                const opmcIds = value.opmcIds || [];
+
+                if (!role || role === '') return;
+
+                let autoSupervisorId = '';
+
+                // 1. If OSP_MANAGER, supervisor is ADMIN
+                if (role === 'OSP_MANAGER') {
+                    autoSupervisorId = users.find(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')?.id || '';
+                }
+                // 2. Department Heads -> OSP_MANAGER
+                else if (['AREA_MANAGER', 'STORES_MANAGER', 'FINANCE_MANAGER', 'INVOICE_MANAGER', 'SA_MANAGER', 'OFFICE_ADMIN', 'PROCUREMENT_OFFICER'].includes(role)) {
+                    autoSupervisorId = users.find(u => u.role === 'OSP_MANAGER')?.id || '';
+                }
+                // 3. Assistants -> Their Managers
+                else if (role === 'STORES_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'STORES_MANAGER')?.id || '';
+                else if (role === 'FINANCE_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'FINANCE_MANAGER')?.id || '';
+                else if (role === 'INVOICE_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'INVOICE_MANAGER')?.id || '';
+                else if (role === 'SA_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'SA_MANAGER')?.id || '';
+                else if (role === 'OFFICE_ADMIN_ASSISTANT' || role === 'SITE_OFFICE_STAFF') {
+                    autoSupervisorId = users.find(u => u.role === 'OFFICE_ADMIN')?.id || '';
+                }
+                // 4. Field Staff -> AREA_MANAGER (Filtered by OPMC)
+                else if (['ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'].includes(role)) {
+                    const match = users.find(u =>
+                        u.role === 'AREA_MANAGER' &&
+                        u.accessibleOpmcs.some(o => opmcIds.includes(o.id))
+                    );
+                    autoSupervisorId = match?.id || users.find(u => u.role === 'OSP_MANAGER')?.id || '';
+                }
+
+                if (autoSupervisorId && autoSupervisorId !== form.getValues('supervisorId')) {
+                    form.setValue('supervisorId', autoSupervisorId);
+                }
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, [form.watch, users]);
 
     // --- LOGIC ---
     const handleOpenModal = (user?: UserData) => {

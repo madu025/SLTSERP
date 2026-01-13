@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import {
     Loader2, Trash2, CheckCircle2, Building2, Users, Banknote, UserPlus,
     Image as ImageIcon, FileText, Upload, CheckCircle, Plus, XCircle,
-    ShieldCheck, AlertCircle, User, Info
+    ShieldCheck, AlertCircle, User, Info, UserCircle, MapPin
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -309,7 +309,20 @@ export default function PublicContractorRegistrationPage() {
                 ...updated[tIdx],
                 members: [
                     ...updated[tIdx].members,
-                    { name: "", nic: "", contactNumber: "", designation: "", passportPhotoUrl: "", photoUrl: "" }
+                    {
+                        name: "",
+                        nic: "",
+                        contactNumber: "",
+                        address: "",
+                        designation: "",
+                        passportPhotoUrl: "",
+                        photoUrl: "",
+                        nicUrl: "",
+                        policeReportUrl: "",
+                        gramaCertUrl: "",
+                        shoeSize: "",
+                        tshirtSize: ""
+                    }
                 ]
             };
             return { ...prev, teams: updated };
@@ -827,60 +840,121 @@ export default function PublicContractorRegistrationPage() {
                                                     </Button>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-4">
+                                                <div className="grid grid-cols-1 gap-6">
                                                     {team.members.map((member: any, mIdx: number) => (
-                                                        <div key={mIdx} className="p-4 bg-white rounded-xl border border-slate-100 flex flex-col md:flex-row gap-4 items-start md:items-center relative animate-in zoom-in-95">
-                                                            <div className="shrink-0">
-                                                                {member.passportPhotoUrl ? (
-                                                                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                                                                        <img
-                                                                            key={member.passportPhotoUrl}
-                                                                            src={member.passportPhotoUrl}
-                                                                            className="w-full h-full object-cover"
-                                                                        />
-                                                                        <button
-                                                                            onClick={() => handleMemberChange(tIdx, mIdx, 'passportPhotoUrl', '')}
-                                                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4 text-white" />
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="w-16 h-16 rounded-lg border-2 border-dashed flex flex-col items-center justify-center text-[8px] text-slate-400 gap-1 bg-slate-50/50 relative overflow-hidden group hover:border-blue-400 hover:bg-blue-50 transition-all">
-                                                                        <ImageIcon className="w-5 h-5 text-slate-300 group-hover:text-blue-500" />
-                                                                        <span>Photo</span>
-                                                                        <input
-                                                                            type="file"
-                                                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                                                            onChange={async (e) => {
-                                                                                console.log(`[UPLOAD] Starting upload for member-${tIdx}-${mIdx}`);
-                                                                                const url = await uploadFile(e, `member-${tIdx}-${mIdx}`);
-                                                                                if (url) {
-                                                                                    console.log(`[UPLOAD] Success for member photo:`, url);
-                                                                                    setFormData(prev => {
-                                                                                        const newTeams = [...prev.teams];
-                                                                                        const newMembers = [...newTeams[tIdx].members];
-                                                                                        newMembers[mIdx] = { ...newMembers[mIdx], passportPhotoUrl: url, photoUrl: url };
-                                                                                        newTeams[tIdx] = { ...newTeams[tIdx], members: newMembers };
-                                                                                        return { ...prev, teams: newTeams };
-                                                                                    });
-                                                                                    saveDraft();
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                )}
+                                                        <div key={mIdx} className="p-6 bg-white rounded-2xl border border-slate-200 relative animate-in zoom-in-95 group/member">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-500">#{mIdx + 1}</span>
+                                                                    <h5 className="font-bold text-slate-800">{member.name || "Unnamed Member"}</h5>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => handleRemoveMember(tIdx, mIdx)}
+                                                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </Button>
                                                             </div>
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-                                                                <Input placeholder="Full Name" value={member.name} onChange={e => handleMemberChange(tIdx, mIdx, 'name', e.target.value)} className="h-8 text-xs" />
-                                                                <Input placeholder="NIC Number" value={member.nic} onChange={e => handleMemberChange(tIdx, mIdx, 'nic', e.target.value)} className="h-8 text-xs" />
+
+                                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                                                <div className="md:col-span-4 space-y-1.5">
+                                                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Full Name</Label>
+                                                                    <Input
+                                                                        placeholder="Enter full name"
+                                                                        value={member.name}
+                                                                        onChange={e => handleMemberChange(tIdx, mIdx, 'name', e.target.value)}
+                                                                        className="h-9 text-sm"
+                                                                    />
+                                                                </div>
+                                                                <div className="md:col-span-3 space-y-1.5">
+                                                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">NIC / ID Card</Label>
+                                                                    <Input
+                                                                        placeholder="NIC Number"
+                                                                        value={member.nic}
+                                                                        onChange={e => handleMemberChange(tIdx, mIdx, 'nic', e.target.value)}
+                                                                        className="h-9 text-sm font-mono"
+                                                                    />
+                                                                </div>
+                                                                <div className="md:col-span-3 space-y-1.5">
+                                                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact</Label>
+                                                                    <Input
+                                                                        placeholder="Contact Number"
+                                                                        value={member.contactNumber}
+                                                                        onChange={e => handleMemberChange(tIdx, mIdx, 'contactNumber', e.target.value)}
+                                                                        className="h-9 text-sm"
+                                                                    />
+                                                                </div>
+                                                                <div className="md:col-span-1 space-y-1.5">
+                                                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Shoe</Label>
+                                                                    <Input
+                                                                        placeholder="Size"
+                                                                        value={member.shoeSize}
+                                                                        onChange={e => handleMemberChange(tIdx, mIdx, 'shoeSize', e.target.value)}
+                                                                        className="h-9 text-sm"
+                                                                    />
+                                                                </div>
+                                                                <div className="md:col-span-1 space-y-1.5">
+                                                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Shirt</Label>
+                                                                    <Select value={member.tshirtSize} onValueChange={(v) => handleMemberChange(tIdx, mIdx, 'tshirtSize', v)}>
+                                                                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Size" /></SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'].map(sz => (
+                                                                                <SelectItem key={sz} value={sz}>{sz}</SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+
+                                                                <div className="md:col-span-12 space-y-1.5">
+                                                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Address</Label>
+                                                                    <Input
+                                                                        placeholder="Member's Residential Address"
+                                                                        value={member.address}
+                                                                        onChange={e => handleMemberChange(tIdx, mIdx, 'address', e.target.value)}
+                                                                        className="h-9 text-sm"
+                                                                    />
+                                                                </div>
+
+                                                                <div className="md:col-span-12 mt-2">
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {[
+                                                                            { id: 'photoUrl', label: 'Photo', icon: ImageIcon },
+                                                                            { id: 'passportPhotoUrl', label: 'Passport Photo (ID)', icon: UserCircle },
+                                                                            { id: 'nicUrl', label: 'NIC', icon: FileText },
+                                                                            { id: 'policeReportUrl', label: 'Police Rep', icon: ShieldCheck },
+                                                                            { id: 'gramaCertUrl', label: 'Grama Cert', icon: MapPin }
+                                                                        ].map((doc) => (
+                                                                            <div key={doc.id} className="relative group/doc">
+                                                                                <div className={cn(
+                                                                                    "h-8 px-3 rounded-md flex items-center gap-2 border text-[10px] font-bold transition-all cursor-pointer relative",
+                                                                                    member[doc.id] ? "bg-emerald-50 border-emerald-200 text-emerald-600" : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"
+                                                                                )}>
+                                                                                    {member[doc.id] ? <CheckCircle className="w-3 h-3" /> : <doc.icon className="w-3 h-3" />}
+                                                                                    {doc.label}
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                                                                        onChange={async (e) => {
+                                                                                            const url = await uploadFile(e, `member-${tIdx}-${mIdx}-${doc.id}`);
+                                                                                            if (url) {
+                                                                                                handleMemberChange(tIdx, mIdx, doc.id, url);
+                                                                                                saveDraft();
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                                {uploadProgress[`member-${tIdx}-${mIdx}-${doc.id}`] !== undefined && (
+                                                                                    <div className="absolute -bottom-1 left-0 right-0 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                                                        <div className="h-full bg-blue-500 transition-all" style={{ width: `${uploadProgress[`member-${tIdx}-${mIdx}-${doc.id}`]}%` }} />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <button
-                                                                onClick={() => handleRemoveMember(tIdx, mIdx)}
-                                                                className="text-slate-300 hover:text-red-500 transition-colors md:ml-2"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
                                                         </div>
                                                     ))}
                                                     {team.members.length === 0 && (
