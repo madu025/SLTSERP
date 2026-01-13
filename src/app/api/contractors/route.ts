@@ -85,6 +85,11 @@ export async function DELETE(request: Request) {
         await ContractorService.deleteContractor(id);
         return NextResponse.json({ message: 'Deleted successfully' });
     } catch (error: any) {
+        if (error.message === 'HAS_RELATED_DATA') {
+            return NextResponse.json({
+                message: 'Cannot delete contractor because they have assigned Service Orders, Projects, or Stock items.'
+            }, { status: 400 });
+        }
         console.error('Error deleting contractor:', error);
         return NextResponse.json({ message: 'Error deleting contractor', debug: error.message }, { status: 500 });
     }

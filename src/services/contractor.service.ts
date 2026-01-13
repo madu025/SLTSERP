@@ -744,7 +744,30 @@ export class ContractorService {
      */
     static async deleteContractor(id: string) {
         if (!id) throw new Error('ID_REQUIRED');
-        return await prisma.contractor.delete({ where: { id } });
+
+        // 1. Check if they have critical related data (Inventory, Projects etc)
+        const counts = await prisma.contractor.findUnique({
+            where: { id },
+            select: {
+                _count: {
+                    select: {
+                        serviceOrders: true,
+                        projects: true,
+                        stock: true
+                    }
+                }
+            }
+        });
+
+        if (counts && (counts._count.serviceOrders > 0 || counts._count.projects > 0 || counts._count.stock > 0)) {
+            throw new Error('HAS_RELATED_DATA');
+        }
+
+        // 2. Cascade delete minor things (Teams, Members are handled via schema cascade if defined, 
+        // but we'll do it explicitly or use deleteMany to be safe)
+        // Note: Schema should ideally handle cascades.
+
+        return await prisma.contractor.deleteMany({ where: { id } });
     }
 
     /**

@@ -289,11 +289,18 @@ export default function ContractorsPage() {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            await fetch(`/api/contractors?id=${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/contractors?id=${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || "Failed to delete contractor");
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["contractors"] });
             toast.success("Contractor deleted");
+        },
+        onError: (error: any) => {
+            toast.error(error.message || "Failed to delete contractor");
         }
     });
 
