@@ -23,7 +23,23 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
-  colorScheme: 'light dark',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
+  openGraph: {
+    title: 'SLTSERP - Construction ERP',
+    description: 'OSP Construction Management System',
+    images: [
+      {
+        url: '/logo.png',
+        width: 800,
+        height: 600,
+        alt: 'SLTSERP Logo',
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
