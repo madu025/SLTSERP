@@ -187,10 +187,10 @@ export default function ContractorsPage() {
             }
             return res.json();
         },
-        staleTime: 10 * 60 * 1000, // 10 minutes - prevents re-fetching
-        gcTime: 30 * 60 * 1000, // 30 minutes - keeps in cache
-        refetchOnWindowFocus: false, // Don't refetch on tab focus
-        refetchOnMount: false // Don't refetch on component mount if data exists
+        staleTime: 30000, // 30 seconds
+        gcTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: true,
+        refetchOnMount: true
     });
 
     // Extract contractors array from paginated response
