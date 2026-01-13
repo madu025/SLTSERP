@@ -435,6 +435,11 @@ export default function PublicContractorRegistrationPage() {
                 {/* Header Section */}
                 {!submitted && (
                     <div className="text-center mb-8">
+                        <div className="flex justify-center mb-6">
+                            <div className="bg-white p-3 rounded-2xl shadow-xl shadow-blue-200/50 border border-blue-50 animate-in zoom-in duration-700">
+                                <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" />
+                            </div>
+                        </div>
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Contractor Registration</h1>
                         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                             <span className={cn(

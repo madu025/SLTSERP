@@ -139,6 +139,11 @@ export default function PublicUploadPage() {
             <Toaster position="top-center" />
             <div className="max-w-2xl mx-auto">
                 <div className="mb-6 text-center">
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-white p-2.5 rounded-2xl shadow-xl shadow-blue-200/40 border border-blue-50 animate-in zoom-in duration-700">
+                            <img src="/logo.png" alt="Logo" className="w-14 h-14 object-contain" />
+                        </div>
+                    </div>
                     <h1 className="text-2xl font-bold text-slate-900">Document Submission</h1>
                     <p className="text-slate-600">Secure upload for <span className="font-semibold text-blue-600">{contractorName}</span></p>
                     <div className="mt-2 flex items-center justify-center gap-2 text-xs text-amber-600 bg-amber-50 py-1 px-3 rounded-full w-fit mx-auto">

@@ -132,6 +132,11 @@ export default function PublicTeamUploadPage() {
             <Toaster position="top-center" />
             <div className="max-w-xl mx-auto space-y-6">
                 <div className="text-center">
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-white p-2.5 rounded-2xl shadow-xl shadow-blue-200/40 border border-blue-50 animate-in zoom-in duration-700">
+                            <img src="/logo.png" alt="Logo" className="w-14 h-14 object-contain" />
+                        </div>
+                    </div>
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Member Details & Uploads</h1>
                     <p className="text-slate-600 mt-2">Secure submission for <span className="font-semibold text-blue-600 underline decoration-blue-300 underline-offset-4">{memberName}</span></p>
                     <div className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
