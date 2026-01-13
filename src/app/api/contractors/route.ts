@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { ContractorService } from '@/services/contractor.service';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // GET
 export async function GET(request: Request) {
     try {
@@ -26,7 +29,13 @@ export async function GET(request: Request) {
         }
 
         const result = await ContractorService.getAllContractors(opmcIds, page, limit);
-        return NextResponse.json(result);
+        return NextResponse.json(result, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
+        });
     } catch (error: any) {
         console.error('CRITICAL: Error fetching contractors:', error);
         return NextResponse.json({
