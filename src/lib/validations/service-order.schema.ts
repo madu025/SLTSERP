@@ -14,7 +14,8 @@ export const serviceOrderPatchSchema = z.object({
     completionMode: z.enum(['ONLINE', 'OFFLINE']).optional(),
     patStatus: z.enum(['PASS', 'REJECTED', 'PENDING', 'COMPLETED', 'VERIFIED']).optional().nullable(),
     opmcPatStatus: z.enum(['PASS', 'REJECTED', 'PENDING']).optional().nullable(),
-    sltsPatStatus: z.enum(['PASS', 'REJECTED', 'PENDING']).optional().nullable()
+    sltsPatStatus: z.enum(['PASS', 'REJECTED', 'PENDING']).optional().nullable(),
+    hoPatStatus: z.enum(['PASS', 'REJECTED', 'PENDING']).optional().nullable()
 });
 
 export const serviceOrderUpdateSchema = z.object({

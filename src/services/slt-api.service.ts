@@ -23,6 +23,18 @@ export interface SLTServiceOrderData {
     FTTH_WIFI: string | null;
 }
 
+export interface SLTPATData {
+    RTOM: string;
+    SO_NUM: string;
+    VOICENUMBER: string | null;
+    S_TYPE: string;
+    ORDER_TYPE: string;
+    CON_STATUS: string; // "PAT_PASSED"
+    CON_NAME: string;
+    PAT_USER: string | null;
+    CON_STATUS_DATE: string;
+}
+
 export interface SLTApiResponse {
     data: SLTServiceOrderData[];
 }
@@ -66,6 +78,75 @@ export class SLTApiService {
                 }
             }
             // Return empty array on error - don't crash
+            return [];
+        }
+    }
+
+    async fetchPATResults(rtom: string): Promise<SLTPATData[]> {
+        try {
+            const url = `${this.baseUrl}?x=patreslt&z=SLTS_${rtom}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                },
+                signal: AbortSignal.timeout(60000),
+            });
+
+            if (!response.ok) throw new Error(`SLT PAT API returned ${response.status}`);
+            const data = await response.json();
+            return Array.isArray(data.data) ? data.data : [];
+        } catch (error) {
+            console.error(`SLT PAT API error for RTOM ${rtom}:`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch Regionally Rejected PAT Results
+     */
+    async fetchOpmcRejected(rtom: string): Promise<SLTPATData[]> {
+        try {
+            const url = `${this.baseUrl}?x=opmcpatrej&z=SLTS_${rtom}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                },
+                signal: AbortSignal.timeout(60000),
+            });
+            if (!response.ok) return [];
+            const data = await response.json();
+            return Array.isArray(data.data) ? data.data : [];
+        } catch (err) {
+            console.error(`SLT OPMC REJ API error for RTOM ${rtom}:`, err);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch Head Office Rejected PAT Results
+     */
+    async fetchHORejected(): Promise<SLTPATData[]> {
+        try {
+            // Note: Uses dynamic_load.php as per user instructions
+            const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patreject&y=&con=SLTS`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                },
+                signal: AbortSignal.timeout(60000),
+            });
+            if (!response.ok) return [];
+            const data = await response.json();
+            return Array.isArray(data.data) ? data.data : [];
+        } catch (err) {
+            console.error(`SLT HO REJ API error:`, err);
             return [];
         }
     }

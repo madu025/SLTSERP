@@ -98,11 +98,17 @@ model ServiceOrder {
   dpDetails             String?   @db.Text // Additional DP-specific details
   
   // PAT details
-  patStatus             String?   // Overall PAT status (LEGACY)
-  opmcPatStatus         String?   @default("PENDING") // PENDING, PASS, REJECTED
-  opmcPatDate           DateTime?
-  sltsPatStatus         String?   @default("PENDING") // PENDING, PASS, REJECTED
+  patStatus             String?   // Overall status (LEGACY)
+  
+  sltsPatStatus         String?   @default("PENDING") // Internal: PENDING, PASS, REJECTED
   sltsPatDate           DateTime?
+  
+  opmcPatStatus         String?   @default("PENDING") // Regional: PENDING, PASS, REJECTED
+  opmcPatDate           DateTime?
+
+  hoPatStatus           String?   @default("PENDING") // Head Office: PENDING, PASS, REJECTED
+  hoPatDate             DateTime?
+  
   isInvoicable          Boolean   @default(false)
   invoiced              Boolean   @default(false)
   invoiceId             String?

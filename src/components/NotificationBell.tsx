@@ -238,21 +238,24 @@ export default function NotificationBell() {
                     )}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0">
-                <div className="flex items-center justify-between p-3 border-b">
-                    <h3 className="font-semibold text-sm">Notifications</h3>
+            <PopoverContent align="end" className="w-[380px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white/95 backdrop-blur-sm">
+                <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
+                    <div>
+                        <h3 className="font-black text-slate-800 text-sm">Notifications</h3>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{unreadCount} Unread Activities</p>
+                    </div>
                     {unreadCount > 0 && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-auto p-1 text-xs text-blue-600 hover:text-blue-700"
+                            className="h-8 px-3 text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all"
                             onClick={() => markAllReadMutation.mutate()}
                         >
                             Mark all read
                         </Button>
                     )}
                 </div>
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[450px] overflow-y-auto custom-scrollbar">
                     {safeNotifications.length === 0 ? (
                         <div className="p-8 text-center text-slate-500 text-sm">
                             No notifications

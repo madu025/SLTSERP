@@ -55,6 +55,8 @@ interface ServiceOrder {
     opmcPatStatus?: string | null;
     opmcPatDate?: string | null;
     sltsPatStatus?: string | null;
+    hoPatStatus?: string | null;
+    hoPatDate?: string | null;
     isInvoicable: boolean;
     materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
 }
@@ -595,11 +597,15 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     <div className="flex items-center gap-2">
                                         <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">Invoice Status</label>
                                         <Select value={patFilter} onValueChange={setPatFilter}>
-                                            <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectTrigger className="h-7 w-[120px] text-xs"><SelectValue placeholder="PAT Status" /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="ALL" className="text-xs">All</SelectItem>
-                                                <SelectItem value="READY" className="text-xs">Ready (Pass)</SelectItem>
-                                                <SelectItem value="BLOCKED" className="text-xs">Blocked</SelectItem>
+                                                <SelectItem value="ALL" className="text-xs">All PAT</SelectItem>
+                                                <SelectItem value="READY" className="text-xs font-bold text-emerald-600">INVOICABLE (BOTH PASS)</SelectItem>
+                                                <SelectItem value="PENDING" className="text-xs">Pending HO</SelectItem>
+                                                <SelectItem value="SLTS_PASS" className="text-xs">SLTS Pass</SelectItem>
+                                                <SelectItem value="OPMC_REJECTED" className="text-xs text-rose-600">Reg. Rejected</SelectItem>
+                                                <SelectItem value="HO_REJECTED" className="text-xs text-rose-600 font-bold">HO Rejected</SelectItem>
+                                                <SelectItem value="HO_PASS" className="text-xs text-blue-600">HO Pass</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -657,7 +663,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Contractor</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">ONT Serial</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Mat Status</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">OPMC PAT</th>}`r`n                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center text-[10px]">PAT Month</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">HO PAT</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center text-[10px]">PAT Month</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">SLTS PAT</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">Invoice</th>}
                                                     {isColumnVisible('dp') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('dp')}>DP <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'dp' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
@@ -779,18 +786,24 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                             )}
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${order.opmcPatStatus === 'PASS' ? 'bg-green-100 text-green-700 border-green-200' :
-                                                                                order.opmcPatStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
-                                                                                    'bg-yellow-100 text-yellow-700 border-yellow-200'
-                                                                                }`}>
-                                                                                {order.opmcPatStatus || 'PENDING'}
-                                                                            </span>
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${order.hoPatStatus === 'PASS' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                                                                    order.hoPatStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                                                                                        order.opmcPatStatus === 'REJECTED' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                                                                            'bg-slate-50 text-slate-400 border-slate-200'
+                                                                                    }`}>
+                                                                                    HO: {order.hoPatStatus || (order.opmcPatStatus === 'REJECTED' ? 'REG_REJ' : 'PENDING')}
+                                                                                </span>
+                                                                                {order.opmcPatStatus === 'REJECTED' && !order.hoPatStatus && (
+                                                                                    <span className="text-[7px] font-bold text-amber-600 uppercase tracking-tighter">REGIONAL REJECT</span>
+                                                                                )}
+                                                                            </div>
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap text-[10px] text-slate-500 font-medium">
-                                                                            {order.opmcPatDate ? new Date(order.opmcPatDate).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '-'}
+                                                                            {order.hoPatDate ? new Date(order.hoPatDate).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '-'}
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${order.sltsPatStatus === 'PASS' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${order.sltsPatStatus === 'PASS' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                                                                                 order.sltsPatStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
                                                                                     'bg-yellow-100 text-yellow-700 border-yellow-200'
                                                                                 }`}>
@@ -799,7 +812,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
                                                                             {order.isInvoicable ? (
-                                                                                <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[9px] font-bold uppercase border border-blue-200">READY</span>
+                                                                                <div className="flex flex-col items-center">
+                                                                                    <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[9px] font-bold uppercase shadow-sm">READY</span>
+                                                                                    <span className="text-[7px] text-blue-600 font-bold mt-0.5 uppercase tracking-tighter">INVOICABLE</span>
+                                                                                </div>
                                                                             ) : (
                                                                                 <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-bold uppercase border border-slate-200 opacity-50">BLOCKED</span>
                                                                             )}

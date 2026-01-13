@@ -75,6 +75,7 @@ interface OrderActionModalProps {
         directTeamName?: string;
         opmcPatStatus?: string;
         sltsPatStatus?: string;
+        hoPatStatus?: string;
         wiredOnly?: boolean;
         delayReasons?: {
             ontShortage: boolean;
@@ -118,6 +119,7 @@ interface OrderActionModalProps {
         iptvSerialNumbers?: string[] | null;
         opmcPatStatus?: string | null;
         sltsPatStatus?: string | null;
+        hoPatStatus?: string | null;
         materialUsage?: Array<{
             itemId: string;
             quantity: string;
@@ -164,6 +166,7 @@ export default function OrderActionModal({
     const [selectedTeamId, setSelectedTeamId] = useState("");
     const [opmcPatStatus, setOpmcPatStatus] = useState<string>("PENDING");
     const [sltsPatStatus, setSltsPatStatus] = useState<string>("PENDING");
+    const [hoPatStatus, setHoPatStatus] = useState<string>("PENDING");
     const [completionMode, setCompletionMode] = useState<'ONLINE' | 'OFFLINE'>('ONLINE');
     const [assignmentType, setAssignmentType] = useState<'CONTRACTOR' | 'DIRECT_TEAM'>('CONTRACTOR');
     const [directTeamName, setDirectTeamName] = useState("");
@@ -484,6 +487,12 @@ export default function OrderActionModal({
                 setSltsPatStatus('PENDING');
             }
 
+            if (orderData?.hoPatStatus) {
+                setHoPatStatus((orderData as any).hoPatStatus);
+            } else {
+                setHoPatStatus('PENDING');
+            }
+
             // Assignment Pre-fill
             if ((orderData as any)?.directTeam) {
                 setAssignmentType('DIRECT_TEAM');
@@ -633,6 +642,7 @@ export default function OrderActionModal({
             directTeamName: isComplete && assignmentType === 'DIRECT_TEAM' ? directTeamName : undefined,
             opmcPatStatus: isComplete ? opmcPatStatus : undefined,
             sltsPatStatus: isComplete ? sltsPatStatus : undefined,
+            hoPatStatus: isComplete ? hoPatStatus : undefined,
             wiredOnly: isComplete ? wiredOnly : undefined,
             delayReasons: isComplete ? delayReasons : undefined,
             stbShortage: isComplete ? stbShortage : undefined,
@@ -1203,10 +1213,26 @@ export default function OrderActionModal({
                                                             </Select>
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <Label className="text-xs font-bold text-slate-500 uppercase">SLTS/BOM PAT Status</Label>
-                                                            <Select value={sltsPatStatus} onValueChange={setSltsPatStatus}>
+                                                            <Label className="text-xs font-bold text-slate-500 uppercase">Internal Check (SLTS PAT)</Label>
+                                                            <div className="flex items-center gap-2 h-9 px-3 bg-white rounded-md border border-slate-200">
+                                                                <Checkbox
+                                                                    id="slts-pat-pass"
+                                                                    checked={sltsPatStatus === 'PASS'}
+                                                                    onCheckedChange={(c) => setSltsPatStatus(c ? 'PASS' : 'PENDING')}
+                                                                />
+                                                                <Label htmlFor="slts-pat-pass" className={cn(
+                                                                    "text-xs font-bold uppercase",
+                                                                    sltsPatStatus === 'PASS' ? "text-emerald-600" : "text-slate-400"
+                                                                )}>
+                                                                    {sltsPatStatus === 'PASS' ? 'PAT PASSED' : 'PENDING CHECK'}
+                                                                </Label>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs font-bold text-slate-500 uppercase">Head Office PAT</Label>
+                                                            <Select value={hoPatStatus} onValueChange={setHoPatStatus}>
                                                                 <SelectTrigger className="bg-white h-9 text-xs">
-                                                                    <SelectValue placeholder="Select SLTS PAT" />
+                                                                    <SelectValue placeholder="Select HO PAT" />
                                                                 </SelectTrigger>
                                                                 <SelectContent>
                                                                     <SelectItem value="PENDING" className="text-xs text-amber-600">PENDING</SelectItem>
@@ -1215,10 +1241,12 @@ export default function OrderActionModal({
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
-                                                        {(opmcPatStatus !== 'PASS' || sltsPatStatus !== 'PASS') && (
+                                                        {(sltsPatStatus !== 'PASS' || hoPatStatus !== 'PASS') && (
                                                             <div className="col-span-2 flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-100 rounded-md">
                                                                 <AlertCircle className="w-4 h-4 text-rose-500" />
-                                                                <span className="text-[10px] font-bold text-rose-700 uppercase">Warning: Invoicing will be blocked until both PATs pass.</span>
+                                                                <span className="text-[10px] font-bold text-rose-700 uppercase">
+                                                                    Warning: Invoicing is blocked. Both SLTS (Internal) and Head Office PAT must PASS.
+                                                                </span>
                                                             </div>
                                                         )}
                                                     </div>

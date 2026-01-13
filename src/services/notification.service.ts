@@ -26,6 +26,23 @@ export class NotificationService {
         metadata?: any;
     }) {
         try {
+            // Limit to 50 notifications per user (FIFO)
+            const count = await prisma.notification.count({ where: { userId } });
+            if (count >= 50) {
+                // Find and delete excess notifications
+                const excess = await prisma.notification.findMany({
+                    where: { userId },
+                    orderBy: { createdAt: 'asc' },
+                    take: (count - 50) + 1
+                });
+
+                if (excess.length > 0) {
+                    await prisma.notification.deleteMany({
+                        where: { id: { in: excess.map(n => n.id) } }
+                    });
+                }
+            }
+
             const notification = await prisma.notification.create({
                 data: {
                     userId,
@@ -71,6 +88,24 @@ export class NotificationService {
         metadata?: any;
     }) {
         try {
+            // For each user, ensure they don't exceed 50 notifications
+            // This is slightly expensive in a loop but ensures data integrity
+            for (const userId of userIds) {
+                const count = await prisma.notification.count({ where: { userId } });
+                if (count >= 50) {
+                    const excess = await prisma.notification.findMany({
+                        where: { userId },
+                        orderBy: { createdAt: 'asc' },
+                        take: 1 // In broadcast, we usually add just 1
+                    });
+                    if (excess.length > 0) {
+                        await prisma.notification.deleteMany({
+                            where: { id: { in: excess.map(n => n.id) } }
+                        });
+                    }
+                }
+            }
+
             const data = userIds.map(userId => ({
                 userId,
                 title,
