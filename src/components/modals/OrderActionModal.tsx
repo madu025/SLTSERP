@@ -73,7 +73,8 @@ interface OrderActionModalProps {
         materialStatus?: string;
         teamId?: string;
         directTeamName?: string;
-        patStatus?: string;
+        opmcPatStatus?: string;
+        sltsPatStatus?: string;
         wiredOnly?: boolean;
         delayReasons?: {
             ontShortage: boolean;
@@ -94,6 +95,7 @@ interface OrderActionModalProps {
             comment?: string;
         }>;
         completionMode?: 'ONLINE' | 'OFFLINE';
+        photoUrls?: string[];
     }) => void;
     title?: string;
     isReturn?: boolean;
@@ -114,7 +116,8 @@ interface OrderActionModalProps {
         completionMode?: string | null;
 
         iptvSerialNumbers?: string[] | null;
-        patStatus?: 'PENDING' | 'COMPLETED' | null;
+        opmcPatStatus?: string | null;
+        sltsPatStatus?: string | null;
         materialUsage?: Array<{
             itemId: string;
             quantity: string;
@@ -159,7 +162,8 @@ export default function OrderActionModal({
     const [materialStatus, setMaterialStatus] = useState<string>("PENDING");
     const [selectedContractorId, setSelectedContractorId] = useState("");
     const [selectedTeamId, setSelectedTeamId] = useState("");
-    const [patStatus, setPatStatus] = useState<string>("PENDING");
+    const [opmcPatStatus, setOpmcPatStatus] = useState<string>("PENDING");
+    const [sltsPatStatus, setSltsPatStatus] = useState<string>("PENDING");
     const [completionMode, setCompletionMode] = useState<'ONLINE' | 'OFFLINE'>('ONLINE');
     const [assignmentType, setAssignmentType] = useState<'CONTRACTOR' | 'DIRECT_TEAM'>('CONTRACTOR');
     const [directTeamName, setDirectTeamName] = useState("");
@@ -265,6 +269,7 @@ export default function OrderActionModal({
         f1Qty?: string;
         g1Qty?: string;
         wastageReason?: string;
+        serialNumber?: string;
     }>>([]);
 
     // Tab Navigation State
@@ -289,7 +294,8 @@ export default function OrderActionModal({
             wastageQty: quickWastageQty || '0',
             f1Qty: '',
             g1Qty: '',
-            wastageReason: ''
+            wastageReason: '',
+            serialNumber: ''
         }]);
 
         // Clear inputs
@@ -306,7 +312,7 @@ export default function OrderActionModal({
     };
 
     const addExtendedRow = () => {
-        setExtendedMaterialRows([...extendedMaterialRows, { itemId: '', usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '' }]);
+        setExtendedMaterialRows([...extendedMaterialRows, { itemId: '', usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: '' }]);
     };
 
     const updateExtendedRow = (idx: number, field: string, value: string) => {
@@ -326,7 +332,7 @@ export default function OrderActionModal({
             updateExtendedRow(existingIdx, field, qty);
         } else {
             // Add new row
-            const initialRow = { itemId, usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '' };
+            const initialRow = { itemId, usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: '' };
             (initialRow as any)[field] = qty;
             setExtendedMaterialRows([...extendedMaterialRows, initialRow]);
         }
@@ -466,10 +472,16 @@ export default function OrderActionModal({
                 setExtendedMaterialRows([]);
             }
 
-            if (orderData?.patStatus) {
-                setPatStatus(orderData.patStatus);
+            if (orderData?.opmcPatStatus) {
+                setOpmcPatStatus(orderData.opmcPatStatus);
             } else {
-                setPatStatus('PENDING');
+                setOpmcPatStatus('PENDING');
+            }
+
+            if (orderData?.sltsPatStatus) {
+                setSltsPatStatus(orderData.sltsPatStatus);
+            } else {
+                setSltsPatStatus('PENDING');
             }
 
             // Assignment Pre-fill
@@ -619,7 +631,8 @@ export default function OrderActionModal({
             contractorId: isComplete && assignmentType === 'CONTRACTOR' ? selectedContractorId : undefined,
             teamId: isComplete && assignmentType === 'CONTRACTOR' ? selectedTeamId : undefined,
             directTeamName: isComplete && assignmentType === 'DIRECT_TEAM' ? directTeamName : undefined,
-            patStatus: isComplete ? patStatus : undefined,
+            opmcPatStatus: isComplete ? opmcPatStatus : undefined,
+            sltsPatStatus: isComplete ? sltsPatStatus : undefined,
             wiredOnly: isComplete ? wiredOnly : undefined,
             delayReasons: isComplete ? delayReasons : undefined,
             stbShortage: isComplete ? stbShortage : undefined,
@@ -635,7 +648,12 @@ export default function OrderActionModal({
 
                             // Standard 'Used'
                             if ((!row.f1Qty && !row.g1Qty) && row.usedQty && parseFloat(row.usedQty) > 0) {
-                                materialUsageItems.push({ itemId: row.itemId, quantity: row.usedQty, usageType: 'USED' as const });
+                                materialUsageItems.push({
+                                    itemId: row.itemId,
+                                    quantity: row.usedQty,
+                                    usageType: 'USED' as const,
+                                    serialNumber: row.serialNumber
+                                });
                             }
 
                             const item = items.find(i => i.id === row.itemId);
@@ -994,9 +1012,10 @@ export default function OrderActionModal({
                                                         <table className="w-full">
                                                             <thead className="bg-slate-50 border-b border-slate-100">
                                                                 <tr>
-                                                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-[50%]">Item Description</th>
-                                                                    <th className="px-1 py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-[22%]">Qty</th>
-                                                                    <th className="px-1 py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-[28%]">Wastage</th>
+                                                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider w-[40%]">Item Description</th>
+                                                                    <th className="px-1 py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-[18%]">Qty</th>
+                                                                    <th className="px-1 py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-[22%]">Wastage</th>
+                                                                    <th className="px-1 py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-[20%]">Serial</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
@@ -1046,6 +1065,13 @@ export default function OrderActionModal({
                                                                                     </div>
                                                                                 ) : <div className="text-center text-slate-300 text-[10px]">-</div>}
                                                                             </td>
+                                                                            <td className="px-1 py-2 text-center">
+                                                                                <Input className="h-7 w-12 mx-auto text-center font-mono text-[10px] border-slate-200 focus:border-blue-500 bg-white"
+                                                                                    placeholder="SN"
+                                                                                    value={getQuickQty(q.item.id, 'serialNumber')}
+                                                                                    onChange={(e) => handleQuickAdd(q.item.id, 'serialNumber', e.target.value)}
+                                                                                />
+                                                                            </td>
                                                                         </tr>
                                                                     );
                                                                 })}
@@ -1076,9 +1102,10 @@ export default function OrderActionModal({
                                                         <thead className="bg-slate-50/50 text-slate-500 font-medium border-b">
                                                             <tr>
                                                                 <th className="px-4 py-2 text-left w-10">#</th>
-                                                                <th className="px-4 py-2 text-left w-[40%]">Item Description</th>
-                                                                <th className="px-4 py-2 text-left w-[20%]">Used Qty</th>
-                                                                <th className="px-4 py-2 text-left w-[20%]">Wastage</th>
+                                                                <th className="px-4 py-2 text-left w-[35%]">Item Description</th>
+                                                                <th className="px-4 py-2 text-left w-[18%]">Used Qty</th>
+                                                                <th className="px-4 py-2 text-left w-[18%]">Wastage</th>
+                                                                <th className="px-4 py-2 text-left w-[18%]">Serial #</th>
                                                                 <th className="px-4 py-2 text-center w-10"></th>
                                                             </tr>
                                                         </thead>
@@ -1126,6 +1153,9 @@ export default function OrderActionModal({
                                                                                 </div>
                                                                             ) : <span className="text-slate-300 text-xs text-center block">-</span>}
                                                                         </td>
+                                                                        <td className="px-4 py-2">
+                                                                            <Input placeholder="Serial #" className="h-8 text-xs font-mono" value={row.serialNumber} onChange={e => updateExtendedRow(idx, 'serialNumber', e.target.value)} />
+                                                                        </td>
                                                                         <td className="px-4 py-2 text-center">
                                                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500" onClick={() => removeExtendedRow(idx)}><X className="w-4 h-4" /></Button>
                                                                         </td>
@@ -1156,6 +1186,41 @@ export default function OrderActionModal({
                                                             <Label htmlFor="mat-complete" className="text-sm font-bold text-emerald-900 cursor-pointer">Mark Order as Fully Completed</Label>
                                                             <p className="text-xs text-emerald-700 mt-0.5">This will finalize the material entry and close the order step.</p>
                                                         </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs font-bold text-slate-500 uppercase">OPMC PAT Status</Label>
+                                                            <Select value={opmcPatStatus} onValueChange={setOpmcPatStatus}>
+                                                                <SelectTrigger className="bg-white h-9 text-xs">
+                                                                    <SelectValue placeholder="Select OPMC PAT" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="PENDING" className="text-xs text-amber-600">PENDING</SelectItem>
+                                                                    <SelectItem value="PASS" className="text-xs text-emerald-600">PASS</SelectItem>
+                                                                    <SelectItem value="REJECTED" className="text-xs text-rose-600">REJECTED</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs font-bold text-slate-500 uppercase">SLTS/BOM PAT Status</Label>
+                                                            <Select value={sltsPatStatus} onValueChange={setSltsPatStatus}>
+                                                                <SelectTrigger className="bg-white h-9 text-xs">
+                                                                    <SelectValue placeholder="Select SLTS PAT" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="PENDING" className="text-xs text-amber-600">PENDING</SelectItem>
+                                                                    <SelectItem value="PASS" className="text-xs text-emerald-600">PASS</SelectItem>
+                                                                    <SelectItem value="REJECTED" className="text-xs text-rose-600">REJECTED</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                        {(opmcPatStatus !== 'PASS' || sltsPatStatus !== 'PASS') && (
+                                                            <div className="col-span-2 flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-100 rounded-md">
+                                                                <AlertCircle className="w-4 h-4 text-rose-500" />
+                                                                <span className="text-[10px] font-bold text-rose-700 uppercase">Warning: Invoicing will be blocked until both PATs pass.</span>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div className="space-y-2">

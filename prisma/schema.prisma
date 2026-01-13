@@ -51,6 +51,7 @@ model OPMC {
   contractors   Contractor[]
   storeId   String? // Store assigned to this OPMC
   store     InventoryStore? @relation(fields: [storeId], references: [id])
+  revenueConfigs SODRevenueConfig[] // Revenue configurations for this RTOM
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -96,8 +97,14 @@ model ServiceOrder {
   dpDetails             String?   @db.Text // Additional DP-specific details
   
   // PAT details
-  patStatus             String?   // PASS, REJECTED, PENDING
-  patDate               DateTime?
+  patStatus             String?   // Overall PAT status (LEGACY)
+  opmcPatStatus         String?   @default("PENDING") // PENDING, PASS, REJECTED
+  opmcPatDate           DateTime?
+  sltsPatStatus         String?   @default("PENDING") // PENDING, PASS, REJECTED
+  sltsPatDate           DateTime?
+  isInvoicable          Boolean   @default(false)
+  invoiced              Boolean   @default(false)
+  invoiceId             String?
   
   // Daily Operational Report Tracking Fields
   wiredOnly             Boolean   @default(false)  // Wired only completion status
@@ -109,6 +116,7 @@ model ServiceOrder {
   completionMode        String?   // 'ONLINE' or 'OFFLINE'
   materialSource        String?   // 'SLT' or 'COMPANY' (Snapshot at completion)
   directTeam            String?   // Internal Team Name (if no contractor)
+  photoUrls             String[]  @default([]) // Completion evidence photos
   
   opmcId                String
   opmc                  OPMC     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
@@ -551,6 +559,8 @@ model ContractorStock {
   updatedAt     DateTime       @updatedAt
 
   @@unique([contractorId, itemId])
+  @@index([contractorId])
+  @@index([itemId])
 }
 
 model ContractorTeam {
@@ -858,6 +868,9 @@ model StockRequestItem {
   model        String?
   suggestedVendor String?
   createdAt   DateTime     @default(now())
+
+  @@index([requestId])
+  @@index([itemId])
 }
 
 model GRN {
@@ -891,6 +904,9 @@ model GRNItem {
   item      InventoryItem @relation(fields: [itemId], references: [id])
   quantity  Float
   createdAt DateTime @default(now())
+
+  @@index([grnId])
+  @@index([itemId])
 }
 
 model MRN {
@@ -926,6 +942,9 @@ model MRNItem {
   quantity  Float
   reason    String?  @db.Text // Item-specific reason
   createdAt DateTime @default(now())
+
+  @@index([mrnId])
+  @@index([itemId])
 }
 
 model InventoryTransaction {
@@ -1035,6 +1054,7 @@ model SODMaterialUsage {
   wastagePercent  Float?   // Calculated wastage %
   exceedsLimit    Boolean  @default(false) // If wastage > standard
   comment         String?  @db.Text // Required if exceeds limit
+  serialNumber    String?  // For items that require serial tracking (ONT, STB, Splice, etc)
   approvedBy      String?  // Store Manager approval
   approvedAt      DateTime?
   
@@ -1367,4 +1387,33 @@ model BankBranch {
   updatedAt DateTime @updatedAt
 
   @@unique([bankId, code])
+}
+
+// SOD Revenue Configuration
+model SODRevenueConfig {
+  id            String   @id @default(cuid())
+  
+  // RTOM (null = Default for all RTOMs)
+  rtomId        String?
+  rtom          OPMC?    @relation(fields: [rtomId], references: [id], onDelete: Cascade)
+  
+  // Revenue Amount
+  revenuePerSOD Float    // Rs. 10,500, Rs. 12,555, etc.
+  
+  // Time Period (Optional - for circular-based changes)
+  effectiveFrom DateTime? // null = Always active
+  effectiveTo   DateTime? // null = No end date
+  
+  // Metadata
+  circularRef   String?  // "Circular No. 2026/01"
+  notes         String?  @db.Text
+  isActive      Boolean  @default(true)
+  
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([rtomId])
+  @@index([effectiveFrom, effectiveTo])
+  @@index([isActive])
 }

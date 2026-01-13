@@ -34,7 +34,10 @@ export class ServiceOrderService {
             const startDate = new Date(year, month - 1, 1);
             const nextMonth = new Date(year, month, 1);
 
-            if (filter === 'completed') {
+            if (patFilter === 'READY') {
+                whereClause.opmcPatDate = { gte: startDate, lt: nextMonth };
+                whereClause.isInvoicable = true;
+            } else if (filter === 'completed') {
                 whereClause.completedDate = { gte: startDate, lt: nextMonth };
             } else if (filter === 'return') {
                 whereClause.updatedAt = { gte: startDate, lt: nextMonth };
@@ -68,12 +71,13 @@ export class ServiceOrderService {
             whereClause.status = { in: ["ASSIGNED", "INPROGRESS", "PROV_CLOSED", "INSTALL_CLOSED"] };
         }
 
-        if (patFilter && patFilter !== 'ALL') {
-            const isPatPending = patFilter === 'PENDING';
-            if (isPatPending) {
-                whereClause.patStatus = { notIn: ['COMPLETED', 'VERIFIED', 'PASS'] };
-            } else {
-                whereClause.patStatus = { in: ['COMPLETED', 'VERIFIED', 'PASS'] };
+        if (patFilter && patFilter !== 'ALL' && patFilter !== 'READY') {
+            if (patFilter === 'BLOCKED') {
+                whereClause.isInvoicable = false;
+            } else if (patFilter === 'PENDING') {
+                whereClause.isInvoicable = false;
+            } else if (patFilter === 'COMPLETED' || patFilter === 'PASS') {
+                whereClause.isInvoicable = true;
             }
         }
 
@@ -124,7 +128,12 @@ export class ServiceOrderService {
                         select: { name: true }
                     },
                     comments: true,
-                    patStatus: true
+                    patStatus: true,
+                    opmcPatStatus: true,
+                    opmcPatDate: true,
+                    sltsPatStatus: true,
+                    sltsPatDate: true,
+                    isInvoicable: true
                 },
                 orderBy,
                 skip,
@@ -201,10 +210,15 @@ export class ServiceOrderService {
 
     /**
      * Patch Update (Status Change, Completion, etc.)
-     * Handles complex logic like material deduction, snapshots, etc.
      */
     static async patchServiceOrder(id: string, data: any, userId?: string) {
         if (!id) throw new Error('ID_REQUIRED');
+
+        const oldOrder = await prisma.serviceOrder.findUnique({
+            where: { id },
+            include: { materialUsage: true }
+        });
+        if (!oldOrder) throw new Error('ORDER_NOT_FOUND');
 
         const { sltsStatus, completedDate, contractorId, comments, ...otherData } = data;
         const updateData: any = {};
@@ -240,6 +254,24 @@ export class ServiceOrderService {
         if (otherData.teamId) updateData.teamId = otherData.teamId;
         if (otherData.directTeamName) updateData.directTeam = otherData.directTeamName;
 
+        if (otherData.opmcPatStatus) {
+            updateData.opmcPatStatus = otherData.opmcPatStatus;
+            // If PAT is PASSing now, or was already passed, ensure we have a date
+            if (otherData.opmcPatStatus === 'PASS' && oldOrder.opmcPatStatus !== 'PASS') {
+                updateData.opmcPatDate = new Date();
+            }
+        }
+        if (otherData.sltsPatStatus) {
+            updateData.sltsPatStatus = otherData.sltsPatStatus;
+            if (otherData.sltsPatStatus === 'PASS' && oldOrder.sltsPatStatus !== 'PASS') {
+                updateData.sltsPatDate = new Date();
+            }
+        }
+
+        // Update isInvoicable based on OPMC PAT result ONLY
+        const finalizedOpmc = updateData.opmcPatStatus || oldOrder.opmcPatStatus;
+        updateData.isInvoicable = (finalizedOpmc === 'PASS');
+
         if (otherData.patStatus) {
             updateData.patStatus = otherData.patStatus;
             updateData.patDate = new Date();
@@ -271,7 +303,8 @@ export class ServiceOrderService {
                         usageType: m.usageType || 'USED',
                         wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
                         exceedsLimit: m.exceedsLimit || false,
-                        comment: m.comment
+                        comment: m.comment,
+                        serialNumber: m.serialNumber
                     }))
                 };
 
@@ -305,11 +338,6 @@ export class ServiceOrderService {
         if (Object.keys(updateData).length === 0) {
             throw new Error('NO_FIELDS_TO_UPDATE');
         }
-
-        const oldOrder = await prisma.serviceOrder.findUnique({
-            where: { id },
-            include: { materialUsage: true }
-        });
 
         const serviceOrder = await prisma.serviceOrder.update({
             where: { id },
@@ -532,4 +560,37 @@ export class ServiceOrderService {
         };
     }
 
+    /**
+     * Bulk Sync for all OPMCs
+     */
+    static async syncAllOpmcs() {
+        const opmcs = await prisma.oPMC.findMany({
+            select: { id: true, rtom: true }
+        });
+
+        const results: any[] = [];
+        for (const opmc of opmcs) {
+            console.log(`[SYNC-ALL] Syncing OPMC: ${opmc.rtom}...`);
+            try {
+                const res = await (this as any).syncServiceOrders(opmc.id, opmc.rtom);
+                results.push({ rtom: opmc.rtom, ...res });
+            } catch (err) {
+                console.error(`[SYNC-ALL] Failed for ${opmc.rtom}:`, err);
+                results.push({ rtom: opmc.rtom, error: (err as any).message });
+            }
+        }
+
+        const stats = results.reduce((acc: any, curr: any) => {
+            if (curr.error) {
+                acc.failed++;
+            } else {
+                acc.success++;
+                acc.created += curr.created || 0;
+                acc.updated += curr.updated || 0;
+            }
+            return acc;
+        }, { success: 0, failed: 0, created: 0, updated: 0 });
+
+        return { stats, details: results };
+    }
 }

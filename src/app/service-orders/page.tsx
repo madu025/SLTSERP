@@ -52,6 +52,10 @@ interface ServiceOrder {
     iptvSerialNumbers?: string | null;
     dpDetails?: string | null;
     patStatus?: string | null;
+    opmcPatStatus?: string | null;
+    opmcPatDate?: string | null;
+    sltsPatStatus?: string | null;
+    isInvoicable: boolean;
     materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
 }
 
@@ -268,6 +272,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             directTeamName,
             materialUsage,
             patStatus,
+            opmcPatStatus,
+            sltsPatStatus,
             completionMode
         }: {
             id: string;
@@ -284,6 +290,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             directTeamName?: string;
             materialUsage?: any;
             patStatus?: string;
+            opmcPatStatus?: string;
+            sltsPatStatus?: string;
             completionMode?: 'ONLINE' | 'OFFLINE';
         }) => {
             const res = await fetch("/api/service-orders", {
@@ -307,6 +315,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     directTeamName,
                     materialUsage,
                     patStatus,
+                    opmcPatStatus,
+                    sltsPatStatus,
                     completionMode
                 })
             });
@@ -583,13 +593,13 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 <>
                                     <div className="hidden sm:block w-[1px] h-5 bg-slate-200" />
                                     <div className="flex items-center gap-2">
-                                        <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">PAT</label>
+                                        <label className="text-[9px] font-semibold text-slate-500 uppercase whitespace-nowrap">Invoice Status</label>
                                         <Select value={patFilter} onValueChange={setPatFilter}>
                                             <SelectTrigger className="h-7 w-[90px] text-xs"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="ALL" className="text-xs">All</SelectItem>
-                                                <SelectItem value="PENDING" className="text-xs">Pending</SelectItem>
-                                                <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
+                                                <SelectItem value="READY" className="text-xs">Ready (Pass)</SelectItem>
+                                                <SelectItem value="BLOCKED" className="text-xs">Blocked</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -647,7 +657,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Contractor</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">ONT Serial</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Mat Status</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">PAT</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">OPMC PAT</th>}`r`n                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center text-[10px]">PAT Month</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">SLTS PAT</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">Invoice</th>}
                                                     {isColumnVisible('dp') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('dp')}>DP <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'dp' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                                     {isColumnVisible('iptv') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('iptv')}>IPTV <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'iptv' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                                 </>
@@ -767,12 +779,30 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                             )}
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'bg-green-100 text-green-700 border-green-200' :
-                                                                                order.patStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${order.opmcPatStatus === 'PASS' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                                                order.opmcPatStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
                                                                                     'bg-yellow-100 text-yellow-700 border-yellow-200'
                                                                                 }`}>
-                                                                                {['COMPLETED', 'VERIFIED', 'PASS'].includes(order.patStatus || '') ? 'OK' : (order.patStatus || 'PENDING')}
+                                                                                {order.opmcPatStatus || 'PENDING'}
                                                                             </span>
+                                                                        </td>
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap text-[10px] text-slate-500 font-medium">
+                                                                            {order.opmcPatDate ? new Date(order.opmcPatDate).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '-'}
+                                                                        </td>
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${order.sltsPatStatus === 'PASS' ? 'bg-green-100 text-green-700 border-green-200' :
+                                                                                order.sltsPatStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
+                                                                                    'bg-yellow-100 text-yellow-700 border-yellow-200'
+                                                                                }`}>
+                                                                                {order.sltsPatStatus || 'PENDING'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                                            {order.isInvoicable ? (
+                                                                                <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[9px] font-bold uppercase border border-blue-200">READY</span>
+                                                                            ) : (
+                                                                                <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-bold uppercase border border-slate-200 opacity-50">BLOCKED</span>
+                                                                            )}
                                                                         </td>
                                                                     </>
                                                                 )}
@@ -930,7 +960,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 teamId: data.teamId,
                                 directTeamName: data.directTeamName,
                                 materialUsage: data.materialUsage,
-                                patStatus: data.patStatus,
+                                opmcPatStatus: data.opmcPatStatus,
+                                sltsPatStatus: data.sltsPatStatus,
                                 completionMode: data.completionMode
                             });
                             setShowActionModal(false);
@@ -953,7 +984,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                         completedDate: selectedOrder.completedDate,
                         ontSerialNumber: selectedOrder.ontSerialNumber,
                         iptvSerialNumbers: selectedOrder.iptvSerialNumbers ? selectedOrder.iptvSerialNumbers.split(',').map(s => s.trim()).filter(Boolean) : [],
-                        patStatus: selectedOrder.patStatus as any,
+                        opmcPatStatus: selectedOrder.opmcPatStatus as any,
+                        sltsPatStatus: selectedOrder.sltsPatStatus as any,
                         materialUsage: selectedOrder.materialUsage,
                         directTeam: (selectedOrder as any).directTeam,
                         completionMode: (selectedOrder as any).completionMode

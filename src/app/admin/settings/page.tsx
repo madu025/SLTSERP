@@ -111,6 +111,10 @@ const AdminDashboard = () => {
                             <SystemSettingsCard />
                         </CollapsibleSection>
 
+                        <CollapsibleSection title="Advanced Operations" icon={<Layers className="w-5 h-5" />} defaultOpen={false}>
+                            <AdvancedOperationsCard />
+                        </CollapsibleSection>
+
                         <CollapsibleSection title="Material Assignment" icon={<Database className="w-5 h-5" />} defaultOpen={true}>
                             <MaterialAssignment />
                         </CollapsibleSection>
@@ -230,6 +234,101 @@ function SystemSettingsCard() {
                                 <span>Caution: Switching to COMPANY mode will affect stock levels for all new OSP completions.</span>
                             </div>
                         )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+// Advanced Operations Component
+function AdvancedOperationsCard() {
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncStats, setSyncStats] = useState<any>(null);
+
+    const handleSync = async () => {
+        setIsSyncing(true);
+        setSyncStats(null);
+        try {
+            const res = await fetch('/api/cron/sync-all');
+            const data = await res.json();
+            if (data.success) {
+                setSyncStats(data.stats);
+                toast.success("Global SOD Sync completed!");
+            } else {
+                toast.error("Sync failed: " + data.error);
+            }
+        } catch (error) {
+            toast.error("Network error during sync");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    return (
+        <Card className="border-l-4 border-l-purple-600 mb-8">
+            <CardHeader className="py-4">
+                <div className="flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-purple-600" />
+                    <CardTitle className="text-lg">System Operations</CardTitle>
+                </div>
+                <CardDescription>Perform manual system-wide maintenance and data synchronization.</CardDescription>
+            </CardHeader>
+            <CardContent className="py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Manual SOD Sync */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Manual SOD Sync</h4>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Trigger a manual update for all OPMCs from the SLT API.
+                                    Used for out-of-schedule updates.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                className="bg-purple-600 hover:bg-purple-700"
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                            >
+                                {isSyncing ? 'Syncing...' : 'Start Sync'}
+                            </Button>
+                        </div>
+
+                        {syncStats && (
+                            <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                                <div className="p-2 bg-white rounded border">
+                                    <div className="text-xs text-slate-400">Success</div>
+                                    <div className="text-sm font-bold text-green-600">{syncStats.success}</div>
+                                </div>
+                                <div className="p-2 bg-white rounded border">
+                                    <div className="text-xs text-slate-400">Failed</div>
+                                    <div className="text-sm font-bold text-red-600">{syncStats.failed}</div>
+                                </div>
+                                <div className="p-2 bg-white rounded border">
+                                    <div className="text-xs text-slate-400">Created</div>
+                                    <div className="text-sm font-bold text-blue-600">{syncStats.created}</div>
+                                </div>
+                                <div className="p-2 bg-white rounded border">
+                                    <div className="text-xs text-slate-400">Updated</div>
+                                    <div className="text-sm font-bold text-orange-600">{syncStats.updated}</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Future: Backup/Index maintenance */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 opacity-60">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Database Maintenance</h4>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Perform periodic indexing and cleanup operations.
+                                </p>
+                            </div>
+                            <Button size="sm" variant="outline" disabled>Optimized</Button>
+                        </div>
                     </div>
                 </div>
             </CardContent>

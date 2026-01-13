@@ -217,6 +217,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/contractors/balance-sheet',
                 icon: FileText,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
+            },
+            {
+                title: 'Material Reconciliation',
+                path: '/admin/inventory/reconciliation',
+                icon: ClipboardCheck,
+                allowedRoles: ROLE_GROUPS.STORES
             }
         ]
     },
@@ -339,6 +345,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Store Management',
                 path: '/admin/stores',
                 icon: Warehouse,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'SOD Revenue Config',
+                path: '/admin/sod-revenue',
+                icon: Receipt,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {

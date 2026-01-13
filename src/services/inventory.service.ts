@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { NotificationService } from './notification.service';
+import { AuditService } from './audit.service';
 
 export class InventoryService {
 
@@ -838,6 +839,17 @@ export class InventoryService {
                     }
                 }
             });
+
+            if (userId) {
+                await AuditService.log({
+                    userId,
+                    action: 'RECORD_CONTRACTOR_WASTAGE',
+                    entity: 'ContractorWastage',
+                    entityId: wastage.id,
+                    newValue: wastage
+                });
+            }
+
             return { message: 'Contractor wastage recorded', id: wastage.id };
         }
 
@@ -878,7 +890,16 @@ export class InventoryService {
                 }
             });
 
-            return txRecord;
+            if (userId) {
+                await AuditService.log({
+                    userId,
+                    action: 'RECORD_STORE_WASTAGE',
+                    entity: 'InventoryTransaction',
+                    entityId: txRecord.id,
+                    newValue: txRecord
+                });
+            }
+
             return txRecord;
         });
     }

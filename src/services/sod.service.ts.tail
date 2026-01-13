@@ -1,0 +1,49 @@
+                    })
+                ));
+            }
+        }
+
+        return {
+            message: 'Sync completed',
+            total: sltData.length,
+            created,
+            updated,
+            skipped: skippedCount,
+            markedAsMissing: missingSods.length
+        };
+    }
+
+    /**
+     * Bulk Sync for all OPMCs
+     */
+    static async syncAllOpmcs() {
+        const opmcs = await prisma.oPMC.findMany({
+            select: { id: true, rtom: true }
+        });
+
+        const results: any[] = [];
+        for (const opmc of opmcs) {
+            console.log(`[SYNC-ALL] Syncing OPMC: ${opmc.rtom}...`);
+            try {
+                const res = await (this as any).syncServiceOrders(opmc.id, opmc.rtom);
+                results.push({ rtom: opmc.rtom, ...res });
+            } catch (err) {
+                console.error(`[SYNC-ALL] Failed for ${opmc.rtom}:`, err);
+                results.push({ rtom: opmc.rtom, error: (err as any).message });
+            }
+        }
+
+        const stats = results.reduce((acc: any, curr: any) => {
+            if (curr.error) {
+                acc.failed++;
+            } else {
+                acc.success++;
+                acc.created += curr.created || 0;
+                acc.updated += curr.updated || 0;
+            }
+            return acc;
+        }, { success: 0, failed: 0, created: 0, updated: 0 });
+
+        return { stats, details: results };
+    }
+}

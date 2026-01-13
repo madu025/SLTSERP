@@ -284,9 +284,9 @@ export class ContractorService {
             });
         }
 
-        		const { emitSystemEvent } = require('@/lib/events');
-		emitSystemEvent('CONTRACTOR_UPDATE');
-		return contractor;
+        const { emitSystemEvent } = require('@/lib/events');
+        emitSystemEvent('CONTRACTOR_UPDATE');
+        return contractor;
     }
 
     /**
@@ -423,8 +423,8 @@ export class ContractorService {
 
             console.log("[SUBMIT-TX] Transaction completed successfully");
             const { emitSystemEvent } = require('@/lib/events');
-        emitSystemEvent('CONTRACTOR_UPDATE');
-        return updated;
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return updated;
         }, {
             maxWait: 10000, // Maximum time to wait for a transaction slot (10s)
             timeout: 30000, // Maximum time the transaction can run (30s)
@@ -465,8 +465,6 @@ export class ContractorService {
         }
 
         console.log("[SUBMIT] Registration submission completed successfully");
-        const { emitSystemEvent } = require('@/lib/events');
-        emitSystemEvent('CONTRACTOR_UPDATE');
         const { emitSystemEvent } = require('@/lib/events');
         emitSystemEvent('CONTRACTOR_UPDATE');
         return result;
@@ -554,9 +552,9 @@ export class ContractorService {
             }
         }
 
-        		const { emitSystemEvent } = require('@/lib/events');
-		emitSystemEvent('CONTRACTOR_UPDATE');
-		return contractor;
+        const { emitSystemEvent } = require('@/lib/events');
+        emitSystemEvent('CONTRACTOR_UPDATE');
+        return contractor;
     }
 
     /**

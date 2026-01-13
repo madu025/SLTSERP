@@ -1,24 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
+import { handleApiError, ApiError } from '@/lib/api-utils';
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
     try {
-        const body = await request.json();
-        const userId = request.headers.get('x-user-id') || 'SYSTEM';
+        const role = req.headers.get('x-user-role');
+        const userId = req.headers.get('x-user-id');
 
-        const result = await InventoryService.recordWastage({
-            ...body,
-            userId
-        });
-
-        return NextResponse.json(result);
-
-    } catch (error: any) {
-        if (error.message === 'STORE_ID_REQUIRED_FOR_STORE_WASTAGE') {
-            return NextResponse.json({ error: 'Store ID required for Store Wastage' }, { status: 400 });
+        if (!['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'].includes(role || '')) {
+            throw new ApiError('Forbidden', 403);
         }
 
-        console.error("Wastage Error:", error);
-        return NextResponse.json({ error: 'Failed to record wastage' }, { status: 500 });
+        const body = await req.json();
+        const result = await InventoryService.recordWastage({
+            ...body,
+            userId: userId || undefined
+        });
+
+        return NextResponse.json({ success: true, data: result });
+    } catch (error) {
+        return handleApiError(error);
     }
 }
