@@ -180,7 +180,7 @@ export default function ContractorsPage() {
     const { data: contractorsData, isLoading } = useQuery({
         queryKey: ["contractors"],
         queryFn: async () => {
-            const res = await fetch("/api/contractors?page=1&limit=1000");
+            const res = await fetch(`/api/contractors?page=1&limit=1000&t=${Date.now()}`);
             if (!res.ok) {
                 const error = await res.json();
                 throw new Error(error.message || "Failed to fetch contractors");

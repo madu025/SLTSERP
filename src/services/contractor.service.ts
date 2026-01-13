@@ -767,7 +767,15 @@ export class ContractorService {
         // but we'll do it explicitly or use deleteMany to be safe)
         // Note: Schema should ideally handle cascades.
 
-        return await prisma.contractor.deleteMany({ where: { id } });
+        console.log(`[DELETE-CONTRACTOR] Attempting to delete ID: ${id}`);
+        const result = await prisma.contractor.deleteMany({ where: { id } });
+        console.log(`[DELETE-CONTRACTOR] Delete result:`, result);
+
+        if (result.count === 0) {
+            throw new Error('NOT_FOUND_FOR_DELETE');
+        }
+
+        return result;
     }
 
     /**

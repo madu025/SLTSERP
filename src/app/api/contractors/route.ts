@@ -90,6 +90,11 @@ export async function DELETE(request: Request) {
                 message: 'Cannot delete contractor because they have assigned Service Orders, Projects, or Stock items.'
             }, { status: 400 });
         }
+        if (error.message === 'NOT_FOUND_FOR_DELETE') {
+            return NextResponse.json({
+                message: 'The contractor record could not be found. It may have already been deleted.'
+            }, { status: 404 });
+        }
         console.error('Error deleting contractor:', error);
         return NextResponse.json({ message: 'Error deleting contractor', debug: error.message }, { status: 500 });
     }
