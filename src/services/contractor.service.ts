@@ -772,7 +772,7 @@ export class ContractorService {
         console.log(`[DELETE-CONTRACTOR] Delete result:`, result);
 
         if (result.count === 0) {
-            throw new Error('NOT_FOUND_FOR_DELETE');
+            throw new Error(`NOT_FOUND_FOR_DELETE:${id}`);
         }
 
         return result;

@@ -656,6 +656,7 @@ export default function ContractorsPage() {
                                                 {isAdmin && (
                                                     <Button variant="ghost" size="sm" onClick={() => {
                                                         if (confirm("Are you sure you want to delete this contractor?")) {
+                                                            console.log("[DELETE] Attempting to delete contractor:", contractor.id, contractor.name);
                                                             deleteMutation.mutate(contractor.id);
                                                         }
                                                     }} className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-red-600 hover:bg-red-50">
