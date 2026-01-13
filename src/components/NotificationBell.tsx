@@ -51,8 +51,32 @@ export default function NotificationBell() {
 
             eventSource.onmessage = (event) => {
                 try {
-                    const newNotification = JSON.parse(event.data);
+                    const data = JSON.parse(event.data);
+
+                    // 1. Handle Global System Events (for Dashboard Live Updates)
+                    if (data._isSystem) {
+                        console.log("Global system event received:", data.type);
+                        // Invalidate relevant queries based on event type
+                        if (data.type === 'INVENTORY_UPDATE') queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] });
+                        if (data.type === 'CONTRACTOR_UPDATE') queryClient.invalidateQueries({ queryKey: ['contractors'] });
+                        if (data.type === 'SOD_UPDATE') queryClient.invalidateQueries({ queryKey: ['service-orders'] });
+
+                        // Dispatch global event for other components
+                        window.dispatchEvent(new CustomEvent('slts-system-event', { detail: data }));
+                        return;
+                    }
+
+                    // 2. Handle User Notifications
+                    const newNotification = data;
                     console.log("New real-time notification received:", newNotification);
+
+                    // Play Notification Sound
+                    try {
+                        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+                        audio.play().catch(e => console.log("Audio play blocked by browser policy"));
+                    } catch (e) {
+                        console.error("Audio error:", e);
+                    }
 
                     // Show a real-time Toast for instant feedback
                     const { toast } = require("sonner");
@@ -119,7 +143,6 @@ export default function NotificationBell() {
             }
         },
         enabled: !!userId,
-        refetchInterval: 20000 // Reduced to 20s for faster updates
     });
 
     const safeNotifications = Array.isArray(notifications) ? notifications : [];

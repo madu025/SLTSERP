@@ -27,18 +27,23 @@ export async function GET(req: NextRequest) {
     }, 30000);
 
     // Subscribe to events
-    // We need to import the subscriber dynamically or ensure lib/events works correctly in this context
-    const { subscribeToNotifications } = await import('@/lib/events');
+    const { subscribeToNotifications, subscribeToSystemEvents } = await import('@/lib/events');
 
-    const unsubscribe = subscribeToNotifications(userId, (data) => {
-        const payload = JSON.stringify(data);
+    const unsubscribeUser = subscribeToNotifications(userId, (data) => {
+        const payload = JSON.stringify({ ...data, _realtime: true });
+        writer.write(encoder.encode(`data: ${payload}\n\n`));
+    });
+
+    const unsubscribeSystem = subscribeToSystemEvents((data) => {
+        const payload = JSON.stringify({ ...data, _isSystem: true });
         writer.write(encoder.encode(`data: ${payload}\n\n`));
     });
 
     // Handle close
     req.signal.onabort = () => {
         clearInterval(keepAlive);
-        unsubscribe();
+        unsubscribeUser();
+        unsubscribeSystem();
         writer.close();
     };
 

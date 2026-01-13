@@ -41,7 +41,7 @@ export class InventoryService {
         }
 
         try {
-            return await prisma.inventoryItem.create({
+            const item = await prisma.inventoryItem.create({
                 data: {
                     code: data.code,
                     name: data.name,
@@ -55,6 +55,10 @@ export class InventoryService {
                     maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage) : 0
                 }
             });
+
+            const { emitSystemEvent } = require('@/lib/events');
+            emitSystemEvent('INVENTORY_UPDATE');
+            return item;
         } catch (error: any) {
             if (error.code === 'P2002') {
                 throw new Error('ITEM_EXISTS');
@@ -254,6 +258,9 @@ export class InventoryService {
                     link: `/admin/inventory/stocks`,
                     opmcId: stock.store.opmcs?.[0]?.id // Best effort OPMC
                 });
+
+                const { emitSystemEvent } = require('@/lib/events');
+                emitSystemEvent('INVENTORY_UPDATE');
             }
         } catch (error) {
             console.error("Failed to check low stock:", error);
@@ -483,6 +490,8 @@ export class InventoryService {
                 }
             }
 
+            const { emitSystemEvent } = require('@/lib/events');
+            emitSystemEvent('INVENTORY_UPDATE');
             return grn;
         });
     }
@@ -586,6 +595,8 @@ export class InventoryService {
             console.error("Low stock check failed:", e);
         }
 
+        const { emitSystemEvent } = require('@/lib/events');
+        emitSystemEvent('INVENTORY_UPDATE');
         return result;
     }
 
@@ -786,6 +797,8 @@ export class InventoryService {
                     console.error("Failed to notify MRN completion:", nErr);
                 }
 
+                const { emitSystemEvent } = require('@/lib/events');
+                emitSystemEvent('INVENTORY_UPDATE');
                 return updatedMrn;
             });
         }

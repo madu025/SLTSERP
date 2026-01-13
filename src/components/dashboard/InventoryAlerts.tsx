@@ -22,8 +22,7 @@ export default function InventoryAlerts() {
             const res = await fetch('/api/dashboard/alerts');
             if (!res.ok) throw new Error("Failed");
             return res.json();
-        },
-        refetchInterval: 30000 // Refresh every 30s
+        }
     });
 
     if (isLoading) {
