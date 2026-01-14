@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import SyncStatus from './SyncStatus';
 
 interface User {
     name: string;
@@ -167,7 +168,9 @@ export default function Sidebar() {
                     );
                 })}
             </nav>
-
+            {hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN']) && (
+                <SyncStatus isCollapsed={isCollapsed} />
+            )}
             <Link href="/profile" className="p-4 border-t border-slate-800 block hover:bg-slate-800/50 transition-colors">
                 <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
                     <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">

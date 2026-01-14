@@ -146,7 +146,7 @@ export class ServiceOrderService {
                             quantity: true,
                             unitPrice: true,
                             costPrice: true
-                        }
+                        } as any
                     }
                 },
                 orderBy,
@@ -292,7 +292,7 @@ export class ServiceOrderService {
             const itemIds = otherData.materialUsage.map((m: any) => m.itemId);
             const itemMetadata = await prisma.inventoryItem.findMany({
                 where: { id: { in: itemIds } },
-                select: { id: true, unitPrice: true, costPrice: true }
+                select: { id: true, unitPrice: true, costPrice: true } as any
             });
 
             await prisma.$transaction(async (tx) => {
@@ -308,7 +308,7 @@ export class ServiceOrderService {
 
                             for (const picked of pickedBatches) {
                                 // B. Reduce from Contractor Batch Stock
-                                await tx.contractorBatchStock.update({
+                                await (tx as any).contractorBatchStock.update({
                                     where: { contractorId_batchId: { contractorId: targetContractorId, batchId: picked.batchId } },
                                     data: { quantity: { decrement: picked.quantity } }
                                 });
@@ -343,8 +343,8 @@ export class ServiceOrderService {
                                 quantity: qty,
                                 unit: m.unit || 'Nos',
                                 usageType: m.usageType || 'USED',
-                                unitPrice: meta?.unitPrice || 0,
-                                costPrice: meta?.costPrice || 0,
+                                unitPrice: (meta as any)?.unitPrice || 0,
+                                costPrice: (meta as any)?.costPrice || 0,
                                 wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
                                 exceedsLimit: m.exceedsLimit || false,
                                 comment: m.comment,
@@ -369,7 +369,7 @@ export class ServiceOrderService {
 
                                 for (const picked of pickedBatches) {
                                     // B. Reduce from Store Batch Stock
-                                    await tx.inventoryBatchStock.update({
+                                    await (tx as any).inventoryBatchStock.update({
                                         where: { storeId_batchId: { storeId: opmc.storeId!, batchId: picked.batchId } },
                                         data: { quantity: { decrement: picked.quantity } }
                                     });
@@ -402,8 +402,8 @@ export class ServiceOrderService {
                                     quantity: qty,
                                     unit: m.unit || 'Nos',
                                     usageType: m.usageType || 'USED',
-                                    unitPrice: meta?.unitPrice || 0,
-                                    costPrice: meta?.costPrice || 0,
+                                    unitPrice: (meta as any)?.unitPrice || 0,
+                                    costPrice: (meta as any)?.costPrice || 0,
                                     wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
                                     exceedsLimit: m.exceedsLimit || false,
                                     comment: m.comment,
@@ -540,14 +540,42 @@ export class ServiceOrderService {
     static async syncAllOpmcs() {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
         const results: any[] = [];
+        let created = 0;
+        let updated = 0;
+        let failed = 0;
+
         for (const opmc of opmcs) {
             try {
                 const res = await (this as any).syncServiceOrders(opmc.id, opmc.rtom);
                 results.push({ rtom: opmc.rtom, ...res });
-            } catch (err) { results.push({ rtom: opmc.rtom, error: (err as any).message }); }
+                created += res.created || 0;
+                updated += res.updated || 0;
+            } catch (err) {
+                results.push({ rtom: opmc.rtom, error: (err as any).message });
+                failed++;
+            }
         }
         const patSync = await this.syncAllPatResults();
-        return { patSync, stats: { patUpdated: patSync.totalUpdated } };
+        const finalStats = {
+            patUpdated: patSync.totalUpdated,
+            created,
+            updated,
+            failed,
+            lastSync: new Date().toISOString()
+        };
+
+        // Update System Setting for Frontend
+        try {
+            await (prisma as any).systemSetting.upsert({
+                where: { key: 'LAST_SYNC_STATS' },
+                update: { value: finalStats },
+                create: { key: 'LAST_SYNC_STATS', value: finalStats }
+            });
+        } catch (e) {
+            console.error('Failed to update sync stats in DB:', e);
+        }
+
+        return { patSync, stats: finalStats, details: results };
     }
 
     static async syncServiceOrders(opmcId: string, rtom: string) {

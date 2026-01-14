@@ -84,7 +84,17 @@ docker image prune -f
 
 ---
 
-## 📊 5. Monitoring & Maintenance
+## 🗄️ 5. Database Migrations
+If you make changes to the database schema (Prisma), you need to push those changes to the live database:
+
+```bash
+# Run migration inside the running app container
+docker exec -it slts-erp-app-1 npx prisma db push
+```
+
+---
+
+## 📊 6. Monitoring & Maintenance
 - **Check if everything is running:** `docker ps`
 - **View App Logs:** `docker-compose logs -f app`
 - **View Background Sync Logs:** `docker-compose logs -f worker`
