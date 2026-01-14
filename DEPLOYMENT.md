@@ -39,9 +39,9 @@ exit
 After logging back in:
 
 ```bash
-# 1. Clone the project
-git clone https://github.com/madu025/SLTSERP.git
-cd SLTSERP
+# 1. Clone the project (if not already done)
+git clone https://github.com/madu025/SLTSERP.git slts-erp
+cd slts-erp
 
 # 2. Create the environment file
 nano .env
@@ -70,7 +70,7 @@ Whenever you push new code to GitHub from your PC, run this on the server:
 
 ```bash
 # Go to project folder
-cd ~/SLTSERP
+cd ~/slts-erp
 
 # Get latest code
 git pull origin main
