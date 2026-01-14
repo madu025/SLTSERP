@@ -22,7 +22,12 @@ export async function GET(request: Request) {
                     select: {
                         id: true,
                         name: true,
-                        contactNumber: true
+                        contactNumber: true,
+                        address: true,
+                        registrationNumber: true,
+                        bankName: true,
+                        bankBranch: true,
+                        bankAccountNumber: true
                     }
                 },
                 project: {

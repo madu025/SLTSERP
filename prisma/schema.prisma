@@ -113,6 +113,7 @@ model ServiceOrder {
   isInvoicable          Boolean   @default(false)
   invoiced              Boolean   @default(false)
   invoiceId             String?
+  invoice               Invoice? @relation(fields: [invoiceId], references: [id])
   
   // Daily Operational Report Tracking Fields
   wiredOnly             Boolean   @default(false)  // Wired only completion status
@@ -659,8 +660,29 @@ model Invoice {
   contractor     Contractor @relation(fields: [contractorId], references: [id])
   projectId      String?
   project        Project?   @relation(fields: [projectId], references: [id])
-  amount         Float
-  status         String     @default("PENDING") // PENDING, APPROVED, PAID
+  
+  // -- New Fields for 90/10 Logic --
+  year           Int?
+  month          Int?
+  
+  totalAmount    Float      @default(0) // Total 100% Value
+  
+  // Part A (90% - Immediate)
+  amountA        Float      @default(0)
+  statusA        String     @default("PENDING") // PENDING, PAID
+  paidDateA      DateTime?
+  
+  // Part B (10% - Retention after 6 months)
+  amountB        Float      @default(0)
+  statusB        String     @default("HOLD")    // HOLD (Waiting time/PAT), ELIGIBLE (Ready to pay), PAID
+  paidDateB      DateTime?
+  
+  // Included SODs
+  sods           ServiceOrder[]
+  
+  // Legacy/Generic fields
+  amount         Float      // Can be used as total or remaining
+  status         String     @default("PENDING") // Overall Status
   description    String?    @db.Text
   dueDate        DateTime?
   date           DateTime   @default(now())
