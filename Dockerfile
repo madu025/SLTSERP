@@ -42,9 +42,10 @@ COPY --from=builder /app/node_modules ./node_modules
 # Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/scripts ./scripts
 
 # Create uploads directory and set permissions
-RUN mkdir -p public/uploads/contractors && chown -R nextjs:nodejs public/uploads && chmod +x docker-entrypoint.sh
+RUN mkdir -p public/uploads/contractors && chown -R nextjs:nodejs public/uploads scripts && chmod +x docker-entrypoint.sh
 
 USER nextjs
 
