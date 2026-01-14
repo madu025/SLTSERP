@@ -1,47 +1,97 @@
-# Vercel + Supabase Deployment Guide
+# 🚀 SLTS ERP AWS Lightsail Deployment Guide (Docker)
 
-## 📋 Environment Variables Setup
+This guide contains everything you need to know to deploy and manage the system on your AWS Lightsail instance.
 
-### Required Environment Variables for Vercel:
+## 📌 Server Details
+- **IP Address:** `54.255.90.86`
+- **SSH User:** `ubuntu` (Default for AWS Ubuntu instances)
+- **SSH Key Location:** `C:\Users\Prasad\Downloads\LightsailDefaultKey-ap-southeast-1.pem`
+- **Project URL:** `http://54.255.90.86`
 
-```env
-# Database (Supabase)
-DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres?pgbouncer=true&connection_limit=1"
-DIRECT_URL="postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres"
+---
 
-# NextAuth
-NEXTAUTH_SECRET="your-super-secret-key-here-change-this-in-production"
-NEXTAUTH_URL="https://your-app-name.vercel.app"
-
-# Optional: File Upload
-# CLOUDINARY_CLOUD_NAME=""
-# CLOUDINARY_API_KEY=""
-# CLOUDINARY_API_SECRET=""
-```
-
-## 🚀 Deployment Steps
-
-### 1. Supabase Setup
-- Create account at supabase.com
-- Create new project
-- Get connection strings from Settings → Database
-- Save your database password!
-
-### 2. Vercel Setup
-- Create account at vercel.com
-- Import GitHub repository
-- Add environment variables
-- Deploy!
-
-### 3. Run Migrations
+## 🔑 1. SSH Login Command
+Open PowerShell or Command Prompt on your PC and run:
 ```bash
-# After first deployment
-vercel env pull .env.local
-npx prisma migrate deploy
-npx prisma generate
+ssh -i "C:\Users\Prasad\Downloads\LightsailDefaultKey-ap-southeast-1.pem" ubuntu@54.255.90.86
 ```
 
-## 📝 Notes
-- Update NEXTAUTH_URL after getting your Vercel domain
-- For file uploads, consider using Vercel Blob or Cloudinary
-- Free tier limits: Check Supabase and Vercel documentation
+---
+
+## 🛠️ 2. First-Time Server Setup
+Run these commands once you log in to the server:
+
+```bash
+# Update and install Docker + Git
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose git
+
+# Give yourself permission to run Docker without 'sudo'
+sudo usermod -aG docker $USER
+
+# !!! IMPORTANT: Exit and Re-login to apply permissions !!!
+exit
+```
+
+---
+
+## 🏗️ 3. Deploy the Application
+After logging back in:
+
+```bash
+# 1. Clone the project
+git clone https://github.com/madu025/SLTSERP.git
+cd SLTSERP
+
+# 2. Create the environment file
+nano .env
+```
+
+**Paste the following into the `.env` file (Right-click to paste in most terminals):**
+```env
+DATABASE_URL="postgresql://user:password@hostname:5432/dbname?sslmode=require"
+DIRECT_URL="your_direct_database_url_here"
+NEXTAUTH_SECRET="f658fb5b415a2a3b2e43be904348807a"
+NEXTAUTH_URL="http://54.255.90.86"
+CRON_SECRET="your_strong_secret_for_sync"
+PORT=3000
+```
+*(Press `Ctrl + O`, `Enter`, then `Ctrl + X` to save and exit)*
+
+```bash
+# 3. Start the system (App + Background Worker)
+docker-compose up -d --build
+```
+
+---
+
+## 🔄 4. How to Update After Git Push
+Whenever you push new code to GitHub from your PC, run this on the server:
+
+```bash
+# Go to project folder
+cd ~/SLTSERP
+
+# Get latest code
+git pull origin main
+
+# Rebuild and restart containers
+docker-compose up -d --build
+
+# Optional: Cleanup old images to save space
+docker image prune -f
+```
+
+---
+
+## 📊 5. Monitoring & Maintenance
+- **Check if everything is running:** `docker ps`
+- **View App Logs:** `docker-compose logs -f app`
+- **View Background Sync Logs:** `docker-compose logs -f worker`
+- **Stop System:** `docker-compose down`
+
+## ⚠️ Required AWS Networking Rules
+Go to **AWS Lightsail Console -> Networking** and ensure these ports are open:
+1. **HTTP (Port 80):** For web access
+2. **HTTPS (Port 443):** For secure web access
+3. **SSH (Port 22):** For terminal access (Required to run commands)
