@@ -353,21 +353,64 @@ export class ServiceOrderService {
                         }
                     }
                 } else {
-                    // No contractor (direct team) - still record usage
-                    for (const m of otherData.materialUsage) {
-                        const meta = itemMetadata.find((i: any) => i.id === m.itemId);
-                        finalUsageRecords.push({
-                            itemId: m.itemId,
-                            quantity: parseFloat(m.quantity),
-                            unit: m.unit || 'Nos',
-                            usageType: m.usageType || 'USED',
-                            unitPrice: meta?.unitPrice || 0,
-                            costPrice: meta?.costPrice || 0,
-                            wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
-                            exceedsLimit: m.exceedsLimit || false,
-                            comment: m.comment,
-                            serialNumber: m.serialNumber
-                        });
+                    // No contractor (direct team) - Deduct from Store Stock
+                    // Get store for this OPMC
+                    const opmc = await tx.oPMC.findUnique({
+                        where: { id: oldOrder.opmcId },
+                        select: { storeId: true }
+                    });
+
+                    if (opmc?.storeId) {
+                        for (const m of otherData.materialUsage) {
+                            const qty = parseFloat(m.quantity);
+                            if (['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType)) {
+                                // A. Pick batches FIFO from Store
+                                const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, opmc.storeId, m.itemId, qty);
+
+                                for (const picked of pickedBatches) {
+                                    // B. Reduce from Store Batch Stock
+                                    await tx.inventoryBatchStock.update({
+                                        where: { storeId_batchId: { storeId: opmc.storeId!, batchId: picked.batchId } },
+                                        data: { quantity: { decrement: picked.quantity } }
+                                    });
+
+                                    // C. Create Usage Record for this Batch
+                                    finalUsageRecords.push({
+                                        itemId: m.itemId,
+                                        batchId: picked.batchId,
+                                        quantity: picked.quantity,
+                                        unit: m.unit || 'Nos',
+                                        usageType: m.usageType || 'USED',
+                                        unitPrice: picked.batch.unitPrice || 0,
+                                        costPrice: picked.batch.costPrice || 0,
+                                        wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
+                                        exceedsLimit: m.exceedsLimit || false,
+                                        comment: m.comment,
+                                        serialNumber: m.serialNumber
+                                    });
+                                }
+
+                                // D. Update Global Store Stock (Legacy)
+                                await tx.inventoryStock.update({
+                                    where: { storeId_itemId: { storeId: opmc.storeId!, itemId: m.itemId } },
+                                    data: { quantity: { decrement: qty } }
+                                });
+                            } else {
+                                const meta = itemMetadata.find((i: any) => i.id === m.itemId);
+                                finalUsageRecords.push({
+                                    itemId: m.itemId,
+                                    quantity: qty,
+                                    unit: m.unit || 'Nos',
+                                    usageType: m.usageType || 'USED',
+                                    unitPrice: meta?.unitPrice || 0,
+                                    costPrice: meta?.costPrice || 0,
+                                    wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
+                                    exceedsLimit: m.exceedsLimit || false,
+                                    comment: m.comment,
+                                    serialNumber: m.serialNumber
+                                });
+                            }
+                        }
                     }
                 }
 

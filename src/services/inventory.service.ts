@@ -4,6 +4,10 @@ import { NotificationService } from './notification.service';
 import { AuditService } from './audit.service';
 
 export class InventoryService {
+    // Round to 4 decimal places to prevent floating point issues
+    private static round(val: number): number {
+        return Math.round(val * 10000) / 10000;
+    }
 
     // --- ITEM MANAGEMENT ---
 
@@ -56,7 +60,7 @@ export class InventoryService {
                     costPrice: data.costPrice ? parseFloat(data.costPrice) : 0,
                     isWastageAllowed: data.isWastageAllowed !== undefined ? data.isWastageAllowed : true,
                     maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage) : 0
-                }
+                } as any
             });
 
             const { emitSystemEvent } = require('@/lib/events');
@@ -87,7 +91,7 @@ export class InventoryService {
                 costPrice: data.costPrice ? parseFloat(data.costPrice) : 0,
                 isWastageAllowed: data.isWastageAllowed,
                 maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage) : 0
-            }
+            } as Prisma.InventoryItemUpdateInput
         });
     }
 
@@ -287,7 +291,7 @@ export class InventoryService {
     }
 
     static async getStoreBatches(storeId: string, itemId?: string) {
-        return await prisma.inventoryBatchStock.findMany({
+        return await (prisma as any).inventoryBatchStock.findMany({
             where: {
                 storeId,
                 ...(itemId ? { itemId } : {})
@@ -305,7 +309,7 @@ export class InventoryService {
     }
 
     static async getContractorBatches(contractorId: string, itemId?: string) {
-        return await prisma.contractorBatchStock.findMany({
+        return await (prisma as any).contractorBatchStock.findMany({
             where: {
                 contractorId,
                 ...(itemId ? { itemId } : {})
@@ -332,21 +336,60 @@ export class InventoryService {
             const transactionItems = [];
 
             for (const item of items) {
-                const newQty = parseFloat(item.quantity);
+                const newQty = this.round(parseFloat(item.quantity));
                 if (isNaN(newQty)) continue;
 
                 // Get current stock
-                const currentStock = await tx.inventoryStock.findUnique({
+                const currentStock = await (tx as any).inventoryStock.findUnique({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } }
                 });
 
-                const oldQty = currentStock ? currentStock.quantity : 0;
-                const diff = newQty - oldQty;
+                const oldQty = currentStock ? this.round(currentStock.quantity) : 0;
+                const diff = this.round(newQty - oldQty);
 
                 if (diff === 0) continue; // No change
 
-                // Update Stock
-                await tx.inventoryStock.upsert({
+                // A. BATCH HANDLING
+                if (diff > 0) {
+                    // 1. Create a special adjustment batch for increases
+                    const itemData = await (tx as any).inventoryItem.findUnique({
+                        where: { id: item.itemId },
+                        select: { costPrice: true, unitPrice: true }
+                    }) as any;
+
+                    const batch = await (tx as any).inventoryBatch.create({
+                        data: {
+                            batchNumber: `ADJ-${Date.now()}`,
+                            itemId: item.itemId,
+                            initialQty: diff,
+                            costPrice: itemData?.costPrice || 0,
+                            unitPrice: itemData?.unitPrice || 0
+                        }
+                    });
+
+                    await (tx as any).inventoryBatchStock.create({
+                        data: {
+                            storeId,
+                            batchId: batch.id,
+                            itemId: item.itemId,
+                            quantity: diff
+                        }
+                    });
+                } else {
+                    // 2. FIFO Deduction for decreases
+                    const reduceQty = Math.abs(diff);
+                    const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, storeId, item.itemId, reduceQty);
+
+                    for (const picked of pickedBatches) {
+                        await (tx as any).inventoryBatchStock.update({
+                            where: { storeId_batchId: { storeId, batchId: picked.batchId } },
+                            data: { quantity: { decrement: picked.quantity } }
+                        });
+                    }
+                }
+
+                // B. UPDATE GLOBAL STOCK (Legacy/Summary)
+                await (tx as any).inventoryStock.upsert({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     update: { quantity: newQty },
                     create: { storeId, itemId: item.itemId, quantity: newQty }
@@ -362,7 +405,7 @@ export class InventoryService {
 
             if (transactionItems.length > 0) {
                 // Create Transaction Log
-                await tx.inventoryTransaction.create({
+                await (tx as any).inventoryTransaction.create({
                     data: {
                         type: 'ADJUSTMENT', // or INITIAL_STOCK
                         storeId,
@@ -370,7 +413,7 @@ export class InventoryService {
                         referenceId: `INIT-STOCK-${Date.now()}`,
                         notes: reason || 'Initial Stock Setup',
                         items: {
-                            create: transactionItems.map(ti => ({
+                            create: transactionItems.map((ti: any) => ({
                                 itemId: ti.itemId,
                                 quantity: ti.quantity
                             }))
@@ -389,59 +432,72 @@ export class InventoryService {
      * Pick batches from a store based on FIFO
      */
     static async pickStoreBatchesFIFO(tx: any, storeId: string, itemId: string, requiredQty: number) {
-        const batches = await tx.inventoryBatchStock.findMany({
+        // Round required qty to avoid floating point mismatches during comparison
+        const qtyToPick = this.round(requiredQty);
+
+        // LOCKING: Prevent concurrent modifications to the same item's batches in this store
+        await tx.$executeRaw`SELECT * FROM "InventoryBatchStock" WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} FOR UPDATE`;
+
+        const batches = await (tx as any).inventoryBatchStock.findMany({
             where: { storeId, itemId, quantity: { gt: 0 } },
             include: { batch: true },
             orderBy: { batch: { createdAt: 'asc' } }
         });
 
         const pickedBatches = [];
-        let remainingToPick = requiredQty;
+        let remainingToPick = qtyToPick;
 
         for (const stock of batches) {
             if (remainingToPick <= 0) break;
-            const take = Math.min(stock.quantity, remainingToPick);
+            const available = this.round(stock.quantity);
+            const take = Math.min(available, remainingToPick);
             pickedBatches.push({
                 batchId: stock.batchId,
-                quantity: take,
+                quantity: this.round(take),
                 batch: stock.batch
             });
-            remainingToPick -= take;
+            remainingToPick = this.round(remainingToPick - take);
         }
 
         if (remainingToPick > 0) {
-            throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}`);
+            throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
         }
 
         return pickedBatches;
     }
 
     /**
-     * Pick batches from a contractor based on FIFO
+     * Pick batches from a contractor based on FIFO with locking
      */
     static async pickContractorBatchesFIFO(tx: any, contractorId: string, itemId: string, requiredQty: number) {
-        const batches = await tx.contractorBatchStock.findMany({
+        const qtyToPick = this.round(requiredQty);
+
+        // LOCKING: Prevent concurrent modifications to the same item's batches for this contractor
+        await tx.$executeRaw`SELECT * FROM "ContractorBatchStock" WHERE "contractorId" = ${contractorId} AND "itemId" = ${itemId} FOR UPDATE`;
+
+        const batches = await (tx as any).contractorBatchStock.findMany({
             where: { contractorId, itemId, quantity: { gt: 0 } },
             include: { batch: true },
             orderBy: { batch: { createdAt: 'asc' } }
         });
 
         const pickedBatches = [];
-        let remainingToPick = requiredQty;
+        let remainingToPick = qtyToPick;
 
         for (const stock of batches) {
             if (remainingToPick <= 0) break;
-            const take = Math.min(stock.quantity, remainingToPick);
+            const available = this.round(stock.quantity);
+            const take = Math.min(available, remainingToPick);
             pickedBatches.push({
                 batchId: stock.batchId,
-                quantity: take,
+                quantity: this.round(take),
                 batch: stock.batch
             });
-            remainingToPick -= take;
+            remainingToPick = this.round(remainingToPick - take);
         }
 
         if (remainingToPick > 0) {
-            throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}`);
+            throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
         }
 
         return pickedBatches;
@@ -466,7 +522,7 @@ export class InventoryService {
                     include: {
                         item: true,
                         batch: true
-                    }
+                    } as any
                 }
             },
             orderBy: { createdAt: 'desc' }
@@ -486,7 +542,7 @@ export class InventoryService {
 
         return await prisma.$transaction(async (tx) => {
             // 1. Create GRN
-            const grn = await tx.gRN.create({
+            const grn = await (tx as any).gRN.create({
                 data: {
                     grnNumber: `GRN-${Date.now()}`,
                     storeId,
@@ -496,7 +552,7 @@ export class InventoryService {
                     requestId: requestId || null,
                     reference: sltReferenceId || null,
                     items: {
-                        create: items.map((i) => ({
+                        create: items.map((i: any) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity)
                         }))
@@ -506,8 +562,8 @@ export class InventoryService {
             });
 
             // 2. Fetch Item Metadata for Pricing
-            const itemIds = items.map(i => i.itemId);
-            const itemMetadata = await tx.inventoryItem.findMany({
+            const itemIds = items.map((i: any) => i.itemId);
+            const itemMetadata = await (tx as any).inventoryItem.findMany({
                 where: { id: { in: itemIds } },
                 select: { id: true, costPrice: true, unitPrice: true }
             });
@@ -516,13 +572,13 @@ export class InventoryService {
             const transactionItems = [];
 
             for (const item of items) {
-                const qty = parseFloat(item.quantity);
-                const meta = itemMetadata.find(m => m.id === item.itemId);
+                const qty = this.round(parseFloat(item.quantity));
+                const meta = itemMetadata.find((m: any) => m.id === item.itemId) as any;
                 const costPrice = meta?.costPrice || 0;
                 const unitPrice = meta?.unitPrice || 0;
 
                 // A. Create Batch
-                const batch = await tx.inventoryBatch.create({
+                const batch = await (tx as any).inventoryBatch.create({
                     data: {
                         batchNumber: `BAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
                         itemId: item.itemId,
@@ -534,16 +590,16 @@ export class InventoryService {
                 });
 
                 // B. Link GRN Item to Batch (Update the created item)
-                const grnLine = grn.items.find(gi => gi.itemId === item.itemId);
+                const grnLine = grn.items.find((gi: any) => gi.itemId === item.itemId);
                 if (grnLine) {
-                    await tx.gRNItem.update({
+                    await (tx as any).gRNItem.update({
                         where: { id: grnLine.id },
                         data: { batchId: batch.id }
                     });
                 }
 
                 // C. Initialize Batch Stock in Store
-                await tx.inventoryBatchStock.create({
+                await (tx as any).inventoryBatchStock.create({
                     data: {
                         storeId,
                         batchId: batch.id,
@@ -553,7 +609,7 @@ export class InventoryService {
                 });
 
                 // D. Upsert Total Stock (Legacy support & quick lookups)
-                await tx.inventoryStock.upsert({
+                await (tx as any).inventoryStock.upsert({
                     where: {
                         storeId_itemId: {
                             storeId,
@@ -578,7 +634,7 @@ export class InventoryService {
 
 
             // 3. Create Transaction Log
-            await tx.inventoryTransaction.create({
+            await (tx as any).inventoryTransaction.create({
                 data: {
                     type: 'GRN_IN',
                     storeId,
@@ -593,7 +649,7 @@ export class InventoryService {
 
             // 4. Update Request Status if linked
             if (requestId) {
-                const request = await tx.stockRequest.findUnique({
+                const request = await (tx as any).stockRequest.findUnique({
                     where: { id: requestId },
                     include: { items: true }
                 });
@@ -604,11 +660,11 @@ export class InventoryService {
 
                     // Update received quantities for each item
                     for (const reqItem of request.items) {
-                        const grnItem = items.find((gi) => gi.itemId === reqItem.itemId);
+                        const grnItem = items.find((gi: any) => gi.itemId === reqItem.itemId);
                         if (grnItem) {
                             const newReceivedQty = reqItem.receivedQty + parseFloat(grnItem.quantity);
 
-                            await tx.stockRequestItem.update({
+                            await (tx as any).stockRequestItem.update({
                                 where: { id: reqItem.id },
                                 data: { receivedQty: newReceivedQty }
                             });
@@ -630,7 +686,7 @@ export class InventoryService {
 
                     const newStatus = allItemsCompleted ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
 
-                    await tx.stockRequest.update({
+                    await (tx as any).stockRequest.update({
                         where: { id: requestId },
                         data: {
                             status: newStatus,
@@ -677,7 +733,7 @@ export class InventoryService {
 
         const result = await prisma.$transaction(async (tx) => {
             // 1. Create Material Issue
-            const materialIssue = await tx.contractorMaterialIssue.create({
+            const materialIssue = await (tx as any).contractorMaterialIssue.create({
                 data: {
                     contractorId,
                     storeId,
@@ -685,7 +741,7 @@ export class InventoryService {
                     issueDate: new Date(),
                     issuedBy: userId || 'SYSTEM',
                     items: {
-                        create: items.map((i) => ({
+                        create: items.map((i: any) => ({
                             itemId: i.itemId,
                             quantity: parseFloat(i.quantity),
                             unit: i.unit || 'Nos'
@@ -698,20 +754,21 @@ export class InventoryService {
             const transactionItems = [];
 
             for (const item of items) {
-                const qty = parseFloat(item.quantity);
+                const qty = this.round(parseFloat(item.quantity));
+                if (qty <= 0) continue;
 
                 // A. Pick Batches using FIFO
                 const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);
 
                 for (const picked of pickedBatches) {
                     // Reduce from Store Batch Stock
-                    await tx.inventoryBatchStock.update({
+                    await (tx as any).inventoryBatchStock.update({
                         where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                         data: { quantity: { decrement: picked.quantity } }
                     });
 
                     // Add to Contractor Batch Stock
-                    await tx.contractorBatchStock.upsert({
+                    await (tx as any).contractorBatchStock.upsert({
                         where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
                         update: { quantity: { increment: picked.quantity } },
                         create: {
@@ -721,24 +778,26 @@ export class InventoryService {
                             quantity: picked.quantity
                         }
                     });
+
+                    // C. Log EACH Batch Movement in Transaction Log
+                    transactionItems.push({
+                        itemId: item.itemId,
+                        batchId: picked.batchId,
+                        quantity: -picked.quantity // Negative for store deduction
+                    });
                 }
 
-                // B. Update Global Store Stock (Legacy)
+                // D. Update Global Store Stock (Legacy)
                 await tx.inventoryStock.update({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     data: { quantity: { decrement: qty } }
                 });
 
-                // C. Update Contractor Total Stock
-                await tx.contractorStock.upsert({
+                // E. Update Contractor Total Stock
+                await (tx as any).contractorStock.upsert({
                     where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
                     update: { quantity: { increment: qty } },
                     create: { contractorId, itemId: item.itemId, quantity: qty }
-                });
-
-                transactionItems.push({
-                    itemId: item.itemId,
-                    quantity: -qty
                 });
             }
 
@@ -751,7 +810,11 @@ export class InventoryService {
                     userId: userId || 'SYSTEM',
                     notes: `Material issued to contractor ${contractorId} (FIFO Batched)`,
                     items: {
-                        create: transactionItems
+                        create: transactionItems.map((ti: any) => ({
+                            itemId: ti.itemId,
+                            batchId: ti.batchId,
+                            quantity: ti.quantity
+                        }))
                     }
                 }
             });
@@ -927,7 +990,18 @@ export class InventoryService {
                 // Reduce stock
                 const transactionItems = [];
                 for (const item of mrn.items) {
-                    await tx.inventoryStock.upsert({
+                    // A. FIFO Batch Deduction
+                    const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, mrn.storeId, item.itemId, item.quantity);
+
+                    for (const picked of pickedBatches) {
+                        await (tx as any).inventoryBatchStock.update({
+                            where: { storeId_batchId: { storeId: mrn.storeId, batchId: picked.batchId } },
+                            data: { quantity: { decrement: picked.quantity } }
+                        });
+                    }
+
+                    // B. Total Stock Update
+                    await (tx as any).inventoryStock.upsert({
                         where: { storeId_itemId: { storeId: mrn.storeId, itemId: item.itemId } },
                         update: { quantity: { decrement: item.quantity } },
                         create: { storeId: mrn.storeId, itemId: item.itemId, quantity: -item.quantity }
@@ -935,12 +1009,12 @@ export class InventoryService {
 
                     transactionItems.push({
                         itemId: item.itemId,
-                        quantity: -item.quantity // Negative for return
+                        quantity: -item.quantity // Negative for return to supplier
                     });
                 }
 
                 // Log transaction
-                await tx.inventoryTransaction.create({
+                await (tx as any).inventoryTransaction.create({
                     data: {
                         type: 'RETURN',
                         storeId: mrn.storeId,
@@ -948,7 +1022,7 @@ export class InventoryService {
                         userId: approvedById,
                         notes: `MRN ${mrn.mrnNumber} - ${mrn.returnType}`,
                         items: {
-                            create: transactionItems.map(ti => ({
+                            create: transactionItems.map((ti: any) => ({
                                 itemId: ti.itemId,
                                 quantity: ti.quantity
                             }))
@@ -992,61 +1066,92 @@ export class InventoryService {
     }) {
         const { storeId, contractorId, month, description, reason, items, userId } = data;
 
-        // SCENARIO 1: Contractor Wastage (No Store Stock Reduction)
+        // SCENARIO 1: Contractor Wastage (Reduce Contractor Stock)
         if (contractorId) {
             if (!storeId) throw new Error('STORE_ID_REQUIRED');
 
-            const wastage = await prisma.contractorWastage.create({
-                data: {
-                    contractorId,
-                    storeId, // Guaranteed string now
-                    month: month || new Date().toISOString().slice(0, 7),
-                    description: description || reason,
-                    items: {
-                        create: items.map((item) => ({
-                            itemId: item.itemId,
-                            quantity: parseFloat(item.quantity),
-                            unit: item.unit || 'Nos'
-                        }))
+            return await prisma.$transaction(async (tx) => {
+                const wastage = await (tx as any).contractorWastage.create({
+                    data: {
+                        contractorId,
+                        storeId,
+                        month: month || new Date().toISOString().slice(0, 7),
+                        description: description || reason,
+                        items: {
+                            create: items.map((item: any) => ({
+                                itemId: item.itemId,
+                                quantity: parseFloat(item.quantity),
+                                unit: item.unit || 'Nos'
+                            }))
+                        }
                     }
-                }
-            });
-
-            if (userId) {
-                await AuditService.log({
-                    userId,
-                    action: 'RECORD_CONTRACTOR_WASTAGE',
-                    entity: 'ContractorWastage',
-                    entityId: wastage.id,
-                    newValue: wastage
                 });
-            }
 
-            return { message: 'Contractor wastage recorded', id: wastage.id };
+                for (const item of items) {
+                    const qty = this.round(parseFloat(item.quantity));
+                    if (qty <= 0) continue;
+
+                    // A. FIFO Deduction from Contractor Batches
+                    const pickedBatches = await InventoryService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);
+                    for (const picked of pickedBatches) {
+                        await (tx as any).contractorBatchStock.update({
+                            where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
+                            data: { quantity: { decrement: picked.quantity } }
+                        });
+                    }
+
+                    // B. Reduce Contractor Total Stock
+                    await (tx as any).contractorStock.update({
+                        where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
+                        data: { quantity: { decrement: qty } }
+                    });
+                }
+
+                if (userId) {
+                    await AuditService.log({
+                        userId,
+                        action: 'RECORD_CONTRACTOR_WASTAGE',
+                        entity: 'ContractorWastage',
+                        entityId: wastage.id,
+                        newValue: wastage
+                    });
+                }
+
+                return { message: 'Contractor wastage recorded', id: wastage.id };
+            });
         }
 
         if (!storeId) throw new Error('STORE_ID_REQUIRED_FOR_STORE_WASTAGE');
 
-        // SCENARIO 2: Store Wastage (Reduce Stock)
+        // SCENARIO 2: Store Wastage (Reduce Store Stock)
         return await prisma.$transaction(async (tx) => {
             const transactionItems = [];
 
             for (const item of items) {
-                const qty = parseFloat(item.quantity);
+                const qty = this.round(parseFloat(item.quantity));
                 if (qty <= 0) continue;
 
-                // Reduce Stock
-                await tx.inventoryStock.upsert({
+                // A. FIFO Deduction from Store Batches
+                const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);
+                for (const picked of pickedBatches) {
+                    await (tx as any).inventoryBatchStock.update({
+                        where: { storeId_batchId: { storeId, batchId: picked.batchId } },
+                        data: { quantity: { decrement: picked.quantity } }
+                    });
+                }
+
+                // B. Reduce Store Total Stock
+                await (tx as any).inventoryStock.upsert({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     update: { quantity: { decrement: qty } },
                     create: { storeId, itemId: item.itemId, quantity: -qty }
                 });
 
-                transactionItems.push({ itemId: item.itemId, quantity: -qty }); // Negative for reduce
+                transactionItems.push({ itemId: item.itemId, quantity: -qty });
             }
 
             // Create Transaction Log
-            const txRecord = await tx.inventoryTransaction.create({
+            const txRecord = await (tx as any).inventoryTransaction.create({
                 data: {
                     type: 'WASTAGE',
                     storeId,
@@ -1054,7 +1159,7 @@ export class InventoryService {
                     referenceId: `STORE-WASTAGE-${Date.now()}`,
                     notes: reason || description,
                     items: {
-                        create: transactionItems.map(ti => ({
+                        create: transactionItems.map((ti: any) => ({
                             itemId: ti.itemId,
                             quantity: ti.quantity
                         }))
@@ -1546,7 +1651,7 @@ export class InventoryService {
         // 6. OSP_MANAGER_APPROVE (Final Approval - OSP Manager)
         if (action === 'OSP_MANAGER_APPROVE' || action === 'APPROVE') {
             return await prisma.$transaction(async (tx) => {
-                const stockReq = await tx.stockRequest.findUnique({
+                const stockReq = await (tx as any).stockRequest.findUnique({
                     where: { id: requestId },
                     include: { items: true, fromStore: true, toStore: true }
                 });
@@ -1556,7 +1661,7 @@ export class InventoryService {
                 // Update approved quantities if provided
                 if (allocation && Array.isArray(allocation)) {
                     for (const alloc of allocation) {
-                        await tx.stockRequestItem.updateMany({
+                        await (tx as any).stockRequestItem.updateMany({
                             where: { requestId, itemId: alloc.itemId },
                             data: { approvedQty: parseFloat(alloc.approvedQty) }
                         });
@@ -1566,7 +1671,7 @@ export class InventoryService {
                 // Scenario A: Local Purchase (Any Store)
                 // Flow: OSP Approval → Procurement → GRN
                 if (stockReq.sourceType === 'LOCAL_PURCHASE') {
-                    const updated = await tx.stockRequest.update({
+                    const updated = await (tx as any).stockRequest.update({
                         where: { id: requestId },
                         data: {
                             status: 'APPROVED',
@@ -1598,7 +1703,7 @@ export class InventoryService {
                 // Scenario B: Main Store Distribution (Sub Store → Main Store)
                 // Flow: OSP Approval → Main Store Release → Sub Store Receive
                 if (stockReq.sourceType === 'MAIN_STORE' && stockReq.toStoreId) {
-                    const updated = await tx.stockRequest.update({
+                    const updated = await (tx as any).stockRequest.update({
                         where: { id: requestId },
                         data: {
                             status: 'APPROVED',
@@ -1629,7 +1734,7 @@ export class InventoryService {
                 // Scenario C: SLT Request (Main Store → SLT Head Office)
                 // Flow: OSP Approval → GRN Pending
                 if (stockReq.sourceType === 'SLT') {
-                    const updated = await tx.stockRequest.update({
+                    const updated = await (tx as any).stockRequest.update({
                         where: { id: requestId },
                         data: {
                             status: 'APPROVED',
@@ -1665,7 +1770,7 @@ export class InventoryService {
         // 7. MAIN_STORE_RELEASE (Main Store Assistant releases materials)
         if (action === 'MAIN_STORE_RELEASE') {
             return await prisma.$transaction(async (tx) => {
-                const stockReq = await tx.stockRequest.findUnique({
+                const stockReq = await (tx as any).stockRequest.findUnique({
                     where: { id: requestId },
                     include: { items: true, fromStore: true }
                 });
@@ -1675,59 +1780,58 @@ export class InventoryService {
 
                 // Update issued quantities and deduct from Main Store
                 for (const alloc of allocation) {
-                    const issuedQty = parseFloat(alloc.issuedQty);
+                    const issuedQty = this.round(parseFloat(alloc.issuedQty));
+                    if (issuedQty <= 0) continue;
 
-                    // Validate stock availability
-                    const stock = await tx.inventoryStock.findUnique({
-                        where: {
-                            storeId_itemId: {
-                                storeId: stockReq.toStoreId!,
-                                itemId: alloc.itemId
-                            }
-                        }
-                    });
-
-                    if (!stock || stock.quantity < issuedQty) {
-                        throw new Error(`INSUFFICIENT_STOCK: ${alloc.itemId}`);
-                    }
-
-                    // Update issued qty in request item
-                    await tx.stockRequestItem.updateMany({
+                    // A. Update issued qty in request item
+                    await (tx as any).stockRequestItem.updateMany({
                         where: { requestId, itemId: alloc.itemId },
                         data: { issuedQty }
                     });
 
-                    // Deduct from Main Store
-                    await tx.inventoryStock.update({
+                    // B. FIFO Deduction from Main Store Batches
+                    const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, stockReq.toStoreId!, alloc.itemId, issuedQty);
+
+                    for (const picked of pickedBatches) {
+                        // Reduce from Store Batch Stock
+                        await (tx as any).inventoryBatchStock.update({
+                            where: { storeId_batchId: { storeId: stockReq.toStoreId!, batchId: picked.batchId } },
+                            data: { quantity: { decrement: picked.quantity } }
+                        });
+                    }
+
+                    // C. Update Global Store Stock (Legacy)
+                    await (tx as any).inventoryStock.update({
                         where: {
                             storeId_itemId: {
-                                storeId: stockReq.toStoreId!,
+                                storeId: stockReq.toStoreId as string,
                                 itemId: alloc.itemId
                             }
                         },
                         data: { quantity: { decrement: issuedQty } }
                     });
 
-                    // Log TRANSFER_OUT transaction
-                    await tx.inventoryTransaction.create({
+                    // D. Log TRANSFER_OUT transaction with Batch Details
+                    await (tx as any).inventoryTransaction.create({
                         data: {
                             type: 'TRANSFER_OUT',
-                            storeId: stockReq.toStoreId!,
+                            storeId: stockReq.toStoreId as string,
                             referenceId: stockReq.requestNr,
                             userId: approvedById || 'SYSTEM',
                             notes: `Released to ${stockReq.fromStore?.name} - Request ${stockReq.requestNr}`,
                             items: {
-                                create: {
+                                create: pickedBatches.map((p: any) => ({
                                     itemId: alloc.itemId,
-                                    quantity: issuedQty
-                                }
+                                    batchId: p.batchId,
+                                    quantity: -p.quantity // Negative for deduction
+                                }))
                             }
                         }
                     });
                 }
 
                 // Update request status
-                const updated = await tx.stockRequest.update({
+                const updated = await (tx as any).stockRequest.update({
                     where: { id: requestId },
                     data: {
                         workflowStage: 'SUB_STORE_RECEIVE',
@@ -1759,7 +1863,7 @@ export class InventoryService {
         // 8. SUB_STORE_RECEIVE (Sub Store Officer confirms receipt)
         if (action === 'SUB_STORE_RECEIVE') {
             return await prisma.$transaction(async (tx) => {
-                const stockReq = await tx.stockRequest.findUnique({
+                const stockReq = await (tx as any).stockRequest.findUnique({
                     where: { id: requestId },
                     include: { items: true }
                 });
@@ -1772,22 +1876,69 @@ export class InventoryService {
 
                 // Update received quantities and add to Sub Store
                 for (const alloc of allocation) {
-                    const receivedQty = parseFloat(alloc.receivedQty);
-                    const item = stockReq.items.find(i => i.itemId === alloc.itemId);
+                    const receivedQty = this.round(parseFloat(alloc.receivedQty));
+                    const item = stockReq.items.find((i: any) => i.itemId === alloc.itemId);
 
                     if (!item) continue;
+                    if (receivedQty <= 0) continue;
+                    if (!stockReq.toStoreId) continue;
 
-                    totalIssued += item.issuedQty || 0;
+                    totalIssued += this.round(item.issuedQty || 0);
                     totalReceived += receivedQty;
 
-                    // Update received qty
-                    await tx.stockRequestItem.updateMany({
+                    // A. Update received qty in request item
+                    await (tx as any).stockRequestItem.updateMany({
                         where: { requestId, itemId: alloc.itemId },
                         data: { receivedQty }
                     });
 
-                    // Add to Sub Store
-                    await tx.inventoryStock.upsert({
+                    // B. Find Issuing Batches from Transaction Log
+                    const movements = await (tx as any).inventoryTransactionItem.findMany({
+                        where: {
+                            transaction: {
+                                referenceId: stockReq.requestNr,
+                                type: 'TRANSFER_OUT',
+                                storeId: stockReq.toStoreId as string // The Main Store (source)
+                            },
+                            itemId: alloc.itemId
+                        },
+                        orderBy: { quantity: 'asc' } // Most negative first
+                    });
+
+                    const transactionItems = [];
+                    let remainingToReceive = receivedQty;
+
+                    for (const m of movements) {
+                        if (remainingToReceive <= 0) break;
+                        const issuedForThisBatch = Math.abs(m.quantity);
+                        const take = Math.min(issuedForThisBatch, remainingToReceive);
+                        const batchId = (m as any).batchId;
+
+                        if (!batchId) continue;
+
+                        // Add to Sub Store Batch Stock
+                        await (tx as any).inventoryBatchStock.upsert({
+                            where: { storeId_batchId: { storeId: stockReq.fromStoreId!, batchId } },
+                            update: { quantity: { increment: take } },
+                            create: {
+                                storeId: stockReq.fromStoreId!,
+                                batchId,
+                                itemId: alloc.itemId,
+                                quantity: take
+                            }
+                        });
+
+                        transactionItems.push({
+                            itemId: alloc.itemId,
+                            batchId,
+                            quantity: take
+                        });
+
+                        remainingToReceive = this.round(remainingToReceive - take);
+                    }
+
+                    // C. Update Global Sub Store Stock (Legacy)
+                    await (tx as any).inventoryStock.upsert({
                         where: {
                             storeId_itemId: {
                                 storeId: stockReq.fromStoreId!,
@@ -1802,8 +1953,8 @@ export class InventoryService {
                         }
                     });
 
-                    // Log TRANSFER_IN transaction
-                    await tx.inventoryTransaction.create({
+                    // D. Log TRANSFER_IN transaction with Batch Details
+                    await (tx as any).inventoryTransaction.create({
                         data: {
                             type: 'TRANSFER_IN',
                             storeId: stockReq.fromStoreId!,
@@ -1811,10 +1962,11 @@ export class InventoryService {
                             userId: approvedById || 'SYSTEM',
                             notes: `Received from Main Store - Request ${stockReq.requestNr}`,
                             items: {
-                                create: {
-                                    itemId: alloc.itemId,
-                                    quantity: receivedQty
-                                }
+                                create: transactionItems.map((ti: any) => ({
+                                    itemId: ti.itemId,
+                                    batchId: ti.batchId,
+                                    quantity: ti.quantity
+                                }))
                             }
                         }
                     });
@@ -1824,7 +1976,7 @@ export class InventoryService {
                 const isFullyReceived = totalReceived >= totalIssued;
                 const finalStatus = isFullyReceived ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
 
-                const updated = await tx.stockRequest.update({
+                const updated = await (tx as any).stockRequest.update({
                     where: { id: requestId },
                     data: {
                         status: finalStatus,
@@ -1875,7 +2027,7 @@ export class InventoryService {
 
         return await prisma.$transaction(async (tx) => {
             // 1. Create Return Record
-            const returnRecord = await tx.contractorMaterialReturn.create({
+            const returnRecord = await (tx as any).contractorMaterialReturn.create({
                 data: {
                     contractorId,
                     storeId,
@@ -1885,7 +2037,7 @@ export class InventoryService {
                     acceptedBy: userId,
                     acceptedAt: new Date(),
                     items: {
-                        create: items.map((item) => ({
+                        create: items.map((item: any) => ({
                             itemId: item.itemId,
                             quantity: parseFloat(item.quantity),
                             unit: item.unit || 'Nos',
@@ -1895,26 +2047,70 @@ export class InventoryService {
                 }
             });
 
-            // 2. Update Inventory Stock (Only for GOOD items)
+            // 2. FIFO Stock Deduction from Contractor & Add to Store
             for (const item of items) {
-                const qty = parseFloat(item.quantity);
-                if (item.condition === 'GOOD' && qty > 0) {
-                    // Update Stock
-                    await tx.inventoryStock.upsert({
-                        where: {
-                            storeId_itemId: {
+                const qty = this.round(parseFloat(item.quantity));
+                if (qty <= 0) continue;
+
+                // A. FIFO Deduction from Contractor
+                const pickedBatches = await InventoryService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);
+
+                for (const picked of pickedBatches) {
+                    // Update Contractor Batch Stock
+                    await (tx as any).contractorBatchStock.update({
+                        where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
+                        data: { quantity: { decrement: picked.quantity } }
+                    });
+
+                    // (Only for GOOD items) Add back to Store Stock
+                    if (item.condition === 'GOOD') {
+                        // Create a special return batch in Store to keep it simple but trackable
+                        // OR: Put it back into the same batch in Store Batch Stock
+                        await (tx as any).inventoryBatchStock.upsert({
+                            where: { storeId_batchId: { storeId, batchId: picked.batchId } },
+                            update: { quantity: { increment: picked.quantity } },
+                            create: {
                                 storeId,
-                                itemId: item.itemId
+                                batchId: picked.batchId,
+                                itemId: item.itemId,
+                                quantity: picked.quantity
                             }
-                        },
+                        });
+                    }
+                }
+
+                // B. Update Global Stock Balances
+                // 1. Always Reduce Contractor Total Stock
+                await (tx as any).contractorStock.update({
+                    where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
+                    data: { quantity: { decrement: qty } }
+                });
+
+                // 2. (Only for GOOD items) Increase Store Total Stock
+                if (item.condition === 'GOOD') {
+                    await (tx as any).inventoryStock.upsert({
+                        where: { storeId_itemId: { storeId, itemId: item.itemId } },
                         update: { quantity: { increment: qty } },
-                        create: {
-                            storeId,
-                            itemId: item.itemId,
-                            quantity: qty,
-                        }
+                        create: { storeId, itemId: item.itemId, quantity: qty }
                     });
                 }
+
+                // C. Log Transaction for Store
+                await (tx as any).inventoryTransaction.create({
+                    data: {
+                        type: 'RETURN',
+                        storeId,
+                        referenceId: returnRecord.id,
+                        userId: userId || 'SYSTEM',
+                        notes: `Returned from contractor ${contractorId}: ${item.condition}`,
+                        items: {
+                            create: [{
+                                itemId: item.itemId,
+                                quantity: item.condition === 'GOOD' ? qty : 0 // Only GOOD items affect store stock availability
+                            }]
+                        }
+                    }
+                });
             }
 
             return returnRecord;
@@ -1963,7 +2159,7 @@ export class InventoryService {
 
         return await prisma.$transaction(async (tx) => {
             // Check if exists
-            const existing = await tx.contractorMaterialBalanceSheet.findUnique({
+            const existing = await (tx as any).contractorMaterialBalanceSheet.findUnique({
                 where: {
                     contractorId_storeId_month: {
                         contractorId,
@@ -1975,18 +2171,18 @@ export class InventoryService {
 
             if (existing) {
                 // Delete old items
-                await tx.contractorBalanceSheetItem.deleteMany({
+                await (tx as any).contractorBalanceSheetItem.deleteMany({
                     where: { balanceSheetId: existing.id }
                 });
 
                 // Update Header
-                return await tx.contractorMaterialBalanceSheet.update({
+                return await (tx as any).contractorMaterialBalanceSheet.update({
                     where: { id: existing.id },
                     data: {
                         generatedAt: new Date(),
                         generatedBy: userId,
                         items: {
-                            create: items.map((item) => ({
+                            create: items.map((item: any) => ({
                                 itemId: item.itemId,
                                 openingBalance: item.opening,
                                 received: item.received,
@@ -2000,14 +2196,14 @@ export class InventoryService {
                 });
             } else {
                 // Create New
-                return await tx.contractorMaterialBalanceSheet.create({
+                return await (tx as any).contractorMaterialBalanceSheet.create({
                     data: {
                         contractorId,
                         storeId,
                         month,
                         generatedBy: userId,
                         items: {
-                            create: items.map((item) => ({
+                            create: items.map((item: any) => ({
                                 itemId: item.itemId,
                                 openingBalance: item.opening,
                                 received: item.received,
@@ -2051,7 +2247,7 @@ export class InventoryService {
                 const quantity = parseFloat(item.quantity);
 
                 // Use InventoryStock to match existing Service logic
-                const existingStock = await tx.inventoryStock.findUnique({
+                const existingStock = await (tx as any).inventoryStock.findUnique({
                     where: {
                         storeId_itemId: { storeId, itemId: item.itemId }
                     }
@@ -2061,7 +2257,7 @@ export class InventoryService {
                     throw new Error(`INSUFFICIENT_STOCK: ${item.itemId}`);
                 }
 
-                await tx.inventoryStock.update({
+                await (tx as any).inventoryStock.update({
                     where: {
                         storeId_itemId: { storeId, itemId: item.itemId }
                     },
@@ -2073,7 +2269,7 @@ export class InventoryService {
                 // If StockMovement does not exist in schema or differs, we might skip or adjust.
                 // Assuming implicit compatibility with previous route logic which used StockMovement.
                 // Re-checking Schema for StockMovement... Schema had StockMovement at line 1108.
-                await tx.stockMovement.create({
+                await (tx as any).stockMovement.create({
                     data: {
                         storeId,
                         itemId: item.itemId,
@@ -2086,7 +2282,7 @@ export class InventoryService {
             }
 
             // 3. Create Issue Record
-            const issue = await tx.stockIssue.create({
+            const issue = await (tx as any).stockIssue.create({
                 data: {
                     issueNumber,
                     storeId,
@@ -2098,7 +2294,7 @@ export class InventoryService {
                     recipientName,
                     remarks: remarks || null,
                     items: {
-                        create: items.map((item) => ({
+                        create: items.map((item: any) => ({
                             itemId: item.itemId,
                             quantity: parseFloat(item.quantity),
                             remarks: item.remarks || null

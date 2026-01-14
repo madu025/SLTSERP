@@ -12,13 +12,20 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
+        const { materialReturnSchema } = await import('@/lib/validations');
 
-        const result = await InventoryService.createMaterialReturn({
-            ...body,
-            userId: userEmail || 'System'
-        });
+        try {
+            const validatedData = materialReturnSchema.parse(body);
+            const result = await InventoryService.createMaterialReturn({
+                ...validatedData,
+                items: validatedData.items.map(i => ({ ...i, quantity: i.quantity.toString() })),
+                userId: userEmail || 'System'
+            });
 
-        return NextResponse.json({ message: 'Return processed successfully', id: result.id });
+            return NextResponse.json({ message: 'Return processed successfully', id: result.id });
+        } catch (validationErr: any) {
+            return NextResponse.json({ message: validationErr.errors?.[0]?.message || 'Invalid data', errors: validationErr.errors }, { status: 400 });
+        }
 
     } catch (error: any) {
         if (error.message === 'MISSING_FIELDS') {

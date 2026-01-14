@@ -12,12 +12,20 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const result = await InventoryService.recordWastage({
-            ...body,
-            userId: userId || undefined
-        });
+        const { wastageSchema } = await import('@/lib/validations');
 
-        return NextResponse.json({ success: true, data: result });
+        try {
+            const validatedData = wastageSchema.parse(body);
+            const result = await InventoryService.recordWastage({
+                ...validatedData,
+                items: validatedData.items.map(i => ({ ...i, quantity: i.quantity.toString() })),
+                userId: userId || undefined
+            });
+
+            return NextResponse.json({ success: true, data: result });
+        } catch (validationErr: any) {
+            return NextResponse.json({ success: false, message: validationErr.errors?.[0]?.message || 'Invalid data', errors: validationErr.errors }, { status: 400 });
+        }
     } catch (error) {
         return handleApiError(error);
     }

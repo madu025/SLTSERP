@@ -12,17 +12,20 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { contractorId, storeId, month, items } = body;
+        const { materialIssueSchema } = await import('@/lib/validations');
 
-        const issue = await InventoryService.issueMaterial({
-            contractorId,
-            storeId,
-            month,
-            items,
-            userId: userEmail || undefined
-        });
+        try {
+            const validatedData = materialIssueSchema.parse(body);
+            const issue = await InventoryService.issueMaterial({
+                ...validatedData,
+                items: validatedData.items.map(i => ({ ...i, quantity: i.quantity.toString() })), // Keep service compatibility
+                userId: userEmail || undefined
+            });
 
-        return NextResponse.json({ message: 'Materials issued successfully and inventory updated', issueId: issue.id });
+            return NextResponse.json({ message: 'Materials issued successfully and inventory updated', issueId: issue.id });
+        } catch (validationErr: any) {
+            return NextResponse.json({ message: validationErr.errors?.[0]?.message || 'Invalid data', errors: validationErr.errors }, { status: 400 });
+        }
 
     } catch (error: any) {
         if (error.message === 'MISSING_FIELDS') {
