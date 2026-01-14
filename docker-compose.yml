@@ -28,4 +28,5 @@ services:
       - INTERNAL_APP_URL=http://app:3000
       - CRON_SECRET=${CRON_SECRET}
       - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
       - NODE_ENV=production
