@@ -54,10 +54,21 @@ export default function InvoicesPage() {
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear()
     });
+    const [userRole, setUserRole] = useState<string | null>(null);
 
     useEffect(() => {
         fetchInvoices();
         fetchContractors();
+
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const u = JSON.parse(userStr);
+                setUserRole(u.role);
+            } catch (e) {
+                console.error(e);
+            }
+        }
     }, [statusFilter]);
 
     const fetchInvoices = async () => {
@@ -561,10 +572,12 @@ export default function InvoicesPage() {
                                 <p className="text-sm text-slate-500 mt-1">Generate and manage 90/10 split invoices.</p>
                             </div>
                             <div className="flex gap-2">
-                                <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-                                    <Plus className="w-4 h-4" />
-                                    Generate Monthly Invoice
-                                </Button>
+                                {userRole !== 'AREA_COORDINATOR' && userRole !== 'QC_OFFICER' && (
+                                    <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+                                        <Plus className="w-4 h-4" />
+                                        Generate Monthly Invoice
+                                    </Button>
+                                )}
                             </div>
                         </div>
 

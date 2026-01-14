@@ -105,14 +105,31 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Contractors',
         path: '/admin/contractors',
         icon: HardHat,
-        // Contractors managed by Ops & Admin
-        allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS],
+        // Contractors managed by Ops & Admin, plus Finance/Invoice need access to Invoices submenu
+        allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE],
         submenu: [
             {
                 title: 'All Contractors',
                 path: '/admin/contractors',
                 icon: HardHat,
                 allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS]
+            },
+            {
+                title: 'Contractor Invoices',
+                path: '/invoices',
+                icon: Receipt,
+                allowedRoles: [
+                    ...ROLE_GROUPS.ADMINS,
+                    ...ROLE_GROUPS.INVOICE,
+                    ...ROLE_GROUPS.FINANCE,
+                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER'
+                ]
+            },
+            {
+                title: 'PAT Status',
+                path: '/service-orders/pat',
+                icon: ClipboardCheck,
+                allowedRoles: [...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'Registration Approvals',
@@ -268,26 +285,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             }
         ]
     },
-    {
-        title: 'Invoices',
-        path: '/invoices',
-        icon: Receipt,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE],
-        submenu: [
-            {
-                title: 'Contractor Invoices',
-                path: '/invoices',
-                icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
-            },
-            {
-                title: 'PAT History',
-                path: '/service-orders/pat',
-                icon: History,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
-            }
-        ]
-    },
+
     {
         title: 'Reports & Analytics',
         path: '/reports',
