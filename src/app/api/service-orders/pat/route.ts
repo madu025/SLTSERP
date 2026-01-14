@@ -82,12 +82,15 @@ export async function GET(request: Request) {
 
         const orders = results.map((r: any) => {
             const internal = internalOrders.find(io => io.soNum === r.soNum);
+            const isCompleted = internal?.sltsStatus === 'COMPLETED';
+
             return {
                 id: r.id,
                 soNum: r.soNum,
                 rtom: r.rtom,
-                hoPatStatus: r.source === 'HO_APPROVED' ? 'PASS' : r.source === 'HO_REJECTED' ? 'REJECTED' : 'PENDING',
-                opmcPatStatus: r.source === 'OPMC_REJECTED' ? 'REJECTED' : 'PENDING',
+                // ONLY show status if completed internally
+                hoPatStatus: isCompleted ? (r.source === 'HO_APPROVED' ? 'PASS' : r.source === 'HO_REJECTED' ? 'REJECTED' : 'PENDING') : 'PENDING',
+                opmcPatStatus: isCompleted ? (r.source === 'OPMC_REJECTED' ? 'REJECTED' : 'PENDING') : 'PENDING',
                 statusDate: r.statusDate,
                 source: r.source,
                 // Internal fields

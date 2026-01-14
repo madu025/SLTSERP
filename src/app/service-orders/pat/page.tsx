@@ -23,9 +23,9 @@ export default function PATStatusPage() {
     const [status, setStatus] = useState('OPMC_REJECTED'); // OPMC_REJECTED, HO_APPROVED, HO_REJECTED
 
     const tabs = [
-        { id: 'HO_APPROVED', label: 'HO Approved', color: 'emerald' },
-        { id: 'HO_REJECTED', label: 'HO Rejected', color: 'orange' },
-        { id: 'OPMC_REJECTED', label: 'OPMC Results', color: 'red' }
+        { id: 'HO_APPROVED', label: 'SLT Head Office Approved', color: 'emerald' },
+        { id: 'HO_REJECTED', label: 'SLT Head Office Rejected', color: 'orange' },
+        { id: 'OPMC_REJECTED', label: 'OPMC Rejected', color: 'red' }
     ];
 
     const { data, isLoading } = useQuery({
@@ -142,10 +142,10 @@ export default function PATStatusPage() {
                                         <tr>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">SO Number</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">RTOM</th>
-                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">Sync Date</th>
-                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">SLTS Status</th>
-                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">Internal PAT</th>
+                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">API Date</th>
+                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">Internal Status</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">SLT API Status</th>
+                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">System Link</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">Invoicable</th>
                                             <th className="px-6 py-4 text-right font-semibold text-slate-600">Action</th>
                                         </tr>
@@ -160,39 +160,46 @@ export default function PATStatusPage() {
                                                 </tr>
                                             ))
                                         ) : data?.orders?.map((order: any) => (
-                                            <tr key={order.id} className="hover:bg-slate-50/50 transition-colors">
+                                            <tr key={order.id} className={`hover:bg-slate-50/50 transition-colors ${order.sltsStatus !== 'COMPLETED' ? 'opacity-80' : ''}`}>
                                                 <td className="px-6 py-4 font-bold text-slate-900">{order.soNum}</td>
                                                 <td className="px-6 py-4 text-slate-600">{order.rtom}</td>
-                                                <td className="px-6 py-4 text-slate-500">{order.statusDate ? format(new Date(order.statusDate), 'yyyy-MM-dd') : '-'}</td>
+                                                <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{order.statusDate ? format(new Date(order.statusDate), 'yyyy-MM-dd') : '-'}</td>
                                                 <td className="px-6 py-4">
-                                                    <Badge variant="outline" className={
-                                                        order.sltsStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                            order.sltsStatus === 'NOT_IN_SYSTEM' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-slate-50 text-slate-600 border-slate-100'
-                                                    }>
-                                                        {order.sltsStatus}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <Badge variant="outline" className={
-                                                        order.sltsPatStatus === 'PASS' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-100'
-                                                    }>
-                                                        {order.sltsPatStatus || 'PENDING'}
-                                                    </Badge>
+                                                    <div className="flex flex-col gap-1">
+                                                        <Badge variant="outline" className={
+                                                            order.sltsStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                                order.sltsStatus === 'NOT_IN_SYSTEM' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-slate-50 text-slate-600 border-slate-100'
+                                                        }>
+                                                            {order.sltsStatus}
+                                                        </Badge>
+                                                        {order.sltsStatus === 'INPROGRESS' && (
+                                                            <span className="text-[10px] text-amber-600 font-medium whitespace-nowrap">Wait for Complete</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
                                                         {order.source === 'HO_APPROVED' ? (
-                                                            <>
-                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                                                <span className="text-emerald-700 font-bold">HO PASS</span>
-                                                            </>
+                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-100 font-bold text-[11px]">
+                                                                <CheckCircle2 className="w-3.5 h-3.5" /> HO PASS
+                                                            </div>
                                                         ) : (
-                                                            <>
-                                                                <XCircle className="w-4 h-4 text-red-500" />
-                                                                <span className="text-red-600 font-bold">{order.source}</span>
-                                                            </>
+                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 text-red-700 rounded-md border border-red-100 font-bold text-[11px]">
+                                                                <XCircle className="w-3.5 h-3.5" /> {order.source.replace('_', ' ')}
+                                                            </div>
                                                         )}
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {order.sltsStatus === 'COMPLETED' ? (
+                                                        <div className="flex items-center gap-1 text-emerald-600 font-bold text-xs">
+                                                            <CheckCircle2 className="w-4 h-4" /> LINKED
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1 text-slate-400 font-medium text-xs">
+                                                            <Clock className="w-4 h-4" /> IGNORED
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     {order.isInvoicable ? (
