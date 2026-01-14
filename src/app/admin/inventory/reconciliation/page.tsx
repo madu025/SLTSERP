@@ -174,6 +174,8 @@ export default function ReconciliationPage() {
                                             <TableHead className="text-right">Wastage</TableHead>
                                             <TableHead className="text-right">Returned</TableHead>
                                             <TableHead className="text-right font-bold">Unaccounted / Stock</TableHead>
+                                            <TableHead className="text-right">Unit Cost</TableHead>
+                                            <TableHead className="text-right">Total Value</TableHead>
                                             <TableHead className="w-[100px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -208,6 +210,12 @@ export default function ReconciliationPage() {
                                                             </span>
                                                             <span className="text-[10px] text-slate-400">Remaining</span>
                                                         </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono text-[11px] text-slate-500">
+                                                        {item.costPrice?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono font-bold text-slate-900">
+                                                        {item.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400">

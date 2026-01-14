@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, AlertTriangle, Trash2 } from "lucide-react";
+import { Search, AlertTriangle, Trash2, Layers, History } from "lucide-react";
 import { toast } from 'sonner';
+import { Badge } from "@/components/ui/badge";
+import { format } from 'date-fns';
 
 export default function StockPage() {
     const queryClient = useQueryClient();
@@ -22,6 +24,17 @@ export default function StockPage() {
     const [wastageItem, setWastageItem] = useState<any>(null);
     const [wastageQty, setWastageQty] = useState("");
     const [wastageReason, setWastageReason] = useState("");
+
+    // Batch Details Modal
+    const [selectedItemForBatches, setSelectedItemForBatches] = useState<any>(null);
+    const { data: itemBatches = [], isLoading: isLoadingBatches } = useQuery({
+        queryKey: ['item-batches', selectedStoreId, selectedItemForBatches?.itemId],
+        queryFn: async () => {
+            const res = await fetch(`/api/inventory/batches?storeId=${selectedStoreId}&itemId=${selectedItemForBatches.itemId}`);
+            return res.json();
+        },
+        enabled: !!(selectedStoreId && selectedItemForBatches)
+    });
 
     useEffect(() => {
         const stored = localStorage.getItem('user');
@@ -136,14 +149,15 @@ export default function StockPage() {
                                             <th className="px-4 py-3">Item Name</th>
                                             <th className="px-4 py-3 text-center">Unit</th>
                                             <th className="px-4 py-3 text-right">Quantity</th>
+                                            <th className="px-4 py-3 text-center">Batches</th>
                                             <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {isLoading ? (
-                                            <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading stock...</td></tr>
+                                            <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading stock...</td></tr>
                                         ) : filteredStock.length === 0 ? (
-                                            <tr><td colSpan={5} className="p-8 text-center text-slate-400">No stock found for this store.</td></tr>
+                                            <tr><td colSpan={6} className="p-8 text-center text-slate-400">No stock found for this store.</td></tr>
                                         ) : (
                                             filteredStock.map((row: any) => (
                                                 <tr key={row.id} className="hover:bg-slate-50">
@@ -153,6 +167,14 @@ export default function StockPage() {
                                                     <td className={`px-4 py-2 text-right font-bold ${row.quantity <= (row.minLevel || 0) ? 'text-red-600' : 'text-emerald-700'}`}>
                                                         {row.quantity}
                                                         {row.quantity <= (row.minLevel || 0) && <AlertTriangle className="w-3 h-3 inline ml-1 text-red-500" />}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center">
+                                                        <Button
+                                                            variant="ghost" size="sm" className="h-7 text-[10px] gap-1 hover:bg-blue-50 text-blue-600"
+                                                            onClick={() => setSelectedItemForBatches(row)}
+                                                        >
+                                                            <Layers className="w-3 h-3" /> View
+                                                        </Button>
                                                     </td>
                                                     <td className="px-4 py-2 text-right">
                                                         <Button
@@ -214,6 +236,86 @@ export default function StockPage() {
                             >
                                 {wastageMutation.isPending ? "Updating..." : "Confirm Wastage"}
                             </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Batches View Dialog */}
+                <Dialog open={!!selectedItemForBatches} onOpenChange={(o) => { if (!o) setSelectedItemForBatches(null); }}>
+                    <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Layers className="w-5 h-5 text-blue-600" />
+                                Batch Breakdown: {selectedItemForBatches?.item?.name}
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        <div className="space-y-4 pt-2">
+                            <div className="flex justify-between items-end px-1">
+                                <div className="text-xs text-slate-500">
+                                    Product Code: <span className="font-mono font-bold text-slate-700">{selectedItemForBatches?.item?.code}</span>
+                                </div>
+                                <div className="text-sm font-bold text-slate-900 border-b-2 border-emerald-500 pb-1">
+                                    Total Stock: {selectedItemForBatches?.quantity} {selectedItemForBatches?.item?.unit}
+                                </div>
+                            </div>
+
+                            <div className="border rounded-lg overflow-hidden">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-slate-50 border-b">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left">Batch No.</th>
+                                            <th className="px-3 py-2 text-left">Received via</th>
+                                            <th className="px-3 py-2 text-right">Initial Qty</th>
+                                            <th className="px-3 py-2 text-right">Remaining</th>
+                                            <th className="px-3 py-2 text-right">Cost (LKR)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {isLoadingBatches ? (
+                                            <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading batches...</td></tr>
+                                        ) : itemBatches.length === 0 ? (
+                                            <tr><td colSpan={5} className="p-8 text-center text-slate-400">No active batches for this item.</td></tr>
+                                        ) : (
+                                            itemBatches.map((b: any) => (
+                                                <tr key={b.id} className="hover:bg-slate-50/50">
+                                                    <td className="px-3 py-2 font-mono font-bold text-slate-700">
+                                                        {b.batch.batchNumber || 'N/A'}
+                                                        <div className="text-[10px] font-normal text-slate-400">
+                                                            Created: {format(new Date(b.batch.createdAt), 'yyyy-MM-dd')}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        {b.batch.grn?.grnNumber ? (
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-slate-700">{b.batch.grn.grnNumber}</span>
+                                                                <span className="text-[9px] text-slate-400">{format(new Date(b.batch.grn.createdAt), 'MMM dd, yyyy')}</span>
+                                                            </div>
+                                                        ) : 'Initial/Manual'}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right text-slate-500">{b.batch.initialQty}</td>
+                                                    <td className="px-3 py-2 text-right font-bold text-emerald-700">{b.quantity}</td>
+                                                    <td className="px-3 py-2 text-right font-mono">
+                                                        {b.batch.costPrice?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3 text-amber-800">
+                                <History className="w-5 h-5 shrink-0 mt-0.5" />
+                                <p className="text-[11px] leading-relaxed">
+                                    <strong>FIFO Policy:</strong> Materials are automatically issued from the oldest batch first (top of this list)
+                                    to ensure accurate costing and inventory aging.
+                                </p>
+                            </div>
+                        </div>
+
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setSelectedItemForBatches(null)}>Close</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>

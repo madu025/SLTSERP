@@ -52,6 +52,8 @@ export class InventoryService {
                     category: data.category || 'OTHERS',
                     commonFor: data.commonFor || ['FTTH', 'PSTN', 'OSP', 'OTHERS'],
                     minLevel: data.minLevel ? parseFloat(data.minLevel) : 0,
+                    unitPrice: data.unitPrice ? parseFloat(data.unitPrice) : 0,
+                    costPrice: data.costPrice ? parseFloat(data.costPrice) : 0,
                     isWastageAllowed: data.isWastageAllowed !== undefined ? data.isWastageAllowed : true,
                     maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage) : 0
                 }
@@ -81,6 +83,8 @@ export class InventoryService {
                 category: data.category,
                 commonFor: data.commonFor,
                 minLevel: data.minLevel ? parseFloat(data.minLevel) : 0,
+                unitPrice: data.unitPrice ? parseFloat(data.unitPrice) : 0,
+                costPrice: data.costPrice ? parseFloat(data.costPrice) : 0,
                 isWastageAllowed: data.isWastageAllowed,
                 maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage) : 0
             }
@@ -282,6 +286,42 @@ export class InventoryService {
         });
     }
 
+    static async getStoreBatches(storeId: string, itemId?: string) {
+        return await prisma.inventoryBatchStock.findMany({
+            where: {
+                storeId,
+                ...(itemId ? { itemId } : {})
+            },
+            include: {
+                batch: {
+                    include: {
+                        grn: { select: { grnNumber: true, createdAt: true } }
+                    }
+                },
+                item: true
+            },
+            orderBy: { batch: { createdAt: 'desc' } }
+        });
+    }
+
+    static async getContractorBatches(contractorId: string, itemId?: string) {
+        return await prisma.contractorBatchStock.findMany({
+            where: {
+                contractorId,
+                ...(itemId ? { itemId } : {})
+            },
+            include: {
+                batch: {
+                    include: {
+                        grn: { select: { grnNumber: true, createdAt: true } }
+                    }
+                },
+                item: true
+            },
+            orderBy: { batch: { createdAt: 'desc' } }
+        });
+    }
+
     /**
      * Initialize or Adjust Stock Levels in Bulk
      */
@@ -343,6 +383,70 @@ export class InventoryService {
         });
     }
 
+    // --- FIFO BATCH HELPERS ---
+
+    /**
+     * Pick batches from a store based on FIFO
+     */
+    static async pickStoreBatchesFIFO(tx: any, storeId: string, itemId: string, requiredQty: number) {
+        const batches = await tx.inventoryBatchStock.findMany({
+            where: { storeId, itemId, quantity: { gt: 0 } },
+            include: { batch: true },
+            orderBy: { batch: { createdAt: 'asc' } }
+        });
+
+        const pickedBatches = [];
+        let remainingToPick = requiredQty;
+
+        for (const stock of batches) {
+            if (remainingToPick <= 0) break;
+            const take = Math.min(stock.quantity, remainingToPick);
+            pickedBatches.push({
+                batchId: stock.batchId,
+                quantity: take,
+                batch: stock.batch
+            });
+            remainingToPick -= take;
+        }
+
+        if (remainingToPick > 0) {
+            throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}`);
+        }
+
+        return pickedBatches;
+    }
+
+    /**
+     * Pick batches from a contractor based on FIFO
+     */
+    static async pickContractorBatchesFIFO(tx: any, contractorId: string, itemId: string, requiredQty: number) {
+        const batches = await tx.contractorBatchStock.findMany({
+            where: { contractorId, itemId, quantity: { gt: 0 } },
+            include: { batch: true },
+            orderBy: { batch: { createdAt: 'asc' } }
+        });
+
+        const pickedBatches = [];
+        let remainingToPick = requiredQty;
+
+        for (const stock of batches) {
+            if (remainingToPick <= 0) break;
+            const take = Math.min(stock.quantity, remainingToPick);
+            pickedBatches.push({
+                batchId: stock.batchId,
+                quantity: take,
+                batch: stock.batch
+            });
+            remainingToPick -= take;
+        }
+
+        if (remainingToPick > 0) {
+            throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}`);
+        }
+
+        return pickedBatches;
+    }
+
     // --- GRN (GOODS RECEIVED NOTE) ---
 
     static async getGRNs(storeId?: string) {
@@ -359,7 +463,10 @@ export class InventoryService {
                     }
                 },
                 items: {
-                    include: { item: true }
+                    include: {
+                        item: true,
+                        batch: true
+                    }
                 }
             },
             orderBy: { createdAt: 'desc' }
@@ -394,16 +501,58 @@ export class InventoryService {
                             quantity: parseFloat(i.quantity)
                         }))
                     }
-                }
+                },
+                include: { items: true }
             });
 
-            // 2. Update Stock & 3. Create Transaction Items
+            // 2. Fetch Item Metadata for Pricing
+            const itemIds = items.map(i => i.itemId);
+            const itemMetadata = await tx.inventoryItem.findMany({
+                where: { id: { in: itemIds } },
+                select: { id: true, costPrice: true, unitPrice: true }
+            });
+
+            // 3. Update Stock & Create Batches
             const transactionItems = [];
 
             for (const item of items) {
                 const qty = parseFloat(item.quantity);
+                const meta = itemMetadata.find(m => m.id === item.itemId);
+                const costPrice = meta?.costPrice || 0;
+                const unitPrice = meta?.unitPrice || 0;
 
-                // Upsert Stock
+                // A. Create Batch
+                const batch = await tx.inventoryBatch.create({
+                    data: {
+                        batchNumber: `BAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                        itemId: item.itemId,
+                        grnId: grn.id,
+                        initialQty: qty,
+                        costPrice: costPrice,
+                        unitPrice: unitPrice,
+                    }
+                });
+
+                // B. Link GRN Item to Batch (Update the created item)
+                const grnLine = grn.items.find(gi => gi.itemId === item.itemId);
+                if (grnLine) {
+                    await tx.gRNItem.update({
+                        where: { id: grnLine.id },
+                        data: { batchId: batch.id }
+                    });
+                }
+
+                // C. Initialize Batch Stock in Store
+                await tx.inventoryBatchStock.create({
+                    data: {
+                        storeId,
+                        batchId: batch.id,
+                        itemId: item.itemId, // Composite key helper
+                        quantity: qty
+                    }
+                });
+
+                // D. Upsert Total Stock (Legacy support & quick lookups)
                 await tx.inventoryStock.upsert({
                     where: {
                         storeId_itemId: {
@@ -545,28 +694,51 @@ export class InventoryService {
                 }
             });
 
-            // 2. Reduce Stock & Create Transaction Items
+            // 2. FIFO Stock Deduction & Batch Transfer
             const transactionItems = [];
 
             for (const item of items) {
                 const qty = parseFloat(item.quantity);
 
-                // Reduce Stock
-                await tx.inventoryStock.update({
-                    where: {
-                        storeId_itemId: {
-                            storeId,
-                            itemId: item.itemId
+                // A. Pick Batches using FIFO
+                const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);
+
+                for (const picked of pickedBatches) {
+                    // Reduce from Store Batch Stock
+                    await tx.inventoryBatchStock.update({
+                        where: { storeId_batchId: { storeId, batchId: picked.batchId } },
+                        data: { quantity: { decrement: picked.quantity } }
+                    });
+
+                    // Add to Contractor Batch Stock
+                    await tx.contractorBatchStock.upsert({
+                        where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
+                        update: { quantity: { increment: picked.quantity } },
+                        create: {
+                            contractorId,
+                            batchId: picked.batchId,
+                            itemId: item.itemId,
+                            quantity: picked.quantity
                         }
-                    },
-                    data: {
-                        quantity: { decrement: qty }
-                    }
+                    });
+                }
+
+                // B. Update Global Store Stock (Legacy)
+                await tx.inventoryStock.update({
+                    where: { storeId_itemId: { storeId, itemId: item.itemId } },
+                    data: { quantity: { decrement: qty } }
+                });
+
+                // C. Update Contractor Total Stock
+                await tx.contractorStock.upsert({
+                    where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
+                    update: { quantity: { increment: qty } },
+                    create: { contractorId, itemId: item.itemId, quantity: qty }
                 });
 
                 transactionItems.push({
                     itemId: item.itemId,
-                    quantity: -qty // Negative for issue
+                    quantity: -qty
                 });
             }
 
@@ -577,7 +749,7 @@ export class InventoryService {
                     storeId,
                     referenceId: materialIssue.id,
                     userId: userId || 'SYSTEM',
-                    notes: `Material issued to contractor ${contractorId} for month ${month}`,
+                    notes: `Material issued to contractor ${contractorId} (FIFO Batched)`,
                     items: {
                         create: transactionItems
                     }

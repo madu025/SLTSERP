@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { AuditService } from './audit.service';
+import { InventoryService } from './inventory.service';
 
 export class MaterialService {
 
@@ -84,7 +85,9 @@ export class MaterialService {
                     used: 0,
                     wastage: 0,
                     returned: 0,
-                    balance: 0
+                    balance: 0,
+                    costPrice: item.costPrice || 0,
+                    totalValue: 0
                 };
             }
             return itemStats[item.id];
@@ -119,6 +122,7 @@ export class MaterialService {
         // Calculate Logic
         Object.values(itemStats).forEach((s: any) => {
             s.balance = s.issued - s.used - s.wastage - s.returned;
+            s.totalValue = s.balance * s.costPrice;
         });
 
         return Object.values(itemStats);
@@ -152,36 +156,42 @@ export class MaterialService {
                 }
             });
 
-            // 2. Update Contractor Stock (Real-time tracking)
+            // 2. FIFO Stock Deduction & Batch Transfer
             for (const item of data.items) {
-                await tx.contractorStock.upsert({
-                    where: {
-                        contractorId_itemId: {
+                // A. Pick Batches using FIFO
+                const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, data.storeId, item.itemId, item.quantity);
+
+                for (const picked of pickedBatches) {
+                    // Reduce from Store Batch Stock
+                    await tx.inventoryBatchStock.update({
+                        where: { storeId_batchId: { storeId: data.storeId, batchId: picked.batchId } },
+                        data: { quantity: { decrement: picked.quantity } }
+                    });
+
+                    // Add to Contractor Batch Stock
+                    await tx.contractorBatchStock.upsert({
+                        where: { contractorId_batchId: { contractorId: data.contractorId, batchId: picked.batchId } },
+                        update: { quantity: { increment: picked.quantity } },
+                        create: {
                             contractorId: data.contractorId,
-                            itemId: item.itemId
+                            batchId: picked.batchId,
+                            itemId: item.itemId,
+                            quantity: picked.quantity
                         }
-                    },
-                    update: {
-                        quantity: { increment: item.quantity }
-                    },
-                    create: {
-                        contractorId: data.contractorId,
-                        itemId: item.itemId,
-                        quantity: item.quantity
-                    }
+                    });
+                }
+
+                // B. Update Global Contractor Stock
+                await tx.contractorStock.upsert({
+                    where: { contractorId_itemId: { contractorId: data.contractorId, itemId: item.itemId } },
+                    update: { quantity: { increment: item.quantity } },
+                    create: { contractorId: data.contractorId, itemId: item.itemId, quantity: item.quantity }
                 });
 
-                // 3. Deduct from Store Stock
+                // C. Deduct from Global Store Stock
                 await tx.inventoryStock.update({
-                    where: {
-                        storeId_itemId: {
-                            storeId: data.storeId,
-                            itemId: item.itemId
-                        }
-                    },
-                    data: {
-                        quantity: { decrement: item.quantity }
-                    }
+                    where: { storeId_itemId: { storeId: data.storeId, itemId: item.itemId } },
+                    data: { quantity: { decrement: item.quantity } }
                 });
             }
 

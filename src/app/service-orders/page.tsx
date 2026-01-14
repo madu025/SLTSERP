@@ -449,6 +449,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         );
     }
 
+
     // Helper for summary cards - Fixed Height Compact
     const SummaryCard = ({ title, value, icon: Icon, colorClass }: any) => (
         <Card className="shadow-none border h-14">

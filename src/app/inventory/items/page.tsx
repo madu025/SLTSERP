@@ -29,6 +29,8 @@ const itemSchema = z.object({
     minLevel: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     isWastageAllowed: z.boolean(),
     maxWastagePercentage: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
+    unitPrice: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
+    costPrice: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     description: z.string().optional()
 });
 
@@ -145,6 +147,8 @@ export default function ItemMasterPage() {
             minLevel: '0',
             isWastageAllowed: true,
             maxWastagePercentage: '0',
+            unitPrice: '0',
+            costPrice: '0',
             description: ''
         }
     });
@@ -164,6 +168,8 @@ export default function ItemMasterPage() {
                     minLevel: (editingItem.minLevel ?? 0).toString(),
                     isWastageAllowed: editingItem.isWastageAllowed ?? true,
                     maxWastagePercentage: (editingItem.maxWastagePercentage ?? 0).toString(),
+                    unitPrice: (editingItem.unitPrice ?? 0).toString(),
+                    costPrice: (editingItem.costPrice ?? 0).toString(),
                     description: editingItem.description || ''
                 });
             } else {
@@ -178,6 +184,8 @@ export default function ItemMasterPage() {
                     minLevel: '0',
                     isWastageAllowed: true,
                     maxWastagePercentage: '0',
+                    unitPrice: '0',
+                    costPrice: '0',
                     description: ''
                 });
             }
@@ -309,6 +317,8 @@ export default function ItemMasterPage() {
                                             <th className="px-4 py-3">Type</th>
                                             <th className="px-4 py-3">Reorder Level</th>
                                             <th className="px-4 py-3">Category</th>
+                                            <th className="px-4 py-3">Cost Price</th>
+                                            <th className="px-4 py-3">Unit Rate</th>
                                             <th className="px-4 py-3 text-right">Action</th>
                                         </tr>
                                     </thead>
@@ -347,6 +357,8 @@ export default function ItemMasterPage() {
                                                         ) : <span className="text-slate-400">-</span>}
                                                     </td>
                                                     <td className="px-4 py-2 text-slate-600">{categoryLabel(item.category)}</td>
+                                                    <td className="px-4 py-2 font-bold text-rose-600">Rs. {item.costPrice?.toLocaleString()}</td>
+                                                    <td className="px-4 py-2 font-bold text-emerald-600">Rs. {item.unitPrice?.toLocaleString()}</td>
                                                     <td className="px-4 py-2 text-right flex justify-end gap-1">
                                                         <Button
                                                             variant="ghost"
@@ -513,6 +525,23 @@ export default function ItemMasterPage() {
                                             </FormItem>
                                         )} />
                                     )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="costPrice" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-bold text-rose-600">Internal Cost (LKR)</FormLabel>
+                                            <FormControl><Input {...field} type="number" step="0.01" className="h-8 text-xs border-rose-100" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="unitPrice" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-bold text-emerald-600">Unit Rate / Revenue (LKR)</FormLabel>
+                                            <FormControl><Input {...field} type="number" step="0.01" className="h-8 text-xs border-emerald-100" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 </div>
 
                                 <FormField control={form.control} name="description" render={({ field }) => (

@@ -9,6 +9,8 @@ export const inventoryItemSchema = z.object({
     category: z.string().default('OTHERS'),
     commonFor: z.array(z.string()).optional(),
     minLevel: z.number().nonnegative().optional().default(0),
+    unitPrice: z.number().nonnegative().optional().default(0),
+    costPrice: z.number().nonnegative().optional().default(0),
     isWastageAllowed: z.boolean().default(true),
     maxWastagePercentage: z.number().nonnegative().optional().default(0)
 });

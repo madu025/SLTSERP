@@ -552,6 +552,7 @@ model Contractor {
   
   // Real-time Stock
   stock                 ContractorStock[]
+  batchStocks           ContractorBatchStock[]
   stockIssues           StockIssue[] @relation("ContractorIssues")
 
   createdAt             DateTime          @default(now())
@@ -594,6 +595,7 @@ model ContractorTeam {
   
   members      TeamMember[]
   sltCode      String?  // SLT Identification code provided after OSP approval
+  
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -708,6 +710,7 @@ model InventoryStore {
   mrns        MRN[]
   transactions InventoryTransaction[]
 
+  batchStocks   InventoryBatchStock[]
   opmcs       OPMC[]
   teamAssignments TeamStoreAssignment[] // Teams assigned to this store
   
@@ -741,6 +744,9 @@ model InventoryItem {
   requestItems StockRequestItem[]
   grnItems    GRNItem[]
   transactionItems InventoryTransactionItem[]
+  batches     InventoryBatch[]
+  batchStocks InventoryBatchStock[]
+  contractorBatchStocks ContractorBatchStock[]
   
   // Material Management
   materialStandards MaterialStandard[] @relation("MaterialStandards")
@@ -761,6 +767,10 @@ model InventoryItem {
   // New Fields
   source      String   @default("SLT") // SLT, PRIVATE
   commonFor   String[] // Array of types: ["FTTH", "PSTN", "OSP"] to hint usage
+  
+  // Accounting
+  unitPrice   Float?   @default(0) // Selling price (if applicable)
+  costPrice   Float?   @default(0) // Internal cost to us
   
   // New Fields for OSP Management
   commonName  String?  // Grouping name (e.g. "FAC", "Drop Wire")
@@ -784,6 +794,66 @@ model InventoryStock {
   updatedAt DateTime      @updatedAt
 
   @@unique([storeId, itemId])
+}
+
+model InventoryBatch {
+  id              String   @id @default(cuid())
+  batchNumber     String?  // e.g. BATCH-202501-001
+  itemId          String
+  item            InventoryItem @relation(fields: [itemId], references: [id])
+  grnId           String?
+  grn             GRN?     @relation(fields: [grnId], references: [id])
+  
+  initialQty      Float    // Qty when this batch was created
+  costPrice       Float    @default(0)
+  unitPrice       Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  // Distribution
+  storeStocks      InventoryBatchStock[]
+  contractorStocks ContractorBatchStock[]
+  
+  // Usage & Movement
+  usageItems       SODMaterialUsage[]
+  transactionItems InventoryTransactionItem[]
+  grnItem          GRNItem? // The GRN line that created this batch
+
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+model InventoryBatchStock {
+  id        String         @id @default(cuid())
+  storeId   String
+  store     InventoryStore @relation(fields: [storeId], references: [id])
+  itemId    String
+  item      InventoryItem  @relation(fields: [itemId], references: [id])
+  batchId   String
+  batch     InventoryBatch @relation(fields: [batchId], references: [id])
+  quantity  Float          @default(0)
+  updatedAt DateTime       @updatedAt
+
+  @@unique([storeId, batchId])
+  @@index([storeId])
+  @@index([itemId])
+  @@index([batchId])
+}
+
+model ContractorBatchStock {
+  id            String         @id @default(cuid())
+  contractorId  String
+  contractor    Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          InventoryItem  @relation(fields: [itemId], references: [id])
+  batchId       String
+  batch         InventoryBatch @relation(fields: [batchId], references: [id])
+  quantity      Float          @default(0)
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([contractorId, batchId])
+  @@index([contractorId])
+  @@index([itemId])
+  @@index([batchId])
 }
 
 model StockRequest {
@@ -901,6 +971,7 @@ model GRN {
   reference   String?  // External Invoice / Delivery Note / SLT Ref Number
   
   items       GRNItem[]
+  batches     InventoryBatch[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -916,6 +987,10 @@ model GRNItem {
   itemId    String
   item      InventoryItem @relation(fields: [itemId], references: [id])
   quantity  Float
+  
+  batchId   String?  @unique // Link to the batch created by this GRN line
+  batch     InventoryBatch? @relation(fields: [batchId], references: [id])
+  
   createdAt DateTime @default(now())
 
   @@index([grnId])
@@ -983,6 +1058,9 @@ model InventoryTransactionItem {
   itemId        String
   item          InventoryItem @relation(fields: [itemId], references: [id])
   quantity      Float    
+  
+  batchId       String? 
+  batch         InventoryBatch? @relation(fields: [batchId], references: [id])
 }
 // Material Categories (OSP New Connection, FAC, etc.)
 model MaterialCategory {
@@ -1062,6 +1140,13 @@ model SODMaterialUsage {
   quantity        Float
   unit            String
   usageType       String   // "USED", "WASTAGE"
+  
+  batchId         String?  // The specific batch this usage was deducted from
+  batch           InventoryBatch? @relation(fields: [batchId], references: [id])
+  
+  // Accounting Snapshots
+  unitPrice       Float?   @default(0) // Snapshot from InventoryItem
+  costPrice       Float?   @default(0) // Snapshot from InventoryItem
   
   // Wastage tracking
   wastagePercent  Float?   // Calculated wastage %

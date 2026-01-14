@@ -285,7 +285,7 @@ export default function GRNPage() {
                                                 <th className="px-3 py-2 text-left">Item</th>
                                                 <th className="px-3 py-2 text-center">Ordered Qty</th>
                                                 <th className="px-3 py-2 text-center">Received Qty</th>
-                                                <th className="px-3 py-2 text-left">Remarks</th>
+                                                <th className="px-3 py-2 text-left">Batch/Remarks</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
@@ -301,10 +301,10 @@ export default function GRNPage() {
                                                             onChange={e => updateReceivedQty(idx, e.target.value)}
                                                         />
                                                     </td>
-                                                    <td className="px-3 py-2">
+                                                    <td className="px-3 py-2 flex flex-col gap-1">
                                                         <Input
-                                                            className="h-8 text-xs"
-                                                            placeholder="Optional"
+                                                            className="h-8 text-xs font-mono"
+                                                            placeholder="Manual Batch ID (Optional)"
                                                             value={item.remarks}
                                                             onChange={e => updateItemRemarks(idx, e.target.value)}
                                                         />
@@ -362,7 +362,7 @@ export default function GRNPage() {
                                     <tr>
                                         <th className="p-2 border text-left">Item</th>
                                         <th className="p-2 border text-center">Quantity</th>
-                                        <th className="p-2 border text-left">Make/Model</th>
+                                        <th className="p-2 border text-left">Batch No.</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -370,7 +370,9 @@ export default function GRNPage() {
                                         <tr key={item.id}>
                                             <td className="p-2 border">{item.item?.name}</td>
                                             <td className="p-2 border text-center">{item.requestedQty}</td>
-                                            <td className="p-2 border">{item.make} {item.model}</td>
+                                            <td className="p-2 border font-mono text-[10px] text-blue-600">
+                                                {item.batch?.batchNumber || (activeTab === 'COMPLETED' ? 'System Assigned' : '-')}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

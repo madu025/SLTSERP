@@ -15,7 +15,8 @@ import {
     Shield,
     FolderKanban,
     Upload,
-    History
+    History,
+    RefreshCw
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -265,7 +266,21 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Invoices',
         path: '/invoices',
         icon: Receipt,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE],
+        submenu: [
+            {
+                title: 'Contractor Invoices',
+                path: '/invoices',
+                icon: FileText,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
+            },
+            {
+                title: 'PAT SOD (Invoice Sync)',
+                path: '/invoices/pat-sod',
+                icon: RefreshCw,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
+            }
+        ]
     },
     {
         title: 'Reports & Analytics',

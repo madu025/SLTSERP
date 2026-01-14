@@ -140,7 +140,14 @@ export class ServiceOrderService {
                     revenueAmount: true,
                     contractorAmount: true,
                     dropWireDistance: true,
-                    createdAt: true
+                    createdAt: true,
+                    materialUsage: {
+                        select: {
+                            quantity: true,
+                            unitPrice: true,
+                            costPrice: true
+                        }
+                    }
                 },
                 orderBy,
                 skip,
@@ -277,35 +284,97 @@ export class ServiceOrderService {
         const configs: any[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
         const currentSource = configs[0]?.value || 'SLT';
 
-        // Material Usage deduction & save (Simplified for this update, but keeping deduction logic)
-        if (otherData.materialUsage && Array.isArray(otherData.materialUsage)) {
-            await prisma.$transaction(async (tx) => {
-                await tx.sODMaterialUsage.deleteMany({ where: { serviceOrderId: id } });
-                updateData.materialUsage = {
-                    create: otherData.materialUsage.map((m: any) => ({
-                        itemId: m.itemId,
-                        quantity: parseFloat(m.quantity),
-                        unit: m.unit || 'Nos',
-                        usageType: m.usageType || 'USED',
-                        wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
-                        exceedsLimit: m.exceedsLimit || false,
-                        comment: m.comment,
-                        serialNumber: m.serialNumber
-                    }))
-                };
+        const { InventoryService } = await import('./inventory.service');
 
+        // Material Usage deduction & save
+        if (otherData.materialUsage && Array.isArray(otherData.materialUsage)) {
+            // Fetch material metadata to snapshot prices
+            const itemIds = otherData.materialUsage.map((m: any) => m.itemId);
+            const itemMetadata = await prisma.inventoryItem.findMany({
+                where: { id: { in: itemIds } },
+                select: { id: true, unitPrice: true, costPrice: true }
+            });
+
+            await prisma.$transaction(async (tx) => {
                 const targetContractorId = contractorId || updateData.contractorId || oldOrder.contractorId;
+                const finalUsageRecords = [];
+
                 if (targetContractorId) {
                     for (const m of otherData.materialUsage) {
+                        const qty = parseFloat(m.quantity);
                         if (['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType)) {
+                            // A. Pick batches FIFO from Contractor
+                            const pickedBatches = await InventoryService.pickContractorBatchesFIFO(tx, targetContractorId, m.itemId, qty);
+
+                            for (const picked of pickedBatches) {
+                                // B. Reduce from Contractor Batch Stock
+                                await tx.contractorBatchStock.update({
+                                    where: { contractorId_batchId: { contractorId: targetContractorId, batchId: picked.batchId } },
+                                    data: { quantity: { decrement: picked.quantity } }
+                                });
+
+                                // C. Create Usage Record for this Batch
+                                finalUsageRecords.push({
+                                    itemId: m.itemId,
+                                    batchId: picked.batchId,
+                                    quantity: picked.quantity,
+                                    unit: m.unit || 'Nos',
+                                    usageType: m.usageType || 'USED',
+                                    unitPrice: picked.batch.unitPrice || 0,
+                                    costPrice: picked.batch.costPrice || 0,
+                                    wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
+                                    exceedsLimit: m.exceedsLimit || false,
+                                    comment: m.comment,
+                                    serialNumber: m.serialNumber
+                                });
+                            }
+
+                            // D. Update Global Contractor Stock (Legacy)
                             await tx.contractorStock.upsert({
                                 where: { contractorId_itemId: { contractorId: targetContractorId, itemId: m.itemId } },
-                                create: { contractorId: targetContractorId, itemId: m.itemId, quantity: -parseFloat(m.quantity) },
-                                update: { quantity: { decrement: parseFloat(m.quantity) } }
+                                create: { contractorId: targetContractorId, itemId: m.itemId, quantity: -qty },
+                                update: { quantity: { decrement: qty } }
+                            });
+                        } else {
+                            // Non-deductible items (if any, still record them)
+                            const meta = itemMetadata.find((i: any) => i.id === m.itemId);
+                            finalUsageRecords.push({
+                                itemId: m.itemId,
+                                quantity: qty,
+                                unit: m.unit || 'Nos',
+                                usageType: m.usageType || 'USED',
+                                unitPrice: meta?.unitPrice || 0,
+                                costPrice: meta?.costPrice || 0,
+                                wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
+                                exceedsLimit: m.exceedsLimit || false,
+                                comment: m.comment,
+                                serialNumber: m.serialNumber
                             });
                         }
                     }
+                } else {
+                    // No contractor (direct team) - still record usage
+                    for (const m of otherData.materialUsage) {
+                        const meta = itemMetadata.find((i: any) => i.id === m.itemId);
+                        finalUsageRecords.push({
+                            itemId: m.itemId,
+                            quantity: parseFloat(m.quantity),
+                            unit: m.unit || 'Nos',
+                            usageType: m.usageType || 'USED',
+                            unitPrice: meta?.unitPrice || 0,
+                            costPrice: meta?.costPrice || 0,
+                            wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
+                            exceedsLimit: m.exceedsLimit || false,
+                            comment: m.comment,
+                            serialNumber: m.serialNumber
+                        });
+                    }
                 }
+
+                await tx.sODMaterialUsage.deleteMany({ where: { serviceOrderId: id } });
+                updateData.materialUsage = {
+                    create: finalUsageRecords
+                };
             });
         }
 
