@@ -24,13 +24,13 @@ function triggerSync() {
                 console.log(`[${new Date().toLocaleString()}] Worker: Sync Success (200)`);
                 try {
                     const parsed = JSON.parse(data);
-                    console.log(` - Stats: `, parsed.sync?.stats || 'Done');
+                    console.log(` - Stats: `, JSON.stringify(parsed.sync?.stats || 'Done'));
                 } catch (e) {
-                    console.log(` - Response: ${data.substring(0, 100)}...`);
+                    console.log(` - Response: Success but not JSON format`);
                 }
             } else {
                 console.error(`[${new Date().toLocaleString()}] Worker: Sync Failed Status (${res.statusCode})`);
-                console.error(` - Error: ${data}`);
+                console.error(` - Error: ${data.substring(0, 200)}`);
             }
         });
     }).on('error', (err) => {
@@ -38,14 +38,17 @@ function triggerSync() {
     });
 }
 
-// Start first sync
+// Startup
 console.log("==========================================");
 console.log("   SLT ERP BACKGROUND WORKER (DOCKER)    ");
 console.log("==========================================");
 console.log(`Target: ${APP_URL}`);
-console.log(`Schedule: Every 30 minutes`);
+console.log(`Schedule: Every 30 minutes (with 30s initial delay)`);
 
-triggerSync();
-
-// Schedule every 30 minutes
-setInterval(triggerSync, 30 * 60 * 1000);
+// Wait 30 seconds before the first attempt to ensure 'app' is fully started
+// This prevents 'ECONNREFUSED' during initial system boot
+setTimeout(() => {
+    triggerSync();
+    // Schedule every 30 minutes thereafter
+    setInterval(triggerSync, 30 * 60 * 1000);
+}, 30000);
