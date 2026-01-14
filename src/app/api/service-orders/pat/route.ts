@@ -31,15 +31,12 @@ export async function GET(request: Request) {
             };
         }
 
-        if (status === 'OPMC_REJECTED') {
-            where.opmcPatStatus = 'REJECTED';
-        } else if (status === 'HO_APPROVED') {
-            where.hoPatStatus = 'PASS';
-        } else if (status === 'HO_REJECTED') {
-            where.hoPatStatus = 'REJECTED';
-        } else if (status === 'PENDING') {
-            where.hoPatStatus = { equals: null };
-            where.opmcPatStatus = { equals: null };
+        if (status === 'ACCEPTED') {
+            where.status = 'PAT_PASSED';
+        } else if (status === 'REJECTED') {
+            where.status = 'REJECTED';
+        } else if (status !== 'ALL') {
+            where.source = status;
         }
 
         const [results, total, rtoms] = await Promise.all([
@@ -82,18 +79,20 @@ export async function GET(request: Request) {
 
         const orders = results.map((r: any) => {
             const internal = internalOrders.find(io => io.soNum === r.soNum);
-            const isCompleted = internal?.sltsStatus === 'COMPLETED';
 
             return {
                 id: r.id,
                 soNum: r.soNum,
                 rtom: r.rtom,
-                // ONLY show status if completed internally
-                hoPatStatus: isCompleted ? (r.source === 'HO_APPROVED' ? 'PASS' : r.source === 'HO_REJECTED' ? 'REJECTED' : 'PENDING') : 'PENDING',
-                opmcPatStatus: isCompleted ? (r.source === 'OPMC_REJECTED' ? 'REJECTED' : 'PENDING') : 'PENDING',
+                voiceNumber: r.voiceNumber,
+                sType: r.sType,
+                orderType: r.orderType,
+                conName: r.conName,
+                patUser: r.patUser,
+                status: r.status,
                 statusDate: r.statusDate,
                 source: r.source,
-                // Internal fields
+                // Internal metadata
                 sltsStatus: internal?.sltsStatus || 'NOT_IN_SYSTEM',
                 sltsPatStatus: internal?.sltsPatStatus || 'PENDING',
                 isInvoicable: internal?.isInvoicable || false

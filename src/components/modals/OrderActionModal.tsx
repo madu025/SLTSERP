@@ -1212,14 +1212,14 @@ export default function OrderActionModal({
                                                             <div className="flex items-center gap-2 h-9 px-3 bg-white rounded-md border border-slate-200">
                                                                 <Checkbox
                                                                     id="slts-pat-pass"
-                                                                    checked={sltsPatStatus === 'PASS'}
-                                                                    onCheckedChange={(c) => setSltsPatStatus(c ? 'PASS' : 'PENDING')}
+                                                                    checked={sltsPatStatus === 'PAT_PASSED'}
+                                                                    onCheckedChange={(c) => setSltsPatStatus(c ? 'PAT_PASSED' : 'PENDING')}
                                                                 />
                                                                 <Label htmlFor="slts-pat-pass" className={cn(
                                                                     "text-xs font-bold uppercase",
-                                                                    sltsPatStatus === 'PASS' ? "text-emerald-600" : "text-slate-400"
+                                                                    sltsPatStatus === 'PAT_PASSED' ? "text-emerald-600" : "text-slate-400"
                                                                 )}>
-                                                                    {sltsPatStatus === 'PASS' ? 'PAT PASSED' : 'PENDING CHECK'}
+                                                                    {sltsPatStatus === 'PAT_PASSED' ? 'PAT PASSED' : 'PENDING CHECK'}
                                                                 </Label>
                                                             </div>
                                                         </div>
@@ -1228,7 +1228,7 @@ export default function OrderActionModal({
                                                             <Label className="text-xs font-bold text-slate-500 uppercase">SLT PAT (Head Office)</Label>
                                                             <div className="flex flex-col gap-1">
                                                                 <div className="flex items-center gap-2 h-9 px-3 bg-white rounded-md border border-slate-200">
-                                                                    {hoPatStatus === 'PASS' ? (
+                                                                    {hoPatStatus === 'PAT_PASSED' ? (
                                                                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                                                                     ) : hoPatStatus === 'REJECTED' || opmcPatStatus === 'REJECTED' ? (
                                                                         <XCircle className="w-4 h-4 text-red-500" />
@@ -1237,10 +1237,10 @@ export default function OrderActionModal({
                                                                     )}
                                                                     <span className={cn(
                                                                         "text-xs font-bold uppercase",
-                                                                        hoPatStatus === 'PASS' ? "text-emerald-600" :
+                                                                        hoPatStatus === 'PAT_PASSED' ? "text-emerald-600" :
                                                                             (hoPatStatus === 'REJECTED' || opmcPatStatus === 'REJECTED') ? "text-red-600" : "text-amber-600"
                                                                     )}>
-                                                                        {hoPatStatus === 'PASS' ? 'PASS' :
+                                                                        {hoPatStatus === 'PAT_PASSED' ? 'PAT_PASSED' :
                                                                             hoPatStatus === 'REJECTED' ? 'HO REJECTED' :
                                                                                 opmcPatStatus === 'REJECTED' ? 'OPMC REJECTED' : 'PENDING'}
                                                                     </span>
@@ -1248,7 +1248,7 @@ export default function OrderActionModal({
                                                             </div>
                                                         </div>
 
-                                                        {sltsPatStatus !== 'PASS' && (
+                                                        {sltsPatStatus !== 'PAT_PASSED' && (
                                                             <div className="col-span-2 flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-100 rounded-md">
                                                                 <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
                                                                 <span className="text-[10px] font-bold text-rose-700 uppercase">
@@ -1256,7 +1256,7 @@ export default function OrderActionModal({
                                                                 </span>
                                                             </div>
                                                         )}
-                                                        {sltsPatStatus === 'PASS' && hoPatStatus !== 'PASS' && (
+                                                        {sltsPatStatus === 'PAT_PASSED' && hoPatStatus !== 'PAT_PASSED' && (
                                                             <div className="col-span-2 flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-md">
                                                                 <Info className="w-3.5 h-3.5 text-amber-500" />
                                                                 <span className="text-[10px] font-bold text-amber-700 uppercase">

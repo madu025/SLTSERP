@@ -77,10 +77,10 @@ export class ServiceOrderService {
                 whereClause.opmcPatStatus = 'REJECTED';
             } else if (patFilter === 'HO_REJECTED') {
                 whereClause.hoPatStatus = 'REJECTED';
-            } else if (patFilter === 'HO_PASS' || patFilter === 'PASS') {
-                whereClause.hoPatStatus = 'PASS';
+            } else if (patFilter === 'HO_PASS' || patFilter === 'PAT_PASSED') {
+                whereClause.hoPatStatus = 'PAT_PASSED';
             } else if (patFilter === 'SLTS_PASS') {
-                whereClause.sltsPatStatus = 'PASS';
+                whereClause.sltsPatStatus = 'PAT_PASSED';
             } else if (patFilter === 'PENDING') {
                 whereClause.isInvoicable = false;
                 whereClause.hoPatStatus = 'PENDING';
@@ -258,19 +258,19 @@ export class ServiceOrderService {
         // PAT Updates from UI
         if (otherData.sltsPatStatus) {
             updateData.sltsPatStatus = otherData.sltsPatStatus;
-            if (otherData.sltsPatStatus === 'PASS' && oldOrder.sltsPatStatus !== 'PASS') {
+            if (otherData.sltsPatStatus === 'PAT_PASSED' && oldOrder.sltsPatStatus !== 'PAT_PASSED') {
                 updateData.sltsPatDate = new Date();
             }
         }
         if (otherData.opmcPatStatus) {
             updateData.opmcPatStatus = otherData.opmcPatStatus;
-            if (otherData.opmcPatStatus === 'PASS' && oldOrder.opmcPatStatus !== 'PASS') {
+            if (otherData.opmcPatStatus === 'PAT_PASSED' && oldOrder.opmcPatStatus !== 'PAT_PASSED') {
                 updateData.opmcPatDate = new Date();
             }
         }
         if (otherData.hoPatStatus) {
             updateData.hoPatStatus = otherData.hoPatStatus;
-            if (otherData.hoPatStatus === 'PASS' && oldOrder.hoPatStatus !== 'PASS') {
+            if (otherData.hoPatStatus === 'PAT_PASSED' && oldOrder.hoPatStatus !== 'PAT_PASSED') {
                 updateData.hoPatDate = new Date();
             }
         }
@@ -278,7 +278,7 @@ export class ServiceOrderService {
         // IMPORTANT: Invoicable logic - A connection becomes eligible for Invoice (Part A)
         // as soon as SLTS PAT is passed by the QC Officer.
         const finalizedSlts = updateData.sltsPatStatus || oldOrder.sltsPatStatus;
-        updateData.isInvoicable = (finalizedSlts === 'PASS');
+        updateData.isInvoicable = (finalizedSlts === 'PAT_PASSED');
 
         // Material Source Snapshot
         const configs: any[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
@@ -463,8 +463,29 @@ export class ServiceOrderService {
         for (const rej of opmcRejected) {
             await (prisma as any).sLTPATStatus.upsert({
                 where: { soNum: rej.SO_NUM },
-                update: { status: 'REJECTED', source: 'OPMC_REJECTED', statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE), updatedAt: new Date() },
-                create: { soNum: rej.SO_NUM, status: 'REJECTED', source: 'OPMC_REJECTED', rtom, statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE) }
+                update: {
+                    status: 'REJECTED',
+                    source: 'OPMC_REJECTED',
+                    voiceNumber: rej.VOICENUMBER,
+                    sType: rej.S_TYPE,
+                    orderType: rej.ORDER_TYPE,
+                    conName: rej.CON_NAME,
+                    patUser: rej.PAT_USER,
+                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE),
+                    updatedAt: new Date()
+                },
+                create: {
+                    soNum: rej.SO_NUM,
+                    status: 'REJECTED',
+                    source: 'OPMC_REJECTED',
+                    rtom,
+                    voiceNumber: rej.VOICENUMBER,
+                    sType: rej.S_TYPE,
+                    orderType: rej.ORDER_TYPE,
+                    conName: rej.CON_NAME,
+                    patUser: rej.PAT_USER,
+                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE)
+                }
             });
         }
 
@@ -472,8 +493,29 @@ export class ServiceOrderService {
         for (const rej of rtHoRejected) {
             await (prisma as any).sLTPATStatus.upsert({
                 where: { soNum: rej.SO_NUM },
-                update: { status: 'REJECTED', source: 'HO_REJECTED', statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE), updatedAt: new Date() },
-                create: { soNum: rej.SO_NUM, status: 'REJECTED', source: 'HO_REJECTED', rtom, statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE) }
+                update: {
+                    status: 'REJECTED',
+                    source: 'HO_REJECTED',
+                    voiceNumber: rej.VOICENUMBER,
+                    sType: rej.S_TYPE,
+                    orderType: rej.ORDER_TYPE,
+                    conName: rej.CON_NAME,
+                    patUser: rej.PAT_USER,
+                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE),
+                    updatedAt: new Date()
+                },
+                create: {
+                    soNum: rej.SO_NUM,
+                    status: 'REJECTED',
+                    source: 'HO_REJECTED',
+                    rtom,
+                    voiceNumber: rej.VOICENUMBER,
+                    sType: rej.S_TYPE,
+                    orderType: rej.ORDER_TYPE,
+                    conName: rej.CON_NAME,
+                    patUser: rej.PAT_USER,
+                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE)
+                }
             });
         }
 
@@ -565,7 +607,7 @@ export class ServiceOrderService {
 
         // Fetch RTOMs where we have pending work
         const pendingRtoms = await prisma.serviceOrder.findMany({
-            where: { hoPatStatus: { not: 'PASS' } },
+            where: { hoPatStatus: { not: 'PAT_PASSED' } },
             select: { rtom: true },
             distinct: ['rtom']
         });
@@ -580,9 +622,14 @@ export class ServiceOrderService {
                 // 1. Bulk Cache into SLTPATStatus
                 const cacheData = apiApproved.map(app => ({
                     soNum: app.SO_NUM,
-                    status: 'PASS',
+                    status: 'PAT_PASSED',
                     source: 'HO_APPROVED',
                     rtom,
+                    voiceNumber: app.VOICENUMBER,
+                    sType: app.S_TYPE,
+                    orderType: app.ORDER_TYPE,
+                    conName: app.CON_NAME,
+                    patUser: app.PAT_USER,
                     statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE)
                 }));
 
@@ -597,7 +644,7 @@ export class ServiceOrderService {
                     where: {
                         rtom,
                         sltsStatus: 'COMPLETED', // ONLY update if manually completed by us
-                        hoPatStatus: { not: 'PASS' },
+                        hoPatStatus: { not: 'PAT_PASSED' },
                         soNum: { in: apiApproved.map(a => a.SO_NUM) }
                     }
                 });
@@ -608,14 +655,14 @@ export class ServiceOrderService {
                         const finalOrder = await prisma.serviceOrder.update({
                             where: { id: order.id },
                             data: {
-                                hoPatStatus: 'PASS',
+                                hoPatStatus: 'PAT_PASSED',
                                 hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                                opmcPatStatus: 'PASS'
+                                opmcPatStatus: 'PAT_PASSED'
                             }
                         });
 
                         // Re-check Invoicable: Only SLTS PAT PASS is required for Invoice Eligibility
-                        const canInvoice = finalOrder.sltsPatStatus === 'PASS';
+                        const canInvoice = finalOrder.sltsPatStatus === 'PAT_PASSED';
                         if (canInvoice !== (finalOrder as any).isInvoicable) {
                             await prisma.serviceOrder.update({ where: { id: order.id }, data: { isInvoicable: canInvoice } });
                         }
