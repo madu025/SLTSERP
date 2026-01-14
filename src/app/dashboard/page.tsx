@@ -105,9 +105,23 @@ export default function DashboardPage() {
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
                     <div className="max-w-7xl mx-auto w-full">
                         {/* Welcome Section */}
-                        <div className="mb-6 md:mb-8">
-                            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Welcome, {user?.name}</h1>
-                            <p className="text-slate-500 text-xs md:text-sm mt-1">Here is the performance overview for {isAreaCoordinator ? 'your assigned areas' : 'all RTOMs'}.</p>
+                        <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-bold text-slate-900">Welcome, {user?.name}</h1>
+                                <p className="text-slate-500 text-xs md:text-sm mt-1">Here is the performance overview for {isAreaCoordinator ? 'your assigned areas' : 'all RTOMs'}.</p>
+                            </div>
+                            {(stats?.pat?.rejected || 0) > 0 && (
+                                <a
+                                    href="/service-orders/pat"
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm font-bold animate-pulse hover:bg-red-100 transition-colors"
+                                >
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                    </span>
+                                    {stats?.pat?.rejected} PAT REJECTIONS NEED ATTENTION
+                                </a>
+                            )}
                         </div>
 
                         {/* Top Stats Cards */}
@@ -282,58 +296,98 @@ export default function DashboardPage() {
 
                         {/* RTOM Comparison for Management */}
                         {isHigherManagement && (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                                <div className="p-6 border-b border-slate-100">
-                                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                        <span className="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
-                                        RTOM Wise Performance
-                                    </h3>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-slate-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM Name</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Return</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {isLoading ? (
-                                                Array(3).fill(0).map((_, i) => (
-                                                    <tr key={i}>
-                                                        {Array(5).fill(0).map((_, j) => (
-                                                            <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
-                                                        ))}
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                stats?.rtoms?.map((r, i) => (
-                                                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                                        <td className="px-6 py-4 text-sm font-semibold text-slate-900">{r.name}</td>
-                                                        <td className="px-6 py-4 text-sm text-emerald-600 font-medium">{r.completed}</td>
-                                                        <td className="px-6 py-4 text-sm text-amber-600 font-medium">{r.pending}</td>
-                                                        <td className="px-6 py-4 text-sm text-rose-600 font-medium">{r.returned}</td>
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[100px]">
-                                                                    <div
-                                                                        className="h-full bg-indigo-500 rounded-full"
-                                                                        style={{ width: `${(r.completed / (r.total || 1)) * 100}%` }}
-                                                                    />
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                            <span className="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
+                                            RTOM Performance
+                                        </h3>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-slate-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Comp</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Pend</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {isLoading ? (
+                                                    Array(3).fill(0).map((_, i) => (
+                                                        <tr key={i}>
+                                                            {Array(4).fill(0).map((_, j) => (
+                                                                <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
+                                                            ))}
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    stats?.rtoms?.map((r, i) => (
+                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors text-sm">
+                                                            <td className="px-6 py-4 font-semibold text-slate-900">{r.name}</td>
+                                                            <td className="px-6 py-4 text-emerald-600 font-medium">{r.completed}</td>
+                                                            <td className="px-6 py-4 text-amber-600 font-medium">{r.pending}</td>
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[60px]">
+                                                                        <div
+                                                                            className="h-full bg-indigo-500 rounded-full"
+                                                                            style={{ width: `${(r.completed / (r.total || 1)) * 100}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className="text-[10px] font-medium text-slate-600">
+                                                                        {Math.round((r.completed / (r.total || 1)) * 100)}%
+                                                                    </span>
                                                                 </div>
-                                                                <span className="text-xs font-medium text-slate-600">
-                                                                    {Math.round((r.completed / (r.total || 1)) * 100)}%
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
+                                            RTOM PAT Summary
+                                        </h3>
+                                        <a href="/service-orders/pat" className="text-xs text-primary font-semibold hover:underline">View All</a>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-slate-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-emerald-600">Approved</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-red-600">Rejected</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {isLoading ? (
+                                                    Array(3).fill(0).map((_, i) => (
+                                                        <tr key={i}>
+                                                            {Array(3).fill(0).map((_, j) => (
+                                                                <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
+                                                            ))}
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    stats?.rtoms?.map((r: any, i) => (
+                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors text-sm">
+                                                            <td className="px-6 py-4 font-semibold text-slate-900">{r.name}</td>
+                                                            <td className="px-6 py-4 text-emerald-600 font-bold">{r.patPassed || 0}</td>
+                                                            <td className="px-6 py-4 text-red-600 font-bold">{r.patRejected || 0}</td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         )}

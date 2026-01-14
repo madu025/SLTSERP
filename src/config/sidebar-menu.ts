@@ -92,6 +92,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/service-orders/completed',
                 icon: FileText,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
+            },
+            {
+                title: 'PAT Status',
+                path: '/service-orders/pat',
+                icon: ClipboardCheck,
+                allowedRoles: ROLE_GROUPS.ALL_OPS
             }
         ]
     },
@@ -275,9 +281,9 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
             },
             {
-                title: 'PAT SOD (Invoice Sync)',
-                path: '/invoices/pat-sod',
-                icon: RefreshCw,
+                title: 'PAT History',
+                path: '/service-orders/pat',
+                icon: History,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
             }
         ]

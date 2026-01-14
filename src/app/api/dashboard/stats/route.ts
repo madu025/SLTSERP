@@ -64,7 +64,7 @@ export async function GET(request: Request) {
             }),
             // 3. PAT Stats
             (prisma.serviceOrder as any).groupBy({
-                by: ['patStatus'],
+                by: ['rtom', 'patStatus'],
                 where: { ...whereClause, patStatus: { not: null } },
                 _count: { _all: true }
             }),
@@ -132,12 +132,19 @@ export async function GET(request: Request) {
             const returned = (rtomStats as any[]).find(r => r.rtom === name && r.sltsStatus === 'RETURN')?._count?._all || 0;
             const rtomTotal = (rtomStats as any[]).filter(r => r.rtom === name).reduce((acc, curr) => acc + (curr._count?._all || 0), 0);
 
+            // Fetch PAT specifically for this RTOM from patStats
+            // We need to fetch PAT stats per RTOM - modifying the parallel query might be better, 
+            // but for now, we'll ensure the existing stats are clear.
+
             stats.rtoms.push({
                 name,
                 completed,
                 pending,
                 returned,
-                total: rtomTotal
+                total: rtomTotal,
+                // These will be used in the new PAT page
+                patPassed: (patStats as any[]).find(s => s.rtom === name && s.patStatus === 'PASS')?._count?._all || 0,
+                patRejected: (patStats as any[]).find(s => s.rtom === name && s.patStatus === 'REJECTED')?._count?._all || 0,
             });
         });
 
