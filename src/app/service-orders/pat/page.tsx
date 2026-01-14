@@ -23,9 +23,9 @@ export default function PATStatusPage() {
     const [status, setStatus] = useState('OPMC_REJECTED'); // OPMC_REJECTED, HO_APPROVED, HO_REJECTED
 
     const tabs = [
-        { id: 'OPMC_REJECTED', label: 'OPMC Rejected', color: 'red' },
         { id: 'HO_APPROVED', label: 'HO Approved', color: 'emerald' },
-        { id: 'HO_REJECTED', label: 'HO Rejected', color: 'orange' }
+        { id: 'HO_REJECTED', label: 'HO Rejected', color: 'orange' },
+        { id: 'OPMC_REJECTED', label: 'OPMC Results', color: 'red' }
     ];
 
     const { data, isLoading } = useQuery({
@@ -58,12 +58,12 @@ export default function PATStatusPage() {
                             <div>
                                 <h1 className="text-2xl font-bold text-slate-900">PAT Status Monitor</h1>
                                 <p className="text-slate-500 text-sm mt-1">
-                                    Monitor OPMC and Head Office approvals.
+                                    Direct results downloaded from SLT Head Office API.
                                     <span className="ml-2 font-medium text-slate-700 underline underline-offset-4 decoration-emerald-300">
-                                        Part A (90%) needs SLTS Internal PASS
+                                        Part A Ready: SLTS Internal PASS
                                     </span> |
                                     <span className="ml-1 font-medium text-slate-700 underline underline-offset-4 decoration-blue-300">
-                                        Part B (10%) needs HO PAT PASS
+                                        Part B Ready: HO PAT PASS
                                     </span>
                                 </p>
                             </div>
@@ -142,10 +142,10 @@ export default function PATStatusPage() {
                                         <tr>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">SO Number</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">RTOM</th>
+                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">Sync Date</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">SLTS Status</th>
-                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">SLTS Internal PAT</th>
-                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">OPMC PAT</th>
-                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">HO PAT</th>
+                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">Internal PAT</th>
+                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">SLT API Status</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">Invoicable</th>
                                             <th className="px-6 py-4 text-right font-semibold text-slate-600">Action</th>
                                         </tr>
@@ -163,46 +163,35 @@ export default function PATStatusPage() {
                                             <tr key={order.id} className="hover:bg-slate-50/50 transition-colors">
                                                 <td className="px-6 py-4 font-bold text-slate-900">{order.soNum}</td>
                                                 <td className="px-6 py-4 text-slate-600">{order.rtom}</td>
+                                                <td className="px-6 py-4 text-slate-500">{order.statusDate ? format(new Date(order.statusDate), 'yyyy-MM-dd') : '-'}</td>
                                                 <td className="px-6 py-4">
                                                     <Badge variant="outline" className={
-                                                        order.sltsStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-100'
+                                                        order.sltsStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                            order.sltsStatus === 'NOT_IN_SYSTEM' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-slate-50 text-slate-600 border-slate-100'
                                                     }>
                                                         {order.sltsStatus}
                                                     </Badge>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <Badge variant="outline" className={
-                                                        order.sltsPatStatus === 'PASS' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'
+                                                        order.sltsPatStatus === 'PASS' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-100'
                                                     }>
                                                         {order.sltsPatStatus || 'PENDING'}
                                                     </Badge>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-2">
-                                                        {order.opmcPatStatus === 'PASS' ? (
-                                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                                        ) : order.opmcPatStatus === 'REJECTED' ? (
-                                                            <XCircle className="w-4 h-4 text-red-500" />
+                                                        {order.source === 'HO_APPROVED' ? (
+                                                            <>
+                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                                <span className="text-emerald-700 font-bold">HO PASS</span>
+                                                            </>
                                                         ) : (
-                                                            <Clock className="w-4 h-4 text-slate-300" />
+                                                            <>
+                                                                <XCircle className="w-4 h-4 text-red-500" />
+                                                                <span className="text-red-600 font-bold">{order.source}</span>
+                                                            </>
                                                         )}
-                                                        <span className={order.opmcPatStatus === 'REJECTED' ? 'text-red-600 font-medium' : ''}>
-                                                            {order.opmcPatStatus || 'PENDING'}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        {order.hoPatStatus === 'PASS' ? (
-                                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                                        ) : order.hoPatStatus === 'REJECTED' ? (
-                                                            <XCircle className="w-4 h-4 text-red-500" />
-                                                        ) : (
-                                                            <Clock className="w-4 h-4 text-slate-300" />
-                                                        )}
-                                                        <span className={order.hoPatStatus === 'REJECTED' ? 'text-red-600 font-medium' : ''}>
-                                                            {order.hoPatStatus || 'PENDING'}
-                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -248,32 +237,7 @@ export default function PATStatusPage() {
                             </div>
                         </Card>
 
-                        {/* Rejected Alert Section */}
-                        {data?.rejectedSummary?.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {data.rejectedSummary.map((item: any) => (
-                                    <Card key={item.rtom} className="border-l-4 border-l-red-500 shadow-sm">
-                                        <CardHeader className="pb-2">
-                                            <CardTitle className="text-sm font-bold text-slate-800 flex items-center justify-between">
-                                                {item.rtom}
-                                                <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-none">{item.count} Rejections</Badge>
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <p className="text-xs text-slate-500">
-                                                These SODs have been rejected by OPMC or Head Office and require immediate correction.
-                                            </p>
-                                            <button
-                                                onClick={() => { setRtom(item.rtom); setStatus('REJECTED'); setPage(1); }}
-                                                className="mt-3 text-xs font-semibold text-primary hover:underline flex items-center gap-1"
-                                            >
-                                                Filter this RTOM <ChevronRight className="w-3 h-3" />
-                                            </button>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
+
                     </div>
                 </div>
             </main>

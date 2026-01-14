@@ -42,48 +42,66 @@ export async function GET(request: Request) {
             where.opmcPatStatus = { equals: null };
         }
 
-        // Fetch data in parallel
-        const [orders, total, rtoms, rejectedStats] = await Promise.all([
-            prisma.serviceOrder.findMany({
-                where,
+        const [results, total, rtoms] = await Promise.all([
+            (prisma as any).sLTPATStatus.findMany({
+                where: {
+                    ...(search ? { soNum: { contains: search, mode: 'insensitive' } } : {}),
+                    ...(rtom !== 'ALL' ? { rtom } : {}),
+                    ...(status !== 'ALL' ? { source: status } : {}),
+                    ...(startDate && endDate ? { statusDate: { gte: new Date(startDate), lte: new Date(endDate) } } : {})
+                },
                 skip,
                 take: limit,
-                orderBy: { updatedAt: 'desc' },
-                select: {
-                    id: true,
-                    soNum: true,
-                    rtom: true,
-                    sltsStatus: true,
-                    opmcPatStatus: true,
-                    hoPatStatus: true,
-                    isInvoicable: true,
-                    updatedAt: true
+                orderBy: { statusDate: 'desc' },
+                include: {
+                    // Try to link with our local ServiceOrder to show internal status
                 }
             }),
-            prisma.serviceOrder.count({ where }),
-            prisma.oPMC.findMany({ select: { rtom: true } }),
-            prisma.serviceOrder.groupBy({
-                by: ['rtom'],
+            (prisma as any).sLTPATStatus.count({
                 where: {
-                    OR: [
-                        { opmcPatStatus: 'REJECTED' },
-                        { hoPatStatus: 'REJECTED' }
-                    ]
-                },
-                _count: { _all: true }
-            })
+                    ...(search ? { soNum: { contains: search, mode: 'insensitive' } } : {}),
+                    ...(rtom !== 'ALL' ? { rtom } : {}),
+                    ...(status !== 'ALL' ? { source: status } : {}),
+                    ...(startDate && endDate ? { statusDate: { gte: new Date(startDate), lte: new Date(endDate) } } : {})
+                }
+            }),
+            prisma.oPMC.findMany({ select: { rtom: true } })
         ]);
+
+        // Enrich results with ServiceOrder internal info
+        const soNums = results.map((r: any) => r.soNum);
+        const internalOrders = await prisma.serviceOrder.findMany({
+            where: { soNum: { in: soNums } },
+            select: {
+                soNum: true,
+                sltsStatus: true,
+                sltsPatStatus: true,
+                isInvoicable: true
+            }
+        });
+
+        const orders = results.map((r: any) => {
+            const internal = internalOrders.find(io => io.soNum === r.soNum);
+            return {
+                id: r.id,
+                soNum: r.soNum,
+                rtom: r.rtom,
+                hoPatStatus: r.source === 'HO_APPROVED' ? 'PASS' : r.source === 'HO_REJECTED' ? 'REJECTED' : 'PENDING',
+                opmcPatStatus: r.source === 'OPMC_REJECTED' ? 'REJECTED' : 'PENDING',
+                statusDate: r.statusDate,
+                source: r.source,
+                // Internal fields
+                sltsStatus: internal?.sltsStatus || 'NOT_IN_SYSTEM',
+                sltsPatStatus: internal?.sltsPatStatus || 'PENDING',
+                isInvoicable: internal?.isInvoicable || false
+            };
+        });
 
         return NextResponse.json({
             orders,
             total,
             totalPages: Math.ceil(total / limit),
-            rtoms: rtoms.map(r => r.rtom),
-            totalRejected: rejectedStats.reduce((acc, curr) => acc + curr._count._all, 0),
-            rejectedSummary: rejectedStats.map(s => ({
-                rtom: s.rtom,
-                count: s._count._all
-            }))
+            rtoms: rtoms.map(r => r.rtom)
         });
     } catch (error) {
         return handleApiError(error);

@@ -482,6 +482,7 @@ export class ServiceOrderService {
         const previouslyRejected = await prisma.serviceOrder.findMany({
             where: {
                 opmcId,
+                sltsStatus: 'COMPLETED', // Only update if manually completed
                 OR: [{ opmcPatStatus: 'REJECTED' }, { hoPatStatus: 'REJECTED' }]
             },
             select: { id: true, soNum: true, opmcPatStatus: true, hoPatStatus: true }
@@ -508,7 +509,9 @@ export class ServiceOrderService {
         });
 
         for (const rej of cachedRejections) {
-            const order = await prisma.serviceOrder.findFirst({ where: { soNum: rej.soNum, opmcId } });
+            const order = await prisma.serviceOrder.findFirst({
+                where: { soNum: rej.soNum, opmcId, sltsStatus: 'COMPLETED' }
+            });
             if (order) {
                 const update: any = {};
                 if (rej.source === 'OPMC_REJECTED' && order.opmcPatStatus !== 'REJECTED') {
@@ -593,6 +596,7 @@ export class ServiceOrderService {
                 const ordersToUpdate = await prisma.serviceOrder.findMany({
                     where: {
                         rtom,
+                        sltsStatus: 'COMPLETED', // ONLY update if manually completed by us
                         hoPatStatus: { not: 'PASS' },
                         soNum: { in: apiApproved.map(a => a.SO_NUM) }
                     }
