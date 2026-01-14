@@ -10,6 +10,8 @@ export async function GET(request: Request) {
         const search = searchParams.get('search') || '';
         const status = searchParams.get('status') || 'ALL';
         const rtom = searchParams.get('rtom') || 'ALL';
+        const startDate = searchParams.get('startDate');
+        const endDate = searchParams.get('endDate');
         const skip = (page - 1) * limit;
 
         const where: any = {};
@@ -20,6 +22,13 @@ export async function GET(request: Request) {
 
         if (rtom !== 'ALL') {
             where.rtom = rtom;
+        }
+
+        if (startDate && endDate) {
+            where.createdAt = {
+                gte: new Date(startDate),
+                lte: new Date(endDate)
+            };
         }
 
         if (status === 'PASS') {

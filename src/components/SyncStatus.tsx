@@ -53,10 +53,25 @@ export default function SyncStatus({ isCollapsed }: { isCollapsed: boolean }) {
         return () => clearInterval(timer);
     }, [data?.nextSync]);
 
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const handleManualSync = async () => {
+        if (isSyncing) return;
+        setIsSyncing(true);
+        try {
+            await fetch('/api/admin/sync-trigger', { method: 'POST' });
+            refetch();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
     if (isCollapsed) {
         return (
             <div className="flex justify-center p-3 border-t border-white/5 opacity-50">
-                <div className={`w-2 h-2 rounded-full ${data?.isStale ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+                <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-sky-500 animate-spin' : data?.isStale ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
             </div>
         );
     }
@@ -70,15 +85,24 @@ export default function SyncStatus({ isCollapsed }: { isCollapsed: boolean }) {
         <div className="px-4 py-3 border-t border-white/5 bg-black/20">
             <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Activity className={`w-3 h-3 ${data?.isStale ? 'text-amber-500' : 'text-emerald-500'}`} />
+                    <Activity className={`w-3 h-3 ${isSyncing ? 'text-sky-500 animate-spin' : data?.isStale ? 'text-amber-500' : 'text-emerald-500'}`} />
                     Background Sync
                 </span>
-                <button
-                    onClick={() => refetch()}
-                    className="p-1 hover:bg-white/5 rounded transition-colors"
-                >
-                    <RefreshCw className="w-2.5 h-2.5 text-slate-500" />
-                </button>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={handleManualSync}
+                        disabled={isSyncing}
+                        className={`text-[9px] px-1.5 py-0.5 rounded border border-slate-700 hover:bg-white/5 text-slate-400 transition-colors ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        {isSyncing ? 'Running...' : 'Sync Now'}
+                    </button>
+                    <button
+                        onClick={() => refetch()}
+                        className="p-1 hover:bg-white/5 rounded transition-colors"
+                    >
+                        <RefreshCw className={`w-2.5 h-2.5 text-slate-500 ${isSyncing ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
             </div>
 
             <div className="space-y-1.5">

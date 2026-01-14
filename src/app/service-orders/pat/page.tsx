@@ -19,15 +19,19 @@ export default function PATStatusPage() {
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('ALL'); // ALL, PASS, REJECTED
     const [rtom, setRtom] = useState('ALL');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const { data, isLoading } = useQuery({
-        queryKey: ['pat-orders', page, search, status, rtom],
+        queryKey: ['pat-orders', page, search, status, rtom, startDate, endDate],
         queryFn: async () => {
             const params = new URLSearchParams({
                 page: page.toString(),
                 search,
                 status,
                 rtom,
+                startDate,
+                endDate,
                 limit: '20'
             });
             const resp = await fetch(`/api/service-orders/pat?${params}`);
@@ -91,6 +95,21 @@ export default function PATStatusPage() {
                                             <option key={r} value={r}>{r}</option>
                                         ))}
                                     </select>
+                                    <div className="flex items-center gap-2 col-span-1 md:col-span-2">
+                                        <input
+                                            type="date"
+                                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                        />
+                                        <span className="text-slate-400">-</span>
+                                        <input
+                                            type="date"
+                                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                        />
+                                    </div>
                                     <div className="flex items-center justify-end gap-2">
                                         <Badge variant="outline" className="bg-red-50 text-red-700 border-red-100 py-1.5 px-3">
                                             {data?.totalRejected || 0} Rejected Found

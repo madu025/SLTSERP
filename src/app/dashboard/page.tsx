@@ -125,7 +125,7 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Top Stats Cards */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
                             {isLoading ? (
                                 Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)
                             ) : (
@@ -159,24 +159,24 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Overall Stats Cards */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
                             {isLoading ? (
                                 Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
                             ) : (
                                 <>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
                                         <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} Total Received</p>
                                         <p className="text-xl font-bold text-slate-900">{stats?.allTime?.total || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
                                         <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} Total Completed</p>
                                         <p className="text-xl font-bold text-slate-900">{stats?.allTime?.completed || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
                                         <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} PAT Pass</p>
                                         <p className="text-xl font-bold text-slate-900">{stats?.pat?.passed || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
                                         <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} PAT Rejected</p>
                                         <p className="text-xl font-bold text-slate-900 text-red-600">{stats?.pat?.rejected || 0}</p>
                                     </div>
