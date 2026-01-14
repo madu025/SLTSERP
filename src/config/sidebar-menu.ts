@@ -94,7 +94,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
-                title: 'PAT Status',
+                title: 'PAT Status Monitor',
                 path: '/service-orders/pat',
                 icon: ClipboardCheck,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
@@ -124,12 +124,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                     ...ROLE_GROUPS.FINANCE,
                     'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER'
                 ]
-            },
-            {
-                title: 'PAT Status',
-                path: '/service-orders/pat',
-                icon: ClipboardCheck,
-                allowedRoles: [...ROLE_GROUPS.ALL_OPS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE]
             },
             {
                 title: 'Registration Approvals',
