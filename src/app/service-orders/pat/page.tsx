@@ -17,10 +17,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function PATStatusPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const [status, setStatus] = useState('ALL'); // ALL, PASS, REJECTED
     const [rtom, setRtom] = useState('ALL');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [status, setStatus] = useState('OPMC_REJECTED'); // OPMC_REJECTED, HO_APPROVED, HO_REJECTED
+
+    const tabs = [
+        { id: 'OPMC_REJECTED', label: 'OPMC Rejected', color: 'red' },
+        { id: 'HO_APPROVED', label: 'HO Approved', color: 'emerald' },
+        { id: 'HO_REJECTED', label: 'HO Rejected', color: 'orange' }
+    ];
 
     const { data, isLoading } = useQuery({
         queryKey: ['pat-orders', page, search, status, rtom, startDate, endDate],
@@ -51,7 +57,15 @@ export default function PATStatusPage() {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
                                 <h1 className="text-2xl font-bold text-slate-900">PAT Status Monitor</h1>
-                                <p className="text-slate-500 text-sm mt-1">Track and clear rejected Provisional Acceptance Tests (PAT).</p>
+                                <p className="text-slate-500 text-sm mt-1">
+                                    Monitor OPMC and Head Office approvals.
+                                    <span className="ml-2 font-medium text-slate-700 underline underline-offset-4 decoration-emerald-300">
+                                        Part A (90%) needs SLTS Internal PASS
+                                    </span> |
+                                    <span className="ml-1 font-medium text-slate-700 underline underline-offset-4 decoration-blue-300">
+                                        Part B (10%) needs HO PAT PASS
+                                    </span>
+                                </p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
@@ -61,11 +75,27 @@ export default function PATStatusPage() {
                             </div>
                         </div>
 
+                        {/* Tabs */}
+                        <div className="flex bg-slate-100 p-1 rounded-xl w-fit">
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => { setStatus(tab.id); setPage(1); }}
+                                    className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${status === tab.id
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                        }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+
                         {/* Filters */}
                         <Card className="border-none shadow-sm">
                             <CardContent className="p-4">
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <div className="relative">
+                                    <div className="relative md:col-span-1">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                         <input
                                             type="text"
@@ -75,16 +105,6 @@ export default function PATStatusPage() {
                                             onChange={(e) => setSearch(e.target.value)}
                                         />
                                     </div>
-                                    <select
-                                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                        value={status}
-                                        onChange={(e) => setStatus(e.target.value)}
-                                    >
-                                        <option value="ALL">All PAT Status</option>
-                                        <option value="PASS">Approved (PASS)</option>
-                                        <option value="REJECTED">Rejected (FAIL)</option>
-                                        <option value="PENDING">Pending Approval</option>
-                                    </select>
                                     <select
                                         className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                         value={rtom}
@@ -110,11 +130,6 @@ export default function PATStatusPage() {
                                             onChange={(e) => setEndDate(e.target.value)}
                                         />
                                     </div>
-                                    <div className="flex items-center justify-end gap-2">
-                                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-100 py-1.5 px-3">
-                                            {data?.totalRejected || 0} Rejected Found
-                                        </Badge>
-                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -128,6 +143,7 @@ export default function PATStatusPage() {
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">SO Number</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">RTOM</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">SLTS Status</th>
+                                            <th className="px-6 py-4 text-left font-semibold text-slate-600">SLTS Internal PAT</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">OPMC PAT</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">HO PAT</th>
                                             <th className="px-6 py-4 text-left font-semibold text-slate-600">Invoicable</th>
@@ -138,7 +154,7 @@ export default function PATStatusPage() {
                                         {isLoading ? (
                                             Array(5).fill(0).map((_, i) => (
                                                 <tr key={i}>
-                                                    {Array(7).fill(0).map((_, j) => (
+                                                    {Array(8).fill(0).map((_, j) => (
                                                         <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
                                                     ))}
                                                 </tr>
@@ -152,6 +168,13 @@ export default function PATStatusPage() {
                                                         order.sltsStatus === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-600 border-slate-100'
                                                     }>
                                                         {order.sltsStatus}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <Badge variant="outline" className={
+                                                        order.sltsPatStatus === 'PASS' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'
+                                                    }>
+                                                        {order.sltsPatStatus || 'PENDING'}
                                                     </Badge>
                                                 </td>
                                                 <td className="px-6 py-4">

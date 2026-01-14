@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, X, ChevronRight, ChevronLeft, Save, ChevronsUpDown, Check, AlertCircle, Users } from "lucide-react";
+import { CalendarIcon, Plus, X, ChevronRight, ChevronLeft, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -1206,20 +1206,7 @@ export default function OrderActionModal({
                                                         </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs font-bold text-slate-500 uppercase">OPMC PAT Status</Label>
-                                                            <Select value={opmcPatStatus} onValueChange={setOpmcPatStatus}>
-                                                                <SelectTrigger className="bg-white h-9 text-xs">
-                                                                    <SelectValue placeholder="Select OPMC PAT" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="PENDING" className="text-xs text-amber-600">PENDING</SelectItem>
-                                                                    <SelectItem value="PASS" className="text-xs text-emerald-600">PASS</SelectItem>
-                                                                    <SelectItem value="REJECTED" className="text-xs text-rose-600">REJECTED</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
+                                                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
                                                         <div className="space-y-2">
                                                             <Label className="text-xs font-bold text-slate-500 uppercase">Internal Check (SLTS PAT)</Label>
                                                             <div className="flex items-center gap-2 h-9 px-3 bg-white rounded-md border border-slate-200">
@@ -1236,24 +1223,44 @@ export default function OrderActionModal({
                                                                 </Label>
                                                             </div>
                                                         </div>
+
                                                         <div className="space-y-2">
-                                                            <Label className="text-xs font-bold text-slate-500 uppercase">Head Office PAT</Label>
-                                                            <Select value={hoPatStatus} onValueChange={setHoPatStatus}>
-                                                                <SelectTrigger className="bg-white h-9 text-xs">
-                                                                    <SelectValue placeholder="Select HO PAT" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="PENDING" className="text-xs text-amber-600">PENDING</SelectItem>
-                                                                    <SelectItem value="PASS" className="text-xs text-emerald-600">PASS</SelectItem>
-                                                                    <SelectItem value="REJECTED" className="text-xs text-rose-600">REJECTED</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
+                                                            <Label className="text-xs font-bold text-slate-500 uppercase">SLT PAT (Head Office)</Label>
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2 h-9 px-3 bg-white rounded-md border border-slate-200">
+                                                                    {hoPatStatus === 'PASS' ? (
+                                                                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                                    ) : hoPatStatus === 'REJECTED' || opmcPatStatus === 'REJECTED' ? (
+                                                                        <XCircle className="w-4 h-4 text-red-500" />
+                                                                    ) : (
+                                                                        <Clock className="w-4 h-4 text-amber-500" />
+                                                                    )}
+                                                                    <span className={cn(
+                                                                        "text-xs font-bold uppercase",
+                                                                        hoPatStatus === 'PASS' ? "text-emerald-600" :
+                                                                            (hoPatStatus === 'REJECTED' || opmcPatStatus === 'REJECTED') ? "text-red-600" : "text-amber-600"
+                                                                    )}>
+                                                                        {hoPatStatus === 'PASS' ? 'PASS' :
+                                                                            hoPatStatus === 'REJECTED' ? 'HO REJECTED' :
+                                                                                opmcPatStatus === 'REJECTED' ? 'OPMC REJECTED' : 'PENDING'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        {(sltsPatStatus !== 'PASS' || hoPatStatus !== 'PASS') && (
+
+                                                        {sltsPatStatus !== 'PASS' && (
                                                             <div className="col-span-2 flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-100 rounded-md">
-                                                                <AlertCircle className="w-4 h-4 text-rose-500" />
+                                                                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
                                                                 <span className="text-[10px] font-bold text-rose-700 uppercase">
-                                                                    Warning: Invoicing is blocked. Both SLTS (Internal) and Head Office PAT must PASS.
+                                                                    Invoicing Blocked: Internal (SLTS) PAT must PASS for Part A Payment eligibility.
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {sltsPatStatus === 'PASS' && hoPatStatus !== 'PASS' && (
+                                                            <div className="col-span-2 flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-md">
+                                                                <Info className="w-3.5 h-3.5 text-amber-500" />
+                                                                <span className="text-[10px] font-bold text-amber-700 uppercase">
+                                                                    Part A Ready: Connection is Invoicable. Part B will be eligible after HO PAT PASS.
                                                                 </span>
                                                             </div>
                                                         )}

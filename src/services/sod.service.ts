@@ -275,10 +275,10 @@ export class ServiceOrderService {
             }
         }
 
-        // IMPORTANT: Invoicable logic - Only if SLTS Pass AND HO Pass
+        // IMPORTANT: Invoicable logic - A connection becomes eligible for Invoice (Part A)
+        // as soon as SLTS PAT is passed by the QC Officer.
         const finalizedSlts = updateData.sltsPatStatus || oldOrder.sltsPatStatus;
-        const finalizedHo = updateData.hoPatStatus || oldOrder.hoPatStatus;
-        updateData.isInvoicable = (finalizedSlts === 'PASS' && finalizedHo === 'PASS');
+        updateData.isInvoicable = (finalizedSlts === 'PASS');
 
         // Material Source Snapshot
         const configs: any[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
@@ -447,75 +447,82 @@ export class ServiceOrderService {
     /**
      * Sync PAT Results from SLT (Multi-source)
      */
-    static async syncPatResults(opmcId: string, rtom: string) {
+    /**
+     * Sync PAT Results from SLT (Multi-source) - Optimized with DB Caching
+     */
+    static async syncPatResults(opmcId: string, rtom: string, hoRejected: any[] = []) {
         if (!opmcId || !rtom) throw new Error('RTOM_AND_ID_REQUIRED');
 
-        console.log(`[PAT-SYNC] Syncing for ${rtom}...`);
+        console.log(`[PAT-SYNC] Syncing Rejections for ${rtom}...`);
 
-        // 1. Fetch HO Approved (patreslt)
-        const hoApproved = await sltApiService.fetchPATResults(rtom);
-
-        // 2. Fetch OPMC Rejected (opmcpatrej)
+        // 1. Fetch OPMC Rejected (opmcpatrej) - RTOM specific
         const opmcRejected = await sltApiService.fetchOpmcRejected(rtom);
 
-        // 3. Fetch HO Rejected (patreject)
-        const hoRejected = await sltApiService.fetchHORejected();
+        // 2. Cache these entries in SLTPATStatus table
+        // We Upsert them to ensure we have the latest rejected status
+        for (const rej of opmcRejected) {
+            await (prisma as any).sLTPATStatus.upsert({
+                where: { soNum: rej.SO_NUM },
+                update: { status: 'REJECTED', source: 'OPMC_REJECTED', statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE), updatedAt: new Date() },
+                create: { soNum: rej.SO_NUM, status: 'REJECTED', source: 'OPMC_REJECTED', rtom, statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE) }
+            });
+        }
 
-        const allSoNums = Array.from(new Set([
-            ...hoApproved.map(p => p.SO_NUM),
-            ...opmcRejected.map(p => p.SO_NUM),
-            ...hoRejected.filter(p => p.RTOM === rtom).map(p => p.SO_NUM)
-        ]));
+        const rtHoRejected = hoRejected.filter((p: any) => p.RTOM === rtom);
+        for (const rej of rtHoRejected) {
+            await (prisma as any).sLTPATStatus.upsert({
+                where: { soNum: rej.SO_NUM },
+                update: { status: 'REJECTED', source: 'HO_REJECTED', statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE), updatedAt: new Date() },
+                create: { soNum: rej.SO_NUM, status: 'REJECTED', source: 'HO_REJECTED', rtom, statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE) }
+            });
+        }
 
-        if (allSoNums.length === 0) return { rtom, updated: 0 };
-
-        const existingOrders = await prisma.serviceOrder.findMany({
-            where: { soNum: { in: allSoNums }, opmcId },
-            select: { id: true, soNum: true, sltsPatStatus: true, hoPatStatus: true, opmcPatStatus: true }
+        // 3. Clear 'REJECTED' status in Our DB (ServiceOrder) if no longer in API rejected list
+        // and NOT in Approved list.
+        const previouslyRejected = await prisma.serviceOrder.findMany({
+            where: {
+                opmcId,
+                OR: [{ opmcPatStatus: 'REJECTED' }, { hoPatStatus: 'REJECTED' }]
+            },
+            select: { id: true, soNum: true, opmcPatStatus: true, hoPatStatus: true }
         });
 
         let updated = 0;
-        for (const order of existingOrders) {
-            const updateObj: any = {};
-            const isHoApproved = hoApproved.find(p => p.SO_NUM === order.soNum);
-            const isOpmcRejected = opmcRejected.find(p => p.SO_NUM === order.soNum);
-            const isHoRejected = hoRejected.find(p => p.SO_NUM === order.soNum);
+        for (const order of previouslyRejected) {
+            const isOpmcRej = opmcRejected.some(r => r.SO_NUM === order.soNum);
+            const isHoRej = rtHoRejected.some(r => r.SO_NUM === order.soNum);
 
-            // Logic: HO PASS > HO REJECTED > OPMC REJECTED
-            if (isHoApproved) {
-                if (order.hoPatStatus !== 'PASS') {
-                    updateObj.hoPatStatus = 'PASS';
-                    updateObj.hoPatDate = sltApiService.parseStatusDate(isHoApproved.CON_STATUS_DATE) || new Date();
-                    // If HO passes, OPMC must have passed too (or at least no longer rejected)
-                    updateObj.opmcPatStatus = 'PASS';
-                }
-            } else if (isHoRejected) {
-                if (order.hoPatStatus !== 'REJECTED') {
-                    updateObj.hoPatStatus = 'REJECTED';
-                    updateObj.hoPatDate = sltApiService.parseStatusDate(isHoRejected.CON_STATUS_DATE) || new Date();
-                }
-            } else if (isOpmcRejected) {
-                if (order.opmcPatStatus !== 'REJECTED') {
-                    updateObj.opmcPatStatus = 'REJECTED';
-                    updateObj.opmcPatDate = sltApiService.parseStatusDate(isOpmcRejected.CON_STATUS_DATE) || new Date();
-                }
-            }
+            const updateObj: any = {};
+            if (!isOpmcRej && order.opmcPatStatus === 'REJECTED') updateObj.opmcPatStatus = 'PENDING';
+            if (!isHoRej && order.hoPatStatus === 'REJECTED') updateObj.hoPatStatus = 'PENDING';
 
             if (Object.keys(updateObj).length > 0) {
-                const finalOrder = await prisma.serviceOrder.update({
-                    where: { id: order.id },
-                    data: updateObj
-                });
-
-                // Recalculate isInvoicable: SLTS PASS and HO PASS
-                const canInvoice = finalOrder.sltsPatStatus === 'PASS' && finalOrder.hoPatStatus === 'PASS';
-                if (canInvoice !== finalOrder.isInvoicable) {
-                    await prisma.serviceOrder.update({
-                        where: { id: order.id },
-                        data: { isInvoicable: canInvoice }
-                    });
-                }
+                await prisma.serviceOrder.update({ where: { id: order.id }, data: updateObj });
                 updated++;
+            }
+        }
+
+        // 4. Update ServiceOrder table from cached SLTPATStatus for this RTOM
+        const cachedRejections = await (prisma as any).sLTPATStatus.findMany({
+            where: { rtom, status: 'REJECTED' }
+        });
+
+        for (const rej of cachedRejections) {
+            const order = await prisma.serviceOrder.findFirst({ where: { soNum: rej.soNum, opmcId } });
+            if (order) {
+                const update: any = {};
+                if (rej.source === 'OPMC_REJECTED' && order.opmcPatStatus !== 'REJECTED') {
+                    update.opmcPatStatus = 'REJECTED';
+                    update.opmcPatDate = rej.statusDate;
+                }
+                if (rej.source === 'HO_REJECTED' && order.hoPatStatus !== 'REJECTED') {
+                    update.hoPatStatus = 'REJECTED';
+                    update.hoPatDate = rej.statusDate;
+                }
+                if (Object.keys(update).length > 0) {
+                    await prisma.serviceOrder.update({ where: { id: order.id }, data: update });
+                    updated++;
+                }
             }
         }
 
@@ -527,14 +534,96 @@ export class ServiceOrderService {
      */
     static async syncAllPatResults() {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
+
+        // Fetch HO Rejected ONCE (Global API)
+        console.log('[PAT-SYNC] Fetching global HO Rejected list...');
+        const hoRejected = await sltApiService.fetchHORejected();
+
         let totalUpdated = 0;
         for (const opmc of opmcs) {
             try {
-                const res = await this.syncPatResults(opmc.id, opmc.rtom);
+                const res = await this.syncPatResults(opmc.id, opmc.rtom, hoRejected);
                 totalUpdated += res.updated;
-            } catch (err) { console.error(`PAT Bulk Sync failed for ${opmc.rtom}:`, err); }
+            } catch (err) { console.error(`PAT/Rejection Sync failed for ${opmc.rtom}:`, err); }
         }
-        return { totalUpdated };
+
+        // Run HO Approved Sync Separately (Optimized for 100k records)
+        const hoApprovedStats = await this.syncHoApprovedResults();
+
+        return { totalUpdated, hoApproved: hoApprovedStats };
+    }
+
+    /**
+     * Optimized HO Approved Sync with DB Caching
+     * Handles 100k+ records by using bulk DB operations
+     */
+    static async syncHoApprovedResults() {
+        console.log('[PAT-SYNC] Starting optimized HO Approved sync with bulk cache...');
+
+        // Fetch RTOMs where we have pending work
+        const pendingRtoms = await prisma.serviceOrder.findMany({
+            where: { hoPatStatus: { not: 'PASS' } },
+            select: { rtom: true },
+            distinct: ['rtom']
+        });
+
+        let updated = 0;
+        for (const { rtom } of pendingRtoms) {
+            try {
+                console.log(`[PAT-SYNC] Fetching HO Approved for ${rtom}...`);
+                const apiApproved = await sltApiService.fetchPATResults(rtom);
+                if (apiApproved.length === 0) continue;
+
+                // 1. Bulk Cache into SLTPATStatus
+                const cacheData = apiApproved.map(app => ({
+                    soNum: app.SO_NUM,
+                    status: 'PASS',
+                    source: 'HO_APPROVED',
+                    rtom,
+                    statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE)
+                }));
+
+                // High performance bulk create (skip existing to avoid O(N^2) upsert)
+                await (prisma as any).sLTPATStatus.createMany({
+                    data: cacheData,
+                    skipDuplicates: true
+                });
+
+                // 2. Update Our ServiceOrders for this RTOM
+                const ordersToUpdate = await prisma.serviceOrder.findMany({
+                    where: {
+                        rtom,
+                        hoPatStatus: { not: 'PASS' },
+                        soNum: { in: apiApproved.map(a => a.SO_NUM) }
+                    }
+                });
+
+                for (const order of ordersToUpdate) {
+                    const match = apiApproved.find(a => a.SO_NUM === order.soNum);
+                    if (match) {
+                        const finalOrder = await prisma.serviceOrder.update({
+                            where: { id: order.id },
+                            data: {
+                                hoPatStatus: 'PASS',
+                                hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+                                opmcPatStatus: 'PASS'
+                            }
+                        });
+
+                        // Re-check Invoicable: Only SLTS PAT PASS is required for Invoice Eligibility
+                        const canInvoice = finalOrder.sltsPatStatus === 'PASS';
+                        if (canInvoice !== (finalOrder as any).isInvoicable) {
+                            await prisma.serviceOrder.update({ where: { id: order.id }, data: { isInvoicable: canInvoice } });
+                        }
+                        updated++;
+                    }
+                }
+            } catch (err) {
+                console.error(`[PAT-SYNC] HO Approved Batch Sync failed for ${rtom}:`, err);
+            }
+        }
+
+        return { updated };
     }
 
     static async syncAllOpmcs() {

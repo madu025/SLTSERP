@@ -1582,3 +1582,17 @@ model SystemSetting {
   value     Json
   updatedAt DateTime @updatedAt
 }
+
+model SLTPATStatus {
+  id            String    @id @default(cuid())
+  soNum         String    @unique
+  rtom          String?
+  status        String    // PASS, REJECTED
+  source        String    // HO_APPROVED, HO_REJECTED, OPMC_REJECTED
+  statusDate    DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([rtom])
+  @@index([soNum])
+}

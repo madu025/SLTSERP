@@ -31,13 +31,12 @@ export async function GET(request: Request) {
             };
         }
 
-        if (status === 'PASS') {
+        if (status === 'OPMC_REJECTED') {
+            where.opmcPatStatus = 'REJECTED';
+        } else if (status === 'HO_APPROVED') {
             where.hoPatStatus = 'PASS';
-        } else if (status === 'REJECTED') {
-            where.OR = [
-                { opmcPatStatus: 'REJECTED' },
-                { hoPatStatus: 'REJECTED' }
-            ];
+        } else if (status === 'HO_REJECTED') {
+            where.hoPatStatus = 'REJECTED';
         } else if (status === 'PENDING') {
             where.hoPatStatus = { equals: null };
             where.opmcPatStatus = { equals: null };
