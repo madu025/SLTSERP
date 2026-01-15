@@ -2,6 +2,31 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { sltApiService } from './slt-api.service';
 
+interface MaterialUsageInput {
+    itemId: string;
+    quantity: string;
+    usageType: string;
+    unit?: string;
+    wastagePercent?: string;
+    exceedsLimit?: boolean;
+    comment?: string;
+    serialNumber?: string;
+}
+
+interface SltRejection {
+    SO_NUM: string;
+    LEA?: string;
+    VOICENUMBER: string | null;
+    S_TYPE: string;
+    ORDER_TYPE: string;
+    CON_WORO_TASK_NAME?: string;
+    PKG?: string;
+    CON_NAME: string;
+    PAT_USER: string | null;
+    CON_STATUS_DATE: string;
+    RTOM?: string;
+}
+
 export class ServiceOrderService {
 
     /**
@@ -27,7 +52,7 @@ export class ServiceOrderService {
         }
 
         // Build where clause
-        let whereClause: any = { opmcId };
+        const whereClause: Prisma.ServiceOrderWhereInput = { opmcId };
 
         // Date Filtering
         if (month && year) {
@@ -97,7 +122,7 @@ export class ServiceOrderService {
         }
 
         // Determine sort order
-        let orderBy: any = { createdAt: 'desc' };
+        let orderBy: Prisma.ServiceOrderOrderByWithRelationInput = { createdAt: 'desc' };
         if (filter === 'completed') {
             orderBy = { completedDate: 'desc' };
         } else if (filter === 'return') {
@@ -146,7 +171,7 @@ export class ServiceOrderService {
                             quantity: true,
                             unitPrice: true,
                             costPrice: true
-                        } as any
+                        }
                     }
                 },
                 orderBy,
@@ -190,6 +215,7 @@ export class ServiceOrderService {
     /**
      * Patch Update (Status Change, Completion, etc.)
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     static async patchServiceOrder(id: string, data: any, userId?: string) {
         if (!id) throw new Error('ID_REQUIRED');
 
@@ -200,7 +226,7 @@ export class ServiceOrderService {
         if (!oldOrder) throw new Error('ORDER_NOT_FOUND');
 
         const { sltsStatus, completedDate, contractorId, comments, ...otherData } = data;
-        const updateData: any = {};
+        const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {};
 
         if (sltsStatus) {
             if (!['INPROGRESS', 'COMPLETED', 'RETURN'].includes(sltsStatus)) throw new Error('INVALID_STATUS');
@@ -218,36 +244,41 @@ export class ServiceOrderService {
         if (otherData.dpDetails) updateData.dpDetails = otherData.dpDetails;
         if (otherData.teamId) updateData.teamId = otherData.teamId || null;
         if (otherData.directTeamName) updateData.directTeam = otherData.directTeamName;
-        if (otherData.dropWireDistance !== undefined) updateData.dropWireDistance = parseFloat(otherData.dropWireDistance || '0');
+
+        let newDistance: number | undefined;
+        if (otherData.dropWireDistance !== undefined) {
+            newDistance = parseFloat(otherData.dropWireDistance || '0');
+            updateData.dropWireDistance = newDistance;
+        }
 
         // Capture Snapshots at Completion
         if (updateData.sltsStatus === 'COMPLETED' || (oldOrder.sltsStatus !== 'COMPLETED' && sltsStatus === 'COMPLETED')) {
             const rtomId = oldOrder.opmcId;
-            const distance = updateData.dropWireDistance ?? oldOrder.dropWireDistance ?? 0;
+            const distance = newDistance ?? oldOrder.dropWireDistance ?? 0;
 
             // 1. Calculate Revenue (Flat Rate per RTOM)
-            const revConfig = await (prisma as any).sODRevenueConfig.findFirst({
+            const revConfig = await prisma.sODRevenueConfig.findFirst({
                 where: { OR: [{ rtomId }, { rtomId: null }], isActive: true },
                 orderBy: { rtomId: { sort: 'asc', nulls: 'last' } } // Specific RTOM first
             });
             if (revConfig) updateData.revenueAmount = revConfig.revenuePerSOD;
 
             // 2. Calculate Contractor Payment (Tiered Distance)
-            const payConfig = await (prisma as any).contractorPaymentConfig.findFirst({
+            const payConfig = await prisma.contractorPaymentConfig.findFirst({
                 where: { OR: [{ rtomId }, { rtomId: null }], isActive: true },
                 include: { tiers: true },
                 orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
             });
 
             if (payConfig && payConfig.tiers && payConfig.tiers.length > 0) {
-                const matchingTier = payConfig.tiers.find((t: any) =>
+                const matchingTier = payConfig.tiers.find((t) =>
                     distance >= t.minDistance && distance <= t.maxDistance
                 );
                 if (matchingTier) {
                     updateData.contractorAmount = matchingTier.amount;
                 } else {
                     // Fallback to highest tier if over distance mentioned
-                    const sortedTiers = [...payConfig.tiers].sort((a: any, b: any) => b.maxDistance - a.maxDistance);
+                    const sortedTiers = [...payConfig.tiers].sort((a, b) => b.maxDistance - a.maxDistance);
                     if (distance > sortedTiers[0].maxDistance) {
                         updateData.contractorAmount = sortedTiers[0].amount;
                     }
@@ -281,7 +312,7 @@ export class ServiceOrderService {
         updateData.isInvoicable = (finalizedSlts === 'PAT_PASSED');
 
         // Material Source Snapshot
-        const configs: any[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
+        const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
         const currentSource = configs[0]?.value || 'SLT';
 
         const { InventoryService } = await import('./inventory.service');
@@ -289,10 +320,10 @@ export class ServiceOrderService {
         // Material Usage deduction & save
         if (otherData.materialUsage && Array.isArray(otherData.materialUsage)) {
             // Fetch material metadata to snapshot prices
-            const itemIds = otherData.materialUsage.map((m: any) => m.itemId);
+            const itemIds = otherData.materialUsage.map((m: MaterialUsageInput) => m.itemId);
             const itemMetadata = await prisma.inventoryItem.findMany({
                 where: { id: { in: itemIds } },
-                select: { id: true, unitPrice: true, costPrice: true } as any
+                select: { id: true, unitPrice: true, costPrice: true }
             });
 
             await prisma.$transaction(async (tx) => {
@@ -308,7 +339,7 @@ export class ServiceOrderService {
 
                             for (const picked of pickedBatches) {
                                 // B. Reduce from Contractor Batch Stock
-                                await (tx as any).contractorBatchStock.update({
+                                await tx.contractorBatchStock.update({
                                     where: { contractorId_batchId: { contractorId: targetContractorId, batchId: picked.batchId } },
                                     data: { quantity: { decrement: picked.quantity } }
                                 });
@@ -337,14 +368,14 @@ export class ServiceOrderService {
                             });
                         } else {
                             // Non-deductible items (if any, still record them)
-                            const meta = itemMetadata.find((i: any) => i.id === m.itemId);
+                            const meta = itemMetadata.find(i => i.id === m.itemId);
                             finalUsageRecords.push({
                                 itemId: m.itemId,
                                 quantity: qty,
                                 unit: m.unit || 'Nos',
                                 usageType: m.usageType || 'USED',
-                                unitPrice: (meta as any)?.unitPrice || 0,
-                                costPrice: (meta as any)?.costPrice || 0,
+                                unitPrice: meta?.unitPrice || 0,
+                                costPrice: meta?.costPrice || 0,
                                 wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
                                 exceedsLimit: m.exceedsLimit || false,
                                 comment: m.comment,
@@ -369,7 +400,7 @@ export class ServiceOrderService {
 
                                 for (const picked of pickedBatches) {
                                     // B. Reduce from Store Batch Stock
-                                    await (tx as any).inventoryBatchStock.update({
+                                    await tx.inventoryBatchStock.update({
                                         where: { storeId_batchId: { storeId: opmc.storeId!, batchId: picked.batchId } },
                                         data: { quantity: { decrement: picked.quantity } }
                                     });
@@ -396,14 +427,14 @@ export class ServiceOrderService {
                                     data: { quantity: { decrement: qty } }
                                 });
                             } else {
-                                const meta = itemMetadata.find((i: any) => i.id === m.itemId);
+                                const meta = itemMetadata.find(i => i.id === m.itemId);
                                 finalUsageRecords.push({
                                     itemId: m.itemId,
                                     quantity: qty,
                                     unit: m.unit || 'Nos',
                                     usageType: m.usageType || 'USED',
-                                    unitPrice: (meta as any)?.unitPrice || 0,
-                                    costPrice: (meta as any)?.costPrice || 0,
+                                    unitPrice: meta?.unitPrice || 0,
+                                    costPrice: meta?.costPrice || 0,
                                     wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
                                     exceedsLimit: m.exceedsLimit || false,
                                     comment: m.comment,
@@ -450,7 +481,7 @@ export class ServiceOrderService {
     /**
      * Sync PAT Results from SLT (Multi-source) - Optimized with DB Caching
      */
-    static async syncPatResults(opmcId: string, rtom: string, hoRejected: any[] = []) {
+    static async syncPatResults(opmcId: string, rtom: string, hoRejected: SltRejection[] = []) {
         if (!opmcId || !rtom) throw new Error('RTOM_AND_ID_REQUIRED');
 
         console.log(`[PAT-SYNC] Syncing Rejections for ${rtom}...`);
@@ -461,7 +492,7 @@ export class ServiceOrderService {
         // 2. Cache these entries in SLTPATStatus table
         // We Upsert them to ensure we have the latest rejected status
         for (const rej of opmcRejected) {
-            await (prisma as any).sLTPATStatus.upsert({
+            await prisma.sLTPATStatus.upsert({
                 where: { soNum: rej.SO_NUM },
                 update: {
                     status: 'REJECTED',
@@ -495,9 +526,9 @@ export class ServiceOrderService {
             });
         }
 
-        const rtHoRejected = hoRejected.filter((p: any) => p.RTOM === rtom);
+        const rtHoRejected = hoRejected.filter((p) => p.RTOM === rtom);
         for (const rej of rtHoRejected) {
-            await (prisma as any).sLTPATStatus.upsert({
+            await prisma.sLTPATStatus.upsert({
                 where: { soNum: rej.SO_NUM },
                 update: {
                     status: 'REJECTED',
@@ -547,7 +578,7 @@ export class ServiceOrderService {
             const isOpmcRej = opmcRejected.some(r => r.SO_NUM === order.soNum);
             const isHoRej = rtHoRejected.some(r => r.SO_NUM === order.soNum);
 
-            const updateObj: any = {};
+            const updateObj: Prisma.ServiceOrderUpdateInput = {};
             if (!isOpmcRej && order.opmcPatStatus === 'REJECTED') updateObj.opmcPatStatus = 'PENDING';
             if (!isHoRej && order.hoPatStatus === 'REJECTED') updateObj.hoPatStatus = 'PENDING';
 
@@ -558,7 +589,7 @@ export class ServiceOrderService {
         }
 
         // 4. Update ServiceOrder table from cached SLTPATStatus for this RTOM
-        const cachedRejections = await (prisma as any).sLTPATStatus.findMany({
+        const cachedRejections = await prisma.sLTPATStatus.findMany({
             where: { rtom, status: 'REJECTED' }
         });
 
@@ -567,7 +598,7 @@ export class ServiceOrderService {
                 where: { soNum: rej.soNum, opmcId, sltsStatus: 'COMPLETED' }
             });
             if (order) {
-                const update: any = {};
+                const update: Prisma.ServiceOrderUpdateInput = {};
                 if (rej.source === 'OPMC_REJECTED' && order.opmcPatStatus !== 'REJECTED') {
                     update.opmcPatStatus = 'REJECTED';
                     update.opmcPatDate = rej.statusDate;
@@ -649,7 +680,7 @@ export class ServiceOrderService {
                 }));
 
                 // High performance bulk create (skip existing to avoid O(N^2) upsert)
-                await (prisma as any).sLTPATStatus.createMany({
+                await prisma.sLTPATStatus.createMany({
                     data: cacheData,
                     skipDuplicates: true
                 });
@@ -678,7 +709,7 @@ export class ServiceOrderService {
 
                         // Re-check Invoicable: Only SLTS PAT PASS is required for Invoice Eligibility
                         const canInvoice = finalOrder.sltsPatStatus === 'PAT_PASSED';
-                        if (canInvoice !== (finalOrder as any).isInvoicable) {
+                        if (canInvoice !== finalOrder.isInvoicable) {
                             await prisma.serviceOrder.update({ where: { id: order.id }, data: { isInvoicable: canInvoice } });
                         }
                         updated++;
@@ -694,19 +725,19 @@ export class ServiceOrderService {
 
     static async syncAllOpmcs() {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
-        const results: any[] = [];
+        const results: Record<string, unknown>[] = [];
         let created = 0;
         let updated = 0;
         let failed = 0;
 
         for (const opmc of opmcs) {
             try {
-                const res = await (this as any).syncServiceOrders(opmc.id, opmc.rtom);
+                const res = await this.syncServiceOrders(opmc.id, opmc.rtom);
                 results.push({ rtom: opmc.rtom, ...res });
                 created += res.created || 0;
                 updated += res.updated || 0;
             } catch (err) {
-                results.push({ rtom: opmc.rtom, error: (err as any).message });
+                results.push({ rtom: opmc.rtom, error: err instanceof Error ? err.message : String(err) });
                 failed++;
             }
         }
@@ -721,7 +752,7 @@ export class ServiceOrderService {
 
         // Update System Setting for Frontend
         try {
-            await (prisma as any).systemSetting.upsert({
+            await prisma.systemSetting.upsert({
                 where: { key: 'LAST_SYNC_STATS' },
                 update: { value: finalStats },
                 create: { key: 'LAST_SYNC_STATS', value: finalStats }
