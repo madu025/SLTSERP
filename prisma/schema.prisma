@@ -1587,14 +1587,17 @@ model SLTPATStatus {
   id            String    @id @default(cuid())
   soNum         String    @unique
   rtom          String?
+  lea           String?   // LEA 
   voiceNumber   String?   // CIRCUIT
   sType         String?   // SERVICE
   orderType     String?   // ORDER TYPE
+  task          String?   // TASK
+  package       String?   // PACKAGE
   conName       String?   // CONTRACTOR
   patUser       String?   // PAT USER
   status        String    // PAT_PASSED, REJECTED
   source        String    // HO_APPROVED, HO_REJECTED, OPMC_REJECTED
-  statusDate    DateTime? // COMPLETED ON
+  statusDate    DateTime? // COMPLETED ON / RECEIVED ON
   updatedAt     DateTime  @updatedAt
 
   @@index([status])

@@ -33,8 +33,13 @@ export async function GET(request: Request) {
 
         if (status === 'ACCEPTED') {
             where.status = 'PAT_PASSED';
+            where.source = 'HO_APPROVED';
         } else if (status === 'REJECTED') {
             where.status = 'REJECTED';
+            where.source = 'HO_REJECTED';
+        } else if (status === 'OPMC_REJECTED') {
+            where.status = 'REJECTED';
+            where.source = 'OPMC_REJECTED';
         } else if (status !== 'ALL') {
             where.source = status;
         }
@@ -84,9 +89,12 @@ export async function GET(request: Request) {
                 id: r.id,
                 soNum: r.soNum,
                 rtom: r.rtom,
+                lea: r.lea,
                 voiceNumber: r.voiceNumber,
                 sType: r.sType,
                 orderType: r.orderType,
+                task: r.task,
+                package: r.package,
                 conName: r.conName,
                 patUser: r.patUser,
                 status: r.status,

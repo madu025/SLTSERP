@@ -94,6 +94,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
+                title: 'Invoice',
+                path: '/service-orders/invoicable',
+                icon: Receipt,
+                allowedRoles: ROLE_GROUPS.ALL_OPS
+            },
+            {
                 title: 'PAT Status Monitor',
                 path: '/service-orders/pat',
                 icon: ClipboardCheck,

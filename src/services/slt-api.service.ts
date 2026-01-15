@@ -25,14 +25,17 @@ export interface SLTServiceOrderData {
 
 export interface SLTPATData {
     RTOM: string;
+    LEA?: string; // LEA
     SO_NUM: string;
-    VOICENUMBER: string | null;
-    S_TYPE: string;
-    ORDER_TYPE: string;
-    CON_STATUS: string; // "PAT_PASSED"
-    CON_NAME: string;
-    PAT_USER: string | null;
-    CON_STATUS_DATE: string;
+    VOICENUMBER: string | null; // CIRCUIT
+    S_TYPE: string; // SERVICE
+    ORDER_TYPE: string; // ORDER TYPE
+    CON_WORO_TASK_NAME?: string; // TASK
+    PKG?: string; // PACKAGE
+    CON_STATUS: string; // STATUS
+    CON_NAME: string; // CONTRACTOR
+    PAT_USER: string | null; // PAT USER
+    CON_STATUS_DATE: string; // COMPLETED ON / RECEIVED ON
 }
 
 export interface SLTApiResponse {

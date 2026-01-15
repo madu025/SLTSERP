@@ -17,12 +17,14 @@ interface Stats {
         completed: number;
         pending: number;
         returned: number;
+        invoicable: number;
     };
     allTime: {
         total: number;
         completed: number;
         returned: number;
         pending: number;
+        invoicable: number;
     };
     pat: {
         passed: number;
@@ -137,16 +139,16 @@ export default function DashboardPage() {
                                         color="bg-blue-500"
                                     />
                                     <StatCard
+                                        label="Monthly Invoicable"
+                                        value={stats?.monthly?.invoicable || 0}
+                                        icon="💰"
+                                        color="bg-indigo-600"
+                                    />
+                                    <StatCard
                                         label="Monthly Completed"
                                         value={stats?.monthly?.completed || 0}
                                         icon="✅"
                                         color="bg-emerald-500"
-                                    />
-                                    <StatCard
-                                        label="Monthly Pending"
-                                        value={stats?.monthly?.pending || 0}
-                                        icon="⏳"
-                                        color="bg-amber-500"
                                     />
                                     <StatCard
                                         label="Monthly Return"

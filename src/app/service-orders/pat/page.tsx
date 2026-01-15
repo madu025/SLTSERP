@@ -4,30 +4,30 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useQuery } from '@tanstack/react-query';
-import {
-    Search, ChevronLeft, ChevronRight,
-    ArrowUpDown, FileDown, Printer, Copy, FileSpreadsheet
-} from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { ArrowUpDown } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 export default function PATStatusPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const [rtom, setRtom] = useState('ALL');
-    const [view, setView] = useState('ACCEPTED'); // ACCEPTED, REJECTED
+    const [view, setView] = useState('ACCEPTED'); // ACCEPTED, REJECTED, OPMC_REJECTED
+
+    const tabs = [
+        { id: 'OPMC_REJECTED', label: 'OPMC PAT REJECT' },
+        { id: 'ACCEPTED', label: 'SLT APPROVED' },
+        { id: 'REJECTED', label: 'SLT REJECTED' }
+    ];
 
     const { data, isLoading } = useQuery({
-        queryKey: ['pat-orders-v2', page, search, view, rtom],
+        queryKey: ['pat-orders-v6', page, search, view],
         queryFn: async () => {
             const params = new URLSearchParams({
                 page: page.toString(),
                 search,
                 status: view,
-                rtom,
                 limit: '20'
             });
             const resp = await fetch(`/api/service-orders/pat?${params}`);
@@ -36,186 +36,154 @@ export default function PATStatusPage() {
         }
     });
 
+    const isOpmcReject = view === 'OPMC_REJECTED';
+
     return (
         <div className="min-h-screen flex bg-[#f8f9fc]">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-                    <div className="max-w-[1400px] mx-auto space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+                    <div className="max-w-full mx-auto space-y-0 shadow-sm border border-slate-200 rounded-sm">
 
-                        {/* Tabs matching SLT System */}
-                        <div className="flex border-b border-slate-200 gap-1 bg-white p-2 rounded-t-xl shadow-sm">
-                            <button
-                                onClick={() => { setView('ACCEPTED'); setPage(1); }}
-                                className={cn(
-                                    "px-10 py-3 text-sm font-bold transition-all border-b-2",
-                                    view === 'ACCEPTED'
-                                        ? "border-primary text-primary bg-primary/5"
-                                        : "border-transparent text-slate-500 hover:text-slate-800"
-                                )}
-                            >
-                                ACCEPTED
-                            </button>
-                            <button
-                                onClick={() => { setView('REJECTED'); setPage(1); }}
-                                className={cn(
-                                    "px-10 py-3 text-sm font-bold transition-all border-b-2",
-                                    view === 'REJECTED'
-                                        ? "border-primary text-primary bg-primary/5"
-                                        : "border-transparent text-slate-500 hover:text-slate-800"
-                                )}
-                            >
-                                REJECTED
-                            </button>
+                        {/* Tab Bar - EXACT SLT STYLE */}
+                        <div className="flex bg-[#f1f3f7] rounded-t-sm border-b border-slate-200">
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => { setView(tab.id); setPage(1); }}
+                                    className={cn(
+                                        "px-10 py-4 text-[13px] font-bold tracking-tight transition-all relative min-w-fit whitespace-nowrap",
+                                        view === tab.id
+                                            ? "text-[#673ab7] bg-white border-t-[3px] border-[#673ab7]"
+                                            : "text-slate-600 hover:bg-white/50"
+                                    )}
+                                >
+                                    {tab.label.toUpperCase()}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Controls Section */}
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 shadow-sm border-x">
+                        {/* Controls Bar - Blue buttons, Search on right */}
+                        <div className="bg-white p-4 flex flex-col md:flex-row justify-between items-center gap-4 border-x border-slate-100">
                             <div className="flex items-center gap-2">
-                                <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 transition-all shadow-sm">
-                                    <Copy className="w-4 h-4" /> Copy
+                                <button className="px-5 py-2.5 bg-[#1d56d1] text-white rounded-[3px] font-medium text-xs hover:bg-blue-800 transition-all shadow-sm">
+                                    Copy
                                 </button>
-                                <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 transition-all shadow-sm">
-                                    <FileSpreadsheet className="w-4 h-4" /> Excel
+                                <button className="px-5 py-2.5 bg-[#1d56d1] text-white rounded-[3px] font-medium text-xs hover:bg-blue-800 transition-all shadow-sm">
+                                    Excel
                                 </button>
-                                <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded font-medium text-sm hover:bg-blue-700 transition-all shadow-sm">
-                                    <Printer className="w-4 h-4" /> Print
-                                </button>
+                                {view !== 'OPMC_REJECTED' && (
+                                    <button className="px-5 py-2.5 bg-[#1d56d1] text-white rounded-[3px] font-medium text-xs hover:bg-blue-800 transition-all shadow-sm">
+                                        Print
+                                    </button>
+                                )}
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-slate-500">Search:</span>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        className="w-64 pl-4 pr-10 py-2 bg-white border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-primary text-sm"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                    />
-                                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                </div>
+                                <span className="text-[13px] font-medium text-slate-500">Search:</span>
+                                <input
+                                    type="text"
+                                    className="w-48 h-9 px-3 bg-white border border-slate-200 rounded focus:outline-none focus:border-blue-400 text-[13px] shadow-sm"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
                             </div>
                         </div>
 
-                        {/* Main Table */}
-                        <Card className="border-none shadow-sm overflow-hidden rounded-t-none">
+                        {/* DATA TABLE */}
+                        <Card className="border-none shadow-none rounded-none overflow-hidden bg-white">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-[13px]">
-                                    <thead className="bg-[#f1f3f7] border-y border-slate-200 text-slate-600 uppercase">
-                                        <tr>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[100px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">RTOM <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[200px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">SOD <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[150px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">CIRCUIT <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[100px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">SERVICE <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[150px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">ORDER TYPE <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[150px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">STATUS <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[150px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">CONTRACTOR <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[120px] border-r border-slate-200">
-                                                <div className="flex items-center gap-2">PAT USER <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
-                                            <th className="px-4 py-4 text-left font-bold min-w-[180px]">
-                                                <div className="flex items-center gap-2">COMPLETED ON <ArrowUpDown className="w-3 h-3 opacity-40" /></div>
-                                            </th>
+                                <table className="w-full text-[13px] border-collapse">
+                                    <thead className="bg-[#f1f3f7] text-[#4a5568] uppercase border-y border-slate-200">
+                                        <tr className="divide-x divide-slate-200 h-12">
+                                            {isOpmcReject ? (
+                                                <>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[80px]">LEA <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[180px]">SOD <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[140px]">CIRCUIT <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[100px]">SERVICE <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[140px]">ORDER TYPE <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[160px]">TASK <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[180px]">RECEIVED ON <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[120px]">PACKAGE <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[150px]">STATUS <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[80px]">RTOM <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[180px]">SOD <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[140px]">CIRCUIT <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[100px]">SERVICE <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[140px]">ORDER TYPE <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[150px]">STATUS <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[130px]">CONTRACTOR <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[110px]">PAT USER <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                    <th className="px-4 py-2 text-left font-bold min-w-[180px]">COMPLETED ON <ArrowUpDown className="inline w-3 h-3 ml-2 opacity-30" /></th>
+                                                </>
+                                            )}
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                    <tbody className="divide-y divide-slate-100">
                                         {isLoading ? (
-                                            Array(6).fill(0).map((_, i) => (
-                                                <tr key={i}>
+                                            Array(8).fill(0).map((_, i) => (
+                                                <tr key={i} className="divide-x divide-slate-50 h-12">
                                                     {Array(9).fill(0).map((_, j) => (
-                                                        <td key={j} className="px-4 py-4"><Skeleton className="h-4 w-full" /></td>
+                                                        <td key={j} className="px-4 py-2"><Skeleton className="h-4 w-full" /></td>
                                                     ))}
                                                 </tr>
                                             ))
-                                        ) : data?.orders?.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={9} className="px-4 py-10 text-center text-slate-400 font-medium italic">
-                                                    No results found for {view} records.
-                                                </td>
-                                            </tr>
                                         ) : data?.orders?.map((order: any) => (
-                                            <tr key={order.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-4 py-3.5 text-slate-600 font-medium">{order.rtom}</td>
-                                                <td className="px-4 py-3.5 border-l border-slate-50">
-                                                    <a href={`/service-orders/${order.soNum}`} className="text-blue-600 hover:underline font-bold">
-                                                        {order.soNum}
-                                                    </a>
-                                                </td>
-                                                <td className="px-4 py-3.5 text-slate-700 border-l border-slate-50 font-mono text-[12px]">
-                                                    {order.voiceNumber || 'N/A'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-slate-600 border-l border-slate-50">
-                                                    {order.sType || 'FTTH'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-slate-600 border-l border-slate-50">
-                                                    {order.orderType || 'CREATE'}
-                                                </td>
-                                                <td className="px-4 py-3.5 border-l border-slate-50">
-                                                    <span className={cn(
-                                                        "font-bold px-2 py-0.5 rounded text-[11px]",
-                                                        order.status === 'PAT_PASSED' ? "text-emerald-700 bg-emerald-50 border border-emerald-100" : "text-rose-700 bg-rose-50 border border-rose-100"
-                                                    )}>
-                                                        {order.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3.5 text-slate-600 border-l border-slate-50">
-                                                    {order.conName || 'SLTS'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-slate-600 border-l border-slate-50 font-medium whitespace-nowrap">
-                                                    {order.patUser || '-'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-slate-500 border-l border-slate-50 whitespace-nowrap font-medium">
-                                                    {order.statusDate ? format(new Date(order.statusDate), 'yyyy-MM-dd HH:mm:ss a') : '-'}
-                                                </td>
+                                            <tr key={order.id} className="hover:bg-slate-50 transition-colors divide-x divide-slate-50 h-12">
+                                                {isOpmcReject ? (
+                                                    <>
+                                                        <td className="px-4 py-2 text-slate-600">{order.lea || order.rtom || '-'}</td>
+                                                        <td className="px-4 py-2"><a href={`/service-orders/${order.soNum}`} className="text-[#b71c1c] hover:underline font-bold">{order.soNum}</a></td>
+                                                        <td className="px-4 py-2 text-slate-700 font-medium">{order.voiceNumber || '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-600">{order.sType || '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-600">{order.orderType || '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-600">{order.task || '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-500 whitespace-nowrap">{order.statusDate ? format(new Date(order.statusDate), 'MM/dd/yyyy hh:mm:ss a') : '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-600">{order.package || '-'}</td>
+                                                        <td className="px-4 py-2 font-bold text-[#d81b60] text-[11px] whitespace-nowrap uppercase">PAT_OPMC_REJECTED</td>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <td className="px-4 py-2 text-slate-600">{order.rtom || '-'}</td>
+                                                        <td className="px-4 py-2"><a href={`/service-orders/${order.soNum}`} className="text-[#1d56d1] hover:underline font-bold">{order.soNum}</a></td>
+                                                        <td className="px-4 py-2 text-slate-700 font-medium">{order.voiceNumber || '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-600">{order.sType || '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-600">{order.orderType || '-'}</td>
+                                                        <td className="px-4 py-2"><span className={cn(
+                                                            "font-bold uppercase",
+                                                            view === 'ACCEPTED' ? "text-emerald-700" : "text-rose-700"
+                                                        )}>{order.status}</span></td>
+                                                        <td className="px-4 py-2 text-slate-600">{order.conName || 'SLTS'}</td>
+                                                        <td className="px-4 py-2 text-slate-600 font-medium">{order.patUser || '-'}</td>
+                                                        <td className="px-4 py-2 text-slate-500 whitespace-nowrap font-medium">{order.statusDate ? format(new Date(order.statusDate), 'MM/dd/yyyy hh:mm:ss a') : '-'}</td>
+                                                    </>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
 
-                            {/* Pagination / Stats bar */}
-                            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-white text-xs text-slate-500">
-                                <div className="flex items-center gap-6">
-                                    <p>Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, data?.total || 0)} of {data?.total || 0} entries</p>
-                                    {data?.orders?.some((o: any) => o.sltsStatus === 'INPROGRESS') && (
-                                        <p className="text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">
-                                            Info: Some work is still INPROGRESS in our system.
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-1">
+                            {/* Pagination */}
+                            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-white text-xs">
+                                <span className="text-slate-500 ml-4">Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, data?.total || 0)} of {data?.total || 0} entries</span>
+                                <div className="flex items-center gap-1 mr-4">
                                     <button
                                         onClick={() => setPage(p => Math.max(1, p - 1))}
                                         disabled={page === 1}
-                                        className="px-3 py-1.5 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-30 transition-all font-bold"
-                                    >
-                                        Previous
-                                    </button>
-                                    <div className="flex gap-1 mx-2">
-                                        <span className="bg-primary text-white w-8 h-8 flex items-center justify-center rounded font-bold">{page}</span>
-                                    </div>
+                                        className="px-4 py-2 bg-slate-100 text-slate-700 rounded-sm disabled:opacity-30 font-bold hover:bg-slate-200 transition-all font-mono tracking-tighter"
+                                    >Previous</button>
+                                    <span className="w-10 h-10 flex items-center justify-center bg-[#1d56d1] text-white rounded-sm font-bold shadow-md">{page}</span>
                                     <button
                                         onClick={() => setPage(p => p + 1)}
                                         disabled={page >= (data?.totalPages || 1)}
-                                        className="px-3 py-1.5 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-30 transition-all font-bold"
-                                    >
-                                        Next
-                                    </button>
+                                        className="px-4 py-2 bg-slate-100 text-slate-700 rounded-sm disabled:opacity-30 font-bold hover:bg-slate-200 transition-all font-mono tracking-tighter"
+                                    >Next</button>
                                 </div>
                             </div>
                         </Card>

@@ -89,15 +89,17 @@ export async function GET(request: Request) {
                 completed: (monthlyStats as any[]).find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
                 pending: (monthlyStats as any[]).find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
                 returned: (monthlyStats as any[]).find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
+                invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth }, isInvoicable: true } }),
             },
             allTime: {
                 total: (totalStats as any[]).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
                 completed: (totalStats as any[]).find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
                 returned: (totalStats as any[]).find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
                 pending: (totalStats as any[]).find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
+                invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, isInvoicable: true } }),
             },
             pat: {
-                passed: (patStats as any[]).find(s => s.patStatus === 'PASS')?._count?._all || 0,
+                passed: (patStats as any[]).find(s => s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED')?._count?._all || 0,
                 rejected: (patStats as any[]).find(s => s.patStatus === 'REJECTED')?._count?._all || 0,
                 pending: (patStats as any[]).find(s => s.patStatus === 'PENDING')?._count?._all || 0,
             },

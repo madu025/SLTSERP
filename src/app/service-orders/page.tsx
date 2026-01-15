@@ -97,7 +97,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     });
     const [page, setPage] = useState(1);
     const [limit] = useState(50);
-    const [patFilter, setPatFilter] = useState("ALL");
+    const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
     const [user, setUser] = useState<any>(null);
 
