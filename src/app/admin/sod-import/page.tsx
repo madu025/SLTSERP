@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import {
     FileSpreadsheet, ArrowRight, Loader2, Settings2,
-    Package, CheckCircle2, Layout, Table, AlertCircle
+    Package, CheckCircle2, Layout, Table, AlertCircle, Info
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -34,6 +34,8 @@ interface SystemMaterial {
     id: string;
     name: string;
     code: string | null;
+    commonName: string | null;
+    source: string | null;
 }
 
 const SYSTEM_FIELDS = [
@@ -43,10 +45,12 @@ const SYSTEM_FIELDS = [
     { key: 'receivedDate', label: 'Received Date', required: false, aliases: ['RECEIVED DATE', 'SOD RECEIVED'] },
     { key: 'completedDate', label: 'Completed Date', required: false, aliases: ['COMPLETED DATE', 'SOD COMPLETE DATE', 'DONE DATE'] },
     { key: 'package', label: 'Package Name', required: false, aliases: ['PACKAGE', 'FTTH_PACKAGE', 'PKG'] },
-    { key: 'dropWireDistance', label: 'DW Distance', required: false, aliases: ['DROP WIRE', 'DW', 'DISTANCE', 'LENGTH'] },
+    { key: 'dropWireDistance', label: 'DW Distance', required: false, aliases: ['DROP WIRE', 'DW', 'DISTANCE', 'LENGTH', 'DW DISTANCE'] },
     { key: 'contractorName', label: 'Contractor Name', required: false, aliases: ['CONTRACTOR', 'CON NAME', 'CON'] },
     { key: 'directTeamName', label: 'Direct Team', required: false, aliases: ['DIRECT LABOR', 'TEAM', 'STAFF'] },
 ];
+
+const IGNORED_ALIASES = ['S/N', 'SERIAL NO', 'WEB PORTAL TYPE', 'INDEX'];
 
 function parseExcelDate(value: any): Date | null {
     if (!value) return null;
@@ -59,21 +63,20 @@ function parseExcelDate(value: any): Date | null {
 }
 
 export default function SODImportPage() {
-    const [step, setStep] = useState(1); // 1: Upload, 2: Map, 3: Preview/Import
+    const [step, setStep] = useState(1);
     const [file, setFile] = useState<File | null>(null);
     const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
     const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
     const [systemMaterials, setSystemMaterials] = useState<SystemMaterial[]>([]);
 
-    const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({});
-    const [materialMappings, setMaterialMappings] = useState<Record<string, string>>({});
+    const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({}); // System Field Key -> Excel Header
+    const [itemMappings, setItemMappings] = useState<Record<string, string>>({});  // System Item ID -> Excel Header
 
     const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
     const [importing, setImporting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [importResults, setImportResults] = useState<{ success: number; failed: number; skippedNoOpmc: number; errors: string[] } | null>(null);
 
-    // Fetch system materials
     useEffect(() => {
         fetch('/api/service-orders/import')
             .then(res => res.json())
@@ -107,37 +110,39 @@ export default function SODImportPage() {
                 headers = jsonDataRaw[0].map(c => String(c || '').trim()).filter(h => h.length > 0);
             }
 
-            setExcelHeaders(headers);
-            autoMapFields(headers);
+            // Remove ignored headers
+            const filteredHeaders = headers.filter(h => !IGNORED_ALIASES.some(alias => h.toUpperCase().includes(alias)));
+            setExcelHeaders(filteredHeaders);
+
+            // Auto Map Logic
+            const fields: Record<string, string> = {};
+            const itemsMap: Record<string, string> = {};
+
+            SYSTEM_FIELDS.forEach(f => {
+                const matched = filteredHeaders.find(h =>
+                    f.aliases.some(alias => h.toUpperCase() === alias.toUpperCase()) ||
+                    h.toUpperCase() === f.key.toUpperCase()
+                );
+                if (matched) fields[f.key] = matched;
+            });
+
+            systemMaterials.forEach(m => {
+                const matched = filteredHeaders.find(h => {
+                    const hUpper = h.toUpperCase();
+                    return hUpper === m.name.toUpperCase() ||
+                        (m.code && hUpper === m.code.toUpperCase()) ||
+                        (m.commonName && hUpper === m.commonName.toUpperCase()) ||
+                        (m.source === 'SLT' && hUpper === 'F1') ||
+                        (m.source === 'COMPANY' && hUpper === 'G1');
+                });
+                if (matched) itemsMap[m.id] = matched;
+            });
+
+            setFieldMappings(fields);
+            setItemMappings(itemsMap);
             setStep(2);
         };
         reader.readAsArrayBuffer(selectedFile);
-    };
-
-    const autoMapFields = (headers: string[]) => {
-        const fields: Record<string, string> = {};
-        const mats: Record<string, string> = {};
-
-        SYSTEM_FIELDS.forEach(f => {
-            const matched = headers.find(h =>
-                f.aliases.some(alias => h.toUpperCase().includes(alias)) ||
-                h.toUpperCase() === f.key.toUpperCase()
-            );
-            if (matched) fields[f.key] = matched;
-        });
-
-        headers.forEach(h => {
-            const hUpper = h.toUpperCase();
-            const matchedMat = systemMaterials.find(m =>
-                m.name.toUpperCase() === hUpper ||
-                (m.code && m.code.toUpperCase() === hUpper) ||
-                m.name.toUpperCase().includes(hUpper)
-            );
-            if (matchedMat) mats[h] = matchedMat.name;
-        });
-
-        setFieldMappings(fields);
-        setMaterialMappings(mats);
     };
 
     const confirmMapping = () => {
@@ -167,10 +172,11 @@ export default function SODImportPage() {
                 materials: {}
             };
 
-            Object.entries(materialMappings).forEach(([excelHeader, systemMatName]) => {
+            // Use itemId as key to ensure uniqueness in backend
+            Object.entries(itemMappings).forEach(([itemId, excelHeader]) => {
                 const val = Number(row[excelHeader]);
                 if (!isNaN(val) && val > 0) {
-                    parsed.materials[systemMatName] = (parsed.materials[systemMatName] || 0) + val;
+                    parsed.materials[itemId] = (parsed.materials[itemId] || 0) + val;
                 }
             });
             return parsed;
@@ -178,7 +184,7 @@ export default function SODImportPage() {
 
         setParsedData(rows);
         setStep(3);
-        toast.success(`Data parsed successfully: ${rows.length} rows detected.`);
+        toast.success(`Mapping confirmed. ${rows.length} rows ready.`);
     };
 
     const handleImport = async () => {
@@ -214,7 +220,6 @@ export default function SODImportPage() {
 
         setImportResults({ success: successCount, failed: failedCount, skippedNoOpmc, errors });
         setImporting(false);
-        toast.info("Import process completed.");
     };
 
     return (
@@ -225,60 +230,69 @@ export default function SODImportPage() {
                 <div className="flex-1 overflow-y-auto p-6">
                     <div className="max-w-6xl mx-auto space-y-8">
 
-                        {/* Title Section */}
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-end bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                             <div>
-                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Legacy SOD Import</h1>
-                                <p className="text-slate-500 font-medium">Map Excel columns to System Materials and Import History</p>
+                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Bulk SOD Import (Legacy)</h1>
+                                <p className="text-slate-500 font-medium">Map system materials and SOD headers for data restoration.</p>
                             </div>
-                            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border shadow-sm">
-                                <div className={`w-3 h-3 rounded-full ${step === 3 ? 'bg-green-500' : 'bg-blue-500'} animate-pulse`} />
-                                <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Step {step} of 3</span>
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Step</span>
+                                <div className="flex gap-1.5">
+                                    {[1, 2, 3].map(s => (
+                                        <div key={s} className={`w-3 h-3 rounded-full ${step >= s ? 'bg-blue-600 shadow-lg shadow-blue-200' : 'bg-slate-200'}`} />
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Step 1: Upload */}
                         {step === 1 && (
-                            <Card className="border-2 border-dashed border-blue-100 bg-blue-50/10 shadow-xl shadow-blue-50/50">
-                                <CardContent className="py-16 text-center">
+                            <Card className="border-2 border-dashed border-blue-100 bg-white shadow-xl shadow-blue-50/20 rounded-3xl overflow-hidden">
+                                <CardContent className="py-20 text-center">
                                     <div className="relative group cursor-pointer inline-block">
                                         <input type="file" accept=".xlsx,.xls" onChange={handleFileChange} className="absolute inset-0 opacity-0 z-10 cursor-pointer" />
-                                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 transform group-hover:rotate-6 transition-all shadow-xl shadow-blue-200">
+                                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 w-28 h-28 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-2xl shadow-blue-300">
                                             <FileSpreadsheet className="w-12 h-12 text-white" />
                                         </div>
                                     </div>
-                                    <h2 className="text-2xl font-bold text-slate-800">Select Legacy Excel File</h2>
-                                    <p className="text-slate-500 mt-2 max-w-sm mx-auto">Upload the spreadsheet containing historical SOD and material consumption data.</p>
-                                    <Button variant="outline" className="mt-8 px-8 py-6 rounded-2xl border-2 hover:bg-slate-50">Browse Computer</Button>
+                                    <h2 className="text-2xl font-black text-slate-800">Drop your legacy Excel here</h2>
+                                    <p className="text-slate-400 mt-2 max-w-sm mx-auto font-medium">We'll automatically detect headers and materials to save you time.</p>
+                                    <div className="mt-10 flex items-center justify-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-blue-500" /> Supports .xlsx</span>
+                                        <div className="w-1 h-1 rounded-full bg-slate-300" />
+                                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-blue-500" /> Detects F1/G1</span>
+                                    </div>
                                 </CardContent>
                             </Card>
                         )}
 
-                        {/* Step 2: Mapping */}
                         {step === 2 && (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
-                                {/* Basic Fields */}
-                                <Card className="border-0 shadow-2xl shadow-slate-200/50">
-                                    <CardHeader className="bg-slate-50/50 border-b p-6">
-                                        <CardTitle className="text-lg flex items-center gap-2 text-slate-700">
-                                            <Layout className="w-5 h-5 text-blue-500" />
-                                            Primary Data Mapping
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
+                                <Card className="border-0 shadow-2xl shadow-slate-200/50 rounded-3xl overflow-hidden">
+                                    <CardHeader className="bg-slate-50/50 p-6 border-b border-slate-100">
+                                        <CardTitle className="text-xl font-black flex items-center gap-3 text-slate-800">
+                                            <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
+                                                <Layout className="w-5 h-5 text-blue-600" />
+                                            </div>
+                                            SOD Columns
                                         </CardTitle>
-                                        <CardDescription>Match core order information fields from Excel</CardDescription>
+                                        <CardDescription className="font-medium">Map SOD specific fields to Excel headers</CardDescription>
                                     </CardHeader>
-                                    <CardContent className="p-6 space-y-5">
+                                    <CardContent className="p-6 space-y-6">
                                         {SYSTEM_FIELDS.map(field => (
-                                            <div key={field.key} className="flex flex-col gap-1.5">
-                                                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-tighter ml-1">
-                                                    {field.label} {field.required && <span className="text-rose-500 text-xs">*</span>}
-                                                </Label>
+                                            <div key={field.key} className="space-y-1.5">
+                                                <div className="flex justify-between items-center ml-1">
+                                                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                                                        {field.label} {field.required && <span className="text-rose-500">*</span>}
+                                                    </Label>
+                                                    {fieldMappings[field.key] && <span className="text-[10px] text-emerald-500 font-bold">Auto-Matched</span>}
+                                                </div>
                                                 <Select value={fieldMappings[field.key]} onValueChange={(val) => setFieldMappings(p => ({ ...p, [field.key]: val }))}>
-                                                    <SelectTrigger className="h-11 border-slate-200 shadow-sm bg-white rounded-xl">
-                                                        <SelectValue placeholder="Skip Field" />
+                                                    <SelectTrigger className="h-12 border-slate-200 shadow-sm bg-white rounded-2xl font-bold text-slate-700">
+                                                        <SelectValue placeholder="-- Ignore this column --" />
                                                     </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="none">-- Skip --</SelectItem>
-                                                        {excelHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                                                    <SelectContent className="rounded-2xl border-slate-200 shadow-2xl">
+                                                        <SelectItem value="none" className="text-slate-400 font-medium">None / Ignore</SelectItem>
+                                                        {excelHeaders.map(h => <SelectItem key={h} value={h} className="font-bold">{h}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -286,37 +300,51 @@ export default function SODImportPage() {
                                     </CardContent>
                                 </Card>
 
-                                {/* Material Mapping */}
                                 <div className="space-y-6">
-                                    <Card className="border-0 shadow-2xl shadow-indigo-100 overflow-hidden">
-                                        <CardHeader className="bg-indigo-50/50 border-b p-6">
-                                            <CardTitle className="text-lg flex items-center gap-2 text-indigo-900">
-                                                <Package className="w-5 h-5 text-indigo-500" />
-                                                Material Usage Mapping
+                                    <Card className="border-0 shadow-2xl shadow-indigo-100/50 rounded-3xl overflow-hidden">
+                                        <CardHeader className="bg-indigo-50/30 p-6 border-b border-indigo-50">
+                                            <CardTitle className="text-xl font-black flex items-center gap-3 text-indigo-900">
+                                                <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                                                    <Package className="w-5 h-5 text-indigo-600" />
+                                                </div>
+                                                Material Assignment
                                             </CardTitle>
-                                            <CardDescription>Select Excel columns that represent materials</CardDescription>
+                                            <CardDescription className="font-medium">Map System Items to Excel columns</CardDescription>
                                         </CardHeader>
                                         <CardContent className="p-0">
-                                            <ScrollArea className="h-[430px]">
+                                            <ScrollArea className="h-[460px]">
                                                 <div className="p-6 space-y-4">
-                                                    {excelHeaders.filter(h => !Object.values(fieldMappings).includes(h)).map(header => (
-                                                        <div key={header} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-all flex flex-col gap-3">
-                                                            <div className="flex justify-between items-center px-1">
-                                                                <span className="text-xs font-bold text-slate-600 truncate max-w-[180px]" title={header}>{header}</span>
-                                                                {materialMappings[header] && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                                                    <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex gap-3 mb-2">
+                                                        <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                                        <p className="text-xs font-medium text-amber-800 leading-relaxed">
+                                                            Select the Excel column that holds the <b>Quantity</b> for each material.
+                                                            Ex: "F1" or "Drop Wire Length".
+                                                        </p>
+                                                    </div>
+
+                                                    {systemMaterials.map(m => (
+                                                        <div key={m.id} className="p-4 rounded-2xl bg-slate-50/50 border border-slate-100 hover:border-indigo-200 hover:bg-white transition-all duration-300 group">
+                                                            <div className="flex justify-between items-center mb-3 px-1">
+                                                                <div className="flex flex-col">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-xs font-black text-slate-800 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{m.name}</span>
+                                                                        {m.source && (
+                                                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${m.source === 'SLT' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                                                {m.source}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="text-[10px] font-bold text-slate-400">{m.code ? `CODE: ${m.code}` : 'SYSTEM ITEM'}</span>
+                                                                </div>
+                                                                {itemMappings[m.id] && <div className="bg-emerald-500 w-2 h-2 rounded-full shadow-lg shadow-emerald-200" />}
                                                             </div>
-                                                            <Select value={materialMappings[header] || "none"} onValueChange={(val) => setMaterialMappings(p => ({ ...p, [header]: val }))}>
-                                                                <SelectTrigger className="h-10 bg-white border-slate-200 rounded-xl text-xs">
-                                                                    <SelectValue placeholder="Identify Material" />
+                                                            <Select value={itemMappings[m.id] || "none"} onValueChange={(val) => setItemMappings(p => ({ ...p, [m.id]: val }))}>
+                                                                <SelectTrigger className="h-10 bg-white border-slate-200 rounded-xl text-xs font-bold text-slate-600">
+                                                                    <SelectValue placeholder="Map to column" />
                                                                 </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="none">-- Not a material --</SelectItem>
-                                                                    {systemMaterials.map(m => (
-                                                                        <SelectItem key={m.id} value={m.name} className="py-2">
-                                                                            <span className="text-[10px] font-bold text-slate-400 mr-2">[{m.code || 'NO-CODE'}]</span>
-                                                                            <span className="text-xs font-medium">{m.name}</span>
-                                                                        </SelectItem>
-                                                                    ))}
+                                                                <SelectContent className="rounded-xl">
+                                                                    <SelectItem value="none">-- Select Column --</SelectItem>
+                                                                    {excelHeaders.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
@@ -326,7 +354,7 @@ export default function SODImportPage() {
                                         </CardContent>
                                     </Card>
 
-                                    <Button onClick={confirmMapping} className="w-full h-16 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 text-lg font-black shadow-xl shadow-blue-200 hover:scale-[0.99] transition-all">
+                                    <Button onClick={confirmMapping} className="w-full h-16 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-700 text-lg font-black shadow-2xl shadow-blue-200 hover:scale-[0.98] active:scale-95 transition-all">
                                         Confirm Mapping & Preview Data
                                         <ArrowRight className="ml-2 w-6 h-6" />
                                     </Button>
@@ -334,79 +362,77 @@ export default function SODImportPage() {
                             </div>
                         )}
 
-                        {/* Step 3: Preview and Progress */}
                         {step === 3 && (
-                            <div className="space-y-6 animate-in zoom-in-95 duration-500">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <Card className="bg-white border-0 shadow-lg p-6 flex flex-col items-center justify-center text-center">
-                                        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-3">
-                                            <Table className="text-blue-600 w-6 h-6" />
+                            <Card className="border-0 shadow-2xl rounded-[2.5rem] overflow-hidden">
+                                <CardContent className="p-0">
+                                    <div className="bg-slate-900 p-10 text-white flex justify-between items-center">
+                                        <div className="flex gap-10">
+                                            <div><p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Records</p><p className="text-4xl font-black italic">{parsedData.length}</p></div>
+                                            <div className="w-px bg-slate-700 mx-2" />
+                                            <div><p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Mapped Items</p><p className="text-4xl font-black italic">{Object.keys(itemMappings).length}</p></div>
                                         </div>
-                                        <p className="text-3xl font-black text-slate-800">{parsedData.length}</p>
-                                        <p className="text-xs font-bold uppercase text-slate-400 tracking-widest mt-1">Total Records</p>
-                                    </Card>
+                                        <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800 rounded-2xl font-bold" onClick={() => setStep(2)}>
+                                            <Settings2 className="w-5 h-5 mr-2" /> Edit Mappings
+                                        </Button>
+                                    </div>
 
-                                    <Card className="bg-white border-0 shadow-lg p-6 flex flex-col items-center justify-center text-center outline outline-2 outline-emerald-500/20">
-                                        <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center mb-3 text-emerald-600">
-                                            <CheckCircle2 className="w-6 h-6" />
-                                        </div>
-                                        <p className="text-3xl font-black text-slate-800">{Object.keys(materialMappings).length}</p>
-                                        <p className="text-xs font-bold uppercase text-slate-400 tracking-widest mt-1">Material Columns</p>
-                                    </Card>
-
-                                    <Button variant="ghost" className="h-full border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 hover:text-blue-500" onClick={() => setStep(2)}>
-                                        <Settings2 className="w-6 h-6 mb-2" />
-                                        <span className="text-sm font-bold">Edit Mappings</span>
-                                    </Button>
-                                </div>
-
-                                {importing && (
-                                    <Card className="p-8 border-0 shadow-2xl">
-                                        <div className="flex justify-between items-end mb-4">
-                                            <div>
-                                                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                                                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                                                    Importing Records...
-                                                </h3>
-                                                <p className="text-slate-500 text-sm mt-1">Processing batch transactions to database</p>
+                                    <div className="p-10 space-y-8">
+                                        {importing && (
+                                            <div className="bg-blue-50 p-8 rounded-3xl border border-blue-100 flex flex-col gap-4">
+                                                <div className="flex justify-between items-end">
+                                                    <div>
+                                                        <h3 className="text-2xl font-black text-blue-900 italic">Processing...</h3>
+                                                        <p className="text-blue-600 font-bold text-sm">Uploading data batches to cloud server</p>
+                                                    </div>
+                                                    <span className="text-5xl font-black text-blue-600 italic tracking-tighter">{progress}%</span>
+                                                </div>
+                                                <Progress value={progress} className="h-4 bg-white rounded-full overflow-hidden" />
                                             </div>
-                                            <span className="text-4xl font-black text-blue-600 italic">{progress}%</span>
-                                        </div>
-                                        <Progress value={progress} className="h-4 bg-slate-100" />
-                                    </Card>
-                                )}
+                                        )}
 
-                                {importResults && (
-                                    <Card className="bg-slate-900 text-white border-0 p-8 shadow-2xl">
-                                        <div className="grid grid-cols-3 gap-8 text-center border-b border-slate-700 pb-8 mb-8">
-                                            <div><p className="text-emerald-400 text-xs font-black uppercase mb-2">SUCCESS</p><p className="text-5xl font-black">{importResults.success}</p></div>
-                                            <div><p className="text-rose-400 text-xs font-black uppercase mb-2">FAILED</p><p className="text-5xl font-black">{importResults.failed}</p></div>
-                                            <div><p className="text-amber-400 text-xs font-black uppercase mb-2">SKIPPED</p><p className="text-5xl font-black">{importResults.skippedNoOpmc}</p></div>
-                                        </div>
-                                        {importResults.errors.length > 0 && (
-                                            <div className="space-y-2">
-                                                <p className="text-[10px] font-black text-slate-500 tracking-widest flex items-center gap-2">
-                                                    <AlertCircle className="w-3 h-3" /> RECENT ERROR LOGS
-                                                </p>
-                                                <div className="max-h-32 overflow-y-auto pr-2 space-y-1">
-                                                    {importResults.errors.slice(-10).map((err, i) => (
-                                                        <p key={i} className="text-[10px] font-mono text-rose-300 opacity-70 truncate">{err}</p>
-                                                    ))}
+                                        {importResults && (
+                                            <Card className="bg-slate-50 border-0 p-8 rounded-3xl">
+                                                <div className="grid grid-cols-3 gap-8 text-center bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-100">
+                                                    <div><p className="text-emerald-500 text-[10px] font-black uppercase mb-1">Success</p><p className="text-4xl font-black text-slate-800">{importResults.success}</p></div>
+                                                    <div><p className="text-rose-500 text-[10px] font-black uppercase mb-1">Failed</p><p className="text-4xl font-black text-slate-800">{importResults.failed}</p></div>
+                                                    <div><p className="text-amber-500 text-[10px] font-black uppercase mb-1">Skipped</p><p className="text-4xl font-black text-slate-800">{importResults.skippedNoOpmc}</p></div>
+                                                </div>
+                                                <Button className="w-full mt-10 h-14 bg-slate-900 text-white font-black rounded-2xl shadow-xl" onClick={() => window.location.reload()}>Finish Process</Button>
+                                            </Card>
+                                        )}
+
+                                        {!importing && !importResults && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 space-y-4">
+                                                    <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest">Preview First 5 Rows</h4>
+                                                    <div className="space-y-3">
+                                                        {parsedData.slice(0, 5).map((r, i) => (
+                                                            <div key={i} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 font-bold text-xs">
+                                                                <span className="text-slate-800">{r.voiceNumber}</span>
+                                                                <span className="text-slate-400">{r.rtom}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col justify-center gap-6">
+                                                    <div className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100">
+                                                        <p className="text-amber-800 text-xs font-bold flex items-center gap-2">
+                                                            <AlertCircle className="w-4 h-4" /> Ready for final import.
+                                                        </p>
+                                                        <p className="text-amber-700 text-[10px] mt-2 font-medium">Please ensure the RTOM codes match the database exactly.</p>
+                                                    </div>
+                                                    <Button onClick={handleImport} className="h-20 bg-blue-600 hover:bg-blue-700 text-white font-black text-xl rounded-3xl shadow-2xl shadow-blue-200">
+                                                        START DATA RESTORE
+                                                        <ArrowRight className="ml-4 w-8 h-8" />
+                                                    </Button>
                                                 </div>
                                             </div>
                                         )}
-                                        <Button className="w-full mt-8 bg-white text-slate-900 border-0 py-6 font-bold rounded-2xl" onClick={() => window.location.reload()}>Complete & Finish</Button>
-                                    </Card>
-                                )}
-
-                                {!importing && !importResults && (
-                                    <Button onClick={handleImport} className="w-full h-24 rounded-3xl bg-blue-600 hover:bg-blue-700 shadow-2xl shadow-blue-200 text-2xl font-black tracking-tighter">
-                                        START FINAL IMPORT
-                                        <ArrowRight className="ml-4 w-8 h-8" />
-                                    </Button>
-                                )}
-                            </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         )}
+
                     </div>
                 </div>
             </main>

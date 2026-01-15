@@ -191,9 +191,17 @@ export async function POST(request: Request) {
                     }> = [];
 
                     if (!skipMaterials && row.materials) {
-                        for (const [columnName, quantity] of Object.entries(row.materials)) {
+                        for (const [idOrAlias, quantity] of Object.entries(row.materials)) {
                             if (quantity && quantity > 0) {
-                                const itemId = aliasMap[columnName.toUpperCase().trim()];
+                                // Try finding by alias first (legacy support)
+                                let itemId = aliasMap[idOrAlias.toUpperCase().trim()];
+
+                                // If not found by alias, check if it's a direct itemId (cuid format usually starts with 'c')
+                                if (!itemId && idOrAlias.length >= 24) {
+                                    const exists = inventoryItems.find(item => item.id === idOrAlias);
+                                    if (exists) itemId = exists.id;
+                                }
+
                                 if (itemId) {
                                     materialUsageData.push({
                                         item: { connect: { id: itemId } },
@@ -291,6 +299,7 @@ export async function GET() {
                 id: true,
                 code: true,
                 name: true,
+                source: true,
                 commonName: true,
                 importAliases: true
             },
