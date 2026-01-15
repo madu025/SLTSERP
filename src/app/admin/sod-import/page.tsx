@@ -54,6 +54,7 @@ export default function SODImportPage() {
     const [progress, setProgress] = useState(0);
     const [importResults, setImportResults] = useState<{ success: number; failed: number; skippedNoOpmc: number; errors: string[] } | null>(null);
     const [skipMaterials, setSkipMaterials] = useState(false);
+    const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
 
     // Get unique RTOMs from parsed data
     const uniqueRtoms = [...new Set(parsedData.map(r => r.rtom).filter(Boolean))];
@@ -75,33 +76,52 @@ export default function SODImportPage() {
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null }) as Record<string, unknown>[];
 
-                // Parse rows
+                // Parse rows with robust header matching
                 const rows: ParsedRow[] = jsonData.map((row, index) => {
+                    // Helper to get value by flexible key matching (case insensitive, trimmed)
+                    const getVal = (possibleKeys: string[]) => {
+                        const keys = Object.keys(row);
+                        for (const pk of possibleKeys) {
+                            const target = pk.toUpperCase().trim();
+                            const foundKey = keys.find(k => k.toUpperCase().trim() === target);
+                            if (foundKey) return row[foundKey];
+                        }
+                        return null;
+                    };
+
                     const parsed: ParsedRow = {
                         serialNo: index + 1,
-                        rtom: String(row['RTOM'] || ''),
-                        voiceNumber: String(row['TP NUMBER'] || ''),
-                        orderType: String(row['SERVICE ORDER TYPE (Create, Migration,Modify)'] || 'CREATE'),
-                        receivedDate: parseExcelDate(row['SOD RECEIVED DATE']),
-                        completedDate: parseExcelDate(row['SOD COMPLETE DATE']),
-                        package: String(row['FTTH_PACKAGE'] || ''),
-                        dropWireDistance: parseFloat(String(row['DW-RT'] || '0')) || 0,
-                        contractorName: String(row['Contractor Names'] || ''),
-                        directTeamName: String(row['Direct labor Names'] || ''),
+                        rtom: String(getVal(['RTOM']) || ''),
+                        voiceNumber: String(getVal(['TP NUMBER', 'VOICE NUMBER', 'CIRCUIT']) || ''),
+                        orderType: String(getVal(['SERVICE ORDER TYPE (Create, Migration,Modify)', 'ORDER TYPE', 'SERVICE TYPE']) || 'CREATE'),
+                        receivedDate: parseExcelDate(getVal(['SOD RECEIVED DATE', 'RECEIVED DATE'])),
+                        completedDate: parseExcelDate(getVal(['SOD COMPLETE DATE', 'COMPLETED DATE', 'COMPLETED ON'])),
+                        package: String(getVal(['FTTH_PACKAGE', 'PACKAGE', 'PKG']) || ''),
+                        dropWireDistance: parseFloat(String(getVal(['DW-RT', 'DROP WIRE', 'DW']) || '0')) || 0,
+                        contractorName: String(getVal(['Contractor Names', 'CONTRACTOR']) || ''),
+                        directTeamName: String(getVal(['Direct labor Names', 'DIRECT TEAM']) || ''),
                         materials: {}
                     };
 
-                    // Extract material quantities
+                    // Extract material quantities (also with flexible matching)
+                    const keys = Object.keys(row);
                     for (const col of MATERIAL_COLUMNS) {
-                        const val = row[col];
-                        if (val && typeof val === 'number' && val > 0) {
-                            parsed.materials[col] = val;
+                        const target = col.toUpperCase().trim();
+                        const foundKey = keys.find(k => k.toUpperCase().trim() === target);
+                        if (foundKey) {
+                            const val = row[foundKey];
+                            if (val && typeof val === 'number' && val > 0) {
+                                parsed.materials[col] = val;
+                            }
                         }
                     }
 
                     return parsed;
                 });
 
+                if (jsonData.length > 0) {
+                    setDetectedHeaders(Object.keys(jsonData[0]));
+                }
                 setParsedData(rows);
                 toast.success(`Parsed ${rows.length} rows from Excel`);
             } catch (err) {
@@ -251,6 +271,26 @@ export default function SODImportPage() {
                                         )}
                                     </label>
                                 </div>
+
+                                {/* Debug: Show detected headers if all empty */}
+                                {file && detectedHeaders.length > 0 && parsedData.every(r => !r.rtom && !r.voiceNumber) && (
+                                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <p className="text-sm font-medium text-amber-800 flex items-center gap-2 mb-2">
+                                            <AlertCircle className="w-4 h-4" />
+                                            Column Mapping Issue Detected
+                                        </p>
+                                        <p className="text-xs text-amber-700 mb-2">
+                                            The system couldn&apos;t match the columns automatically. Please ensure your Excel has headers like &quot;RTOM&quot;, &quot;TP NUMBER&quot;, etc.
+                                        </p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {detectedHeaders.map((h, i) => (
+                                                <span key={i} className="px-1.5 py-0.5 bg-white border rounded text-[10px] text-slate-600">
+                                                    {h}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Options */}
                                 <div className="mt-4 flex items-center gap-2">
