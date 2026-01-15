@@ -31,12 +31,11 @@ interface PATOrder {
 export default function PATStatusPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-    const [view, setView] = useState('ACCEPTED'); // ACCEPTED, REJECTED, OPMC_REJECTED
+    const [view, setView] = useState('OPMC_REJECTED'); // REJECTED, OPMC_REJECTED
 
 
     const tabs = [
         { id: 'OPMC_REJECTED', label: 'OPMC PAT REJECT' },
-        { id: 'ACCEPTED', label: 'SLT APPROVED' },
         { id: 'REJECTED', label: 'SLT REJECTED' }
     ];
 

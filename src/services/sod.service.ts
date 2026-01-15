@@ -632,15 +632,14 @@ export class ServiceOrderService {
             try {
                 const res = await this.syncPatResults(opmc.id, opmc.rtom, hoRejected);
                 totalUpdated += res.updated;
-            } catch (err) { console.error(`PAT/Rejection Sync failed for ${opmc.rtom}:`, err); }
+            } catch (err) {
+                console.error(`PAT/Rejection Sync failed for ${opmc.rtom}:`, err);
+            }
         }
 
-        // DISABLED: Too heavy for the system, causing 504 timeouts
-        // const hoApprovedStats = await this.syncHoApprovedResults();
-        const hoApprovedStats = { totalCached: 0, totalUpdated: 0 };
-
-        return { totalUpdated, hoApproved: hoApprovedStats };
+        return { totalUpdated, hoApproved: { totalCached: 0, totalUpdated: 0 } };
     }
+
 
     /**
      * Optimized HO Approved Sync with DB Caching
