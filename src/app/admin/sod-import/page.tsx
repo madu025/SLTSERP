@@ -74,16 +74,47 @@ export default function SODImportPage() {
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null }) as Record<string, unknown>[];
+                const jsonDataRaw = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as unknown[][];
+
+                // 1. Find the header row (the one that contains RTOM or TP NUMBER)
+                let headerRowIndex = -1;
+                for (let i = 0; i < Math.min(jsonDataRaw.length, 10); i++) {
+                    const row = jsonDataRaw[i];
+                    const rowStr = JSON.stringify(row).toUpperCase();
+                    if (rowStr.includes('RTOM') || rowStr.includes('TP NUMBER') || rowStr.includes('COMPLETED DATE')) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+
+                if (headerRowIndex === -1) headerRowIndex = 0; // Default to first row
+
+                // 2. Parse data using the detected header row
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                    range: headerRowIndex,
+                    defval: null
+                }) as Record<string, unknown>[];
 
                 // Parse rows with robust header matching
                 const rows: ParsedRow[] = jsonData.map((row, index) => {
-                    // Helper to get value by flexible key matching (case insensitive, trimmed)
+                    // Helper to get value by flexible key matching (case insensitive, trimmed, partial)
                     const getVal = (possibleKeys: string[]) => {
                         const keys = Object.keys(row);
+
+                        // Exact match first
                         for (const pk of possibleKeys) {
                             const target = pk.toUpperCase().trim();
                             const foundKey = keys.find(k => k.toUpperCase().trim() === target);
+                            if (foundKey) return row[foundKey];
+                        }
+
+                        // Partial match second (e.g. "RTOM CODE" matches "RTOM")
+                        for (const pk of possibleKeys) {
+                            const target = pk.toUpperCase().trim();
+                            const foundKey = keys.find(k => {
+                                const kUpper = k.toUpperCase().trim();
+                                return kUpper.includes(target) || target.includes(kUpper);
+                            });
                             if (foundKey) return row[foundKey];
                         }
                         return null;
@@ -92,14 +123,14 @@ export default function SODImportPage() {
                     const parsed: ParsedRow = {
                         serialNo: index + 1,
                         rtom: String(getVal(['RTOM']) || ''),
-                        voiceNumber: String(getVal(['TP NUMBER', 'VOICE NUMBER', 'CIRCUIT']) || ''),
-                        orderType: String(getVal(['SERVICE ORDER TYPE (Create, Migration,Modify)', 'ORDER TYPE', 'SERVICE TYPE']) || 'CREATE'),
-                        receivedDate: parseExcelDate(getVal(['SOD RECEIVED DATE', 'RECEIVED DATE'])),
+                        voiceNumber: String(getVal(['TP NUMBER', 'VOICE NUMBER', 'CIRCUIT', 'TEL', 'PHONE']) || ''),
+                        orderType: String(getVal(['SERVICE ORDER TYPE (Create, Migration,Modify)', 'ORDER TYPE', 'SERVICE TYPE', 'TASK']) || 'CREATE'),
+                        receivedDate: parseExcelDate(getVal(['SOD RECEIVED DATE', 'RECEIVED DATE', 'RECEIVED ON'])),
                         completedDate: parseExcelDate(getVal(['SOD COMPLETE DATE', 'COMPLETED DATE', 'COMPLETED ON'])),
                         package: String(getVal(['FTTH_PACKAGE', 'PACKAGE', 'PKG']) || ''),
-                        dropWireDistance: parseFloat(String(getVal(['DW-RT', 'DROP WIRE', 'DW']) || '0')) || 0,
-                        contractorName: String(getVal(['Contractor Names', 'CONTRACTOR']) || ''),
-                        directTeamName: String(getVal(['Direct labor Names', 'DIRECT TEAM']) || ''),
+                        dropWireDistance: parseFloat(String(getVal(['DW-RT', 'DROP WIRE', 'DW', 'DISTANCE']) || '0')) || 0,
+                        contractorName: String(getVal(['Contractor Names', 'CONTRACTOR', 'CON NAME']) || ''),
+                        directTeamName: String(getVal(['Direct labor Names', 'DIRECT TEAM', 'LABOR', 'STAFF']) || ''),
                         materials: {}
                     };
 
@@ -107,7 +138,7 @@ export default function SODImportPage() {
                     const keys = Object.keys(row);
                     for (const col of MATERIAL_COLUMNS) {
                         const target = col.toUpperCase().trim();
-                        const foundKey = keys.find(k => k.toUpperCase().trim() === target);
+                        const foundKey = keys.find(k => k.toUpperCase().trim().includes(target));
                         if (foundKey) {
                             const val = row[foundKey];
                             if (val && typeof val === 'number' && val > 0) {
@@ -117,13 +148,20 @@ export default function SODImportPage() {
                     }
 
                     return parsed;
-                });
+                })
+                    // Filter out empty rows (where RTOM and VoiceNumber are missing)
+                    .filter(r => r.rtom || r.voiceNumber);
 
                 if (jsonData.length > 0) {
                     setDetectedHeaders(Object.keys(jsonData[0]));
                 }
                 setParsedData(rows);
-                toast.success(`Parsed ${rows.length} rows from Excel`);
+
+                if (rows.length === 0) {
+                    toast.error('Could not find any valid SOD rows. Check your columns.');
+                } else {
+                    toast.success(`Parsed ${rows.length} rows from Excel`);
+                }
             } catch (err) {
                 console.error('Excel parsing error:', err);
                 toast.error('Failed to parse Excel file');
