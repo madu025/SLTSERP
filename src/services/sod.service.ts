@@ -646,51 +646,69 @@ export class ServiceOrderService {
      * Reverted to per-RTOM loop because Global 'patsuccess' link returns 500 error in SLT API
      */
     /**
-     * Optimized HO Approved Sync using Global URL
-     * Fetches the massive global JSON and filters for new records only
+     * Robust HO Approved Sync
+     * Tries Global URL first, falls back to Regional Sync if Global fails (500 Error)
      */
     static async syncHoApprovedResults() {
-        console.log('[PAT-SYNC] Starting Global HO Approved sync...');
+        console.log('[PAT-SYNC] Starting HO Approved sync...');
 
         try {
-            // 1. Get the latest statusDate from DB for HO_APPROVED
+            // 1. Try Global Fetch first (Efficiency)
+            let apiData = await sltApiService.fetchHOApprovedGlobal();
+
+            if (!apiData || apiData.length === 0) {
+                console.log('[PAT-SYNC] Global fetch failed or returned empty. Falling back to Regional Sync (Divide and Conquer)...');
+
+                // 2. FALLBACK: Regional Loop (Smaller requests = More stable)
+                const allOpmcs = await prisma.oPMC.findMany({ select: { rtom: true } });
+                apiData = [];
+
+                for (const opmc of allOpmcs) {
+                    try {
+                        console.log(`[PAT-SYNC] Fetching regional PAT for ${opmc.rtom}...`);
+                        const regData = await sltApiService.fetchPATResults(opmc.rtom);
+                        if (regData.length > 0) {
+                            apiData.push(...regData);
+                            console.log(`[PAT-SYNC] Received ${regData.length} records for ${opmc.rtom}`);
+                        }
+                    } catch (e) {
+                        console.error(`[PAT-SYNC] Regional fetch failed for ${opmc.rtom}:`, e);
+                    }
+                }
+            }
+
+            if (!apiData || apiData.length === 0) {
+                console.log('[PAT-SYNC] No data received from any source (Global or Regional).');
+                return { totalCached: 0, totalUpdated: 0 };
+            }
+
+            console.log(`[PAT-SYNC] Total raw records received: ${apiData.length}`);
+
+            // 3. Date Filtering (Don't re-process old stuff unless within buffer)
             const latestStatus = await prisma.sLTPATStatus.findFirst({
                 where: { source: 'HO_APPROVED' },
                 orderBy: { statusDate: 'desc' },
                 select: { statusDate: true }
             });
-
-            // If we have data, we buffer back 2 days to ensure no gaps due to sync timing
             const filterDate = latestStatus?.statusDate
                 ? new Date(latestStatus.statusDate.getTime() - (2 * 24 * 60 * 60 * 1000))
-                : new Date(0); // If empty, process all (might be slow first time)
+                : new Date(0);
 
-            console.log(`[PAT-SYNC] Filtering for records newer than: ${filterDate.toISOString()}`);
-
-            // 2. Fetch the entire global JSON (Massive)
-            const apiData = await sltApiService.fetchHOApprovedGlobal();
-            if (!apiData || apiData.length === 0) {
-                console.log('[PAT-SYNC] No data received from global API.');
-                return { totalCached: 0, totalUpdated: 0 };
-            }
-
-            // 3. Filter for new records based on Date
-            const newRecords = apiData.filter(item => {
+            const filteredData = apiData.filter(item => {
                 const sDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
                 return sDate && sDate >= filterDate;
             });
 
-            console.log(`[PAT-SYNC] Found ${newRecords.length} records to process after filtering (of ${apiData.length} total).`);
+            console.log(`[PAT-SYNC] After date filtering, processing ${filteredData.length} relevant records.`);
+            if (filteredData.length === 0) return { totalCached: 0, totalUpdated: 0 };
 
-            if (newRecords.length === 0) return { totalCached: 0, totalUpdated: 0 };
-
-            // 4. Batch Upsert to SLTPATStatus (Cache)
-            // Note: We use createMany with skipDuplicates: true for speed
+            // 4. Batch Processing (1,000 at a time)
             const batchSize = 1000;
             let totalCached = 0;
+            let totalUpdated = 0;
 
-            for (let i = 0; i < newRecords.length; i += batchSize) {
-                const batch = newRecords.slice(i, i + batchSize);
+            for (let i = 0; i < filteredData.length; i += batchSize) {
+                const batch = filteredData.slice(i, i + batchSize);
                 const cacheData = batch.map(app => ({
                     soNum: app.SO_NUM,
                     status: 'PAT_PASSED',
@@ -707,61 +725,48 @@ export class ServiceOrderService {
                     statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE) as Date
                 }));
 
+                // Update Cache (Skip Duplicates)
                 const result = await prisma.sLTPATStatus.createMany({
                     data: cacheData,
                     skipDuplicates: true
                 });
                 totalCached += result.count;
 
-                // Also update any that were previously REJECTED but are now PASSED
+                // Update Matching ServiceOrders
                 const soNums = batch.map(b => b.SO_NUM);
-                await prisma.sLTPATStatus.updateMany({
-                    where: { soNum: { in: soNums }, status: { not: 'PAT_PASSED' } },
-                    data: { status: 'PAT_PASSED', source: 'HO_APPROVED', updatedAt: new Date() }
+                const ordersToUpdate = await prisma.serviceOrder.findMany({
+                    where: {
+                        soNum: { in: soNums },
+                        sltsStatus: 'COMPLETED',
+                        hoPatStatus: { not: 'PAT_PASSED' }
+                    },
+                    select: { id: true, soNum: true, sltsPatStatus: true }
                 });
 
-                if (i % 5000 === 0 || i + batchSize >= newRecords.length) {
-                    console.log(`[PAT-SYNC] Progress: ${Math.min(i + batchSize, newRecords.length)} / ${newRecords.length} records cached...`);
+                for (const order of ordersToUpdate) {
+                    const match = batch.find(b => b.SO_NUM === order.soNum);
+                    if (match) {
+                        await prisma.serviceOrder.update({
+                            where: { id: order.id },
+                            data: {
+                                hoPatStatus: 'PAT_PASSED',
+                                hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+                                opmcPatStatus: 'PAT_PASSED',
+                                isInvoicable: order.sltsPatStatus === 'PAT_PASSED'
+                            }
+                        });
+                        totalUpdated++;
+                    }
                 }
+
+                console.log(`[PAT-SYNC] Batch Progress: ${Math.min(i + batchSize, filteredData.length)} / ${filteredData.length} ...`);
             }
 
-            // 5. Update linked ServiceOrders in batches
-            let totalUpdated = 0;
-            const newSoNums = newRecords.map(r => r.SO_NUM);
-
-            // Find internal orders that match these new/recent PAT records
-            const matchingOrders = await prisma.serviceOrder.findMany({
-                where: {
-                    soNum: { in: newSoNums },
-                    sltsStatus: 'COMPLETED',
-                    hoPatStatus: { not: 'PAT_PASSED' }
-                },
-                select: { id: true, soNum: true, sltsPatStatus: true, isInvoicable: true }
-            });
-
-            for (const order of matchingOrders) {
-                const match = newRecords.find(r => r.SO_NUM === order.soNum);
-                if (match) {
-                    const statusDate = sltApiService.parseStatusDate(match.CON_STATUS_DATE);
-                    await prisma.serviceOrder.update({
-                        where: { id: order.id },
-                        data: {
-                            hoPatStatus: 'PAT_PASSED',
-                            hoPatDate: statusDate,
-                            opmcPatStatus: 'PAT_PASSED',
-                            // ELIGIBILITY: Part A invoice is ready when SLTS QC is passed
-                            isInvoicable: order.sltsPatStatus === 'PAT_PASSED'
-                        }
-                    });
-                    totalUpdated++;
-                }
-            }
-
-            console.log(`[PAT-SYNC] Sync complete. Cached: ${totalCached}, Updated: ${totalUpdated}`);
+            console.log(`[PAT-SYNC] HO Approved Sync complete. Cached: ${totalCached}, Updated: ${totalUpdated}`);
             return { totalCached, totalUpdated };
 
         } catch (err) {
-            console.error('[PAT-SYNC] Global HO Approved Sync Error:', err);
+            console.error('[PAT-SYNC] HO Approved Sync Failed:', err);
             return { totalCached: 0, totalUpdated: 0, error: String(err) };
         }
     }
