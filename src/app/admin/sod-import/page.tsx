@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Download, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, ArrowRight, Loader2, Settings2, Package } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface ParsedRow {
@@ -25,12 +26,22 @@ interface ParsedRow {
     materials: Record<string, number>;
 }
 
-// Material columns to extract
-const MATERIAL_COLUMNS = [
-    'F-1', 'G-1', 'DW-RT', 'L-HOOK', 'C-HOOK', 'TOP BOLT', 'E 1- ROSSET',
-    'FAC CONNECTORS', 'IN-W SINGLE PAIR', 'CABLE CAT5E', 'TL-N', 'CABLE TIE (PCs)',
-    'CONDUIT (m)', 'CONDUIT CLIPS', 'CON-NAIL', 'FLEXIBLE', 'CONNECTOR  RJ11',
-    'SINGLE ROSETTE', 'U CLIP', 'CONNECTOR RJ 45', 'CASING'
+interface SystemMaterial {
+    id: string;
+    name: string;
+    code: string | null;
+}
+
+const SYSTEM_FIELDS = [
+    { key: 'rtom', label: 'RTOM', required: true, aliases: ['RTOM', 'AREA'] },
+    { key: 'voiceNumber', label: 'Voice Number (TP)', required: true, aliases: ['TP NUMBER', 'VOICE', 'CIRCUIT', 'TEL'] },
+    { key: 'orderType', label: 'Order Type', required: false, aliases: ['ORDER TYPE', 'TASK', 'SERVICE TYPE'] },
+    { key: 'receivedDate', label: 'Received Date', required: false, aliases: ['RECEIVED DATE', 'SOD RECEIVED'] },
+    { key: 'completedDate', label: 'Completed Date', required: false, aliases: ['COMPLETED DATE', 'SOD COMPLETE DATE', 'DONE DATE'] },
+    { key: 'package', label: 'Package Name', required: false, aliases: ['PACKAGE', 'FTTH_PACKAGE', 'PKG'] },
+    { key: 'dropWireDistance', label: 'DW Distance', required: false, aliases: ['DW-RT', 'DROP WIRE', 'DW', 'DISTANCE'] },
+    { key: 'contractorName', label: 'Contractor Name', required: false, aliases: ['CONTRACTOR', 'CON NAME', 'CON'] },
+    { key: 'directTeamName', label: 'Direct Team', required: false, aliases: ['DIRECT LABOR', 'TEAM', 'STAFF'] },
 ];
 
 function parseExcelDate(value: unknown): Date | null {
@@ -40,148 +51,169 @@ function parseExcelDate(value: unknown): Date | null {
         const date = new Date((value - 25569) * 86400 * 1000);
         return isNaN(date.getTime()) ? null : date;
     }
-    if (typeof value === 'string') {
-        const date = new Date(value);
-        return isNaN(date.getTime()) ? null : date;
-    }
-    return null;
+    return typeof value === 'string' ? new Date(value) : null;
 }
 
 export default function SODImportPage() {
     const [file, setFile] = useState<File | null>(null);
+    const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
+    const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
+    const [systemMaterials, setSystemMaterials] = useState<SystemMaterial[]>([]);
+
+    // Mappings
+    const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({});
+    const [materialMappings, setMaterialMappings] = useState<Record<string, string>>({}); // Excel Header -> System Material Name
+
     const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
+    const [isMappingConfirmed, setIsMappingConfirmed] = useState(false);
     const [importing, setImporting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [importResults, setImportResults] = useState<{ success: number; failed: number; skippedNoOpmc: number; errors: string[] } | null>(null);
     const [skipMaterials, setSkipMaterials] = useState(false);
-    const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
 
-    // Get unique RTOMs from parsed data
-    const uniqueRtoms = [...new Set(parsedData.map(r => r.rtom).filter(Boolean))];
+    // Fetch material names from system
+    useEffect(() => {
+        const fetchMaterials = async () => {
+            try {
+                const res = await fetch('/api/service-orders/import'); // Using the helper GET in route.ts
+                const data = await res.json();
+                if (data.materials) setSystemMaterials(data.materials);
+            } catch (err) {
+                console.error("Failed to fetch materials", err);
+            }
+        };
+        fetchMaterials();
+    }, []);
 
+    // 1. Handle File Selection
     const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (!selectedFile) return;
 
         setFile(selectedFile);
+        setIsMappingConfirmed(false);
         setParsedData([]);
         setImportResults(null);
 
         const reader = new FileReader();
         reader.onload = (event) => {
-            try {
-                const data = new Uint8Array(event.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonDataRaw = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as unknown[][];
+            const data = new Uint8Array(event.target?.result as ArrayBuffer);
+            const wb = XLSX.read(data, { type: 'array', cellDates: true });
+            setWorkbook(wb);
 
-                // 1. Find the header row (the one that contains RTOM or TP NUMBER)
-                let headerRowIndex = -1;
-                for (let i = 0; i < Math.min(jsonDataRaw.length, 10); i++) {
-                    const row = jsonDataRaw[i];
-                    const rowStr = JSON.stringify(row).toUpperCase();
-                    if (rowStr.includes('RTOM') || rowStr.includes('TP NUMBER') || rowStr.includes('COMPLETED DATE')) {
-                        headerRowIndex = i;
-                        break;
-                    }
+            const worksheet = wb.Sheets[wb.SheetNames[0]];
+            const jsonDataRaw = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+            // Find header row
+            let headers: string[] = [];
+            for (let i = 0; i < Math.min(jsonDataRaw.length, 30); i++) {
+                const row = jsonDataRaw[i];
+                if (row && row.some(c => String(c || '').toUpperCase().includes('RTOM') || String(c || '').toUpperCase().includes('VOICE'))) {
+                    headers = row.map(c => String(c || '').trim()).filter(h => h.length > 0);
+                    break;
                 }
-
-                if (headerRowIndex === -1) headerRowIndex = 0; // Default to first row
-
-                // 2. Parse data using the detected header row
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-                    range: headerRowIndex,
-                    defval: null
-                }) as Record<string, unknown>[];
-
-                // Parse rows with robust header matching
-                const rows: ParsedRow[] = jsonData.map((row, index) => {
-                    // Helper to get value by flexible key matching (case insensitive, trimmed, partial)
-                    const getVal = (possibleKeys: string[]) => {
-                        const keys = Object.keys(row);
-
-                        // Exact match first
-                        for (const pk of possibleKeys) {
-                            const target = pk.toUpperCase().trim();
-                            const foundKey = keys.find(k => k.toUpperCase().trim() === target);
-                            if (foundKey) return row[foundKey];
-                        }
-
-                        // Partial match second (e.g. "RTOM CODE" matches "RTOM")
-                        for (const pk of possibleKeys) {
-                            const target = pk.toUpperCase().trim();
-                            const foundKey = keys.find(k => {
-                                const kUpper = k.toUpperCase().trim();
-                                return kUpper.includes(target) || target.includes(kUpper);
-                            });
-                            if (foundKey) return row[foundKey];
-                        }
-                        return null;
-                    };
-
-                    const parsed: ParsedRow = {
-                        serialNo: index + 1,
-                        rtom: String(getVal(['RTOM']) || ''),
-                        voiceNumber: String(getVal(['TP NUMBER', 'VOICE NUMBER', 'CIRCUIT', 'TEL', 'PHONE']) || ''),
-                        orderType: String(getVal(['SERVICE ORDER TYPE (Create, Migration,Modify)', 'ORDER TYPE', 'SERVICE TYPE', 'TASK']) || 'CREATE'),
-                        receivedDate: parseExcelDate(getVal(['SOD RECEIVED DATE', 'RECEIVED DATE', 'RECEIVED ON'])),
-                        completedDate: parseExcelDate(getVal(['SOD COMPLETE DATE', 'COMPLETED DATE', 'COMPLETED ON'])),
-                        package: String(getVal(['FTTH_PACKAGE', 'PACKAGE', 'PKG']) || ''),
-                        dropWireDistance: parseFloat(String(getVal(['DW-RT', 'DROP WIRE', 'DW', 'DISTANCE']) || '0')) || 0,
-                        contractorName: String(getVal(['Contractor Names', 'CONTRACTOR', 'CON NAME']) || ''),
-                        directTeamName: String(getVal(['Direct labor Names', 'DIRECT TEAM', 'LABOR', 'STAFF']) || ''),
-                        materials: {}
-                    };
-
-                    // Extract material quantities (also with flexible matching)
-                    const keys = Object.keys(row);
-                    for (const col of MATERIAL_COLUMNS) {
-                        const target = col.toUpperCase().trim();
-                        const foundKey = keys.find(k => k.toUpperCase().trim().includes(target));
-                        if (foundKey) {
-                            const val = row[foundKey];
-                            if (val && typeof val === 'number' && val > 0) {
-                                parsed.materials[col] = val;
-                            }
-                        }
-                    }
-
-                    return parsed;
-                })
-                    // Filter out empty rows (where RTOM and VoiceNumber are missing)
-                    .filter(r => r.rtom || r.voiceNumber);
-
-                if (jsonData.length > 0) {
-                    setDetectedHeaders(Object.keys(jsonData[0]));
-                }
-                setParsedData(rows);
-
-                if (rows.length === 0) {
-                    toast.error('Could not find any valid SOD rows. Check your columns.');
-                } else {
-                    toast.success(`Parsed ${rows.length} rows from Excel`);
-                }
-            } catch (err) {
-                console.error('Excel parsing error:', err);
-                toast.error('Failed to parse Excel file');
             }
+            if (headers.length === 0 && jsonDataRaw.length > 0) {
+                headers = jsonDataRaw[0].map(c => String(c || '').trim()).filter(h => h.length > 0);
+            }
+
+            setDetectedHeaders(headers);
+
+            // Auto-mapping Primary Fields
+            const initialFieldMappings: Record<string, string> = {};
+            SYSTEM_FIELDS.forEach(field => {
+                const found = headers.find(h =>
+                    field.aliases.some(alias => h.toUpperCase().includes(alias)) ||
+                    h.toUpperCase() === field.key.toUpperCase()
+                );
+                if (found) initialFieldMappings[field.key] = found;
+            });
+            setFieldMappings(initialFieldMappings);
+
+            // Auto-mapping Materials
+            const initialMatMappings: Record<string, string> = {};
+            headers.forEach(h => {
+                // If it looks like a material (usually single characters or codes like F-1, G-1)
+                // or matches a system material name
+                const hUpper = h.toUpperCase();
+                const matchedMat = systemMaterials.find(m =>
+                    m.name.toUpperCase().includes(hUpper) ||
+                    (m.code && m.code.toUpperCase() === hUpper) ||
+                    hUpper.includes(m.name.toUpperCase())
+                );
+                if (matchedMat) {
+                    initialMatMappings[h] = matchedMat.name;
+                }
+            });
+            setMaterialMappings(initialMatMappings);
         };
         reader.readAsArrayBuffer(selectedFile);
-    }, []);
+    }, [systemMaterials]);
 
-    const handleImport = async () => {
-        if (parsedData.length === 0) {
-            toast.error('No data to import');
-            return;
+    // 2. Process Data
+    const confirmMapping = () => {
+        if (!workbook) return;
+
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonDataRaw = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        let headerIdx = 0;
+        for (let i = 0; i < Math.min(jsonDataRaw.length, 30); i++) {
+            const rowStr = JSON.stringify(jsonDataRaw[i]).toUpperCase();
+            if (rowStr.includes('RTOM') || rowStr.includes('VOICE')) { headerIdx = i; break; }
         }
 
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: headerIdx }) as Record<string, any>[];
+
+        const rows: ParsedRow[] = jsonData.map((row, index) => {
+            const getMapVal = (key: string) => row[fieldMappings[key]] || null;
+
+            const parsed: ParsedRow = {
+                serialNo: index + 1,
+                rtom: String(getMapVal('rtom') || '').trim(),
+                voiceNumber: String(getMapVal('voiceNumber') || '').trim(),
+                orderType: String(getMapVal('orderType') || 'CREATE').trim(),
+                receivedDate: parseExcelDate(getMapVal('receivedDate')),
+                completedDate: parseExcelDate(getVal('completedDate')),
+                package: String(getMapVal('package') || '').trim(),
+                dropWireDistance: parseFloat(String(getMapVal('dropWireDistance') || '0')) || 0,
+                contractorName: String(getMapVal('contractorName') || '').trim(),
+                directTeamName: String(getMapVal('directTeamName') || '').trim(),
+                materials: {}
+            };
+
+            // Map materials based on manual mappings
+            Object.entries(materialMappings).forEach(([excelHeader, systemMatName]) => {
+                if (systemMatName && systemMatName !== "none") {
+                    const val = Number(row[excelHeader]);
+                    if (!isNaN(val) && val > 0) {
+                        parsed.materials[systemMatName] = val;
+                    }
+                }
+            });
+
+            return parsed;
+        }).filter(r => r.rtom || r.voiceNumber);
+
+        // Helper to get val inside mapping (just fixed a typo in previous draft)
+        function getVal(key: string) { return jsonData[0]?.[fieldMappings[key]]; }
+
+        if (rows.length === 0) {
+            toast.error("No valid data found with current mapping");
+        } else {
+            setParsedData(rows);
+            setIsMappingConfirmed(true);
+            toast.success(`Mapping confirmed for ${rows.length} rows`);
+        }
+    };
+
+    // 3. Batch Import
+    const handleImport = async () => {
+        if (parsedData.length === 0) return;
         setImporting(true);
         setProgress(0);
         setImportResults(null);
 
         try {
-            // Import in batches
             const BATCH_SIZE = 100;
             let successCount = 0;
             let failedCount = 0;
@@ -190,61 +222,32 @@ export default function SODImportPage() {
 
             for (let i = 0; i < parsedData.length; i += BATCH_SIZE) {
                 const batch = parsedData.slice(i, i + BATCH_SIZE);
-
                 const response = await fetch('/api/service-orders/import', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        rows: batch,
-                        skipMaterials
-                    })
+                    body: JSON.stringify({ rows: batch, skipMaterials })
                 });
 
                 const result = await response.json();
-
                 if (result.success) {
                     successCount += result.summary.success;
                     failedCount += result.summary.failed;
                     skippedNoOpmc += result.summary.skippedNoOpmc || 0;
-                    result.results
-                        .filter((r: { success: boolean }) => !r.success)
-                        .forEach((r: { voiceNumber: string; rtom: string; error: string }) => {
-                            errors.push(`[${r.rtom}] ${r.voiceNumber}: ${r.error}`);
-                        });
+                    result.results?.filter((r: any) => !r.success).forEach((r: any) => {
+                        errors.push(`Row ${i + result.results.indexOf(r) + 1}: ${r.error}`);
+                    });
                 } else {
                     failedCount += batch.length;
                     errors.push(result.error || 'Batch import failed');
                 }
-
                 setProgress(Math.round(((i + batch.length) / parsedData.length) * 100));
             }
-
             setImportResults({ success: successCount, failed: failedCount, skippedNoOpmc, errors });
-
-            if (failedCount === 0) {
-                toast.success(`Successfully imported ${successCount} SODs`);
-            } else {
-                toast.warning(`Imported ${successCount} SODs, ${failedCount} failed`);
-            }
-        } catch (err) {
-            console.error('Import error:', err);
-            toast.error('Import failed');
+        } catch (err: any) {
+            toast.error(`Import Error: ${err.message}`);
         } finally {
             setImporting(false);
         }
-    };
-
-    const downloadTemplate = () => {
-        const headers = [
-            'S/N', 'RTOM', 'TP NUMBER', 'SERVICE ORDER TYPE (Create, Migration,Modify)',
-            'SOD RECEIVED DATE', 'SOD COMPLETE DATE', 'FTTH_PACKAGE', 'DW-RT',
-            ...MATERIAL_COLUMNS, 'Direct labor Names', 'Contractor Names'
-        ];
-
-        const ws = XLSX.utils.aoa_to_sheet([headers]);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'SOD Import');
-        XLSX.writeFile(wb, 'SOD_Import_Template.xlsx');
     };
 
     return (
@@ -253,219 +256,215 @@ export default function SODImportPage() {
             <main className="flex-1 flex flex-col min-w-0">
                 <Header />
                 <div className="flex-1 overflow-y-auto p-6">
-                    <div className="max-w-4xl mx-auto space-y-6">
-
-                        {/* Header */}
-                        <div className="flex items-center justify-between">
+                    <div className="max-w-6xl mx-auto space-y-6">
+                        <div className="flex justify-between items-end">
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-800">Import Historical SODs</h1>
-                                <p className="text-slate-500 mt-1">Import completed service orders from Excel files (All RTOMs)</p>
+                                <h1 className="text-2xl font-bold text-slate-800">SOD Bulk Import (Legacy Data)</h1>
+                                <p className="text-slate-500 mt-1">Manual Mapping Mode — ensuring 100% material mapping accuracy</p>
                             </div>
-                            <Button variant="outline" onClick={downloadTemplate}>
-                                <Download className="w-4 h-4 mr-2" />
-                                Download Template
-                            </Button>
                         </div>
 
-                        {/* Step 1: Upload File */}
+                        {/* Step 1: Upload */}
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-lg flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm">1</span>
-                                    Upload Excel File
+                                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shadow-md">1</div>
+                                    Upload Excel
                                 </CardTitle>
-                                <CardDescription>
-                                    Upload your SOD Excel file. RTOM will be auto-detected from the RTOM column.
-                                </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-                                    <input
-                                        type="file"
-                                        accept=".xlsx,.xls"
-                                        onChange={handleFileChange}
-                                        className="hidden"
-                                        id="file-upload"
-                                    />
-                                    <label htmlFor="file-upload" className="cursor-pointer">
-                                        <FileSpreadsheet className="w-12 h-12 mx-auto text-slate-400 mb-4" />
-                                        {file ? (
-                                            <div>
-                                                <p className="font-medium text-slate-700">{file.name}</p>
-                                                <p className="text-sm text-slate-500 mt-1">
-                                                    {parsedData.length} rows parsed
-                                                </p>
-                                                {uniqueRtoms.length > 0 && (
-                                                    <p className="text-xs text-blue-600 mt-2">
-                                                        RTOMs detected: {uniqueRtoms.join(', ')}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div>
-                                                <p className="font-medium text-slate-700">Click to upload or drag and drop</p>
-                                                <p className="text-sm text-slate-500 mt-1">XLSX or XLS files only</p>
-                                            </div>
-                                        )}
-                                    </label>
-                                </div>
-
-                                {/* Debug: Show detected headers if all empty */}
-                                {file && detectedHeaders.length > 0 && parsedData.every(r => !r.rtom && !r.voiceNumber) && (
-                                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                        <p className="text-sm font-medium text-amber-800 flex items-center gap-2 mb-2">
-                                            <AlertCircle className="w-4 h-4" />
-                                            Column Mapping Issue Detected
-                                        </p>
-                                        <p className="text-xs text-amber-700 mb-2">
-                                            The system couldn&apos;t match the columns automatically. Please ensure your Excel has headers like &quot;RTOM&quot;, &quot;TP NUMBER&quot;, etc.
-                                        </p>
-                                        <div className="flex flex-wrap gap-1">
-                                            {detectedHeaders.map((h, i) => (
-                                                <span key={i} className="px-1.5 py-0.5 bg-white border rounded text-[10px] text-slate-600">
-                                                    {h}
-                                                </span>
-                                            ))}
-                                        </div>
+                                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center hover:border-blue-400 hover:bg-blue-50/20 transition-all cursor-pointer relative">
+                                    <input type="file" accept=".xlsx,.xls" onChange={handleFileChange} id="file-input" className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <FileSpreadsheet className="w-8 h-8 text-blue-600" />
                                     </div>
-                                )}
-
-                                {/* Options */}
-                                <div className="mt-4 flex items-center gap-2">
-                                    <Checkbox
-                                        id="skip-materials"
-                                        checked={skipMaterials}
-                                        onCheckedChange={(checked) => setSkipMaterials(checked as boolean)}
-                                    />
-                                    <label htmlFor="skip-materials" className="text-sm text-slate-600">
-                                        Skip material usage import (faster import)
-                                    </label>
+                                    <p className="text-xl font-semibold text-slate-700">{file ? file.name : "Choose CSV or Excel Profile"}</p>
+                                    <p className="text-sm text-slate-500 mt-2">Compatible formats: .xlsx, .xls, .csv</p>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* Step 2: Preview & Import */}
-                        {parsedData.length > 0 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm">2</span>
-                                        Preview & Import
-                                    </CardTitle>
-                                    <CardDescription>Review parsed data and start import</CardDescription>
+                        {/* Step 2: Mapping */}
+                        {file && detectedHeaders.length > 0 && (
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                {/* Field Mapping Card */}
+                                <Card className={isMappingConfirmed ? "opacity-60 pointer-events-none" : "border-2"}>
+                                    <CardHeader className="bg-slate-50/50 border-b">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shadow-md">2.1</div>
+                                            SOD Detail Mapping
+                                        </CardTitle>
+                                        <CardDescription>Match basic order details</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-6">
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {SYSTEM_FIELDS.map(field => (
+                                                <div key={field.key} className="grid grid-cols-3 items-center gap-4">
+                                                    <label className="text-sm font-medium text-slate-700">
+                                                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                                                    </label>
+                                                    <div className="col-span-2">
+                                                        <Select
+                                                            value={fieldMappings[field.key]}
+                                                            onValueChange={(val) => setFieldMappings(prev => ({ ...prev, [field.key]: val }))}
+                                                        >
+                                                            <SelectTrigger className="w-full bg-white">
+                                                                <SelectValue placeholder="Skip this field" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="none">-- Skip Field --</SelectItem>
+                                                                {detectedHeaders.map(h => (
+                                                                    <SelectItem key={h} value={h}>{h}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Material Mapping Card */}
+                                <Card className={isMappingConfirmed ? "opacity-60 pointer-events-none" : "border-2"}>
+                                    <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
+                                        <div>
+                                            <CardTitle className="text-lg flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold shadow-md">2.2</div>
+                                                Material Usage Mapping
+                                            </CardTitle>
+                                            <CardDescription>Match Excel material columns to System Items</CardDescription>
+                                        </div>
+                                        <div className="px-3 py-1 bg-purple-100 rounded-full text-[10px] font-bold text-purple-700 uppercase">
+                                            Manual Link
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="pt-6">
+                                        <div className="max-h-[500px] overflow-y-auto pr-2 space-y-4">
+                                            <p className="text-xs text-slate-400 italic mb-4">Select which Excel column represents a specific Material Item from the store.</p>
+
+                                            {detectedHeaders.filter(h => !Object.values(fieldMappings).includes(h)).map((header, idx) => (
+                                                <div key={idx} className="flex flex-col p-3 bg-slate-50/50 rounded-lg border border-slate-100 hover:border-purple-200 transition-colors">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-sm font-bold text-slate-700">{header}</span>
+                                                        <ArrowRight className="w-4 h-4 text-slate-300" />
+                                                    </div>
+                                                    <Select
+                                                        value={materialMappings[header] || "none"}
+                                                        onValueChange={(val) => setMaterialMappings(prev => ({ ...prev, [header]: val }))}
+                                                    >
+                                                        <SelectTrigger className="w-full bg-white h-9 border-purple-100 shadow-sm">
+                                                            <SelectValue placeholder="Not a material column" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">-- Not a material --</SelectItem>
+                                                            {systemMaterials.map(m => (
+                                                                <SelectItem key={m.id} value={m.name}>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Package className="w-3 h-3 text-slate-400" />
+                                                                        <span>{m.name}</span>
+                                                                    </div>
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {!isMappingConfirmed && (
+                                            <Button className="w-full mt-6 bg-blue-600 hover:bg-blue-700 py-6 font-bold text-lg" onClick={confirmMapping}>
+                                                Apply & Preview <CheckCircle2 className="w-5 h-5 ml-2" />
+                                            </Button>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {/* Step 3: Preview */}
+                        {isMappingConfirmed && parsedData.length > 0 && (
+                            <Card className="border-emerald-200 bg-emerald-50/10">
+                                <CardHeader className="flex flex-row items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold shadow-md">3</div>
+                                            Import Data
+                                        </CardTitle>
+                                        <CardDescription>Everything looks good. Ready to import.</CardDescription>
+                                    </div>
+                                    <Button variant="ghost" className="text-slate-500 hover:text-blue-600" onClick={() => setIsMappingConfirmed(false)}>
+                                        <Settings2 className="w-4 h-4 mr-2" /> Back to Mapping
+                                    </Button>
                                 </CardHeader>
                                 <CardContent>
-                                    {/* Preview Table */}
-                                    <div className="border rounded-lg overflow-hidden mb-4">
-                                        <div className="max-h-64 overflow-auto">
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-slate-50 sticky top-0">
-                                                    <tr>
-                                                        <th className="px-3 py-2 text-left">#</th>
-                                                        <th className="px-3 py-2 text-left">RTOM</th>
-                                                        <th className="px-3 py-2 text-left">TP Number</th>
-                                                        <th className="px-3 py-2 text-left">Order Type</th>
-                                                        <th className="px-3 py-2 text-left">Completed</th>
-                                                        <th className="px-3 py-2 text-left">Contractor</th>
-                                                        <th className="px-3 py-2 text-right">DW (m)</th>
+                                    {/* Small preview table */}
+                                    <div className="bg-white rounded-xl border shadow-sm mb-6 max-h-60 overflow-y-auto">
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-slate-50 sticky top-0 border-b">
+                                                <tr>
+                                                    <th className="p-3 text-left">RTOM</th>
+                                                    <th className="p-3 text-left">Voice</th>
+                                                    <th className="p-3 text-left">Materials Detected</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {parsedData.slice(0, 10).map((row, i) => (
+                                                    <tr key={i}>
+                                                        <td className="p-3 font-bold">{row.rtom}</td>
+                                                        <td className="p-3 font-mono">{row.voiceNumber}</td>
+                                                        <td className="p-3 truncate max-w-[300px]">
+                                                            {Object.entries(row.materials).map(([k, v]) => (
+                                                                <span key={k} className="inline-block px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded mr-1">
+                                                                    {k}: {v}
+                                                                </span>
+                                                            ))}
+                                                            {Object.keys(row.materials).length === 0 && <span className="text-slate-300 italic">No materials</span>}
+                                                        </td>
                                                     </tr>
-                                                </thead>
-                                                <tbody className="divide-y">
-                                                    {parsedData.slice(0, 10).map((row, idx) => (
-                                                        <tr key={idx} className="hover:bg-slate-50">
-                                                            <td className="px-3 py-2">{row.serialNo}</td>
-                                                            <td className="px-3 py-2 font-medium text-blue-600">{row.rtom}</td>
-                                                            <td className="px-3 py-2 font-mono">{row.voiceNumber}</td>
-                                                            <td className="px-3 py-2">{row.orderType}</td>
-                                                            <td className="px-3 py-2">
-                                                                {row.completedDate ? new Date(row.completedDate).toLocaleDateString() : '-'}
-                                                            </td>
-                                                            <td className="px-3 py-2">{row.contractorName || row.directTeamName || '-'}</td>
-                                                            <td className="px-3 py-2 text-right">{row.dropWireDistance}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        {parsedData.length > 10 && (
-                                            <div className="bg-slate-50 px-3 py-2 text-sm text-slate-500 text-center">
-                                                ...and {parsedData.length - 10} more rows
-                                            </div>
-                                        )}
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
 
-                                    {/* Progress */}
                                     {importing && (
-                                        <div className="mb-4">
-                                            <Progress value={progress} className="h-2" />
-                                            <p className="text-sm text-slate-500 mt-2 text-center">
-                                                Importing... {progress}%
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Results */}
-                                    {importResults && (
-                                        <div className="mb-4 p-4 bg-slate-50 rounded-lg">
-                                            <div className="flex items-center gap-4 flex-wrap">
-                                                <div className="flex items-center gap-2 text-emerald-600">
-                                                    <CheckCircle2 className="w-5 h-5" />
-                                                    <span className="font-medium">{importResults.success} Imported</span>
-                                                </div>
-                                                {importResults.failed > 0 && (
-                                                    <div className="flex items-center gap-2 text-red-600">
-                                                        <XCircle className="w-5 h-5" />
-                                                        <span className="font-medium">{importResults.failed} Failed</span>
-                                                    </div>
-                                                )}
-                                                {importResults.skippedNoOpmc > 0 && (
-                                                    <div className="flex items-center gap-2 text-amber-600">
-                                                        <AlertCircle className="w-5 h-5" />
-                                                        <span className="font-medium">{importResults.skippedNoOpmc} OPMC not found</span>
-                                                    </div>
-                                                )}
+                                        <div className="mb-6 space-y-2">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="font-bold">Progress</span>
+                                                <span className="font-bold text-emerald-600">{progress}%</span>
                                             </div>
-                                            {importResults.errors.length > 0 && (
-                                                <div className="mt-3 max-h-32 overflow-auto">
-                                                    {importResults.errors.slice(0, 10).map((err, i) => (
-                                                        <div key={i} className="text-sm text-red-600 flex items-start gap-1">
-                                                            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                                            {err}
-                                                        </div>
-                                                    ))}
-                                                    {importResults.errors.length > 10 && (
-                                                        <p className="text-sm text-slate-500 mt-2">
-                                                            ...and {importResults.errors.length - 10} more errors
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
+                                            <Progress value={progress} className="h-3 bg-white border" />
                                         </div>
                                     )}
 
-                                    {/* Import Button */}
+                                    {importResults && (
+                                        <Card className="mb-6 bg-slate-800 text-white border-0 overflow-hidden">
+                                            <CardContent className="p-6">
+                                                <div className="grid grid-cols-3 gap-6 text-center">
+                                                    <div><p className="text-emerald-400 text-xs uppercase font-bold mb-1">Success</p><p className="text-3xl font-black">{importResults.success}</p></div>
+                                                    <div><p className="text-red-400 text-xs uppercase font-bold mb-1">Failed</p><p className="text-3xl font-black">{importResults.failed}</p></div>
+                                                    <div><p className="text-amber-400 text-xs uppercase font-bold mb-1">Skipped</p><p className="text-3xl font-black">{importResults.skippedNoOpmc}</p></div>
+                                                </div>
+                                                {importResults.errors.length > 0 && (
+                                                    <div className="mt-4 p-3 bg-black/30 rounded text-left">
+                                                        <p className="text-[10px] text-slate-400 mb-2">LAST 5 ERRORS:</p>
+                                                        {importResults.errors.slice(-5).map((e, i) => <p key={i} className="text-[10px] text-red-300 font-mono truncate">{e}</p>)}
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
+
                                     <Button
                                         onClick={handleImport}
                                         disabled={importing}
-                                        className="w-full"
-                                        size="lg"
+                                        className="w-full py-8 text-xl font-black bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-200"
                                     >
-                                        {importing ? (
-                                            <>
-                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                Importing...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Upload className="w-4 h-4 mr-2" />
-                                                Import {parsedData.length} SODs
-                                            </>
-                                        )}
+                                        {importing ? <Loader2 className="w-6 h-6 animate-spin" /> : "START BULK IMPORT"}
                                     </Button>
                                 </CardContent>
                             </Card>
                         )}
-
                     </div>
                 </div>
             </main>
