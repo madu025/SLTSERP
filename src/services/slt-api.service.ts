@@ -137,6 +137,29 @@ export class SLTApiService {
     }
 
     /**
+     * Fetch HO Approved PAT Results by date (Smaller, more stable chunks)
+     * @param dateStr Format: YYYY-MM-DD
+     */
+    async fetchPATResultsByDate(dateStr: string): Promise<SLTPATData[]> {
+        try {
+            const url = `${this.baseUrl}?x=patsuccess&y=${dateStr}&con=SLTS`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                },
+                signal: AbortSignal.timeout(60000),
+            });
+            if (!response.ok) return [];
+            const data = await response.json();
+            return Array.isArray(data.data) ? data.data : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    /**
      * Fetch Regionally Rejected PAT Results
      */
     async fetchOpmcRejected(rtom: string): Promise<SLTPATData[]> {

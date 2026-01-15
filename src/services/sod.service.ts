@@ -657,28 +657,31 @@ export class ServiceOrderService {
             let apiData = await sltApiService.fetchHOApprovedGlobal();
 
             if (!apiData || apiData.length === 0) {
-                console.log('[PAT-SYNC] Global fetch failed or returned empty. Falling back to Regional Sync (Divide and Conquer)...');
+                console.log('[PAT-SYNC] Global fetch failed or returned empty. Falling back to Date-wise Sync (Last 30 days)...');
 
-                // 2. FALLBACK: Regional Loop (Smaller requests = More stable)
-                const allOpmcs = await prisma.oPMC.findMany({ select: { rtom: true } });
+                // 2. FALLBACK: Date Loop (Fetch day-by-day to avoid 500 errors)
                 apiData = [];
+                const now = new Date();
+                for (let d = 0; d < 30; d++) {
+                    const date = new Date(now);
+                    date.setDate(now.getDate() - d);
+                    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
 
-                for (const opmc of allOpmcs) {
                     try {
-                        console.log(`[PAT-SYNC] Fetching regional PAT for ${opmc.rtom}...`);
-                        const regData = await sltApiService.fetchPATResults(opmc.rtom);
-                        if (regData.length > 0) {
-                            apiData.push(...regData);
-                            console.log(`[PAT-SYNC] Received ${regData.length} records for ${opmc.rtom}`);
+                        console.log(`[PAT-SYNC] Fetching PAT results for date: ${dateStr}...`);
+                        const dayData = await sltApiService.fetchPATResultsByDate(dateStr);
+                        if (dayData && dayData.length > 0) {
+                            apiData.push(...dayData);
+                            console.log(`[PAT-SYNC] Received ${dayData.length} records for ${dateStr}`);
                         }
                     } catch (e) {
-                        console.error(`[PAT-SYNC] Regional fetch failed for ${opmc.rtom}:`, e);
+                        console.error(`[PAT-SYNC] Failed to fetch for date ${dateStr}:`, e);
                     }
                 }
             }
 
             if (!apiData || apiData.length === 0) {
-                console.log('[PAT-SYNC] No data received from any source (Global or Regional).');
+                console.log('[PAT-SYNC] No data received from any source (Global or Date-wise).');
                 return { totalCached: 0, totalUpdated: 0 };
             }
 
