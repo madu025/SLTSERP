@@ -100,6 +100,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
     const [user, setUser] = useState<any>(null);
+    const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
     // Modals State
     const [showManualModal, setShowManualModal] = useState(false);
@@ -237,6 +238,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+            setLastSyncTime(new Date());
             const message = `Sync completed: ${data.created} created, ${data.updated} updated${data.markedAsMissing > 0 ? `, ${data.markedAsMissing} marked as missing (highlighted in orange)` : ''}`;
             toast.success(message);
         },
@@ -481,17 +483,22 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">{pageTitle}</h1>
                                 <p className="text-[9px] text-slate-500 mt-0.5">Manage {filterType} OSP installations</p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 text-xs px-2"
+                                    className={`h-7 text-xs px-3 ${syncMutation.isPending ? 'bg-blue-50 border-blue-200' : ''}`}
                                     onClick={() => syncMutation.mutate()}
                                     disabled={!selectedRtomId || syncMutation.isPending}
                                 >
-                                    <RefreshCw className={`w-3 h-3 mr-1.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Sync
+                                    <RefreshCw className={`w-3 h-3 mr-1.5 ${syncMutation.isPending ? 'animate-spin text-blue-600' : ''}`} />
+                                    {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
                                 </Button>
+                                {lastSyncTime && (
+                                    <span className="text-[9px] text-slate-400 font-medium hidden sm:block">
+                                        Synced: {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                )}
                                 <Button
                                     size="sm"
                                     className="h-7 text-xs px-2"
