@@ -277,7 +277,7 @@ export async function POST(request: Request) {
     }
 }
 
-// Get import column mappings
+// Get all materials for manual mapping
 export async function GET() {
     try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -292,10 +292,7 @@ export async function GET() {
         });
         const items = itemsRaw as Array<{ id: string; code: string; name: string; importAliases: string[] }>;
 
-        // Only return items that have aliases
-        const itemsWithAliases = items.filter(i => i.importAliases && i.importAliases.length > 0);
-
-        return NextResponse.json({ items: itemsWithAliases });
+        return NextResponse.json({ materials: items });
     } catch (error) {
         return handleApiError(error);
     }
