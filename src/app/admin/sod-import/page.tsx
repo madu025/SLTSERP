@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     FileSpreadsheet, ArrowRight,
-    CheckCircle2, Database, Package, Layout, AlertCircle
+    CheckCircle2, Database, Package, Layout, AlertCircle, Download
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -295,6 +295,31 @@ export default function SODImportPage() {
                                     </div>
                                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">Upload Legacy File</h2>
                                     <p className="text-slate-400 mt-2 font-medium">Drop your Excel file to start mapping SOD data and Materials.</p>
+
+                                    <div className="mt-8 flex justify-center gap-4">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                // Generate Template Excel
+                                                const headers = [
+                                                    'RTOM', 'TP NUMBER', 'ORDER TYPE', 'RECEIVED DATE', 'COMPLETED DATE',
+                                                    'PACKAGE', 'CONTRACTOR', 'DIRECT LABOR',
+                                                    // Material columns - fetch from systemMaterials
+                                                    ...systemMaterials.map(m => m.name)
+                                                ];
+                                                const ws = XLSX.utils.aoa_to_sheet([headers]);
+                                                // Set column widths
+                                                ws['!cols'] = headers.map(() => ({ wch: 18 }));
+                                                const wb = XLSX.utils.book_new();
+                                                XLSX.utils.book_append_sheet(wb, ws, 'SOD_Template');
+                                                XLSX.writeFile(wb, 'SOD_Import_Template.xlsx');
+                                            }}
+                                            className="h-12 px-6 rounded-2xl font-bold text-slate-600 border-2 border-slate-200 hover:bg-slate-50"
+                                        >
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Download Template
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         )}
