@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 async function standaloneSync() {
     console.log('--- Standalone PAT Sync Start ---');
-    const url = 'https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patsuccess&y=&con=SLTS';
+    const url = 'https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patsuccess&con=SLTS';
 
     try {
         console.log(`Fetching data from SLT API...`);

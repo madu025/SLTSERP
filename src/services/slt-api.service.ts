@@ -110,7 +110,7 @@ export class SLTApiService {
      */
     async fetchHOApprovedGlobal(): Promise<SLTPATData[]> {
         try {
-            const url = `${this.baseUrl}?x=patsuccess&y=&con=SLTS`;
+            const url = `${this.baseUrl}?x=patsuccess&con=SLTS`;
             console.log(`[SLT-API] Fetching global HO Approved results from: ${url}`);
 
             const response = await fetch(url, {
@@ -165,7 +165,7 @@ export class SLTApiService {
     async fetchHORejected(): Promise<SLTPATData[]> {
         try {
             // Note: Uses dynamic_load.php as per user instructions
-            const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patreject&y=&con=SLTS`;
+            const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patreject&con=SLTS`;
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
