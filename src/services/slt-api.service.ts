@@ -100,7 +100,7 @@ export class SLTApiService {
             if (!response.ok) return [];
             const data = await response.json();
             return Array.isArray(data.data) ? data.data : [];
-        } catch (error) {
+        } catch {
             return [];
         }
     }
@@ -111,16 +111,24 @@ export class SLTApiService {
     async fetchHOApprovedGlobal(): Promise<SLTPATData[]> {
         try {
             const url = `${this.baseUrl}?x=patsuccess&y=&con=SLTS`;
+            console.log(`[SLT-API] Fetching global HO Approved results from: ${url}`);
+
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json, text/plain, */*',
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 },
-                signal: AbortSignal.timeout(120000),
+                // Increased timeout to 5 minutes for massive JSON
+                signal: AbortSignal.timeout(300000),
             });
+
             if (!response.ok) throw new Error(`HO Approved API returned ${response.status}`);
+
             const data = await response.json();
+            const count = Array.isArray(data.data) ? data.data.length : 0;
+            console.log(`[SLT-API] Successfully fetched ${count} HO Approved records.`);
+
             return Array.isArray(data.data) ? data.data : [];
         } catch (error) {
             console.error(`SLT Global HO Approved API error:`, error);
