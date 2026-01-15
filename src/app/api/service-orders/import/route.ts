@@ -277,20 +277,27 @@ export async function POST(request: Request) {
     }
 }
 
-// Get all materials for manual mapping
+// Get only assigned materials (MaterialStandards) for manual mapping
+// Get items for mapping (focused on OSP FTTH items)
 export async function GET() {
     try {
+        // Fetch items that are marked for OSP FTTH context
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const itemsRaw = await (prisma.inventoryItem as any).findMany({
+        const items = await (prisma.inventoryItem as any).findMany({
+            where: {
+                isOspFtth: true
+            },
             select: {
                 id: true,
                 code: true,
                 name: true,
+                commonName: true,
                 importAliases: true
             },
-            orderBy: { name: 'asc' }
+            orderBy: {
+                name: 'asc'
+            }
         });
-        const items = itemsRaw as Array<{ id: string; code: string; name: string; importAliases: string[] }>;
 
         return NextResponse.json({ materials: items });
     } catch (error) {
