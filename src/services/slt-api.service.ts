@@ -25,15 +25,15 @@ export interface SLTServiceOrderData {
 
 export interface SLTPATData {
     RTOM: string;
-    LEA?: string; // LEA
+    LEA?: string; // LEA (Optional - missing in HO Rejected)
     SO_NUM: string;
     VOICENUMBER: string | null; // CIRCUIT
     S_TYPE: string; // SERVICE
     ORDER_TYPE: string; // ORDER TYPE
-    CON_WORO_TASK_NAME?: string; // TASK
-    PKG?: string; // PACKAGE
+    CON_WORO_TASK_NAME?: string; // TASK (Optional)
+    PKG?: string; // PACKAGE (Optional)
     CON_STATUS: string; // STATUS
-    CON_NAME: string; // CONTRACTOR
+    CON_NAME?: string; // CONTRACTOR (Optional)
     PAT_USER: string | null; // PAT USER
     CON_STATUS_DATE: string; // COMPLETED ON / RECEIVED ON
 }
@@ -87,7 +87,7 @@ export class SLTApiService {
 
     async fetchPATResults(rtom: string): Promise<SLTPATData[]> {
         try {
-            const url = `${this.baseUrl}?x=patreslt&z=SLTS_${rtom}`;
+            const url = `${this.baseUrl}?x=patsuccess&z=SLTS_${rtom}`;
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {

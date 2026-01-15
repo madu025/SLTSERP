@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { handleApiError } from '@/lib/api-utils';
+import { Prisma } from '@prisma/client';
 
 export async function GET(request: Request) {
     try {
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
         const endDate = searchParams.get('endDate');
         const skip = (page - 1) * limit;
 
-        const where: any = {};
+        const where: Prisma.SLTPATStatusWhereInput = {};
 
         if (search) {
             where.soNum = { contains: search, mode: 'insensitive' };
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
         }
 
         if (startDate && endDate) {
-            where.createdAt = {
+            where.statusDate = {
                 gte: new Date(startDate),
                 lte: new Date(endDate)
             };
@@ -45,33 +46,20 @@ export async function GET(request: Request) {
         }
 
         const [results, total, rtoms] = await Promise.all([
-            (prisma as any).sLTPATStatus.findMany({
-                where: {
-                    ...(search ? { soNum: { contains: search, mode: 'insensitive' } } : {}),
-                    ...(rtom !== 'ALL' ? { rtom } : {}),
-                    ...(status !== 'ALL' ? { source: status } : {}),
-                    ...(startDate && endDate ? { statusDate: { gte: new Date(startDate), lte: new Date(endDate) } } : {})
-                },
+            prisma.sLTPATStatus.findMany({
+                where,
                 skip,
                 take: limit,
                 orderBy: { statusDate: 'desc' },
-                include: {
-                    // Try to link with our local ServiceOrder to show internal status
-                }
             }),
-            (prisma as any).sLTPATStatus.count({
-                where: {
-                    ...(search ? { soNum: { contains: search, mode: 'insensitive' } } : {}),
-                    ...(rtom !== 'ALL' ? { rtom } : {}),
-                    ...(status !== 'ALL' ? { source: status } : {}),
-                    ...(startDate && endDate ? { statusDate: { gte: new Date(startDate), lte: new Date(endDate) } } : {})
-                }
+            prisma.sLTPATStatus.count({
+                where
             }),
             prisma.oPMC.findMany({ select: { rtom: true } })
         ]);
 
         // Enrich results with ServiceOrder internal info
-        const soNums = results.map((r: any) => r.soNum);
+        const soNums = results.map(r => r.soNum);
         const internalOrders = await prisma.serviceOrder.findMany({
             where: { soNum: { in: soNums } },
             select: {
@@ -82,7 +70,7 @@ export async function GET(request: Request) {
             }
         });
 
-        const orders = results.map((r: any) => {
+        const orders = results.map(r => {
             const internal = internalOrders.find(io => io.soNum === r.soNum);
 
             return {

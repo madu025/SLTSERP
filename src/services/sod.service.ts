@@ -21,7 +21,7 @@ interface SltRejection {
     ORDER_TYPE: string;
     CON_WORO_TASK_NAME?: string;
     PKG?: string;
-    CON_NAME: string;
+    CON_NAME?: string;
     PAT_USER: string | null;
     CON_STATUS_DATE: string;
     RTOM?: string;
