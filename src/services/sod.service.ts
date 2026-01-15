@@ -643,23 +643,19 @@ export class ServiceOrderService {
 
     /**
      * Optimized HO Approved Sync with DB Caching
-     * Handles 100k+ records by using bulk DB operations
+     * Reverted to per-RTOM loop because Global 'patsuccess' link returns 500 error in SLT API
      */
     static async syncHoApprovedResults() {
-        console.log('[PAT-SYNC] Starting optimized HO Approved sync with bulk cache...');
+        console.log('[PAT-SYNC] Starting HO Approved sync (Regional Loop)...');
 
-        // Fetch RTOMs where we have pending work
-        const pendingRtoms = await prisma.serviceOrder.findMany({
-            where: { hoPatStatus: { not: 'PAT_PASSED' } },
-            select: { rtom: true },
-            distinct: ['rtom']
-        });
+        const allOpmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
+        let totalUpdated = 0;
+        let totalCached = 0;
 
-        let updated = 0;
-        for (const { rtom } of pendingRtoms) {
+        for (const opmc of allOpmcs) {
             try {
-                console.log(`[PAT-SYNC] Fetching HO Approved for ${rtom}...`);
-                const apiApproved = await sltApiService.fetchPATResults(rtom);
+                // Fetch using Regional URL: x=patsuccess&z=SLTS_${rtom}
+                const apiApproved = await sltApiService.fetchPATResults(opmc.rtom);
                 if (apiApproved.length === 0) continue;
 
                 // 1. Bulk Cache into SLTPATStatus
@@ -667,7 +663,7 @@ export class ServiceOrderService {
                     soNum: app.SO_NUM,
                     status: 'PAT_PASSED',
                     source: 'HO_APPROVED',
-                    rtom,
+                    rtom: opmc.rtom,
                     lea: app.LEA,
                     voiceNumber: app.VOICENUMBER,
                     sType: app.S_TYPE,
@@ -679,19 +675,26 @@ export class ServiceOrderService {
                     statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE)
                 }));
 
-                // High performance bulk create (skip existing to avoid O(N^2) upsert)
-                await prisma.sLTPATStatus.createMany({
+                const result = await prisma.sLTPATStatus.createMany({
                     data: cacheData,
                     skipDuplicates: true
                 });
+                totalCached += result.count;
 
-                // 2. Update Our ServiceOrders for this RTOM
+                // 2. Handle Transitions (REJECTED -> PASSED)
+                const approvedSoNums = apiApproved.map(a => a.SO_NUM);
+                await prisma.sLTPATStatus.updateMany({
+                    where: { soNum: { in: approvedSoNums }, status: { not: 'PAT_PASSED' } },
+                    data: { status: 'PAT_PASSED', source: 'HO_APPROVED', updatedAt: new Date() }
+                });
+
+                // 3. Update Internal ServiceOrders
                 const ordersToUpdate = await prisma.serviceOrder.findMany({
                     where: {
-                        rtom,
-                        sltsStatus: 'COMPLETED', // ONLY update if manually completed by us
+                        rtom: opmc.rtom,
+                        sltsStatus: 'COMPLETED',
                         hoPatStatus: { not: 'PAT_PASSED' },
-                        soNum: { in: apiApproved.map(a => a.SO_NUM) }
+                        soNum: { in: approvedSoNums }
                     }
                 });
 
@@ -707,20 +710,18 @@ export class ServiceOrderService {
                             }
                         });
 
-                        // Re-check Invoicable: Only SLTS PAT PASS is required for Invoice Eligibility
-                        const canInvoice = finalOrder.sltsPatStatus === 'PAT_PASSED';
-                        if (canInvoice !== finalOrder.isInvoicable) {
-                            await prisma.serviceOrder.update({ where: { id: order.id }, data: { isInvoicable: canInvoice } });
+                        if (finalOrder.sltsPatStatus === 'PAT_PASSED' && !finalOrder.isInvoicable) {
+                            await prisma.serviceOrder.update({ where: { id: order.id }, data: { isInvoicable: true } });
                         }
-                        updated++;
+                        totalUpdated++;
                     }
                 }
             } catch (err) {
-                console.error(`[PAT-SYNC] HO Approved Batch Sync failed for ${rtom}:`, err);
+                console.error(`[PAT-SYNC] HO Approved Sync failed for ${opmc.rtom}:`, err);
             }
         }
 
-        return { updated };
+        return { totalCached, totalUpdated };
     }
 
     static async syncAllOpmcs() {
@@ -744,6 +745,8 @@ export class ServiceOrderService {
         const patSync = await this.syncAllPatResults();
         const finalStats = {
             patUpdated: patSync.totalUpdated,
+            patCached: patSync.hoApproved.totalCached,
+            patApproved: patSync.hoApproved.totalUpdated,
             created,
             updated,
             failed,

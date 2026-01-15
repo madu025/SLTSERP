@@ -43,7 +43,7 @@ export interface SLTApiResponse {
 }
 
 export class SLTApiService {
-    private baseUrl = 'https://serviceportal.slt.lk/iShamp/contr/dynamic_load';
+    private baseUrl = 'https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php';
 
     async fetchServiceOrders(rtom: string): Promise<SLTServiceOrderData[]> {
         try {
@@ -86,6 +86,7 @@ export class SLTApiService {
     }
 
     async fetchPATResults(rtom: string): Promise<SLTPATData[]> {
+        // Fallback or Regional specific if ever needed
         try {
             const url = `${this.baseUrl}?x=patsuccess&z=SLTS_${rtom}`;
             const response = await fetch(url, {
@@ -93,16 +94,36 @@ export class SLTApiService {
                 headers: {
                     'Accept': 'application/json, text/plain, */*',
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9',
                 },
-                signal: AbortSignal.timeout(60000),
+                signal: AbortSignal.timeout(120000),
             });
-
-            if (!response.ok) throw new Error(`SLT PAT API returned ${response.status}`);
+            if (!response.ok) return [];
             const data = await response.json();
             return Array.isArray(data.data) ? data.data : [];
         } catch (error) {
-            console.error(`SLT PAT API error for RTOM ${rtom}:`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch Global Head Office Approved PAT Results (Fixed URL)
+     */
+    async fetchHOApprovedGlobal(): Promise<SLTPATData[]> {
+        try {
+            const url = `${this.baseUrl}?x=patsuccess&y=&con=SLTS`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                },
+                signal: AbortSignal.timeout(120000),
+            });
+            if (!response.ok) throw new Error(`HO Approved API returned ${response.status}`);
+            const data = await response.json();
+            return Array.isArray(data.data) ? data.data : [];
+        } catch (error) {
+            console.error(`SLT Global HO Approved API error:`, error);
             return [];
         }
     }

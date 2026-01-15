@@ -89,9 +89,16 @@ export async function POST(request: Request) {
         // Get all inventory items with their import aliases
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const inventoryItemsRaw = await (prisma.inventoryItem as any).findMany({
-            select: { id: true, code: true, name: true, importAliases: true }
+            select: { id: true, code: true, name: true, importAliases: true, unitPrice: true, costPrice: true }
         });
-        const inventoryItems = inventoryItemsRaw as Array<{ id: string; code: string; name: string; importAliases: string[] }>;
+        const inventoryItems = inventoryItemsRaw as Array<{
+            id: string;
+            code: string | null;
+            name: string;
+            importAliases: string[];
+            unitPrice: number | null;
+            costPrice: number | null;
+        }>;
 
         // Build alias -> itemId map
         const aliasMap: Record<string, string> = {};
@@ -182,32 +189,56 @@ export async function POST(request: Request) {
                         ? opmcContractors[row.contractorName.toUpperCase().trim()] || null
                         : null;
 
-                    // Prepare material usage data
+                    // Prepare revenue and payment snapshots (Matching system completion logic)
+                    let revenueAmount = 0;
+                    let contractorAmount = 0;
+
+                    // 1. Calculate Revenue
+                    const revConfig = await prisma.sODRevenueConfig.findFirst({
+                        where: { OR: [{ rtomId: opmc.id }, { rtomId: null }], isActive: true },
+                        orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
+                    });
+                    if (revConfig) revenueAmount = revConfig.revenuePerSOD ?? 0;
+
+                    // 2. Calculate Contractor Payment
+                    const payConfig = await prisma.contractorPaymentConfig.findFirst({
+                        where: { OR: [{ rtomId: opmc.id }, { rtomId: null }], isActive: true },
+                        include: { tiers: true },
+                        orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
+                    });
+                    if (payConfig && payConfig.tiers && payConfig.tiers.length > 0) {
+                        const dist = row.dropWireDistance || 0;
+                        const matchingTier = payConfig.tiers.find(t => dist >= t.minDistance && dist <= t.maxDistance);
+                        if (matchingTier) contractorAmount = matchingTier.amount;
+                        else {
+                            const sorted = [...payConfig.tiers].sort((a, b) => b.maxDistance - a.maxDistance);
+                            if (dist > sorted[0].maxDistance) contractorAmount = sorted[0].amount;
+                        }
+                    }
+
+                    // Prepare material usage data (Strict ID based from frontend mapping)
                     const materialUsageData: Array<{
-                        item: { connect: { id: string } };
+                        itemId: string;
                         quantity: number;
                         unit: string;
                         usageType: string;
+                        unitPrice: number;
+                        costPrice: number;
                     }> = [];
 
                     if (!skipMaterials && row.materials) {
                         for (const [idOrAlias, quantity] of Object.entries(row.materials)) {
                             if (quantity && quantity > 0) {
-                                // Try finding by alias first (legacy support)
-                                let itemId = aliasMap[idOrAlias.toUpperCase().trim()];
-
-                                // If not found by alias, check if it's a direct itemId (cuid format usually starts with 'c')
-                                if (!itemId && idOrAlias.length >= 24) {
-                                    const exists = inventoryItems.find(item => item.id === idOrAlias);
-                                    if (exists) itemId = exists.id;
-                                }
-
-                                if (itemId) {
+                                // Match with metadata
+                                const item = inventoryItems.find(i => i.id === idOrAlias || i.importAliases.includes(idOrAlias));
+                                if (item) {
                                     materialUsageData.push({
-                                        item: { connect: { id: itemId } },
+                                        itemId: item.id,
                                         quantity: quantity,
                                         unit: 'Nos',
-                                        usageType: 'USED'
+                                        usageType: 'USED',
+                                        unitPrice: item.unitPrice || 0,
+                                        costPrice: item.costPrice || 0
                                     });
                                 }
                             }
@@ -225,6 +256,8 @@ export async function POST(request: Request) {
                         completedDate: row.completedDate ? new Date(row.completedDate) : null,
                         package: row.package || null,
                         dropWireDistance: row.dropWireDistance || 0,
+                        revenueAmount,
+                        contractorAmount,
                         status: 'COMPLETED',
                         sltsStatus: 'COMPLETED',
                         isLegacyImport: true,

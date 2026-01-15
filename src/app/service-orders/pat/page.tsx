@@ -10,6 +10,22 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
+interface PATOrder {
+    id: string;
+    soNum: string;
+    rtom: string;
+    lea?: string;
+    voiceNumber: string | null;
+    sType: string;
+    orderType: string;
+    task?: string;
+    package?: string;
+    conName?: string;
+    patUser: string | null;
+    status: string;
+    statusDate: string | null;
+}
+
 export default function PATStatusPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
@@ -67,14 +83,11 @@ export default function PATStatusPage() {
                         {/* Controls Bar - Blue buttons, Search on right */}
                         <div className="bg-white p-4 flex flex-col md:flex-row justify-between items-center gap-4 border-x border-slate-100">
                             <div className="flex items-center gap-2">
-                                <button className="px-5 py-2.5 bg-[#1d56d1] text-white rounded-[3px] font-medium text-xs hover:bg-blue-800 transition-all shadow-sm">
-                                    Copy
-                                </button>
-                                <button className="px-5 py-2.5 bg-[#1d56d1] text-white rounded-[3px] font-medium text-xs hover:bg-blue-800 transition-all shadow-sm">
-                                    Excel
-                                </button>
                                 {view !== 'OPMC_REJECTED' && (
-                                    <button className="px-5 py-2.5 bg-[#1d56d1] text-white rounded-[3px] font-medium text-xs hover:bg-blue-800 transition-all shadow-sm">
+                                    <button
+                                        onClick={() => window.print()}
+                                        className="px-5 py-2.5 bg-[#1d56d1] text-white rounded-[3px] font-medium text-xs hover:bg-blue-800 transition-all shadow-sm"
+                                    >
                                         Print
                                     </button>
                                 )}
@@ -133,7 +146,7 @@ export default function PATStatusPage() {
                                                     ))}
                                                 </tr>
                                             ))
-                                        ) : data?.orders?.map((order: any) => (
+                                        ) : data?.orders?.map((order: PATOrder) => (
                                             <tr key={order.id} className="hover:bg-slate-50 transition-colors divide-x divide-slate-50 h-12">
                                                 {isOpmcReject ? (
                                                     <>
