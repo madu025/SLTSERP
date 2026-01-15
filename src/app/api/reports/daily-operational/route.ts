@@ -54,6 +54,49 @@ export async function GET(request: Request) {
 
         const sourceMap = new Map(rawSources.map(s => [s.id, s.materialSource]));
 
+        // NEW: Fetch "In Hand Morning" - SODs that were pending at midnight (start of today)
+        // These are SODs that existed before today AND were not completed/returned before today
+        const inHandMorningOrders = await prisma.serviceOrder.groupBy({
+            by: ['rtom', 'orderType'],
+            where: {
+                createdAt: { lt: startDate }, // Created before today
+                OR: [
+                    { completedDate: null }, // Never completed
+                    { completedDate: { gte: startDate } }, // Completed today or later
+                ],
+                AND: [
+                    {
+                        OR: [
+                            { sltsStatus: { not: 'RETURN' } }, // Not returned
+                            { statusDate: { gte: startDate } }, // Or returned today or later
+                        ]
+                    }
+                ]
+            },
+            _count: { id: true }
+        });
+
+        // Build a map: rtom -> { nc, rl, data, total }
+        const inHandMorningMap = new Map<string, { nc: number; rl: number; data: number; total: number }>();
+        inHandMorningOrders.forEach(row => {
+            const rtom = row.rtom;
+            if (!inHandMorningMap.has(rtom)) {
+                inHandMorningMap.set(rtom, { nc: 0, rl: 0, data: 0, total: 0 });
+            }
+            const entry = inHandMorningMap.get(rtom)!;
+            const orderType = (row.orderType || '').toUpperCase();
+            const count = row._count.id;
+
+            if (orderType.includes('CREATE') && !orderType.includes('CREATE-OR')) {
+                entry.nc += count;
+            } else if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION')) {
+                entry.rl += count;
+            } else {
+                entry.data += count;
+            }
+            entry.total += count;
+        });
+
         // Attach materialSource to orders in memory
         opmcs.forEach(opmc => {
             opmc.serviceOrders.forEach(order => {
@@ -90,8 +133,8 @@ export async function GET(request: Request) {
                 return 'data';
             };
 
-            // In Hand Morning (orders that existed before today)
-            const inHandMorning = {
+            // In Hand Morning (from precomputed map - SODs pending at midnight)
+            const inHandMorning = inHandMorningMap.get(opmc.rtom) || {
                 nc: 0,
                 rl: 0,
                 data: 0,
@@ -160,22 +203,10 @@ export async function GET(request: Request) {
             orders.forEach(order => {
                 const category = categorizeOrder(order);
 
-                // Check if received today
+                // Check if received today (created today)
                 if (order.createdAt >= startDate && order.createdAt <= endDate) {
                     received[category]++;
                     received.total++;
-                } else {
-                    // In hand from before (only if not already completed/returned before today)
-                    const isStillPending =
-                        order.sltsStatus === 'INPROGRESS' ||
-                        order.sltsStatus === 'ASSIGNED' ||
-                        (order.sltsStatus === 'COMPLETED' && order.completedDate && order.completedDate >= startDate) ||
-                        (order.sltsStatus === 'RETURN' && order.statusDate && order.statusDate >= startDate);
-
-                    if (isStillPending) {
-                        inHandMorning[category]++;
-                        inHandMorning.total++;
-                    }
                 }
 
                 // Check if completed today
