@@ -144,6 +144,9 @@ model ServiceOrder {
   restoreRequests       RestoreRequest[]
   materialUsage         SODMaterialUsage[] // Material tracking
   
+  // Legacy Import Flag
+  isLegacyImport        Boolean   @default(false) // True if imported from Excel (historical)
+  
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   
@@ -797,6 +800,9 @@ model InventoryItem {
   // New Fields for OSP Management
   commonName  String?  // Grouping name (e.g. "FAC", "Drop Wire")
   isOspFtth   Boolean? @default(false) // Filter for OSP FTTH context
+  
+  // Excel Import Mapping
+  importAliases String[] // Column names in Excel that map to this item e.g. ["F-1", "F1", "F CONNECTOR"]
 
   @@index([code])
   @@index([type])

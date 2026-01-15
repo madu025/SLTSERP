@@ -1,3 +1,4 @@
+import React from 'react';
 import {
     LayoutDashboard,
     FileText,
@@ -15,8 +16,7 @@ import {
     Shield,
     FolderKanban,
     Upload,
-    History,
-    RefreshCw
+    History
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -56,7 +56,7 @@ export const ROLE_GROUPS = {
 export interface MenuItem {
     title: string;
     path: string;
-    icon: any;
+    icon: React.ComponentType<{ className?: string }>;
     allowedRoles: string[]; // List of roles allowed to see this item
     submenu?: MenuItem[];
 }
@@ -383,6 +383,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/settings',
                 icon: Settings,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS]
+            },
+            {
+                title: 'SOD Import',
+                path: '/admin/sod-import',
+                icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
             }
         ]
     }
