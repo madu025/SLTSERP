@@ -5,11 +5,10 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, AlertCircle, ArrowRight, Loader2, Settings2, Package } from 'lucide-react';
+import { FileSpreadsheet, ArrowRight, Loader2, Settings2, Package, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface ParsedRow {
@@ -39,7 +38,7 @@ const SYSTEM_FIELDS = [
     { key: 'receivedDate', label: 'Received Date', required: false, aliases: ['RECEIVED DATE', 'SOD RECEIVED'] },
     { key: 'completedDate', label: 'Completed Date', required: false, aliases: ['COMPLETED DATE', 'SOD COMPLETE DATE', 'DONE DATE'] },
     { key: 'package', label: 'Package Name', required: false, aliases: ['PACKAGE', 'FTTH_PACKAGE', 'PKG'] },
-    { key: 'dropWireDistance', label: 'DW Distance', required: false, aliases: ['DW-RT', 'DROP WIRE', 'DW', 'DISTANCE'] },
+    { key: 'dropWireDistance', label: 'DW Distance', required: false, aliases: ['DROP WIRE', 'DW', 'DISTANCE', 'LENGTH'] },
     { key: 'contractorName', label: 'Contractor Name', required: false, aliases: ['CONTRACTOR', 'CON NAME', 'CON'] },
     { key: 'directTeamName', label: 'Direct Team', required: false, aliases: ['DIRECT LABOR', 'TEAM', 'STAFF'] },
 ];
@@ -102,7 +101,7 @@ export default function SODImportPage() {
             setWorkbook(wb);
 
             const worksheet = wb.Sheets[wb.SheetNames[0]];
-            const jsonDataRaw = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            const jsonDataRaw = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | null)[][];
 
             // Find header row
             let headers: string[] = [];
@@ -133,12 +132,21 @@ export default function SODImportPage() {
             // Auto-mapping Materials
             const initialMatMappings: Record<string, string> = {};
             headers.forEach(h => {
-                // If it looks like a material (usually single characters or codes like F-1, G-1)
-                // or matches a system material name
-                const hUpper = h.toUpperCase();
+                const hUpper = h.toUpperCase().trim();
+
+                // Specific Check for DW-RT (Retainer)
+                if (hUpper === 'DW-RT' || hUpper.includes('RETAINER')) {
+                    const retainerMat = systemMaterials.find(m => m.name.toUpperCase().includes('RETAINER'));
+                    if (retainerMat) {
+                        initialMatMappings[h] = retainerMat.name;
+                        return;
+                    }
+                }
+
                 const matchedMat = systemMaterials.find(m =>
-                    m.name.toUpperCase().includes(hUpper) ||
+                    m.name.toUpperCase() === hUpper ||
                     (m.code && m.code.toUpperCase() === hUpper) ||
+                    m.name.toUpperCase().includes(hUpper) ||
                     hUpper.includes(m.name.toUpperCase())
                 );
                 if (matchedMat) {
@@ -162,7 +170,7 @@ export default function SODImportPage() {
             if (rowStr.includes('RTOM') || rowStr.includes('VOICE')) { headerIdx = i; break; }
         }
 
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: headerIdx }) as Record<string, any>[];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: headerIdx }) as Record<string, string | number | Date | null>[];
 
         const rows: ParsedRow[] = jsonData.map((row, index) => {
             const getMapVal = (key: string) => row[fieldMappings[key]] || null;
@@ -173,7 +181,7 @@ export default function SODImportPage() {
                 voiceNumber: String(getMapVal('voiceNumber') || '').trim(),
                 orderType: String(getMapVal('orderType') || 'CREATE').trim(),
                 receivedDate: parseExcelDate(getMapVal('receivedDate')),
-                completedDate: parseExcelDate(getVal('completedDate')),
+                completedDate: parseExcelDate(getMapVal('completedDate')),
                 package: String(getMapVal('package') || '').trim(),
                 dropWireDistance: parseFloat(String(getMapVal('dropWireDistance') || '0')) || 0,
                 contractorName: String(getMapVal('contractorName') || '').trim(),
@@ -186,7 +194,7 @@ export default function SODImportPage() {
                 if (systemMatName && systemMatName !== "none") {
                     const val = Number(row[excelHeader]);
                     if (!isNaN(val) && val > 0) {
-                        parsed.materials[systemMatName] = val;
+                        parsed.materials[systemMatName] = (parsed.materials[systemMatName] || 0) + val;
                     }
                 }
             });
@@ -194,8 +202,6 @@ export default function SODImportPage() {
             return parsed;
         }).filter(r => r.rtom || r.voiceNumber);
 
-        // Helper to get val inside mapping (just fixed a typo in previous draft)
-        function getVal(key: string) { return jsonData[0]?.[fieldMappings[key]]; }
 
         if (rows.length === 0) {
             toast.error("No valid data found with current mapping");
@@ -233,8 +239,8 @@ export default function SODImportPage() {
                     successCount += result.summary.success;
                     failedCount += result.summary.failed;
                     skippedNoOpmc += result.summary.skippedNoOpmc || 0;
-                    result.results?.filter((r: any) => !r.success).forEach((r: any) => {
-                        errors.push(`Row ${i + result.results.indexOf(r) + 1}: ${r.error}`);
+                    result.results?.filter((r: { success: boolean }) => !r.success).forEach((r: { rtom: string; voiceNumber: string; error: string }) => {
+                        errors.push(`[${r.rtom}] ${r.voiceNumber}: ${r.error}`);
                     });
                 } else {
                     failedCount += batch.length;
