@@ -635,8 +635,9 @@ export class ServiceOrderService {
             } catch (err) { console.error(`PAT/Rejection Sync failed for ${opmc.rtom}:`, err); }
         }
 
-        // Run HO Approved Sync Separately (Optimized for 100k records)
-        const hoApprovedStats = await this.syncHoApprovedResults();
+        // DISABLED: Too heavy for the system, causing 504 timeouts
+        // const hoApprovedStats = await this.syncHoApprovedResults();
+        const hoApprovedStats = { totalCached: 0, totalUpdated: 0 };
 
         return { totalUpdated, hoApproved: hoApprovedStats };
     }

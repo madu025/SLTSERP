@@ -32,7 +32,7 @@ export default function PATStatusPage() {
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [view, setView] = useState('ACCEPTED'); // ACCEPTED, REJECTED, OPMC_REJECTED
-    const [isSyncing, setIsSyncing] = useState(false);
+
 
     const tabs = [
         { id: 'OPMC_REJECTED', label: 'OPMC PAT REJECT' },
@@ -56,27 +56,7 @@ export default function PATStatusPage() {
     });
 
 
-    const handleSync = async () => {
-        setIsSyncing(true);
-        const toastId = toast.loading('Syncing PAT Data from SLT... This might take a few minutes for the first time.');
 
-        try {
-            const resp = await fetch('/api/cron/sync-all');
-            const result = await resp.json();
-
-            if (result.success) {
-                toast.success(`Sync Complete! Cached: ${result.stats?.patCached || 0}, Updated: ${result.stats?.patApproved || 0}`, { id: toastId });
-                // We don't refetch because the component will refresh via its queryKey dependency if we use queryClient
-                window.location.reload(); // Hard refresh to ensure all stats/data update
-            } else {
-                toast.error(`Sync Failed: ${result.error || 'Unknown Error'}`, { id: toastId });
-            }
-        } catch (e) {
-            toast.error('Sync request failed. Server might be busy.', { id: toastId });
-        } finally {
-            setIsSyncing(false);
-        }
-    };
 
     const isOpmcReject = view === 'OPMC_REJECTED';
 
@@ -117,18 +97,7 @@ export default function PATStatusPage() {
                                         Print
                                     </button>
                                 )}
-                                <button
-                                    onClick={handleSync}
-                                    disabled={isSyncing}
-                                    className={cn(
-                                        "px-5 py-2.5 rounded-[3px] font-medium text-xs transition-all shadow-sm flex items-center gap-2",
-                                        isSyncing
-                                            ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                                            : "bg-[#673ab7] text-white hover:bg-[#5e35b1]"
-                                    )}
-                                >
-                                    {isSyncing ? 'Syncing...' : 'Sync From SLT'}
-                                </button>
+
                             </div>
 
                             <div className="flex items-center gap-3">
