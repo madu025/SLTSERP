@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList } from "lucide-react";
-import { Form } from "@/components/ui/form";
+
 import { toast } from "sonner";
 
 const ManualEntryModal = dynamic(() => import("@/components/modals/ManualEntryModal"), { ssr: false });
@@ -116,7 +116,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [limit] = useState(50);
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
-    const [user, setUser] = useState<any>(null);
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
     // Modals State
@@ -136,10 +135,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
     const [pendingStatusChange, setPendingStatusChange] = useState<{ orderId: string, newStatus: string } | null>(null);
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) setUser(JSON.parse(storedUser));
-    }, []);
+
 
     // --- QUERIES ---
 
@@ -396,23 +392,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         }
     });
 
-    const assignContractorMutation = useMutation({
-        mutationFn: async ({ orderId, contractorId }: { orderId: string, contractorId: string }) => {
-            const res = await fetch("/api/service-orders", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id: orderId,
-                    contractorId: contractorId || null,
-                    sltsStatus: 'INPROGRESS'
-                })
-            });
-            if (!res.ok) throw new Error("Failed");
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-        }
-    });
+
 
     // --- HANDLERS ---
 
@@ -448,7 +428,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const paginatedOrders = serviceOrders;
 
     // Update meta with server-side response
-    const clientMeta = meta;
 
     const requestSort = (key: keyof ServiceOrder) => {
         let direction: "asc" | "desc" = "asc";

@@ -77,7 +77,7 @@ export default function StoresPage() {
 
     // Create/Update mutation
     const saveMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: Partial<Store> & { managerId?: string | null; opmcIds?: string[] }) => {
             const url = selectedStore ? `/api/stores/${selectedStore.id}` : "/api/stores";
             const method = selectedStore ? "PUT" : "POST";
             const res = await fetch(url, {
@@ -292,7 +292,7 @@ export default function StoresPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="NONE">None</SelectItem>
-                                                {users.map((user: any) => (
+                                                {users.map((user: { id: string; name: string; email: string }) => (
                                                     <SelectItem key={user.id} value={user.id}>
                                                         {user.name} ({user.email})
                                                     </SelectItem>
