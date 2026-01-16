@@ -19,8 +19,8 @@ const OPMC_CACHE_KEY = 'opmcs:all';
 // GET all OPMCs
 export async function GET() {
     try {
-        const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
-        if (cached) return NextResponse.json(cached);
+        // const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
+        // if (cached) return NextResponse.json(cached);
 
         const opmcs = await prisma.oPMC.findMany({
             include: {
@@ -39,7 +39,7 @@ export async function GET() {
             orderBy: { createdAt: 'desc' }
         });
 
-        await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
+        // await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
         return NextResponse.json(opmcs);
     } catch {
         return NextResponse.json({ message: 'Error fetching OPMCs' }, { status: 500 });
