@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import SyncStatus from './SyncStatus';
 
 interface User {
@@ -41,39 +40,8 @@ export default function Sidebar() {
 
     const userRole = user?.role || '';
 
-    // Fetch pending restore requests count
-    const { data: restoreCount = 0 } = useQuery({
-        queryKey: ['restore-requests-count'],
-        queryFn: async () => {
-            // Mocking fetch or hitting a real endpoint if exists. 
-            // Ideally: const res = await fetch('/api/restore-requests/count'); return res.json().count;
-            // For now, I'll fetch list and count length (not efficient but works for now).
-            const res = await fetch('/api/restore-requests?status=PENDING');
-            if (!res.ok) return 0;
-            const data = await res.json();
-            return Array.isArray(data) ? data.length : 0;
-        },
-        enabled: !!userRole && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR']), // Only fetch if allowed
-        staleTime: 5 * 60 * 1000, // Data stays fresh for 5 mins
-        refetchOnWindowFocus: false
-    });
+    // const queryClient = useQueryClient();
 
-    const queryClient = useQueryClient();
-
-    // SSE Integration: Listen for notifications and invalidate count
-    useEffect(() => {
-        const handleNewNotification = (e: any) => {
-            const notification = e.detail;
-            // If it's a restore request notification, refetch the count
-            if (notification.link === '/restore-requests' || notification.type === 'SYSTEM') {
-                console.log("SSE Trigger: Updating restore requests count in sidebar");
-                queryClient.invalidateQueries({ queryKey: ['restore-requests-count'] });
-            }
-        };
-
-        window.addEventListener('slts-notification', handleNewNotification);
-        return () => window.removeEventListener('slts-notification', handleNewNotification);
-    }, [queryClient]);
 
     return (
         <aside
@@ -137,12 +105,6 @@ export default function Sidebar() {
                                     <Icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
                                     {!isCollapsed && <span>{item.title}</span>}
 
-                                    {/* Badge for Restore Requests */}
-                                    {item.path === '/restore-requests' && restoreCount > 0 && (
-                                        <span className={`bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isCollapsed ? 'absolute -top-1 -right-1' : 'ml-2'}`}>
-                                            {restoreCount}
-                                        </span>
-                                    )}
                                 </div>
                                 {!isCollapsed && hasSubmenu && (
                                     <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
