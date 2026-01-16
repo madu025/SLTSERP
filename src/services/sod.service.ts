@@ -145,6 +145,7 @@ export class ServiceOrderService {
                     customerName: true,
                     techContact: true,
                     status: true,
+                    statusDate: true,
                     sltsStatus: true,
                     completedDate: true,
                     contractorId: true,
