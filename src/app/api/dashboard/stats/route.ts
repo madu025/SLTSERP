@@ -1,5 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
