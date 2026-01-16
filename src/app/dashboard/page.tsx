@@ -51,19 +51,19 @@ interface Stats {
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
 export default function DashboardPage() {
-    const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
+    const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(() => {
+        if (typeof window !== 'undefined') {
+            const storedUser = localStorage.getItem('user');
+            return storedUser ? JSON.parse(storedUser) : null;
+        }
+        return null;
+    });
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setMounted(true);
-            const storedUser = localStorage.getItem('user');
-            if (storedUser) {
-                setUser(JSON.parse(storedUser));
-            }
-        }, 0);
-        return () => clearTimeout(timer);
+        setMounted(true);
     }, []);
+
 
     const { data: stats, isLoading } = useQuery<Stats>({
         queryKey: ['dashboard-stats', user?.id || 'guest'],

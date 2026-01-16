@@ -13,17 +13,27 @@ interface User {
 }
 
 export default function Sidebar() {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<User | null>(() => {
+        if (typeof window !== 'undefined') {
+            const storedUser = localStorage.getItem('user');
+            return storedUser ? JSON.parse(storedUser) : null;
+        }
+        return null;
+    });
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
     const pathname = usePathname();
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
+        // Fallback for cases where localStorage might change from other tabs
+        const handleStorageChange = () => {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) setUser(JSON.parse(storedUser));
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
+
 
     useEffect(() => {
         // Auto-expand menu if a child is active
