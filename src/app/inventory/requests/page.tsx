@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Check, X, ArrowRight, User as UserIcon, Printer, Calendar, AlertCircle } from "lucide-react";
+import { Plus, Check, X, ArrowRight, User as UserIcon, Printer, Calendar, AlertCircle, Trash2, Eye } from "lucide-react";
 import { toast } from 'sonner';
 import { processStockRequestAction } from '@/actions/inventory-actions';
 import { generateGatePassPDF } from '@/utils/pdfGenerator';
@@ -28,8 +28,13 @@ export default function RequestsPage() {
 
     useEffect(() => {
         const stored = localStorage.getItem('user');
-        if (stored) setUser(JSON.parse(stored));
-    }, []);
+        if (stored) {
+            const parsedToken = JSON.parse(stored);
+            if (parsedToken?.id !== user?.id) {
+                setUser(parsedToken);
+            }
+        }
+    }, [user?.id]);
 
     // Fetch Requests (Internal Store-to-Store Transfers ONLY)
     // Procurement requests (toStoreId = NULL) go to OSP Managers > Approvals

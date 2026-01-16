@@ -70,66 +70,55 @@ export default function SyncStatus({ isCollapsed }: { isCollapsed: boolean }) {
 
     if (isCollapsed) {
         return (
-            <div className="flex justify-center p-3 border-t border-white/5 opacity-50">
-                <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-sky-500 animate-spin' : data?.isStale ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+            <div className="flex justify-center p-3 border-t border-white/5">
+                <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-sky-500 animate-pulse' : data?.isStale ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
             </div>
         );
     }
 
-    if (isLoading) return <div className="p-4 text-xs text-slate-500 animate-pulse">Checking sync...</div>;
-    if (isError) return <div className="p-4 text-xs text-rose-500 flex items-center gap-2"><AlertCircle className="w-3 h-3" /> Sync Error</div>;
+    if (isLoading) return null; // Keep it clean while loading
+    if (isError) return <div className="mx-4 my-2 p-2 bg-rose-500/10 rounded-lg text-[10px] text-rose-500">Sync Error</div>;
 
     const lastSyncTime = data?.lastSync ? new Date(data.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Never';
 
     return (
-        <div className="px-4 py-3 border-t border-white/5 bg-black/20">
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Activity className={`w-3 h-3 ${isSyncing ? 'text-sky-500 animate-spin' : data?.isStale ? 'text-amber-500' : 'text-emerald-500'}`} />
-                    Background Sync
-                </span>
-                <div className="flex items-center gap-1">
+        <div className="mx-2 my-2 px-3 py-2 bg-slate-900/40 rounded-xl border border-white/5 shadow-inner group">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 overflow-hidden">
+                    <Activity className={`w-3.5 h-3.5 flex-shrink-0 ${isSyncing ? 'text-sky-500 animate-pulse' : data?.isStale ? 'text-amber-500' : 'text-emerald-500'}`} />
+                    <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-tighter truncate">Sync status</span>
+                        <span className="text-[8px] text-slate-500 font-medium truncate">Last: {lastSyncTime}</span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-mono text-sky-400/80 bg-sky-500/5 px-1 rounded-sm border border-sky-500/10">
+                        {data?.isStale ? 'STALE' : timeLeft}
+                    </span>
                     <button
                         onClick={handleManualSync}
                         disabled={isSyncing}
-                        className={`text-[9px] px-1.5 py-0.5 rounded border border-slate-700 hover:bg-white/5 text-slate-400 transition-colors ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className="p-1.5 hover:bg-white/10 rounded-lg bg-white/5 transition-all active:scale-95 disabled:opacity-50"
+                        title="Sync Now"
                     >
-                        {isSyncing ? 'Running...' : 'Sync Now'}
-                    </button>
-                    <button
-                        onClick={() => refetch()}
-                        className="p-1 hover:bg-white/5 rounded transition-colors"
-                    >
-                        <RefreshCw className={`w-2.5 h-2.5 text-slate-500 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-3 h-3 text-slate-400 group-hover:text-slate-200 ${isSyncing ? 'animate-spin text-sky-500' : ''}`} />
                     </button>
                 </div>
             </div>
 
-            <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">Last Sync:</span>
-                    <span className="text-[11px] font-medium text-slate-300">{lastSyncTime}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">Next Sync:</span>
-                    <span className={`text-[11px] font-medium ${data?.isStale ? 'text-amber-400 animate-pulse' : 'text-sky-400'}`}>
-                        {data?.isStale ? 'Searching...' : timeLeft}
-                    </span>
-                </div>
-
-                {data?.stats && (data.stats.created > 0 || data.stats.updated > 0) && (
-                    <div className="mt-2 pt-2 border-t border-white/5 flex gap-3">
-                        <div className="flex flex-col">
-                            <span className="text-[9px] text-slate-500 uppercase">New</span>
-                            <span className="text-xs font-bold text-emerald-500">+{data.stats.created}</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[9px] text-slate-500 uppercase">Upd</span>
-                            <span className="text-xs font-bold text-sky-500">{data.stats.updated}</span>
-                        </div>
+            {data?.stats && (data.stats.created > 0 || data.stats.updated > 0) && (
+                <div className="mt-1.5 pt-1.5 border-t border-white/5 flex gap-3">
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-[8px] text-slate-500 font-bold uppercase">New:</span>
+                        <span className="text-[10px] font-bold text-emerald-500">+{data.stats.created}</span>
                     </div>
-                )}
-            </div>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-[8px] text-slate-500 font-bold uppercase">Upd:</span>
+                        <span className="text-[10px] font-bold text-sky-500">{data.stats.updated}</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

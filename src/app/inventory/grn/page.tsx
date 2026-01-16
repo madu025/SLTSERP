@@ -55,7 +55,8 @@ export default function GRNPage() {
 
     const handleOpenGRNDialog = (request: any) => {
         setSelectedRequest(request);
-        setGRNNumber(`GRN-${Date.now()}`);
+        const timestamp = Date.now();
+        setGRNNumber(`GRN-${timestamp}`);
 
         // Initialize received items with requested quantities
         const items = request.items.map((item: any) => ({
