@@ -80,6 +80,22 @@ interface ServiceOrdersPageProps {
     pageTitle?: string;
 }
 
+// Helper for summary cards - Fixed Height Compact
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SummaryCard = ({ title, value, icon: Icon, colorClass }: any) => (
+    <Card className="shadow-none border h-14">
+        <CardContent className="h-full px-3 flex items-center justify-between">
+            <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{title}</p>
+                <p className="text-xl font-bold text-slate-900 leading-none mt-0.5">{value}</p>
+            </div>
+            <div className={`p-1.5 rounded-md ${colorClass} bg-opacity-10`}>
+                <Icon className={`w-4 h-4 ${colorClass.replace('bg-', 'text-')}`} />
+            </div>
+        </CardContent>
+    </Card>
+);
+
 export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 'Service Orders' }: ServiceOrdersPageProps) {
     const queryClient = useQueryClient();
     const { isColumnVisible } = useTableColumnSettings("pending_sod");
@@ -451,20 +467,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         );
     }
 
-    // Helper for summary cards - Fixed Height Compact
-    const SummaryCard = ({ title, value, icon: Icon, colorClass }: any) => (
-        <Card className="shadow-none border h-14">
-            <CardContent className="h-full px-3 flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{title}</p>
-                    <p className="text-xl font-bold text-slate-900 leading-none mt-0.5">{value}</p>
-                </div>
-                <div className={`p-1.5 rounded-md ${colorClass} bg-opacity-10`}>
-                    <Icon className={`w-4 h-4 ${colorClass.replace('bg-', 'text-')}`} />
-                </div>
-            </CardContent>
-        </Card>
-    );
+
 
     return (
         <div className="h-screen flex bg-slate-50 overflow-hidden">
@@ -869,15 +872,15 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                             <RotateCcw className="w-3.5 h-3.5" />
                                                                         </Button>
                                                                     )}
+                                                                    {filterType !== 'completed' && filterType !== 'return' && (
+                                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-600 hover:bg-blue-50" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}>
+                                                                            <Calendar className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    )}
                                                                     {filterType !== 'completed' && (
-                                                                        <>
-                                                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-600 hover:bg-blue-50" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}>
-                                                                                <Calendar className="w-3.5 h-3.5" />
-                                                                            </Button>
-                                                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}>
-                                                                                <MessageSquare className="w-3.5 h-3.5" />
-                                                                            </Button>
-                                                                        </>
+                                                                        <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}>
+                                                                            <MessageSquare className="w-3.5 h-3.5" />
+                                                                        </Button>
                                                                     )}
                                                                     {filterType === 'completed' && (
                                                                         <Button
