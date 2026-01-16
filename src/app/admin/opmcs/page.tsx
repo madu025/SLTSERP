@@ -16,6 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
+import { createOPMC, updateOPMC, deleteOPMC } from '@/actions/opmc-actions';
 
 // Types
 interface OPMC {
@@ -73,32 +74,45 @@ export default function RTOMRegistrationPage() {
     // --- MUTATIONS ---
     const mutation = useMutation({
         mutationFn: async (values: OPMCFormValues & { id?: string }) => {
-            const method = values.id ? 'PUT' : 'POST';
-            const res = await fetch('/api/opmcs', {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(values)
-            });
-            if (!res.ok) throw new Error('Failed');
-            return res.json();
+            const data = {
+                name: values.name || '',
+                rtom: values.rtom,
+                region: values.region,
+                province: values.province,
+                storeId: values.storeId
+            };
+
+            if (values.id) {
+                return await updateOPMC({ ...data, id: values.id });
+            } else {
+                return await createOPMC(data);
+            }
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["opmcs"] });
-            handleCloseModal();
-            toast.success("RTOM saved successfully");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["opmcs"] });
+                handleCloseModal();
+                toast.success("RTOM saved successfully");
+            } else {
+                toast.error(result.error || "Error saving RTOM");
+            }
         },
         onError: () => toast.error("Error saving RTOM")
     });
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`/api/opmcs?id=${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed');
+            return await deleteOPMC(id);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["opmcs"] });
-            toast.success("RTOM deleted");
-        }
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["opmcs"] });
+                toast.success("RTOM deleted");
+            } else {
+                toast.error(result.error || "Error deleting RTOM");
+            }
+        },
+        onError: () => toast.error("Error deleting RTOM")
     });
 
     // --- HANDLERS ---

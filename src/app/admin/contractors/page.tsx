@@ -23,6 +23,7 @@ import TeamManager from './TeamManager';
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
+import { createContractor, updateContractor, deleteContractor } from '@/actions/contractor-actions';
 import { Progress } from "@/components/ui/progress";
 
 // Types
@@ -269,35 +270,35 @@ export default function ContractorsPage() {
     // --- MUTATIONS ---
     const mutation = useMutation({
         mutationFn: async (values: ContractorFormValues & { teams: ContractorTeam[], id?: string }) => {
-            const method = values.id ? 'PUT' : 'POST';
-            const payload = values.id ? values : { ...values, siteOfficeStaffId: user.id };
-            const res = await fetch('/api/contractors', {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error('Failed');
-            return res.json();
+            if (values.id) {
+                return await updateContractor(values.id, values);
+            } else {
+                return await createContractor({ ...values, siteOfficeStaffId: user.id });
+            }
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["contractors"] });
-            setShowModal(false);
-            toast.success("Contractor saved successfully");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["contractors"] });
+                setShowModal(false);
+                toast.success("Contractor saved successfully");
+            } else {
+                toast.error(result.error || "Failed to save contractor");
+            }
         },
         onError: () => toast.error("Failed to save contractor")
     });
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`/api/contractors?id=${id}`, { method: 'DELETE' });
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.message || "Failed to delete contractor");
-            }
+            return await deleteContractor(id);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["contractors"] });
-            toast.success("Contractor deleted");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["contractors"] });
+                toast.success("Contractor deleted");
+            } else {
+                toast.error(result.error || "Failed to delete contractor");
+            }
         },
         onError: (error: any) => {
             toast.error(error.message || "Failed to delete contractor");

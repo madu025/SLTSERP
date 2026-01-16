@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PackageMinus, Plus, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { createStockIssue } from "@/actions/inventory-actions";
 
 interface IssueItem {
     itemId: string;
@@ -72,19 +73,17 @@ export default function StockIssuePage() {
     // Create issue mutation
     const createIssueMutation = useMutation({
         mutationFn: async (data: any) => {
-            const res = await fetch('/api/inventory/issues', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error('Failed to create stock issue');
-            return res.json();
+            return await createStockIssue(data);
         },
-        onSuccess: () => {
-            toast.success('Stock issued successfully!');
-            queryClient.invalidateQueries({ queryKey: ['stock-issues'] });
-            queryClient.invalidateQueries({ queryKey: ['stock'] });
-            handleCloseIssueDialog();
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success('Stock issued successfully!');
+                queryClient.invalidateQueries({ queryKey: ['stock-issues'] });
+                queryClient.invalidateQueries({ queryKey: ['stock'] });
+                handleCloseIssueDialog();
+            } else {
+                toast.error(result.error || 'Failed to issue stock');
+            }
         },
         onError: () => toast.error('Failed to issue stock')
     });

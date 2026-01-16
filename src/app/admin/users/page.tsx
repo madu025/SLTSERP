@@ -15,6 +15,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from 'sonner';
+import { createUser, updateUser, deleteUser } from '@/actions/user-actions';
 
 // Types
 interface UserData {
@@ -114,84 +116,82 @@ export default function UserRegistrationPage() {
     // --- MUTATIONS ---
     const mutation = useMutation({
         mutationFn: async (values: UserFormValues & { id?: string }) => {
-            const method = values.id ? 'PUT' : 'POST';
-            const res = await fetch('/api/users', {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(values)
-            });
-            if (!res.ok) throw new Error('Failed');
-            return res.json();
+            if (values.id) {
+                return await updateUser({ ...values, id: values.id });
+            } else {
+                return await createUser(values);
+            }
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["users"] });
-            handleCloseModal();
-            alert("User saved successfully");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["users"] });
+                handleCloseModal();
+                toast.success("User saved successfully");
+            } else {
+                toast.error(result.error || "Error saving user");
+            }
         },
-        onError: () => alert("Error saving user")
+        onError: () => toast.error("Error saving user")
     });
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`/api/users?id=${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed');
+            return await deleteUser(id);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["users"] });
-            alert("User deleted");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["users"] });
+                toast.success("User deleted");
+            } else {
+                toast.error(result.error || "Error deleting user");
+            }
         }
     });
 
     const form = useForm<UserFormValues>({
         resolver: zodResolver(userSchema),
         defaultValues: {
-            username: '', email: '', password: '', name: '', role: 'ENGINEER', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
+            username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
         }
     });
 
+    const watchedOpmcIds = form.watch('opmcIds');
+    const watchedRole = form.watch('role');
+
     // --- AUTO-SUPERVISOR LOGIC ---
     React.useEffect(() => {
-        const subscription = form.watch((value, { name }) => {
-            if (name === 'role' || name === 'opmcIds') {
-                const role = value.role;
-                const opmcIds = value.opmcIds || [];
+        const role = watchedRole;
+        const opmcIds = watchedOpmcIds || [];
 
-                if (!role || role === '') return;
+        if (!role || role === '') return;
 
-                let autoSupervisorId = '';
+        let autoSupervisorId = '';
 
-                // 1. If OSP_MANAGER, supervisor is ADMIN
-                if (role === 'OSP_MANAGER') {
-                    autoSupervisorId = users.find(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')?.id || '';
-                }
-                // 2. Department Heads -> OSP_MANAGER
-                else if (['AREA_MANAGER', 'STORES_MANAGER', 'FINANCE_MANAGER', 'INVOICE_MANAGER', 'SA_MANAGER', 'OFFICE_ADMIN', 'PROCUREMENT_OFFICER'].includes(role)) {
-                    autoSupervisorId = users.find(u => u.role === 'OSP_MANAGER')?.id || '';
-                }
-                // 3. Assistants -> Their Managers
-                else if (role === 'STORES_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'STORES_MANAGER')?.id || '';
-                else if (role === 'FINANCE_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'FINANCE_MANAGER')?.id || '';
-                else if (role === 'INVOICE_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'INVOICE_MANAGER')?.id || '';
-                else if (role === 'SA_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'SA_MANAGER')?.id || '';
-                else if (role === 'OFFICE_ADMIN_ASSISTANT' || role === 'SITE_OFFICE_STAFF') {
-                    autoSupervisorId = users.find(u => u.role === 'OFFICE_ADMIN')?.id || '';
-                }
-                // 4. Field Staff -> AREA_MANAGER (Filtered by OPMC)
-                else if (['ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'].includes(role)) {
-                    const match = users.find(u =>
-                        u.role === 'AREA_MANAGER' &&
-                        u.accessibleOpmcs.some(o => opmcIds.includes(o.id))
-                    );
-                    autoSupervisorId = match?.id || users.find(u => u.role === 'OSP_MANAGER')?.id || '';
-                }
+        if (role === 'OSP_MANAGER') {
+            autoSupervisorId = users.find(u => u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')?.id || '';
+        }
+        else if (['AREA_MANAGER', 'STORES_MANAGER', 'FINANCE_MANAGER', 'INVOICE_MANAGER', 'SA_MANAGER', 'OFFICE_ADMIN', 'PROCUREMENT_OFFICER'].includes(role)) {
+            autoSupervisorId = users.find(u => u.role === 'OSP_MANAGER')?.id || '';
+        }
+        else if (role === 'STORES_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'STORES_MANAGER')?.id || '';
+        else if (role === 'FINANCE_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'FINANCE_MANAGER')?.id || '';
+        else if (role === 'INVOICE_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'INVOICE_MANAGER')?.id || '';
+        else if (role === 'SA_ASSISTANT') autoSupervisorId = users.find(u => u.role === 'SA_MANAGER')?.id || '';
+        else if (role === 'OFFICE_ADMIN_ASSISTANT' || role === 'SITE_OFFICE_STAFF') {
+            autoSupervisorId = users.find(u => u.role === 'OFFICE_ADMIN')?.id || '';
+        }
+        else if (['ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'].includes(role)) {
+            const match = users.find(u =>
+                u.role === 'AREA_MANAGER' &&
+                u.accessibleOpmcs.some(o => opmcIds.includes(o.id))
+            );
+            autoSupervisorId = match?.id || users.find(u => u.role === 'OSP_MANAGER')?.id || '';
+        }
 
-                if (autoSupervisorId && autoSupervisorId !== form.getValues('supervisorId')) {
-                    form.setValue('supervisorId', autoSupervisorId);
-                }
-            }
-        });
-        return () => subscription.unsubscribe();
-    }, [form.watch, users]);
+        if (autoSupervisorId && autoSupervisorId !== form.getValues('supervisorId')) {
+            form.setValue('supervisorId', autoSupervisorId);
+        }
+    }, [watchedRole, watchedOpmcIds, users, form]);
 
     // --- LOGIC ---
     const handleOpenModal = (user?: UserData) => {
@@ -248,7 +248,7 @@ export default function UserRegistrationPage() {
 
     // Supervisor Logic: Filter by OPMC (Point 5)
     const potentialSupervisors = useMemo(() => {
-        const selectedOpmcIds = form.watch('opmcIds') || [];
+        const selectedOpmcIds = watchedOpmcIds || [];
         if (selectedOpmcIds.length === 0) return users.filter(u => u.id !== selectedUser?.id);
 
         return users.filter(u => {
@@ -257,11 +257,11 @@ export default function UserRegistrationPage() {
             const supervisorOpmcs = u.accessibleOpmcs?.map(o => o.id) || [];
             return supervisorOpmcs.some(id => selectedOpmcIds.includes(id)) || u.role === 'SUPER_ADMIN' || u.role === 'ADMIN';
         });
-    }, [users, selectedUser, form.watch('opmcIds')]);
+    }, [users, selectedUser, watchedOpmcIds]);
 
     // Store Filtering: Filter by selected OPMCs (Point 5)
     const filteredStores = useMemo(() => {
-        const selectedOpmcIds = form.watch('opmcIds') || [];
+        const selectedOpmcIds = watchedOpmcIds || [];
         if (selectedOpmcIds.length === 0) return stores;
 
         // Find stores linked to selected OPMCs
@@ -271,7 +271,7 @@ export default function UserRegistrationPage() {
 
         if (linkedStoreIds.length === 0) return stores;
         return stores.filter(s => linkedStoreIds.includes(s.id));
-    }, [stores, opmcs, form.watch('opmcIds')]);
+    }, [stores, opmcs, watchedOpmcIds]);
 
     {/* ... Buttons ... */ }
 

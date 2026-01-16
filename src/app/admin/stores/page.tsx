@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash, Building2, MapPin, User } from "lucide-react";
 import { toast } from "sonner";
+import { createStore, updateStore, deleteStore } from "@/actions/inventory-actions";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 
@@ -78,21 +79,21 @@ export default function StoresPage() {
     // Create/Update mutation
     const saveMutation = useMutation({
         mutationFn: async (data: Partial<Store> & { managerId?: string | null; opmcIds?: string[] }) => {
-            const url = selectedStore ? `/api/stores/${selectedStore.id}` : "/api/stores";
-            const method = selectedStore ? "PUT" : "POST";
-            const res = await fetch(url, {
-                method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error("Failed to save store");
-            return res.json();
+            if (selectedStore) {
+                return await updateStore(selectedStore.id, data);
+            } else {
+                return await createStore(data);
+            }
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["stores"] });
-            toast.success(selectedStore ? "Store updated" : "Store created");
-            setShowModal(false);
-            resetForm();
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["stores"] });
+                toast.success(selectedStore ? "Store updated" : "Store created");
+                setShowModal(false);
+                resetForm();
+            } else {
+                toast.error(result.error || "Failed to save store");
+            }
         },
         onError: () => {
             toast.error("Failed to save store");
@@ -102,12 +103,15 @@ export default function StoresPage() {
     // Delete mutation
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`/api/stores/${id}`, { method: "DELETE" });
-            if (!res.ok) throw new Error("Failed to delete");
+            return await deleteStore(id);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["stores"] });
-            toast.success("Store deleted");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ["stores"] });
+                toast.success("Store deleted");
+            } else {
+                toast.error(result.error || "Failed to delete store");
+            }
         },
         onError: () => {
             toast.error("Failed to delete store");

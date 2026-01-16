@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Package, CheckCircle, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { createGRN } from "@/actions/inventory-actions";
 
 export default function GRNPage() {
     const queryClient = useQueryClient();
@@ -38,18 +39,16 @@ export default function GRNPage() {
     // Create GRN mutation
     const createGRNMutation = useMutation({
         mutationFn: async (data: any) => {
-            const res = await fetch('/api/inventory/grn', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error('Failed to create GRN');
-            return res.json();
+            return await createGRN(data);
         },
-        onSuccess: () => {
-            toast.success('GRN created successfully! Stock updated.');
-            queryClient.invalidateQueries({ queryKey: ['grn-requests'] });
-            handleCloseGRNDialog();
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success('GRN created successfully! Stock updated.');
+                queryClient.invalidateQueries({ queryKey: ['grn-requests'] });
+                handleCloseGRNDialog();
+            } else {
+                toast.error(result.error || 'Failed to create GRN');
+            }
         },
         onError: () => toast.error('Failed to create GRN')
     });

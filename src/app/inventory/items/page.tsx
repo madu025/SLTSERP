@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+import { createItem, updateItem, deleteItem, patchBulkItemsAction } from '@/actions/inventory-actions';
 
 // --- SCHEMA ---
 const itemSchema = z.object({
@@ -61,74 +62,69 @@ export default function ItemMasterPage() {
     // --- MUTATIONS ---
     const mutation = useMutation({
         mutationFn: async (values: ItemFormValues) => {
-            const method = editingItem ? 'PUT' : 'POST';
-            const body = editingItem ? { ...values, id: editingItem.id } : values;
-
-            const res = await fetch('/api/inventory/items', {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Failed');
+            if (editingItem) {
+                return await updateItem(editingItem.id, values);
+            } else {
+                return await createItem(values);
             }
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['items'] });
-            setShowModal(false);
-            setEditingItem(null);
-            toast.success(editingItem ? "Item updated" : "Item registered successfully");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ['items'] });
+                setShowModal(false);
+                setEditingItem(null);
+                toast.success(editingItem ? "Item updated" : "Item registered successfully");
+            } else {
+                toast.error(result.error || 'Failed to save item');
+            }
         },
         onError: (err: any) => toast.error(err.message)
     });
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`/api/inventory/items?id=${id}`, {
-                method: 'DELETE'
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Failed to delete');
-            }
+            return await deleteItem(id);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['items'] });
-            setDeletingItemId(null);
-            toast.success("Item deleted successfully");
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ['items'] });
+                setDeletingItemId(null);
+                toast.success("Item deleted successfully");
+            } else {
+                toast.error(result.error || 'Failed to delete item');
+            }
         },
         onError: (err: any) => toast.error(err.message)
     });
 
     const bulkMutation = useMutation({
         mutationFn: async () => {
-            const promises = Array.from(selectedIds).map(async (id) => {
+            const updates = Array.from(selectedIds).map((id) => {
                 const item = items.find((i: any) => i.id === id);
-                if (!item) return;
+                if (!item) return null;
 
-                const body = {
-                    ...item,
+                return {
+                    id,
                     category: bulkEditType === 'CATEGORY' ? bulkCategory : item.category,
                     type: bulkEditType === 'TYPE' ? bulkType : item.type,
                     commonFor: bulkEditType === 'JOB_TYPE' ? bulkCommonFor : (item.commonFor || [])
                 };
+            }).filter(Boolean);
 
-                const res = await fetch('/api/inventory/items', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                if (!res.ok) throw new Error("Failed");
-            });
-            await Promise.all(promises);
+            if (updates.length > 0) {
+                return await patchBulkItemsAction(updates);
+            }
+            return { success: true };
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['items'] });
-            setShowBulkEdit(false);
-            setSelectedIds(new Set());
-            toast.success("Bulk update successful");
+        onSuccess: (result: any) => {
+            if (result?.success) {
+                queryClient.invalidateQueries({ queryKey: ['items'] });
+                setShowBulkEdit(false);
+                setSelectedIds(new Set());
+                toast.success("Bulk update successful");
+            } else {
+                toast.error(result?.error || "Failed to update items");
+            }
         },
         onError: () => toast.error("Failed to update items")
     });

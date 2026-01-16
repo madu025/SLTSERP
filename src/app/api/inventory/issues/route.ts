@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
+import { createStockIssue } from '@/actions/inventory-actions';
 
 // POST: Create Stock Issue
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const result = await InventoryService.createStockIssue(body);
-        return NextResponse.json(result);
+        const result = await createStockIssue(body);
+
+        if (result.success) {
+            return NextResponse.json(result.data);
+        } else {
+            return NextResponse.json({ error: result.error }, { status: 400 });
+        }
     } catch (error: any) {
-        if (error.message.startsWith('INSUFFICIENT_STOCK')) {
-            return NextResponse.json({ error: error.message }, { status: 400 });
-        }
-        if (error.message === 'MISSING_FIELDS') {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-        }
         console.error("Error creating stock issue:", error);
         return NextResponse.json({ error: 'Failed to create stock issue', debug: error.message }, { status: 500 });
     }

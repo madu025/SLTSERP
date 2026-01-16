@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
+import { createStore, updateStore, deleteStore } from '@/actions/inventory-actions';
 
 export async function GET(request: Request) {
     try {
@@ -13,8 +14,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const store = await InventoryService.createStore(body);
-        return NextResponse.json(store);
+        const result = await createStore(body);
+        if (result.success) {
+            return NextResponse.json(result.data);
+        } else {
+            return NextResponse.json({ error: result.error }, { status: 400 });
+        }
     } catch (error) {
         return NextResponse.json({ error: 'Failed to create store' }, { status: 500 });
     }
@@ -24,11 +29,14 @@ export async function PUT(request: Request) {
     try {
         const body = await request.json();
         const { id, ...data } = body;
-
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        const store = await InventoryService.updateStore(id, data);
-        return NextResponse.json(store);
+        const result = await updateStore(id, data);
+        if (result.success) {
+            return NextResponse.json(result.data);
+        } else {
+            return NextResponse.json({ error: result.error }, { status: 400 });
+        }
     } catch (error) {
         return NextResponse.json({ error: 'Failed to update store' }, { status: 500 });
     }
@@ -41,13 +49,13 @@ export async function DELETE(request: Request) {
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        await InventoryService.deleteStore(id);
-        return NextResponse.json({ message: 'Store deleted' });
-
+        const result = await deleteStore(id);
+        if (result.success) {
+            return NextResponse.json({ message: 'Store deleted' });
+        } else {
+            return NextResponse.json({ error: result.error }, { status: 400 });
+        }
     } catch (error: any) {
-        if (error.message === 'STORE_HAS_STOCK') return NextResponse.json({ error: 'Cannot delete store with active stock.' }, { status: 400 });
-        if (error.message === 'STORE_HAS_TRANSACTIONS') return NextResponse.json({ error: 'Cannot delete store with transaction history.' }, { status: 400 });
-
         return NextResponse.json({ error: 'Failed to delete store' }, { status: 500 });
     }
 }

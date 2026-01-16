@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Check, X, ArrowRight, User as UserIcon, Printer, Calendar, AlertCircle } from "lucide-react";
 import { toast } from 'sonner';
+import { processStockRequestAction } from '@/actions/inventory-actions';
 import { generateGatePassPDF } from '@/utils/pdfGenerator';
 import { cn } from "@/lib/utils";
 
@@ -55,7 +56,7 @@ export default function RequestsPage() {
                 requestId: selectedRequest.id,
                 action,
                 remarks: approverRemarks,
-                approvedById: user?.id
+                userId: user?.id
             };
 
             if (action === 'APPROVE') {
@@ -65,19 +66,18 @@ export default function RequestsPage() {
                 }));
             }
 
-            const res = await fetch('/api/inventory/requests', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            if (!res.ok) throw new Error('Failed');
+            return await processStockRequestAction(body);
         },
-        onSuccess: () => {
-            toast.success("Request processed successfully");
-            setApprovalMode(false);
-            setSelectedRequest(null);
-            setApproverRemarks("");
-            queryClient.invalidateQueries({ queryKey: ['requests'] });
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success("Request processed successfully");
+                setApprovalMode(false);
+                setSelectedRequest(null);
+                setApproverRemarks("");
+                queryClient.invalidateQueries({ queryKey: ['requests'] });
+            } else {
+                toast.error(result.error || "Failed to process request");
+            }
         },
         onError: () => toast.error("Failed to process request")
     });

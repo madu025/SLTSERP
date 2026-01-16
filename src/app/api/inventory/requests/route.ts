@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
+import { createStockRequest, processStockRequestAction } from '@/actions/inventory-actions';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const req = await InventoryService.createStockRequest(body);
-        return NextResponse.json(req);
+        const result = await createStockRequest(body);
+
+        if (result.success) {
+            return NextResponse.json(result.data);
+        } else {
+            return NextResponse.json({ error: result.error }, { status: 400 });
+        }
     } catch (error) {
         console.error("Stock Request Creation Error:", error);
         return NextResponse.json({ error: 'Failed to create request' }, { status: 500 });
@@ -16,20 +22,15 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
+        const result = await processStockRequestAction(body);
 
-        const result = await InventoryService.processStockRequestAction(body);
-        return NextResponse.json(result);
-
+        if (result.success) {
+            return NextResponse.json(result.data);
+        } else {
+            return NextResponse.json({ error: result.error }, { status: 400 });
+        }
     } catch (error: any) {
         console.error("Stock Request Action Error:", error);
-
-        if (error.message === 'REQUEST_NOT_FOUND') {
-            return NextResponse.json({ error: 'Request not found' }, { status: 404 });
-        }
-        if (error.message === 'INVALID_ACTION') {
-            return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-        }
-
         return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
     }
 }

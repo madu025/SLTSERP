@@ -13,6 +13,7 @@ import { Search, AlertTriangle, Trash2, Layers, History } from "lucide-react";
 import { toast } from 'sonner';
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
+import { recordWastage } from "@/actions/inventory-actions";
 
 export default function StockPage() {
     const queryClient = useQueryClient();
@@ -71,24 +72,23 @@ export default function StockPage() {
     // Wastage Mutation
     const wastageMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch('/api/inventory/wastage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    storeId: selectedStoreId,
-                    userId: user?.id,
-                    items: [{ itemId: wastageItem.itemId, quantity: wastageQty }],
-                    reason: wastageReason
-                })
+            return await recordWastage({
+                storeId: selectedStoreId,
+                userId: user?.id,
+                items: [{ itemId: wastageItem.itemId, quantity: parseFloat(wastageQty) }],
+                reason: wastageReason
             });
-            if (!res.ok) throw new Error('Failed');
         },
-        onSuccess: () => {
-            toast.success("Wastage recorded successfully");
-            setWastageItem(null);
-            setWastageQty("");
-            setWastageReason("");
-            queryClient.invalidateQueries({ queryKey: ['stock'] });
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success("Wastage recorded successfully");
+                setWastageItem(null);
+                setWastageQty("");
+                setWastageReason("");
+                queryClient.invalidateQueries({ queryKey: ['stock'] });
+            } else {
+                toast.error(result.error || "Failed to record wastage");
+            }
         },
         onError: () => toast.error("Failed to record wastage")
     });

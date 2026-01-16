@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { updateContractor } from "@/actions/contractor-actions";
 import { CheckCircle, XCircle, Loader2, Building2, Users, FileText, Banknote, Calendar, ShieldCheck, Pencil, Image as ImageIcon, ExternalLink } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -58,49 +59,45 @@ export default function ContractorApprovalsPage() {
 
     const approveMutation = useMutation({
         mutationFn: async ({ id, status, approverId, teams }: any) => {
-            const res = await fetch('/api/contractors', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id,
-                    status,
-                    teams,
-                    ...(userRole === 'AREA_MANAGER' ? { armApprovedById: approverId, armApprovedAt: new Date() } : {}),
-                    ...(userRole === 'OSP_MANAGER' ? { ospApprovedById: approverId, ospApprovedAt: new Date() } : {})
-                })
-            });
-            if (!res.ok) throw new Error('Failed to approve');
-            return res.json();
+            const data = {
+                status,
+                teams,
+                ...(userRole === 'AREA_MANAGER' ? { armApprovedById: approverId, armApprovedAt: new Date() } : {}),
+                ...(userRole === 'OSP_MANAGER' ? { ospApprovedById: approverId, ospApprovedAt: new Date() } : {})
+            };
+            return await updateContractor(id, data);
         },
-        onSuccess: () => {
-            toast.success('Contractor approved successfully');
-            queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
-            setSelectedContractor(null);
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success('Contractor approved successfully');
+                queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
+                setSelectedContractor(null);
+            } else {
+                toast.error(result.error || 'Failed to approve');
+            }
         }
     });
 
     const rejectMutation = useMutation({
         mutationFn: async ({ id, reason, userId }: any) => {
-            const res = await fetch('/api/contractors', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id,
-                    status: 'REJECTED',
-                    rejectionReason: reason,
-                    rejectionById: userId,
-                    rejectedAt: new Date()
-                })
-            });
-            if (!res.ok) throw new Error('Failed to reject');
-            return res.json();
+            const data = {
+                status: 'REJECTED',
+                rejectionReason: reason,
+                rejectionById: userId,
+                rejectedAt: new Date()
+            };
+            return await updateContractor(id, data);
         },
-        onSuccess: () => {
-            toast.success('Contractor registration rejected');
-            queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
-            setSelectedContractor(null);
-            setIsRejectDialogOpen(false);
-            setRejectionReason("");
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success('Contractor registration rejected');
+                queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
+                setSelectedContractor(null);
+                setIsRejectDialogOpen(false);
+                setRejectionReason("");
+            } else {
+                toast.error(result.error || 'Failed to reject');
+            }
         }
     });
 
@@ -495,7 +492,7 @@ export default function ContractorApprovalsPage() {
                             <XCircle className="w-5 h-5" /> Reject Registration
                         </DialogTitle>
                         <DialogDescription>
-                            Please specify why you are rejecting this contractor's registration. This will be visible to the contractor so they can correct it.
+                            Please specify why you are rejecting this contractor&apos;s registration. This will be visible to the contractor so they can correct it.
                         </DialogDescription>
                     </DialogHeader>
 
