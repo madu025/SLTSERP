@@ -63,6 +63,8 @@ interface ServiceOrder {
     contractorAmount?: number | null;
     dropWireDistance?: number | null;
     materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
+    directTeam?: string | null;
+    completionMode?: 'ONLINE' | 'OFFLINE';
 }
 
 interface OPMC {
@@ -74,6 +76,21 @@ interface OPMC {
 interface Contractor {
     id: string;
     name: string;
+}
+
+interface PaginationMeta {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    nextCursor?: string;
+}
+
+interface SummaryMetrics {
+    totalSod: number;
+    contractorAssigned: number;
+    appointments: number;
+    statusBreakdown: Record<string, number>;
 }
 
 interface ServiceOrdersPageProps {
@@ -113,6 +130,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         direction: "desc"
     });
     const [page, setPage] = useState(1);
+    const [cursor, setCursor] = useState<string | undefined>(undefined);
+    const [cursorHistory, setCursorHistory] = useState<string[]>([]);
     const [limit] = useState(50);
     const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter, setMatFilter] = useState("ALL");
@@ -126,11 +145,14 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [showActionModal, setShowActionModal] = useState(false);
 
     useEffect(() => {
-        setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT');
-        setSortConfig({
-            key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' ? 'statusDate' : 'createdAt'),
-            direction: "desc"
-        });
+        const t = setTimeout(() => {
+            setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT');
+            setSortConfig({
+                key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' ? 'statusDate' : 'createdAt'),
+                direction: "desc"
+            });
+        }, 0);
+        return () => clearTimeout(t);
     }, [filterType]);
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
     const [pendingStatusChange, setPendingStatusChange] = useState<{ orderId: string, newStatus: string } | null>(null);
@@ -154,9 +176,13 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             } else {
                 const res = await fetch("/api/users?page=1&limit=1000");
                 const data = await res.json();
-                const users = data.users || (Array.isArray(data) ? data : []);
-                const currentUser = users.find((u: any) => u.username === user.username);
-                return currentUser?.accessibleOpmcs?.map((opmc: any) => ({
+                interface UserData {
+                    username: string;
+                    accessibleOpmcs?: Array<{ id: string; rtom: string; name?: string }>;
+                }
+                const users = (data.users || (Array.isArray(data) ? data : [])) as UserData[];
+                const currentUser = users.find((u) => u.username === user.username);
+                return currentUser?.accessibleOpmcs?.map((opmc: { id: string; rtom: string; name?: string }) => ({
                     id: opmc.id,
                     rtom: opmc.rtom,
                     name: opmc.name || ''
@@ -179,7 +205,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000
     });
-    const contractors: any[] = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+    const contractors: Contractor[] = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
 
     // Fetch Inventory Items
     const { data: items = [] } = useQuery({
@@ -197,18 +223,19 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const materialSource = config['OSP_MATERIAL_SOURCE'] || 'SLT';
 
     // Fetch Service Orders (Server-side search, filter, and pagination)
-    const { data: qData, isLoading: isLoadingOrders, isRefetching } = useQuery<{ items: ServiceOrder[], meta: any, summary: any }>({
-        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, searchTerm, statusFilter, patFilter, matFilter, page],
+    const { data: qData, isLoading: isLoadingOrders, isRefetching } = useQuery<{ items: ServiceOrder[], meta: PaginationMeta, summary: SummaryMetrics }>({
+        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, searchTerm, statusFilter, patFilter, matFilter, page, cursor],
         queryFn: async () => {
-            if (!selectedRtomId) return { items: [], meta: {}, summary: {} };
+            if (!selectedRtomId) return { items: [], meta: { total: 0, page: 1, limit: 50, totalPages: 1 }, summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
             const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
             const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
             const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
+            const cursorParam = cursor ? `&cursor=${cursor}` : '';
 
-            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${page}&limit=${limit}`);
+            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&page=${page}&limit=${limit}${cursorParam}`);
             return res.json();
         },
         enabled: !!selectedRtomId,
@@ -224,8 +251,11 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     // Set default OPMC
     useEffect(() => {
         if (opmcs.length > 0 && !selectedRtomId) {
-            setSelectedRtomId(opmcs[0].id);
-            setSelectedRtom(opmcs[0].rtom);
+            const t = setTimeout(() => {
+                setSelectedRtomId(opmcs[0].id);
+                setSelectedRtom(opmcs[0].rtom);
+            }, 0);
+            return () => clearTimeout(t);
         }
     }, [opmcs, selectedRtomId]);
 
@@ -235,6 +265,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             setSelectedRtomId(value);
             setSelectedRtom(opmc.rtom);
             setPage(1); // Reset page on OPMC change
+            setCursor(undefined);
+            setCursorHistory([]);
         }
     };
 
@@ -259,7 +291,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     });
 
     const addOrderMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: Partial<ServiceOrder>) => {
             const res = await fetch("/api/service-orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -308,7 +340,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             contractorId?: string;
             teamId?: string;
             directTeamName?: string;
-            materialUsage?: any;
+            materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
             patStatus?: string;
             opmcPatStatus?: string;
             sltsPatStatus?: string;
@@ -334,9 +366,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     teamId,
                     directTeamName,
                     materialUsage,
-                    dropWireDistance: true,
-                    updatedAt: true,
-                    createdAt: true,
                     patStatus,
                     opmcPatStatus,
                     sltsPatStatus,
@@ -356,7 +385,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     });
 
     const scheduleMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: { date: string; time: string; contactNumber: string }) => {
             const res = await fetch("/api/service-orders", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -411,19 +440,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         }
     };
 
-    const handleActionSubmit = (date: string, comment?: string, reason?: string) => {
-        if (pendingStatusChange) {
-            updateStatusMutation.mutate({
-                id: pendingStatusChange.orderId,
-                status: pendingStatusChange.newStatus,
-                date,
-                comment,
-                reason
-            });
-            setPendingStatusChange(null);
-            setShowActionModal(false);
-        }
-    };
+
 
     const paginatedOrders = serviceOrders;
 
@@ -707,7 +724,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                 </td>
                                                                 <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
                                                                     {order.contractor?.name ? order.contractor.name : (
-                                                                        contractors.find((c: any) => c.id === order.contractorId)?.name || "Unassigned"
+                                                                        contractors.find((c: Contractor) => c.id === order.contractorId)?.name || "Unassigned"
                                                                     )}
                                                                 </td>
                                                                 <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
@@ -766,7 +783,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                 )}
                                                                 {filterType === 'completed' && (
                                                                     <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap">
-                                                                        {order.contractor?.name || contractors.find((c: any) => c.id === order.contractorId)?.name || '-'}
+                                                                        {order.contractor?.name || contractors.find((c: Contractor) => c.id === order.contractorId)?.name || '-'}
                                                                     </td>
                                                                 )}
                                                                 {filterType === 'completed' && (
@@ -908,7 +925,12 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     size="sm"
                                     className="h-7 w-7 p-0"
                                     disabled={page <= 1}
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    onClick={() => {
+                                        const prevCursor = cursorHistory[cursorHistory.length - 2];
+                                        setCursor(prevCursor);
+                                        setCursorHistory(prev => prev.slice(0, -1));
+                                        setPage(p => Math.max(1, p - 1));
+                                    }}
                                 >
                                     <ChevronLeft className="w-4 h-4" />
                                 </Button>
@@ -916,8 +938,14 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     variant="outline"
                                     size="sm"
                                     className="h-7 w-7 p-0"
-                                    disabled={page >= meta.totalPages}
-                                    onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+                                    disabled={!meta.nextCursor}
+                                    onClick={() => {
+                                        if (meta.nextCursor) {
+                                            setCursorHistory(prev => [...prev, meta.nextCursor!]);
+                                            setCursor(meta.nextCursor);
+                                            setPage(p => p + 1);
+                                        }
+                                    }}
                                 >
                                     <ChevronRight className="w-4 h-4" />
                                 </Button>
@@ -1003,7 +1031,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 contractorId: data.contractorId,
                                 teamId: data.teamId,
                                 directTeamName: data.directTeamName,
-                                materialUsage: data.materialUsage,
+                                materialUsage: data.materialUsage as Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }>,
                                 opmcPatStatus: data.opmcPatStatus,
                                 sltsPatStatus: data.sltsPatStatus,
                                 completionMode: data.completionMode
@@ -1028,11 +1056,11 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                         completedDate: selectedOrder.completedDate,
                         ontSerialNumber: selectedOrder.ontSerialNumber,
                         iptvSerialNumbers: selectedOrder.iptvSerialNumbers ? selectedOrder.iptvSerialNumbers.split(',').map(s => s.trim()).filter(Boolean) : [],
-                        opmcPatStatus: selectedOrder.opmcPatStatus as any,
-                        sltsPatStatus: selectedOrder.sltsPatStatus as any,
+                        opmcPatStatus: selectedOrder.opmcPatStatus,
+                        sltsPatStatus: selectedOrder.sltsPatStatus,
                         materialUsage: selectedOrder.materialUsage,
-                        directTeam: (selectedOrder as any).directTeam,
-                        completionMode: (selectedOrder as any).completionMode
+                        directTeam: selectedOrder.directTeam,
+                        completionMode: selectedOrder.completionMode
                     } : undefined}
                     contractors={contractors}
                     items={items}

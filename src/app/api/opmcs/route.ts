@@ -1,9 +1,27 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { CacheService } from '@/lib/cache.service';
+
+interface OPMCData {
+    id: string;
+    rtom: string;
+    name: string;
+    region: string;
+    province: string;
+    storeId?: string | null;
+    store?: { id: string; name: string } | null;
+    users?: Array<{ id: string; name: string }>;
+    _count?: { staff: number; projects: number };
+}
+
+const OPMC_CACHE_KEY = 'opmcs:all';
 
 // GET all OPMCs
 export async function GET() {
     try {
+        const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
+        if (cached) return NextResponse.json(cached);
+
         const opmcs = await prisma.oPMC.findMany({
             include: {
                 store: { select: { id: true, name: true } },
@@ -20,8 +38,10 @@ export async function GET() {
             },
             orderBy: { createdAt: 'desc' }
         });
+
+        await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
         return NextResponse.json(opmcs);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ message: 'Error fetching OPMCs' }, { status: 500 });
     }
 }
@@ -39,9 +59,10 @@ export async function POST(request: Request) {
             }
         });
 
+        await CacheService.del(OPMC_CACHE_KEY);
         return NextResponse.json(opmc);
     } catch (error) {
-        if ((error as any).code === 'P2002') {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
             return NextResponse.json({ message: 'OPMC RTOM already exists' }, { status: 400 });
         }
         return NextResponse.json({ message: 'Error creating OPMC' }, { status: 500 });
@@ -64,9 +85,10 @@ export async function PUT(request: Request) {
             }
         });
 
+        await CacheService.del(OPMC_CACHE_KEY);
         return NextResponse.json(opmc);
     } catch (error) {
-        if ((error as any).code === 'P2002') {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
             return NextResponse.json({ message: 'RTOM already exists' }, { status: 400 });
         }
         return NextResponse.json({ message: 'Error updating OPMC' }, { status: 500 });
@@ -85,8 +107,9 @@ export async function DELETE(request: Request) {
             where: { id }
         });
 
+        await CacheService.del(OPMC_CACHE_KEY);
         return NextResponse.json({ message: 'OPMC deleted successfully' });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ message: 'Error deleting OPMC' }, { status: 500 });
     }
 }

@@ -24,16 +24,21 @@ const publicPaths = [
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+    // Generate Request ID for tracing
+    const requestId = crypto.randomUUID();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-request-id', requestId);
+
     // Check if the path is public
-    // We strictly check for public paths to avoid accidental leaks
     if (
         publicPaths.some((path) => pathname.startsWith(path)) ||
-        // Allow static assets
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||
-        pathname.includes('.') // Crude check for files like logo.png, window.svg
+        pathname.includes('.')
     ) {
-        return NextResponse.next();
+        return NextResponse.next({
+            request: { headers: requestHeaders }
+        });
     }
 
     // Check for token
@@ -44,23 +49,18 @@ export async function middleware(request: NextRequest) {
 
     // If not authenticated
     if (!verifiedToken) {
-        // API Routes: Return 401
         if (pathname.startsWith('/api')) {
             return NextResponse.json(
                 { message: 'Authentication required' },
-                { status: 401 }
+                { status: 401, headers: { 'x-request-id': requestId } }
             );
         }
 
-        // Page Routes: Redirect to login
-        // We strictly redirect to avoid any access
         const loginUrl = new URL('/login', request.url);
         return NextResponse.redirect(loginUrl);
     }
 
-    // If authenticated, we can proceed.
-    // Optionally, we can pass user info to headers (useful for API routes to know who calls them without re-verifying)
-    const requestHeaders = new Headers(request.headers);
+    // If authenticated
     requestHeaders.set('x-user-id', verifiedToken.id as string);
     requestHeaders.set('x-user-role', verifiedToken.role as string);
 

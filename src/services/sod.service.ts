@@ -41,11 +41,14 @@ export class ServiceOrderService {
         matFilter?: string;
         page?: number;
         limit?: number;
+        cursor?: string;
         month?: number;
         year?: number;
     }) {
-        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, page = 1, limit = 50, month, year } = params;
-        const skip = (page - 1) * limit;
+        const { rtomId: opmcId, filter, search, statusFilter, patFilter, matFilter, page = 1, limit = 50, cursor, month, year } = params;
+
+        // Offset-based fallback for backward compatibility
+        const skip = cursor ? 1 : (page - 1) * limit;
 
         if (!opmcId) {
             throw new Error('RTOM_ID_REQUIRED');
@@ -122,12 +125,15 @@ export class ServiceOrderService {
         }
 
         // Determine sort order
-        let orderBy: Prisma.ServiceOrderOrderByWithRelationInput = { createdAt: 'desc' };
+        let primaryOrderBy: Prisma.ServiceOrderOrderByWithRelationInput = { createdAt: 'desc' };
         if (filter === 'completed') {
-            orderBy = { completedDate: 'desc' };
+            primaryOrderBy = { completedDate: 'desc' };
         } else if (filter === 'return') {
-            orderBy = { updatedAt: 'desc' };
+            primaryOrderBy = { updatedAt: 'desc' };
         }
+
+        // Use array for stable sorting with ID fallback
+        const orderBy: Prisma.ServiceOrderOrderByWithRelationInput[] = [primaryOrderBy, { id: 'desc' }];
 
         // Run queries in parallel
         const [total, items, statusGroups, contractorCount, appointmentCount] = await Promise.all([
@@ -177,7 +183,8 @@ export class ServiceOrderService {
                 },
                 orderBy,
                 skip,
-                take: limit
+                take: limit,
+                cursor: cursor ? { id: cursor } : undefined,
             }),
             prisma.serviceOrder.groupBy({
                 by: ['status'],
@@ -200,7 +207,13 @@ export class ServiceOrderService {
 
         return {
             items,
-            meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+                nextCursor: items.length === limit ? items[items.length - 1].id : undefined
+            },
             summary: {
                 totalSod: total,
                 contractorAssigned: contractorCount,
@@ -458,6 +471,16 @@ export class ServiceOrderService {
             data: updateData
         });
 
+        // Incremental Stats Update
+        if (serviceOrder.sltsStatus !== oldOrder.sltsStatus) {
+            try {
+                const { StatsService } = await import('../lib/stats.service');
+                await StatsService.handleStatusChange(serviceOrder.opmcId, oldOrder.sltsStatus, serviceOrder.sltsStatus);
+            } catch (e) {
+                console.error('Failed to update stats incrementally:', e);
+            }
+        }
+
         // Manual Raw update for materialSource
         await prisma.$executeRaw`UPDATE "ServiceOrder" SET "materialSource" = ${currentSource} WHERE "id" = ${id}`;
 
@@ -615,6 +638,11 @@ export class ServiceOrderService {
             }
         }
 
+        if (updated > 0) {
+            const { StatsService } = await import('../lib/stats.service');
+            await StatsService.syncOpmcStats(opmcId);
+        }
+
         return { rtom, updated };
     }
 
@@ -767,6 +795,14 @@ export class ServiceOrderService {
             }
 
             console.log(`[PAT-SYNC] HO Approved Sync complete. Cached: ${totalCached}, Updated: ${totalUpdated}`);
+
+            // Sync all OPMCs affected by this bulk update
+            const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
+            const { StatsService } = await import('../lib/stats.service');
+            for (const opmc of opmcs) {
+                await StatsService.syncOpmcStats(opmc.id);
+            }
+
             return { totalCached, totalUpdated };
 
         } catch (err) {
@@ -843,6 +879,13 @@ export class ServiceOrderService {
             }));
             results.forEach(r => { if (r?.createdAt.getTime() === r?.updatedAt.getTime()) created++; else updated++; });
         }
+
+        // Sync Stats
+        if (created > 0 || updated > 0) {
+            const { StatsService } = await import('../lib/stats.service');
+            await StatsService.syncOpmcStats(opmcId);
+        }
+
         return { created, updated };
     }
 }

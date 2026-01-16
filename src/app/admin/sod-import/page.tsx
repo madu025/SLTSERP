@@ -231,37 +231,59 @@ export default function SODImportPage() {
     const handleImport = async () => {
         setImporting(true);
         setProgress(0);
-        let successCount = 0; let failedCount = 0; let skippedNoOpmc = 0;
-        const errors: string[] = [];
 
-        const BATCH_SIZE = 50;
-        for (let i = 0; i < parsedData.length; i += BATCH_SIZE) {
-            const batch = parsedData.slice(i, i + BATCH_SIZE);
-            try {
-                const res = await fetch('/api/service-orders/import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rows: batch })
-                });
-                const result = await res.json();
-                if (result.success) {
-                    successCount += result.summary.success;
-                    failedCount += result.summary.failed;
-                    skippedNoOpmc += result.summary.skippedNoOpmc || 0;
-                    result.results?.forEach((r: { success: boolean; voiceNumber?: string; error?: string }) =>
-                        !r.success && errors.push(`${r.voiceNumber || 'Unknown'}: ${r.error || 'Unknown error'}`)
-                    );
+        try {
+            const res = await fetch('/api/service-orders/import/enqueue', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rows: parsedData })
+            });
+
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            const jobId = data.jobId;
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusRes = await fetch(`/api/service-orders/import/enqueue?jobId=${jobId}`);
+                    const jobStatus = await statusRes.json();
+
+                    if (jobStatus.state === 'completed') {
+                        clearInterval(pollInterval);
+                        setImportResults({
+                            success: jobStatus.result.successCount,
+                            failed: jobStatus.result.errorCount,
+                            skippedNoOpmc: jobStatus.result.skippedNoOpmc,
+                            errors: []
+                        });
+                        setImporting(false);
+                    } else if (jobStatus.state === 'failed') {
+                        clearInterval(pollInterval);
+                        setImportResults({
+                            success: 0,
+                            failed: parsedData.length,
+                            skippedNoOpmc: 0,
+                            errors: [jobStatus.failedReason || 'Job failed']
+                        });
+                        setImporting(false);
+                    } else {
+                        setProgress(Number(jobStatus.progress) || 0);
+                    }
+                } catch (err) {
+                    console.error("Polling error", err);
                 }
-            } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : 'Unknown error';
-                errors.push(`Batch failed: ${message}`);
-                failedCount += batch.length;
-            }
-            setProgress(Math.round(((i + batch.length) / parsedData.length) * 100));
-        }
+            }, 2000);
 
-        setImportResults({ success: successCount, failed: failedCount, skippedNoOpmc, errors });
-        setImporting(false);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to start import';
+            setImportResults({
+                success: 0,
+                failed: parsedData.length,
+                skippedNoOpmc: 0,
+                errors: [message]
+            });
+            setImporting(false);
+        }
     };
 
     return (

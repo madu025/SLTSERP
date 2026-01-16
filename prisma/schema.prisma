@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["metrics", "postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pg_trgm]
 }
 
 enum Role {
@@ -1615,4 +1617,26 @@ model SLTPATStatus {
   @@index([status])
   @@index([rtom])
   @@index([soNum])
+}
+
+// Dashboard Performance Statistics (Pre-calculated for 2M+ records)
+model DashboardStat {
+  id              String   @id @default(cuid())
+  opmcId          String   @unique
+  rtom            String   
+
+  // SOD Metrics (Current Year/Total)
+  pending         Int      @default(0)
+  completed       Int      @default(0)
+  returned        Int      @default(0)
+
+  // PAT Metrics
+  patPassed       Int      @default(0)
+  patRejected     Int      @default(0)
+  sltsPatRejected Int      @default(0)
+
+  lastUpdated     DateTime @updatedAt
+
+  @@index([opmcId])
+  @@index([rtom])
 }

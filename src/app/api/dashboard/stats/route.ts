@@ -1,9 +1,59 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { handleApiError } from '@/lib/api-utils';
+import { withTracing } from '@/lib/tracing-utils';
 
-export async function GET(request: Request) {
+interface GroupBySltsStatus {
+    sltsStatus: string;
+    _count: { _all: number };
+}
+
+interface GroupByRtomPatStatus {
+    rtom: string;
+    patStatus: string | null;
+    _count: { _all: number };
+}
+
+interface GroupByContractorSltsStatus {
+    contractorId: string | null;
+    sltsStatus: string;
+    _count: { _all: number };
+}
+
+interface GroupByRtomSltsStatus {
+    rtom: string;
+    sltsStatus: string;
+    _count: { _all: number };
+}
+
+interface GroupByRtomSltsPatStatus {
+    rtom: string;
+    sltsPatStatus: string | null;
+    _count: { _all: number };
+}
+
+interface ContractorStat {
+    name: string;
+    completed: number;
+    total: number;
+    percentage: number;
+}
+
+interface RtomStat {
+    name: string;
+    completed: number;
+    pending: number;
+    returned: number;
+    total: number;
+    patPassed?: number;
+    patRejected?: number;
+    sltsPatRejected?: number;
+}
+
+export const GET = withTracing(async (request: any) => {
     try {
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
@@ -25,90 +75,98 @@ export async function GET(request: Request) {
 
         const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN';
         const isManager = user.role === 'MANAGER' || user.role === 'SA_MANAGER' || user.role === 'OSP_MANAGER';
-        // Area Manager & Coordinator logic is handled by the else block below
 
-        // Base where clause based on accessible OPMCs
-        let whereClause: any = {};
+        const whereClause: Prisma.ServiceOrderWhereInput = {};
         if (!isAdmin && !isManager) {
-            // Filter for Area Managers, Coordinators, QC Officers etc.
-            const accessibleOpmcIds = user.accessibleOpmcs.map((o: any) => o.id);
-            // If no assigned OPMCs, they see nothing (or user should be assigned OPMCs)
+            const accessibleOpmcIds = user.accessibleOpmcs.map((o) => o.id);
             whereClause.opmcId = { in: accessibleOpmcIds };
         }
 
-        const now = new Date(); // 2026-xx-xx
-        const firstDayOfMonth = startOfMonth(now);
+        const now = new Date();
+        const firstDayOfMonth = now.getMonth() === 0 ? startOfYear(now) : startOfMonth(now);
         const lastDayOfMonth = endOfMonth(now);
         const firstDayOfYear = startOfYear(now);
         const lastDayOfYear = endOfYear(now);
 
-        // Add Year Filter to Base Where Clause (All data restricted to 2026)
         whereClause.createdAt = {
             gte: firstDayOfYear,
             lte: lastDayOfYear
         };
 
-        // Parallel Execution for all major stat blocks
-        const [monthlyStats, totalStats, patStats, contractorPerf, rtomStats] = await Promise.all([
-            // 1. Monthly Stats (Current Month)
-            (prisma.serviceOrder as any).groupBy({
+        // 0. Fetch Pre-calculated Stats
+        const cachedStats = await (prisma as any).dashboardStat.findMany({
+            where: whereClause.opmcId ? { opmcId: whereClause.opmcId } : {}
+        });
+
+        const [
+            monthlyStatsRaw,
+            contractorPerfRaw
+        ] = await Promise.all([
+            prisma.serviceOrder.groupBy({
                 by: ['sltsStatus'],
                 where: { ...whereClause, createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
                 _count: { _all: true }
             }),
-            // 2. Total Stats (Yearly Default)
-            (prisma.serviceOrder as any).groupBy({
-                by: ['sltsStatus'],
-                where: whereClause,
-                _count: { _all: true }
-            }),
-            // 3. PAT Stats
-            (prisma.serviceOrder as any).groupBy({
-                by: ['rtom', 'patStatus'],
-                where: { ...whereClause, patStatus: { not: null } },
-                _count: { _all: true }
-            }),
-            // 4. Contractor Performance (Only if Management)
-            (isAdmin || isManager) ? (prisma.serviceOrder as any).groupBy({
+            (isAdmin || isManager) ? prisma.serviceOrder.groupBy({
                 by: ['contractorId', 'sltsStatus'],
                 where: { ...whereClause, contractorId: { not: null } },
-                _count: { _all: true }
-            }) : Promise.resolve([]),
-            // 5. RTOM Performance (Only if Management)
-            (isAdmin || isManager) ? (prisma.serviceOrder as any).groupBy({
-                by: ['rtom', 'sltsStatus'],
-                where: whereClause,
                 _count: { _all: true }
             }) : Promise.resolve([])
         ]);
 
-        // Process data for the response
+        const totalStatsRaw = [
+            { sltsStatus: 'INPROGRESS', _count: { _all: cachedStats.reduce((acc: number, curr: any) => acc + curr.pending, 0) } },
+            { sltsStatus: 'COMPLETED', _count: { _all: cachedStats.reduce((acc: number, curr: any) => acc + curr.completed, 0) } },
+            { sltsStatus: 'RETURN', _count: { _all: cachedStats.reduce((acc: number, curr: any) => acc + curr.returned, 0) } },
+        ];
+
+        const patStatsRaw: any[] = [];
+        const rtomStatsRaw: any[] = [];
+        const sltsPatStatsRaw: any[] = [];
+
+        cachedStats.forEach((s: any) => {
+            patStatsRaw.push({ rtom: s.rtom, patStatus: 'PASS', _count: { _all: s.patPassed } });
+            patStatsRaw.push({ rtom: s.rtom, patStatus: 'REJECTED', _count: { _all: s.patRejected } });
+
+            rtomStatsRaw.push({ rtom: s.rtom, sltsStatus: 'COMPLETED', _count: { _all: s.completed } });
+            rtomStatsRaw.push({ rtom: s.rtom, sltsStatus: 'INPROGRESS', _count: { _all: s.pending } });
+            rtomStatsRaw.push({ rtom: s.rtom, sltsStatus: 'RETURN', _count: { _all: s.returned } });
+
+            sltsPatStatsRaw.push({ rtom: s.rtom, sltsPatStatus: 'REJECTED', _count: { _all: s.sltsPatRejected } });
+        });
+
+        const monthlyStats = monthlyStatsRaw as unknown as GroupBySltsStatus[];
+        const totalStats = totalStatsRaw as unknown as GroupBySltsStatus[];
+        const patStats = patStatsRaw as unknown as GroupByRtomPatStatus[];
+        const contractorPerf = contractorPerfRaw as unknown as GroupByContractorSltsStatus[];
+        const rtomStats = rtomStatsRaw as unknown as GroupByRtomSltsStatus[];
+        const sltsPatStats = sltsPatStatsRaw as unknown as GroupByRtomSltsPatStatus[];
+
         const stats = {
             monthly: {
-                total: (monthlyStats as any[]).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
-                completed: (monthlyStats as any[]).find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
-                pending: (monthlyStats as any[]).find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
-                returned: (monthlyStats as any[]).find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
+                total: monthlyStats.reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                completed: monthlyStats.find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
+                pending: monthlyStats.find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
+                returned: monthlyStats.find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
                 invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth }, isInvoicable: true } }),
             },
             allTime: {
-                total: (totalStats as any[]).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
-                completed: (totalStats as any[]).find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
-                returned: (totalStats as any[]).find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
-                pending: (totalStats as any[]).find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
+                total: totalStats.reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                completed: totalStats.find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
+                returned: totalStats.find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
+                pending: totalStats.find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
                 invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, isInvoicable: true } }),
             },
             pat: {
-                passed: (patStats as any[]).find(s => s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED')?._count?._all || 0,
-                rejected: (patStats as any[]).find(s => s.patStatus === 'REJECTED')?._count?._all || 0,
-                pending: (patStats as any[]).find(s => s.patStatus === 'PENDING')?._count?._all || 0,
+                passed: patStats.find(s => s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED')?._count?._all || 0,
+                rejected: patStats.find(s => s.patStatus === 'REJECTED')?._count?._all || 0,
+                pending: patStats.find(s => s.patStatus === 'PENDING')?._count?._all || 0,
             },
-            contractors: [] as any[],
-            rtoms: [] as any[]
+            contractors: [] as ContractorStat[],
+            rtoms: [] as RtomStat[]
         };
 
-        // Format Contractors
-        const contractorIds = [...new Set((contractorPerf as any[]).map(c => c.contractorId))].filter(Boolean) as string[];
+        const contractorIds = [...new Set(contractorPerf.map((c) => c.contractorId))].filter(Boolean) as string[];
         const contractorsData = await prisma.contractor.findMany({
             where: { id: { in: contractorIds } },
             select: { id: true, name: true }
@@ -116,8 +174,8 @@ export async function GET(request: Request) {
 
         contractorIds.forEach(cId => {
             const cName = contractorsData.find(c => c.id === cId)?.name || 'Unknown';
-            const completed = (contractorPerf as any[]).find(p => p.contractorId === cId && p.sltsStatus === 'COMPLETED')?._count?._all || 0;
-            const total = (contractorPerf as any[]).filter(p => p.contractorId === cId).reduce((acc, curr) => acc + (curr._count?._all || 0), 0);
+            const completed = contractorPerf.find((p) => p.contractorId === cId && p.sltsStatus === 'COMPLETED')?._count?._all || 0;
+            const total = contractorPerf.filter((p) => p.contractorId === cId).reduce((acc: number, curr) => acc + (curr._count?._all || 0), 0);
             stats.contractors.push({
                 name: cName,
                 completed,
@@ -126,17 +184,12 @@ export async function GET(request: Request) {
             });
         });
 
-        // Format RTOMs
-        const rtomNames = [...new Set((rtomStats as any[]).map(r => r.rtom))];
+        const rtomNames = [...new Set(rtomStats.map((r) => r.rtom))] as string[];
         rtomNames.forEach(name => {
-            const completed = (rtomStats as any[]).find(r => r.rtom === name && r.sltsStatus === 'COMPLETED')?._count?._all || 0;
-            const pending = (rtomStats as any[]).find(r => r.rtom === name && r.sltsStatus === 'INPROGRESS')?._count?._all || 0;
-            const returned = (rtomStats as any[]).find(r => r.rtom === name && r.sltsStatus === 'RETURN')?._count?._all || 0;
-            const rtomTotal = (rtomStats as any[]).filter(r => r.rtom === name).reduce((acc, curr) => acc + (curr._count?._all || 0), 0);
-
-            // Fetch PAT specifically for this RTOM from patStats
-            // We need to fetch PAT stats per RTOM - modifying the parallel query might be better, 
-            // but for now, we'll ensure the existing stats are clear.
+            const completed = rtomStats.find((r) => r.rtom === name && r.sltsStatus === 'COMPLETED')?._count?._all || 0;
+            const pending = rtomStats.find((r) => r.rtom === name && r.sltsStatus === 'INPROGRESS')?._count?._all || 0;
+            const returned = rtomStats.find((r) => r.rtom === name && r.sltsStatus === 'RETURN')?._count?._all || 0;
+            const rtomTotal = rtomStats.filter((r) => r.rtom === name).reduce((acc: number, curr) => acc + (curr._count?._all || 0), 0);
 
             stats.rtoms.push({
                 name,
@@ -144,9 +197,9 @@ export async function GET(request: Request) {
                 pending,
                 returned,
                 total: rtomTotal,
-                // These will be used in the new PAT page
-                patPassed: (patStats as any[]).find(s => s.rtom === name && s.patStatus === 'PASS')?._count?._all || 0,
-                patRejected: (patStats as any[]).find(s => s.rtom === name && s.patStatus === 'REJECTED')?._count?._all || 0,
+                patPassed: patStats.find((s) => s.rtom === name && s.patStatus === 'PASS')?._count?._all || 0,
+                patRejected: patStats.find((s) => s.rtom === name && s.patStatus === 'REJECTED')?._count?._all || 0,
+                sltsPatRejected: sltsPatStats.find((s) => s.rtom === name && s.sltsPatStatus === 'REJECTED')?._count?._all || 0,
             });
         });
 
@@ -154,4 +207,4 @@ export async function GET(request: Request) {
     } catch (error) {
         return handleApiError(error);
     }
-}
+});

@@ -4,12 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Stats {
     monthly: {
@@ -43,26 +42,33 @@ interface Stats {
         pending: number;
         returned: number;
         total: number;
+        patPassed?: number;
+        patRejected?: number;
+        sltsPatRejected?: number;
     }>;
 }
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
 export default function DashboardPage() {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
+        const timer = setTimeout(() => {
+            setMounted(true);
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                setUser(JSON.parse(storedUser));
+            }
+        }, 0);
+        return () => clearTimeout(timer);
     }, []);
 
-    const { data: stats, isLoading, isError } = useQuery<Stats>({
-        queryKey: ['dashboard-stats', user?.id],
+    const { data: stats, isLoading } = useQuery<Stats>({
+        queryKey: ['dashboard-stats', user?.id || 'guest'],
         queryFn: async () => {
+            if (!user?.id) return null;
             const resp = await fetch(`/api/dashboard/stats?userId=${user.id}`);
             if (!resp.ok) throw new Error('Failed to fetch stats');
             return resp.json();
@@ -96,7 +102,7 @@ export default function DashboardPage() {
     ].filter(d => d.value > 0);
 
     const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
-    const isHigherManagement = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user?.role);
+    const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user.role);
 
     return (
         <div className="min-h-screen flex bg-white">
@@ -313,6 +319,7 @@ export default function DashboardPage() {
                                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM</th>
                                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Comp</th>
                                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Pend</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ret</th>
                                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</th>
                                                 </tr>
                                             </thead>
@@ -320,7 +327,7 @@ export default function DashboardPage() {
                                                 {isLoading ? (
                                                     Array(3).fill(0).map((_, i) => (
                                                         <tr key={i}>
-                                                            {Array(4).fill(0).map((_, j) => (
+                                                            {Array(5).fill(0).map((_, j) => (
                                                                 <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
                                                             ))}
                                                         </tr>
@@ -331,6 +338,7 @@ export default function DashboardPage() {
                                                             <td className="px-6 py-4 font-semibold text-slate-900">{r.name}</td>
                                                             <td className="px-6 py-4 text-emerald-600 font-medium">{r.completed}</td>
                                                             <td className="px-6 py-4 text-amber-600 font-medium">{r.pending}</td>
+                                                            <td className="px-6 py-4 text-orange-600 font-medium">{r.returned}</td>
                                                             <td className="px-6 py-4">
                                                                 <div className="flex items-center gap-3">
                                                                     <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[60px]">
@@ -367,23 +375,25 @@ export default function DashboardPage() {
                                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM</th>
                                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-emerald-600">Approved</th>
                                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-red-600">Rejected</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-orange-600">SLT Rej</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {isLoading ? (
                                                     Array(3).fill(0).map((_, i) => (
                                                         <tr key={i}>
-                                                            {Array(3).fill(0).map((_, j) => (
+                                                            {Array(4).fill(0).map((_, j) => (
                                                                 <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
                                                             ))}
                                                         </tr>
                                                     ))
                                                 ) : (
-                                                    stats?.rtoms?.map((r: any, i) => (
+                                                    stats?.rtoms?.map((r, i) => (
                                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors text-sm">
                                                             <td className="px-6 py-4 font-semibold text-slate-900">{r.name}</td>
                                                             <td className="px-6 py-4 text-emerald-600 font-bold">{r.patPassed || 0}</td>
                                                             <td className="px-6 py-4 text-red-600 font-bold">{r.patRejected || 0}</td>
+                                                            <td className="px-6 py-4 text-orange-600 font-bold">{r.sltsPatRejected || 0}</td>
                                                         </tr>
                                                     ))
                                                 )}
@@ -400,7 +410,7 @@ export default function DashboardPage() {
     );
 }
 
-function StatCard({ label, value, icon, color }: any) {
+function StatCard({ label, value, icon, color }: { label: string; value: number; icon: string; color: string }) {
     return (
         <div className="bg-white p-3 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-3 md:space-x-4">
             <div className={`${color} w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-lg shadow-inherit/20`}>
