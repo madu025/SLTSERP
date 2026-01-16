@@ -48,6 +48,7 @@ interface ServiceOrder {
     teamId?: string | null;
     contractor?: { name: string };
     completedDate?: string | null;
+    updatedAt?: string | null;
     ontSerialNumber?: string | null;
     iptvSerialNumbers?: string | null;
     dpDetails?: string | null;
@@ -337,6 +338,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     teamId,
                     directTeamName,
                     materialUsage,
+                    dropWireDistance: true,
+                    updatedAt: true,
+                    createdAt: true,
                     patStatus,
                     opmcPatStatus,
                     sltsPatStatus,
@@ -726,6 +730,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     {order.contractor?.name ? order.contractor.name : (
                                                                         contractors.find((c: any) => c.id === order.contractorId)?.name || "Unassigned"
                                                                     )}
+                                                                </td>
+                                                                <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
+                                                                    {order.completedDate ? new Date(order.completedDate).toLocaleDateString() : (order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : '-')}
                                                                 </td>
                                                                 <td className="px-3 py-1.5 text-slate-600 max-w-[200px] truncate" title={order.comments || ''}>
                                                                     {order.comments || '-'}
