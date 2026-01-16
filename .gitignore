@@ -39,3 +39,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test files
+test_*.js
+test_*.ts
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# temporary and local files
+temp_*.txt
+temp_*.env
+*.log
+
+# database files
+*.sql
+setup_*.sql
+repair_*.ps1
+
+# performance and scalability docs (if generated)
+PERFORMANCE_*.md
+SCALABILITY_*.md

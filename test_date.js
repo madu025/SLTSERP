@@ -1,9 +1,0 @@
-async function testDate() {
-    const url = 'https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patsuccess&y=2024-06-05&con=SLTS';
-    console.log(`Testing: ${url}`);
-    const resp = await fetch(url);
-    const text = await resp.text();
-    console.log(`Status: ${resp.status}, Length: ${text.length}`);
-    if (text.length > 50) console.log('Snippet:', text.substring(0, 200));
-}
-testDate();

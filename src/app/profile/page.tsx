@@ -10,14 +10,29 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Shield, Building2, Warehouse, Users, History, Lock, Mail, CreditCard, ChevronRight, Bell } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { format } from 'date-fns';
 
+interface ProfileUser {
+    id: string;
+    username: string;
+    name?: string;
+    role: string;
+}
+
 export default function ProfilePage() {
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<ProfileUser | null>(null);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
-        if (storedUser) setUser(JSON.parse(storedUser));
+        if (storedUser) {
+            try {
+                const parsed = JSON.parse(storedUser);
+                setUser(parsed);
+            } catch (e) {
+                console.error("Failed to parse user from localStorage", e);
+            }
+        }
     }, []);
 
     const { data: profileDetails } = useQuery({
@@ -29,6 +44,44 @@ export default function ProfilePage() {
         },
         enabled: !!user,
     });
+
+    const { data: notificationPrefs, refetch: refetchPrefs } = useQuery({
+        queryKey: ["notification-preferences"],
+        queryFn: async () => {
+            const res = await fetch("/api/notifications/preferences");
+            if (!res.ok) return [];
+            return res.json();
+        },
+        enabled: !!user,
+    });
+
+    const toggleMutation = useMutation({
+        mutationFn: async ({ type, enabled }: { type: string; enabled: boolean }) => {
+            const res = await fetch("/api/notifications/preferences", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type, enabled }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            return res.json();
+        },
+        onSuccess: () => {
+            refetchPrefs();
+        },
+    });
+
+    const PREF_LABELS: Record<string, string> = {
+        'INVENTORY': 'Inventory & Stock',
+        'PROJECT': 'SOD & Project Updates',
+        'CONTRACTOR': 'Contractor Registration',
+        'SYSTEM': 'System Notifications',
+        'FINANCE': 'Finance & Invoices'
+    };
+
+    const isEnabled = (type: string) => {
+        const pref = notificationPrefs?.find((p: { type: string; enabled: boolean }) => p.type === type);
+        return pref ? pref.enabled : true; // Default to true if not set
+    };
 
     if (!user) return null;
 
@@ -66,6 +119,7 @@ export default function ProfilePage() {
                             <TabsList className="bg-white border p-1 rounded-2xl shadow-sm h-12 w-full max-w-md">
                                 <TabsTrigger value="overview" className="flex-1 rounded-xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">Overview</TabsTrigger>
                                 <TabsTrigger value="access" className="flex-1 rounded-xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">Access & Scope</TabsTrigger>
+                                <TabsTrigger value="notifications" className="flex-1 rounded-xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">Notifications</TabsTrigger>
                                 <TabsTrigger value="security" className="flex-1 rounded-xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">Security</TabsTrigger>
                             </TabsList>
 
@@ -223,6 +277,42 @@ export default function ProfilePage() {
                                             </div>
                                         )}
                                     </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            <TabsContent value="notifications" className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+                                <Card className="border-none shadow-sm rounded-3xl overflow-hidden">
+                                    <CardHeader className="bg-white border-b">
+                                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                            <Bell className="w-4 h-4 text-blue-500" /> Real-time Alert Preferences
+                                        </CardTitle>
+                                        <CardDescription className="text-[10px]">Customize which types of notifications you receive on the dashboard</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <div className="divide-y divide-slate-100">
+                                            {Object.keys(PREF_LABELS).map((type) => (
+                                                <div key={type} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                                    <div className="space-y-1">
+                                                        <div className="font-bold text-slate-900 text-sm">{PREF_LABELS[type]}</div>
+                                                        <div className="text-[10px] text-slate-500">Enable/Disable alerts for {PREF_LABELS[type].toLowerCase()} events</div>
+                                                    </div>
+                                                    <Switch
+                                                        checked={isEnabled(type)}
+                                                        onCheckedChange={(checked) => toggleMutation.mutate({ type, enabled: checked })}
+                                                        disabled={toggleMutation.isPending}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                    <div className="p-4 bg-blue-50/50 border-t border-blue-100 flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                            <Shield className="w-4 h-4" />
+                                        </div>
+                                        <p className="text-[10px] text-blue-700 leading-tight">
+                                            <b>Note:</b> Critical system-wide alerts and password security notifications cannot be disabled.
+                                        </p>
+                                    </div>
                                 </Card>
                             </TabsContent>
 

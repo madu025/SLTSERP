@@ -227,6 +227,7 @@ model User {
   generatedContractorLinks  Contractor[] @relation("ContractorLinkGenerator")
 
   notifications     Notification[]
+  notificationPreferences NotificationPreference[]
   mustChangePassword Boolean  @default(false)
 
   createdAt         DateTime @default(now())
@@ -1639,4 +1640,17 @@ model DashboardStat {
 
   @@index([opmcId])
   @@index([rtom])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // e.g., "INVENTORY", "PROJECT", "CONTRACTOR", "SYSTEM", "FINANCE"
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, type])
+  @@index([userId])
 }

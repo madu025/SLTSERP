@@ -2,6 +2,21 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { AuditService } from './audit.service';
 import { InventoryService } from './inventory.service';
+import { TransactionClient } from './inventory/types';
+
+interface MaterialStats {
+    id: string;
+    code: string;
+    name: string;
+    unit: string;
+    issued: number;
+    used: number;
+    wastage: number;
+    returned: number;
+    balance: number;
+    costPrice: number;
+    totalValue: number;
+}
 
 export class MaterialService {
 
@@ -71,10 +86,10 @@ export class MaterialService {
         });
 
         // 4. Aggregate by Item
-        const itemStats: Record<string, any> = {};
+        const itemStats: Record<string, MaterialStats> = {};
 
         // Helper to get/init item
-        const getItem = (item: any) => {
+        const getItem = (item: { id: string, code: string, name: string, unit: string, costPrice?: number }) => {
             if (!itemStats[item.id]) {
                 itemStats[item.id] = {
                     id: item.id,
@@ -120,7 +135,7 @@ export class MaterialService {
         });
 
         // Calculate Logic
-        Object.values(itemStats).forEach((s: any) => {
+        Object.values(itemStats).forEach((s) => {
             s.balance = s.issued - s.used - s.wastage - s.returned;
             s.totalValue = s.balance * s.costPrice;
         });
@@ -138,7 +153,7 @@ export class MaterialService {
         items: { itemId: string; quantity: number; unit: string }[];
         issuedBy?: string;
     }, userId?: string) {
-        return await prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx: TransactionClient) => {
             // 1. Create Issue Record
             const issue = await tx.contractorMaterialIssue.create({
                 data: {
@@ -231,7 +246,7 @@ export class MaterialService {
             include: { items: true }
         });
 
-        return await prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx: TransactionClient) => {
             const sheet = await tx.contractorMaterialBalanceSheet.upsert({
                 where: {
                     contractorId_storeId_month: { contractorId, storeId, month }

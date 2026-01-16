@@ -26,6 +26,15 @@ export class NotificationService {
         metadata?: any;
     }) {
         try {
+            // Check user preferences
+            const preference = await (prisma as any).notificationPreference.findUnique({
+                where: { userId_type: { userId, type } }
+            });
+
+            if (preference && !preference.enabled) {
+                return null; // User disabled this type
+            }
+
             // Limit to 50 notifications per user (FIFO)
             const count = await prisma.notification.count({ where: { userId } });
             if (count >= 50) {
@@ -89,14 +98,13 @@ export class NotificationService {
     }) {
         try {
             // For each user, ensure they don't exceed 50 notifications
-            // This is slightly expensive in a loop but ensures data integrity
             for (const userId of userIds) {
                 const count = await prisma.notification.count({ where: { userId } });
                 if (count >= 50) {
                     const excess = await prisma.notification.findMany({
                         where: { userId },
                         orderBy: { createdAt: 'asc' },
-                        take: 1 // In broadcast, we usually add just 1
+                        take: 1
                     });
                     if (excess.length > 0) {
                         await prisma.notification.deleteMany({
@@ -106,7 +114,22 @@ export class NotificationService {
                 }
             }
 
-            const data = userIds.map(userId => ({
+            // Filter userIds based on preferences
+            const disabledPreferences = await (prisma as any).notificationPreference.findMany({
+                where: {
+                    userId: { in: userIds },
+                    type,
+                    enabled: false
+                },
+                select: { userId: true }
+            });
+
+            const disabledUserIds = new Set(disabledPreferences.map((p: any) => p.userId));
+            const filteredUserIds = userIds.filter(id => !disabledUserIds.has(id));
+
+            if (filteredUserIds.length === 0) return { count: 0 };
+
+            const data = filteredUserIds.map(userId => ({
                 userId,
                 title,
                 message,
@@ -121,7 +144,7 @@ export class NotificationService {
             });
 
             // Emit events for each user
-            userIds.forEach(userId => {
+            filteredUserIds.forEach(userId => {
                 emitNotification(userId, { title, message, type, priority, link, metadata, createdAt: new Date() });
             });
 

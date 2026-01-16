@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { sltApiService } from './slt-api.service';
+import { NotificationService } from './notification.service';
+import { TransactionClient } from './inventory/types';
 
 interface MaterialUsageInput {
     itemId: string;
@@ -25,6 +27,25 @@ interface SltRejection {
     PAT_USER: string | null;
     CON_STATUS_DATE: string;
     RTOM?: string;
+}
+
+export interface ServiceOrderUpdateData {
+    sltsStatus?: string;
+    status?: string;
+    completedDate?: string | Date;
+    contractorId?: string | null;
+    comments?: string;
+    ontSerialNumber?: string;
+    iptvSerialNumbers?: string | string[];
+    dpDetails?: string;
+    teamId?: string | null;
+    directTeamName?: string;
+    dropWireDistance?: string | number;
+    sltsPatStatus?: string;
+    opmcPatStatus?: string;
+    hoPatStatus?: string;
+    materialUsage?: MaterialUsageInput[];
+    returnReason?: string;
 }
 
 export class ServiceOrderService {
@@ -229,8 +250,7 @@ export class ServiceOrderService {
     /**
      * Patch Update (Status Change, Completion, etc.)
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    static async patchServiceOrder(id: string, data: any, userId?: string) {
+    static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string) {
         if (!id) throw new Error('ID_REQUIRED');
 
         const oldOrder = await prisma.serviceOrder.findUnique({
@@ -340,12 +360,12 @@ export class ServiceOrderService {
                 select: { id: true, unitPrice: true, costPrice: true }
             });
 
-            await prisma.$transaction(async (tx) => {
+            await prisma.$transaction(async (tx: TransactionClient) => {
                 const targetContractorId = contractorId || updateData.contractorId || oldOrder.contractorId;
                 const finalUsageRecords = [];
 
                 if (targetContractorId) {
-                    for (const m of otherData.materialUsage) {
+                    for (const m of otherData.materialUsage!) {
                         const qty = parseFloat(m.quantity);
                         if (['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType)) {
                             // A. Pick batches FIFO from Contractor
@@ -406,7 +426,7 @@ export class ServiceOrderService {
                     });
 
                     if (opmc?.storeId) {
-                        for (const m of otherData.materialUsage) {
+                        for (const m of otherData.materialUsage!) {
                             const qty = parseFloat(m.quantity);
                             if (['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType)) {
                                 // A. Pick batches FIFO from Store
@@ -476,8 +496,22 @@ export class ServiceOrderService {
             try {
                 const { StatsService } = await import('../lib/stats.service');
                 await StatsService.handleStatusChange(serviceOrder.opmcId, oldOrder.sltsStatus, serviceOrder.sltsStatus);
+
+                // Send Notifications based on new status
+                if (serviceOrder.sltsStatus === 'RETURN') {
+                    await NotificationService.notifyByRole({
+                        roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
+                        title: 'SOD Returned/Rejected',
+                        message: `Service Order ${serviceOrder.soNum} has been marked as RETURN. Reason: ${serviceOrder.returnReason || 'No reason provided'}.`,
+                        type: 'PROJECT',
+                        priority: 'HIGH',
+                        link: '/service-orders/return',
+                        opmcId: serviceOrder.opmcId,
+                        metadata: { soNum: serviceOrder.soNum, id: serviceOrder.id }
+                    });
+                }
             } catch (e) {
-                console.error('Failed to update stats incrementally:', e);
+                console.error('Failed to update stats or send notifications:', e);
             }
         }
 
