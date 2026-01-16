@@ -159,6 +159,12 @@ model ServiceOrder {
   @@index([contractorId])
   @@index([teamId])
   @@index([sltsStatus])
+  @@index([createdAt])
+  @@index([completedDate])
+  @@index([updatedAt])
+  // Composite Indexes for common filtering
+  @@index([opmcId, status])
+  @@index([opmcId, sltsStatus])
 }
 
 model User {
