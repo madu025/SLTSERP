@@ -49,6 +49,7 @@ export default function StoresPage() {
         queryKey: ["stores"],
         queryFn: async () => {
             const res = await fetch("/api/stores");
+            if (!res.ok) throw new Error("Failed to fetch stores");
             return res.json();
         }
     });
@@ -58,7 +59,9 @@ export default function StoresPage() {
         queryKey: ["opmcs"],
         queryFn: async () => {
             const res = await fetch("/api/opmcs");
-            return res.json();
+            if (!res.ok) throw new Error("Failed to fetch opmcs");
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
         }
     });
 

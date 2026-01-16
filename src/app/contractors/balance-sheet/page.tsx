@@ -89,6 +89,7 @@ export default function ContractorBalanceSheetPage() {
         queryKey: ["contractors"],
         queryFn: async () => {
             const res = await fetch("/api/contractors?page=1&limit=1000");
+            if (!res.ok) throw new Error("Failed to fetch contractors");
             return res.json();
         }
     });
