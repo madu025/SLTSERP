@@ -136,7 +136,12 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
 
             if (data.success) {
                 toast.success(`Sync successful: Checked ${data.data.checked} records, Completed ${data.data.completed} SODs`);
-                queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+
+                // Small delay to ensure DB consistency before refetching
+                setTimeout(() => {
+                    queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+                    toast.info("Updating table with new data...");
+                }, 1000);
             } else {
                 toast.error(data.error || "Sync failed");
             }
