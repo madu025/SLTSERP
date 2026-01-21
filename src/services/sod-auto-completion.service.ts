@@ -40,6 +40,10 @@ export class SODAutoCompletionService {
         endDate: string
     ): Promise<SLTCompletedSOD[]> {
         try {
+            // Use existing SLT API service
+            const { sltApiService } = await import('./slt-api.service');
+
+            // Fetch completed SODs using the same pattern as other methods
             const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load`;
             const params = new URLSearchParams({
                 x: 'ftth',
@@ -50,19 +54,32 @@ export class SODAutoCompletionService {
             const response = await fetch(`${url}?${params}`, {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': 'SLTSERP/1.0'
-                }
+                    'Accept': 'application/json, text/plain, */*',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                },
+                signal: AbortSignal.timeout(60000), // 60 second timeout
             });
 
             if (!response.ok) {
-                throw new Error(`SLT API returned ${response.status}`);
+                console.error(`[SOD-AUTO-COMPLETE] SLT API Error for ${rtom}: ${response.status} ${response.statusText}`);
+                return [];
             }
 
             const result: SLTApiResponse = await response.json();
-            return result.data || [];
+
+            if (!result || !Array.isArray(result.data)) {
+                console.warn(`[SOD-AUTO-COMPLETE] Invalid response format for ${rtom}`);
+                return [];
+            }
+
+            return result.data;
         } catch (error) {
-            console.error('[SOD-AUTO-COMPLETE] Failed to fetch from SLT API:', error);
+            if (error instanceof Error && error.name === 'AbortError') {
+                console.error(`[SOD-AUTO-COMPLETE] Timeout fetching from SLT API for ${rtom}`);
+            } else {
+                console.error(`[SOD-AUTO-COMPLETE] Failed to fetch from SLT API for ${rtom}:`, error);
+            }
             return [];
         }
     }
