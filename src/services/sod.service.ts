@@ -32,6 +32,8 @@ interface SltRejection {
 export interface ServiceOrderUpdateData {
     sltsStatus?: string;
     status?: string;
+    statusDate?: string | Date;
+    receivedDate?: string | Date;
     completedDate?: string | Date;
     contractorId?: string | null;
     comments?: string;
@@ -256,7 +258,7 @@ export class ServiceOrderService {
         });
         if (!oldOrder) throw new Error('ORDER_NOT_FOUND');
 
-        const { sltsStatus, completedDate, contractorId, comments, ...otherData } = data;
+        const { sltsStatus, status, statusDate, receivedDate, completedDate, contractorId, comments, ...otherData } = data;
         const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {};
 
         if (sltsStatus) {
@@ -268,6 +270,11 @@ export class ServiceOrderService {
         if (completedDate) updateData.completedDate = new Date(completedDate);
         if (contractorId !== undefined) updateData.contractorId = contractorId;
         if (comments !== undefined) updateData.comments = comments;
+
+        // SLT Status fields mapping
+        if (status) updateData.status = status;
+        if (statusDate) updateData.statusDate = new Date(statusDate);
+        if (receivedDate) updateData.receivedDate = new Date(receivedDate);
 
         // Completion fields mapping
         if (otherData.ontSerialNumber) updateData.ontSerialNumber = otherData.ontSerialNumber;
@@ -905,7 +912,7 @@ export class ServiceOrderService {
                 return await prisma.serviceOrder.upsert({
                     where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } },
                     update: { lea: item.LEA, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG },
-                    create: { opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG, sltsStatus: 'INPROGRESS' },
+                    create: { opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS, statusDate, receivedDate: statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG, sltsStatus: 'INPROGRESS' },
                     select: { id: true, createdAt: true, updatedAt: true } // 👈 Optimized selection
                 });
             }));

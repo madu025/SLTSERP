@@ -42,6 +42,7 @@ model ServiceOrder {
   techContact       String?
   status            String
   statusDate        DateTime?
+  receivedDate      DateTime?
   address           String?
   dp                String?
   package           String?
