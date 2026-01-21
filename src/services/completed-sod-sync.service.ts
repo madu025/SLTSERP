@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { sltApiService } from './slt-api.service';
 import { NotificationService } from './notification.service';
+import { ServiceOrderService } from './sod.service';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export class CompletedSODSyncService {
     /**
@@ -14,102 +16,80 @@ export class CompletedSODSyncService {
     }> {
         console.log('[COMPLETED-SOD-SYNC] Starting sync...');
 
-        const errors: string[] = [];
-        let completedCount = 0;
-        let checkedCount = 0;
+        const today = new Date();
+        const startDate = format(startOfMonth(today), 'yyyy-MM-dd');
+        const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
 
         try {
-            // Get all OPMCs
+            // Get all OPMCs with RTOM
             const opmcs = await prisma.oPMC.findMany({
-                select: { id: true, name: true }
+                select: { id: true, name: true, rtom: true }
             });
 
             for (const opmc of opmcs) {
                 try {
-                    console.log(`[COMPLETED-SOD-SYNC] Checking OPMC: ${opmc.name}`);
+                    console.log(`[COMPLETED-SOD-SYNC] Checking OPMC: ${opmc.name} (${opmc.rtom})`);
 
-                    // Fetch PAT success results (this endpoint works!)
-                    const patResults = await sltApiService.fetchPATResults(opmc.id);
-                    checkedCount += patResults.length;
+                    // 1. First Sync Pending SODs (ensure they exist in our DB)
+                    await ServiceOrderService.syncServiceOrders(opmc.id, opmc.rtom);
 
-                    console.log(`[COMPLETED-SOD-SYNC] Found ${patResults.length} PAT success records`);
+                    // 2. Fetch Completed SODs from dynamic_load (Direct method)
+                    // Format: rtom_startDate_endDate_COMPLETED_SLTS
+                    const completedResults = await sltApiService.fetchCompletedSODs(opmc.rtom, startDate, endDate);
+                    checkedCount += completedResults.length;
 
-                    // Process each PAT success record
-                    for (const patData of patResults) {
+                    console.log(`[COMPLETED-SOD-SYNC] Found ${completedResults.length} completed records in SLT for ${opmc.rtom}`);
+
+                    // Process each completed SOD record
+                    for (const sltData of completedResults) {
                         try {
-                            // Find matching pending SOD
+                            // Find matching pending SOD in our database
                             const localSOD = await prisma.serviceOrder.findFirst({
                                 where: {
-                                    soNum: patData.SO_NUM,
+                                    soNum: sltData.SO_NUM,
                                     status: 'PENDING'
                                 },
-                                select: { id: true } // Optimized: Only fetch ID to reduce egress
+                                select: { id: true }
                             });
 
                             if (!localSOD) {
                                 continue; // Already completed or not found
                             }
 
-                            // Check if PAT status indicates completion
-                            const completionStatuses = [
-                                'PAT_PASSED',
-                                'PAT_SUCCESS',
-                                'COMPLETED',
-                                'PAT_CORRECTED',
-                                'INSTALL_CLOSED',    // Added from user JSON
-                                'PAT_OPMC_PASSED'    // Added from user JSON
-                            ];
+                            // Use existing service to maintain consistency
+                            await ServiceOrderService.patchServiceOrder(
+                                localSOD.id,
+                                {
+                                    status: 'COMPLETED',
+                                    sltsStatus: 'COMPLETED',
+                                    sltsPatStatus: sltData.CON_STATUS,
+                                    completedDate: sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date(),
+                                    // Populate stats from SLT
+                                    dpDetails: sltData.DP,
+                                    ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
+                                    iptvSerialNumbers: sltData.IPTV || undefined,
+                                    dropWireDistance: sltData.FTTH_INST_SIET || undefined,
+                                    comments: `Auto-completed via SLT List (${sltData.CON_STATUS})`,
+                                },
+                                'SYSTEM_AUTO_SYNC'
+                            );
 
-                            if (completionStatuses.includes(patData.CON_STATUS)) {
-                                // Fetch full SOD details from SLT pending table
-                                const sltSODs = await sltApiService.fetchServiceOrders(opmc.id);
-                                const sltSOD = sltSODs.find(sod => sod.SO_NUM === patData.SO_NUM);
+                            completedCount++;
 
-                                if (!sltSOD) {
-                                    console.warn(`[COMPLETED-SOD-SYNC] SOD ${patData.SO_NUM} not found in SLT, completing without stats`);
-                                }
+                            // Send notification
+                            await NotificationService.notifyByRole({
+                                roles: ['OSP_MANAGER', 'OFFICE_ADMIN', 'ADMIN'],
+                                title: 'SOD Completed (Auto-Sync)',
+                                message: `SOD ${sltData.SO_NUM} has been marked as completed from SLT data.`,
+                                type: 'PROJECT',
+                                priority: 'MEDIUM',
+                                link: `/service-orders/completed`
+                            });
 
-                                // Use existing service to maintain consistency
-                                const { ServiceOrderService } = await import('./sod.service');
-
-                                await ServiceOrderService.patchServiceOrder(
-                                    localSOD.id,
-                                    {
-                                        status: 'COMPLETED',
-                                        sltsStatus: 'COMPLETED',
-                                        sltsPatStatus: patData.CON_STATUS,
-                                        completedDate: new Date(patData.CON_STATUS_DATE),
-                                        // Populate stats from SLT if available
-                                        ...(sltSOD && {
-                                            dpDetails: sltSOD.DP,
-                                            ontSerialNumber: sltSOD.CON_WORO_SEIT || undefined,
-                                            iptvSerialNumbers: sltSOD.IPTV || undefined,
-                                            dropWireDistance: sltSOD.FTTH_INST_SIET || undefined,
-                                        }),
-                                        comments: sltSOD
-                                            ? `Auto-completed with SLT stats (PAT: ${patData.CON_STATUS})`
-                                            : `Auto-completed via PAT ${patData.CON_STATUS} (stats unavailable)`,
-                                    },
-                                    'SYSTEM_PAT_AUTO_COMPLETE'
-                                );
-
-                                completedCount++;
-
-                                // Send notification
-                                await NotificationService.notifyByRole({
-                                    roles: ['OSP_MANAGER', 'OFFICE_ADMIN', 'ADMIN'],
-                                    title: 'SOD Auto-Completed',
-                                    message: `SOD ${patData.SO_NUM} completed ${sltSOD ? 'with stats from SLT' : 'without stats'} (PAT: ${patData.CON_STATUS})`,
-                                    type: 'PROJECT',
-                                    priority: 'MEDIUM',
-                                    link: `/service-orders/completed`
-                                });
-
-                                console.log(`[COMPLETED-SOD-SYNC] ✅ Completed ${sltSOD ? 'with stats' : 'without stats'}: ${patData.SO_NUM}`);
-                            }
+                            console.log(`[COMPLETED-SOD-SYNC] ✅ Synced Completed: ${sltData.SO_NUM}`);
 
                         } catch (error) {
-                            const errorMsg = `Failed to process ${patData.SO_NUM}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+                            const errorMsg = `Failed to process ${sltData.SO_NUM}: ${error instanceof Error ? error.message : 'Unknown error'}`;
                             errors.push(errorMsg);
                             console.error(`[COMPLETED-SOD-SYNC] ❌ ${errorMsg}`);
                         }
