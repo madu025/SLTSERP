@@ -5,16 +5,21 @@
  * Import this in your main server file (e.g., instrumentation.ts or a custom startup file)
  */
 
-import { SODAutoCompletionService } from '@/services/sod-auto-completion.service';
+import { CompletedSODSyncService } from '@/services/completed-sod-sync.service';
 
 export function initializeBackgroundWorkers() {
     console.log('[WORKERS] Initializing background workers...');
 
-    // Start SOD Auto-Completion (10-minute intervals)
-    if (process.env.ENABLE_SOD_AUTO_COMPLETE !== 'false') {
-        SODAutoCompletionService.startBackgroundProcess();
-        console.log('[WORKERS] ✅ SOD Auto-Completion started');
+    // Completed SOD Sync (30-minute intervals) - Uses PAT success data
+    if (process.env.ENABLE_COMPLETED_SOD_SYNC !== 'false') {
+        CompletedSODSyncService.startPeriodicSync();
+        console.log('[WORKERS] ✅ Completed SOD Sync started (PAT-based)');
     }
+
+    // SOD Auto-Completion (DISABLED - needs SLT completed endpoint)
+    // if (process.env.ENABLE_SOD_AUTO_COMPLETE === 'true') {
+    //     SODAutoCompletionService.startBackgroundProcess();
+    // }
 
     // Add other background workers here
     // Example:
@@ -27,7 +32,9 @@ export function initializeBackgroundWorkers() {
 export function shutdownBackgroundWorkers() {
     console.log('[WORKERS] Shutting down background workers...');
 
-    SODAutoCompletionService.stopBackgroundProcess();
+    CompletedSODSyncService.stopPeriodicSync();
+
+    // SODAutoCompletionService.stopBackgroundProcess();
 
     console.log('[WORKERS] All background workers stopped');
 }
