@@ -210,9 +210,11 @@ export async function GET(request: Request) {
                 }
 
                 // Check if completed today
+                // IMPORTANT: Only count orders with status='COMPLETED' (not PAT_CORRECTED, INSTALL_CLOSED, etc.)
                 // Use completedDate if available, otherwise fall back to statusDate for legacy records
                 const completionDate = order.completedDate || order.statusDate;
                 const isCompletedToday = order.sltsStatus === 'COMPLETED' &&
+                    order.status === 'COMPLETED' &&  // Only count actual COMPLETED status
                     completionDate &&
                     completionDate >= startDate &&
                     completionDate <= endDate;
