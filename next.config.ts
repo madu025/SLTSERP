@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts'],
+    // Enable instrumentation for background workers
+    instrumentationHook: true,
     // Deduplicate identical requests within 30 seconds
     staleTimes: {
       dynamic: 30,

@@ -5,7 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Upload, FileSpreadsheet, CheckCircle2, Download, AlertCircle } from "lucide-react";
+import { FileSpreadsheet, CheckCircle2, Download } from "lucide-react";
 import readXlsxFile from 'read-excel-file';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -24,25 +24,38 @@ export default function ContractorBulkImportPage() {
             'Type (SOD/OSP)',
             'Registration Number',
             'Contact Number',
+            'Email',
             'NIC',
             'Address',
             'BR Number',
             'Bank Name',
             'Bank Branch',
             'Bank Account Number',
-            'Team Name',
-            'Member 1 Name',
-            'Member 1 NIC',
-            'Member 2 Name',
-            'Member 2 NIC',
-            'Member 3 Name',
-            'Member 3 NIC'
+            'OPMC ID (Optional)',
+            'Team 1 Name',
+            'Team 1 Member 1 Name',
+            'Team 1 Member 1 NIC',
+            'Team 1 Member 1 Contact',
+            'Team 1 Member 1 Designation',
+            'Team 1 Member 2 Name',
+            'Team 1 Member 2 NIC',
+            'Team 1 Member 2 Contact',
+            'Team 1 Member 2 Designation',
+            'Team 1 Member 3 Name',
+            'Team 1 Member 3 NIC',
+            'Team 1 Member 3 Contact',
+            'Team 1 Member 3 Designation',
+            'Team 2 Name (Optional)',
+            'Team 2 Member 1 Name',
+            'Team 2 Member 1 NIC',
+            'Team 2 Member 1 Contact',
+            'Team 2 Member 1 Designation'
         ];
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "contractor_with_teams_template.csv");
+        link.setAttribute("download", "contractor_bulk_import_template.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -71,22 +84,66 @@ export default function ContractorBulkImportPage() {
 
                 try {
                     const teams = [];
-                    const teamName = row[10]?.toString().trim();
-                    if (teamName) {
-                        const members = [];
-                        if (row[11]?.toString().trim()) {
-                            members.push({ name: row[11].toString().trim(), nic: row[12]?.toString().trim() || '' });
-                        }
+
+                    // Team 1
+                    const team1Name = row[12]?.toString().trim();
+                    if (team1Name) {
+                        const team1Members = [];
+
+                        // Team 1 Member 1
                         if (row[13]?.toString().trim()) {
-                            members.push({ name: row[13].toString().trim(), nic: row[14]?.toString().trim() || '' });
+                            team1Members.push({
+                                name: row[13].toString().trim(),
+                                nic: row[14]?.toString().trim() || '',
+                                contactNumber: row[15]?.toString().trim() || '',
+                                designation: row[16]?.toString().trim() || ''
+                            });
                         }
-                        if (row[15]?.toString().trim()) {
-                            members.push({ name: row[15].toString().trim(), nic: row[16]?.toString().trim() || '' });
+
+                        // Team 1 Member 2
+                        if (row[17]?.toString().trim()) {
+                            team1Members.push({
+                                name: row[17].toString().trim(),
+                                nic: row[18]?.toString().trim() || '',
+                                contactNumber: row[19]?.toString().trim() || '',
+                                designation: row[20]?.toString().trim() || ''
+                            });
+                        }
+
+                        // Team 1 Member 3
+                        if (row[21]?.toString().trim()) {
+                            team1Members.push({
+                                name: row[21].toString().trim(),
+                                nic: row[22]?.toString().trim() || '',
+                                contactNumber: row[23]?.toString().trim() || '',
+                                designation: row[24]?.toString().trim() || ''
+                            });
                         }
 
                         teams.push({
-                            name: teamName,
-                            members: members
+                            name: team1Name,
+                            members: team1Members
+                        });
+                    }
+
+                    // Team 2 (Optional)
+                    const team2Name = row[25]?.toString().trim();
+                    if (team2Name) {
+                        const team2Members = [];
+
+                        // Team 2 Member 1
+                        if (row[26]?.toString().trim()) {
+                            team2Members.push({
+                                name: row[26].toString().trim(),
+                                nic: row[27]?.toString().trim() || '',
+                                contactNumber: row[28]?.toString().trim() || '',
+                                designation: row[29]?.toString().trim() || ''
+                            });
+                        }
+
+                        teams.push({
+                            name: team2Name,
+                            members: team2Members
                         });
                     }
 
@@ -95,18 +152,24 @@ export default function ContractorBulkImportPage() {
                         type: (row[1]?.toString().trim() || 'SOD').toUpperCase(),
                         registrationNumber: row[2]?.toString().trim(),
                         contactNumber: row[3]?.toString().trim(),
-                        nic: row[4]?.toString().trim(),
-                        address: row[5]?.toString().trim(),
-                        brNumber: row[6]?.toString().trim(),
-                        bankName: row[7]?.toString().trim(),
-                        bankBranch: row[8]?.toString().trim(),
-                        bankAccountNumber: row[9]?.toString().trim(),
+                        email: row[4]?.toString().trim(),
+                        nic: row[5]?.toString().trim(),
+                        address: row[6]?.toString().trim(),
+                        brNumber: row[7]?.toString().trim(),
+                        bankName: row[8]?.toString().trim(),
+                        bankBranch: row[9]?.toString().trim(),
+                        bankAccountNumber: row[10]?.toString().trim(),
+                        opmcId: row[11]?.toString().trim() || undefined,
                         status: 'ACTIVE',
                         teams: teams
                     };
 
                     if (!payload.name || !payload.registrationNumber) {
                         throw new Error(`Row ${rowNum}: Name and Registration Number are required.`);
+                    }
+
+                    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+                        throw new Error(`Row ${rowNum}: Invalid email format.`);
                     }
 
                     const res = await fetch('/api/contractors', {
@@ -122,9 +185,10 @@ export default function ContractorBulkImportPage() {
                         throw new Error(`Row ${rowNum}: ${errData.message || 'Server error'}`);
                     }
 
-                } catch (err: any) {
+                } catch (error) {
                     failCount++;
-                    errorList.push(err.message);
+                    const errorMessage = error instanceof Error ? error.message : `Row ${rowNum}: Unknown error`;
+                    errorList.push(errorMessage);
                 }
             }
 
@@ -139,7 +203,7 @@ export default function ContractorBulkImportPage() {
                 toast.warning(`${failCount} rows failed to import.`);
             }
 
-        } catch (err) {
+        } catch (error) {
             toast.error("Failed to read Excel file.");
         } finally {
             setIsProcessing(false);
