@@ -1,45 +1,53 @@
+version: '3.8'
+
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: always
-    ports:
-      - "80:3000"
+  # PostgreSQL Primary Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sltserp-postgres
+    restart: unless-stopped
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - READ_REPLICA_URL=${READ_REPLICA_URL}
-      - DIRECT_URL=${DIRECT_URL}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://54.255.90.86:3000}
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://54.255.90.86:3000}
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
+      POSTGRES_USER: sltserp_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeThisPassword123!}
+      POSTGRES_DB: sltserp_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
     volumes:
-      - ./public/uploads:/app/public/uploads
-    depends_on:
-      - redis
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - sltserp-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U sltserp_user -d sltserp_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: always
-    command: [ "node", "scripts/worker.js" ]
-    depends_on:
-      - app
-      - redis
+  # PgAdmin (Optional - Database Management UI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: sltserp-pgadmin
+    restart: unless-stopped
     environment:
-      - INTERNAL_APP_URL=http://app:3000
-      - CRON_SECRET=${CRON_SECRET}
-      - DATABASE_URL=${DATABASE_URL}
-      - READ_REPLICA_URL=${READ_REPLICA_URL}
-      - DIRECT_URL=${DIRECT_URL}
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
-
-  redis:
-    image: redis:alpine
-    restart: always
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@sltserp.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_LISTEN_PORT: 80
     ports:
-      - "6379:6379"
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - sltserp-network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  sltserp-network:
+    driver: bridge

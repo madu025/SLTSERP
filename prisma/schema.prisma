@@ -1,13 +1,12 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["metrics", "postgresqlExtensions"]
+  previewFeatures = ["metrics"]
 }
 
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   directUrl  = env("DIRECT_URL")
-  extensions = [pg_trgm, uuid_ossp(map: "uuid-ossp", schema: "extensions")]
 }
 
 model OPMC {
@@ -284,7 +283,7 @@ model Project {
   expenses          ProjectExpense[]
   projectReturns    ProjectMaterialReturn[]
   milestones        ProjectMilestone[]
-  sods              SOD[]
+  sods              ProjectSOD[]
   stockIssues       StockIssue[]
 
   @@index([status])
@@ -351,38 +350,38 @@ model ProjectExpense {
 }
 
 model Material {
-  id        String    @id @default(cuid())
-  code      String    @unique
+  id        String           @id @default(cuid())
+  code      String           @unique
   name      String
   unit      String
-  quantity  Float     @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  sodItems  SODItem[]
+  quantity  Float            @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  sodItems  ProjectSODItem[]
 }
 
-model SOD {
-  id        String    @id @default(cuid())
-  sodNumber String    @unique
+model ProjectSOD {
+  id        String         @id @default(cuid())
+  sodNumber String         @unique
   projectId String
-  status    String    @default("PENDING")
+  status    String         @default("PENDING")
   rtom      String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  project   Project   @relation(fields: [projectId], references: [id])
-  items     SODItem[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  project   Project        @relation(fields: [projectId], references: [id])
+  items     ProjectSODItem[]
 }
 
-model SODItem {
-  id         String   @id @default(cuid())
+model ProjectSODItem {
+  id         String      @id @default(cuid())
   sodId      String
   materialId String
   quantity   Float
-  used       Float    @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  material   Material @relation(fields: [materialId], references: [id])
-  sod        SOD      @relation(fields: [sodId], references: [id])
+  used       Float       @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  material   Material    @relation(fields: [materialId], references: [id])
+  sod        ProjectSOD  @relation(fields: [sodId], references: [id])
 }
 
 model Contractor {

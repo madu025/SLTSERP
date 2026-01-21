@@ -245,6 +245,8 @@ function SystemSettingsCard() {
 function AdvancedOperationsCard() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncStats, setSyncStats] = useState<any>(null);
+    const [isClearing, setIsClearing] = useState(false);
+    const [clearResults, setClearResults] = useState<any>(null);
 
     const handleSync = async () => {
         setIsSyncing(true);
@@ -262,6 +264,50 @@ function AdvancedOperationsCard() {
             toast.error("Network error during sync");
         } finally {
             setIsSyncing(false);
+        }
+    };
+
+    const handleClearServiceOrders = async () => {
+        const confirmed = window.confirm(
+            '⚠️ WARNING: This will permanently delete ALL Service Order data!\n\n' +
+            'This includes:\n' +
+            '- All Pending, Completed, and Returned Service Orders\n' +
+            '- All Status History\n' +
+            '- All Material Usage Records\n' +
+            '- All Restore Requests\n' +
+            '- Dashboard Statistics\n\n' +
+            'This action CANNOT be undone!\n\n' +
+            'Are you absolutely sure you want to proceed?'
+        );
+
+        if (!confirmed) return;
+
+        const doubleConfirm = window.confirm(
+            '🚨 FINAL CONFIRMATION\n\n' +
+            'Type "DELETE" in your mind and click OK to proceed.\n\n' +
+            'This is your last chance to cancel!'
+        );
+
+        if (!doubleConfirm) return;
+
+        setIsClearing(true);
+        setClearResults(null);
+        try {
+            const res = await fetch('/api/admin/clear-service-orders', {
+                method: 'POST'
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                setClearResults(data.results);
+                toast.success("All Service Order data cleared successfully!");
+            } else {
+                toast.error("Clear failed: " + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            toast.error("Network error during clear operation");
+        } finally {
+            setIsClearing(false);
         }
     };
 
@@ -318,17 +364,45 @@ function AdvancedOperationsCard() {
                         )}
                     </div>
 
-                    {/* Future: Backup/Index maintenance */}
-                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 opacity-60">
+                    {/* Clear All Service Orders */}
+                    <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                         <div className="flex items-start justify-between mb-4">
-                            <div>
-                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Database Maintenance</h4>
-                                <p className="text-xs text-slate-500 mt-1">
-                                    Perform periodic indexing and cleanup operations.
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold text-red-800 uppercase tracking-wide">Clear All Service Orders</h4>
+                                <p className="text-xs text-red-600 mt-1">
+                                    ⚠️ DANGER: Permanently delete all SOD data.
+                                    Use for production daily reset only!
                                 </p>
                             </div>
-                            <Button size="sm" variant="outline" disabled>Optimized</Button>
+                            <Button
+                                size="sm"
+                                variant="destructive"
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={handleClearServiceOrders}
+                                disabled={isClearing}
+                            >
+                                {isClearing ? 'Clearing...' : 'Clear All'}
+                            </Button>
                         </div>
+
+                        {clearResults && (
+                            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                                <div className="p-2 bg-white rounded border">
+                                    <div className="text-xs text-slate-400">Orders</div>
+                                    <div className="text-sm font-bold text-red-600">{clearResults.serviceOrders}</div>
+                                </div>
+                                <div className="p-2 bg-white rounded border">
+                                    <div className="text-xs text-slate-400">History</div>
+                                    <div className="text-sm font-bold text-orange-600">{clearResults.statusHistory}</div>
+                                </div>
+                                <div className="p-2 bg-white rounded border">
+                                    <div className="text-xs text-slate-400">Total</div>
+                                    <div className="text-sm font-bold text-purple-600">
+                                        {Object.values(clearResults).reduce((a: any, b: any) => a + b, 0)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </CardContent>
