@@ -59,6 +59,13 @@ export class CompletedSODSyncService {
                     // Process each completed SOD record
                     for (const sltData of completedResults) {
                         try {
+                            // Strict Completion Check: Only process if status is a valid completion status
+                            const completionStatuses = ['PROV_CLOSED', 'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'];
+                            if (!completionStatuses.includes(sltData.CON_STATUS)) {
+                                // console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ⏩ Skipping SOD ${sltData.SO_NUM} with status ${sltData.CON_STATUS}`);
+                                continue;
+                            }
+
                             // Find matching active SOD (looking for non-completed)
                             const localSODs = await prisma.serviceOrder.findMany({
                                 where: {

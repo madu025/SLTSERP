@@ -159,6 +159,7 @@ export const GET = withTracing(async (request: any) => {
                 pending: totalStats.find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
                 invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, isInvoicable: true } }),
             },
+            statusBreakdown: [] as { status: string; count: number }[],
             pat: {
                 passed: patStats.find(s => s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED')?._count?._all || 0,
                 rejected: patStats.find(s => s.patStatus === 'REJECTED')?._count?._all || 0,
@@ -167,6 +168,18 @@ export const GET = withTracing(async (request: any) => {
             contractors: [] as ContractorStat[],
             rtoms: [] as RtomStat[]
         };
+
+        // 1. Fetch Completion Status Breakdown (for current month)
+        const statusBreakdownRaw = await prisma.serviceOrder.groupBy({
+            by: ['status'],
+            where: { ...whereClause, sltsStatus: 'COMPLETED', createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
+            _count: { _all: true }
+        });
+
+        stats.statusBreakdown = statusBreakdownRaw.map((s: any) => ({
+            status: s.status,
+            count: s._count?._all || 0
+        })).sort((a: any, b: any) => b.count - a.count);
 
         const contractorIds = [...new Set(contractorPerf.map((c) => c.contractorId))].filter(Boolean) as string[];
         const contractorsData = await prisma.contractor.findMany({

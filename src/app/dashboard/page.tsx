@@ -46,6 +46,10 @@ interface Stats {
         patRejected?: number;
         sltsPatRejected?: number;
     }>;
+    statusBreakdown: Array<{
+        status: string;
+        count: number;
+    }>;
 }
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
@@ -107,7 +111,7 @@ export default function DashboardPage() {
     return (
         <div className="min-h-screen flex bg-white">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0">
+            <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
 
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
@@ -138,30 +142,10 @@ export default function DashboardPage() {
                                 Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)
                             ) : (
                                 <>
-                                    <StatCard
-                                        label="Monthly Received"
-                                        value={stats?.monthly?.total || 0}
-                                        icon="📥"
-                                        color="bg-blue-500"
-                                    />
-                                    <StatCard
-                                        label="Monthly Invoicable"
-                                        value={stats?.monthly?.invoicable || 0}
-                                        icon="💰"
-                                        color="bg-indigo-600"
-                                    />
-                                    <StatCard
-                                        label="Monthly Completed"
-                                        value={stats?.monthly?.completed || 0}
-                                        icon="✅"
-                                        color="bg-emerald-500"
-                                    />
-                                    <StatCard
-                                        label="Monthly Return"
-                                        value={stats?.monthly?.returned || 0}
-                                        icon="🔄"
-                                        color="bg-rose-500"
-                                    />
+                                    <StatCard label="Monthly Received" value={stats?.monthly?.total || 0} icon="📥" color="bg-blue-500" />
+                                    <StatCard label="Monthly Invoicable" value={stats?.monthly?.invoicable || 0} icon="💰" color="bg-indigo-600" />
+                                    <StatCard label="Monthly Completed" value={stats?.monthly?.completed || 0} icon="✅" color="bg-emerald-500" />
+                                    <StatCard label="Monthly Return" value={stats?.monthly?.returned || 0} icon="🔄" color="bg-rose-500" />
                                 </>
                             )}
                         </div>
@@ -172,21 +156,21 @@ export default function DashboardPage() {
                                 Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
                             ) : (
                                 <>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} Total Received</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 Total Received</p>
                                         <p className="text-xl font-bold text-slate-900">{stats?.allTime?.total || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} Total Completed</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 Total Completed</p>
                                         <p className="text-xl font-bold text-slate-900">{stats?.allTime?.completed || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} PAT Pass</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 PAT Pass</p>
                                         <p className="text-xl font-bold text-slate-900">{stats?.pat?.passed || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">{new Date().getFullYear()} PAT Rejected</p>
-                                        <p className="text-xl font-bold text-slate-900 text-red-600">{stats?.pat?.rejected || 0}</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 PAT Rejected</p>
+                                        <p className="text-xl font-bold text-red-600">{stats?.pat?.rejected || 0}</p>
                                     </div>
                                 </>
                             )}
@@ -201,24 +185,12 @@ export default function DashboardPage() {
                                 </h3>
                                 <div className="h-64">
                                     {isLoading ? (
-                                        <div className="h-full flex items-center justify-center">
-                                            <Skeleton className="w-40 h-40 rounded-full" />
-                                        </div>
+                                        <div className="h-full flex items-center justify-center"><Skeleton className="w-40 h-40 rounded-full" /></div>
                                     ) : (
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
-                                                <Pie
-                                                    data={monthlyPieData}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    {monthlyPieData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                    ))}
+                                                <Pie data={monthlyPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                                    {monthlyPieData.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                                                 </Pie>
                                                 <Tooltip />
                                                 <Legend />
@@ -231,29 +203,17 @@ export default function DashboardPage() {
                             {/* PAT Status Distribution */}
                             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
                                 <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                    <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
+                                    <span className="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
                                     PAT Distribution
                                 </h3>
                                 <div className="h-64">
                                     {isLoading ? (
-                                        <div className="h-full flex items-center justify-center">
-                                            <Skeleton className="w-40 h-40 rounded-full" />
-                                        </div>
+                                        <div className="h-full flex items-center justify-center"><Skeleton className="w-40 h-40 rounded-full" /></div>
                                     ) : (
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
-                                                <Pie
-                                                    data={patData}
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    <Cell fill="#10b981" />
-                                                    <Cell fill="#ef4444" />
-                                                    <Cell fill="#6366f1" />
+                                                <Pie data={patData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                                    <Cell fill="#10b981" /><Cell fill="#ef4444" /><Cell fill="#6366f1" />
                                                 </Pie>
                                                 <Tooltip />
                                                 <Legend />
@@ -263,50 +223,64 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* Contractor Performance */}
+                            {/* Completion Status Breakdown */}
                             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
                                 <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                    <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
-                                    Contractor Performance
+                                    <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
+                                    Completion Breakdown
                                 </h3>
-                                <div className="space-y-4 overflow-y-auto max-h-[250px] pr-2">
+                                <div className="space-y-2 overflow-y-auto max-h-[250px] pr-2">
                                     {isLoading ? (
-                                        Array(5).fill(0).map((_, i) => (
-                                            <div key={i} className="space-y-2">
-                                                <Skeleton className="h-3 w-24" />
-                                                <Skeleton className="h-2 w-full" />
-                                            </div>
-                                        ))
+                                        Array(5).fill(0).map((_, i) => <div key={i} className="flex justify-between py-1"><Skeleton className="h-4 w-24" /><Skeleton className="h-4 w-12" /></div>)
                                     ) : (
                                         <>
-                                            {stats?.contractors?.map((c, i) => (
-                                                <div key={i}>
-                                                    <div className="flex justify-between text-xs mb-1">
-                                                        <span className="font-medium text-slate-700">{c.name}</span>
-                                                        <span className="text-slate-500">{c.completed}/{c.total} SODs</span>
-                                                    </div>
-                                                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-blue-500 rounded-full transition-all duration-1000"
-                                                            style={{ width: `${c.percentage}%` }}
-                                                        />
-                                                    </div>
+                                            {stats?.statusBreakdown?.map((s, i) => (
+                                                <div key={i} className="flex justify-between items-center p-2 hover:bg-slate-50 rounded-lg border-b border-slate-50 last:border-0 transition-colors">
+                                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">{s.status.replace(/_/g, ' ')}</span>
+                                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-[10px] font-black border border-emerald-100">{s.count.toLocaleString()}</span>
                                                 </div>
                                             ))}
-                                            {(!stats?.contractors || stats?.contractors.length === 0) && (
-                                                <p className="text-center text-slate-400 text-sm py-4">No contractor data found</p>
-                                            )}
                                         </>
                                     )}
                                 </div>
                             </div>
                         </div>
 
+                        {/* Lower Section Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                            {/* Contractor Performance */}
+                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:col-span-1">
+                                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                    <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
+                                    Contractor Performance
+                                </h3>
+                                <div className="space-y-4 overflow-y-auto max-h-[300px] pr-2">
+                                    {isLoading ? (
+                                        Array(5).fill(0).map((_, i) => <div key={i} className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-2 w-full" /></div>)
+                                    ) : (
+                                        stats?.contractors?.map((c, i) => (
+                                            <div key={i}>
+                                                <div className="flex justify-between text-xs mb-1">
+                                                    <span className="font-medium text-slate-700">{c.name}</span>
+                                                    <span className="text-slate-500">{c.completed}/{c.total} SODs</span>
+                                                </div>
+                                                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{ width: `${c.percentage}%` }} />
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Management Section placeholder or future module */}
+                        </div>
+
                         {/* RTOM Comparison for Management */}
                         {isHigherManagement && (
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                                    <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                    <div className="p-6 border-b border-slate-100">
                                         <h3 className="font-bold text-slate-800 flex items-center gap-2">
                                             <span className="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
                                             RTOM Performance
@@ -315,41 +289,30 @@ export default function DashboardPage() {
                                     <div className="overflow-x-auto">
                                         <table className="w-full">
                                             <thead className="bg-slate-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Comp</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Pend</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Ret</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Progress</th>
+                                                <tr className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                                    <th className="px-6 py-3">RTOM</th>
+                                                    <th className="px-6 py-3">Comp</th>
+                                                    <th className="px-6 py-3">Pend</th>
+                                                    <th className="px-6 py-3">Ret</th>
+                                                    <th className="px-6 py-3">Progress</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100">
+                                            <tbody className="divide-y divide-slate-100 uppercase text-xs">
                                                 {isLoading ? (
-                                                    Array(3).fill(0).map((_, i) => (
-                                                        <tr key={i}>
-                                                            {Array(5).fill(0).map((_, j) => (
-                                                                <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
-                                                            ))}
-                                                        </tr>
-                                                    ))
+                                                    Array(3).fill(0).map((_, i) => <tr key={i} className="px-6 py-4"><td colSpan={5}><Skeleton className="h-4 w-full" /></td></tr>)
                                                 ) : (
                                                     stats?.rtoms?.map((r, i) => (
-                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors text-sm">
-                                                            <td className="px-6 py-4 font-semibold text-slate-900">{r.name}</td>
-                                                            <td className="px-6 py-4 text-emerald-600 font-medium">{r.completed}</td>
-                                                            <td className="px-6 py-4 text-amber-600 font-medium">{r.pending}</td>
-                                                            <td className="px-6 py-4 text-orange-600 font-medium">{r.returned}</td>
+                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                            <td className="px-6 py-4 font-bold text-slate-900">{r.name}</td>
+                                                            <td className="px-6 py-4 text-emerald-600 font-bold">{r.completed}</td>
+                                                            <td className="px-6 py-4 text-amber-600 font-bold">{r.pending}</td>
+                                                            <td className="px-6 py-4 text-orange-600 font-bold">{r.returned}</td>
                                                             <td className="px-6 py-4">
-                                                                <div className="flex items-center gap-3">
+                                                                <div className="flex items-center gap-2">
                                                                     <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[60px]">
-                                                                        <div
-                                                                            className="h-full bg-indigo-500 rounded-full"
-                                                                            style={{ width: `${(r.completed / (r.total || 1)) * 100}%` }}
-                                                                        />
+                                                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(r.completed / (r.total || 1)) * 100}%` }} />
                                                                     </div>
-                                                                    <span className="text-[10px] font-medium text-slate-600">
-                                                                        {Math.round((r.completed / (r.total || 1)) * 100)}%
-                                                                    </span>
+                                                                    <span className="text-[10px] font-bold text-slate-600">{Math.round((r.completed / (r.total || 1)) * 100)}%</span>
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -366,34 +329,28 @@ export default function DashboardPage() {
                                             <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
                                             RTOM PAT Summary
                                         </h3>
-                                        <a href="/service-orders/pat" className="text-xs text-primary font-semibold hover:underline">View All</a>
+                                        <a href="/service-orders/pat" className="text-xs text-primary font-bold hover:underline">View All</a>
                                     </div>
                                     <div className="overflow-x-auto">
                                         <table className="w-full">
                                             <thead className="bg-slate-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">RTOM</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-emerald-600">Approved</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-red-600">Rejected</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider text-orange-600">SLT Rej</th>
+                                                <tr className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                                    <th className="px-6 py-3">RTOM</th>
+                                                    <th className="px-6 py-3 text-emerald-600">Approved</th>
+                                                    <th className="px-6 py-3 text-red-600">Rejected</th>
+                                                    <th className="px-6 py-3 text-orange-600">SLT Rej</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100">
+                                            <tbody className="divide-y divide-slate-100 uppercase text-xs">
                                                 {isLoading ? (
-                                                    Array(3).fill(0).map((_, i) => (
-                                                        <tr key={i}>
-                                                            {Array(4).fill(0).map((_, j) => (
-                                                                <td key={j} className="px-6 py-4"><Skeleton className="h-4 w-full" /></td>
-                                                            ))}
-                                                        </tr>
-                                                    ))
+                                                    Array(3).fill(0).map((_, i) => <tr key={i} className="px-6 py-4"><td colSpan={4}><Skeleton className="h-4 w-full" /></td></tr>)
                                                 ) : (
                                                     stats?.rtoms?.map((r, i) => (
-                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors text-sm">
-                                                            <td className="px-6 py-4 font-semibold text-slate-900">{r.name}</td>
-                                                            <td className="px-6 py-4 text-emerald-600 font-bold">{r.patPassed || 0}</td>
-                                                            <td className="px-6 py-4 text-red-600 font-bold">{r.patRejected || 0}</td>
-                                                            <td className="px-6 py-4 text-orange-600 font-bold">{r.sltsPatRejected || 0}</td>
+                                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                            <td className="px-6 py-4 font-bold text-slate-900">{r.name}</td>
+                                                            <td className="px-6 py-4 text-emerald-600 font-black">{r.patPassed || 0}</td>
+                                                            <td className="px-6 py-4 text-red-600 font-black">{r.patRejected || 0}</td>
+                                                            <td className="px-6 py-4 text-orange-600 font-black">{r.sltsPatRejected || 0}</td>
                                                         </tr>
                                                     ))
                                                 )}
