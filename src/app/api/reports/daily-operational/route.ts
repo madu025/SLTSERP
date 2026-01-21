@@ -210,9 +210,14 @@ export async function GET(request: Request) {
                 }
 
                 // Check if completed today
-                if (order.sltsStatus === 'COMPLETED' && order.completedDate &&
-                    order.completedDate >= startDate && order.completedDate <= endDate) {
+                // Use completedDate if available, otherwise fall back to statusDate for legacy records
+                const completionDate = order.completedDate || order.statusDate;
+                const isCompletedToday = order.sltsStatus === 'COMPLETED' &&
+                    completionDate &&
+                    completionDate >= startDate &&
+                    completionDate <= endDate;
 
+                if (isCompletedToday) {
                     const orderType = order.orderType?.toUpperCase() || '';
                     if (orderType.includes('CREATE') && !orderType.includes('CREATE-OR') && !orderType.includes('RECON') && !orderType.includes('UPGRD')) {
                         completed.create++;
