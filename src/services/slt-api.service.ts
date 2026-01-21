@@ -71,7 +71,17 @@ export class SLTApiService {
                 return [];
             }
 
-            return data.data;
+            // If no items, return empty
+            if (!data.data || !Array.isArray(data.data)) {
+                return [];
+            }
+
+            return data.data.map((item: any) => ({
+                ...item,
+                // Ensure consistency
+                CON_STATUS: item.CON_STATUS || 'UNKNOWN',
+                CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
+            }));
         } catch (error) {
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {

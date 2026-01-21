@@ -55,7 +55,9 @@ export class CompletedSODSyncService {
                                 'PAT_PASSED',
                                 'PAT_SUCCESS',
                                 'COMPLETED',
-                                'PAT_CORRECTED'
+                                'PAT_CORRECTED',
+                                'INSTALL_CLOSED',    // Added from user JSON
+                                'PAT_OPMC_PASSED'    // Added from user JSON
                             ];
 
                             if (completionStatuses.includes(patData.CON_STATUS)) {
