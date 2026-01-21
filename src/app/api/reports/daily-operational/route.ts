@@ -19,13 +19,25 @@ export async function GET(request: Request) {
                         OR: [
                             { createdAt: { gte: startDate, lte: endDate } },
                             { completedDate: { gte: startDate, lte: endDate } },
-                            { statusDate: { gte: startDate, lte: endDate } }
+                            { statusDate: { gte: startDate, lte: endDate } },
+                            {
+                                statusHistory: {
+                                    some: {
+                                        statusDate: { gte: startDate, lte: endDate }
+                                    }
+                                }
+                            }
                         ]
                     },
                     include: {
                         materialUsage: {
                             include: {
                                 item: true
+                            }
+                        },
+                        statusHistory: {
+                            where: {
+                                statusDate: { gte: startDate, lte: endDate }
                             }
                         }
                     }
@@ -99,7 +111,7 @@ export async function GET(request: Request) {
 
         // Attach materialSource to orders in memory
         opmcs.forEach(opmc => {
-            opmc.serviceOrders.forEach(order => {
+            (opmc.serviceOrders as any[]).forEach(order => {
                 const source = sourceMap.get(order.id);
                 if (source) {
                     (order as any).materialSource = source;
@@ -108,7 +120,7 @@ export async function GET(request: Request) {
         });
 
         const reportData = opmcs.map(opmc => {
-            const orders = opmc.serviceOrders;
+            const orders = opmc.serviceOrders as any[];
 
             // Calculate team metrics
             const regularTeams = opmc.contractorTeams.length;
@@ -209,17 +221,11 @@ export async function GET(request: Request) {
                     received.total++;
                 }
 
-                // Check if completed today
-                // IMPORTANT: Only count orders with status='COMPLETED' (not PAT_CORRECTED, INSTALL_CLOSED, etc.)
-                // Use completedDate if available, otherwise fall back to statusDate for legacy records
-                const completionDate = order.completedDate || order.statusDate;
-                const isCompletedToday = order.sltsStatus === 'COMPLETED' &&
-                    order.status === 'COMPLETED' &&  // Only count actual COMPLETED status
-                    completionDate &&
-                    completionDate >= startDate &&
-                    completionDate <= endDate;
+                // Check if completed today via Status History
+                // "Daily Completion" = Any order that had INSTALL_CLOSED status TODAY
+                const hadInstallClosedToday = order.statusHistory?.some((h: any) => h.status === 'INSTALL_CLOSED');
 
-                if (isCompletedToday) {
+                if (hadInstallClosedToday) {
                     const orderType = order.orderType?.toUpperCase() || '';
                     if (orderType.includes('CREATE') && !orderType.includes('CREATE-OR') && !orderType.includes('RECON') && !orderType.includes('UPGRD')) {
                         completed.create++;
@@ -243,8 +249,10 @@ export async function GET(request: Request) {
                     returned.total++;
                 }
 
-                // Track wired-only orders
-                if ((order as any).wiredOnly) {
+                // Track wired-only orders (PROV_CLOSED status reached TODAY via statusHistory)
+                const hadProvClosedToday = order.statusHistory?.some((h: any) => h.status === 'PROV_CLOSED');
+
+                if (hadProvClosedToday) {
                     wiredOnly[category]++;
                     wiredOnly.total++;
                 }
@@ -280,7 +288,6 @@ export async function GET(request: Request) {
                                 material.dwSlt += quantity;
                             }
                         }
-                        // Poles - categorized by size
                         // Poles - categorized by size
                         else if (itemCategory.includes('pole')) {
                             if (itemName.includes('5.6')) {

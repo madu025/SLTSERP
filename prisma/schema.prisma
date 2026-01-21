@@ -93,6 +93,7 @@ model ServiceOrder {
   updatedAt         DateTime           @updatedAt
   restoreRequests   RestoreRequest[]
   materialUsage     SODMaterialUsage[]
+  statusHistory     ServiceOrderStatusHistory[]
   contractor        Contractor?        @relation(fields: [contractorId], references: [id])
   invoice           Invoice?           @relation(fields: [invoiceId], references: [id])
   opmc              OPMC               @relation(fields: [opmcId], references: [id], onDelete: Cascade)
@@ -112,6 +113,19 @@ model ServiceOrder {
   @@index([updatedAt])
   @@index([opmcId, status])
   @@index([opmcId, sltsStatus])
+}
+
+model ServiceOrderStatusHistory {
+  id              String       @id @default(cuid())
+  serviceOrderId  String
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  status          String
+  statusDate      DateTime
+  createdAt       DateTime     @default(now())
+
+  @@index([serviceOrderId])
+  @@index([statusDate])
+  @@index([status])
 }
 
 model User {

@@ -495,6 +495,17 @@ export class ServiceOrderService {
             data: updateData
         });
 
+        // Track status history if status changed
+        if (status && status !== oldOrder.status) {
+            await prisma.serviceOrderStatusHistory.create({
+                data: {
+                    serviceOrderId: id,
+                    status: status,
+                    statusDate: updateData.statusDate ? new Date(updateData.statusDate as any) : (oldOrder.statusDate || new Date())
+                }
+            });
+        }
+
         // Incremental Stats Update
         if (serviceOrder.sltsStatus !== oldOrder.sltsStatus) {
             try {
@@ -908,13 +919,31 @@ export class ServiceOrderService {
         for (let i = 0; i < syncableData.length; i += batchSize) {
             const batch = syncableData.slice(i, i + batchSize);
             const results = await Promise.all(batch.map(async (item) => {
-                const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
-                return await prisma.serviceOrder.upsert({
+                const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
+
+                // Check if this specific status record exists for this soNum
+                const existing = await prisma.serviceOrder.findUnique({
+                    where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } }
+                });
+
+                const result = await prisma.serviceOrder.upsert({
                     where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } },
                     update: { lea: item.LEA, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG },
                     create: { opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS, statusDate, receivedDate: statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG, sltsStatus: 'INPROGRESS' },
                     select: { id: true, createdAt: true, updatedAt: true } // 👈 Optimized selection
                 });
+
+                // If it was newly created (or first time we see this status for this soNum), record history
+                if (!existing) {
+                    await prisma.serviceOrderStatusHistory.create({
+                        data: {
+                            serviceOrderId: result.id,
+                            status: item.CON_STATUS,
+                            statusDate: statusDate
+                        }
+                    });
+                }
+                return result;
             }));
             results.forEach(r => { if (r?.createdAt.getTime() === r?.updatedAt.getTime()) created++; else updated++; });
         }

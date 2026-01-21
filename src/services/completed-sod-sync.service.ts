@@ -120,7 +120,7 @@ export class CompletedSODSyncService {
                                     const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
                                     const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
 
-                                    await prisma.serviceOrder.create({
+                                    const newSOD = await prisma.serviceOrder.create({
                                         data: {
                                             opmcId: opmc.id, rtom: opmc.rtom, lea: sltData.LEA, soNum: sltData.SO_NUM,
                                             voiceNumber: sltData.VOICENUMBER, orderType: sltData.ORDER_TYPE,
@@ -137,6 +137,16 @@ export class CompletedSODSyncService {
                                             comments: `Created directly as COMPLETED from SLT List`
                                         }
                                     });
+
+                                    // Record initial status history
+                                    await prisma.serviceOrderStatusHistory.create({
+                                        data: {
+                                            serviceOrderId: newSOD.id,
+                                            status: sltData.CON_STATUS,
+                                            statusDate: completedDate
+                                        }
+                                    });
+
                                     completedCount++;
                                 } else {
                                     console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ⏭️ SOD ${sltData.SO_NUM} with status ${sltData.CON_STATUS} already exists. Skipping.`);
