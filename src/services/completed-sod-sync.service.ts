@@ -102,14 +102,19 @@ export class CompletedSODSyncService {
                                     console.log(`[COMPLETED-SOD-SYNC] [SUCCESS] ✅ Updated ${sltData.SO_NUM} (ID: ${localSOD.id}) from ${localSOD.sltsStatus}/${localSOD.status}`);
                                 }
                             } else {
-                                // Check if already completed
+                                // Check if already completed WITH THE SAME STATUS
+                                // IMPORTANT: Due to @@unique([soNum, status]), we need to check BOTH soNum AND status
                                 const alreadyCompleted = await prisma.serviceOrder.findFirst({
-                                    where: { soNum: sltData.SO_NUM, sltsStatus: 'COMPLETED' },
-                                    select: { id: true, statusDate: true, completedDate: true }
+                                    where: {
+                                        soNum: sltData.SO_NUM,
+                                        status: sltData.CON_STATUS,  // Check exact status match
+                                        sltsStatus: 'COMPLETED'
+                                    },
+                                    select: { id: true, status: true, completedDate: true }
                                 });
 
                                 if (!alreadyCompleted) {
-                                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🆕 SOD ${sltData.SO_NUM} NOT found. Creating as COMPLETED...`);
+                                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🆕 SOD ${sltData.SO_NUM} with status ${sltData.CON_STATUS} NOT found. Creating...`);
 
                                     const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
                                     const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
@@ -133,6 +138,8 @@ export class CompletedSODSyncService {
                                         }
                                     });
                                     completedCount++;
+                                } else {
+                                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ⏭️ SOD ${sltData.SO_NUM} with status ${sltData.CON_STATUS} already exists. Skipping.`);
                                 }
                             }
                         } catch (itemErr) {
