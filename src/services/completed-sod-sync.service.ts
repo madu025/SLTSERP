@@ -20,6 +20,10 @@ export class CompletedSODSyncService {
         const startDate = format(startOfMonth(today), 'yyyy-MM-dd');
         const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
 
+        const errors: string[] = [];
+        let completedCount = 0;
+        let checkedCount = 0;
+
         try {
             // Get all OPMCs with RTOM
             const opmcs = await prisma.oPMC.findMany({
@@ -31,7 +35,12 @@ export class CompletedSODSyncService {
                     console.log(`[COMPLETED-SOD-SYNC] Checking OPMC: ${opmc.name} (${opmc.rtom})`);
 
                     // 1. First Sync Pending SODs (ensure they exist in our DB)
-                    await ServiceOrderService.syncServiceOrders(opmc.id, opmc.rtom);
+                    try {
+                        await ServiceOrderService.syncServiceOrders(opmc.id, opmc.rtom);
+                    } catch (err) {
+                        console.error(`[COMPLETED-SOD-SYNC] Pending sync failed for ${opmc.rtom}:`, err);
+                        // Continue anyway, maybe the completed sync will find it
+                    }
 
                     // 2. Fetch Completed SODs from dynamic_load (Direct method)
                     // Format: rtom_startDate_endDate_COMPLETED_SLTS
@@ -43,50 +52,97 @@ export class CompletedSODSyncService {
                     // Process each completed SOD record
                     for (const sltData of completedResults) {
                         try {
-                            // Find matching pending SOD in our database
-                            const localSOD = await prisma.serviceOrder.findFirst({
+                            // Find matching active SOD in our database
+                            // We look for ANY record with this soNum that is not yet completed
+                            let localSOD = await prisma.serviceOrder.findFirst({
                                 where: {
                                     soNum: sltData.SO_NUM,
-                                    status: 'PENDING'
+                                    sltsStatus: { not: 'COMPLETED' }
                                 },
                                 select: { id: true }
                             });
 
-                            if (!localSOD) {
-                                continue; // Already completed or not found
+                            // Parse drop wire distance as float if it's a number string
+                            const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
+                            const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
+                            const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
+
+                            let alreadyCompleted = null; // Initialize for notification logic
+
+                            if (localSOD) {
+                                // Update existing record
+                                await ServiceOrderService.patchServiceOrder(
+                                    localSOD.id,
+                                    {
+                                        status: sltData.CON_STATUS,
+                                        sltsStatus: 'COMPLETED',
+                                        sltsPatStatus: sltData.CON_STATUS,
+                                        completedDate: completedDate,
+                                        dpDetails: sltData.DP,
+                                        ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
+                                        iptvSerialNumbers: sltData.IPTV || undefined,
+                                        dropWireDistance: dropWireDistance,
+                                        comments: `Auto-completed via SLT List (${sltData.CON_STATUS})`,
+                                    },
+                                    'SYSTEM_AUTO_SYNC'
+                                );
+                                completedCount++;
+                                console.log(`[COMPLETED-SOD-SYNC] ✅ Updated: ${sltData.SO_NUM}`);
+                            } else {
+                                // If not found, check if it ALREADY exists as completed
+                                alreadyCompleted = await prisma.serviceOrder.findFirst({
+                                    where: { soNum: sltData.SO_NUM, sltsStatus: 'COMPLETED' },
+                                    select: { id: true }
+                                });
+
+                                if (!alreadyCompleted) {
+                                    // Create a new record (this SOD was completed without us ever seeing it as pending)
+                                    await prisma.serviceOrder.create({
+                                        data: {
+                                            opmcId: opmc.id,
+                                            rtom: opmc.rtom,
+                                            lea: sltData.LEA,
+                                            soNum: sltData.SO_NUM,
+                                            voiceNumber: sltData.VOICENUMBER,
+                                            orderType: sltData.ORDER_TYPE,
+                                            serviceType: sltData.S_TYPE,
+                                            customerName: sltData.CON_CUS_NAME,
+                                            techContact: sltData.CON_TEC_CONTACT,
+                                            status: sltData.CON_STATUS,
+                                            sltsStatus: 'COMPLETED',
+                                            sltsPatStatus: sltData.CON_STATUS,
+                                            completedDate: completedDate,
+                                            address: sltData.ADDRE,
+                                            dp: sltData.DP,
+                                            package: sltData.PKG,
+                                            woroTaskName: sltData.CON_WORO_TASK_NAME,
+                                            iptv: sltData.IPTV,
+                                            woroSeit: sltData.CON_WORO_SEIT,
+                                            dpDetails: sltData.DP,
+                                            ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
+                                            iptvSerialNumbers: sltData.IPTV || undefined,
+                                            dropWireDistance: dropWireDistance,
+                                            comments: `Created directly as COMPLETED from SLT List`,
+                                            sales: sltData.CON_SALES
+                                        }
+                                    });
+                                    completedCount++;
+                                    console.log(`[COMPLETED-SOD-SYNC] ✨ Created and Completed: ${sltData.SO_NUM}`);
+                                }
                             }
 
-                            // Use existing service to maintain consistency
-                            await ServiceOrderService.patchServiceOrder(
-                                localSOD.id,
-                                {
-                                    status: 'COMPLETED',
-                                    sltsStatus: 'COMPLETED',
-                                    sltsPatStatus: sltData.CON_STATUS,
-                                    completedDate: sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date(),
-                                    // Populate stats from SLT
-                                    dpDetails: sltData.DP,
-                                    ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
-                                    iptvSerialNumbers: sltData.IPTV || undefined,
-                                    dropWireDistance: sltData.FTTH_INST_SIET || undefined,
-                                    comments: `Auto-completed via SLT List (${sltData.CON_STATUS})`,
-                                },
-                                'SYSTEM_AUTO_SYNC'
-                            );
-
-                            completedCount++;
-
-                            // Send notification
-                            await NotificationService.notifyByRole({
-                                roles: ['OSP_MANAGER', 'OFFICE_ADMIN', 'ADMIN'],
-                                title: 'SOD Completed (Auto-Sync)',
-                                message: `SOD ${sltData.SO_NUM} has been marked as completed from SLT data.`,
-                                type: 'PROJECT',
-                                priority: 'MEDIUM',
-                                link: `/service-orders/completed`
-                            });
-
-                            console.log(`[COMPLETED-SOD-SYNC] ✅ Synced Completed: ${sltData.SO_NUM}`);
+                            // Notification for newly completed items
+                            if (!alreadyCompleted || localSOD) {
+                                // Send notification
+                                await NotificationService.notifyByRole({
+                                    roles: ['OSP_MANAGER', 'OFFICE_ADMIN', 'ADMIN'],
+                                    title: 'SOD Completed (Sync)',
+                                    message: `SOD ${sltData.SO_NUM} has been marked as completed.`,
+                                    type: 'PROJECT',
+                                    priority: 'LOW', // Reduced priority for mass syncs
+                                    link: `/service-orders/completed`
+                                });
+                            }
 
                         } catch (error) {
                             const errorMsg = `Failed to process ${sltData.SO_NUM}: ${error instanceof Error ? error.message : 'Unknown error'}`;

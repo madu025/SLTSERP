@@ -7,151 +7,96 @@ datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   directUrl  = env("DIRECT_URL")
-  extensions = [pg_trgm]
-}
-
-enum Role {
-  SUPER_ADMIN
-  ADMIN
-  // OSP Category
-  MANAGER
-  OSP_MANAGER
-  AREA_MANAGER
-  ENGINEER
-  ASSISTANT_ENGINEER
-  AREA_COORDINATOR
-  QC_OFFICER
-  // Office Admin Category
-  OFFICE_ADMIN
-  OFFICE_ADMIN_ASSISTANT
-  SITE_OFFICE_STAFF
-  // Finance Category
-  FINANCE_MANAGER
-  FINANCE_ASSISTANT
-  // Invoice Section
-  INVOICE_MANAGER
-  INVOICE_ASSISTANT
-  // Stores Category
-  STORES_MANAGER
-  STORES_ASSISTANT
-  // Service Fulfillment
-  SA_MANAGER
-  SA_ASSISTANT
-  PROCUREMENT_OFFICER
+  extensions = [pg_trgm, uuid_ossp(map: "uuid-ossp", schema: "extensions")]
 }
 
 model OPMC {
-  id        String   @id @default(cuid())
-  name      String   @default("")
-  rtom      String   @unique
-  region    String   @default("METRO")
-  province  String   @default("METRO 01")
-  projects  Project[]
-  staff     Staff[]
-  users     User[]   @relation("UserOpmcs") // Managed access for users
-  serviceOrders ServiceOrder[]
-  contractorTeams ContractorTeam[]
-  contractors   Contractor[]
-  storeId   String? // Store assigned to this OPMC
-  store     InventoryStore? @relation(fields: [storeId], references: [id])
-  revenueConfigs SODRevenueConfig[] // Revenue configurations for this RTOM
+  id                       String                    @id @default(cuid())
+  name                     String                    @default("")
+  rtom                     String                    @unique
+  region                   String                    @default("METRO")
+  province                 String                    @default("METRO 01")
+  storeId                  String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  contractors              Contractor[]
   contractorPaymentConfigs ContractorPaymentConfig[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  contractorTeams          ContractorTeam[]
+  store                    InventoryStore?           @relation(fields: [storeId], references: [id])
+  projects                 Project[]
+  revenueConfigs           SODRevenueConfig[]
+  serviceOrders            ServiceOrder[]
+  staff                    Staff[]
+  users                    User[]                    @relation("UserOpmcs")
 }
 
 model ServiceOrder {
-  id                    String   @id @default(cuid())
-  rtom                  String
-  lea                   String?
-  soNum                 String   // SO_NUM - Service Order Number
-  voiceNumber           String?
-  orderType             String?
-  serviceType           String?  // S_TYPE
-  customerName          String?  // CON_CUS_NAME
-  techContact           String?  // CON_TEC_CONTACT
-  status                String   // CON_STATUS
-  statusDate            DateTime?
-  address               String?
-  dp                    String?
-  package               String?  // PKG
-  ospPhoneClass         String?
-  phonePurchase         String?
-  sales                 String?  // CON_SALES
-  woroTaskName          String?
-  iptv                  String?
-  woroSeit              String?
-  ftthInstSeit          String?
-  ftthWifi              String?
-  sltsStatus            String   @default("INPROGRESS") // SLTS Status: INPROGRESS, COMPLETED, RETURN
-  
-  // Scheduling fields
-  scheduledDate         DateTime? // Appointment date
-  scheduledTime         String?   // Appointment time (e.g., "10:30 AM")
-  
-  // Comments field
-  comments              String?   @db.Text
-  
-  // Completed/Return date
-  completedDate         DateTime? // Date when marked as COMPLETED or RETURN
-  
-  // Equipment Serial Numbers (for completion)
-  ontSerialNumber       String?   // ONT Serial for VOICE_INT packages
-  iptvSerialNumbers     String?   @db.Text // JSON array of IPTV serials for VOICE_IPTV packages
-  dpDetails             String?   @db.Text // Additional DP-specific details
-  
-  // PAT details
-  patStatus             String?   // Overall status (LEGACY)
-  
-  sltsPatStatus         String?   @default("PENDING") // Internal: PENDING, PASS, REJECTED
-  sltsPatDate           DateTime?
-  
-  opmcPatStatus         String?   @default("PENDING") // Regional: PENDING, PASS, REJECTED
-  opmcPatDate           DateTime?
+  id                String             @id @default(cuid())
+  rtom              String
+  lea               String?
+  soNum             String
+  voiceNumber       String?
+  orderType         String?
+  serviceType       String?
+  customerName      String?
+  techContact       String?
+  status            String
+  statusDate        DateTime?
+  address           String?
+  dp                String?
+  package           String?
+  ospPhoneClass     String?
+  phonePurchase     String?
+  sales             String?
+  woroTaskName      String?
+  iptv              String?
+  woroSeit          String?
+  ftthInstSeit      String?
+  ftthWifi          String?
+  sltsStatus        String             @default("INPROGRESS")
+  scheduledDate     DateTime?
+  scheduledTime     String?
+  comments          String?
+  completedDate     DateTime?
+  ontSerialNumber   String?
+  iptvSerialNumbers String?
+  dpDetails         String?
+  patStatus         String?
+  sltsPatStatus     String?            @default("PENDING")
+  sltsPatDate       DateTime?
+  opmcPatStatus     String?            @default("PENDING")
+  opmcPatDate       DateTime?
+  hoPatStatus       String?            @default("PENDING")
+  hoPatDate         DateTime?
+  isInvoicable      Boolean            @default(false)
+  invoiced          Boolean            @default(false)
+  invoiceId         String?
+  wiredOnly         Boolean            @default(false)
+  delayReasons      Json?
+  stbShortage       Boolean            @default(false)
+  ontShortage       Boolean            @default(false)
+  ontType           String?
+  returnReason      String?
+  completionMode    String?
+  materialSource    String?
+  directTeam        String?
+  photoUrls         String[]           @default([])
+  dropWireDistance  Float?
+  revenueAmount     Float?
+  contractorAmount  Float?
+  opmcId            String
+  contractorId      String?
+  teamId            String?
+  isLegacyImport    Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  restoreRequests   RestoreRequest[]
+  materialUsage     SODMaterialUsage[]
+  contractor        Contractor?        @relation(fields: [contractorId], references: [id])
+  invoice           Invoice?           @relation(fields: [invoiceId], references: [id])
+  opmc              OPMC               @relation(fields: [opmcId], references: [id], onDelete: Cascade)
+  team              ContractorTeam?    @relation(fields: [teamId], references: [id])
 
-  hoPatStatus           String?   @default("PENDING") // Head Office: PENDING, PASS, REJECTED
-  hoPatDate             DateTime?
-  
-  isInvoicable          Boolean   @default(false)
-  invoiced              Boolean   @default(false)
-  invoiceId             String?
-  invoice               Invoice? @relation(fields: [invoiceId], references: [id])
-  
-  // Daily Operational Report Tracking Fields
-  wiredOnly             Boolean   @default(false)  // Wired only completion status
-  delayReasons          Json?     // { ontShortage: true, stbShortage: false, nokia: false, system: false, opmc: false, cxDelay: false, sameDay: false, polePending: false }
-  stbShortage           Boolean   @default(false)  // STB shortage flag
-  ontShortage           Boolean   @default(false)  // ONT shortage flag
-  ontType               String?   // NEW or EXISTING
-  returnReason          String?   @db.Text // Return reason/comment
-  completionMode        String?   // 'ONLINE' or 'OFFLINE'
-  materialSource        String?   // 'SLT' or 'COMPANY' (Snapshot at completion)
-  directTeam            String?   // Internal Team Name (if no contractor)
-  photoUrls             String[]  @default([]) // Completion evidence photos
-  
-  // Financial Snapshots (Captured at completion)
-  dropWireDistance      Float?    // Actual Drop Wire distance (meters)
-  revenueAmount         Float?    // Snapshot of SLT Revenue (RTOM-wide flat rate)
-  contractorAmount      Float?    // Snapshot of Contractor Payment (Tiered rate)
-  
-  opmcId                String
-  opmc                  OPMC     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
-
-  contractorId          String?
-  contractor            Contractor? @relation(fields: [contractorId], references: [id])
-  
-  teamId                String?
-  team                  ContractorTeam? @relation(fields: [teamId], references: [id])
-  
-  restoreRequests       RestoreRequest[]
-  materialUsage         SODMaterialUsage[] // Material tracking
-  
-  // Legacy Import Flag
-  isLegacyImport        Boolean   @default(false) // True if imported from Excel (historical)
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
   @@unique([soNum, status])
   @@index([opmcId])
   @@index([rtom])
@@ -164,92 +109,73 @@ model ServiceOrder {
   @@index([createdAt])
   @@index([completedDate])
   @@index([updatedAt])
-  // Composite Indexes for common filtering
   @@index([opmcId, status])
   @@index([opmcId, sltsStatus])
 }
 
 model User {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  username          String   @unique
-  password          String
-  name              String?
-  role              Role     @default(ENGINEER)
-  staffId           String?  @unique
-  staff             Staff?   @relation(fields: [staffId], references: [id])
-  accessibleOpmcs   OPMC[]   @relation("UserOpmcs")
-  requestedRestores RestoreRequest[] @relation("RequestedRestores")
-  approvedRestores  RestoreRequest[] @relation("ApprovedRestores")
-  auditLogs         AuditLog[]
-  
-  // Password Reset Security
-  securityQuestion  String?
-  securityAnswer    String?  // Hashed
-  employeeId        String?  // For additional verification
-  
-  // Hierarchy
-  supervisorId      String?
-  supervisor        User?    @relation("UserSupervisor", fields: [supervisorId], references: [id])
-  subordinates      User[]   @relation("UserSupervisor")
-
-  // Inventory Relations
-  managedStores     InventoryStore[]
-  requestedStock    StockRequest[]   @relation("RequestUser")
-  approvedStock     StockRequest[]   @relation("ApproveUser")
-  
-  // 3-Tier Approval Relations
-  armApprovedRequests           StockRequest[] @relation("ARMApprover")
-  storesManagerApprovedRequests StockRequest[] @relation("StoresManagerApprover")
-  releasedRequests              StockRequest[] @relation("ReleasedBy")
-  receivedRequests              StockRequest[] @relation("ReceivedBy")
-  
-  receivedGRNs      GRN[]
-  returnedMRNs      MRN[]
-  approvedMRNs      MRN[]            @relation("MRNApprover")
-  stockIssues       StockIssue[]     @relation("StockIssuer")
-  approvedIssues    StockIssue[]     @relation("IssueApprover") // Existing StockIssue approval
-  
-  projectReturns    ProjectMaterialReturn[] @relation("ProjectReturnUser")
-  approvedProjectReturns ProjectMaterialReturn[] @relation("ProjectReturnApprover")
-  
-  // Section Assignments
-  sectionAssignments UserSectionAssignment[]
-
-  // Access Scope
-  assignedStoreId   String?
-  assignedStore     InventoryStore? @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
-
-  // Contractor Management
-  armApprovedContractors    Contractor[] @relation("ContractorArmApproval")
-  ospApprovedContractors    Contractor[] @relation("ContractorOspApproval")
-  rejectedContractors       Contractor[] @relation("ContractorRejection")
-  generatedContractorLinks  Contractor[] @relation("ContractorLinkGenerator")
-
-  notifications     Notification[]
-  notificationPreferences NotificationPreference[]
-  mustChangePassword Boolean  @default(false)
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                            String                   @id @default(cuid())
+  email                         String                   @unique
+  username                      String                   @unique
+  password                      String
+  name                          String?
+  role                          Role                     @default(ENGINEER)
+  staffId                       String?                  @unique
+  securityQuestion              String?
+  securityAnswer                String?
+  employeeId                    String?
+  supervisorId                  String?
+  assignedStoreId               String?
+  mustChangePassword            Boolean                  @default(false)
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  auditLogs                     AuditLog[]
+  armApprovedContractors        Contractor[]             @relation("ContractorArmApproval")
+  ospApprovedContractors        Contractor[]             @relation("ContractorOspApproval")
+  rejectedContractors           Contractor[]             @relation("ContractorRejection")
+  generatedContractorLinks      Contractor[]             @relation("ContractorLinkGenerator")
+  receivedGRNs                  GRN[]
+  managedStores                 InventoryStore[]
+  approvedMRNs                  MRN[]                    @relation("MRNApprover")
+  returnedMRNs                  MRN[]
+  notifications                 Notification[]
+  notificationPreferences       NotificationPreference[]
+  approvedProjectReturns        ProjectMaterialReturn[]  @relation("ProjectReturnApprover")
+  projectReturns                ProjectMaterialReturn[]  @relation("ProjectReturnUser")
+  approvedRestores              RestoreRequest[]         @relation("ApprovedRestores")
+  requestedRestores             RestoreRequest[]         @relation("RequestedRestores")
+  approvedIssues                StockIssue[]             @relation("IssueApprover")
+  stockIssues                   StockIssue[]             @relation("StockIssuer")
+  approvedStock                 StockRequest[]           @relation("ApproveUser")
+  armApprovedRequests           StockRequest[]           @relation("ARMApprover")
+  receivedRequests              StockRequest[]           @relation("ReceivedBy")
+  releasedRequests              StockRequest[]           @relation("ReleasedBy")
+  requestedStock                StockRequest[]           @relation("RequestUser")
+  storesManagerApprovedRequests StockRequest[]           @relation("StoresManagerApprover")
+  assignedStore                 InventoryStore?          @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
+  staff                         Staff?                   @relation(fields: [staffId], references: [id])
+  supervisor                    User?                    @relation("UserSupervisor", fields: [supervisorId], references: [id])
+  subordinates                  User[]                   @relation("UserSupervisor")
+  sectionAssignments            UserSectionAssignment[]
+  accessibleOpmcs               OPMC[]                   @relation("UserOpmcs")
 
   @@index([role])
   @@index([supervisorId])
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  message     String   @db.Text
-  type        String   @default("SYSTEM") // SYSTEM, INVENTORY, CONTRACTOR, PROJECT, FINANCE
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  isRead      Boolean  @default(false)
-  link        String?  // Deep link to the relevant page (e.g., /admin/inventory/requests)
-  metadata    Json?    // Optional extra data
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  priority  String   @default("MEDIUM")
+  isRead    Boolean  @default(false)
+  link      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
@@ -257,36 +183,36 @@ model Notification {
 }
 
 model RestoreRequest {
-  id              String   @id @default(cuid())
+  id              String       @id @default(cuid())
   serviceOrderId  String
-  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
   requestedById   String
-  requestedBy     User     @relation("RequestedRestores", fields: [requestedById], references: [id])
-  reason          String   @db.Text
-  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reason          String
+  status          String       @default("PENDING")
   approvedById    String?
-  approvedBy      User?    @relation("ApprovedRestores", fields: [approvedById], references: [id])
-  approvalComment String?  @db.Text
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  approvalComment String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  approvedBy      User?        @relation("ApprovedRestores", fields: [approvedById], references: [id])
+  requestedBy     User         @relation("RequestedRestores", fields: [requestedById], references: [id])
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
   @@index([status])
   @@index([serviceOrderId])
   @@index([requestedById])
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String
-  action      String   // e.g., "CREATE", "UPDATE", "DELETE", "STATUS_CHANGE"
-  entity      String   // e.g., "ServiceOrder", "InventoryItem"
-  entityId    String
-  oldValue    Json?
-  newValue    Json?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id])
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([entity, entityId])
   @@index([userId])
@@ -294,20 +220,20 @@ model AuditLog {
 }
 
 model Staff {
-  id          String   @id @default(cuid())
-  name        String
-  employeeId  String   @unique
-  designation Role
-  area        String?
-  opmcId      String?
-  opmc        OPMC?    @relation(fields: [opmcId], references: [id]) // Home OPMC
-  reportsToId String?
-  reportsTo   Staff?   @relation("Hierarchy", fields: [reportsToId], references: [id])
-  subordinates Staff[] @relation("Hierarchy")
+  id           String    @id @default(cuid())
+  name         String
+  employeeId   String    @unique
+  designation  Role
+  area         String?
+  opmcId       String?
+  reportsToId  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   projects     Project[]
-  user        User?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  opmc         OPMC?     @relation(fields: [opmcId], references: [id])
+  reportsTo    Staff?    @relation("Hierarchy", fields: [reportsToId], references: [id])
+  subordinates Staff[]   @relation("Hierarchy")
+  user         User?
 
   @@index([opmcId])
   @@index([reportsToId])
@@ -315,261 +241,195 @@ model Staff {
 }
 
 model Project {
-  id            String   @id @default(cuid())
-  projectCode   String   @unique // e.g., "PRJ-2026-001"
-  name          String
-  description   String?  @db.Text
-  type          String   @default("FTTH") // FTTH, FAC, BUILDING, OTHER
-  location      String?  @db.Text
-  
-  // Status & Progress
-  status        String   @default("PLANNING") // PLANNING, APPROVED, IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED
-  progress      Float    @default(0) // 0-100%
-  
-  // Budget & Cost
-  budget        Float?   // Total approved budget
-  actualCost    Float    @default(0) // Running actual cost
-  variance      Float?   // Budget variance (calculated)
-  
-  // Timeline
-  startDate     DateTime?
-  endDate       DateTime?
-  estimatedDuration Int? // in days
-  actualDuration    Int? // in days
-  
-  // Team
-  areaManagerId String?
-  areaManager   Staff?   @relation(fields: [areaManagerId], references: [id])
-  contractorId  String?
-  contractor    Contractor? @relation(fields: [contractorId], references: [id])
-  
-  // Location
-  opmcId        String?
-  opmc          OPMC?    @relation(fields: [opmcId], references: [id])
-  
-  // Relations
-  boqItems      ProjectBOQItem[] // Bill of Quantities
-  milestones    ProjectMilestone[]
-  expenses      ProjectExpense[]
-  sods          SOD[]
-  invoices      Invoice[]
-  stockIssues   StockIssue[]
-  projectReturns ProjectMaterialReturn[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  id                String                  @id @default(cuid())
+  projectCode       String                  @unique
+  name              String
+  description       String?
+  type              String                  @default("FTTH")
+  location          String?
+  status            String                  @default("PLANNING")
+  progress          Float                   @default(0)
+  budget            Float?
+  actualCost        Float                   @default(0)
+  variance          Float?
+  startDate         DateTime?
+  endDate           DateTime?
+  estimatedDuration Int?
+  actualDuration    Int?
+  areaManagerId     String?
+  contractorId      String?
+  opmcId            String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  invoices          Invoice[]
+  areaManager       Staff?                  @relation(fields: [areaManagerId], references: [id])
+  contractor        Contractor?             @relation(fields: [contractorId], references: [id])
+  opmc              OPMC?                   @relation(fields: [opmcId], references: [id])
+  boqItems          ProjectBOQItem[]
+  expenses          ProjectExpense[]
+  projectReturns    ProjectMaterialReturn[]
+  milestones        ProjectMilestone[]
+  sods              SOD[]
+  stockIssues       StockIssue[]
+
   @@index([status])
   @@index([opmcId])
   @@index([contractorId])
 }
 
-// BOQ (Bill of Quantities) Item
 model ProjectBOQItem {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  // Item Details
-  itemCode    String   // BOQ item code (e.g., "A.1.1")
-  description String   @db.Text
-  unit        String   // m, km, Nos, L, kg, etc.
-  quantity    Float
-  unitRate    Float    // Rate per unit
-  amount      Float    // quantity * unitRate
-  
-  // Category
-  category    String?  // CIVIL, ELECTRICAL, MATERIAL, LABOR
-  
-  // Actuals
-  actualQuantity Float @default(0)
-  actualCost     Float @default(0)
-  
-  // Material Linking
-  materialId  String?
-  material    InventoryItem? @relation("BOQMaterials", fields: [materialId], references: [id])
-  
-  remarks     String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id             String         @id @default(cuid())
+  projectId      String
+  itemCode       String
+  description    String
+  unit           String
+  quantity       Float
+  unitRate       Float
+  amount         Float
+  category       String?
+  actualQuantity Float          @default(0)
+  actualCost     Float          @default(0)
+  materialId     String?
+  remarks        String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  material       InventoryItem? @relation("BOQMaterials", fields: [materialId], references: [id])
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId])
   @@index([category])
 }
 
-// Project Milestones
 model ProjectMilestone {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  name        String
-  description String?  @db.Text
-  targetDate  DateTime
+  id            String    @id @default(cuid())
+  projectId     String
+  name          String
+  description   String?
+  targetDate    DateTime
   completedDate DateTime?
-  status      String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED
-  progress    Float    @default(0)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  status        String    @default("PENDING")
+  progress      Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId])
   @@index([status])
 }
 
-// Project Expenses (Non-BOQ costs)
 model ProjectExpense {
   id          String   @id @default(cuid())
   projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  type        String   // MATERIAL, LABOR, EQUIPMENT, TRANSPORT, MISC
-  description String   @db.Text
+  type        String
+  description String
   amount      Float
   date        DateTime @default(now())
-  
-  invoiceRef  String?  // Reference to invoice/receipt
-  remarks     String?  @db.Text
-  
+  invoiceRef  String?
+  remarks     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId])
   @@index([type])
   @@index([date])
 }
 
 model Material {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  unit        String
-  quantity    Float    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  sodItems    SODItem[]
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  unit      String
+  quantity  Float     @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  sodItems  SODItem[]
 }
 
 model SOD {
-  id          String   @id @default(cuid())
-  sodNumber   String   @unique
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id])
-  status      String   @default("PENDING")
-  rtom        String?
-  items       SODItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  sodNumber String    @unique
+  projectId String
+  status    String    @default("PENDING")
+  rtom      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  project   Project   @relation(fields: [projectId], references: [id])
+  items     SODItem[]
 }
 
 model SODItem {
-  id          String   @id @default(cuid())
-  sodId       String
-  sod         SOD      @relation(fields: [sodId], references: [id])
-  materialId  String
-  material    Material @relation(fields: [materialId], references: [id])
-  quantity    Float
-  used        Float    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-enum ContractorStatus {
-  ACTIVE
-  INACTIVE
-  PENDING         // Link generated, waiting for contractor to fill
-  ARM_PENDING     // Form completed by contractor, waiting for ARM
-  OSP_PENDING     // ARM approved, waiting for OSP Manager
-  REJECTED
-}
-
-enum ContractorType {
-  SOD
-  OSP
+  id         String   @id @default(cuid())
+  sodId      String
+  materialId String
+  quantity   Float
+  used       Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  material   Material @relation(fields: [materialId], references: [id])
+  sod        SOD      @relation(fields: [sodId], references: [id])
 }
 
 model Contractor {
-  id                    String            @id @default(cuid())
-  name                  String
-  contactNumber         String?
-  email                 String?
-  nic                   String?
-  address               String?
-  type                  ContractorType    @default(SOD)
-  registrationNumber    String?           @unique
-  brNumber              String?
-  status                ContractorStatus  @default(PENDING)
-
-  // Documents
-  photoUrl              String?
-  nicFrontUrl           String?
-  nicBackUrl            String?
-  policeReportUrl       String?
-  gramaCertUrl          String?
-
-  registrationFeePaid   Boolean           @default(false)
-  agreementSigned       Boolean           @default(false)
-  agreementDate         DateTime?
-  agreementDuration     Int?              @default(1) // 1, 2, 3 years
-  brCertUrl             String?
-  
-  // Workflow & Approval
-  armApprovedAt         DateTime?
-  armApprovedById       String?
-  armApprovedBy         User?             @relation("ContractorArmApproval", fields: [armApprovedById], references: [id])
-  
-  ospApprovedAt         DateTime?
-  ospApprovedById       String?
-  ospApprovedBy         User?             @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
-  
-  rejectionReason       String?           // Reason provided if registration is rejected
-  rejectionById         String?
-  rejectionBy           User?             @relation("ContractorRejection", fields: [rejectionById], references: [id])
-  rejectedAt            DateTime?
-  
-  registrationToken     String?           @unique
+  id                      String                           @id @default(cuid())
+  name                    String
+  contactNumber           String?
+  email                   String?
+  nic                     String?
+  address                 String?
+  type                    ContractorType                   @default(SOD)
+  registrationNumber      String?                          @unique
+  brNumber                String?
+  status                  ContractorStatus                 @default(PENDING)
+  photoUrl                String?
+  nicFrontUrl             String?
+  nicBackUrl              String?
+  policeReportUrl         String?
+  gramaCertUrl            String?
+  registrationFeePaid     Boolean                          @default(false)
+  agreementSigned         Boolean                          @default(false)
+  agreementDate           DateTime?
+  agreementDuration       Int?                             @default(1)
+  brCertUrl               String?
+  armApprovedAt           DateTime?
+  armApprovedById         String?
+  ospApprovedAt           DateTime?
+  ospApprovedById         String?
+  rejectionReason         String?
+  rejectionById           String?
+  rejectedAt              DateTime?
+  registrationToken       String?                          @unique
   registrationTokenExpiry DateTime?
-  registrationStartedAt DateTime?
-  registrationDraft   Json?             // To save partial form data (Step persistence)
-  siteOfficeStaffId     String?           // Who generated the link
-  siteOfficeStaff       User?             @relation("ContractorLinkGenerator", fields: [siteOfficeStaffId], references: [id])
-  
-  opmcId                String?
-  opmc                  OPMC?             @relation(fields: [opmcId], references: [id])
-  
-  // Bank Details
-  bankName              String?
-  bankBranch            String?
-  bankAccountNumber     String?
-  bankPassbookUrl       String?
-
-  // Review & External Links
-  documentStatus        String            @default("PENDING") // PENDING, APPROVED, REJECTED
-  uploadToken           String?           @unique
-  uploadTokenExpiry     DateTime?
-  
-  
-
-  
-  serviceOrders         ServiceOrder[]
-  teamMembers           TeamMember[] // Direct members (legacy or pool)
-  teams                 ContractorTeam[] // Structured teams
-  invoices              Invoice[]
-  projects              Project[] // Projects assigned to contractor
-  
-  // Material Management
-  materialIssues        ContractorMaterialIssue[] @relation("MaterialIssues")
-  materialReturns       ContractorMaterialReturn[] @relation("MaterialReturns")
-  wastageReports        ContractorWastage[]
-  balanceSheets         ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
-  
-  // Real-time Stock
-  stock                 ContractorStock[]
-  batchStocks           ContractorBatchStock[]
-  stockIssues           StockIssue[] @relation("ContractorIssues")
-
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  registrationStartedAt   DateTime?
+  registrationDraft       Json?
+  siteOfficeStaffId       String?
+  opmcId                  String?
+  bankName                String?
+  bankBranch              String?
+  bankAccountNumber       String?
+  bankPassbookUrl         String?
+  documentStatus          String                           @default("PENDING")
+  uploadToken             String?                          @unique
+  uploadTokenExpiry       DateTime?
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+  armApprovedBy           User?                            @relation("ContractorArmApproval", fields: [armApprovedById], references: [id])
+  opmc                    OPMC?                            @relation(fields: [opmcId], references: [id])
+  ospApprovedBy           User?                            @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
+  rejectionBy             User?                            @relation("ContractorRejection", fields: [rejectionById], references: [id])
+  siteOfficeStaff         User?                            @relation("ContractorLinkGenerator", fields: [siteOfficeStaffId], references: [id])
+  batchStocks             ContractorBatchStock[]
+  balanceSheets           ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  materialIssues          ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns         ContractorMaterialReturn[]       @relation("MaterialReturns")
+  stock                   ContractorStock[]
+  teams                   ContractorTeam[]
+  wastageReports          ContractorWastage[]
+  invoices                Invoice[]
+  projects                Project[]
+  serviceOrders           ServiceOrder[]
+  stockIssues             StockIssue[]                     @relation("ContractorIssues")
+  teamMembers             TeamMember[]
 
   @@index([status])
   @@index([opmcId])
@@ -577,13 +437,13 @@ model Contractor {
 }
 
 model ContractorStock {
-  id            String         @id @default(cuid())
-  contractorId  String
-  contractor    Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  itemId        String
-  item          InventoryItem  @relation(fields: [itemId], references: [id])
-  quantity      Float          @default(0) // Current In-hand Quantity
-  updatedAt     DateTime       @updatedAt
+  id           String        @id @default(cuid())
+  contractorId String
+  itemId       String
+  quantity     Float         @default(0)
+  updatedAt    DateTime      @updatedAt
+  contractor   Contractor    @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  item         InventoryItem @relation(fields: [itemId], references: [id])
 
   @@unique([contractorId, itemId])
   @@index([contractorId])
@@ -591,115 +451,85 @@ model ContractorStock {
 }
 
 model ContractorTeam {
-  id           String   @id @default(cuid())
-  name         String
-  status       String   @default("ACTIVE") // ACTIVE, INACTIVE
-  contractorId String
-  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  
-  // Multiple stores assignment (team can work in multiple stores)
+  id               String                @id @default(cuid())
+  name             String
+  status           String                @default("ACTIVE")
+  contractorId     String
+  opmcId           String?
+  sltCode          String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  contractor       Contractor            @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  opmc             OPMC?                 @relation(fields: [opmcId], references: [id])
+  serviceOrders    ServiceOrder[]
+  members          TeamMember[]
   storeAssignments TeamStoreAssignment[]
-  
-  // Primary OPMC (optional, for reference)
-  opmcId       String?
-  opmc         OPMC?    @relation(fields: [opmcId], references: [id])
-  
-  serviceOrders ServiceOrder[]
-  
-  members      TeamMember[]
-  sltCode      String?  // SLT Identification code provided after OSP approval
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
 
-// Junction table for Team-Store many-to-many relationship
 model TeamStoreAssignment {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   teamId    String
-  team      ContractorTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
   storeId   String
+  isPrimary Boolean        @default(false)
+  createdAt DateTime       @default(now())
   store     InventoryStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  isPrimary Boolean  @default(false) // Mark primary store
-  createdAt DateTime @default(now())
-  
+  team      ContractorTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
   @@unique([teamId, storeId])
   @@index([teamId])
   @@index([storeId])
 }
 
 model TeamMember {
-  id                    String      @id @default(cuid())
-  name                  String
-  idCopyNumber          String?
+  id                     String          @id @default(cuid())
+  name                   String
+  idCopyNumber           String?
   contractorIdCopyNumber String?
-  nic                   String?
-  designation           String?
-  
-  // Documents
-  photoUrl              String?
-  nicUrl                String?
-  policeReportUrl       String?
-  gramaCertUrl          String?
-  
-  contactNumber         String?
-  address               String?
-  
-  // New Fields
-  shoeSize              String?
-  tshirtSize            String?
-  passportPhotoUrl      String? // For Office ID
-
-  // Public Upload Fields
-  uploadToken           String?   @unique
-  uploadTokenExpiry     DateTime?
-  
-  contractorId          String
-  contractor            Contractor  @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  
-  teamId                String?
-  team                  ContractorTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
-
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  nic                    String?
+  designation            String?
+  photoUrl               String?
+  nicUrl                 String?
+  policeReportUrl        String?
+  gramaCertUrl           String?
+  contactNumber          String?
+  address                String?
+  shoeSize               String?
+  tshirtSize             String?
+  passportPhotoUrl       String?
+  uploadToken            String?         @unique
+  uploadTokenExpiry      DateTime?
+  contractorId           String
+  teamId                 String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  contractor             Contractor      @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  team                   ContractorTeam? @relation(fields: [teamId], references: [id])
 }
 
-
 model Invoice {
-  id             String     @id @default(cuid())
-  invoiceNumber  String     @unique
-  contractorId   String
-  contractor     Contractor @relation(fields: [contractorId], references: [id])
-  projectId      String?
-  project        Project?   @relation(fields: [projectId], references: [id])
-  
-  // -- New Fields for 90/10 Logic --
-  year           Int?
-  month          Int?
-  
-  totalAmount    Float      @default(0) // Total 100% Value
-  
-  // Part A (90% - Immediate)
-  amountA        Float      @default(0)
-  statusA        String     @default("PENDING") // PENDING, PAID
-  paidDateA      DateTime?
-  
-  // Part B (10% - Retention after 6 months)
-  amountB        Float      @default(0)
-  statusB        String     @default("HOLD")    // HOLD (Waiting time/PAT), ELIGIBLE (Ready to pay), PAID
-  paidDateB      DateTime?
-  
-  // Included SODs
-  sods           ServiceOrder[]
-  
-  // Legacy/Generic fields
-  amount         Float      // Can be used as total or remaining
-  status         String     @default("PENDING") // Overall Status
-  description    String?    @db.Text
-  dueDate        DateTime?
-  date           DateTime   @default(now())
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id            String         @id @default(cuid())
+  invoiceNumber String         @unique
+  contractorId  String
+  projectId     String?
+  year          Int?
+  month         Int?
+  totalAmount   Float          @default(0)
+  amountA       Float          @default(0)
+  statusA       String         @default("PENDING")
+  paidDateA     DateTime?
+  amountB       Float          @default(0)
+  statusB       String         @default("HOLD")
+  paidDateB     DateTime?
+  amount        Float
+  status        String         @default("PENDING")
+  description   String?
+  dueDate       DateTime?
+  date          DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contractor    Contractor     @relation(fields: [contractorId], references: [id])
+  project       Project?       @relation(fields: [projectId], references: [id])
+  sods          ServiceOrder[]
 }
 
 model Vehicle {
@@ -711,107 +541,89 @@ model Vehicle {
   licenseExpiry   DateTime
   licensePhotoUrl String?
   driverName      String?
-  ownerType       String   @default("HIRED") // OWNED, HIRED
+  ownerType       String   @default("HIRED")
   rentAmount      Float?
   fuelLimit       Float?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
 
-// Table Column Settings
 model TableColumnSettings {
-  id          String   @id @default(cuid())
-  tableName   String   @unique // pending_sod, completed_sod, return_sod, restore_request
-  columns     String   @db.Text // JSON array of visible column names
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  tableName String   @unique
+  columns   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-// --- INVENTORY MODULE ---
-
 model InventoryStore {
-  id          String   @id @default(cuid())
-  name        String   
-  type        String   @default("SUB") // MAIN, SUB
-  location    String?
-  managerId   String?  
-  manager     User?    @relation(fields: [managerId], references: [id])
-  assignedUsers User[] @relation("UserAssignedStore")
-  stocks      InventoryStock[]
-  outRequests StockRequest[] @relation("RequestSource") // Requests FROM this store (Sub Stores)
-  inRequests  StockRequest[] @relation("RequestTarget") // Requests TO this store (Main Store)
-  grns        GRN[]
-  mrns        MRN[]
-  transactions InventoryTransaction[]
-
-  batchStocks   InventoryBatchStock[]
-  opmcs       OPMC[]
-  teamAssignments TeamStoreAssignment[] // Teams assigned to this store
-  
-  // Material Management
-  materialIssues  ContractorMaterialIssue[] @relation("MaterialIssues")
-  materialReturns ContractorMaterialReturn[] @relation("MaterialReturns")
-  projectReturns  ProjectMaterialReturn[]
-  wastageReports  ContractorWastage[]
+  id              String                           @id @default(cuid())
+  name            String
+  type            String                           @default("SUB")
+  location        String?
+  managerId       String?
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
   balanceSheets   ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
-  stockIssues     StockIssue[] @relation("StockIssues")
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  materialIssues  ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns ContractorMaterialReturn[]       @relation("MaterialReturns")
+  wastageReports  ContractorWastage[]
+  grns            GRN[]
+  batchStocks     InventoryBatchStock[]
+  stocks          InventoryStock[]
+  manager         User?                            @relation(fields: [managerId], references: [id])
+  transactions    InventoryTransaction[]
+  mrns            MRN[]
+  opmcs           OPMC[]
+  projectReturns  ProjectMaterialReturn[]
+  stockIssues     StockIssue[]                     @relation("StockIssues")
+  outRequests     StockRequest[]                   @relation("RequestSource")
+  inRequests      StockRequest[]                   @relation("RequestTarget")
+  teamAssignments TeamStoreAssignment[]
+  assignedUsers   User[]                           @relation("UserAssignedStore")
 
   @@index([type])
   @@index([managerId])
 }
 
 model InventoryItem {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  description String?
-  unit        String   // Nos, kg, L, m, pkts
-  type        String   @default("SLTS") // SLT, SLTS
-  category    String   @default("OTHERS") // OSP_NEW_CONN, OSP_PROJECT, OTHERS
-  minLevel    Float    @default(0) // Global low stock alert threshold
-  isWastageAllowed Boolean @default(true)
-  maxWastagePercentage Float @default(0)
-  stocks      InventoryStock[]
-  requestItems StockRequestItem[]
-  grnItems    GRNItem[]
-  transactionItems InventoryTransactionItem[]
-  batches     InventoryBatch[]
-  batchStocks InventoryBatchStock[]
+  id                    String                         @id @default(cuid())
+  code                  String                         @unique
+  name                  String
+  description           String?
+  unit                  String
+  type                  String                         @default("SLTS")
+  category              String                         @default("OTHERS")
+  minLevel              Float                          @default(0)
+  isWastageAllowed      Boolean                        @default(true)
+  maxWastagePercentage  Float                          @default(0)
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  source                String                         @default("SLT")
+  commonFor             String[]
+  unitPrice             Float?                         @default(0)
+  costPrice             Float?                         @default(0)
+  commonName            String?
+  isOspFtth             Boolean?                       @default(false)
+  importAliases         String[]
+  balanceSheetItems     ContractorBalanceSheetItem[]   @relation("BalanceSheetItems")
   contractorBatchStocks ContractorBatchStock[]
-  
-  // Material Management
-  materialStandards MaterialStandard[] @relation("MaterialStandards")
-  issueItems        ContractorMaterialIssueItem[] @relation("IssueItems")
-  sodUsage          SODMaterialUsage[] @relation("SODUsage")
-  returnItems       ContractorMaterialReturnItem[] @relation("ReturnItems")
-  wastageItems      ContractorWastageItem[] 
-  balanceSheetItems ContractorBalanceSheetItem[] @relation("BalanceSheetItems")
-  mrnItems          MRNItem[]
-  contractorStock   ContractorStock[]
-  stockIssueItems   StockIssueItem[] @relation("IssueItemsStock")
-  projectReturnItems ProjectMaterialReturnItem[] @relation("ProjectReturnItems")
-  boqItems          ProjectBOQItem[] @relation("BOQMaterials")
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // New Fields
-  source      String   @default("SLT") // SLT, PRIVATE
-  commonFor   String[] // Array of types: ["FTTH", "PSTN", "OSP"] to hint usage
-  
-  // Accounting
-  unitPrice   Float?   @default(0) // Selling price (if applicable)
-  costPrice   Float?   @default(0) // Internal cost to us
-  
-  // New Fields for OSP Management
-  commonName  String?  // Grouping name (e.g. "FAC", "Drop Wire")
-  isOspFtth   Boolean? @default(false) // Filter for OSP FTTH context
-  
-  // Excel Import Mapping
-  importAliases String[] // Column names in Excel that map to this item e.g. ["F-1", "F1", "F CONNECTOR"]
+  issueItems            ContractorMaterialIssueItem[]  @relation("IssueItems")
+  returnItems           ContractorMaterialReturnItem[] @relation("ReturnItems")
+  contractorStock       ContractorStock[]
+  wastageItems          ContractorWastageItem[]
+  grnItems              GRNItem[]
+  batches               InventoryBatch[]
+  batchStocks           InventoryBatchStock[]
+  stocks                InventoryStock[]
+  transactionItems      InventoryTransactionItem[]
+  mrnItems              MRNItem[]
+  materialStandards     MaterialStandard[]             @relation("MaterialStandards")
+  boqItems              ProjectBOQItem[]               @relation("BOQMaterials")
+  projectReturnItems    ProjectMaterialReturnItem[]    @relation("ProjectReturnItems")
+  sodUsage              SODMaterialUsage[]             @relation("SODUsage")
+  stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
+  requestItems          StockRequestItem[]
 
   @@index([code])
   @@index([type])
@@ -820,40 +632,35 @@ model InventoryItem {
 }
 
 model InventoryStock {
-  id        String        @id @default(cuid())
+  id        String         @id @default(cuid())
   storeId   String
-  store     InventoryStore @relation(fields: [storeId], references: [id])
   itemId    String
+  quantity  Float          @default(0)
+  minLevel  Float          @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
   item      InventoryItem  @relation(fields: [itemId], references: [id])
-  quantity  Float         @default(0)
-  minLevel  Float         @default(0)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  store     InventoryStore @relation(fields: [storeId], references: [id])
 
   @@unique([storeId, itemId])
 }
 
 model InventoryBatch {
-  id              String   @id @default(cuid())
-  batchNumber     String?  // e.g. BATCH-202501-001
-  itemId          String
-  item            InventoryItem @relation(fields: [itemId], references: [id])
-  grnId           String?
-  grn             GRN?     @relation(fields: [grnId], references: [id])
-  
-  initialQty      Float    // Qty when this batch was created
-  costPrice       Float    @default(0)
-  unitPrice       Float    @default(0)
-  createdAt       DateTime @default(now())
-
-  // Distribution
-  storeStocks      InventoryBatchStock[]
+  id               String                     @id @default(cuid())
+  batchNumber      String?
+  itemId           String
+  grnId            String?
+  initialQty       Float
+  costPrice        Float                      @default(0)
+  unitPrice        Float                      @default(0)
+  createdAt        DateTime                   @default(now())
   contractorStocks ContractorBatchStock[]
-  
-  // Usage & Movement
-  usageItems       SODMaterialUsage[]
+  grnItem          GRNItem?
+  grn              GRN?                       @relation(fields: [grnId], references: [id])
+  item             InventoryItem              @relation(fields: [itemId], references: [id])
+  storeStocks      InventoryBatchStock[]
   transactionItems InventoryTransactionItem[]
-  grnItem          GRNItem? // The GRN line that created this batch
+  usageItems       SODMaterialUsage[]
 
   @@index([itemId])
   @@index([createdAt])
@@ -862,13 +669,13 @@ model InventoryBatch {
 model InventoryBatchStock {
   id        String         @id @default(cuid())
   storeId   String
-  store     InventoryStore @relation(fields: [storeId], references: [id])
   itemId    String
-  item      InventoryItem  @relation(fields: [itemId], references: [id])
   batchId   String
-  batch     InventoryBatch @relation(fields: [batchId], references: [id])
   quantity  Float          @default(0)
   updatedAt DateTime       @updatedAt
+  batch     InventoryBatch @relation(fields: [batchId], references: [id])
+  item      InventoryItem  @relation(fields: [itemId], references: [id])
+  store     InventoryStore @relation(fields: [storeId], references: [id])
 
   @@unique([storeId, batchId])
   @@index([storeId])
@@ -877,15 +684,15 @@ model InventoryBatchStock {
 }
 
 model ContractorBatchStock {
-  id            String         @id @default(cuid())
-  contractorId  String
-  contractor    Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  itemId        String
-  item          InventoryItem  @relation(fields: [itemId], references: [id])
-  batchId       String
-  batch         InventoryBatch @relation(fields: [batchId], references: [id])
-  quantity      Float          @default(0)
-  updatedAt     DateTime       @updatedAt
+  id           String         @id @default(cuid())
+  contractorId String
+  itemId       String
+  batchId      String
+  quantity     Float          @default(0)
+  updatedAt    DateTime       @updatedAt
+  batch        InventoryBatch @relation(fields: [batchId], references: [id])
+  contractor   Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  item         InventoryItem  @relation(fields: [itemId], references: [id])
 
   @@unique([contractorId, batchId])
   @@index([contractorId])
@@ -894,76 +701,58 @@ model ContractorBatchStock {
 }
 
 model StockRequest {
-  id          String   @id @default(cuid())
-  requestNr   String   @unique @default(cuid()) 
-  fromStoreId String?
-  fromStore   InventoryStore? @relation("RequestSource", fields: [fromStoreId], references: [id])
-  toStoreId   String?   
-  toStore     InventoryStore? @relation("RequestTarget", fields: [toStoreId], references: [id])
-  status      String   @default("PENDING") 
-  requestedById String
-  requestedBy User     @relation("RequestUser", fields: [requestedById], references: [id])
-  approvedById String?
-  approvedBy  User?    @relation("ApproveUser", fields: [approvedById], references: [id])
-  remarks     String?  @db.Text // OSP Manager remarks during approval/rejection
-  sltReferenceId String? // SLT delivery note/report ID
-  
-  // New ERP Features
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  requiredDate DateTime?
-  purpose     String?  @db.Text
-
-  // Procurement & Workflow
-  sourceType    String   @default("SLT") // SLT, LOCAL_PURCHASE, MAIN_STORE
-  projectTypes  String[] // OSP_FTTH, OSP_PSTN, ...
-  maintenanceMonths String? // 1M, 2M, 3M
-  
-  workflowStage String   @default("REQUEST") // REQUEST, ARM_APPROVAL, STORES_MANAGER_APPROVAL, OSP_MANAGER_APPROVAL, PROCUREMENT, MAIN_STORE_RELEASE, SUB_STORE_RECEIVE, GRN_PENDING, COMPLETED, REJECTED, RETURNED
-  procurementStatus String @default("PENDING") // PENDING, PO_CREATED, PO_SENT, PO_CONFIRMED, COMPLETED
-  
-  // Purchase Order Details
-  poNumber        String?   // Purchase Order Number
-  vendor          String?   // Vendor/Supplier Name
-  expectedDelivery DateTime? // Expected Delivery Date
-  irNumber        String?   // Issue Receipt Number (for SLT Head Office requests)
-  isCoveringPO    Boolean   @default(false) // True if PO created after receiving goods (SLT workflow)
-  
-  // 3-Tier Approval System (Sub Stores Only)
-  // Layer 1: ARM (Area Manager) Approval
-  armAction          String?
-  armDate            DateTime?
-  armRemarks         String?  @db.Text
-  armApprovedById    String?
-  armApprovedBy      User?    @relation("ARMApprover", fields: [armApprovedById], references: [id])
-  
-  // Layer 2: Stores Manager Approval
-  storesManagerAction   String?
-  storesManagerDate     DateTime?
-  storesManagerRemarks  String?  @db.Text
+  id                        String             @id @default(cuid())
+  requestNr                 String             @unique @default(cuid())
+  fromStoreId               String?
+  toStoreId                 String?
+  status                    String             @default("PENDING")
+  requestedById             String
+  approvedById              String?
+  remarks                   String?
+  sltReferenceId            String?
+  priority                  String             @default("MEDIUM")
+  requiredDate              DateTime?
+  purpose                   String?
+  sourceType                String             @default("SLT")
+  projectTypes              String[]
+  maintenanceMonths         String?
+  workflowStage             String             @default("REQUEST")
+  procurementStatus         String             @default("PENDING")
+  poNumber                  String?
+  vendor                    String?
+  expectedDelivery          DateTime?
+  irNumber                  String?
+  isCoveringPO              Boolean            @default(false)
+  armAction                 String?
+  armDate                   DateTime?
+  armRemarks                String?
+  armApprovedById           String?
+  storesManagerAction       String?
+  storesManagerDate         DateTime?
+  storesManagerRemarks      String?
   storesManagerApprovedById String?
-  storesManagerApprovedBy   User? @relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])
-  
-  // Layer 3: OSP Manager Approval (existing fields)
-  hsOspAction   String? 
-  hsOspDate     DateTime?
-  managerAction String? 
-  managerDate   DateTime?
-  
-  // Release/Receive Tracking (Main Store Distribution)
-  releasedById       String?
-  releasedDate       DateTime?
-  releasedBy         User?    @relation("ReleasedBy", fields: [releasedById], references: [id])
-  releasedRemarks    String?  @db.Text
-  
-  receivedById       String?
-  receivedDate       DateTime?
-  receivedBy         User?    @relation("ReceivedBy", fields: [receivedById], references: [id])
-  receivedRemarks    String?  @db.Text
-  
-  items       StockRequestItem[]
-  grns        GRN[]    // Support Multiple GRNs for Partial Delivery
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  hsOspAction               String?
+  hsOspDate                 DateTime?
+  managerAction             String?
+  managerDate               DateTime?
+  releasedById              String?
+  releasedDate              DateTime?
+  releasedRemarks           String?
+  receivedById              String?
+  receivedDate              DateTime?
+  receivedRemarks           String?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  grns                      GRN[]
+  approvedBy                User?              @relation("ApproveUser", fields: [approvedById], references: [id])
+  armApprovedBy             User?              @relation("ARMApprover", fields: [armApprovedById], references: [id])
+  fromStore                 InventoryStore?    @relation("RequestSource", fields: [fromStoreId], references: [id])
+  receivedBy                User?              @relation("ReceivedBy", fields: [receivedById], references: [id])
+  releasedBy                User?              @relation("ReleasedBy", fields: [releasedById], references: [id])
+  requestedBy               User               @relation("RequestUser", fields: [requestedById], references: [id])
+  storesManagerApprovedBy   User?              @relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])
+  toStore                   InventoryStore?    @relation("RequestTarget", fields: [toStoreId], references: [id])
+  items                     StockRequestItem[]
 
   @@index([fromStoreId])
   @@index([toStoreId])
@@ -974,43 +763,41 @@ model StockRequest {
 }
 
 model StockRequestItem {
-  id          String       @id @default(cuid())
-  requestId   String
-  request     StockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  itemId      String
-  item        InventoryItem @relation(fields: [itemId], references: [id])
-  requestedQty Float
-  approvedQty  Float        @default(0)  // OSP Manager approved quantity
-  issuedQty    Float?                    // Main Store Assistant released quantity
-  receivedQty  Float        @default(0)  // Sub Store Officer confirmed quantity
-  remarks      String?      
-  make         String?
-  model        String?
+  id              String        @id @default(cuid())
+  requestId       String
+  itemId          String
+  requestedQty    Float
+  approvedQty     Float         @default(0)
+  issuedQty       Float?
+  receivedQty     Float         @default(0)
+  remarks         String?
+  make            String?
+  model           String?
   suggestedVendor String?
-  createdAt   DateTime     @default(now())
+  createdAt       DateTime      @default(now())
+  item            InventoryItem @relation(fields: [itemId], references: [id])
+  request         StockRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([itemId])
 }
 
 model GRN {
-  id          String   @id @default(cuid())
-  grnNumber   String   @unique
-  storeId     String   
-  store       InventoryStore @relation(fields: [storeId], references: [id])
-  sourceType  String   // SLT, LOCAL_PURCHASE
-  supplier    String?  
-  requestId   String?  // Removed @unique to allow multiple GRNs per request
-  request     StockRequest? @relation(fields: [requestId], references: [id])
+  id           String           @id @default(cuid())
+  grnNumber    String           @unique
+  storeId      String
+  sourceType   String
+  supplier     String?
+  requestId    String?
   receivedById String
-  receivedBy  User     @relation(fields: [receivedById], references: [id])
-  
-  reference   String?  // External Invoice / Delivery Note / SLT Ref Number
-  
-  items       GRNItem[]
-  batches     InventoryBatch[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  reference    String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  receivedBy   User             @relation(fields: [receivedById], references: [id])
+  request      StockRequest?    @relation(fields: [requestId], references: [id])
+  store        InventoryStore   @relation(fields: [storeId], references: [id])
+  items        GRNItem[]
+  batches      InventoryBatch[]
 
   @@index([storeId])
   @@index([requestId])
@@ -1018,40 +805,38 @@ model GRN {
 }
 
 model GRNItem {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   grnId     String
-  grn       GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
   itemId    String
-  item      InventoryItem @relation(fields: [itemId], references: [id])
   quantity  Float
-  
-  batchId   String?  @unique // Link to the batch created by this GRN line
+  batchId   String?         @unique
+  createdAt DateTime        @default(now())
   batch     InventoryBatch? @relation(fields: [batchId], references: [id])
-  
-  createdAt DateTime @default(now())
+  grn       GRN             @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  item      InventoryItem   @relation(fields: [itemId], references: [id])
 
   @@index([grnId])
   @@index([itemId])
 }
 
 model MRN {
-  id          String   @id @default(cuid())
-  mrnNumber   String   @unique
-  storeId     String   
-  store       InventoryStore @relation(fields: [storeId], references: [id])
-  returnType  String   // DEFECTIVE, EXCESS, UNUSED, WRONG_DELIVERY
-  returnTo    String?  // SLT, SUPPLIER, MAIN_STORE
-  supplier    String?  
-  reason      String?  @db.Text
-  grnId       String?  // Link to original GRN if returning from a GRN
+  id           String         @id @default(cuid())
+  mrnNumber    String         @unique
+  storeId      String
+  returnType   String
+  returnTo     String?
+  supplier     String?
+  reason       String?
+  grnId        String?
   returnedById String
-  returnedBy  User     @relation(fields: [returnedById], references: [id])
-  status      String   @default("PENDING") // PENDING, APPROVED, COMPLETED
+  status       String         @default("PENDING")
   approvedById String?
-  approvedBy  User?    @relation("MRNApprover", fields: [approvedById], references: [id])
-  items       MRNItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  approvedBy   User?          @relation("MRNApprover", fields: [approvedById], references: [id])
+  returnedBy   User           @relation(fields: [returnedById], references: [id])
+  store        InventoryStore @relation(fields: [storeId], references: [id])
+  items        MRNItem[]
 
   @@index([storeId])
   @@index([status])
@@ -1059,28 +844,28 @@ model MRN {
 }
 
 model MRNItem {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   mrnId     String
-  mrn       MRN      @relation(fields: [mrnId], references: [id], onDelete: Cascade)
   itemId    String
-  item      InventoryItem @relation(fields: [itemId], references: [id])
   quantity  Float
-  reason    String?  @db.Text // Item-specific reason
-  createdAt DateTime @default(now())
+  reason    String?
+  createdAt DateTime      @default(now())
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  mrn       MRN           @relation(fields: [mrnId], references: [id], onDelete: Cascade)
 
   @@index([mrnId])
   @@index([itemId])
 }
 
 model InventoryTransaction {
-  id          String   @id @default(cuid())
-  type        String   // GRN_IN, TRANSFER_IN, TRANSFER_OUT, WASTAGE, RETURN
+  id          String                     @id @default(cuid())
+  type        String
   storeId     String
-  store       InventoryStore @relation(fields: [storeId], references: [id])
-  referenceId String?  
+  referenceId String?
   notes       String?
-  date        DateTime @default(now())
+  date        DateTime                   @default(now())
   userId      String
+  store       InventoryStore             @relation(fields: [storeId], references: [id])
   items       InventoryTransactionItem[]
 
   @@index([storeId])
@@ -1089,210 +874,172 @@ model InventoryTransaction {
 }
 
 model InventoryTransactionItem {
-  id            String   @id @default(cuid())
+  id            String               @id @default(cuid())
   transactionId String
-  transaction   InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   itemId        String
-  item          InventoryItem @relation(fields: [itemId], references: [id])
-  quantity      Float    
-  
-  batchId       String? 
-  batch         InventoryBatch? @relation(fields: [batchId], references: [id])
-}
-// Material Categories (OSP New Connection, FAC, etc.)
-model MaterialCategory {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  standards   MaterialStandard[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  quantity      Float
+  batchId       String?
+  batch         InventoryBatch?      @relation(fields: [batchId], references: [id])
+  item          InventoryItem        @relation(fields: [itemId], references: [id])
+  transaction   InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
 
-// Standard materials per package type
+model MaterialCategory {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  standards   MaterialStandard[]
+}
+
 model MaterialStandard {
-  id              String   @id @default(cuid())
-  categoryId      String
-  category        MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  
-  packageType     String   // "VOICE_INT", "VOICE_IPTV", etc.
-  itemId          String
-  item            InventoryItem @relation("MaterialStandards", fields: [itemId], references: [id])
-  
-  standardQty     Float    // Standard quantity per SOD
-  maxQty          Float?   // Maximum allowed
-  wastagePercent  Float    @default(5) // Max wastage %
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  id             String           @id @default(cuid())
+  categoryId     String
+  packageType    String
+  itemId         String
+  standardQty    Float
+  maxQty         Float?
+  wastagePercent Float            @default(5)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  category       MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  item           InventoryItem    @relation("MaterialStandards", fields: [itemId], references: [id])
+
   @@unique([categoryId, packageType, itemId])
   @@index([packageType])
 }
 
-// Material issued to contractor (per store)
 model ContractorMaterialIssue {
-  id              String   @id @default(cuid())
-  contractorId    String
-  contractor      Contractor @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
-  storeId         String
-  store           InventoryStore @relation("MaterialIssues", fields: [storeId], references: [id])
-  
-  issueDate       DateTime @default(now())
-  month           String   // "2025-01"
-  issuedBy        String?  // User ID
-  
-  items           ContractorMaterialIssueItem[]
-  
-  createdAt       DateTime @default(now())
-  
+  id           String                        @id @default(cuid())
+  contractorId String
+  storeId      String
+  issueDate    DateTime                      @default(now())
+  month        String
+  issuedBy     String?
+  createdAt    DateTime                      @default(now())
+  contractor   Contractor                    @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore                @relation("MaterialIssues", fields: [storeId], references: [id])
+  items        ContractorMaterialIssueItem[]
+
   @@index([contractorId, storeId, month])
   @@index([month])
 }
 
 model ContractorMaterialIssueItem {
-  id              String   @id @default(cuid())
-  issueId         String
-  issue           ContractorMaterialIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  
-  itemId          String
-  item            InventoryItem @relation("IssueItems", fields: [itemId], references: [id])
-  
-  quantity        Float
-  unit            String
-  
+  id       String                  @id @default(cuid())
+  issueId  String
+  itemId   String
+  quantity Float
+  unit     String
+  issue    ContractorMaterialIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item     InventoryItem           @relation("IssueItems", fields: [itemId], references: [id])
+
   @@index([issueId])
   @@index([itemId])
 }
 
-// Material used per SOD
 model SODMaterialUsage {
-  id              String   @id @default(cuid())
-  serviceOrderId  String
-  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
-  
-  itemId          String
-  item            InventoryItem @relation("SODUsage", fields: [itemId], references: [id])
-  
-  quantity        Float
-  unit            String
-  usageType       String   // "USED", "WASTAGE"
-  
-  batchId         String?  // The specific batch this usage was deducted from
-  batch           InventoryBatch? @relation(fields: [batchId], references: [id])
-  
-  // Accounting Snapshots
-  unitPrice       Float?   @default(0) // Snapshot from InventoryItem
-  costPrice       Float?   @default(0) // Snapshot from InventoryItem
-  
-  // Wastage tracking
-  wastagePercent  Float?   // Calculated wastage %
-  exceedsLimit    Boolean  @default(false) // If wastage > standard
-  comment         String?  @db.Text // Required if exceeds limit
-  serialNumber    String?  // For items that require serial tracking (ONT, STB, Splice, etc)
-  approvedBy      String?  // Store Manager approval
-  approvedAt      DateTime?
-  
-  createdAt       DateTime @default(now())
-  
+  id             String          @id @default(cuid())
+  serviceOrderId String
+  itemId         String
+  quantity       Float
+  unit           String
+  usageType      String
+  batchId        String?
+  unitPrice      Float?          @default(0)
+  costPrice      Float?          @default(0)
+  wastagePercent Float?
+  exceedsLimit   Boolean         @default(false)
+  comment        String?
+  serialNumber   String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  batch          InventoryBatch? @relation(fields: [batchId], references: [id])
+  item           InventoryItem   @relation("SODUsage", fields: [itemId], references: [id])
+  serviceOrder   ServiceOrder    @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
   @@index([serviceOrderId])
   @@index([itemId])
   @@index([usageType])
 }
 
-// Material returns
 model ContractorMaterialReturn {
-  id              String   @id @default(cuid())
-  contractorId    String
-  contractor      Contractor @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
-  storeId         String
-  store           InventoryStore @relation("MaterialReturns", fields: [storeId], references: [id])
-  
-  returnDate      DateTime @default(now())
-  month           String   // Month being returned for
-  reason          String?  @db.Text
-  
-  items           ContractorMaterialReturnItem[]
-  
-  acceptedBy      String?  // Store Manager
-  acceptedAt      DateTime?
-  status          String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
-  
-  createdAt       DateTime @default(now())
-  
+  id           String                         @id @default(cuid())
+  contractorId String
+  storeId      String
+  returnDate   DateTime                       @default(now())
+  month        String
+  reason       String?
+  acceptedBy   String?
+  acceptedAt   DateTime?
+  status       String                         @default("PENDING")
+  createdAt    DateTime                       @default(now())
+  contractor   Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore                 @relation("MaterialReturns", fields: [storeId], references: [id])
+  items        ContractorMaterialReturnItem[]
+
   @@index([contractorId, storeId, month])
   @@index([status])
 }
 
 model ContractorMaterialReturnItem {
-  id              String   @id @default(cuid())
-  returnId        String
-  return          ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
-  
-  itemId          String
-  item            InventoryItem @relation("ReturnItems", fields: [itemId], references: [id])
-  
-  quantity        Float
-  unit            String
-  condition       String   @default("GOOD") // GOOD, DAMAGED
-  
+  id        String                   @id @default(cuid())
+  returnId  String
+  itemId    String
+  quantity  Float
+  unit      String
+  condition String                   @default("GOOD")
+  item      InventoryItem            @relation("ReturnItems", fields: [itemId], references: [id])
+  return    ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
   @@index([returnId])
   @@index([itemId])
 }
 
-// Standalone Wastage (Lost/Damaged by Contractor)
 model ContractorWastage {
-  id              String   @id @default(cuid())
-  contractorId    String
-  contractor      Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
-  storeId         String
-  store           InventoryStore @relation(fields: [storeId], references: [id])
-  
-  date            DateTime @default(now())
-  month           String   // Month of wastage
-  description     String?  // Reason for wastage
-  
-  items           ContractorWastageItem[]
-  
-  createdAt       DateTime @default(now())
-  
+  id           String                  @id @default(cuid())
+  contractorId String
+  storeId      String
+  date         DateTime                @default(now())
+  month        String
+  description  String?
+  createdAt    DateTime                @default(now())
+  contractor   Contractor              @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore          @relation(fields: [storeId], references: [id])
+  items        ContractorWastageItem[]
+
   @@index([contractorId, storeId, month])
 }
 
 model ContractorWastageItem {
-  id              String   @id @default(cuid())
-  wastageId       String
-  wastage         ContractorWastage @relation(fields: [wastageId], references: [id], onDelete: Cascade)
-  
-  itemId          String
-  item            InventoryItem @relation(fields: [itemId], references: [id])
-  
-  quantity        Float
-  unit            String
-  
+  id        String            @id @default(cuid())
+  wastageId String
+  itemId    String
+  quantity  Float
+  unit      String
+  item      InventoryItem     @relation(fields: [itemId], references: [id])
+  wastage   ContractorWastage @relation(fields: [wastageId], references: [id], onDelete: Cascade)
+
   @@index([wastageId])
   @@index([itemId])
 }
 
-// Monthly balance sheet (per store)
 model ContractorMaterialBalanceSheet {
-  id              String   @id @default(cuid())
-  contractorId    String
-  contractor      Contractor @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)
-  storeId         String
-  store           InventoryStore @relation("BalanceSheets", fields: [storeId], references: [id])
-  
-  month           String   // "2025-01"
-  
-  items           ContractorBalanceSheetItem[]
-  
-  totalValue      Float?
-  usageRate       Float?   // Percentage
-  wastageRate     Float?   // Percentage
-  
-  generatedAt     DateTime @default(now())
-  generatedBy     String?  // User ID
-  
+  id           String                       @id @default(cuid())
+  contractorId String
+  storeId      String
+  month        String
+  totalValue   Float?
+  usageRate    Float?
+  wastageRate  Float?
+  generatedAt  DateTime                     @default(now())
+  generatedBy  String?
+  items        ContractorBalanceSheetItem[]
+  contractor   Contractor                   @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore               @relation("BalanceSheets", fields: [storeId], references: [id])
+
   @@unique([contractorId, storeId, month])
   @@index([month])
   @@index([contractorId])
@@ -1300,130 +1047,117 @@ model ContractorMaterialBalanceSheet {
 }
 
 model ContractorBalanceSheetItem {
-  id              String   @id @default(cuid())
-  balanceSheetId  String
-  balanceSheet    ContractorMaterialBalanceSheet @relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)
-  
-  itemId          String
-  item            InventoryItem @relation("BalanceSheetItems", fields: [itemId], references: [id])
-  
-  openingBalance  Float    // From previous month
-  received        Float    // Issued this month
-  returned        Float    @default(0) // Returned to store
-  used            Float    // Used in SODs
-  wastage         Float    // Wastage
-  closingBalance  Float    // Opening + Received - Returned - Used - Wastage
-  requiredNext    Float?   // Estimated for next month
-  
+  id             String                         @id @default(cuid())
+  balanceSheetId String
+  itemId         String
+  openingBalance Float
+  received       Float
+  returned       Float                          @default(0)
+  used           Float
+  wastage        Float
+  closingBalance Float
+  requiredNext   Float?
+  balanceSheet   ContractorMaterialBalanceSheet @relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)
+  item           InventoryItem                  @relation("BalanceSheetItems", fields: [itemId], references: [id])
+
   @@index([balanceSheetId])
   @@index([itemId])
 }
 
-
-// Stock Issue (Materials issued to projects/contractors/teams)
 model StockIssue {
-  id            String   @id @default(cuid())
-  issueNumber   String   @unique
+  id            String           @id @default(cuid())
+  issueNumber   String           @unique
   storeId       String
-  store         InventoryStore @relation("StockIssues", fields: [storeId], references: [id])
   issuedById    String
-  issuedBy      User     @relation("StockIssuer", fields: [issuedById], references: [id])
-  issueType     String   // PROJECT, CONTRACTOR, TEAM, OTHER
+  issueType     String
   projectId     String?
-  project       Project? @relation(fields: [projectId], references: [id])
   contractorId  String?
-  contractor    Contractor? @relation("ContractorIssues", fields: [contractorId], references: [id])
   teamId        String?
-  recipientName String   // Person receiving the materials
-  remarks       String?  @db.Text
-  items         StockIssueItem[]
-  
-  // Approval Workflow
-  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  recipientName String
+  remarks       String?
+  status        String           @default("PENDING")
   approvedById  String?
-  approvedBy    User?    @relation("IssueApprover", fields: [approvedById], references: [id])
   approvedAt    DateTime?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  approvedBy    User?            @relation("IssueApprover", fields: [approvedById], references: [id])
+  contractor    Contractor?      @relation("ContractorIssues", fields: [contractorId], references: [id])
+  issuedBy      User             @relation("StockIssuer", fields: [issuedById], references: [id])
+  project       Project?         @relation(fields: [projectId], references: [id])
+  store         InventoryStore   @relation("StockIssues", fields: [storeId], references: [id])
+  items         StockIssueItem[]
+
   @@index([storeId])
   @@index([issueType])
   @@index([status])
 }
 
 model StockIssueItem {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   issueId   String
-  issue     StockIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
   itemId    String
-  item      InventoryItem @relation("IssueItemsStock", fields: [itemId], references: [id])
   quantity  Float
   remarks   String?
-  createdAt DateTime @default(now())
-  
+  createdAt DateTime      @default(now())
+  issue     StockIssue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item      InventoryItem @relation("IssueItemsStock", fields: [itemId], references: [id])
+
   @@index([issueId])
   @@index([itemId])
 }
 
-// Project Material Return (Project -> Store)
 model ProjectMaterialReturn {
-  id            String   @id @default(cuid())
-  returnNumber  String   @unique
-  projectId     String
-  project       Project  @relation(fields: [projectId], references: [id])
-  storeId       String
-  store         InventoryStore @relation(fields: [storeId], references: [id])
-  returnedById  String
-  returnedBy    User     @relation("ProjectReturnUser", fields: [returnedById], references: [id])
-  
-  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  approvedById  String?
-  approvedBy    User?    @relation("ProjectReturnApprover", fields: [approvedById], references: [id])
-  approvedAt    DateTime?
-  
-  reason        String?  @db.Text
-  items         ProjectMaterialReturnItem[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  id           String                      @id @default(cuid())
+  returnNumber String                      @unique
+  projectId    String
+  storeId      String
+  returnedById String
+  status       String                      @default("PENDING")
+  approvedById String?
+  approvedAt   DateTime?
+  reason       String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  approvedBy   User?                       @relation("ProjectReturnApprover", fields: [approvedById], references: [id])
+  project      Project                     @relation(fields: [projectId], references: [id])
+  returnedBy   User                        @relation("ProjectReturnUser", fields: [returnedById], references: [id])
+  store        InventoryStore              @relation(fields: [storeId], references: [id])
+  items        ProjectMaterialReturnItem[]
+
   @@index([projectId])
   @@index([storeId])
   @@index([status])
 }
 
 model ProjectMaterialReturnItem {
-  id        String   @id @default(cuid())
+  id        String                @id @default(cuid())
   returnId  String
-  return    ProjectMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
   itemId    String
-  item      InventoryItem @relation("ProjectReturnItems", fields: [itemId], references: [id])
   quantity  Float
-  condition String   @default("GOOD") // GOOD, DAMAGED
+  condition String                @default("GOOD")
   remarks   String?
-  
+  item      InventoryItem         @relation("ProjectReturnItems", fields: [itemId], references: [id])
+  return    ProjectMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
   @@index([returnId])
   @@index([itemId])
 }
 
-// Stock Movement Tracking
 model StockMovement {
   id        String   @id @default(cuid())
   storeId   String
   itemId    String
-  type      String   // IN, OUT, ADJUSTMENT
+  type      String
   quantity  Float
-  reference String?  // GRN number, Issue number, etc.
-  remarks   String?  @db.Text
+  reference String?
+  remarks   String?
   createdAt DateTime @default(now())
-  
+
   @@index([storeId])
   @@index([itemId])
   @@index([type])
 }
 
-// Current Stock (replaces InventoryStock for clarity)
 model CurrentStock {
   id        String   @id @default(cuid())
   storeId   String
@@ -1431,163 +1165,132 @@ model CurrentStock {
   quantity  Float    @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([storeId, itemId])
   @@index([storeId])
   @@index([itemId])
 }
 
-// Section Management (Departments)
 model Section {
-  id          String   @id @default(cuid())
-  name        String   @unique // "Projects", "New Connection", "Service Assurance", etc.
-  code        String   @unique // "PROJECTS", "NEW_CONNECTION", "SERVICE_ASSURANCE"
-  description String?  @db.Text
-  icon        String?  // Icon name for UI
-  color       String?  // Color code for UI
-  isActive    Boolean  @default(true)
-  
-  // Relations
-  roles       SystemRole[]
+  id              String                  @id @default(cuid())
+  name            String                  @unique
+  code            String                  @unique
+  description     String?
+  icon            String?
+  color           String?
+  isActive        Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  roles           SystemRole[]
   userAssignments UserSectionAssignment[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 }
 
-// System Roles (Job Posts per Section)
 model SystemRole {
-  id          String   @id @default(cuid())
-  name        String   // "Project Engineer", "NC Manager", "SA Technician"
-  code        String   @unique // "PROJECT_ENGINEER", "NC_MANAGER", "SA_TECHNICIAN"
-  sectionId   String
-  section     Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  description String?  @db.Text
-  level       Int      @default(1) // 1=Junior, 2=Mid, 3=Senior, 4=Manager
-  isActive    Boolean  @default(true)
-  
-  // Permissions (JSON array of allowed pages/actions)
-  permissions String   @db.Text // JSON: ["service-orders", "contractors", etc.]
-  
-  // Relations
+  id              String                  @id @default(cuid())
+  name            String
+  code            String                  @unique
+  sectionId       String
+  description     String?
+  level           Int                     @default(1)
+  isActive        Boolean                 @default(true)
+  permissions     String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  section         Section                 @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   userAssignments UserSectionAssignment[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+
   @@index([sectionId])
 }
 
-// User Section Assignment (Many-to-Many with Role)
 model UserSectionAssignment {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   sectionId String
-  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   roleId    String
+  isPrimary Boolean    @default(false)
+  createdAt DateTime   @default(now())
   role      SystemRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  isPrimary Boolean  @default(false) // Primary section for user
-  
-  createdAt DateTime @default(now())
-  
+  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, sectionId])
   @@index([userId])
   @@index([sectionId])
   @@index([roleId])
 }
+
 model SystemConfig {
-  key String @id
-  value String
+  key         String   @id
+  value       String
   description String?
-  updatedAt DateTime @updatedAt
+  updatedAt   DateTime @updatedAt
 }
 
 model Bank {
   id        String       @id @default(cuid())
   code      String       @unique
   name      String
-  branches  BankBranch[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+  branches  BankBranch[]
 }
 
 model BankBranch {
   id        String   @id @default(cuid())
   bankId    String
-  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
   code      String
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
 
   @@unique([bankId, code])
 }
 
-// SOD Revenue Configuration
 model SODRevenueConfig {
-  id            String   @id @default(cuid())
-  
-  // RTOM (null = Default for all RTOMs)
+  id            String    @id @default(cuid())
   rtomId        String?
-  rtom          OPMC?    @relation(fields: [rtomId], references: [id], onDelete: Cascade)
-  
-  // Revenue Amount
-  revenuePerSOD Float    // Rs. 10,500, Rs. 12,555, etc.
-  
-  // Time Period (Optional - for circular-based changes)
-  effectiveFrom DateTime? // null = Always active
-  effectiveTo   DateTime? // null = No end date
-  
-  // Metadata
-  circularRef   String?  // "Circular No. 2026/01"
-  notes         String?  @db.Text
-  isActive      Boolean  @default(true)
-  
+  revenuePerSOD Float
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  circularRef   String?
+  notes         String?
+  isActive      Boolean   @default(true)
   createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  rtom          OPMC?     @relation(fields: [rtomId], references: [id], onDelete: Cascade)
+
   @@index([rtomId])
   @@index([effectiveFrom, effectiveTo])
   @@index([isActive])
 }
 
-// Contractor Payment Tiered Configuration
 model ContractorPaymentConfig {
-  id            String   @id @default(cuid())
-  
-  // RTOM (null = Default for all RTOMs)
+  id            String                  @id @default(cuid())
   rtomId        String?
-  rtom          OPMC?    @relation(fields: [rtomId], references: [id], onDelete: Cascade)
-  
-  // Tiers defined for this config
-  tiers         ContractorPaymentTier[]
-  
-  // Time Period
   effectiveFrom DateTime?
   effectiveTo   DateTime?
-  
-  isActive      Boolean  @default(true)
-  notes         String?  @db.Text
-  
+  isActive      Boolean                 @default(true)
+  notes         String?
   createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  rtom          OPMC?                   @relation(fields: [rtomId], references: [id], onDelete: Cascade)
+  tiers         ContractorPaymentTier[]
+
   @@index([rtomId])
   @@index([isActive])
 }
 
 model ContractorPaymentTier {
-  id          String   @id @default(cuid())
+  id          String                  @id @default(cuid())
   configId    String
+  minDistance Float
+  maxDistance Float
+  amount      Float
   config      ContractorPaymentConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
-  
-  minDistance Float    // Inclusive, e.g. 0
-  maxDistance Float    // Inclusive, e.g. 99 (use a very high number like 99999 for "501+")
-  amount      Float    // Payment amount for this range
-  
+
   @@index([configId])
 }
 
@@ -1599,43 +1302,37 @@ model SystemSetting {
 }
 
 model SLTPATStatus {
-  id            String    @id @default(cuid())
-  soNum         String    @unique
-  rtom          String?
-  lea           String?   // LEA 
-  voiceNumber   String?   // CIRCUIT
-  sType         String?   // SERVICE
-  orderType     String?   // ORDER TYPE
-  task          String?   // TASK
-  package       String?   // PACKAGE
-  conName       String?   // CONTRACTOR
-  patUser       String?   // PAT USER
-  status        String    // PAT_PASSED, REJECTED
-  source        String    // HO_APPROVED, HO_REJECTED, OPMC_REJECTED
-  statusDate    DateTime? // COMPLETED ON / RECEIVED ON
-  updatedAt     DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  soNum       String    @unique
+  rtom        String?
+  lea         String?
+  voiceNumber String?
+  sType       String?
+  orderType   String?
+  task        String?
+  package     String?
+  conName     String?
+  patUser     String?
+  status      String
+  source      String
+  statusDate  DateTime?
+  updatedAt   DateTime  @updatedAt
 
   @@index([status])
   @@index([rtom])
   @@index([soNum])
 }
 
-// Dashboard Performance Statistics (Pre-calculated for 2M+ records)
 model DashboardStat {
   id              String   @id @default(cuid())
   opmcId          String   @unique
-  rtom            String   
-
-  // SOD Metrics (Current Year/Total)
+  rtom            String
   pending         Int      @default(0)
   completed       Int      @default(0)
   returned        Int      @default(0)
-
-  // PAT Metrics
   patPassed       Int      @default(0)
   patRejected     Int      @default(0)
   sltsPatRejected Int      @default(0)
-
   lastUpdated     DateTime @updatedAt
 
   @@index([opmcId])
@@ -1645,12 +1342,50 @@ model DashboardStat {
 model NotificationPreference {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // e.g., "INVENTORY", "PROJECT", "CONTRACTOR", "SYSTEM", "FINANCE"
+  type      String
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
   @@index([userId])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  OSP_MANAGER
+  AREA_MANAGER
+  ENGINEER
+  ASSISTANT_ENGINEER
+  AREA_COORDINATOR
+  QC_OFFICER
+  OFFICE_ADMIN
+  OFFICE_ADMIN_ASSISTANT
+  SITE_OFFICE_STAFF
+  FINANCE_MANAGER
+  FINANCE_ASSISTANT
+  INVOICE_MANAGER
+  INVOICE_ASSISTANT
+  STORES_MANAGER
+  STORES_ASSISTANT
+  SA_MANAGER
+  SA_ASSISTANT
+  PROCUREMENT_OFFICER
+}
+
+enum ContractorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  ARM_PENDING
+  OSP_PENDING
+  REJECTED
+}
+
+enum ContractorType {
+  SOD
+  OSP
 }
