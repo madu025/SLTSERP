@@ -11,6 +11,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeThisPassword123!}
       POSTGRES_DB: sltserp_db
       PGDATA: /var/lib/postgresql/data/pgdata
+    # Added logging for connections
+    command: [ "postgres", "-c", "wal_level=logical", "-c", "log_connections=on", "-c", "log_disconnections=on" ]
     ports:
       - "5432:5432"
     volumes:
