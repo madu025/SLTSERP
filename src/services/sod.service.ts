@@ -98,10 +98,16 @@ export class ServiceOrderService {
         }
 
         // Status Filtering (Main View Tabs)
+        const completionStatuses = ["PROV_CLOSED", "COMPLETED", "INSTALL_CLOSED", "PAT_OPMC_PASSED", "PAT_CORRECTED"];
+
         if (filter === 'pending') {
             whereClause.sltsStatus = { notIn: ['COMPLETED', 'RETURN'] };
+            whereClause.status = { notIn: completionStatuses };
         } else if (filter === 'completed') {
-            whereClause.sltsStatus = 'COMPLETED';
+            whereClause.OR = [
+                { sltsStatus: 'COMPLETED' },
+                { status: { in: completionStatuses } }
+            ];
         } else if (filter === 'return') {
             whereClause.sltsStatus = 'RETURN';
         }
@@ -118,7 +124,7 @@ export class ServiceOrderService {
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
             whereClause.status = statusFilter;
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
-            whereClause.status = { in: ["ASSIGNED", "INPROGRESS", "PROV_CLOSED", "INSTALL_CLOSED"] };
+            whereClause.status = { in: ["ASSIGNED", "INPROGRESS"] };
         }
 
         if (patFilter && patFilter !== 'ALL') {
@@ -921,6 +927,11 @@ export class ServiceOrderService {
             const results = await Promise.all(batch.map(async (item) => {
                 const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
 
+                // Determine sltsStatus based on SLT status
+                // If it's a completion status, it should be COMPLETED in SLTS
+                const completionStatuses = ['PROV_CLOSED', 'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'];
+                const initialSltsStatus = completionStatuses.includes(item.CON_STATUS) ? 'COMPLETED' : 'INPROGRESS';
+
                 // Check if this specific status record exists for this soNum
                 const existing = await prisma.serviceOrder.findUnique({
                     where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } }
@@ -929,7 +940,14 @@ export class ServiceOrderService {
                 const result = await prisma.serviceOrder.upsert({
                     where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } },
                     update: { lea: item.LEA, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG },
-                    create: { opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS, statusDate, receivedDate: statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG, sltsStatus: 'INPROGRESS' },
+                    create: {
+                        opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM,
+                        voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE,
+                        serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME,
+                        techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS,
+                        statusDate, receivedDate: statusDate, address: item.ADDRE,
+                        dp: item.DP, package: item.PKG, sltsStatus: initialSltsStatus
+                    },
                     select: { id: true, createdAt: true, updatedAt: true } // 👈 Optimized selection
                 });
 
