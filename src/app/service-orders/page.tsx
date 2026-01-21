@@ -123,6 +123,30 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [selectedRtom, setSelectedRtom] = useState<string>("");
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
     const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isSyncingCompleted, setIsSyncingCompleted] = useState(false);
+
+    const handleManualCompletedSync = async () => {
+        setIsSyncingCompleted(true);
+        try {
+            const res = await fetch("/api/automation/completed-sod-sync", {
+                method: "POST"
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                toast.success(`Sync successful: Checked ${data.data.checked} records, Completed ${data.data.completed} SODs`);
+                queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+            } else {
+                toast.error(data.error || "Sync failed");
+            }
+        } catch (err) {
+            toast.error("Network error during sync");
+        } finally {
+            setIsSyncingCompleted(true); // Small delay before enabling
+            setTimeout(() => setIsSyncingCompleted(false), 2000);
+        }
+    };
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
@@ -496,6 +520,18 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     <RefreshCw className={`w-3 h-3 mr-1.5 ${syncMutation.isPending ? 'animate-spin text-blue-600' : ''}`} />
                                     {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
                                 </Button>
+                                {filterType === 'completed' && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs px-2 border-blue-200 text-blue-600 hover:bg-blue-50"
+                                        onClick={handleManualCompletedSync}
+                                        disabled={isSyncingCompleted}
+                                    >
+                                        <RefreshCw className={`w-3 h-3 mr-1.5 ${isSyncingCompleted ? 'animate-spin' : ''}`} />
+                                        Sync Completed
+                                    </Button>
+                                )}
                                 {lastSyncTime && (
                                     <span className="text-[9px] text-slate-400 font-medium hidden sm:block">
                                         Synced: {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
