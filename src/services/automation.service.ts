@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NotificationService } from './notification.service';
-import { startOfDay, endOfDay, subDays, subYears } from 'date-fns';
+import { startOfDay, endOfDay, subDays, subMonths } from 'date-fns';
 
 export class AutomationService {
     /**
@@ -116,18 +116,28 @@ export class AutomationService {
     }
 
     /**
-     * 4. Automatic System Cleanup - Older than 1 year Audit Logs
+     * 4. Automatic System Cleanup - Older than 3 months Audit Logs & Notifications
      */
     static async runAuditLogCleanup() {
-        console.log('[AUTOMATION] Cleaning up old audit logs...');
-        const oneYearAgo = subYears(new Date(), 1);
+        console.log('[AUTOMATION] Cleaning up old audit logs and notifications...');
+        const threeMonthsAgo = subMonths(new Date(), 3);
+        const oneMonthAgo = subMonths(new Date(), 1);
 
-        const result = await prisma.auditLog.deleteMany({
-            where: { createdAt: { lt: oneYearAgo } }
+        // Clean old audit logs (3 months)
+        const auditResult = await prisma.auditLog.deleteMany({
+            where: { createdAt: { lt: threeMonthsAgo } }
         });
 
-        console.log(`[AUTOMATION] Deleted ${result.count} audit logs older than 1 year.`);
-        return result;
+        // Clean old read notifications (1 month)
+        const notificationResult = await prisma.notification.deleteMany({
+            where: {
+                createdAt: { lt: oneMonthAgo },
+                isRead: true
+            }
+        });
+
+        console.log(`[AUTOMATION] Deleted ${auditResult.count} audit logs (>3 months) and ${notificationResult.count} notifications (>1 month).`);
+        return { auditLogs: auditResult.count, notifications: notificationResult.count };
     }
 
     /**

@@ -240,8 +240,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         },
         enabled: !!selectedRtomId,
         refetchOnMount: true,
-        refetchOnWindowFocus: true,
-        staleTime: 30000 // Keep data fresh for 30s
+        refetchOnWindowFocus: false, // 👈 Optimized: Don't fetch every time user Switches tabs
+        staleTime: 120000 // 👈 Optimized: Keep data fresh for 2 minutes instead of 30s
     });
 
     const serviceOrders = qData?.items || [];

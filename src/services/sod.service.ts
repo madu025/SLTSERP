@@ -163,21 +163,18 @@ export class ServiceOrderService {
                 where: whereClause,
                 select: {
                     id: true,
-                    rtom: true,
-                    lea: true,
                     soNum: true,
                     voiceNumber: true,
                     orderType: true,
                     serviceType: true,
                     customerName: true,
-                    techContact: true,
                     status: true,
                     statusDate: true,
                     sltsStatus: true,
                     completedDate: true,
                     contractorId: true,
                     contractor: { select: { name: true } },
-                    comments: true,
+                    // ⚠️ Removed large fields like address, dp, etc. which are not in the main table
                     opmcPatStatus: true,
                     opmcPatDate: true,
                     sltsPatStatus: true,
@@ -908,7 +905,8 @@ export class ServiceOrderService {
                 return await prisma.serviceOrder.upsert({
                     where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } },
                     update: { lea: item.LEA, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG },
-                    create: { opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG, sltsStatus: 'INPROGRESS' }
+                    create: { opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG, sltsStatus: 'INPROGRESS' },
+                    select: { id: true, createdAt: true, updatedAt: true } // 👈 Optimized selection
                 });
             }));
             results.forEach(r => { if (r?.createdAt.getTime() === r?.updatedAt.getTime()) created++; else updated++; });

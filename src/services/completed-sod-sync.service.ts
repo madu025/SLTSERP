@@ -42,7 +42,8 @@ export class CompletedSODSyncService {
                                 where: {
                                     soNum: patData.SO_NUM,
                                     status: 'PENDING'
-                                }
+                                },
+                                select: { id: true } // Optimized: Only fetch ID to reduce egress
                             });
 
                             if (!localSOD) {

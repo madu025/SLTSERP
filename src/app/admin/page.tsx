@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Briefcase, Settings, Network, HardHat, FileText, ChevronRight } from "lucide-react";
+import { Users, Briefcase, Settings, Network, HardHat, ChevronRight } from "lucide-react";
 import InventoryAlerts from '@/components/dashboard/InventoryAlerts';
 
 export default function AdminPanel() {
@@ -36,7 +35,9 @@ export default function AdminPanel() {
                 opmcs: Array.isArray(opmcs) ? opmcs.length : 0,
                 contractors: contractorsCount
             };
-        }
+        },
+        staleTime: 600000, // 👈 Optimized: Keep stats fresh for 10 minutes
+        refetchOnWindowFocus: false // 👈 Optimized: Don't refresh on tab Switch
     });
 
     const modules = [

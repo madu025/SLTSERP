@@ -143,6 +143,8 @@ export default function NotificationBell() {
             }
         },
         enabled: !!userId,
+        staleTime: 300000, // 👈 Optimized: Keep cached notifications fresh for 5 minutes
+        refetchOnWindowFocus: false // 👈 Optimized: SSE handles real-time updates, no need to refetch on focus
     });
 
     const safeNotifications = Array.isArray(notifications) ? notifications : [];
