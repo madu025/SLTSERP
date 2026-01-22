@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData } from './slt-api.service';
 import { NotificationService } from './notification.service';
 import { TransactionClient } from './inventory/types';
@@ -254,9 +254,9 @@ export class ServiceOrderService {
                     return acc;
                 }, {} as Record<string, number>),
                 patBreakdown: {
-                    opmc: (opmcGroups || []).reduce((acc: Record<string, number>, curr: { opmcPatStatus: string | null; _count: number }) => { acc[curr.opmcPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
-                    ho: (hoGroups || []).reduce((acc: Record<string, number>, curr: { hoPatStatus: string | null; _count: number }) => { acc[curr.hoPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
-                    slt: (sltGroups || []).reduce((acc: Record<string, number>, curr: { sltsPatStatus: string | null; _count: number }) => { acc[curr.sltsPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
+                    opmc: (opmcGroups || []).reduce((acc: Record<string, number>, curr: Prisma.PickEnumerable<Prisma.ServiceOrderGroupByOutputType, "opmcPatStatus"[]> & { _count: number }) => { acc[curr.opmcPatStatus || 'PENDING'] = curr._count; return acc; }, {} as Record<string, number>),
+                    ho: (hoGroups || []).reduce((acc: Record<string, number>, curr: Prisma.PickEnumerable<Prisma.ServiceOrderGroupByOutputType, "hoPatStatus"[]> & { _count: number }) => { acc[curr.hoPatStatus || 'PENDING'] = curr._count; return acc; }, {} as Record<string, number>),
+                    slt: (sltGroups || []).reduce((acc: Record<string, number>, curr: Prisma.PickEnumerable<Prisma.ServiceOrderGroupByOutputType, "sltsPatStatus"[]> & { _count: number }) => { acc[curr.sltsPatStatus || 'PENDING'] = curr._count; return acc; }, {} as Record<string, number>),
                 }
             }
         };
@@ -265,7 +265,7 @@ export class ServiceOrderService {
     /**
      * Patch Update (Status Change, Completion, etc.)
      */
-    static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<any> {
+    static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder> {
         if (!id) throw new Error('ID_REQUIRED');
 
         const oldOrder = await prisma.serviceOrder.findUnique({
@@ -964,36 +964,71 @@ export class ServiceOrderService {
                 const initialSltsStatus = completionStatuses.includes(item.CON_STATUS) ? 'COMPLETED' : 'INPROGRESS';
 
                 // Check if this specific soNum exists
-                const existing = await prisma.serviceOrder.findUnique({
-                    where: { soNum: item.SO_NUM },
-                    select: { id: true, status: true }
+                // Check if this soNum already exists in our system
+                const existing = await prisma.serviceOrder.findFirst({
+                    where: { soNum: item.SO_NUM }
                 });
 
-                const result = await prisma.serviceOrder.upsert({
-                    where: { soNum: item.SO_NUM },
-                    update: {
-                        status: item.CON_STATUS, // Update status if it changed
-                        lea: item.LEA,
-                        voiceNumber: item.VOICENUMBER,
-                        orderType: item.ORDER_TYPE,
-                        serviceType: item.S_TYPE,
-                        customerName: item.CON_CUS_NAME,
-                        techContact: item.CON_TEC_CONTACT,
-                        statusDate,
-                        address: item.ADDRE,
-                        dp: item.DP,
-                        package: item.PKG
-                    },
-                    create: {
-                        opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM,
-                        voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE,
-                        serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME,
-                        techContact: item.CON_TEC_CONTACT, status: item.CON_STATUS,
-                        statusDate, receivedDate: statusDate, address: item.ADDRE,
-                        dp: item.DP, package: item.PKG, sltsStatus: initialSltsStatus
-                    },
-                    select: { id: true, createdAt: true, updatedAt: true }
-                });
+                let result;
+                const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
+                    status: item.CON_STATUS,
+                    lea: item.LEA,
+                    voiceNumber: item.VOICENUMBER,
+                    orderType: item.ORDER_TYPE,
+                    serviceType: item.S_TYPE,
+                    customerName: item.CON_CUS_NAME,
+                    techContact: item.CON_TEC_CONTACT,
+                    statusDate,
+                    address: item.ADDRE,
+                    dp: item.DP,
+                    package: item.PKG,
+                    woroTaskName: item.CON_WORO_TASK_NAME,
+                    iptv: item.IPTV,
+                    woroSeit: item.CON_WORO_SEIT,
+                    ftthInstSeit: item.FTTH_INST_SIET,
+                    ftthWifi: item.FTTH_WIFI,
+                    ospPhoneClass: item.CON_OSP_PHONE_CLASS,
+                    phonePurchase: item.CON_PHN_PURCH,
+                    sales: item.CON_SALES
+                };
+
+                if (existing) {
+                    result = await prisma.serviceOrder.update({
+                        where: { id: existing.id },
+                        data: updatePayload,
+                        select: { id: true, createdAt: true, updatedAt: true }
+                    });
+                } else {
+                    result = await prisma.serviceOrder.create({
+                        data: {
+                            status: item.CON_STATUS,
+                            lea: item.LEA,
+                            voiceNumber: item.VOICENUMBER,
+                            orderType: item.ORDER_TYPE,
+                            serviceType: item.S_TYPE,
+                            customerName: item.CON_CUS_NAME,
+                            techContact: item.CON_TEC_CONTACT,
+                            statusDate,
+                            address: item.ADDRE,
+                            dp: item.DP,
+                            package: item.PKG,
+                            woroTaskName: item.CON_WORO_TASK_NAME,
+                            iptv: item.IPTV,
+                            woroSeit: item.CON_WORO_SEIT,
+                            ftthInstSeit: item.FTTH_INST_SIET,
+                            ftthWifi: item.FTTH_WIFI,
+                            ospPhoneClass: item.CON_OSP_PHONE_CLASS,
+                            phonePurchase: item.CON_PHN_PURCH,
+                            sales: item.CON_SALES,
+                            opmcId,
+                            rtom: item.RTOM,
+                            soNum: item.SO_NUM,
+                            receivedDate: statusDate,
+                            sltsStatus: initialSltsStatus
+                        },
+                        select: { id: true, createdAt: true, updatedAt: true }
+                    });
+                }
 
                 // Record history if new
                 if (!existing) {
