@@ -265,7 +265,7 @@ export class ServiceOrderService {
     /**
      * Patch Update (Status Change, Completion, etc.)
      */
-    static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string) {
+    static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<any> {
         if (!id) throw new Error('ID_REQUIRED');
 
         const oldOrder = await prisma.serviceOrder.findUnique({
@@ -276,6 +276,21 @@ export class ServiceOrderService {
 
         const { sltsStatus, status, statusDate, receivedDate, completedDate, contractorId, comments, ...otherData } = data;
         const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {};
+
+        // 1. UNIQUE CONSTRAINT PROTECTION (soNum, status)
+        // If we are changing the status, we must ensure another record with same SO and NEW status doesn't exist
+        if (status && status !== oldOrder.status) {
+            const collision = await prisma.serviceOrder.findFirst({
+                where: { soNum: oldOrder.soNum, status: status },
+                select: { id: true }
+            });
+            if (collision && collision.id !== id) {
+                console.warn(`[PATCH] Status collision detected for ${oldOrder.soNum} (${status}). Redirecting update to existing record.`);
+                // Instead of updating THIS record to NEW status (which fails), 
+                // we should update the ALREADY EXISTING record of that status.
+                return this.patchServiceOrder(collision.id, { ...data, status: undefined }, userId);
+            }
+        }
 
         if (sltsStatus) {
             if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED'].includes(sltsStatus)) throw new Error('INVALID_STATUS');
