@@ -963,15 +963,27 @@ export class ServiceOrderService {
                 const completionStatuses = ['PROV_CLOSED', 'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'];
                 const initialSltsStatus = completionStatuses.includes(item.CON_STATUS) ? 'COMPLETED' : 'INPROGRESS';
 
-                // Check if this specific status record exists for this soNum
+                // Check if this specific soNum exists
                 const existing = await prisma.serviceOrder.findUnique({
-                    where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } },
-                    select: { id: true }
+                    where: { soNum: item.SO_NUM },
+                    select: { id: true, status: true }
                 });
 
                 const result = await prisma.serviceOrder.upsert({
-                    where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } },
-                    update: { lea: item.LEA, voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE, serviceType: item.S_TYPE, customerName: item.CON_CUS_NAME, techContact: item.CON_TEC_CONTACT, statusDate, address: item.ADDRE, dp: item.DP, package: item.PKG },
+                    where: { soNum: item.SO_NUM },
+                    update: {
+                        status: item.CON_STATUS, // Update status if it changed
+                        lea: item.LEA,
+                        voiceNumber: item.VOICENUMBER,
+                        orderType: item.ORDER_TYPE,
+                        serviceType: item.S_TYPE,
+                        customerName: item.CON_CUS_NAME,
+                        techContact: item.CON_TEC_CONTACT,
+                        statusDate,
+                        address: item.ADDRE,
+                        dp: item.DP,
+                        package: item.PKG
+                    },
                     create: {
                         opmcId, rtom: item.RTOM, lea: item.LEA, soNum: item.SO_NUM,
                         voiceNumber: item.VOICENUMBER, orderType: item.ORDER_TYPE,

@@ -98,7 +98,7 @@ model ServiceOrder {
   opmc              OPMC               @relation(fields: [opmcId], references: [id], onDelete: Cascade)
   team              ContractorTeam?    @relation(fields: [teamId], references: [id])
 
-  @@unique([soNum, status])
+  @@unique([soNum])
   @@index([opmcId])
   @@index([rtom])
   @@index([status])
