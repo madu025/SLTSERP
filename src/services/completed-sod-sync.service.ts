@@ -84,19 +84,26 @@ export class CompletedSODSyncService {
                                 // Update if not already marked as COMPLETED in our system OR if specific details are missing (e.g. date)
                                 for (const localSOD of localSODs) {
                                     if (localSOD.sltsStatus !== 'COMPLETED' || !localSOD.completedDate) {
-                                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ♻️ Updating SOD: ${sltData.SO_NUM} (Status/Date fix)`);
+
+                                        const isProvClosed = sltData.CON_STATUS === 'PROV_CLOSED';
+                                        const finalSltsStatus = isProvClosed ? 'PROV_CLOSED' : 'COMPLETED';
+                                        const isWiredOnly = isProvClosed;
+
+                                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ♻️ Updating SOD: ${sltData.SO_NUM} (${finalSltsStatus})`);
+
                                         await ServiceOrderService.patchServiceOrder(
                                             localSOD.id,
                                             {
                                                 status: sltData.CON_STATUS,
-                                                sltsStatus: 'COMPLETED',
+                                                sltsStatus: finalSltsStatus,
                                                 sltsPatStatus: sltData.CON_STATUS,
                                                 completedDate: completedDate,
+                                                wiredOnly: isWiredOnly,
                                                 dpDetails: sltData.DP,
                                                 ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
                                                 iptvSerialNumbers: sltData.IPTV || undefined,
                                                 dropWireDistance: dropWireDistance,
-                                                comments: `Auto-completed/Updated via Sync (${sltData.CON_STATUS})`,
+                                                comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,
                                             },
                                             'SYSTEM_AUTO_SYNC'
                                         );
@@ -107,6 +114,10 @@ export class CompletedSODSyncService {
                                 // CASE B: DOES NOT EXIST (Missing History)
                                 // Create new record directly
                                 console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🆕 Creating MISSING Historical SOD: ${sltData.SO_NUM}`);
+
+                                const isProvClosed = sltData.CON_STATUS === 'PROV_CLOSED';
+                                const finalSltsStatus = isProvClosed ? 'PROV_CLOSED' : 'COMPLETED';
+                                const isWiredOnly = isProvClosed;
 
                                 await prisma.serviceOrder.create({
                                     data: {
@@ -133,17 +144,18 @@ export class CompletedSODSyncService {
 
                                         // Status fields
                                         status: sltData.CON_STATUS,
-                                        sltsStatus: 'COMPLETED', // Force completed
+                                        sltsStatus: finalSltsStatus,
                                         sltsPatStatus: sltData.CON_STATUS,
 
                                         // Dates
-                                        receivedDate: completedDate, // Assume received when completed for history
+                                        receivedDate: completedDate,
                                         statusDate: completedDate,
                                         completedDate: completedDate,
 
                                         // Other
                                         comments: 'Auto-created from Missing History Sync',
                                         dropWireDistance: dropWireDistance,
+                                        wiredOnly: isWiredOnly,
                                     }
                                 });
                                 completedCount++;

@@ -48,6 +48,7 @@ export interface ServiceOrderUpdateData {
     hoPatStatus?: string;
     materialUsage?: MaterialUsageInput[];
     returnReason?: string;
+    wiredOnly?: boolean;
 }
 
 export class ServiceOrderService {
@@ -98,7 +99,7 @@ export class ServiceOrderService {
         }
 
         // Status Filtering (Main View Tabs)
-        const completionStatuses = ["PROV_CLOSED", "COMPLETED", "INSTALL_CLOSED", "PAT_OPMC_PASSED", "PAT_CORRECTED"];
+        const completionStatuses = ["COMPLETED", "INSTALL_CLOSED", "PAT_OPMC_PASSED", "PAT_CORRECTED"];
 
         if (filter === 'pending') {
             whereClause.sltsStatus = { notIn: ['COMPLETED', 'RETURN'] };
@@ -124,7 +125,7 @@ export class ServiceOrderService {
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
             whereClause.status = statusFilter;
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
-            whereClause.status = { in: ["ASSIGNED", "INPROGRESS"] };
+            whereClause.status = { in: ["ASSIGNED", "INPROGRESS", "PROV_CLOSED"] };
         }
 
         if (patFilter && patFilter !== 'ALL') {
@@ -268,7 +269,7 @@ export class ServiceOrderService {
         const updateData: Prisma.ServiceOrderUncheckedUpdateInput = {};
 
         if (sltsStatus) {
-            if (!['INPROGRESS', 'COMPLETED', 'RETURN'].includes(sltsStatus)) throw new Error('INVALID_STATUS');
+            if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED'].includes(sltsStatus)) throw new Error('INVALID_STATUS');
             updateData.sltsStatus = sltsStatus;
             if ((sltsStatus === 'COMPLETED' || sltsStatus === 'RETURN') && !completedDate) throw new Error('COMPLETED_DATE_REQUIRED');
         }
@@ -276,6 +277,7 @@ export class ServiceOrderService {
         if (completedDate) updateData.completedDate = new Date(completedDate);
         if (contractorId !== undefined) updateData.contractorId = contractorId;
         if (comments !== undefined) updateData.comments = comments;
+        if (otherData.wiredOnly !== undefined) updateData.wiredOnly = otherData.wiredOnly;
 
         // SLT Status fields mapping
         if (status) updateData.status = status;
