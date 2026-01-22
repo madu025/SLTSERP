@@ -26,6 +26,29 @@ services:
       timeout: 5s
       retries: 5
 
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sltserp-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://sltserp_user:${POSTGRES_PASSWORD:-ChangeThisPassword123!}@postgres:5432/sltserp_db
+      DIRECT_URL: postgresql://sltserp_user:${POSTGRES_PASSWORD:-ChangeThisPassword123!}@postgres:5432/sltserp_db
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    networks:
+      - sltserp-network
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
   # PgAdmin (Optional - Database Management UI)
   pgadmin:
     image: dpage/pgadmin4:latest
