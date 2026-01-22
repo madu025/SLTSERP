@@ -12,12 +12,11 @@ export async function POST(request: Request) {
 
         // Set HttpOnly Cookie
         const cookieStore = await cookies();
-        const isProduction = process.env.NODE_ENV === 'production';
 
         cookieStore.set('token', token, {
             httpOnly: true,
-            secure: false, // Set to false to allow login via HTTP (IP address)
-            sameSite: 'lax',      // Changed from 'strict' to 'lax' for better proxy support
+            secure: false, // Set to false to allow login via HTTP (IP address/CloudFront)
+            sameSite: 'lax',
             maxAge: 86400, // 24 hours
             path: '/',
         });
@@ -27,18 +26,20 @@ export async function POST(request: Request) {
             user,
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
         // Handle known errors from Service
-        if (error.message === 'USERNAME_PASSWORD_REQUIRED') {
+        if (errorMessage === 'USERNAME_PASSWORD_REQUIRED') {
             return NextResponse.json({ message: 'Username and password are required' }, { status: 400 });
         }
-        if (error.message === 'INVALID_CREDENTIALS') {
+        if (errorMessage === 'INVALID_CREDENTIALS') {
             return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
         }
 
         console.error('CRITICAL LOGIN ERROR:', error);
         return NextResponse.json(
-            { message: 'Internal server error', debug: error.message },
+            { message: 'Internal server error', debug: errorMessage },
             { status: 500 }
         );
     }
