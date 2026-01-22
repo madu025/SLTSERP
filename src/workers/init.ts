@@ -1,41 +1,71 @@
+import { CompletedSODSyncService } from '@/services/completed-sod-sync.service';
+import { ServiceOrderService } from '@/services/sod.service';
+import { AutomationService } from '@/services/automation.service';
+
 /**
  * Background Worker Initialization
  * 
  * This file initializes all background processes when the server starts.
- * Import this in your main server file (e.g., instrumentation.ts or a custom startup file)
+ * It is called by Next.js instrumentation.ts.
  */
-
-import { CompletedSODSyncService } from '@/services/completed-sod-sync.service';
-
-export function initializeBackgroundWorkers() {
+export async function initializeBackgroundWorkers() {
     console.log('[WORKERS] Initializing background workers...');
 
-    // Completed SOD Sync (30-minute intervals) - Uses PAT success data
+    // 1. Completed SOD Sync (30-minute intervals) - Uses PAT success data
     if (process.env.ENABLE_COMPLETED_SOD_SYNC !== 'false') {
-        CompletedSODSyncService.startPeriodicSync();
-        console.log('[WORKERS] ✅ Completed SOD Sync started (PAT-based)');
+        try {
+            CompletedSODSyncService.startPeriodicSync();
+            console.log('[WORKERS] ✅ Completed SOD Sync (PAT-based) started');
+        } catch (err) {
+            console.error('[WORKERS] ❌ Failed to start Completed SOD Sync:', err);
+        }
     }
 
-    // SOD Auto-Completion (DISABLED - needs SLT completed endpoint)
-    // if (process.env.ENABLE_SOD_AUTO_COMPLETE === 'true') {
-    //     SODAutoCompletionService.startBackgroundProcess();
-    // }
+    // 2. Full Automated Sync (60-minute intervals) - Pending items
+    if (process.env.ENABLE_SOD_AUTO_SYNC !== 'false') {
+        try {
+            // Trigger immediately
+            ServiceOrderService.syncAllOpmcs()
+                .then(() => console.log('[WORKERS] Initial background full sync completed'))
+                .catch(e => console.error('[WORKERS] Initial full sync failed:', e));
 
-    // Add other background workers here
-    // Example:
-    // DailyReportService.start();
-    // NotificationCleanupService.start();
+            // Then every 60 minutes
+            setInterval(() => {
+                console.log('[WORKERS] [DEBUG] Starting background full sync...');
+                ServiceOrderService.syncAllOpmcs().catch(e => console.error('[WORKERS] Periodic full sync failed:', e));
+            }, 60 * 60 * 1000);
+            console.log('[WORKERS] ✅ Full Automated Sync (Pending items) started');
+        } catch (err) {
+            console.error('[WORKERS] ❌ Failed to start Full Automated Sync:', err);
+        }
+    }
 
-    console.log('[WORKERS] All background workers initialized');
+    // 3. Daily Automation Tasks (24-hour intervals)
+    try {
+        // Run every 24 hours
+        setInterval(() => {
+            console.log('[WORKERS] Running daily automation tasks...');
+            AutomationService.runAllDailyTasks().catch(e => console.error('[WORKERS] Daily tasks failed:', e));
+        }, 24 * 60 * 60 * 1000);
+        console.log('[WORKERS] ✅ Daily Automation Tasks scheduled');
+    } catch (err) {
+        console.error('[WORKERS] ❌ Failed to schedule Daily Automation Tasks:', err);
+    }
+
+    // 4. BullMQ Workers (SOD Import)
+    try {
+        await import('./import.worker');
+        console.log('[WORKERS] ✅ SOD Import Worker (BullMQ) initialized');
+    } catch (err) {
+        console.error('[WORKERS] ❌ Failed to initialize SOD Import Worker:', err);
+    }
+
+    console.log('[WORKERS] All background workers initialized successfully');
 }
 
 export function shutdownBackgroundWorkers() {
     console.log('[WORKERS] Shutting down background workers...');
-
     CompletedSODSyncService.stopPeriodicSync();
-
-    // SODAutoCompletionService.stopBackgroundProcess();
-
     console.log('[WORKERS] All background workers stopped');
 }
 

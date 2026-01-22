@@ -9,7 +9,7 @@
 
 export async function register() {
     if (process.env.NEXT_RUNTIME === 'nodejs') {
-        const { initializeBackgroundWorkers } = await import('./src/workers/init');
-        initializeBackgroundWorkers();
+        const { initializeBackgroundWorkers } = await import('./workers/init');
+        await initializeBackgroundWorkers();
     }
 }
