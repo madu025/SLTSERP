@@ -104,8 +104,7 @@ export class CompletedSODSyncService {
                                                 iptvSerialNumbers: sltData.IPTV || undefined,
                                                 dropWireDistance: dropWireDistance,
                                                 comments: `Auto-updated via Sync (${sltData.CON_STATUS})`,
-                                            },
-                                            'SYSTEM_AUTO_SYNC'
+                                            }
                                         );
                                         completedCount++;
                                     }

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { sltApiService } from './slt-api.service';
+import { sltApiService, SLTServiceOrderData } from './slt-api.service';
 import { NotificationService } from './notification.service';
 import { TransactionClient } from './inventory/types';
 
@@ -254,9 +254,9 @@ export class ServiceOrderService {
                     return acc;
                 }, {} as Record<string, number>),
                 patBreakdown: {
-                    opmc: (opmcGroups || []).reduce((acc: any, curr: any) => { acc[curr.opmcPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
-                    ho: (hoGroups || []).reduce((acc: any, curr: any) => { acc[curr.hoPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
-                    slt: (sltGroups || []).reduce((acc: any, curr: any) => { acc[curr.sltsPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
+                    opmc: (opmcGroups || []).reduce((acc: Record<string, number>, curr: { opmcPatStatus: string | null; _count: number }) => { acc[curr.opmcPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
+                    ho: (hoGroups || []).reduce((acc: Record<string, number>, curr: { hoPatStatus: string | null; _count: number }) => { acc[curr.hoPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
+                    slt: (sltGroups || []).reduce((acc: Record<string, number>, curr: { sltsPatStatus: string | null; _count: number }) => { acc[curr.sltsPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
                 }
             }
         };
@@ -302,7 +302,7 @@ export class ServiceOrderService {
 
         let newDistance: number | undefined;
         if (otherData.dropWireDistance !== undefined) {
-            newDistance = parseFloat(otherData.dropWireDistance || '0');
+            newDistance = parseFloat(String(otherData.dropWireDistance || '0'));
             updateData.dropWireDistance = newDistance;
         }
 
@@ -382,7 +382,7 @@ export class ServiceOrderService {
             });
 
             await prisma.$transaction(async (tx: TransactionClient) => {
-                const targetContractorId = contractorId || updateData.contractorId || oldOrder.contractorId;
+                const targetContractorId = (contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
                 const finalUsageRecords = [];
 
                 if (targetContractorId) {
@@ -518,7 +518,7 @@ export class ServiceOrderService {
                 data: {
                     serviceOrderId: id,
                     status: status,
-                    statusDate: updateData.statusDate ? new Date(updateData.statusDate as any) : (oldOrder.statusDate || new Date())
+                    statusDate: updateData.statusDate ? new Date(updateData.statusDate as string | Date) : (oldOrder.statusDate || new Date())
                 }
             });
         }
@@ -929,23 +929,29 @@ export class ServiceOrderService {
             select: { soNum: true }
         });
         const lockedSoNums = new Set(lockedSods.map(s => s.soNum));
-        const syncableData = sltData.filter(item => !lockedSoNums.has(item.SO_NUM));
+
+        // Deduplicate syncable data by soNum and status to prevent parallel upsert collisions
+        const uniqueSyncMap = new Map<string, SLTServiceOrderData>();
+        sltData.forEach(item => {
+            if (!lockedSoNums.has(item.SO_NUM)) {
+                uniqueSyncMap.set(`${item.SO_NUM}_${item.CON_STATUS}`, item);
+            }
+        });
+        const syncableData = Array.from(uniqueSyncMap.values());
 
         let created = 0; let updated = 0;
-        const batchSize = 25;
-        for (let i = 0; i < syncableData.length; i += batchSize) {
-            const batch = syncableData.slice(i, i + batchSize);
-            const results = await Promise.all(batch.map(async (item) => {
+        for (const item of syncableData) {
+            try {
                 const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
 
                 // Determine sltsStatus based on SLT status
-                // If it's a completion status, it should be COMPLETED in SLTS
                 const completionStatuses = ['PROV_CLOSED', 'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'];
                 const initialSltsStatus = completionStatuses.includes(item.CON_STATUS) ? 'COMPLETED' : 'INPROGRESS';
 
                 // Check if this specific status record exists for this soNum
                 const existing = await prisma.serviceOrder.findUnique({
-                    where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } }
+                    where: { soNum_status: { soNum: item.SO_NUM, status: item.CON_STATUS } },
+                    select: { id: true }
                 });
 
                 const result = await prisma.serviceOrder.upsert({
@@ -959,10 +965,10 @@ export class ServiceOrderService {
                         statusDate, receivedDate: statusDate, address: item.ADDRE,
                         dp: item.DP, package: item.PKG, sltsStatus: initialSltsStatus
                     },
-                    select: { id: true, createdAt: true, updatedAt: true } // 👈 Optimized selection
+                    select: { id: true, createdAt: true, updatedAt: true }
                 });
 
-                // If it was newly created (or first time we see this status for this soNum), record history
+                // Record history if new
                 if (!existing) {
                     await prisma.serviceOrderStatusHistory.create({
                         data: {
@@ -970,11 +976,14 @@ export class ServiceOrderService {
                             status: item.CON_STATUS,
                             statusDate: statusDate
                         }
-                    });
+                    }).catch(() => { });
                 }
-                return result;
-            }));
-            results.forEach(r => { if (r?.createdAt.getTime() === r?.updatedAt.getTime()) created++; else updated++; });
+
+                if (result.createdAt.getTime() === result.updatedAt.getTime()) created++;
+                else updated++;
+            } catch (err) {
+                console.error(`[SYNC] Failed to sync ${item.SO_NUM}:`, err);
+            }
         }
 
         // Sync Stats
