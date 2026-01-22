@@ -16,10 +16,12 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/slts-erp
-            git pull
+            git fetch --all
+            git reset --hard origin/main
             npm install
+            npx prisma generate
             npm run build
-            # Restart the app using PM2, or start it if it doesn't exist
-            pm2 restart slts-erp || pm2 start npm --name "slts-erp" -- start
+            # Restart the app using sudo PM2 (required for Port 80)
+            sudo pm2 restart slts-erp || sudo pm2 start npm --name "slts-erp" -- start -- --port 80
             # Run database migrations
             npx prisma migrate deploy
