@@ -17,7 +17,9 @@ jobs:
           script: |
             cd ~/slts-erp
             git pull
-            docker compose down
-            docker compose up -d --build
-            sleep 15
-            docker compose exec -T app npx prisma migrate deploy
+            npm install
+            npm run build
+            # Restart the app using PM2, or start it if it doesn't exist
+            pm2 restart slts-erp || pm2 start npm --name "slts-erp" -- start
+            # Run database migrations
+            npx prisma migrate deploy
