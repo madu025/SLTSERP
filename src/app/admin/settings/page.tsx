@@ -248,6 +248,44 @@ function AdvancedOperationsCard() {
     const [isClearing, setIsClearing] = useState(false);
     const [clearResults, setClearResults] = useState<any>(null);
 
+    // Historic Sync State
+    const [isHistoricSync, setIsHistoricSync] = useState(false);
+    const [historicStats, setHistoricStats] = useState<any>(null);
+
+    const handleHistoricSync = async () => {
+        const confirmed = window.confirm(
+            '⏳ HISTORY SYNC\n\n' +
+            'This will sync ALL completed Service Orders starting from 2026-01-01.\n\n' +
+            'This process may take a while depending on the data volume.\n' +
+            'Missing SODs will be created.\n\n' +
+            'Proceed?'
+        );
+
+        if (!confirmed) return;
+
+        setIsHistoricSync(true);
+        setHistoricStats(null);
+        try {
+            const res = await fetch('/api/automation/completed-sod-sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ startDate: '2026-01-01' })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                setHistoricStats(data.data);
+                toast.success("Historical Sync completed!");
+            } else {
+                toast.error("Sync failed: " + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            toast.error("Network error during sync");
+        } finally {
+            setIsHistoricSync(false);
+        }
+    };
+
     const handleSync = async () => {
         setIsSyncing(true);
         setSyncStats(null);
@@ -353,19 +391,52 @@ function AdvancedOperationsCard() {
                                     <div className="text-sm font-bold text-red-600">{syncStats.failed}</div>
                                 </div>
                                 <div className="p-2 bg-white rounded border">
-                                    <div className="text-xs text-slate-400">Created</div>
                                     <div className="text-sm font-bold text-blue-600">{syncStats.created}</div>
                                 </div>
                                 <div className="p-2 bg-white rounded border">
                                     <div className="text-xs text-slate-400">Updated</div>
-                                    <div className="text-sm font-bold text-orange-600">{syncStats.updated}</div>
+                                    <div className="text-sm font-bold text-slate-600">{syncStats.updated}</div>
                                 </div>
                             </div>
                         )}
                     </div>
 
+                    {/* Historical Sync (2026) */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Full History Sync (2026)</h4>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Sync ALL Completed Service Orders starting from <b>Jan 1st, 2026</b>.
+                                    Use this to recover missing historical data.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                                onClick={handleHistoricSync}
+                                disabled={isHistoricSync}
+                            >
+                                {isHistoricSync ? 'Syncing...' : 'Sync History'}
+                            </Button>
+                        </div>
+                        {historicStats && (
+                            <div className="mt-3 p-3 bg-white rounded border border-blue-100">
+                                <p className="text-xs text-slate-500 mb-1">Result:</p>
+                                <div className="flex gap-4 text-sm">
+                                    <span className="text-slate-700"><b>{historicStats.checked}</b> Checked</span>
+                                    <span className="text-green-600"><b>{historicStats.completed}</b> Processed</span>
+                                </div>
+                                {historicStats.errors?.length > 0 && (
+                                    <p className="text-[10px] text-red-500 mt-1">{historicStats.errors.length} errors occurred.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Clear All Service Orders */}
-                    <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="p-4 bg-red-50 rounded-lg border border-red-200 md:col-span-2">
                         <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
                                 <h4 className="text-sm font-bold text-red-800 uppercase tracking-wide">Clear All Service Orders</h4>
@@ -404,9 +475,9 @@ function AdvancedOperationsCard() {
                             </div>
                         )}
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+                </div >
+            </CardContent >
+        </Card >
     );
 }
 

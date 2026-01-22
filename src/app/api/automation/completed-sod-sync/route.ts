@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { CompletedSODSyncService } from '@/services/completed-sod-sync.service';
 
-export async function POST() {
+export async function POST(req: Request) {
     try {
-        console.log('[API] Manual Completed SOD Sync triggered');
-        const result = await CompletedSODSyncService.syncCompletedSODs();
+        const body = await req.json().catch(() => ({}));
+        const { startDate } = body;
+
+        console.log(`[API] Manual Completed SOD Sync triggered (Start Date: ${startDate || 'Default'})`);
+        const result = await CompletedSODSyncService.syncCompletedSODs(startDate);
 
         return NextResponse.json({
             success: true,

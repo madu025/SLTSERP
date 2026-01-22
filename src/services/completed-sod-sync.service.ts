@@ -8,16 +8,26 @@ export class CompletedSODSyncService {
      * Sync completed SODs based on PAT success data
      * This uses the existing PAT success endpoint which works
      */
-    static async syncCompletedSODs(): Promise<{
+    static async syncCompletedSODs(customStartDate?: string): Promise<{
         checked: number;
         completed: number;
         errors: string[];
     }> {
-        console.log('[COMPLETED-SOD-SYNC] Starting sync...');
+        console.log(`[COMPLETED-SOD-SYNC] Starting sync... (Mode: ${customStartDate ? 'FULL HISTORY' : 'BACKGROUND/RECENT'})`);
 
         const today = new Date();
-        const lastMonth = subMonths(today, 1);
-        const startDate = format(startOfMonth(lastMonth), 'yyyy-MM-dd');
+
+        let startDate: string;
+        if (customStartDate) {
+            // For Admin Panel / One-time full sync (e.g., '2026-01-01')
+            startDate = customStartDate;
+        } else {
+            // For Background Process: Sync Last Month + Current Month
+            // This covers the "relevant month" requirement + buffer for late updates
+            const lastMonth = subMonths(today, 1);
+            startDate = format(startOfMonth(lastMonth), 'yyyy-MM-dd');
+        }
+
         const endDate = format(endOfMonth(today), 'yyyy-MM-dd');
 
         const errors: string[] = [];
@@ -32,11 +42,11 @@ export class CompletedSODSyncService {
 
             for (const opmc of opmcs) {
                 try {
-                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🔍 Checking OPMC: ${opmc.name} (${opmc.rtom})`);
+                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🔍 Checking OPMC: ${opmc.name} (${opmc.rtom}) from ${startDate}`);
 
                     // 1. First Sync Pending SODs
+                    // We keep this to ensure we try to get pending items regularly
                     try {
-                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] Running pending sync first...`);
                         const pendingStats = await ServiceOrderService.syncServiceOrders(opmc.id, opmc.rtom);
                         console.log(`[COMPLETED-SOD-SYNC] [DEBUG] Pending Sync Results: Created ${pendingStats.created}, Updated ${pendingStats.updated}`);
                     } catch (err) {
@@ -44,120 +54,108 @@ export class CompletedSODSyncService {
                     }
 
                     // 2. Fetch Completed SODs
-                    const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=ftth&z=${opmc.rtom}_${startDate}_${endDate}_COMPLETED_SLTS`;
-                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] Fetching completed list from: ${url}`);
-
+                    // We fetch the FULL list from 2026-01-01
                     const completedResults = await sltApiService.fetchCompletedSODs(opmc.rtom, startDate, endDate);
                     checkedCount += completedResults.length;
-
-                    if (completedResults.length > 0) {
-                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] Sample keys from SLT: ${Object.keys(completedResults[0]).join(', ')}`);
-                    }
 
                     console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 📡 Found ${completedResults.length} records in SLT for ${opmc.rtom}`);
 
                     // Process each completed SOD record
                     for (const sltData of completedResults) {
                         try {
-                            // Strict Completion Check: Only process if status is a valid completion status
+                            // Strict Completion Check
                             const completionStatuses = ['PROV_CLOSED', 'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'];
                             if (!completionStatuses.includes(sltData.CON_STATUS)) {
-                                // console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ⏩ Skipping SOD ${sltData.SO_NUM} with status ${sltData.CON_STATUS}`);
                                 continue;
                             }
 
-                            // Find matching active SOD (looking for non-completed)
+                            // CHECK DB: Look for ANY record with this SO_NUM
                             const localSODs = await prisma.serviceOrder.findMany({
-                                where: {
-                                    soNum: sltData.SO_NUM,
-                                    sltsStatus: { not: 'COMPLETED' }
-                                },
-                                select: { id: true, sltsStatus: true, status: true, statusDate: true }
+                                where: { soNum: sltData.SO_NUM },
+                                select: { id: true, sltsStatus: true, status: true }
                             });
 
+                            const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
+                            const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
+                            const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
+
                             if (localSODs.length > 0) {
-                                console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🎯 Found ${localSODs.length} match(es) in DB for ${sltData.SO_NUM}`);
-
+                                // CASE A: Exists
+                                // Update if not already marked as COMPLETED in our system
                                 for (const localSOD of localSODs) {
-                                    const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
-                                    const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
-                                    const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
-
-                                    await ServiceOrderService.patchServiceOrder(
-                                        localSOD.id,
-                                        {
-                                            status: sltData.CON_STATUS,
-                                            sltsStatus: 'COMPLETED',
-                                            sltsPatStatus: sltData.CON_STATUS,
-                                            completedDate: completedDate,
-                                            dpDetails: sltData.DP,
-                                            ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
-                                            iptvSerialNumbers: sltData.IPTV || undefined,
-                                            dropWireDistance: dropWireDistance,
-                                            comments: `Auto-completed via SLT List (${sltData.CON_STATUS})`,
-                                        },
-                                        'SYSTEM_AUTO_SYNC'
-                                    );
-                                    completedCount++;
-                                    console.log(`[COMPLETED-SOD-SYNC] [SUCCESS] ✅ Updated ${sltData.SO_NUM} (ID: ${localSOD.id}) from ${localSOD.sltsStatus}/${localSOD.status}`);
+                                    if (localSOD.sltsStatus !== 'COMPLETED') {
+                                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ♻️ Updating Existing Pending SOD: ${sltData.SO_NUM}`);
+                                        await ServiceOrderService.patchServiceOrder(
+                                            localSOD.id,
+                                            {
+                                                status: sltData.CON_STATUS,
+                                                sltsStatus: 'COMPLETED',
+                                                sltsPatStatus: sltData.CON_STATUS,
+                                                completedDate: completedDate,
+                                                dpDetails: sltData.DP,
+                                                ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
+                                                iptvSerialNumbers: sltData.IPTV || undefined,
+                                                dropWireDistance: dropWireDistance,
+                                                comments: `Auto-completed via Sync (${sltData.CON_STATUS})`,
+                                            },
+                                            'SYSTEM_AUTO_SYNC'
+                                        );
+                                        completedCount++;
+                                    }
                                 }
                             } else {
-                                // Check if already completed WITH THE SAME STATUS
-                                // IMPORTANT: Due to @@unique([soNum, status]), we need to check BOTH soNum AND status
-                                const alreadyCompleted = await prisma.serviceOrder.findFirst({
-                                    where: {
+                                // CASE B: DOES NOT EXIST (Missing History)
+                                // Create new record directly
+                                console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🆕 Creating MISSING Historical SOD: ${sltData.SO_NUM}`);
+
+                                await prisma.serviceOrder.create({
+                                    data: {
+                                        opmcId: opmc.id,
+                                        rtom: sltData.RTOM || opmc.rtom,
                                         soNum: sltData.SO_NUM,
-                                        status: sltData.CON_STATUS,  // Check exact status match
-                                        sltsStatus: 'COMPLETED'
-                                    },
-                                    select: { id: true, status: true, completedDate: true }
+                                        lea: sltData.LEA,
+                                        voiceNumber: sltData.VOICENUMBER,
+                                        orderType: sltData.ORDER_TYPE,
+                                        serviceType: sltData.S_TYPE,
+                                        customerName: sltData.CON_CUS_NAME,
+                                        techContact: sltData.CON_TEC_CONTACT,
+                                        address: sltData.ADDRE,
+                                        dp: sltData.DP,
+                                        package: sltData.PKG,
+                                        ospPhoneClass: sltData.CON_OSP_PHONE_CLASS,
+                                        phonePurchase: sltData.CON_PHN_PURCH,
+                                        sales: sltData.CON_SALES,
+                                        woroTaskName: sltData.CON_WORO_TASK_NAME,
+                                        iptv: sltData.IPTV,
+                                        woroSeit: sltData.CON_WORO_SEIT,
+                                        ftthInstSeit: sltData.FTTH_INST_SIET,
+                                        ftthWifi: sltData.FTTH_WIFI,
+
+                                        // Status fields
+                                        status: sltData.CON_STATUS,
+                                        sltsStatus: 'COMPLETED', // Force completed
+                                        sltsPatStatus: sltData.CON_STATUS,
+
+                                        // Dates
+                                        receivedDate: completedDate, // Assume received when completed for history
+                                        statusDate: completedDate,
+                                        completedDate: completedDate,
+
+                                        // Other
+                                        comments: 'Auto-created from Missing History Sync',
+                                        dropWireDistance: dropWireDistance,
+                                    }
                                 });
-
-                                if (!alreadyCompleted) {
-                                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🆕 SOD ${sltData.SO_NUM} with status ${sltData.CON_STATUS} NOT found. Creating...`);
-
-                                    const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');
-                                    const dropWireDistance = distanceStr ? parseFloat(distanceStr) : undefined;
-                                    const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
-
-                                    const newSOD = await prisma.serviceOrder.create({
-                                        data: {
-                                            opmcId: opmc.id, rtom: opmc.rtom, lea: sltData.LEA, soNum: sltData.SO_NUM,
-                                            voiceNumber: sltData.VOICENUMBER, orderType: sltData.ORDER_TYPE,
-                                            serviceType: sltData.S_TYPE, customerName: sltData.CON_CUS_NAME,
-                                            techContact: sltData.CON_TEC_CONTACT, status: sltData.CON_STATUS,
-                                            sltsStatus: 'COMPLETED', sltsPatStatus: sltData.CON_STATUS,
-                                            statusDate: completedDate,
-                                            completedDate: completedDate, address: sltData.ADDRE, dp: sltData.DP,
-                                            package: sltData.PKG, woroTaskName: sltData.CON_WORO_TASK_NAME,
-                                            iptv: sltData.IPTV, woroSeit: sltData.CON_WORO_SEIT, dpDetails: sltData.DP,
-                                            ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
-                                            iptvSerialNumbers: sltData.IPTV || undefined,
-                                            dropWireDistance: dropWireDistance,
-                                            comments: `Created directly as COMPLETED from SLT List`
-                                        }
-                                    });
-
-                                    // Record initial status history
-                                    await prisma.serviceOrderStatusHistory.create({
-                                        data: {
-                                            serviceOrderId: newSOD.id,
-                                            status: sltData.CON_STATUS,
-                                            statusDate: completedDate
-                                        }
-                                    });
-
-                                    completedCount++;
-                                } else {
-                                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ⏭️ SOD ${sltData.SO_NUM} with status ${sltData.CON_STATUS} already exists. Skipping.`);
-                                }
+                                completedCount++;
                             }
-                        } catch (itemErr) {
-                            console.error(`[COMPLETED-SOD-SYNC] [ITEM-ERROR] SOD ${sltData.SO_NUM}:`, itemErr);
+                        } catch (err) {
+                            console.error(`[COMPLETED-SOD-SYNC] [ERROR] Processing SOD ${sltData.SO_NUM} failed:`, err);
+                            errors.push(`Processing specific SOD ${sltData.SO_NUM} failed: ${(err as Error).message}`);
                         }
                     }
                 } catch (opmcErr) {
                     console.error(`[COMPLETED-SOD-SYNC] [OPMC-ERROR] OPMC ${opmc.name}:`, opmcErr);
+                    errors.push(`Processing OPMC ${opmc.name} failed: ${(opmcErr as Error).message}`);
                 }
             }
 
