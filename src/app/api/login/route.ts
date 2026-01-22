@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
         cookieStore.set('token', token, {
             httpOnly: true,
-            secure: isProduction, // Still keep secure in production (HTTPS)
+            secure: false, // Set to false to allow login via HTTP (IP address)
             sameSite: 'lax',      // Changed from 'strict' to 'lax' for better proxy support
             maxAge: 86400, // 24 hours
             path: '/',
