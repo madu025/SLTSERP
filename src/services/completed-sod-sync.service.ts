@@ -72,7 +72,7 @@ export class CompletedSODSyncService {
                             // CHECK DB: Look for ANY record with this SO_NUM
                             const localSODs = await prisma.serviceOrder.findMany({
                                 where: { soNum: sltData.SO_NUM },
-                                select: { id: true, sltsStatus: true, status: true }
+                                select: { id: true, sltsStatus: true, status: true, completedDate: true }
                             });
 
                             const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
@@ -81,10 +81,10 @@ export class CompletedSODSyncService {
 
                             if (localSODs.length > 0) {
                                 // CASE A: Exists
-                                // Update if not already marked as COMPLETED in our system
+                                // Update if not already marked as COMPLETED in our system OR if specific details are missing (e.g. date)
                                 for (const localSOD of localSODs) {
-                                    if (localSOD.sltsStatus !== 'COMPLETED') {
-                                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ♻️ Updating Existing Pending SOD: ${sltData.SO_NUM}`);
+                                    if (localSOD.sltsStatus !== 'COMPLETED' || !localSOD.completedDate) {
+                                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] ♻️ Updating SOD: ${sltData.SO_NUM} (Status/Date fix)`);
                                         await ServiceOrderService.patchServiceOrder(
                                             localSOD.id,
                                             {
@@ -96,7 +96,7 @@ export class CompletedSODSyncService {
                                                 ontSerialNumber: sltData.CON_WORO_SEIT || undefined,
                                                 iptvSerialNumbers: sltData.IPTV || undefined,
                                                 dropWireDistance: dropWireDistance,
-                                                comments: `Auto-completed via Sync (${sltData.CON_STATUS})`,
+                                                comments: `Auto-completed/Updated via Sync (${sltData.CON_STATUS})`,
                                             },
                                             'SYSTEM_AUTO_SYNC'
                                         );
