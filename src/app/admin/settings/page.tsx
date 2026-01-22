@@ -243,6 +243,7 @@ function SystemSettingsCard() {
 
 // Advanced Operations Component
 function AdvancedOperationsCard() {
+    const queryClient = useQueryClient();
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncStats, setSyncStats] = useState<any>(null);
     const [isClearing, setIsClearing] = useState(false);
@@ -320,27 +321,29 @@ function AdvancedOperationsCard() {
 
         if (!confirmed) return;
 
-        const doubleConfirm = window.confirm(
-            '🚨 FINAL CONFIRMATION\n\n' +
-            'Type "DELETE" in your mind and click OK to proceed.\n\n' +
-            'This is your last chance to cancel!'
-        );
+        const confirmStr = window.prompt('🚨 FINAL SECURITY CHECK\n\nPlease type "RESET_ALL_SERVICE_ORDERS" to proceed with the full system reset:');
 
-        if (!doubleConfirm) return;
+        if (confirmStr !== 'RESET_ALL_SERVICE_ORDERS') {
+            if (confirmStr !== null) toast.error("Incorrect confirmation text.");
+            return;
+        }
 
         setIsClearing(true);
         setClearResults(null);
         try {
-            const res = await fetch('/api/admin/clear-service-orders', {
-                method: 'POST'
+            const res = await fetch('/api/admin/system/reset-sods', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confirmText: 'RESET_ALL_SERVICE_ORDERS' })
             });
             const data = await res.json();
 
-            if (data.success) {
-                setClearResults(data.results);
-                toast.success("All Service Order data cleared successfully!");
+            if (res.ok) {
+                setClearResults({ message: data.message });
+                toast.success(data.message);
+                queryClient.invalidateQueries();
             } else {
-                toast.error("Clear failed: " + (data.error || 'Unknown error'));
+                toast.error("Clear failed: " + (data.message || 'Unknown error'));
             }
         } catch (error) {
             toast.error("Network error during clear operation");
