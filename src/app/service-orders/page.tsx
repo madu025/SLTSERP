@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList } from "lucide-react";
+import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList, AlertCircle } from "lucide-react";
 
 import { toast } from "sonner";
 
@@ -91,6 +91,11 @@ interface SummaryMetrics {
     contractorAssigned: number;
     appointments: number;
     statusBreakdown: Record<string, number>;
+    patBreakdown?: {
+        opmc: Record<string, number>;
+        ho: Record<string, number>;
+        slt: Record<string, number>;
+    };
 }
 
 interface ServiceOrdersPageProps {
@@ -557,17 +562,29 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                         {/* SUMMARY CARDS */}
                         <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
                             <SummaryCard title="Total SODs" value={summary.totalSod || 0} icon={FileText} colorClass="bg-blue-100 text-blue-600" />
-                            <SummaryCard title="Contractors" value={summary.contractorAssigned || 0} icon={UserCheck} colorClass="bg-purple-100 text-purple-600" />
-                            <SummaryCard title="Appointments" value={summary.appointments || 0} icon={CalendarCheck} colorClass="bg-indigo-100 text-indigo-600" />
-                            <Card className="shadow-none border h-14">
-                                <CardContent className="h-full px-3 py-1 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Activity className="w-4 h-4 text-orange-600" />
-                                        <span className="text-[10px] font-semibold text-slate-600 uppercase">Missing</span>
-                                    </div>
-                                    <span className="text-lg font-bold text-orange-600">{serviceOrders.filter(o => o.comments?.includes('[MISSING FROM SYNC')).length}</span>
-                                </CardContent>
-                            </Card>
+
+                            {filterType === 'completed' ? (
+                                <>
+                                    <SummaryCard title="Pending HO PAT" value={summary.patBreakdown?.ho?.PENDING || 0} icon={ClipboardList} colorClass="bg-indigo-100 text-indigo-600" />
+                                    <SummaryCard title="Pending SLT PAT" value={summary.patBreakdown?.slt?.PENDING || 0} icon={Activity} colorClass="bg-amber-100 text-amber-600" />
+                                    <SummaryCard title="Rejected" value={(summary.patBreakdown?.opmc?.REJECTED || 0) + (summary.patBreakdown?.ho?.REJECTED || 0) + (summary.patBreakdown?.slt?.REJECTED || 0)} icon={AlertCircle} colorClass="bg-rose-100 text-rose-600" />
+                                </>
+                            ) : (
+                                <>
+                                    <SummaryCard title="Contractors" value={summary.contractorAssigned || 0} icon={UserCheck} colorClass="bg-purple-100 text-purple-600" />
+                                    <SummaryCard title="Appointments" value={summary.appointments || 0} icon={CalendarCheck} colorClass="bg-indigo-100 text-indigo-600" />
+                                    <Card className="shadow-none border h-14">
+                                        <CardContent className="h-full px-3 py-1 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Activity className="w-4 h-4 text-orange-600" />
+                                                <span className="text-[10px] font-semibold text-slate-600 uppercase">Missing</span>
+                                            </div>
+                                            <span className="text-lg font-bold text-orange-600">{serviceOrders.filter(o => o.comments?.includes('[MISSING FROM SYNC')).length}</span>
+                                        </CardContent>
+                                    </Card>
+                                </>
+                            )}
+
                             <Card className="shadow-none border h-14">
                                 <CardContent className="h-full px-3 py-1 flex flex-col justify-center">
                                     <div className="w-full">
@@ -714,12 +731,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                     {isColumnVisible('scheduledDate') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('scheduledDate')}>Appointment <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'scheduledDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('completedDate')}>Completed Date <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'completedDate' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Contractor</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">ONT Serial</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-right">Dist.</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-right">Rev.</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-right">Pay.</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Mat Status</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">HO PAT</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">OPMC PAT</th>}
+                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">Head Office PAT</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center text-[10px]">PAT Month</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">SLTS PAT</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">Invoice</th>}
@@ -828,26 +842,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     </td>
                                                                 )}
                                                                 {filterType === 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap font-mono">
-                                                                        {order.ontSerialNumber || '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-slate-600 text-[10px] whitespace-nowrap text-right font-mono">
-                                                                        {order.dropWireDistance ? `${order.dropWireDistance}m` : '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-green-700 text-[10px] whitespace-nowrap text-right font-bold">
-                                                                        {order.revenueAmount ? order.revenueAmount.toLocaleString() : '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
-                                                                    <td className="px-3 py-1.5 text-blue-700 text-[10px] whitespace-nowrap text-right font-bold">
-                                                                        {order.contractorAmount ? order.contractorAmount.toLocaleString() : '-'}
-                                                                    </td>
-                                                                )}
-                                                                {filterType === 'completed' && (
                                                                     <>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
                                                                             {order.comments?.includes('[MATERIAL_COMPLETED]') ? (
@@ -857,18 +851,20 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                             )}
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <div className="flex flex-col gap-0.5">
-                                                                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${order.hoPatStatus === 'PASS' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                                                                    order.hoPatStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                                                                                        order.opmcPatStatus === 'REJECTED' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                                                                            'bg-slate-50 text-slate-400 border-slate-200'
-                                                                                    }`}>
-                                                                                    HO: {order.hoPatStatus || (order.opmcPatStatus === 'REJECTED' ? 'REG_REJ' : 'PENDING')}
-                                                                                </span>
-                                                                                {order.opmcPatStatus === 'REJECTED' && !order.hoPatStatus && (
-                                                                                    <span className="text-[7px] font-bold text-amber-600 uppercase tracking-tighter">REGIONAL REJECT</span>
-                                                                                )}
-                                                                            </div>
+                                                                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${order.opmcPatStatus === 'PASS' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                                                                order.opmcPatStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                                                                                    'bg-slate-50 text-slate-400 border-slate-200'
+                                                                                }`}>
+                                                                                {order.opmcPatStatus || 'PENDING'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                                                                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${order.hoPatStatus === 'PASS' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                                                                                order.hoPatStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                                                                                    'bg-slate-50 text-slate-400 border-slate-200'
+                                                                                }`}>
+                                                                                {order.hoPatStatus || 'PENDING'}
+                                                                            </span>
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap text-[10px] text-slate-500 font-medium">
                                                                             {order.hoPatDate ? new Date(order.hoPatDate).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '-'}

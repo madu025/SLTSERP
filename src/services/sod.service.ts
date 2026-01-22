@@ -166,7 +166,7 @@ export class ServiceOrderService {
         const orderBy: Prisma.ServiceOrderOrderByWithRelationInput[] = [primaryOrderBy, { id: 'desc' }];
 
         // Run queries in parallel
-        const [total, items, statusGroups, contractorCount, appointmentCount] = await Promise.all([
+        const [total, items, statusGroups, contractorCount, appointmentCount, opmcGroups, hoGroups, sltGroups] = await Promise.all([
             prisma.serviceOrder.count({ where: whereClause }),
             prisma.serviceOrder.findMany({
                 where: whereClause,
@@ -229,7 +229,11 @@ export class ServiceOrderService {
                     ...whereClause,
                     scheduledDate: { not: null }
                 }
-            })
+            }),
+            // PAT Breakdowns (Group 5, 6, 7)
+            prisma.serviceOrder.groupBy({ by: ['opmcPatStatus'], where: whereClause, _count: true }),
+            prisma.serviceOrder.groupBy({ by: ['hoPatStatus'], where: whereClause, _count: true }),
+            prisma.serviceOrder.groupBy({ by: ['sltsPatStatus'], where: whereClause, _count: true })
         ]);
 
         return {
@@ -248,7 +252,12 @@ export class ServiceOrderService {
                 statusBreakdown: statusGroups.reduce((acc, curr) => {
                     acc[curr.status] = curr._count;
                     return acc;
-                }, {} as Record<string, number>)
+                }, {} as Record<string, number>),
+                patBreakdown: {
+                    opmc: (opmcGroups || []).reduce((acc: any, curr: any) => { acc[curr.opmcPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
+                    ho: (hoGroups || []).reduce((acc: any, curr: any) => { acc[curr.hoPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
+                    slt: (sltGroups || []).reduce((acc: any, curr: any) => { acc[curr.sltsPatStatus || 'PENDING'] = curr._count; return acc; }, {}),
+                }
             }
         };
     }
