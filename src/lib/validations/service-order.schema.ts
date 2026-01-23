@@ -26,3 +26,18 @@ export const serviceOrderUpdateSchema = z.object({
     techContact: z.string().optional().nullable(),
     comments: z.string().optional().nullable()
 });
+export const serviceOrderCreateSchema = z.object({
+    rtom: z.string().min(1, "RTOM is required"),
+    rtomId: z.string().min(1, "RTOM ID is required"),
+    soNum: z.string().optional().nullable(),
+    voiceNumber: z.string().optional().nullable(),
+    customerName: z.string().optional().nullable(),
+    techContact: z.string().optional().nullable(),
+    status: z.string().default('INPROGRESS'),
+    orderType: z.string().optional().nullable(),
+    serviceType: z.string().optional().nullable(),
+    package: z.string().optional().nullable(),
+    dp: z.string().optional().nullable(),
+    sales: z.string().optional().nullable(),
+    address: z.string().optional().nullable(),
+});

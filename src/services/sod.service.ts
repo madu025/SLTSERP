@@ -262,6 +262,59 @@ export class ServiceOrderService {
         };
     }
 
+    // Create a manual service order
+    static async createServiceOrder(data: any) {
+        let soNum = data.soNum;
+        if (!soNum) {
+            const now = new Date();
+            const dateStr = now.getFullYear().toString() +
+                (now.getMonth() + 1).toString().padStart(2, '0') +
+                now.getDate().toString().padStart(2, '0');
+            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            soNum = `MANUAL-${dateStr}-${random}`;
+        }
+
+        const opmc = await prisma.oPMC.findFirst({
+            where: { id: data.rtomId }
+        });
+
+        if (!opmc) throw new Error('INVALID_OPMC');
+
+        const serviceOrder = await prisma.serviceOrder.create({
+            data: {
+                soNum,
+                rtom: opmc.rtom,
+                opmcId: opmc.id,
+                lea: data.lea || '',
+                voiceNumber: data.voiceNumber,
+                orderType: data.orderType || 'MANUAL',
+                serviceType: data.serviceType || 'FTTH',
+                customerName: data.customerName,
+                techContact: data.techContact,
+                status: data.status || 'INPROGRESS',
+                sltsStatus: data.status || 'INPROGRESS',
+                address: data.address,
+                dp: data.dp,
+                package: data.package,
+                sales: data.sales,
+                isManualEntry: true,
+                receivedDate: new Date(),
+                statusDate: new Date()
+            }
+        });
+
+        // Initialize status history
+        await prisma.serviceOrderStatusHistory.create({
+            data: {
+                serviceOrderId: serviceOrder.id,
+                status: serviceOrder.status,
+                statusDate: new Date()
+            }
+        }).catch(() => { });
+
+        return serviceOrder;
+    }
+
     /**
      * Patch Update (Status Change, Completion, etc.)
      */

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ServiceOrderService } from '@/services/sod.service';
-import { serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
+import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
 
 // GET service orders with pagination and summary metrics
 export async function GET(request: Request) {
@@ -34,6 +34,24 @@ export async function GET(request: Request) {
     }
 }
 
+// POST - Create manual service order
+export async function POST(request: Request) {
+    try {
+        const body = await request.json();
+        const validation = serviceOrderCreateSchema.safeParse(body);
+        if (!validation.success) {
+            return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
+        }
+
+        const serviceOrder = await ServiceOrderService.createServiceOrder(validation.data);
+        return NextResponse.json(serviceOrder);
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('Error creating service order:', error);
+        return NextResponse.json({ message: 'Error creating service order', debug: msg }, { status: 500 });
+    }
+}
+
 // PUT - Update service order
 export async function PUT(request: Request) {
     try {
@@ -47,7 +65,7 @@ export async function PUT(request: Request) {
 
         const { id, ...updateData } = validation.data;
         const userId = request.headers.get('x-user-id') || undefined;
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData as any, userId);
         return NextResponse.json(serviceOrder);
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -73,7 +91,7 @@ export async function PATCH(request: Request) {
         const { id, ...updateData } = validation.data;
         const userId = request.headers.get('x-user-id') || undefined;
 
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData as any, userId);
         return NextResponse.json(serviceOrder);
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);

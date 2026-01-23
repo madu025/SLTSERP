@@ -65,6 +65,8 @@ interface ServiceOrder {
     materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
     directTeam?: string | null;
     completionMode?: 'ONLINE' | 'OFFLINE';
+    isManualEntry?: boolean;
+    isLegacyImport?: boolean;
 }
 
 interface OPMC {
@@ -759,7 +761,12 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                         }`}>
                                                         {isColumnVisible('soNum') && (
                                                             <td className="px-3 py-1.5 font-mono font-medium text-primary whitespace-nowrap">
-                                                                <button onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>{order.soNum}</button>
+                                                                <div className="flex items-center gap-1">
+                                                                    <button onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>{order.soNum}</button>
+                                                                    {order.isManualEntry && (
+                                                                        <span className="text-[7px] bg-slate-100 text-slate-500 px-1 border border-slate-200 rounded font-bold uppercase">Manual</span>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                         )}
                                                         {isColumnVisible('lea') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.lea || '-'}</td>}

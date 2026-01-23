@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Validation Schema
 const serviceOrderSchema = z.object({
-    soNum: z.string().min(1, "SO Number is required"),
+    soNum: z.string().optional(), // Now optional for manual entries
     voiceNumber: z.string().optional(),
     customerName: z.string().optional(),
     techContact: z.string().optional(),
@@ -91,7 +91,7 @@ export default function ManualEntryModal({ isOpen, onClose, onSubmit }: ManualEn
                                 name="soNum"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>SO Number *</FormLabel>
+                                        <FormLabel>SO Number (Optional for Manual)</FormLabel>
                                         <FormControl>
                                             <Input placeholder="Enter SO Number" {...field} />
                                         </FormControl>
