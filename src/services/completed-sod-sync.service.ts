@@ -63,8 +63,8 @@ export class CompletedSODSyncService {
                     // Process each completed SOD record
                     for (const sltData of completedResults) {
                         try {
-                            // Strict Completion Check
-                            const completionStatuses = ['PROV_CLOSED', 'COMPLETED', 'INSTALL_CLOSED', 'PAT_OPMC_PASSED', 'PAT_CORRECTED'];
+                            // Strict Completion Check - Strictly 'INSTALL_CLOSED' per latest requirement
+                            const completionStatuses = ['INSTALL_CLOSED'];
                             if (!completionStatuses.includes(sltData.CON_STATUS)) {
                                 continue;
                             }
@@ -199,15 +199,15 @@ export class CompletedSODSyncService {
             return;
         }
 
-        console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (30-minute intervals)');
+        console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (10-minute intervals)');
 
         // Run immediately
         this.syncCompletedSODs();
 
-        // Then every 30 minutes
+        // Then every 10 minutes
         this.intervalId = setInterval(() => {
             this.syncCompletedSODs();
-        }, 30 * 60 * 1000);
+        }, 10 * 60 * 1000);
     }
 
     static stopPeriodicSync(): void {
