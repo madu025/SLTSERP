@@ -381,18 +381,31 @@ export class ServiceOrderService {
                     }
                 }
 
+                const statusVal = String(getVal(item, "STATUS") || "").toUpperCase();
+                let sltsStatus = 'PENDING';
+
+                if (statusVal === 'INSTALL_CLOSED' || statusVal === 'COMPLETED') {
+                    sltsStatus = 'COMPLETED';
+                } else if (statusVal === 'PROV_CLOSED' || statusVal === 'INPROGRESS' || statusVal === 'ASSIGNED') {
+                    sltsStatus = 'INPROGRESS';
+                } else if (statusVal.includes('RETURN')) {
+                    sltsStatus = 'RETURN';
+                }
+
                 await prisma.serviceOrder.upsert({
                     where: { soNum: String(soNum) },
                     update: {
                         ...dbData,
+                        status: statusVal,
                         statusDate: receivedDate,
                         receivedDate: receivedDate
                     },
                     create: {
                         ...dbData,
+                        status: statusVal,
                         statusDate: receivedDate,
                         receivedDate: receivedDate,
-                        sltsStatus: dbData.status === 'INSTALL_CLOSED' ? 'COMPLETED' : 'INPROGRESS'
+                        sltsStatus: sltsStatus
                     }
                 });
                 created++;

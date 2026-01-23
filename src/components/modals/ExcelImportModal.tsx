@@ -318,6 +318,9 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                                                     {key.toUpperCase()}
                                                 </th>
                                             ))}
+                                            <th className="px-3 py-2 font-bold text-emerald-700 whitespace-nowrap bg-emerald-50/50">
+                                                SUGGESTED ACTION
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y bg-white">
@@ -335,6 +338,18 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                                                         </td>
                                                     );
                                                 })}
+                                                <td className="px-3 py-1.5 whitespace-nowrap bg-emerald-50/30">
+                                                    {(() => {
+                                                        const s = String(getVal(row, 'STATUS') || "").toUpperCase();
+                                                        if (s === 'INSTALL_CLOSED' || s === 'COMPLETED')
+                                                            return <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100/50 border border-emerald-200">MARK AS COMPLETED</span>;
+                                                        if (s === 'PROV_CLOSED' || s === 'INPROGRESS' || s === 'ASSIGNED')
+                                                            return <span className="text-[9px] font-bold text-blue-600 px-1.5 py-0.5 rounded-full bg-blue-100/50 border border-blue-200">MARK AS INPROGRESS</span>;
+                                                        if (s.includes('RETURN'))
+                                                            return <span className="text-[9px] font-bold text-red-600 px-1.5 py-0.5 rounded-full bg-red-100/50 border border-red-200">MARK AS RETURN</span>;
+                                                        return <span className="text-[9px] font-bold text-slate-500">PENDING</span>;
+                                                    })()}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
