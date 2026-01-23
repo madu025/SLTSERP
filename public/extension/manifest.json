@@ -1,14 +1,16 @@
 {
     "manifest_version": 3,
     "name": "SLT-ERP Bridge",
-    "version": "1.0.4",
+    "version": "1.0.6",
     "description": "Syncs data between SLT Portal and SLT-ERP System",
     "permissions": [
         "storage",
-        "activeTab"
+        "activeTab",
+        "tabs"
     ],
     "host_permissions": [
-        "*://d2ixqikwtprwf0.cloudfront.net/*"
+        "*://d2ixqikwtprwf0.cloudfront.net/*",
+        "*://serviceportal.slt.lk/*"
     ],
     "action": {
         "default_popup": "popup.html"
@@ -44,7 +46,8 @@
             ],
             "js": [
                 "content-slt.js"
-            ]
+            ],
+            "run_at": "document_idle"
         }
     ]
 }
