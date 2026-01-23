@@ -85,7 +85,7 @@ export const GET = withTracing(async (request: any) => {
         }
 
         const now = new Date();
-        const firstDayOfMonth = now.getMonth() === 0 ? startOfYear(now) : startOfMonth(now);
+        const firstDayOfMonth = startOfMonth(now);
         const lastDayOfMonth = endOfMonth(now);
         const firstDayOfYear = startOfYear(now);
         const lastDayOfYear = endOfYear(now);
@@ -93,6 +93,11 @@ export const GET = withTracing(async (request: any) => {
         whereClause.createdAt = {
             gte: firstDayOfYear,
             lte: lastDayOfYear
+        };
+
+        const monthlyWhere: Prisma.ServiceOrderWhereInput = {
+            ...whereClause,
+            receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth }
         };
 
         // 0. Fetch Pre-calculated Stats
@@ -104,9 +109,9 @@ export const GET = withTracing(async (request: any) => {
             monthlyStatsRaw,
             contractorPerfRaw
         ] = await Promise.all([
-            // Use receivedDate for total/pending, and statusDate for completed/returned
+            // Use monthlyWhere (receivedDate) for total/pending, and statusDate for completed/returned
             Promise.all([
-                prisma.serviceOrder.count({ where: { ...whereClause, receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...monthlyWhere } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
