@@ -21,7 +21,7 @@ export async function initializeBackgroundWorkers() {
         }
     }
 
-    // 2. Full Automated Sync (10-minute intervals) - Processes Pending portal
+    // 2. Full Automated Sync (20-minute intervals) - Processes Pending portal
     if (process.env.ENABLE_SOD_AUTO_SYNC !== 'false') {
         try {
             // Trigger immediately
@@ -29,12 +29,12 @@ export async function initializeBackgroundWorkers() {
                 .then(() => console.log('[WORKERS] Initial background pending sync completed'))
                 .catch(e => console.error('[WORKERS] Initial pending sync failed:', e));
 
-            // Then every 10 minutes
+            // Then every 20 minutes
             setInterval(() => {
                 console.log('[WORKERS] Starting background pending sync...');
                 ServiceOrderService.syncAllOpmcs().catch(e => console.error('[WORKERS] Periodic pending sync failed:', e));
-            }, 10 * 60 * 1000);
-            console.log('[WORKERS] ✅ Full Automated Sync (10-min) started');
+            }, 20 * 60 * 1000);
+            console.log('[WORKERS] ✅ Full Automated Sync (20-min) started');
         } catch (err) {
             console.error('[WORKERS] ❌ Failed to start Full Automated Sync:', err);
         }
