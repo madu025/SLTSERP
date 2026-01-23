@@ -11,7 +11,7 @@ import { AutomationService } from '@/services/automation.service';
 export async function initializeBackgroundWorkers() {
     console.log('[WORKERS] Initializing background workers...');
 
-    // 1. Completed SOD Sync (10-minute intervals) - Uses PAT success data
+    // 1. Completed SOD Sync (1-hour intervals) - Uses PAT success data
     if (process.env.ENABLE_COMPLETED_SOD_SYNC !== 'false') {
         try {
             CompletedSODSyncService.startPeriodicSync();

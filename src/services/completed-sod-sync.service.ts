@@ -189,7 +189,7 @@ export class CompletedSODSyncService {
     }
 
     /**
-     * Start periodic sync (every 30 minutes)
+     * Start periodic sync (every 1 hour)
      */
     private static intervalId: NodeJS.Timeout | null = null;
 
@@ -199,15 +199,15 @@ export class CompletedSODSyncService {
             return;
         }
 
-        console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (10-minute intervals)');
+        console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (1-hour intervals)');
 
         // Run immediately
         this.syncCompletedSODs();
 
-        // Then every 10 minutes
+        // Then every 1 hour
         this.intervalId = setInterval(() => {
             this.syncCompletedSODs();
-        }, 10 * 60 * 1000);
+        }, 60 * 60 * 1000);
     }
 
     static stopPeriodicSync(): void {
