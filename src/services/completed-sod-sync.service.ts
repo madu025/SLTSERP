@@ -44,16 +44,7 @@ export class CompletedSODSyncService {
                 try {
                     console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🔍 Checking OPMC: ${opmc.name} (${opmc.rtom}) from ${startDate}`);
 
-                    // 1. First Sync Pending SODs
-                    // We keep this to ensure we try to get pending items regularly
-                    try {
-                        const pendingStats = await ServiceOrderService.syncServiceOrders(opmc.id, opmc.rtom);
-                        console.log(`[COMPLETED-SOD-SYNC] [DEBUG] Pending Sync Results: Created ${pendingStats.created}, Updated ${pendingStats.updated}`);
-                    } catch (err) {
-                        console.error(`[COMPLETED-SOD-SYNC] [ERROR] Pending sync failed:`, err);
-                    }
-
-                    // 2. Fetch Completed SODs
+                    // 1. Fetch Completed SODs
                     // We fetch the FULL list from 2026-01-01
                     const completedResults = await sltApiService.fetchCompletedSODs(opmc.rtom, startDate, endDate);
                     checkedCount += completedResults.length;
@@ -199,15 +190,15 @@ export class CompletedSODSyncService {
             return;
         }
 
-        console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (1-hour intervals)');
+        console.log('[COMPLETED-SOD-SYNC] Starting periodic sync (10-minute intervals)');
 
         // Run immediately
         this.syncCompletedSODs();
 
-        // Then every 1 hour
+        // Then every 10 minutes
         this.intervalId = setInterval(() => {
             this.syncCompletedSODs();
-        }, 60 * 60 * 1000);
+        }, 10 * 60 * 1000);
     }
 
     static stopPeriodicSync(): void {

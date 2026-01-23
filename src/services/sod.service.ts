@@ -933,11 +933,7 @@ export class ServiceOrderService {
                 failed++;
             }
         }
-        const patSync = await this.syncAllPatResults();
         const finalStats = {
-            patUpdated: patSync.totalUpdated,
-            patCached: patSync.hoApproved.totalCached,
-            patApproved: patSync.hoApproved.totalUpdated,
             created,
             updated,
             failed,
@@ -955,7 +951,7 @@ export class ServiceOrderService {
             console.error('Failed to update sync stats in DB:', e);
         }
 
-        return { patSync, stats: finalStats, details: results };
+        return { stats: finalStats, details: results };
     }
 
     static async syncServiceOrders(opmcId: string, rtom: string) {

@@ -11,36 +11,53 @@ import { AutomationService } from '@/services/automation.service';
 export async function initializeBackgroundWorkers() {
     console.log('[WORKERS] Initializing background workers...');
 
-    // 1. Completed SOD Sync (1-hour intervals) - Uses PAT success data
+    // 1. Completed SOD Sync (10-minute intervals) - Processes PAT Success portal
     if (process.env.ENABLE_COMPLETED_SOD_SYNC !== 'false') {
         try {
             CompletedSODSyncService.startPeriodicSync();
-            console.log('[WORKERS] ✅ Completed SOD Sync (PAT-based) started');
+            console.log('[WORKERS] ✅ Completed SOD Sync (10-min) started');
         } catch (err) {
             console.error('[WORKERS] ❌ Failed to start Completed SOD Sync:', err);
         }
     }
 
-    // 2. Full Automated Sync (60-minute intervals) - Pending items
+    // 2. Full Automated Sync (10-minute intervals) - Processes Pending portal
     if (process.env.ENABLE_SOD_AUTO_SYNC !== 'false') {
         try {
             // Trigger immediately
             ServiceOrderService.syncAllOpmcs()
-                .then(() => console.log('[WORKERS] Initial background full sync completed'))
-                .catch(e => console.error('[WORKERS] Initial full sync failed:', e));
+                .then(() => console.log('[WORKERS] Initial background pending sync completed'))
+                .catch(e => console.error('[WORKERS] Initial pending sync failed:', e));
 
-            // Then every 60 minutes
+            // Then every 10 minutes
             setInterval(() => {
-                console.log('[WORKERS] [DEBUG] Starting background full sync...');
-                ServiceOrderService.syncAllOpmcs().catch(e => console.error('[WORKERS] Periodic full sync failed:', e));
-            }, 60 * 60 * 1000);
-            console.log('[WORKERS] ✅ Full Automated Sync (Pending items) started');
+                console.log('[WORKERS] Starting background pending sync...');
+                ServiceOrderService.syncAllOpmcs().catch(e => console.error('[WORKERS] Periodic pending sync failed:', e));
+            }, 10 * 60 * 1000);
+            console.log('[WORKERS] ✅ Full Automated Sync (10-min) started');
         } catch (err) {
             console.error('[WORKERS] ❌ Failed to start Full Automated Sync:', err);
         }
     }
 
-    // 3. Daily Automation Tasks (24-hour intervals)
+    // 3. Global PAT Sync (1-hour intervals) - Processes Rejection portal
+    try {
+        // Trigger immediately
+        ServiceOrderService.syncAllPatResults()
+            .then(() => console.log('[WORKERS] Initial global PAT sync completed'))
+            .catch(e => console.error('[WORKERS] Initial global PAT sync failed:', e));
+
+        // Then every 1 hour
+        setInterval(() => {
+            console.log('[WORKERS] Starting global PAT sync (rejections/approvals)...');
+            ServiceOrderService.syncAllPatResults().catch(e => console.error('[WORKERS] Periodic global PAT sync failed:', e));
+        }, 60 * 60 * 1000);
+        console.log('[WORKERS] ✅ Global PAT Sync (1-hour) started');
+    } catch (err) {
+        console.error('[WORKERS] ❌ Failed to start Global PAT Sync:', err);
+    }
+
+    // 4. Daily Automation Tasks (24-hour intervals)
     try {
         // Run every 24 hours
         setInterval(() => {
