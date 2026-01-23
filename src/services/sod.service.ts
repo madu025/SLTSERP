@@ -999,11 +999,14 @@ export class ServiceOrderService {
                         select: { id: true, createdAt: true, updatedAt: true }
                     });
                 } else {
-                    // CRITICAL FILTER: ONLY add records from 2026 onwards
-                    // This prevents old historical data from clogging the system
+                    // SMART FILTER: 
+                    // 1. Always import active work (INPROGRESS) regardless of date.
+                    // 2. ONLY import finished work (COMPLETED) if it happened in 2026 or later.
+                    const isFinished = initialSltsStatus === 'COMPLETED';
                     const isRecent = statusDate.getFullYear() >= 2026;
+                    const shouldImport = !isFinished || isRecent;
 
-                    if (isRecent) {
+                    if (shouldImport) {
                         result = await prisma.serviceOrder.create({
                             data: {
                                 status: item.CON_STATUS,
