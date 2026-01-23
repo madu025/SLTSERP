@@ -70,11 +70,11 @@ export async function POST(request: Request) {
             timestamp: new Date().toISOString()
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error('[SYSTEM-RESET] Error during reset:', error);
         return NextResponse.json({
             message: 'Failed to reset system data',
-            error: error.message
+            error: error instanceof Error ? error.message : 'Unknown error'
         }, { status: 500 });
     }
 }

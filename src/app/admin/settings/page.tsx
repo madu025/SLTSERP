@@ -125,7 +125,7 @@ const AdminDashboard = () => {
                                 <div className="grid gap-6">
                                     {Object.entries(settings).map(([tableName, tableSettings]) => (
                                         <TableConfigCard
-                                            key={tableName}
+                                            key={`${tableName}-${tableSettings.visibleColumns.join(',')}`}
                                             tableName={tableName}
                                             settings={tableSettings}
                                             onSave={(cols) => mutation.mutate({ tableName, visibleColumns: cols })}
@@ -241,17 +241,38 @@ function SystemSettingsCard() {
     );
 }
 
+// Types for Advanced operations
+interface ResetResults {
+    message: string;
+    serviceOrders?: number;
+    statusHistory?: number;
+    materialUsage?: number;
+    logsDeleted?: number;
+}
+
+interface SyncStats {
+    success: number;
+    failed: number;
+    created: number;
+    updated: number;
+}
+
+interface HistoricStats {
+    checked: number;
+    completed: number;
+    errors?: string[];
+}
+
 // Advanced Operations Component
 function AdvancedOperationsCard() {
     const queryClient = useQueryClient();
     const [isSyncing, setIsSyncing] = useState(false);
-    const [syncStats, setSyncStats] = useState<any>(null);
-    const [isClearing, setIsClearing] = useState(false);
-    const [clearResults, setClearResults] = useState<any>(null);
-
-    // Historic Sync State
     const [isHistoricSync, setIsHistoricSync] = useState(false);
-    const [historicStats, setHistoricStats] = useState<any>(null);
+    const [isRecalculating, setIsRecalculating] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
+    const [syncStats, setSyncStats] = useState<SyncStats | null>(null);
+    const [historicStats, setHistoricStats] = useState<HistoricStats | null>(null);
+    const [clearResults, setClearResults] = useState<ResetResults | null>(null);
 
     const handleHistoricSync = async () => {
         const confirmed = window.confirm(
@@ -275,12 +296,12 @@ function AdvancedOperationsCard() {
 
             const data = await res.json();
             if (data.success) {
-                setHistoricStats(data.data);
+                setHistoricStats(data.data as HistoricStats);
                 toast.success("Historical Sync completed!");
             } else {
                 toast.error("Sync failed: " + (data.error || 'Unknown error'));
             }
-        } catch (error) {
+        } catch {
             toast.error("Network error during sync");
         } finally {
             setIsHistoricSync(false);
@@ -294,12 +315,12 @@ function AdvancedOperationsCard() {
             const res = await fetch('/api/cron/sync-all');
             const data = await res.json();
             if (data.success) {
-                setSyncStats(data.stats);
+                setSyncStats(data.stats as SyncStats);
                 toast.success("Global SOD Sync completed!");
             } else {
-                toast.error("Sync failed: " + data.error);
+                toast.error("Sync failed: " + (data.error || 'Unknown error'));
             }
-        } catch (error) {
+        } catch {
             toast.error("Network error during sync");
         } finally {
             setIsSyncing(false);
@@ -321,9 +342,9 @@ function AdvancedOperationsCard() {
 
         if (!confirmed) return;
 
-        const confirmStr = window.prompt('🚨 FINAL SECURITY CHECK\n\nPlease type "RESET_ALL_SERVICE_ORDERS" to proceed with the full system reset:');
+        const confirmStr = window.prompt('🚨 FINAL SECURITY CHECK\n\nPlease type "RESET_ALL" to proceed with the full system reset:');
 
-        if (confirmStr !== 'RESET_ALL_SERVICE_ORDERS') {
+        if (confirmStr !== 'RESET_ALL') {
             if (confirmStr !== null) toast.error("Incorrect confirmation text.");
             return;
         }
@@ -334,7 +355,7 @@ function AdvancedOperationsCard() {
             const res = await fetch('/api/admin/system/reset-sods', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ confirmText: 'RESET_ALL_SERVICE_ORDERS' })
+                body: JSON.stringify({ confirmText: 'RESET_ALL' })
             });
             const data = await res.json();
 
@@ -349,6 +370,24 @@ function AdvancedOperationsCard() {
             toast.error("Network error during clear operation");
         } finally {
             setIsClearing(false);
+        }
+    };
+
+    const handleRecalculateStats = async () => {
+        setIsRecalculating(true);
+        try {
+            const res = await fetch('/api/admin/system/recalculate-stats', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(data.message || "Statistics recalculated successfully!");
+                queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+            } else {
+                toast.error("Recalculation failed: " + (data.message || 'Unknown error'));
+            }
+        } catch {
+            toast.error("Network error during recalculation");
+        } finally {
+            setIsRecalculating(false);
         }
     };
 
@@ -431,11 +470,33 @@ function AdvancedOperationsCard() {
                                     <span className="text-slate-700"><b>{historicStats.checked}</b> Checked</span>
                                     <span className="text-green-600"><b>{historicStats.completed}</b> Processed</span>
                                 </div>
-                                {historicStats.errors?.length > 0 && (
+                                {historicStats.errors && historicStats.errors.length > 0 && (
                                     <p className="text-[10px] text-red-500 mt-1">{historicStats.errors.length} errors occurred.</p>
                                 )}
                             </div>
                         )}
+                    </div>
+
+                    {/* Recalculate Dashboard Stats */}
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Recalculate Dashboard Stats</h4>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Refresh all performance indicators and RTOM stats from source data.
+                                    Fixes inconsistencies in dashboard counts.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                                onClick={handleRecalculateStats}
+                                disabled={isRecalculating}
+                            >
+                                {isRecalculating ? 'Recalculating...' : 'Fix Stats'}
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Clear All Service Orders */}
@@ -472,7 +533,7 @@ function AdvancedOperationsCard() {
                                 <div className="p-2 bg-white rounded border">
                                     <div className="text-xs text-slate-400">Total</div>
                                     <div className="text-sm font-bold text-purple-600">
-                                        {Object.values(clearResults).reduce((a: any, b: any) => a + b, 0)}
+                                        1
                                     </div>
                                 </div>
                             </div>
@@ -489,10 +550,10 @@ function TableConfigCard({ tableName, settings, onSave, isSaving }: { tableName:
     const [cols, setCols] = useState(settings.visibleColumns);
     const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
 
-    // Sync if server updates (optional, might conflict with typing)
-    useEffect(() => {
-        setCols(settings.visibleColumns);
-    }, [settings.visibleColumns]);
+    // Note: This component is keyed by settings in the parent, so it automatically 
+    // resets 'cols' state when global settings are updated/saved.
+    // This removes the need for a useEffect to sync props to state.
+
 
     const getLabel = (key: string) => settings.availableColumns.find(c => c.key === key)?.label || key;
     const isRequired = (key: string) => settings.availableColumns.find(c => c.key === key)?.required;

@@ -67,11 +67,11 @@ export class SLTApiService {
                 return [];
             }
 
-            return data.data.map((item: any) => ({
+            return data.data.map((item) => ({
                 ...item,
                 CON_STATUS: item.CON_STATUS || 'UNKNOWN',
                 CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
-            }));
+            } as SLTServiceOrderData));
         } catch (error) {
             console.error(`SLT Completed SOD API error for RTOM ${rtom}:`, error);
             return [];
@@ -109,12 +109,12 @@ export class SLTApiService {
                 return [];
             }
 
-            return data.data.map((item: any) => ({
+            return data.data.map((item) => ({
                 ...item,
                 // Ensure consistency
                 CON_STATUS: item.CON_STATUS || 'UNKNOWN',
                 CON_STATUS_DATE: item.CON_STATUS_DATE || new Date().toISOString()
-            }));
+            } as SLTServiceOrderData));
         } catch (error) {
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {
@@ -196,8 +196,9 @@ export class SLTApiService {
             });
             if (!response.ok) return [];
             const data = await response.json();
-            return Array.isArray(data.data) ? data.data : [];
+            return Array.isArray(data.data) ? (data.data as SLTPATData[]) : [];
         } catch (error) {
+            console.error("SLT API error:", error);
             return [];
         }
     }
