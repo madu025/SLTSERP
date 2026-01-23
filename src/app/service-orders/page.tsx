@@ -764,11 +764,14 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                         ) : (
                                             paginatedOrders.map(order => {
                                                 const isMissingFromSync = order.comments?.includes('[MISSING FROM SYNC');
+                                                const needsManualDate = (order.status === 'INSTALL_CLOSED' || order.status === 'COMPLETED') && order.sltsStatus !== 'COMPLETED';
+
                                                 return (
                                                     <tr key={order.id} className={`transition-colors ${isMissingFromSync ? 'bg-orange-50 hover:bg-orange-100' :
-                                                        (filterType === 'completed' && order.patStatus === 'PENDING') ? 'bg-yellow-50 hover:bg-yellow-100' :
-                                                            (filterType === 'completed' && (order.patStatus === 'COMPLETED' || order.patStatus === 'VERIFIED')) ? 'bg-emerald-50 hover:bg-emerald-100' :
-                                                                'hover:bg-slate-50/50'
+                                                        needsManualDate ? 'bg-blue-50/50 hover:bg-blue-100' :
+                                                            (filterType === 'completed' && order.patStatus === 'PENDING') ? 'bg-yellow-50 hover:bg-yellow-100' :
+                                                                (filterType === 'completed' && (order.patStatus === 'COMPLETED' || order.patStatus === 'VERIFIED')) ? 'bg-emerald-50 hover:bg-emerald-100' :
+                                                                    'hover:bg-slate-50/50'
                                                         }`}>
                                                         {isColumnVisible('soNum') && (
                                                             <td className="px-3 py-1.5 font-mono font-medium text-primary whitespace-nowrap">

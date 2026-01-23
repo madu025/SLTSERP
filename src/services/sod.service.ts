@@ -383,12 +383,8 @@ export class ServiceOrderService {
 
                 const statusVal = String(getVal(item, "STATUS") || "").toUpperCase();
                 let sltsStatus = 'PENDING';
-                let completedDate: Date | null = null;
 
-                if (statusVal === 'INSTALL_CLOSED' || statusVal === 'COMPLETED') {
-                    sltsStatus = 'COMPLETED';
-                    completedDate = receivedDate; // Default to received date if none provided
-                } else if (statusVal === 'PROV_CLOSED' || statusVal === 'INPROGRESS' || statusVal === 'ASSIGNED') {
+                if (statusVal === 'INSTALL_CLOSED' || statusVal === 'COMPLETED' || statusVal === 'PROV_CLOSED' || statusVal === 'INPROGRESS' || statusVal === 'ASSIGNED') {
                     sltsStatus = 'INPROGRESS';
                 } else if (statusVal.includes('RETURN')) {
                     sltsStatus = 'RETURN';
@@ -400,8 +396,9 @@ export class ServiceOrderService {
                         ...dbData,
                         status: statusVal,
                         statusDate: receivedDate,
-                        receivedDate: receivedDate,
-                        completedDate: completedDate // Update if it became completed
+                        receivedDate: receivedDate
+                        // Note: We don't update completedDate or sltsStatus if it's an existing record 
+                        // unless we want to force re-categorization. Keeping it as is for safety.
                     },
                     create: {
                         ...dbData,
@@ -409,7 +406,7 @@ export class ServiceOrderService {
                         statusDate: receivedDate,
                         receivedDate: receivedDate,
                         sltsStatus: sltsStatus,
-                        completedDate: completedDate
+                        completedDate: null // Ensure it's null so user can set it manually
                     }
                 });
                 created++;

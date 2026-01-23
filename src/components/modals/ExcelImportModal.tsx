@@ -342,7 +342,7 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                                                     {(() => {
                                                         const s = String(getVal(row, 'STATUS') || "").toUpperCase();
                                                         if (s === 'INSTALL_CLOSED' || s === 'COMPLETED')
-                                                            return <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100/50 border border-emerald-200">MARK AS COMPLETED (Sets Default Date)</span>;
+                                                            return <span className="text-[9px] font-bold text-amber-600 px-1.5 py-0.5 rounded-full bg-amber-100/50 border border-amber-200">ADD TO PENDING (NEEDS MANUAL DATE)</span>;
                                                         if (s === 'PROV_CLOSED' || s === 'INPROGRESS' || s === 'ASSIGNED')
                                                             return <span className="text-[9px] font-bold text-blue-600 px-1.5 py-0.5 rounded-full bg-blue-100/50 border border-blue-200">MARK AS INPROGRESS</span>;
                                                         if (s.includes('RETURN'))
