@@ -218,7 +218,7 @@ export const GET = withTracing(async (request: any) => {
                 invoicable: await prisma.serviceOrder.count({ where: { ...monthlyWhere, isInvoicable: true } }),
             },
             allTime: {
-                total: totalStats.reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                total: totalStats.find(s => s.sltsStatus === 'TOTAL')?._count?._all || 0,
                 completed: totalStats.find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
                 returned: totalStats.find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
                 pending: totalStats.find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
