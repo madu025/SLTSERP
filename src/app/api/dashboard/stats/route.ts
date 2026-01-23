@@ -100,16 +100,18 @@ export const GET = withTracing(async (request: any) => {
             receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth }
         };
 
-        // 0. Fetch Pre-calculated Stats
-        const cachedStats = await (prisma as any).dashboardStat.findMany({
-            where: whereClause.opmcId ? { opmcId: whereClause.opmcId } : {}
-        });
+        // 0. Remove Pre-calculated Stats dependency for Fresh Start/Global Accuracy
+        // We will perform live counts to ensure the user never has to "Fix Stats" again
 
         const [
             monthlyStatsRaw,
+            totalStatsRaw,
+            patStatsRaw,
+            rtomStatsRaw,
+            sltsPatStatsRaw,
             contractorPerfRaw
         ] = await Promise.all([
-            // Use monthlyWhere (receivedDate) for total/pending, and statusDate for completed/returned
+            // Monthly Summary (Current Month)
             Promise.all([
                 prisma.serviceOrder.count({ where: { ...monthlyWhere } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
@@ -121,33 +123,37 @@ export const GET = withTracing(async (request: any) => {
                 { sltsStatus: 'INPROGRESS', _count: { _all: pending } },
                 { sltsStatus: 'RETURN', _count: { _all: returned } },
             ]),
+            // Yearly/All-Time Summary (2026)
+            prisma.serviceOrder.groupBy({
+                by: ['sltsStatus'],
+                where: whereClause,
+                _count: { _all: true }
+            }),
+            // PAT Stats (Live)
+            prisma.serviceOrder.groupBy({
+                by: ['rtom', 'patStatus'],
+                where: whereClause,
+                _count: { _all: true }
+            }),
+            // RTOM/Region breakdown (Live)
+            prisma.serviceOrder.groupBy({
+                by: ['rtom', 'sltsStatus'],
+                where: whereClause,
+                _count: { _all: true }
+            }),
+            // SLTS PAT stats (Live)
+            prisma.serviceOrder.groupBy({
+                by: ['rtom', 'sltsPatStatus'],
+                where: whereClause,
+                _count: { _all: true }
+            }),
+            // Contractor Performance (Live)
             (isAdmin || isManager) ? prisma.serviceOrder.groupBy({
                 by: ['contractorId', 'sltsStatus'],
                 where: { ...whereClause, contractorId: { not: null } },
                 _count: { _all: true }
             }) : Promise.resolve([])
         ]);
-
-        const totalStatsRaw = [
-            { sltsStatus: 'INPROGRESS', _count: { _all: cachedStats.reduce((acc: number, curr: any) => acc + curr.pending, 0) } },
-            { sltsStatus: 'COMPLETED', _count: { _all: cachedStats.reduce((acc: number, curr: any) => acc + curr.completed, 0) } },
-            { sltsStatus: 'RETURN', _count: { _all: cachedStats.reduce((acc: number, curr: any) => acc + curr.returned, 0) } },
-        ];
-
-        const patStatsRaw: any[] = [];
-        const rtomStatsRaw: any[] = [];
-        const sltsPatStatsRaw: any[] = [];
-
-        cachedStats.forEach((s: any) => {
-            patStatsRaw.push({ rtom: s.rtom, patStatus: 'PASS', _count: { _all: s.patPassed } });
-            patStatsRaw.push({ rtom: s.rtom, patStatus: 'REJECTED', _count: { _all: s.patRejected } });
-
-            rtomStatsRaw.push({ rtom: s.rtom, sltsStatus: 'COMPLETED', _count: { _all: s.completed } });
-            rtomStatsRaw.push({ rtom: s.rtom, sltsStatus: 'INPROGRESS', _count: { _all: s.pending } });
-            rtomStatsRaw.push({ rtom: s.rtom, sltsStatus: 'RETURN', _count: { _all: s.returned } });
-
-            sltsPatStatsRaw.push({ rtom: s.rtom, sltsPatStatus: 'REJECTED', _count: { _all: s.sltsPatRejected } });
-        });
 
         const monthlyStats = monthlyStatsRaw as unknown as GroupBySltsStatus[];
         const totalStats = totalStatsRaw as unknown as GroupBySltsStatus[];
@@ -158,11 +164,11 @@ export const GET = withTracing(async (request: any) => {
 
         const stats = {
             monthly: {
-                total: monthlyStats.reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                total: monthlyStats.find(s => s.sltsStatus === 'TOTAL')?._count?._all || 0,
                 completed: monthlyStats.find(s => s.sltsStatus === 'COMPLETED')?._count?._all || 0,
                 pending: monthlyStats.find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
                 returned: monthlyStats.find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
-                invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth }, isInvoicable: true } }),
+                invoicable: await prisma.serviceOrder.count({ where: { ...monthlyWhere, isInvoicable: true } }),
             },
             allTime: {
                 total: totalStats.reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
@@ -173,9 +179,9 @@ export const GET = withTracing(async (request: any) => {
             },
             statusBreakdown: [] as { status: string; count: number }[],
             pat: {
-                passed: patStats.find(s => s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED')?._count?._all || 0,
-                rejected: patStats.find(s => s.patStatus === 'REJECTED')?._count?._all || 0,
-                pending: patStats.find(s => s.patStatus === 'PENDING')?._count?._all || 0,
+                passed: patStats.filter(s => s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                rejected: patStats.filter(s => s.patStatus === 'REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                pending: patStats.filter(s => s.patStatus === 'PENDING').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
             },
             contractors: [] as ContractorStat[],
             rtoms: [] as RtomStat[]
@@ -184,7 +190,7 @@ export const GET = withTracing(async (request: any) => {
         // 1. Fetch Completion Status Breakdown (for current month)
         const statusBreakdownRaw = await prisma.serviceOrder.groupBy({
             by: ['status'],
-            where: { ...whereClause, sltsStatus: 'COMPLETED', createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
+            where: { ...whereClause, sltsStatus: 'COMPLETED', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
             _count: { _all: true }
         });
 
@@ -224,9 +230,9 @@ export const GET = withTracing(async (request: any) => {
                 pending,
                 returned,
                 total: rtomTotal,
-                patPassed: patStats.find((s) => s.rtom === name && s.patStatus === 'PASS')?._count?._all || 0,
-                patRejected: patStats.find((s) => s.rtom === name && s.patStatus === 'REJECTED')?._count?._all || 0,
-                sltsPatRejected: sltsPatStats.find((s) => s.rtom === name && s.sltsPatStatus === 'REJECTED')?._count?._all || 0,
+                patPassed: patStats.filter((s) => s.rtom === name && (s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED')).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                patRejected: patStats.filter((s) => s.rtom === name && s.patStatus === 'REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                sltsPatRejected: sltsPatStats.filter((s) => s.rtom === name && s.sltsPatStatus === 'REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
             });
         });
 

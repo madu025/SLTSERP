@@ -999,35 +999,46 @@ export class ServiceOrderService {
                         select: { id: true, createdAt: true, updatedAt: true }
                     });
                 } else {
-                    result = await prisma.serviceOrder.create({
-                        data: {
-                            status: item.CON_STATUS,
-                            lea: item.LEA,
-                            voiceNumber: item.VOICENUMBER,
-                            orderType: item.ORDER_TYPE,
-                            serviceType: item.S_TYPE,
-                            customerName: item.CON_CUS_NAME,
-                            techContact: item.CON_TEC_CONTACT,
-                            statusDate,
-                            address: item.ADDRE,
-                            dp: item.DP,
-                            package: item.PKG,
-                            woroTaskName: item.CON_WORO_TASK_NAME,
-                            iptv: item.IPTV,
-                            woroSeit: item.CON_WORO_SEIT,
-                            ftthInstSeit: item.FTTH_INST_SIET,
-                            ftthWifi: item.FTTH_WIFI,
-                            ospPhoneClass: item.CON_OSP_PHONE_CLASS,
-                            phonePurchase: item.CON_PHN_PURCH,
-                            sales: item.CON_SALES,
-                            opmcId,
-                            rtom: item.RTOM,
-                            soNum: item.SO_NUM,
-                            receivedDate: statusDate,
-                            sltsStatus: initialSltsStatus
-                        },
-                        select: { id: true, createdAt: true, updatedAt: true }
-                    });
+                    // CRITICAL FILTER: For NEW records, only add if:
+                    // 1. It is already COMPLETED (INSTALL_CLOSED)
+                    // 2. OR it is a recent record from 2026
+                    const isNewCompleted = initialSltsStatus === 'COMPLETED';
+                    const isCurrentYear = statusDate.getFullYear() >= 2026;
+
+                    if (isNewCompleted || isCurrentYear) {
+                        result = await prisma.serviceOrder.create({
+                            data: {
+                                status: item.CON_STATUS,
+                                lea: item.LEA,
+                                voiceNumber: item.VOICENUMBER,
+                                orderType: item.ORDER_TYPE,
+                                serviceType: item.S_TYPE,
+                                customerName: item.CON_CUS_NAME,
+                                techContact: item.CON_TEC_CONTACT,
+                                statusDate,
+                                address: item.ADDRE,
+                                dp: item.DP,
+                                package: item.PKG,
+                                woroTaskName: item.CON_WORO_TASK_NAME,
+                                iptv: item.IPTV,
+                                woroSeit: item.CON_WORO_SEIT,
+                                ftthInstSeit: item.FTTH_INST_SIET,
+                                ftthWifi: item.FTTH_WIFI,
+                                ospPhoneClass: item.CON_OSP_PHONE_CLASS,
+                                phonePurchase: item.CON_PHN_PURCH,
+                                sales: item.CON_SALES,
+                                opmcId,
+                                rtom: item.RTOM || rtom,
+                                soNum: item.SO_NUM,
+                                receivedDate: statusDate,
+                                sltsStatus: initialSltsStatus
+                            },
+                            select: { id: true, createdAt: true, updatedAt: true }
+                        });
+                    } else {
+                        // Skip old, non-completed historical junk data
+                        continue;
+                    }
                 }
 
                 // Record history if new
