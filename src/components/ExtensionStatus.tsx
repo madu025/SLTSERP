@@ -11,16 +11,18 @@ import {
 
 export default function ExtensionStatus() {
     const [isInstalled, setIsInstalled] = useState(false);
+    const [version, setVersion] = useState("");
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
         // 1. Initial Check function
         const check = () => {
             const hasAttr = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true';
-            const hasWindowVar = (window as any).SLT_BRIDGE_INSTALLED === true;
+            const ver = document.documentElement.getAttribute('data-slt-bridge-version') || (window as any).SLT_BRIDGE_VERSION;
 
-            if (hasAttr || hasWindowVar) {
+            if (hasAttr || ver) {
                 setIsInstalled(true);
+                setVersion(ver || "1.0.x");
                 setChecking(false);
                 return true;
             }
@@ -52,10 +54,31 @@ export default function ExtensionStatus() {
 
     if (isInstalled) {
         return (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 hidden md:flex">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Bridge Active</span>
-            </div>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <button className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 hover:bg-emerald-100 transition-all font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span className="text-[10px] uppercase tracking-wider">Bridge Connected</span>
+                    </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-4 shadow-xl border-emerald-100" align="end">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-500">Status</span>
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">ONLINE</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-500">Version</span>
+                            <span className="text-[10px] font-mono">{version}</span>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-slate-100">
+                            <p className="text-[10px] text-slate-400 leading-tight">
+                                Bridge is actively monitoring for SLT portal data and ready to sync.
+                            </p>
+                        </div>
+                    </div>
+                </PopoverContent>
+            </Popover>
         );
     }
 
