@@ -309,38 +309,39 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                             </div>
                         </div>
                         <div className="border rounded-lg overflow-hidden shadow-sm">
-                            <div className="max-h-[150px] overflow-auto">
-                                <table className="w-full text-[10px] text-left border-collapse">
+                            <div className="max-h-[180px] overflow-auto">
+                                <table className="w-full text-[10px] text-left border-collapse min-w-full">
                                     <thead className="bg-slate-50 border-b sticky top-0 z-10 shadow-sm">
                                         <tr>
-                                            <th className="px-2 py-2 font-bold text-slate-700">SOD</th>
-                                            <th className="px-2 py-2 font-bold text-slate-700">RTOM</th>
-                                            <th className="px-2 py-2 font-bold text-slate-700">Status</th>
+                                            {Object.keys(preview[0]).map((key) => (
+                                                <th key={key} className="px-3 py-2 font-bold text-slate-700 whitespace-nowrap border-r last:border-0 bg-slate-50">
+                                                    {key.toUpperCase()}
+                                                </th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y bg-white">
-                                        {preview.map((row, i) => {
-                                            const sod = getVal(row, "SOD");
-                                            const rtom = getVal(row, "RTOM");
-                                            const status = getVal(row, "STATUS");
-                                            return (
-                                                <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                    <td className={`px-2 py-1.5 font-mono font-medium ${!sod ? 'text-red-500 bg-red-50/50' : 'text-emerald-600'}`}>
-                                                        {sod || "MISSING"}
-                                                    </td>
-                                                    <td className={`px-2 py-1.5 text-slate-600 ${!rtom ? 'text-red-500 bg-red-50/50' : ''}`}>
-                                                        {rtom || "MISSING"}
-                                                    </td>
-                                                    <td className="px-2 py-1.5 text-slate-500 text-[9px] uppercase font-bold">
-                                                        {status || "-"}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                        {preview.map((row, i) => (
+                                            <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                                                {Object.keys(preview[0]).map((key) => {
+                                                    const val = row[key];
+                                                    const isSod = key.toUpperCase().trim() === 'SOD';
+                                                    const isRtom = key.toUpperCase().trim() === 'RTOM';
+                                                    const isMissing = !val && (isSod || isRtom);
+
+                                                    return (
+                                                        <td key={key} className={`px-3 py-1.5 whitespace-nowrap border-r last:border-0 ${isSod ? 'font-mono text-emerald-600 font-medium' : 'text-slate-600'} ${isMissing ? 'bg-red-50 text-red-500 italic' : ''}`}>
+                                                            {val || (isMissing ? "MISSING" : "-")}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+                        <p className="text-[9px] text-slate-400 italic font-medium px-1">* Scroll horizontally to see all columns</p>
                     </div>
                 )}
 
