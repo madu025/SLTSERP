@@ -129,13 +129,19 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {preview.map((row: any, i) => (
-                                            <tr key={i}>
-                                                <td className="px-2 py-1 font-mono">{row.SOD || row.soNum || "-"}</td>
-                                                <td className="px-2 py-1">{row.RTOM || row.rtom || "-"}</td>
-                                                <td className="px-2 py-1">{row.STATUS || row.status || "-"}</td>
-                                            </tr>
-                                        ))}
+                                        {preview.map((row: any, i) => {
+                                            const getVal = (row: any, key: string) => {
+                                                const foundKey = Object.keys(row).find(rk => rk.trim().toUpperCase() === key.toUpperCase());
+                                                return foundKey ? String(row[foundKey]) : "-";
+                                            };
+                                            return (
+                                                <tr key={i}>
+                                                    <td className="px-2 py-1 font-mono">{getVal(row, "SOD")}</td>
+                                                    <td className="px-2 py-1">{getVal(row, "RTOM")}</td>
+                                                    <td className="px-2 py-1">{getVal(row, "STATUS")}</td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

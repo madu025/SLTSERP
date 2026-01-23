@@ -326,13 +326,18 @@ export class ServiceOrderService {
 
         for (const item of data) {
             try {
-                const soNum = item.soNum || item.SOD;
+                const getVal = (row: any, key: string) => {
+                    const foundKey = Object.keys(row).find(rk => rk.trim().toUpperCase() === key.toUpperCase());
+                    return foundKey ? row[foundKey] : undefined;
+                };
+
+                const soNum = getVal(item, "SOD") || getVal(item, "soNum");
                 if (!soNum) {
                     failed++;
                     continue;
                 }
 
-                const rtomKey = (item.rtom || item.RTOM)?.toUpperCase()?.trim();
+                const rtomKey = String(getVal(item, "RTOM") || getVal(item, "rtom") || "")?.toUpperCase()?.trim();
                 const opmcId = opmcMap.get(rtomKey);
 
                 if (!opmcId) {
@@ -343,28 +348,28 @@ export class ServiceOrderService {
 
                 // Map Excel fields to DB fields
                 const dbData = {
-                    rtom: item.rtom || item.RTOM,
-                    lea: item.lea || item.LEA,
-                    soNum: soNum,
-                    voiceNumber: item.voiceNumber || item.CIRCUIT,
-                    serviceType: item.serviceType || item.SERVICE,
-                    orderType: item.orderType || item['ORDER TYPE'],
-                    woroTaskName: item.woroTaskName || item.TASK,
-                    package: item.package || item.PACKAGE,
-                    status: item.status || item.STATUS,
-                    customerName: item.customerName || item.CON_CUS_NAME,
-                    techContact: item.techContact || item.CON_TEC_CONTACT,
-                    address: item.address || item.ADDRESS,
-                    dp: item.dp || item.DP,
-                    ospPhoneClass: item.ospPhoneClass || item.PHONE_CLASS,
-                    phonePurchase: item.phonePurchase || item.PHONE_PURCH,
-                    sales: item.sales || item['SALES PERSON'],
-                    iptv: String(item.iptv || item['IPTV COUNT'] || '0'),
+                    rtom: String(getVal(item, "RTOM") || ""),
+                    lea: String(getVal(item, "LEA") || ""),
+                    soNum: String(soNum),
+                    voiceNumber: String(getVal(item, "CIRCUIT") || ""),
+                    serviceType: String(getVal(item, "SERVICE") || ""),
+                    orderType: String(getVal(item, "ORDER TYPE") || ""),
+                    woroTaskName: String(getVal(item, "TASK") || ""),
+                    package: String(getVal(item, "PACKAGE") || ""),
+                    status: String(getVal(item, "STATUS") || ""),
+                    customerName: String(getVal(item, "CON_CUS_NAME") || ""),
+                    techContact: String(getVal(item, "CON_TEC_CONTACT") || ""),
+                    address: String(getVal(item, "ADDRESS") || ""),
+                    dp: String(getVal(item, "DP") || ""),
+                    ospPhoneClass: String(getVal(item, "PHONE_CLASS") || ""),
+                    phonePurchase: String(getVal(item, "PHONE_PURCH") || ""),
+                    sales: String(getVal(item, "SALES PERSON") || ""),
+                    iptv: String(getVal(item, "IPTV COUNT") || "0"),
                     isManualEntry: true,
                     opmcId
                 };
 
-                const receivedOnStr = item.receivedDate || item['RECEIVED ON'];
+                const receivedOnStr = getVal(item, "RECEIVED ON") || getVal(item, "receivedDate");
                 let receivedDate = new Date();
                 if (receivedOnStr) {
                     const parsed = new Date(receivedOnStr);
