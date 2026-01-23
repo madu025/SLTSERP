@@ -16,8 +16,10 @@ export default function ExtensionStatus() {
     useEffect(() => {
         // 1. Initial Check function
         const check = () => {
-            const installed = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true';
-            if (installed) {
+            const hasAttr = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true';
+            const hasWindowVar = (window as any).SLT_BRIDGE_INSTALLED === true;
+
+            if (hasAttr || hasWindowVar) {
                 setIsInstalled(true);
                 setChecking(false);
                 return true;

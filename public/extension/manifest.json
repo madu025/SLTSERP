@@ -4,7 +4,11 @@
     "version": "1.0.0",
     "description": "Syncs data between SLT Portal and SLT-ERP System",
     "permissions": [
-        "storage"
+        "storage",
+        "activeTab"
+    ],
+    "host_permissions": [
+        "*://d2ixqikwtprwf0.cloudfront.net/*"
     ],
     "action": {
         "default_popup": "popup.html"
