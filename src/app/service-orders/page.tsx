@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList, AlertCircle } from "lucide-react";
+import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList, AlertCircle, FileSpreadsheet } from "lucide-react";
 
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"),
 const CommentModal = dynamic(() => import("@/components/modals/CommentModal"), { ssr: false });
 const DetailModal = dynamic(() => import("@/components/modals/DetailModal"), { ssr: false });
 const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionModal"), { ssr: false });
+const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportModal"), { ssr: false });
 
 
 interface ServiceOrder {
@@ -179,6 +180,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [showCommentModal, setShowCommentModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showActionModal, setShowActionModal] = useState(false);
+    const [showExcelModal, setShowExcelModal] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => {
@@ -557,6 +559,15 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 >
                                     <Plus className="w-3 h-3 mr-1.5" />
                                     Entry
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs px-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                    onClick={() => setShowExcelModal(true)}
+                                >
+                                    <FileSpreadsheet className="w-3 h-3 mr-1.5" />
+                                    Import
                                 </Button>
                             </div>
                         </div>
@@ -1037,7 +1048,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 <OrderActionModal
                     isOpen={showActionModal}
                     onClose={() => setShowActionModal(false)}
-                    onConfirm={(data) => {
+                    onConfirm={(data: any) => {
                         let finalComment = data.comment || "";
                         let statusToUpdate = pendingStatusChange?.newStatus;
 
@@ -1113,6 +1124,12 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                         try { return JSON.parse(config['OSP_ITEM_ORDER'] || '[]'); } catch { return []; }
                     })()}
                     showExtendedFields={filterType === 'completed'}
+                />
+
+                <ExcelImportModal
+                    isOpen={showExcelModal}
+                    onClose={() => setShowExcelModal(false)}
+                    onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ["service-orders"] })}
                 />
 
             </main >

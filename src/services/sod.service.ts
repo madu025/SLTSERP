@@ -315,6 +315,88 @@ export class ServiceOrderService {
         return serviceOrder;
     }
 
+    // Bulk import from Excel
+    static async bulkImportServiceOrders(data: any[]) {
+        let created = 0;
+        let failed = 0;
+
+        // Pre-fetch all OPMCs to map rtom to id
+        const opmcs = await prisma.oPMC.findMany();
+        const opmcMap = new Map(opmcs.map(o => [o.rtom.toUpperCase().trim(), o.id]));
+
+        for (const item of data) {
+            try {
+                const soNum = item.soNum || item.SOD;
+                if (!soNum) {
+                    failed++;
+                    continue;
+                }
+
+                const rtomKey = (item.rtom || item.RTOM)?.toUpperCase()?.trim();
+                const opmcId = opmcMap.get(rtomKey);
+
+                if (!opmcId) {
+                    console.error(`Opmc not found for RTOM: ${rtomKey}`);
+                    failed++;
+                    continue;
+                }
+
+                // Map Excel fields to DB fields
+                const dbData = {
+                    rtom: item.rtom || item.RTOM,
+                    lea: item.lea || item.LEA,
+                    soNum: soNum,
+                    voiceNumber: item.voiceNumber || item.CIRCUIT,
+                    serviceType: item.serviceType || item.SERVICE,
+                    orderType: item.orderType || item['ORDER TYPE'],
+                    woroTaskName: item.woroTaskName || item.TASK,
+                    package: item.package || item.PACKAGE,
+                    status: item.status || item.STATUS,
+                    customerName: item.customerName || item.CON_CUS_NAME,
+                    techContact: item.techContact || item.CON_TEC_CONTACT,
+                    address: item.address || item.ADDRESS,
+                    dp: item.dp || item.DP,
+                    ospPhoneClass: item.ospPhoneClass || item.PHONE_CLASS,
+                    phonePurchase: item.phonePurchase || item.PHONE_PURCH,
+                    sales: item.sales || item['SALES PERSON'],
+                    iptv: String(item.iptv || item['IPTV COUNT'] || '0'),
+                    isManualEntry: true,
+                    opmcId
+                };
+
+                const receivedOnStr = item.receivedDate || item['RECEIVED ON'];
+                let receivedDate = new Date();
+                if (receivedOnStr) {
+                    const parsed = new Date(receivedOnStr);
+                    if (!isNaN(parsed.getTime())) {
+                        receivedDate = parsed;
+                    }
+                }
+
+                await prisma.serviceOrder.upsert({
+                    where: { soNum },
+                    update: {
+                        ...dbData,
+                        statusDate: receivedDate,
+                        receivedDate: receivedDate
+                    },
+                    create: {
+                        ...dbData,
+                        statusDate: receivedDate,
+                        receivedDate: receivedDate,
+                        sltsStatus: dbData.status === 'INSTALL_CLOSED' ? 'COMPLETED' : 'INPROGRESS'
+                    }
+                });
+                created++;
+            } catch (err) {
+                console.error(`Bulk import failed for item:`, item, err);
+                failed++;
+            }
+        }
+
+        return { created, failed };
+    }
+
     /**
      * Patch Update (Status Change, Completion, etc.)
      */
