@@ -118,7 +118,8 @@ export const GET = withTracing(async (request: any) => {
             patStatsRaw,
             rtomStatsRaw,
             sltsPatStatsRaw,
-            contractorPerfRaw
+            contractorPerfRaw,
+            broughtForward
         ] = await Promise.all([
             // Monthly Summary (Current Month)
             Promise.all([
@@ -185,7 +186,11 @@ export const GET = withTracing(async (request: any) => {
                 by: ['contractorId', 'sltsStatus'],
                 where: { ...baseWhere, contractorId: { not: null } },
                 _count: { _all: true }
-            }) : Promise.resolve([])
+            }) : Promise.resolve([]),
+            // Brought Forward (Pending from before current year)
+            prisma.serviceOrder.count({
+                where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: firstDayOfYear } }
+            })
         ]);
 
         const monthlyStats = monthlyStatsRaw as unknown as GroupBySltsStatus[];
@@ -209,6 +214,7 @@ export const GET = withTracing(async (request: any) => {
                 returned: totalStats.find(s => s.sltsStatus === 'RETURN')?._count?._all || 0,
                 pending: totalStats.find(s => s.sltsStatus === 'INPROGRESS')?._count?._all || 0,
                 invoicable: await prisma.serviceOrder.count({ where: { ...whereClause, isInvoicable: true } }),
+                broughtForward: broughtForward
             },
             statusBreakdown: [] as { status: string; count: number }[],
             pat: {

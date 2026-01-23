@@ -24,6 +24,7 @@ interface Stats {
         returned: number;
         pending: number;
         invoicable: number;
+        broughtForward?: number;
     };
     pat: {
         passed: number;
@@ -151,27 +152,32 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Overall Stats Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
                             {isLoading ? (
-                                Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
+                                Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
                             ) : (
                                 <>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 Total Received</p>
-                                        <p className="text-xl font-bold text-slate-900">{stats?.allTime?.total || 0}</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Brought Forward (2025)</p>
+                                        <p className="text-xl font-black text-indigo-700">{stats?.allTime?.broughtForward || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 Total Completed</p>
-                                        <p className="text-xl font-bold text-slate-900">{stats?.allTime?.completed || 0}</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">2026 Total Received</p>
+                                        <p className="text-xl font-black text-slate-900">{stats?.allTime?.total || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 PAT Pass</p>
-                                        <p className="text-xl font-bold text-slate-900">{stats?.pat?.passed || 0}</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">2026 Total Completed</p>
+                                        <p className="text-xl font-black text-emerald-600">{stats?.allTime?.completed || 0}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase">2026 PAT Rejected</p>
-                                        <p className="text-xl font-bold text-red-600">{stats?.pat?.rejected || 0}</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">2026 PAT Pass</p>
+                                        <p className="text-xl font-black text-slate-900">{stats?.pat?.passed || 0}</p>
                                     </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">2026 PAT Rejected</p>
+                                        <p className="text-xl font-black text-red-600">{stats?.pat?.rejected || 0}</p>
+                                    </div>
+
                                 </>
                             )}
                         </div>
