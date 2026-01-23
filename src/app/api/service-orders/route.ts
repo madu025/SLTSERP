@@ -65,7 +65,7 @@ export async function PUT(request: Request) {
 
         const { id, ...updateData } = validation.data;
         const userId = request.headers.get('x-user-id') || undefined;
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData as any, userId);
+        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
         return NextResponse.json(serviceOrder);
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -91,7 +91,7 @@ export async function PATCH(request: Request) {
         const { id, ...updateData } = validation.data;
         const userId = request.headers.get('x-user-id') || undefined;
 
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData as any, userId);
+        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
         return NextResponse.json(serviceOrder);
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);

@@ -32,23 +32,26 @@ interface SltRejection {
 export interface ServiceOrderUpdateData {
     sltsStatus?: string;
     status?: string;
-    statusDate?: string | Date;
-    receivedDate?: string | Date;
-    completedDate?: string | Date;
+    statusDate?: string | Date | null;
+    receivedDate?: string | Date | null;
+    completedDate?: string | Date | null;
     contractorId?: string | null;
-    comments?: string;
-    ontSerialNumber?: string;
-    iptvSerialNumbers?: string | string[];
-    dpDetails?: string;
+    comments?: string | null;
+    ontSerialNumber?: string | null;
+    iptvSerialNumbers?: string | string[] | null;
+    dpDetails?: string | null;
     teamId?: string | null;
-    directTeamName?: string;
-    dropWireDistance?: string | number;
-    sltsPatStatus?: string;
-    opmcPatStatus?: string;
-    hoPatStatus?: string;
+    directTeamName?: string | null;
+    dropWireDistance?: string | number | null;
+    sltsPatStatus?: string | null;
+    opmcPatStatus?: string | null;
+    hoPatStatus?: string | null;
     materialUsage?: MaterialUsageInput[];
-    returnReason?: string;
+    returnReason?: string | null;
     wiredOnly?: boolean;
+    scheduledDate?: string | null;
+    scheduledTime?: string | null;
+    techContact?: string | null;
 }
 
 export class ServiceOrderService {
@@ -263,7 +266,21 @@ export class ServiceOrderService {
     }
 
     // Create a manual service order
-    static async createServiceOrder(data: any) {
+    static async createServiceOrder(data: {
+        rtomId: string;
+        soNum?: string | null;
+        lea?: string;
+        voiceNumber?: string | null;
+        orderType?: string | null;
+        serviceType?: string | null;
+        customerName?: string | null;
+        techContact?: string | null;
+        status?: string;
+        address?: string | null;
+        dp?: string | null;
+        package?: string | null;
+        sales?: string | null;
+    }) {
         let soNum = data.soNum;
         if (!soNum) {
             const now = new Date();
@@ -316,7 +333,7 @@ export class ServiceOrderService {
     }
 
     // Bulk import from Excel
-    static async bulkImportServiceOrders(data: any[]) {
+    static async bulkImportServiceOrders(data: Record<string, unknown>[]) {
         let created = 0;
         let failed = 0;
         const errors: string[] = [];
@@ -327,7 +344,7 @@ export class ServiceOrderService {
 
         for (const [index, item] of data.entries()) {
             try {
-                const getVal = (row: any, key: string) => {
+                const getVal = (row: Record<string, unknown>, key: string) => {
                     const foundKey = Object.keys(row).find(rk => rk.trim().toUpperCase() === key.toUpperCase());
                     return foundKey ? row[foundKey] : undefined;
                 };
@@ -386,7 +403,7 @@ export class ServiceOrderService {
 
                 if (statusVal === 'INSTALL_CLOSED' || statusVal === 'COMPLETED' || statusVal === 'PROV_CLOSED' || statusVal === 'INPROGRESS' || statusVal === 'ASSIGNED') {
                     sltsStatus = 'INPROGRESS';
-                } else if (statusVal.includes('RETURN')) {
+                } else if (statusVal.includes('RETURN') || statusVal === 'CANCELLED') {
                     sltsStatus = 'RETURN';
                 }
 
@@ -420,10 +437,11 @@ export class ServiceOrderService {
                     }
                 });
                 created++;
-            } catch (err: any) {
+            } catch (err: unknown) {
+                const errorMessage = err instanceof Error ? err.message : 'Database error';
                 console.error(`Bulk import failed for row ${index + 1}:`, err);
                 failed++;
-                if (errors.length < 10) errors.push(`Row ${index + 1}: ${err.message || 'Database error'}`);
+                if (errors.length < 10) errors.push(`Row ${index + 1}: ${errorMessage}`);
             }
         }
 
