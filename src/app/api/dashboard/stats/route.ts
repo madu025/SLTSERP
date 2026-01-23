@@ -8,32 +8,9 @@ import { startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-
 import { handleApiError } from '@/lib/api-utils';
 import { withTracing } from '@/lib/tracing-utils';
 
-interface GroupBySltsStatus {
-    sltsStatus: string;
-    _count: { _all: number };
-}
-
-interface GroupByRtomPatStatus {
-    rtom: string;
-    patStatus: string | null;
-    _count: { _all: number };
-}
-
-interface GroupByContractorSltsStatus {
-    contractorId: string | null;
-    sltsStatus: string;
-    _count: { _all: number };
-}
-
 interface GroupByRtomSltsStatus {
     rtom: string;
     sltsStatus: string;
-    _count: { _all: number };
-}
-
-interface GroupByRtomSltsPatStatus {
-    rtom: string;
-    sltsPatStatus: string | null;
     _count: { _all: number };
 }
 
@@ -115,12 +92,13 @@ export const GET = withTracing(async (request: any) => {
         const [
             monthlyStatsRaw,
             totalStatsRaw,
-            patStatsRaw,
+            _patLegacy,
             rtomStatsRaw,
-            sltsPatStatsRaw,
+            _sltsPatLegacy,
             contractorPerfRaw,
             broughtForward,
-            agingRaw
+            agingRaw,
+            sltPatResults
         ] = await Promise.all([
             // Monthly Summary (Current Month)
             Promise.all([
@@ -146,12 +124,8 @@ export const GET = withTracing(async (request: any) => {
                 { sltsStatus: 'INPROGRESS', _count: { _all: pending } },
                 { sltsStatus: 'RETURN', _count: { _all: returned } },
             ]),
-            // PAT Stats (Live)
-            prisma.serviceOrder.groupBy({
-                by: ['rtom', 'patStatus'],
-                where: baseWhere,
-                _count: { _all: true }
-            }),
+            // Legacy/Unused groupbys (keeping position for now to avoid refactoring promise indices)
+            Promise.resolve([]),
             // RTOM/Region breakdown (Live) - Categorized by their respective dates
             Promise.all([
                 prisma.serviceOrder.groupBy({
@@ -176,12 +150,8 @@ export const GET = withTracing(async (request: any) => {
                 returned.forEach(r => results.push({ rtom: r.rtom, sltsStatus: 'RETURN', _count: { _all: r._count._all } }));
                 return results;
             }),
-            // SLTS PAT stats (Live)
-            prisma.serviceOrder.groupBy({
-                by: ['rtom', 'sltsPatStatus'],
-                where: baseWhere,
-                _count: { _all: true }
-            }),
+            // Legacy/Unused
+            Promise.resolve([]),
             // Contractor Performance (Live)
             (isAdmin || isManager) ? prisma.serviceOrder.groupBy({
                 by: ['contractorId', 'sltsStatus'],
@@ -199,15 +169,21 @@ export const GET = withTracing(async (request: any) => {
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 5), gte: subDays(now, 7) } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 7), gte: subDays(now, 10) } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 10) } } }),
-            ])
+            ]),
+            // SLT PAT Status Breakdown (from SLTPATStatus table for high accuracy)
+            prisma.sLTPATStatus.groupBy({
+                by: ['rtom', 'status', 'source'],
+                where: {
+                    statusDate: { gte: firstDayOfYear, lte: lastDayOfYear }
+                },
+                _count: { _all: true }
+            })
         ]);
 
-        const monthlyStats = monthlyStatsRaw as unknown as GroupBySltsStatus[];
-        const totalStats = totalStatsRaw as unknown as GroupBySltsStatus[];
-        const patStats = patStatsRaw as unknown as GroupByRtomPatStatus[];
-        const contractorPerf = contractorPerfRaw as unknown as GroupByContractorSltsStatus[];
+        const monthlyStats = monthlyStatsRaw as any[];
+        const totalStats = totalStatsRaw as any[];
         const rtomStats = rtomStatsRaw as unknown as GroupByRtomSltsStatus[];
-        const sltsPatStats = sltsPatStatsRaw as unknown as GroupByRtomSltsPatStatus[];
+        const contractorPerf = contractorPerfRaw as any[];
 
         const stats = {
             monthly: {
@@ -227,9 +203,9 @@ export const GET = withTracing(async (request: any) => {
             },
             statusBreakdown: [] as { status: string; count: number }[],
             pat: {
-                passed: patStats.filter(s => s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
-                rejected: patStats.filter(s => s.patStatus === 'REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
-                pending: patStats.filter(s => s.patStatus === 'PENDING').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                passed: sltPatResults.filter(s => s.status === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                rejected: sltPatResults.filter(s => s.status === 'REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                pending: await prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', hoPatStatus: 'PENDING' } }),
             },
             contractors: [] as ContractorStat[],
             rtoms: [] as RtomStat[],
@@ -285,9 +261,9 @@ export const GET = withTracing(async (request: any) => {
                 pending,
                 returned,
                 total: rtomTotal,
-                patPassed: patStats.filter((s) => s.rtom === name && (s.patStatus === 'PASS' || s.patStatus === 'PAT_PASSED')).reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
-                patRejected: patStats.filter((s) => s.rtom === name && s.patStatus === 'REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
-                sltsPatRejected: sltsPatStats.filter((s) => s.rtom === name && s.sltsPatStatus === 'REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                patPassed: sltPatResults.filter((s) => s.rtom === name && s.status === 'PAT_PASSED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                patRejected: sltPatResults.filter((s) => s.rtom === name && s.status === 'REJECTED' && s.source === 'OPMC_REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
+                sltsPatRejected: sltPatResults.filter((s) => s.rtom === name && s.status === 'REJECTED' && s.source === 'HO_REJECTED').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
             });
         });
 
