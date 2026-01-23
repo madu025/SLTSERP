@@ -390,15 +390,25 @@ export class ServiceOrderService {
                     sltsStatus = 'RETURN';
                 }
 
+                // Fetch existing to check for history preservation
+                const oldOrder = await prisma.serviceOrder.findUnique({
+                    where: { soNum: String(soNum) },
+                    select: { id: true, sltsStatus: true, status: true, returnReason: true, comments: true, statusDate: true }
+                });
+
                 await prisma.serviceOrder.upsert({
                     where: { soNum: String(soNum) },
                     update: {
                         ...dbData,
                         status: statusVal,
                         statusDate: receivedDate,
-                        receivedDate: receivedDate
-                        // Note: We don't update completedDate or sltsStatus if it's an existing record 
-                        // unless we want to force re-categorization. Keeping it as is for safety.
+                        // If it was RETURN but now SLT says it's active, restore it
+                        sltsStatus: (oldOrder?.sltsStatus === 'RETURN' && sltsStatus === 'INPROGRESS') ? 'INPROGRESS' : undefined,
+                        receivedDate: (oldOrder?.sltsStatus === 'RETURN' && sltsStatus === 'INPROGRESS') ? new Date() : undefined,
+                        comments: (oldOrder?.sltsStatus === 'RETURN' && sltsStatus === 'INPROGRESS')
+                            ? (oldOrder.comments ? `${oldOrder.comments}\n[AUTO-RESTORE] Prev Return: ${oldOrder.returnReason || oldOrder.status}` : `[AUTO-RESTORE] Prev Return: ${oldOrder.returnReason || oldOrder.status}`)
+                            : undefined,
+                        returnReason: (oldOrder?.sltsStatus === 'RETURN' && sltsStatus === 'INPROGRESS') ? null : undefined
                     },
                     create: {
                         ...dbData,
@@ -454,6 +464,15 @@ export class ServiceOrderService {
             if (!['INPROGRESS', 'COMPLETED', 'RETURN', 'PROV_CLOSED'].includes(sltsStatus)) throw new Error('INVALID_STATUS');
             updateData.sltsStatus = sltsStatus;
             if ((sltsStatus === 'COMPLETED' || sltsStatus === 'RETURN') && !completedDate) throw new Error('COMPLETED_DATE_REQUIRED');
+
+            // Logic for Restoring a RETURNED SOD
+            if (sltsStatus === 'INPROGRESS' && oldOrder.sltsStatus === 'RETURN') {
+                updateData.receivedDate = new Date();
+                const prevReason = oldOrder.returnReason || oldOrder.status || "Previous Return";
+                const restoreComment = `[RESTORED] Prev Return: ${prevReason} (Status Date: ${oldOrder.statusDate?.toLocaleDateString() || 'N/A'})`;
+                updateData.comments = oldOrder.comments ? `${oldOrder.comments}\n${restoreComment}` : restoreComment;
+                updateData.returnReason = null;
+            }
         }
 
         if (completedDate) updateData.completedDate = new Date(completedDate);
@@ -1116,18 +1135,25 @@ export class ServiceOrderService {
         const sltData = await sltApiService.fetchServiceOrders(rtom);
         if (!sltData || sltData.length === 0) return { created: 0, updated: 0 };
         const sltSoNums = sltData.map(item => item.SO_NUM);
-        const lockedSods = await prisma.serviceOrder.findMany({
-            where: { soNum: { in: sltSoNums }, sltsStatus: { in: ['COMPLETED', 'RETURN'] } },
-            select: { soNum: true }
+
+        // Fetch existing status to decide on locking
+        const existingSods = await prisma.serviceOrder.findMany({
+            where: { soNum: { in: sltSoNums } },
+            select: { soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
         });
-        const lockedSoNums = new Set(lockedSods.map(s => s.soNum));
+        const existingMap = new Map(existingSods.map(s => [s.soNum, s]));
 
         // Deduplicate syncable data by soNum and status to prevent parallel upsert collisions
         const uniqueSyncMap = new Map<string, SLTServiceOrderData>();
         sltData.forEach(item => {
-            if (!lockedSoNums.has(item.SO_NUM)) {
-                uniqueSyncMap.set(`${item.SO_NUM}_${item.CON_STATUS}`, item);
-            }
+            const existing = existingMap.get(item.SO_NUM);
+
+            // LOCK RULES:
+            // 1. Skip if already COMPLETED in our system.
+            // 2. If RETURNED in our system, ONLY proceed if new SLT status is active (NOT Install Closed yet)
+            if (existing?.sltsStatus === 'COMPLETED') return;
+
+            uniqueSyncMap.set(`${item.SO_NUM}_${item.CON_STATUS}`, item);
         });
         const syncableData = Array.from(uniqueSyncMap.values());
 
@@ -1177,9 +1203,19 @@ export class ServiceOrderService {
                 };
 
                 if (existing) {
+                    const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
+
                     result = await prisma.serviceOrder.update({
                         where: { id: existing.id },
-                        data: updatePayload,
+                        data: {
+                            ...updatePayload,
+                            sltsStatus: isRestoring ? 'INPROGRESS' : undefined,
+                            receivedDate: isRestoring ? new Date() : undefined,
+                            comments: isRestoring
+                                ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
+                                : undefined,
+                            returnReason: isRestoring ? null : undefined
+                        },
                         select: { id: true, createdAt: true, updatedAt: true }
                     });
                 } else {

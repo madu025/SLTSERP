@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList, AlertCircle, FileSpreadsheet } from "lucide-react";
+import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList, AlertCircle, FileSpreadsheet, Info } from "lucide-react";
 
 import { toast } from "sonner";
 
@@ -779,6 +779,11 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     <button onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>{order.soNum}</button>
                                                                     {order.isManualEntry && (
                                                                         <span className="text-[7px] bg-slate-100 text-slate-500 px-1 border border-slate-200 rounded font-bold uppercase">Manual</span>
+                                                                    )}
+                                                                    {order.comments?.includes('[RESTORED]') && (
+                                                                        <span className="text-[9px] text-orange-500" title={order.comments.split('\n').find(l => l.includes('[RESTORED]'))}>
+                                                                            <Info className="w-2.5 h-2.5 inline" />
+                                                                        </span>
                                                                     )}
                                                                 </div>
                                                             </td>
