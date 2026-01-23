@@ -90,9 +90,18 @@ export const GET = withTracing(async (request: any) => {
         const firstDayOfYear = startOfYear(now);
         const lastDayOfYear = endOfYear(now);
 
-        whereClause.createdAt = {
-            gte: firstDayOfYear,
-            lte: lastDayOfYear
+        // Base filter should be for the year 2026 based on when the order was received or completed
+        // We avoid using createdAt because historical data synced today would have today's createdAt
+        const yearWhere: Prisma.ServiceOrderWhereInput = {
+            OR: [
+                { receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+                { statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } }
+            ]
+        };
+
+        const baseWhere: Prisma.ServiceOrderWhereInput = {
+            ...whereClause,
+            ...yearWhere
         };
 
         const monthlyWhere: Prisma.ServiceOrderWhereInput = {
@@ -126,13 +135,13 @@ export const GET = withTracing(async (request: any) => {
             // Yearly/All-Time Summary (2026)
             prisma.serviceOrder.groupBy({
                 by: ['sltsStatus'],
-                where: whereClause,
+                where: baseWhere,
                 _count: { _all: true }
             }),
             // PAT Stats (Live)
             prisma.serviceOrder.groupBy({
                 by: ['rtom', 'patStatus'],
-                where: whereClause,
+                where: baseWhere,
                 _count: { _all: true }
             }),
             // RTOM/Region breakdown (Live) - Categorized by their respective dates
