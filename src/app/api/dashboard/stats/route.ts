@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from 'date-fns';
 import { handleApiError } from '@/lib/api-utils';
 import { withTracing } from '@/lib/tracing-utils';
 
@@ -119,7 +119,8 @@ export const GET = withTracing(async (request: any) => {
             rtomStatsRaw,
             sltsPatStatsRaw,
             contractorPerfRaw,
-            broughtForward
+            broughtForward,
+            agingRaw
         ] = await Promise.all([
             // Monthly Summary (Current Month)
             Promise.all([
@@ -190,7 +191,15 @@ export const GET = withTracing(async (request: any) => {
             // Brought Forward (Pending from before current year)
             prisma.serviceOrder.count({
                 where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: firstDayOfYear } }
-            })
+            }),
+            // Aging breakdown (KPI specific: 3, 5, 7, 10 days)
+            Promise.all([
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: subDays(now, 3) } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 3), gte: subDays(now, 5) } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 5), gte: subDays(now, 7) } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 7), gte: subDays(now, 10) } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { lt: subDays(now, 10) } } }),
+            ])
         ]);
 
         const monthlyStats = monthlyStatsRaw as unknown as GroupBySltsStatus[];
@@ -223,7 +232,14 @@ export const GET = withTracing(async (request: any) => {
                 pending: patStats.filter(s => s.patStatus === 'PENDING').reduce((acc, curr) => acc + (curr._count?._all || 0), 0),
             },
             contractors: [] as ContractorStat[],
-            rtoms: [] as RtomStat[]
+            rtoms: [] as RtomStat[],
+            aging: [
+                { range: '0-3 Days', count: agingRaw[0] },
+                { range: '3-5 Days', count: agingRaw[1] },
+                { range: '5-7 Days', count: agingRaw[2] },
+                { range: '7-10 Days', count: agingRaw[3] },
+                { range: '10+ Days', count: agingRaw[4] },
+            ]
         };
 
         // 1. Fetch Completion Status Breakdown (for current month)

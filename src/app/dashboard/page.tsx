@@ -5,7 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import {
     Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell
+    PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -49,6 +49,10 @@ interface Stats {
     }>;
     statusBreakdown: Array<{
         status: string;
+        count: number;
+    }>;
+    aging: Array<{
+        range: string;
         count: number;
     }>;
 }
@@ -280,6 +284,59 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Management Section placeholder or future module */}
+                            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:col-span-2">
+                                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                    <span className="w-1.5 h-4 bg-orange-500 rounded-full"></span>
+                                    SOD Aging Report (Pending KPI)
+                                </h3>
+                                <div className="h-64 sm:h-80">
+                                    {isLoading ? (
+                                        <div className="h-full flex items-center justify-center"><Skeleton className="w-full h-full rounded-xl" /></div>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={stats?.aging || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                                <XAxis
+                                                    dataKey="range"
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }}
+                                                />
+                                                <YAxis
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tick={{ fill: '#64748b', fontSize: 12 }}
+                                                />
+                                                <Tooltip
+                                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                                    cursor={{ fill: '#f8fafc' }}
+                                                />
+                                                <Bar
+                                                    dataKey="count"
+                                                    fill="#f59e0b"
+                                                    radius={[6, 6, 0, 0]}
+                                                    barSize={40}
+                                                >
+                                                    {stats?.aging?.map((entry, index) => (
+                                                        <Cell
+                                                            key={`cell-${index}`}
+                                                            fill={entry.range.includes('10+') ? '#ef4444' : entry.range.includes('7-10') ? '#f97316' : '#f59e0b'}
+                                                        />
+                                                    ))}
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    )}
+                                </div>
+                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                    {stats?.aging?.map((a, i) => (
+                                        <div key={i} className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-center">
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase">{a.range}</p>
+                                            <p className={`text-sm font-black ${a.range.includes('10+') ? 'text-red-600' : 'text-slate-900'}`}>{a.count}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
                         {/* RTOM Comparison for Management */}
