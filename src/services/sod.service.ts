@@ -593,8 +593,26 @@ export class ServiceOrderService {
 
         // 1. Fetch OPMC Rejected (opmcpatrej) - RTOM specific
         const opmcRejected = await sltApiService.fetchOpmcRejected(rtom);
+        const rtHoRejected = hoRejected.filter((p) => p.RTOM === rtom);
 
-        // 2. Cache these entries in SLTPATStatus table
+        // 2. Prepare for strict mirroring:
+        // Any SO currently in our 'REJECTED' cache for this RTOM that is NOT in the new API lists 
+        // means it has been corrected/fixed. We MUST remove these from the cache.
+        const incomingOpmcSoNums = opmcRejected.map(r => r.SO_NUM);
+        const incomingHoSoNums = rtHoRejected.map(r => r.SO_NUM);
+
+        await prisma.sLTPATStatus.deleteMany({
+            where: {
+                rtom,
+                status: 'REJECTED',
+                OR: [
+                    { source: 'OPMC_REJECTED', soNum: { notIn: incomingOpmcSoNums } },
+                    { source: 'HO_REJECTED', soNum: { notIn: incomingHoSoNums } }
+                ]
+            }
+        });
+
+        // 3. Cache the current rejections in SLTPATStatus table
         // We Upsert them to ensure we have the latest rejected status
         for (const rej of opmcRejected) {
             await prisma.sLTPATStatus.upsert({
@@ -631,7 +649,6 @@ export class ServiceOrderService {
             });
         }
 
-        const rtHoRejected = hoRejected.filter((p) => p.RTOM === rtom);
         for (const rej of rtHoRejected) {
             await prisma.sLTPATStatus.upsert({
                 where: { soNum: rej.SO_NUM },
@@ -838,15 +855,21 @@ export class ServiceOrderService {
                     statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE) as Date
                 }));
 
-                // Update Cache (Skip Duplicates)
+                const soNums = batch.map(b => b.SO_NUM);
+
+                // Update Cache (Strict Mirroring)
+                // To ensure we don't have stale 'REJECTED' status for an order that is now 'APPROVED',
+                // we clear existing cache entries for these SO numbers before inserting the latest data.
+                await prisma.sLTPATStatus.deleteMany({
+                    where: { soNum: { in: soNums } }
+                });
+
                 const result = await prisma.sLTPATStatus.createMany({
-                    data: cacheData,
-                    skipDuplicates: true
+                    data: cacheData
                 });
                 totalCached += result.count;
 
                 // Update Matching ServiceOrders
-                const soNums = batch.map(b => b.SO_NUM);
                 const ordersToUpdate = await prisma.serviceOrder.findMany({
                     where: {
                         soNum: { in: soNums },
