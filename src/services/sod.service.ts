@@ -999,13 +999,11 @@ export class ServiceOrderService {
                         select: { id: true, createdAt: true, updatedAt: true }
                     });
                 } else {
-                    // CRITICAL FILTER: For NEW records, only add if:
-                    // 1. It is already COMPLETED (INSTALL_CLOSED)
-                    // 2. OR it is a recent record from 2026
-                    const isNewCompleted = initialSltsStatus === 'COMPLETED';
-                    const isCurrentYear = statusDate.getFullYear() >= 2026;
+                    // CRITICAL FILTER: ONLY add records from 2026 onwards
+                    // This prevents old historical data from clogging the system
+                    const isRecent = statusDate.getFullYear() >= 2026;
 
-                    if (isNewCompleted || isCurrentYear) {
+                    if (isRecent) {
                         result = await prisma.serviceOrder.create({
                             data: {
                                 status: item.CON_STATUS,

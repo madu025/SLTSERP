@@ -135,11 +135,29 @@ export const GET = withTracing(async (request: any) => {
                 where: whereClause,
                 _count: { _all: true }
             }),
-            // RTOM/Region breakdown (Live)
-            prisma.serviceOrder.groupBy({
-                by: ['rtom', 'sltsStatus'],
-                where: whereClause,
-                _count: { _all: true }
+            // RTOM/Region breakdown (Live) - Categorized by their respective dates
+            Promise.all([
+                prisma.serviceOrder.groupBy({
+                    by: ['rtom'],
+                    where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+                    _count: { _all: true }
+                }),
+                prisma.serviceOrder.groupBy({
+                    by: ['rtom'],
+                    where: { ...whereClause, sltsStatus: 'COMPLETED', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+                    _count: { _all: true }
+                }),
+                prisma.serviceOrder.groupBy({
+                    by: ['rtom'],
+                    where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+                    _count: { _all: true }
+                }),
+            ]).then(([pending, completed, returned]) => {
+                const results: any[] = [];
+                pending.forEach(p => results.push({ rtom: p.rtom, sltsStatus: 'INPROGRESS', _count: { _all: p._count._all } }));
+                completed.forEach(c => results.push({ rtom: c.rtom, sltsStatus: 'COMPLETED', _count: { _all: c._count._all } }));
+                returned.forEach(r => results.push({ rtom: r.rtom, sltsStatus: 'RETURN', _count: { _all: r._count._all } }));
+                return results;
             }),
             // SLTS PAT stats (Live)
             prisma.serviceOrder.groupBy({
