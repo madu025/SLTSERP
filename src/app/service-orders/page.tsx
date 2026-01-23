@@ -94,6 +94,7 @@ interface SummaryMetrics {
     contractorAssigned: number;
     appointments: number;
     statusBreakdown: Record<string, number>;
+    totalReturns?: number;
     patBreakdown?: {
         opmc: Record<string, number>;
         ho: Record<string, number>;
@@ -604,6 +605,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                         <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">In Progress</span> <span className="font-bold text-slate-700">{summary.statusBreakdown?.INPROGRESS || 0}</span></div>
                                         <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Inst. Closed</span> <span className="font-bold text-emerald-600">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span></div>
                                         <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Prov. Closed</span> <span className="font-bold text-blue-600">{summary.statusBreakdown?.PROV_CLOSED || 0}</span></div>
+                                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium whitespace-nowrap">Returned</span> <span className="font-bold text-rose-600">{summary.totalReturns || 0}</span></div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -671,6 +673,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                             <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
                                             <SelectItem value="INSTALL_CLOSED" className="text-xs">Install Closed</SelectItem>
                                             <SelectItem value="PROV_CLOSED" className="text-xs">Prov. Closed</SelectItem>
+                                            <SelectItem value="RETURN" className="text-xs text-rose-600 font-semibold">Returned</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

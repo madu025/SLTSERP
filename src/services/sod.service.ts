@@ -105,8 +105,12 @@ export class ServiceOrderService {
         const completionStatuses = ["COMPLETED", "INSTALL_CLOSED", "PAT_OPMC_PASSED", "PAT_CORRECTED"];
 
         if (filter === 'pending') {
-            whereClause.sltsStatus = { notIn: ['COMPLETED', 'RETURN'] };
-            whereClause.status = { notIn: completionStatuses };
+            if (statusFilter === 'RETURN') {
+                whereClause.sltsStatus = 'RETURN';
+            } else {
+                whereClause.sltsStatus = { notIn: ['COMPLETED', 'RETURN'] };
+                whereClause.status = { notIn: completionStatuses };
+            }
         } else if (filter === 'completed') {
             whereClause.OR = [
                 { sltsStatus: 'COMPLETED' },
@@ -169,7 +173,7 @@ export class ServiceOrderService {
         const orderBy: Prisma.ServiceOrderOrderByWithRelationInput[] = [primaryOrderBy, { id: 'desc' }];
 
         // Run queries in parallel
-        const [total, items, statusGroups, contractorCount, appointmentCount, opmcGroups, hoGroups, sltGroups] = await Promise.all([
+        const [total, items, statusGroups, contractorCount, appointmentCount, opmcGroups, hoGroups, sltGroups, returnCount] = await Promise.all([
             prisma.serviceOrder.count({ where: whereClause }),
             prisma.serviceOrder.findMany({
                 where: whereClause,
@@ -236,7 +240,10 @@ export class ServiceOrderService {
             // PAT Breakdowns (Group 5, 6, 7)
             prisma.serviceOrder.groupBy({ by: ['opmcPatStatus'], where: whereClause, _count: true }),
             prisma.serviceOrder.groupBy({ by: ['hoPatStatus'], where: whereClause, _count: true }),
-            prisma.serviceOrder.groupBy({ by: ['sltsPatStatus'], where: whereClause, _count: true })
+            prisma.serviceOrder.groupBy({ by: ['sltsPatStatus'], where: whereClause, _count: true }),
+            prisma.serviceOrder.count({
+                where: { opmcId, sltsStatus: 'RETURN' }
+            })
         ]);
 
         return {
@@ -256,6 +263,7 @@ export class ServiceOrderService {
                     acc[curr.status] = curr._count;
                     return acc;
                 }, {} as Record<string, number>),
+                totalReturns: returnCount as number,
                 patBreakdown: {
                     opmc: (opmcGroups || []).reduce((acc: Record<string, number>, curr: Prisma.PickEnumerable<Prisma.ServiceOrderGroupByOutputType, "opmcPatStatus"[]> & { _count: number }) => { acc[curr.opmcPatStatus || 'PENDING'] = curr._count; return acc; }, {} as Record<string, number>),
                     ho: (hoGroups || []).reduce((acc: Record<string, number>, curr: Prisma.PickEnumerable<Prisma.ServiceOrderGroupByOutputType, "hoPatStatus"[]> & { _count: number }) => { acc[curr.hoPatStatus || 'PENDING'] = curr._count; return acc; }, {} as Record<string, number>),
@@ -392,7 +400,7 @@ export class ServiceOrderService {
                 const receivedOnStr = getVal(item, "RECEIVED ON") || getVal(item, "receivedDate");
                 let receivedDate = new Date();
                 if (receivedOnStr) {
-                    const parsed = new Date(receivedOnStr);
+                    const parsed = new Date(receivedOnStr as string | number | Date);
                     if (!isNaN(parsed.getTime())) {
                         receivedDate = parsed;
                     }
