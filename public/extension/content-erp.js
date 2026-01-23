@@ -1,12 +1,28 @@
-// This script runs on our ERP domain to signal presence
-(function () {
-    window.SLT_BRIDGE_VERSION = "1.0.0";
-    document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
+// This script runs on our ERP domain
+function injectSignal() {
+    const script = document.createElement('script');
+    script.textContent = `
+        (function() {
+            window.SLT_BRIDGE_INSTALLED = true;
+            window.SLT_BRIDGE_VERSION = "1.0.1";
+            document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
+            
+            // Dispatch to both window and document to be safe
+            const event = new CustomEvent('SLT_BRIDGE_DETECTED', { 
+                detail: { version: "1.0.1", status: 'active' } 
+            });
+            window.dispatchEvent(event);
+            document.dispatchEvent(event);
 
-    // Dispatch event so React components can listen
-    window.dispatchEvent(new CustomEvent('SLT_BRIDGE_DETECTED', {
-        detail: { version: "1.0.0", status: 'active' }
-    }));
+            console.log("🚀 SLT-ERP Bridge Signal Injected Successfully");
+        })();
+    `;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
+}
 
-    console.log("🚀 SLT-ERP Bridge Detected & Signaling ERP...");
-})();
+// Run immediately
+injectSignal();
+
+// Also set attribute in content script world just in case
+document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
