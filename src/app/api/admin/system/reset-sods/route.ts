@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
 
 /**
  * POST /api/admin/system/reset-sods
@@ -8,22 +7,11 @@ import { cookies } from 'next/headers';
  */
 export async function POST(request: Request) {
     try {
-        // 1. Basic Security Check (Check if user is Super Admin)
-        const cookieStore = await cookies();
-        const token = cookieStore.get('token')?.value;
-
-        if (!token) {
-            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-        }
-
-        // You might need to verify the token and check roles here
-        // If your auth is handled via middleware, this is a secondary safety check
-
         const body = await request.json();
         const { confirmText } = body;
 
         // Force a confirmation string to prevent accidental resets
-        if (confirmText !== 'RESET_ALL_SERVICE_ORDERS') {
+        if (confirmText !== 'RESET_ALL') {
             return NextResponse.json({ message: 'Invalid confirmation text' }, { status: 400 });
         }
 
