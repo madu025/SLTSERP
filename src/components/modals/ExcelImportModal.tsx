@@ -29,17 +29,46 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
         if (selectedFile) {
             setFile(selectedFile);
 
-            // Read for preview
             const reader = new FileReader();
             reader.onload = (evt) => {
-                const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: "binary" });
-                const wsname = wb.SheetNames[0];
-                const ws = wb.Sheets[wsname];
-                const data = XLSX.utils.sheet_to_json(ws);
-                setPreview(data.slice(0, 5)); // Just first 5 rows for preview
+                try {
+                    const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+                    const wb = XLSX.read(data, { type: "array", cellDates: true });
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+
+                    // Smart Header Detection: Find the row that actually contains our headers
+                    let startRow = 0;
+                    const ref = ws['!ref'];
+                    if (ref) {
+                        const decoded = XLSX.utils.decode_range(ref);
+                        for (let r = 0; r < Math.min(decoded.e.r, 20); r++) {
+                            let isHeaderRow = false;
+                            for (let c = 0; c <= decoded.e.c; c++) {
+                                const cell = ws[XLSX.utils.encode_cell({ r, c })];
+                                if (cell && cell.v) {
+                                    const val = String(cell.v).toUpperCase().trim();
+                                    if (['SOD', 'RTOM', 'SERVICE', 'TASK', 'STATUS'].includes(val)) {
+                                        isHeaderRow = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isHeaderRow) {
+                                startRow = r;
+                                break;
+                            }
+                        }
+                    }
+
+                    const jsonData = XLSX.utils.sheet_to_json(ws, { range: startRow, raw: false, defval: "" });
+                    setPreview(jsonData.slice(0, 10));
+                } catch (err) {
+                    console.error("Preview error:", err);
+                    toast.error("Failed to read file preview");
+                }
             };
-            reader.readAsBinaryString(selectedFile);
+            reader.readAsArrayBuffer(selectedFile);
         }
     };
 
@@ -50,35 +79,65 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
         try {
             const reader = new FileReader();
             reader.onload = async (evt) => {
-                const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: "binary" });
-                const wsname = wb.SheetNames[0];
-                const ws = wb.Sheets[wsname];
-                const data = XLSX.utils.sheet_to_json(ws);
+                try {
+                    const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+                    const wb = XLSX.read(data, { type: "array", cellDates: true });
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
 
-                const response = await fetch("/api/service-orders/bulk-import", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ rows: data }),
-                });
+                    // Smart Header Detection
+                    let startRow = 0;
+                    const ref = ws['!ref'];
+                    if (ref) {
+                        const decoded = XLSX.utils.decode_range(ref);
+                        for (let r = 0; r < Math.min(decoded.e.r, 20); r++) {
+                            let isHeaderRow = false;
+                            for (let c = 0; c <= decoded.e.c; c++) {
+                                const cell = ws[XLSX.utils.encode_cell({ r, c })];
+                                if (cell && cell.v) {
+                                    const val = String(cell.v).toUpperCase().trim();
+                                    if (['SOD', 'RTOM', 'SERVICE', 'TASK', 'STATUS'].includes(val)) {
+                                        isHeaderRow = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isHeaderRow) {
+                                startRow = r;
+                                break;
+                            }
+                        }
+                    }
 
-                const result = await response.json();
+                    const jsonData = XLSX.utils.sheet_to_json(ws, { range: startRow, raw: false, defval: "" });
 
-                if (response.ok) {
-                    toast.success(result.message || "Import successful");
-                    onImportSuccess();
-                    onClose();
-                    setFile(null);
-                    setPreview([]);
-                } else {
-                    toast.error(result.message || "Import failed");
+                    const response = await fetch("/api/service-orders/bulk-import", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ rows: jsonData }),
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        toast.success(result.message || "Import successful");
+                        onImportSuccess();
+                        onClose();
+                        setFile(null);
+                        setPreview([]);
+                    } else {
+                        toast.error(result.message || "Import failed");
+                    }
+                } catch (err) {
+                    console.error("Import error:", err);
+                    toast.error("Failed to process file");
+                    setIsUploading(false);
                 }
             };
-            reader.readAsBinaryString(file);
+            reader.readAsArrayBuffer(file);
         } catch (error) {
             console.error("Import error:", error);
             toast.error("An error occurred during import");
-        } finally {
             setIsUploading(false);
         }
     };
@@ -132,11 +191,11 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                                         {preview.map((row: any, i) => {
                                             const getVal = (row: any, key: string) => {
                                                 const foundKey = Object.keys(row).find(rk => rk.trim().toUpperCase() === key.toUpperCase());
-                                                return foundKey ? String(row[foundKey]) : "-";
+                                                return foundKey ? String(row[foundKey]) : "Not Found";
                                             };
                                             return (
                                                 <tr key={i}>
-                                                    <td className="px-2 py-1 font-mono">{getVal(row, "SOD")}</td>
+                                                    <td className="px-2 py-1 font-mono text-emerald-600">{getVal(row, "SOD")}</td>
                                                     <td className="px-2 py-1">{getVal(row, "RTOM")}</td>
                                                     <td className="px-2 py-1">{getVal(row, "STATUS")}</td>
                                                 </tr>
