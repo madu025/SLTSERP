@@ -342,7 +342,7 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                                                     {(() => {
                                                         const s = String(getVal(row, 'STATUS') || "").toUpperCase();
                                                         if (s === 'INSTALL_CLOSED' || s === 'COMPLETED')
-                                                            return <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100/50 border border-emerald-200">MARK AS COMPLETED</span>;
+                                                            return <span className="text-[9px] font-bold text-emerald-600 px-1.5 py-0.5 rounded-full bg-emerald-100/50 border border-emerald-200">MARK AS COMPLETED (Sets Default Date)</span>;
                                                         if (s === 'PROV_CLOSED' || s === 'INPROGRESS' || s === 'ASSIGNED')
                                                             return <span className="text-[9px] font-bold text-blue-600 px-1.5 py-0.5 rounded-full bg-blue-100/50 border border-blue-200">MARK AS INPROGRESS</span>;
                                                         if (s.includes('RETURN'))
