@@ -123,7 +123,7 @@ export const GET = withTracing(async (request: any) => {
             // Monthly Summary (Current Month)
             Promise.all([
                 prisma.serviceOrder.count({ where: { ...monthlyWhere } }),
-                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, status: 'INSTALL_CLOSED', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
                 prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
             ]).then(([total, completed, pending, returned]) => [
@@ -132,12 +132,18 @@ export const GET = withTracing(async (request: any) => {
                 { sltsStatus: 'INPROGRESS', _count: { _all: pending } },
                 { sltsStatus: 'RETURN', _count: { _all: returned } },
             ]),
-            // Yearly/All-Time Summary (2026)
-            prisma.serviceOrder.groupBy({
-                by: ['sltsStatus'],
-                where: baseWhere,
-                _count: { _all: true }
-            }),
+            // Yearly Summary (2026) - Categorized by respective dates
+            Promise.all([
+                prisma.serviceOrder.count({ where: { ...whereClause, receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, status: 'INSTALL_CLOSED', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } } }),
+            ]).then(([total, completed, pending, returned]) => [
+                { sltsStatus: 'TOTAL', _count: { _all: total } },
+                { sltsStatus: 'COMPLETED', _count: { _all: completed } },
+                { sltsStatus: 'INPROGRESS', _count: { _all: pending } },
+                { sltsStatus: 'RETURN', _count: { _all: returned } },
+            ]),
             // PAT Stats (Live)
             prisma.serviceOrder.groupBy({
                 by: ['rtom', 'patStatus'],
@@ -153,7 +159,7 @@ export const GET = withTracing(async (request: any) => {
                 }),
                 prisma.serviceOrder.groupBy({
                     by: ['rtom'],
-                    where: { ...whereClause, sltsStatus: 'COMPLETED', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
+                    where: { ...whereClause, status: 'INSTALL_CLOSED', statusDate: { gte: firstDayOfYear, lte: lastDayOfYear } },
                     _count: { _all: true }
                 }),
                 prisma.serviceOrder.groupBy({
@@ -171,13 +177,13 @@ export const GET = withTracing(async (request: any) => {
             // SLTS PAT stats (Live)
             prisma.serviceOrder.groupBy({
                 by: ['rtom', 'sltsPatStatus'],
-                where: whereClause,
+                where: baseWhere,
                 _count: { _all: true }
             }),
             // Contractor Performance (Live)
             (isAdmin || isManager) ? prisma.serviceOrder.groupBy({
                 by: ['contractorId', 'sltsStatus'],
-                where: { ...whereClause, contractorId: { not: null } },
+                where: { ...baseWhere, contractorId: { not: null } },
                 _count: { _all: true }
             }) : Promise.resolve([])
         ]);

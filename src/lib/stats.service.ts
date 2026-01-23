@@ -74,7 +74,7 @@ export class StatsService {
             sltsPatRejected
         ] = await Promise.all([
             prisma.serviceOrder.count({ where: { opmcId, sltsStatus: 'INPROGRESS', receivedDate: { gte: currentYearStart, lt: nextYearStart } } }),
-            prisma.serviceOrder.count({ where: { opmcId, sltsStatus: 'COMPLETED', statusDate: { gte: currentYearStart, lt: nextYearStart } } }),
+            prisma.serviceOrder.count({ where: { opmcId, status: 'INSTALL_CLOSED', statusDate: { gte: currentYearStart, lt: nextYearStart } } }),
             prisma.serviceOrder.count({ where: { opmcId, sltsStatus: 'RETURN', statusDate: { gte: currentYearStart, lt: nextYearStart } } }),
             prisma.serviceOrder.count({ where: { opmcId, patStatus: 'PASS', statusDate: { gte: currentYearStart, lt: nextYearStart } } }),
             prisma.serviceOrder.count({ where: { opmcId, patStatus: 'REJECTED', statusDate: { gte: currentYearStart, lt: nextYearStart } } }),
