@@ -12,9 +12,9 @@
     "content_scripts": [
         {
             "matches": [
-                "http://localhost:3000/*",
-                "https://*.vercel.app/*",
-                "https://d2ixqikwtprwf0.cloudfront.net/*"
+                "*://localhost/*",
+                "*://*.vercel.app/*",
+                "*://d2ixqikwtprwf0.cloudfront.net/*"
             ],
             "js": [
                 "content-erp.js"

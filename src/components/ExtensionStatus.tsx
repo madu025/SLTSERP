@@ -14,24 +14,35 @@ export default function ExtensionStatus() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
-        // 1. Initial Check
+        // 1. Initial Check function
         const check = () => {
             const installed = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true';
-            setIsInstalled(installed);
+            if (installed) {
+                setIsInstalled(true);
+                setChecking(false);
+                return true;
+            }
+            return false;
+        };
+
+        // 2. Listen for the event
+        const handleDetected = () => {
+            setIsInstalled(true);
             setChecking(false);
         };
 
-        // 2. Listen for the event (if extension loads after page)
-        window.addEventListener('SLT_BRIDGE_DETECTED', () => {
-            setIsInstalled(true);
-            setChecking(false);
-        });
+        window.addEventListener('SLT_BRIDGE_DETECTED', handleDetected);
 
-        // Small delay to allow injection
-        const timer = setTimeout(check, 1000);
+        // 3. Retry checks (sometimes document_start injection is slightly late)
+        const check1 = setTimeout(() => { if (!check()) { /* continue waiting */ } }, 500);
+        const check2 = setTimeout(() => { if (!check()) setChecking(false); }, 2000);
+        const check3 = setTimeout(() => { if (!check()) setChecking(false); }, 5000);
+
         return () => {
-            clearTimeout(timer);
-            window.removeEventListener('SLT_BRIDGE_DETECTED', check);
+            clearTimeout(check1);
+            clearTimeout(check2);
+            clearTimeout(check3);
+            window.removeEventListener('SLT_BRIDGE_DETECTED', handleDetected);
         };
     }, []);
 
