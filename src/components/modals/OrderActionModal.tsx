@@ -279,6 +279,44 @@ export default function OrderActionModal({
     // Tab Navigation State
     const [activeTab, setActiveTab] = useState<'details' | 'materials' | 'finish'>('details');
 
+    // Preset Helper
+    const applyMaterialPreset = (type: 'STANDARD' | 'CLEAR') => {
+        if (type === 'CLEAR') {
+            setExtendedMaterialRows([]);
+            return;
+        }
+
+        const newRows = [...extendedMaterialRows];
+        const updateOrAdd = (code: string, field: string, value: string) => {
+            const item = items.find(i => i.code === code);
+            if (!item) return;
+            const existingIdx = newRows.findIndex(r => r.itemId === item.id);
+            if (existingIdx >= 0) {
+                (newRows[existingIdx] as any)[field] = value;
+            } else {
+                const newRow = { itemId: item.id, usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: '' };
+                (newRow as any)[field] = value;
+                newRows.push(newRow);
+            }
+        };
+
+        if (type === 'STANDARD') {
+            updateOrAdd('OSPFTA003', 'f1Qty', '40');
+            updateOrAdd('OSPFTA003', 'g1Qty', '10');
+            // Try to find OTO and Patch Cord by common name if codes vary
+            const oto = items.find(i => i.commonName?.toUpperCase().includes('OTO') || i.name.toUpperCase().includes('OTO'));
+            const pc = items.find(i => i.commonName?.toUpperCase().includes('PATCH CORD') || i.name.toUpperCase().includes('PATCH CORD'));
+            const conn = items.find(i => i.commonName?.toUpperCase().includes('CONNECTOR') || i.name.toUpperCase().includes('CONNECTOR'));
+
+            if (oto) updateOrAdd(oto.code, 'usedQty', '1');
+            if (pc) updateOrAdd(pc.code, 'usedQty', '1');
+            if (conn) updateOrAdd(conn.code, 'usedQty', '2');
+        }
+
+        setExtendedMaterialRows(newRows);
+        toast?.info && (toast as any).info(`${type === 'STANDARD' ? 'Standard' : 'Fresh'} materials applied`);
+    };
+
     // Quick Entry State
     const [quickMaterialId, setQuickMaterialId] = useState('');
     const [quickUsedQty, setQuickUsedQty] = useState('');
@@ -936,7 +974,36 @@ export default function OrderActionModal({
                                     {/* TAB 2: MATERIALS - 3 COLUMN LAYOUT */}
                                     {/* TAB 2: MATERIALS */}
                                     {activeTab === 'materials' && (
-                                        <div className="max-w-none space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                                        <div className="max-w-none space-y-6 animate-in fade-in slide-in-from-right-4 duration-300 pb-10">
+
+                                            {/* PRESETS BAR */}
+                                            <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Presets:</span>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-8 text-[11px] font-bold border-blue-200 text-blue-600 hover:bg-blue-50"
+                                                        onClick={() => applyMaterialPreset('STANDARD')}
+                                                    >
+                                                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                                                        STANDARD FTTH
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-8 text-[11px] font-bold text-rose-500 hover:bg-rose-50"
+                                                        onClick={() => applyMaterialPreset('CLEAR')}
+                                                    >
+                                                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                                                        RESET ALL
+                                                    </Button>
+                                                </div>
+                                                <div className="hidden md:flex items-center gap-1 text-[10px] text-slate-400 italic">
+                                                    <Info className="w-3 h-3" />
+                                                    Click presets for quick-filling common items
+                                                </div>
+                                            </div>
 
                                             {/* HERO SECTION: DROP WIRE */}
                                             {quickItems.filter((q: any) => q.item.code === 'OSPFTA003').map((q: any) => {
@@ -967,6 +1034,17 @@ export default function OrderActionModal({
                                                                         value={getQuickQty(q.item.id, 'f1Qty')}
                                                                         onChange={(e) => handleQuickAdd(q.item.id, 'f1Qty', e.target.value)}
                                                                     />
+                                                                    <div className="flex justify-center gap-1 mt-1.5">
+                                                                        {['30', '40', '50', '60'].map(v => (
+                                                                            <button
+                                                                                key={v}
+                                                                                onClick={() => handleQuickAdd(q.item.id, 'f1Qty', v)}
+                                                                                className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 rounded border border-slate-200 transition-colors"
+                                                                            >
+                                                                                {v}m
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
                                                                 <div className="space-y-1.5">
                                                                     <label className="text-[10px] uppercase font-bold text-slate-400 block text-center tracking-wider">G1 (Inside)</label>
@@ -975,6 +1053,17 @@ export default function OrderActionModal({
                                                                         value={getQuickQty(q.item.id, 'g1Qty')}
                                                                         onChange={(e) => handleQuickAdd(q.item.id, 'g1Qty', e.target.value)}
                                                                     />
+                                                                    <div className="flex justify-center gap-1 mt-1.5">
+                                                                        {['5', '10', '15', '20'].map(v => (
+                                                                            <button
+                                                                                key={v}
+                                                                                onClick={() => handleQuickAdd(q.item.id, 'g1Qty', v)}
+                                                                                className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 rounded border border-slate-200 transition-colors"
+                                                                            >
+                                                                                {v}m
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
                                                                 </div>
                                                                 <div className="space-y-1.5 relative">
                                                                     <label className="text-[10px] uppercase font-bold text-rose-400 block text-center tracking-wider">Wastage (m)</label>
@@ -1058,11 +1147,31 @@ export default function OrderActionModal({
                                                                                 )}
                                                                             </td>
                                                                             <td className="px-1 py-2 text-center">
-                                                                                <Input className="h-7 w-12 mx-auto text-center font-mono text-xs border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                                                                                    placeholder="0"
-                                                                                    value={getQuickQty(q.item.id, 'usedQty')}
-                                                                                    onChange={(e) => handleQuickAdd(q.item.id, 'usedQty', e.target.value)}
-                                                                                />
+                                                                                <div className="flex items-center justify-center gap-1.5">
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            const cur = parseInt(getQuickQty(q.item.id, 'usedQty') || '0');
+                                                                                            if (cur > 0) handleQuickAdd(q.item.id, 'usedQty', String(cur - 1));
+                                                                                        }}
+                                                                                        className="w-5 h-5 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 rounded text-xs transition-colors"
+                                                                                    >
+                                                                                        -
+                                                                                    </button>
+                                                                                    <Input className="h-7 w-12 text-center font-mono text-xs border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+                                                                                        placeholder="0"
+                                                                                        value={getQuickQty(q.item.id, 'usedQty')}
+                                                                                        onChange={(e) => handleQuickAdd(q.item.id, 'usedQty', e.target.value)}
+                                                                                    />
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            const cur = parseInt(getQuickQty(q.item.id, 'usedQty') || '0');
+                                                                                            handleQuickAdd(q.item.id, 'usedQty', String(cur + 1));
+                                                                                        }}
+                                                                                        className="w-5 h-5 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 rounded text-xs transition-colors"
+                                                                                    >
+                                                                                        +
+                                                                                    </button>
+                                                                                </div>
                                                                             </td>
                                                                             <td className="px-1 py-2 text-center">
                                                                                 {((q.item as any).isWastageAllowed ?? true) ? (

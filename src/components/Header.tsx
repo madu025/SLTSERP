@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import NotificationBell from "@/components/NotificationBell";
 import MobileNav from "@/components/MobileNav";
+import ExtensionStatus from "@/components/ExtensionStatus";
 
 interface User {
     name: string;
@@ -63,7 +64,8 @@ export default function Header() {
                 </div>
             </div>
 
-            <div className="flex items-center space-x-2 md:space-x-6">
+            <div className="flex items-center space-x-2 md:space-x-4">
+                <ExtensionStatus />
                 <NotificationBell />
 
                 <div className="relative profile-dropdown">

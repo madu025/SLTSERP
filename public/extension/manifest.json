@@ -1,0 +1,32 @@
+{
+    "manifest_version": 3,
+    "name": "SLT-ERP Bridge",
+    "version": "1.0.0",
+    "description": "Syncs data between SLT Portal and SLT-ERP System",
+    "permissions": [
+        "storage"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "http://localhost:3000/*",
+                "https://*.vercel.app/*"
+            ],
+            "js": [
+                "content-erp.js"
+            ],
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "https://serviceportal.slt.lk/*"
+            ],
+            "js": [
+                "content-slt.js"
+            ]
+        }
+    ]
+}
