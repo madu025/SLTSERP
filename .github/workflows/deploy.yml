@@ -1,14 +1,56 @@
-name: Deploy to AWS
+name: Build and Deploy
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Server
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build Application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+
+      - name: Prepare Deployment Artifacts
+        run: |
+          mkdir -p deploy
+          cp -r .next deploy/
+          cp -r public deploy/
+          cp package.json deploy/
+          cp next.config.ts deploy/
+          cp -r prisma deploy/
+
+      - name: Transfer Artifacts to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "deploy/*"
+          target: "~/slts-erp"
+          strip_components: 1
+
+      - name: Finalize Deployment on Server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -16,12 +58,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/slts-erp
-            git fetch --all
-            git reset --hard origin/main
-            npm install
+            # No build on server! Just install and restart.
+            npm install --production
             npx prisma generate
-            npm run build
-            # Restart the app using sudo PM2 (required for Port 80)
-            sudo pm2 restart slts-erp || sudo pm2 start npm --name "slts-erp" -- start -- --port 80
-            # Run database migrations
             npx prisma migrate deploy
+            sudo pm2 restart slts-erp || sudo pm2 start npm --name "slts-erp" -- start -- --port 80
