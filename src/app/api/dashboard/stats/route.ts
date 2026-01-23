@@ -104,11 +104,18 @@ export const GET = withTracing(async (request: any) => {
             monthlyStatsRaw,
             contractorPerfRaw
         ] = await Promise.all([
-            prisma.serviceOrder.groupBy({
-                by: ['sltsStatus'],
-                where: { ...whereClause, createdAt: { gte: firstDayOfMonth, lte: lastDayOfMonth } },
-                _count: { _all: true }
-            }),
+            // Use receivedDate for total/pending, and statusDate for completed/returned
+            Promise.all([
+                prisma.serviceOrder.count({ where: { ...whereClause, receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'COMPLETED', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'INPROGRESS', receivedDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+                prisma.serviceOrder.count({ where: { ...whereClause, sltsStatus: 'RETURN', statusDate: { gte: firstDayOfMonth, lte: lastDayOfMonth } } }),
+            ]).then(([total, completed, pending, returned]) => [
+                { sltsStatus: 'TOTAL', _count: { _all: total } },
+                { sltsStatus: 'COMPLETED', _count: { _all: completed } },
+                { sltsStatus: 'INPROGRESS', _count: { _all: pending } },
+                { sltsStatus: 'RETURN', _count: { _all: returned } },
+            ]),
             (isAdmin || isManager) ? prisma.serviceOrder.groupBy({
                 by: ['contractorId', 'sltsStatus'],
                 where: { ...whereClause, contractorId: { not: null } },
