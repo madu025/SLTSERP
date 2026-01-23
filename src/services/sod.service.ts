@@ -319,12 +319,13 @@ export class ServiceOrderService {
     static async bulkImportServiceOrders(data: any[]) {
         let created = 0;
         let failed = 0;
+        const errors: string[] = [];
 
         // Pre-fetch all OPMCs to map rtom to id
         const opmcs = await prisma.oPMC.findMany();
         const opmcMap = new Map(opmcs.map(o => [o.rtom.toUpperCase().trim(), o.id]));
 
-        for (const item of data) {
+        for (const [index, item] of data.entries()) {
             try {
                 const getVal = (row: any, key: string) => {
                     const foundKey = Object.keys(row).find(rk => rk.trim().toUpperCase() === key.toUpperCase());
@@ -334,21 +335,23 @@ export class ServiceOrderService {
                 const soNum = getVal(item, "SOD") || getVal(item, "soNum");
                 if (!soNum) {
                     failed++;
+                    if (errors.length < 10) errors.push(`Row ${index + 1}: Missing SOD number`);
                     continue;
                 }
 
-                const rtomKey = String(getVal(item, "RTOM") || getVal(item, "rtom") || "")?.toUpperCase()?.trim();
+                const rtomValue = getVal(item, "RTOM") || getVal(item, "rtom");
+                const rtomKey = String(rtomValue || "")?.toUpperCase()?.trim();
                 const opmcId = opmcMap.get(rtomKey);
 
                 if (!opmcId) {
-                    console.error(`Opmc not found for RTOM: ${rtomKey}`);
                     failed++;
+                    if (errors.length < 10) errors.push(`Row ${index + 1} (SOD: ${soNum}): OPMC not found for RTOM "${rtomKey || 'EMPTY'}"`);
                     continue;
                 }
 
                 // Map Excel fields to DB fields
                 const dbData = {
-                    rtom: String(getVal(item, "RTOM") || ""),
+                    rtom: String(rtomValue || ""),
                     lea: String(getVal(item, "LEA") || ""),
                     soNum: String(soNum),
                     voiceNumber: String(getVal(item, "CIRCUIT") || ""),
@@ -379,7 +382,7 @@ export class ServiceOrderService {
                 }
 
                 await prisma.serviceOrder.upsert({
-                    where: { soNum },
+                    where: { soNum: String(soNum) },
                     update: {
                         ...dbData,
                         statusDate: receivedDate,
@@ -393,13 +396,14 @@ export class ServiceOrderService {
                     }
                 });
                 created++;
-            } catch (err) {
-                console.error(`Bulk import failed for item:`, item, err);
+            } catch (err: any) {
+                console.error(`Bulk import failed for row ${index + 1}:`, err);
                 failed++;
+                if (errors.length < 10) errors.push(`Row ${index + 1}: ${err.message || 'Database error'}`);
             }
         }
 
-        return { created, failed };
+        return { created, failed, errors };
     }
 
     /**
