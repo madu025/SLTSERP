@@ -1136,9 +1136,16 @@ export class ServiceOrderService {
             try {
                 const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
 
-                // Determine sltsStatus based on SLT status - Strictly 'INSTALL_CLOSED' as per user requirement
+                // Determine sltsStatus based on SLT status
                 const completionStatuses = ['INSTALL_CLOSED'];
-                const initialSltsStatus = completionStatuses.includes(item.CON_STATUS) ? 'COMPLETED' : 'INPROGRESS';
+                const returnStatuses = ['RETURN_PENDING', 'CANCELLED'];
+
+                let initialSltsStatus = 'INPROGRESS';
+                if (completionStatuses.includes(item.CON_STATUS)) {
+                    initialSltsStatus = 'COMPLETED';
+                } else if (returnStatuses.some(s => item.CON_STATUS.includes(s))) {
+                    initialSltsStatus = 'RETURN';
+                }
 
                 // Check if this specific soNum exists
                 // Check if this soNum already exists in our system
