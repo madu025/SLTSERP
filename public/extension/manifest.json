@@ -27,7 +27,7 @@
         },
         {
             "matches": [
-                "https://serviceportal.slt.lk/*"
+                "*://serviceportal.slt.lk/*"
             ],
             "js": [
                 "content-slt.js"
