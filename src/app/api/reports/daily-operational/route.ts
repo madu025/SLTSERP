@@ -2,6 +2,130 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { startOfDay, endOfDay } from 'date-fns';
 
+interface InHandMorningEntry {
+    nc: number;
+    rl: number;
+    data: number;
+    total: number;
+}
+
+interface ReceivedEntry {
+    nc: number;
+    rl: number;
+    data: number;
+    total: number;
+}
+
+interface CompletedEntry {
+    create: number;
+    recon: number;
+    upgrade: number;
+    fnc: number;
+    or: number;
+    ml: number;
+    frl: number;
+    data: number;
+    total: number;
+}
+
+interface MaterialEntry {
+    dwSlt: number;
+    dwCompany: number;
+    dw: number;
+    pole56: number;
+    pole67: number;
+    pole80: number;
+}
+
+interface ReturnedEntry {
+    nc: number;
+    rl: number;
+    data: number;
+    total: number;
+}
+
+interface WiredOnlyEntry {
+    nc: number;
+    rl: number;
+    data: number;
+    total: number;
+}
+
+interface DelaysEntry {
+    ontShortage: number;
+    stbShortage: number;
+    nokia: number;
+    system: number;
+    opmc: number;
+    cxDelay: number;
+    sameDay: number;
+    polePending: number;
+}
+
+interface BalanceEntry {
+    nc: number;
+    rl: number;
+    data: number;
+    total: number;
+}
+
+interface ShortagesEntry {
+    stb: number;
+    ont: number;
+}
+
+interface ReportRow {
+    region: string;
+    province: string;
+    rtom: string;
+    regularTeams: number;
+    teamsWorked: number;
+    inHandMorning: InHandMorningEntry;
+    received: ReceivedEntry;
+    totalInHand: number;
+    completed: CompletedEntry;
+    material: MaterialEntry;
+    returned: ReturnedEntry;
+    wiredOnly: WiredOnlyEntry;
+    delays: DelaysEntry;
+    balance: BalanceEntry;
+    shortages: ShortagesEntry;
+}
+
+interface StatusHistoryEntry {
+    status: string;
+    statusDate: Date | null | string;
+}
+
+interface MaterialUsageItem {
+    category: string | null;
+    name: string | null;
+    code: string | null;
+}
+
+interface MaterialUsageEntry {
+    item: MaterialUsageItem | null;
+    quantity: number | string | { toNumber(): number }; // Handle Prisma Decimal
+}
+
+interface ServiceOrderWithRelations {
+    id: string;
+    orderType: string | null;
+    package: string | null;
+    status: string | null;
+    statusDate: Date | null;
+    receivedDate: Date | null;
+    createdAt: Date;
+    sltsStatus: string | null;
+    wiredOnly: boolean | null;
+    teamId: string | null;
+    materialUsage: MaterialUsageEntry[];
+    statusHistory: StatusHistoryEntry[];
+    delayReasons?: Record<string, boolean> | null;
+    stbShortage?: boolean;
+    ontShortage?: boolean;
+}
+
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -47,31 +171,29 @@ export async function GET(request: Request) {
         });
 
         // Workaround: Fetch materialSource via raw query since client validation might fail (stale client)
-        // We replicate the date filters to fetch relevant IDs
-        const rawSources: any[] = await prisma.$queryRaw`
+        const rawSources: { id: string; materialSource: string }[] = await prisma.$queryRaw`
             SELECT "id", "materialSource" FROM "ServiceOrder" 
             WHERE ("createdAt" >= ${startDate} AND "createdAt" <= ${endDate})
                OR ("completedDate" >= ${startDate} AND "completedDate" <= ${endDate})
                OR ("statusDate" >= ${startDate} AND "statusDate" <= ${endDate})
         `;
 
-        const sourceMap = new Map(rawSources.map(s => [s.id, s.materialSource]));
+        const sourceMap = new Map<string, string>(rawSources.map(s => [s.id, s.materialSource]));
 
         // NEW: Fetch "In Hand Morning" - SODs that were pending at midnight (start of today)
-        // These are SODs that existed before today AND were not completed/returned before today
         const inHandMorningOrders = await prisma.serviceOrder.groupBy({
             by: ['rtom', 'orderType'],
             where: {
-                createdAt: { lt: startDate }, // Created before today
+                createdAt: { lt: startDate },
                 OR: [
-                    { completedDate: null }, // Never completed
-                    { completedDate: { gte: startDate } }, // Completed today or later
+                    { completedDate: null },
+                    { completedDate: { gte: startDate } },
                 ],
                 AND: [
                     {
                         OR: [
-                            { sltsStatus: { not: 'RETURN' } }, // Not returned
-                            { statusDate: { gte: startDate } }, // Or returned today or later
+                            { sltsStatus: { not: 'RETURN' } },
+                            { statusDate: { gte: startDate } },
                         ]
                     }
                 ]
@@ -79,8 +201,8 @@ export async function GET(request: Request) {
             _count: { id: true }
         });
 
-        // Build a map: rtom -> { nc, rl, data, total }
-        const inHandMorningMap = new Map<string, { nc: number; rl: number; data: number; total: number }>();
+        // Build a map: rtom -> InHandMorningEntry
+        const inHandMorningMap = new Map<string, InHandMorningEntry>();
         inHandMorningOrders.forEach(row => {
             const rtom = row.rtom;
             if (!inHandMorningMap.has(rtom)) {
@@ -90,7 +212,6 @@ export async function GET(request: Request) {
             const orderType = (row.orderType || '').toUpperCase();
             const count = row._count.id;
 
-            // Use the same categorization logic as the main processor
             if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION')) {
                 entry.rl += count;
             } else if (orderType.includes('CREATE') || orderType.includes('F-NC')) {
@@ -103,136 +224,58 @@ export async function GET(request: Request) {
             entry.total += count;
         });
 
-        // Attach materialSource to orders in memory
-        opmcs.forEach(opmc => {
-            (opmc.serviceOrders as any[]).forEach(order => {
-                const source = sourceMap.get(order.id);
-                if (source) {
-                    (order as any).materialSource = source;
-                }
-            });
-        });
-
-        const reportData = opmcs.map(opmc => {
-            const orders = opmc.serviceOrders as any[];
+        const reportData: ReportRow[] = opmcs.map(opmc => {
+            const orders = opmc.serviceOrders as unknown as ServiceOrderWithRelations[];
 
             // Calculate team metrics
             const regularTeams = opmc.contractorTeams.length;
             const teamsWorked = new Set(orders.map(o => o.teamId).filter(Boolean)).size;
 
             // Helper function to categorize orders based on Order Type
-            const categorizeOrder = (order: any) => {
+            const categorizeOrder = (order: ServiceOrderWithRelations) => {
                 const orderType = order.orderType?.toUpperCase() || '';
                 const packageInfo = (order.package || '').toUpperCase();
 
-                // RL: Relocation / Maintenance
                 if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION') || orderType.includes('F-RL') || packageInfo.includes('FRL')) {
-                    return 'rl';
+                    return 'rl' as const;
                 }
 
-                // NC: New Connections / Upgrades
                 if (orderType.includes('CREATE') || orderType.includes('F-NC') || packageInfo.includes('FNC') || packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
-                    return 'nc';
+                    return 'nc' as const;
                 }
 
-                return 'data';
+                return 'data' as const;
             };
 
-            // In Hand Morning (from precomputed map - SODs pending at midnight)
-            const inHandMorning = inHandMorningMap.get(opmc.rtom) || {
-                nc: 0,
-                rl: 0,
-                data: 0,
-                total: 0
-            };
+            const inHandMorning = inHandMorningMap.get(opmc.rtom) || { nc: 0, rl: 0, data: 0, total: 0 };
 
-            // Received Today
-            const received = {
-                nc: 0,
-                rl: 0,
-                data: 0,
-                total: 0
-            };
+            const received: ReceivedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
+            const completed: CompletedEntry = { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 };
+            const material: MaterialEntry = { dwSlt: 0, dwCompany: 0, dw: 0, pole56: 0, pole67: 0, pole80: 0 };
+            const returned: ReturnedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
+            const wiredOnly: WiredOnlyEntry = { nc: 0, rl: 0, data: 0, total: 0 };
+            const delays: DelaysEntry = { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 };
 
-            // Completed Today
-            const completed = {
-                create: 0,
-                recon: 0,
-                upgrade: 0,
-                fnc: 0,
-                or: 0,
-                ml: 0,
-                frl: 0,
-                data: 0,
-                total: 0
-            };
-
-            // Material Usage - Calculated from SODMaterialUsage relation
-            const material = {
-                dwSlt: 0,      // Drop Wire (SLT Source)
-                dwCompany: 0,  // Drop Wire (Company Source)
-                dw: 0,         // Combined Drop Wire for summary
-                pole56: 0,  // 5.6m poles
-                pole67: 0,  // 6.7m poles
-                pole80: 0   // 8.0m poles
-            };
-
-            // Returned Today
-            const returned = {
-                nc: 0,
-                rl: 0,
-                data: 0,
-                total: 0
-            };
-
-            // Wired Only - From database field
-            const wiredOnly = {
-                nc: 0,
-                rl: 0,
-                data: 0,
-                total: 0
-            };
-
-            // Delay Reasons - From database JSON field
-            const delays = {
-                ontShortage: 0,
-                stbShortage: 0,
-                nokia: 0,
-                system: 0,
-                opmc: 0,
-                cxDelay: 0,
-                sameDay: 0,
-                polePending: 0
-            };
-
-            // Process orders
             orders.forEach(order => {
                 const category = categorizeOrder(order);
+                const source = sourceMap.get(order.id) || 'SLT';
 
-                // Check if received today (actual received date from SLT)
                 const rDate = order.receivedDate || order.createdAt;
                 if (rDate >= startDate && rDate <= endDate) {
                     received[category]++;
                     received.total++;
                 }
 
-                // Check if completed today (The most inclusive check possible)
-                // 1. completedDate field is today
-                // 2. sltsStatus is COMPLETED AND (statusDate is today OR statusHistory has a completion today)
-                const isCompletedDateToday = order.completedDate && order.completedDate >= startDate && order.completedDate <= endDate;
-                const isStatusDateToday = order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate;
-                const hasCompletionStatus = order.sltsStatus === 'COMPLETED' || order.status === 'INSTALL_CLOSED' || order.status === 'COMPLETED';
-
-                const hadCompletionHistoryToday = order.statusHistory?.some((h: any) =>
-                    (h.status === 'INSTALL_CLOSED' || h.status === 'COMPLETED') &&
-                    new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
+                const isInstallClosedToday = order.status === 'INSTALL_CLOSED' && order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate;
+                const hadInstallClosedHistoryToday = order.statusHistory?.some((h) =>
+                    h.status === 'INSTALL_CLOSED' &&
+                    h.statusDate && new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
                 );
 
-                if (isCompletedDateToday || (hasCompletionStatus && (isStatusDateToday || hadCompletionHistoryToday))) {
+                if (isInstallClosedToday || hadInstallClosedHistoryToday) {
                     const orderType = order.orderType?.toUpperCase() || '';
                     const packageInfo = (order.package || '').toUpperCase();
 
-                    // Comprehensive categorization
                     if (orderType.includes('RECON')) {
                         completed.recon++;
                     } else if (orderType.includes('UPGRADE') || orderType.includes('UPGRD')) {
@@ -248,29 +291,25 @@ export async function GET(request: Request) {
                     } else if (orderType.includes('CREATE')) {
                         completed.create++;
                     } else {
-                        // Fallback: If it's a new connection (common for residential)
                         if (packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
                             completed.create++;
                         } else {
                             completed.data++;
                         }
                     }
-
                     completed.total++;
                 }
 
-                // Check if returned today
                 if (order.sltsStatus === 'RETURN' && order.statusDate &&
                     order.statusDate >= startDate && order.statusDate <= endDate) {
                     returned[category]++;
                     returned.total++;
                 }
 
-                // Track wired-only orders (PROV_CLOSED status or wiredOnly boolean)
                 const isProvClosedToday = order.status === 'PROV_CLOSED' && order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate;
-                const hadProvClosedHistoryToday = order.statusHistory?.some((h: any) =>
+                const hadProvClosedHistoryToday = order.statusHistory?.some((h) =>
                     h.status === 'PROV_CLOSED' &&
-                    new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
+                    h.statusDate && new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
                 );
 
                 if (isProvClosedToday || hadProvClosedHistoryToday || order.wiredOnly === true) {
@@ -278,9 +317,8 @@ export async function GET(request: Request) {
                     wiredOnly.total++;
                 }
 
-                // Track delay reasons from JSON field
-                if ((order as any).delayReasons) {
-                    const reasons = (order as any).delayReasons as any;
+                if (order.delayReasons) {
+                    const reasons = order.delayReasons as Record<string, boolean>;
                     if (reasons.ontShortage) delays.ontShortage++;
                     if (reasons.stbShortage) delays.stbShortage++;
                     if (reasons.nokia) delays.nokia++;
@@ -291,33 +329,35 @@ export async function GET(request: Request) {
                     if (reasons.polePending) delays.polePending++;
                 }
 
-                // Track material usage from SODMaterialUsage relation
                 if (order.materialUsage && order.materialUsage.length > 0) {
-                    order.materialUsage.forEach((usage: any) => {
+                    order.materialUsage.forEach((usage) => {
                         const itemCategory = usage.item?.category?.toLowerCase() || '';
                         const itemName = usage.item?.name?.toLowerCase() || '';
                         const itemCode = usage.item?.code?.toUpperCase() || '';
-                        const quantity = parseFloat(usage.quantity) || 0; // Use parseFloat for decimal qty like km
 
-                        // Drop Wire - Check by Code or Name
-                        // Code: OSPFTA003 is Fiber Drop Wire
+                        let quantity = 0;
+                        if (typeof usage.quantity === 'number') {
+                            quantity = usage.quantity;
+                        } else if (usage.quantity && typeof usage.quantity === 'object' && 'toNumber' in usage.quantity) {
+                            quantity = (usage.quantity as { toNumber(): number }).toNumber();
+                        } else {
+                            quantity = parseFloat(usage.quantity as string) || 0;
+                        }
+
                         if (itemCode === 'OSPFTA003' || itemName.includes('drop wire')) {
-                            const source = (order as any).materialSource || 'SLT';
                             if (source === 'COMPANY') {
                                 material.dwCompany += quantity;
                             } else {
                                 material.dwSlt += quantity;
                             }
                             material.dw += quantity;
-                        }
-                        // Poles - categorized by size
-                        else if (itemCategory.includes('pole')) {
+                        } else if (itemCategory.includes('pole')) {
                             if (itemName.includes('5.6')) {
-                                material.pole56 += quantity; // 5.6m poles
+                                material.pole56 += quantity;
                             } else if (itemName.includes('6.7')) {
-                                material.pole67 += quantity; // 6.7m poles
+                                material.pole67 += quantity;
                             } else if (itemName.includes('8.0') || itemName.includes('8')) {
-                                material.pole80 += quantity; // 8.0m poles
+                                material.pole80 += quantity;
                             }
                         }
                     });
@@ -326,8 +366,7 @@ export async function GET(request: Request) {
 
             const totalInHand = inHandMorning.total + received.total;
 
-            // Balance calculation
-            const balance = {
+            const balance: BalanceEntry = {
                 nc: inHandMorning.nc + received.nc - completed.create - completed.fnc - returned.nc,
                 rl: inHandMorning.rl + received.rl - completed.or - completed.ml - completed.frl - returned.rl,
                 data: inHandMorning.data + received.data - completed.data - returned.data,
@@ -335,10 +374,9 @@ export async function GET(request: Request) {
             };
             balance.total = balance.nc + balance.rl + balance.data;
 
-            // Shortages - Count from database fields
-            const shortages = {
-                stb: orders.filter(o => (o as any).stbShortage).length,
-                ont: orders.filter(o => (o as any).ontShortage).length
+            const shortages: ShortagesEntry = {
+                stb: orders.filter(o => o.stbShortage).length,
+                ont: orders.filter(o => o.ontShortage).length
             };
 
             return {
@@ -370,3 +408,4 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Failed to generate report' }, { status: 500 });
     }
 }
+

@@ -6,13 +6,68 @@ import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Download, RefreshCw, Calendar as CalendarIcon, TrendingUp, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import * as XLSX from 'xlsx';
+
+interface ReportMetrics {
+    [key: string]: number;
+    nc: number;
+    rl: number;
+    data: number;
+    total: number;
+}
+
+interface CompletedMetrics {
+    [key: string]: number;
+    create: number;
+    recon: number;
+    upgrade: number;
+    fnc: number;
+    or: number;
+    ml: number;
+    frl: number;
+    data: number;
+    total: number;
+}
+
+interface MaterialMetrics {
+    [key: string]: number;
+    dwSlt: number;
+    dwCompany: number;
+    dw: number;
+    pole56: number;
+    pole67: number;
+    pole80: number;
+}
+
+interface ReportRowData {
+    region: string;
+    province: string;
+    rtom: string;
+    regularTeams: number;
+    teamsWorked: number;
+    inHandMorning: ReportMetrics;
+    received: ReportMetrics;
+    totalInHand: number;
+    completed: CompletedMetrics;
+    material: MaterialMetrics;
+    returned: ReportMetrics;
+    wiredOnly: ReportMetrics;
+    delays: Record<string, number>;
+    balance: ReportMetrics;
+    shortages: { [key: string]: number; stb: number; ont: number };
+}
+
+interface ReportData {
+    reportData: ReportRowData[];
+    date: string;
+}
 
 export default function DailyOperationalReportPage() {
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(false);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const fetchReport = async () => {
+    const fetchReport = React.useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/reports/daily-operational?date=${selectedDate}`);
@@ -20,30 +75,32 @@ export default function DailyOperationalReportPage() {
                 const json = await res.json();
                 setData(json);
             }
-        } catch (error) {
-            console.error("Failed to fetch daily report");
+        } catch (err) {
+            console.error("Failed to fetch daily report", err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedDate]);
 
     React.useEffect(() => {
         fetchReport();
-    }, [selectedDate]);
+    }, [fetchReport]);
 
     const reportData = data?.reportData || [];
 
-    // Calculate summaries
-    const calculateSummaries = () => {
-        const summaries: any = {};
-        const grandTotal: any = {
+    const calculateSummaries = (): { summaries: Record<string, ReportRowData>, grandTotal: ReportRowData } => {
+        const summaries: Record<string, ReportRowData> = {};
+        const grandTotal: ReportRowData = {
+            region: 'ALL',
+            province: 'ALL',
+            rtom: 'GRAND TOTAL',
             regularTeams: 0,
             teamsWorked: 0,
             inHandMorning: { nc: 0, rl: 0, data: 0, total: 0 },
             received: { nc: 0, rl: 0, data: 0, total: 0 },
             totalInHand: 0,
             completed: { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 },
-            material: { dw: 0, pole56: 0, pole67: 0, pole80: 0 },
+            material: { dwSlt: 0, dwCompany: 0, dw: 0, pole56: 0, pole67: 0, pole80: 0 },
             returned: { nc: 0, rl: 0, data: 0, total: 0 },
             wiredOnly: { nc: 0, rl: 0, data: 0, total: 0 },
             delays: { ontShortage: 0, stbShortage: 0, nokia: 0, system: 0, opmc: 0, cxDelay: 0, sameDay: 0, polePending: 0 },
@@ -51,51 +108,114 @@ export default function DailyOperationalReportPage() {
             shortages: { stb: 0, ont: 0 }
         };
 
-        reportData.forEach((row: any) => {
+        reportData.forEach((row) => {
             const region = row.region;
             if (!summaries[region]) {
                 summaries[region] = JSON.parse(JSON.stringify(grandTotal));
+                summaries[region].region = region;
+                summaries[region].rtom = `${region} TOTAL`;
             }
+
+            const acc = (target: Record<string, number>, source: Record<string, number>) => {
+                Object.keys(source).forEach(k => {
+                    if (typeof source[k] === 'number') target[k] = (target[k] || 0) + source[k];
+                });
+            };
 
             // Accumulate region totals
             summaries[region].regularTeams += row.regularTeams;
             summaries[region].teamsWorked += row.teamsWorked;
-            Object.keys(row.inHandMorning).forEach(k => summaries[region].inHandMorning[k] += row.inHandMorning[k]);
-            Object.keys(row.received).forEach(k => summaries[region].received[k] += row.received[k]);
             summaries[region].totalInHand += row.totalInHand;
-            Object.keys(row.completed).forEach(k => summaries[region].completed[k] += row.completed[k]);
-            Object.keys(row.material).forEach(k => summaries[region].material[k] += row.material[k]);
-            Object.keys(row.returned).forEach(k => summaries[region].returned[k] += row.returned[k]);
-            Object.keys(row.wiredOnly).forEach(k => summaries[region].wiredOnly[k] += row.wiredOnly[k]);
-            Object.keys(row.delays).forEach(k => summaries[region].delays[k] += row.delays[k]);
-            Object.keys(row.balance).forEach(k => summaries[region].balance[k] += row.balance[k]);
-            Object.keys(row.shortages).forEach(k => summaries[region].shortages[k] += row.shortages[k]);
+            acc(summaries[region].inHandMorning, row.inHandMorning);
+            acc(summaries[region].received, row.received);
+            acc(summaries[region].completed, row.completed);
+            acc(summaries[region].material, row.material);
+            acc(summaries[region].returned, row.returned);
+            acc(summaries[region].wiredOnly, row.wiredOnly);
+            acc(summaries[region].delays, row.delays);
+            acc(summaries[region].balance, row.balance);
+            acc(summaries[region].shortages, row.shortages);
 
             // Accumulate grand totals
             grandTotal.regularTeams += row.regularTeams;
             grandTotal.teamsWorked += row.teamsWorked;
-            Object.keys(row.inHandMorning).forEach(k => grandTotal.inHandMorning[k] += row.inHandMorning[k]);
-            Object.keys(row.received).forEach(k => grandTotal.received[k] += row.received[k]);
             grandTotal.totalInHand += row.totalInHand;
-            Object.keys(row.completed).forEach(k => grandTotal.completed[k] += grandTotal.completed[k] !== undefined ? row.completed[k] : 0); // Safety check
-            // Fix: Actually accumulate the completed keys properly
-            ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data', 'total'].forEach(k => {
-                grandTotal.completed[k] += row.completed[k] || 0;
-            });
-            Object.keys(row.material).forEach(k => grandTotal.material[k] += row.material[k]);
-            Object.keys(row.returned).forEach(k => grandTotal.returned[k] += row.returned[k]);
-            Object.keys(row.wiredOnly).forEach(k => grandTotal.wiredOnly[k] += row.wiredOnly[k]);
-            Object.keys(row.delays).forEach(k => grandTotal.delays[k] += row.delays[k]);
-            Object.keys(row.balance).forEach(k => grandTotal.balance[k] += row.balance[k]);
-            Object.keys(row.shortages).forEach(k => grandTotal.shortages[k] += row.shortages[k]);
+            acc(grandTotal.inHandMorning, row.inHandMorning);
+            acc(grandTotal.received, row.received);
+            acc(grandTotal.completed, row.completed);
+            acc(grandTotal.material, row.material);
+            acc(grandTotal.returned, row.returned);
+            acc(grandTotal.wiredOnly, row.wiredOnly);
+            acc(grandTotal.delays, row.delays);
+            acc(grandTotal.balance, row.balance);
+            acc(grandTotal.shortages, row.shortages);
         });
 
         return { summaries, grandTotal };
     };
 
-    const { summaries, grandTotal } = reportData.length > 0 ? calculateSummaries() : { summaries: {}, grandTotal: null };
+    const { summaries, grandTotal } = reportData.length > 0
+        ? calculateSummaries()
+        : { summaries: {} as Record<string, ReportRowData>, grandTotal: null };
 
-    const SummaryRow = ({ label, data, isGrandTotal = false }: any) => (
+    const handleExport = () => {
+        if (!data || reportData.length === 0) return;
+
+        const worksheetData: (string | number)[][] = [];
+
+        // Headers
+        worksheetData.push([
+            "Province", "RTOM", "In Hand Morning", "Received Today", "Total In Hand",
+            "CR", "RC", "UP", "FNC", "OR", "ML", "FRL", "Total Completed",
+            "DW (km)", "Returned SOD", "Wired Only", "Balance"
+        ]);
+
+        let currentRegion = '';
+        reportData.forEach((row) => {
+            if (currentRegion !== row.region) {
+                if (currentRegion && summaries[currentRegion]) {
+                    const s = summaries[currentRegion];
+                    worksheetData.push([
+                        "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
+                        s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.total,
+                        s.material.dw.toFixed(2), s.returned.total, s.wiredOnly.total, s.balance.total
+                    ]);
+                }
+                currentRegion = row.region;
+                worksheetData.push([row.region, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+            }
+
+            worksheetData.push([
+                row.province, row.rtom, row.inHandMorning.total, row.received.total, row.totalInHand,
+                row.completed.create, row.completed.recon, row.completed.upgrade, row.completed.fnc, row.completed.or, row.completed.ml, row.completed.frl, row.completed.total,
+                row.material.dw.toFixed(2), row.returned.total, row.wiredOnly.total, row.balance.total
+            ]);
+        });
+
+        if (currentRegion && summaries[currentRegion]) {
+            const s = summaries[currentRegion];
+            worksheetData.push([
+                "", `${currentRegion} TOTAL`, s.inHandMorning.total, s.received.total, s.totalInHand,
+                s.completed.create, s.completed.recon, s.completed.upgrade, s.completed.fnc, s.completed.or, s.completed.ml, s.completed.frl, s.completed.total,
+                s.material.dw.toFixed(2), s.returned.total, s.wiredOnly.total, s.balance.total
+            ]);
+        }
+
+        if (grandTotal) {
+            worksheetData.push([
+                "GRAND TOTAL", "", grandTotal.inHandMorning.total, grandTotal.received.total, grandTotal.totalInHand,
+                grandTotal.completed.create, grandTotal.completed.recon, grandTotal.completed.upgrade, grandTotal.completed.fnc, grandTotal.completed.or, grandTotal.completed.ml, grandTotal.completed.frl, grandTotal.completed.total,
+                grandTotal.material.dw.toFixed(2), grandTotal.returned.total, grandTotal.wiredOnly.total, grandTotal.balance.total
+            ]);
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Daily Operational Report");
+        XLSX.writeFile(wb, `Daily_Operational_Report_${selectedDate}.xlsx`);
+    };
+
+    const SummaryRow = ({ label, data, isGrandTotal = false }: { label: string; data: ReportRowData; isGrandTotal?: boolean }) => (
         <tr className={isGrandTotal ? "bg-slate-900 text-white font-bold" : "bg-slate-100 font-bold"}>
             <td colSpan={2} className="border border-slate-300 px-2 py-1.5 text-right uppercase tracking-wider">{label}</td>
             <td className="border border-slate-300 px-1 py-1 text-center bg-blue-50/10 font-bold">{data.inHandMorning.total}</td>
@@ -125,7 +245,6 @@ export default function DailyOperationalReportPage() {
                 <Header />
                 <div className="p-6 space-y-6 max-w-full mx-auto w-full">
 
-                    {/* Header */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">Daily Operational Report</h1>
@@ -152,13 +271,17 @@ export default function DailyOperationalReportPage() {
                                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                                 Refresh
                             </Button>
-                            <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                            <Button
+                                onClick={handleExport}
+                                disabled={loading || !data}
+                                size="sm"
+                                className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                            >
                                 <Download className="w-4 h-4" /> Export
                             </Button>
                         </div>
                     </div>
 
-                    {/* Summary Cards */}
                     {grandTotal && (
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <Card className="bg-blue-50 border-blue-100 shadow-sm">
@@ -200,7 +323,6 @@ export default function DailyOperationalReportPage() {
                         </div>
                     )}
 
-                    {/* Main Report Table */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-[11px] border-collapse">
@@ -244,12 +366,10 @@ export default function DailyOperationalReportPage() {
                                         <>
                                             {(() => {
                                                 let currentRegion = '';
-                                                const rows: any[] = [];
+                                                const rows: React.ReactNode[] = [];
 
-                                                reportData.forEach((row: any, idx: number) => {
-                                                    // Add region header
+                                                reportData.forEach((row, idx) => {
                                                     if (currentRegion !== row.region) {
-                                                        // Before starting new region, add summary of previous region if it exists
                                                         if (currentRegion && summaries[currentRegion]) {
                                                             rows.push(<SummaryRow key={`summary-${currentRegion}`} label={`${currentRegion} TOTAL`} data={summaries[currentRegion]} />);
                                                         }
@@ -262,7 +382,6 @@ export default function DailyOperationalReportPage() {
                                                         );
                                                     }
 
-                                                    // Add data row
                                                     rows.push(
                                                         <tr key={`${idx}-${row.rtom}`} className="hover:bg-blue-50/40 border-b group transition-colors">
                                                             <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[10px] uppercase">{row.province}</td>
@@ -290,12 +409,10 @@ export default function DailyOperationalReportPage() {
                                                     );
                                                 });
 
-                                                // Add last region summary
                                                 if (currentRegion && summaries[currentRegion]) {
                                                     rows.push(<SummaryRow key={`summary-${currentRegion}`} label={`${currentRegion} TOTAL`} data={summaries[currentRegion]} />);
                                                 }
 
-                                                // Add grand total
                                                 if (grandTotal) {
                                                     rows.push(<SummaryRow key="grand-total" label="GRAND TOTAL" data={grandTotal} isGrandTotal={true} />);
                                                 }
@@ -314,3 +431,5 @@ export default function DailyOperationalReportPage() {
         </div>
     );
 }
+
+
