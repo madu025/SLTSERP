@@ -22,33 +22,68 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshDiagnostics();
     });
 
+    function createDetailItem(label, value, color = '#3b82f6') {
+        const item = document.createElement('div');
+        item.className = 'detail-item';
+        item.style.borderLeftColor = color;
+        item.innerHTML = `
+            <div class="label" style="color:${color}">${label}</div>
+            <div class="value">${value}</div>
+        `;
+        return item;
+    }
+
     function updateDataUI(data) {
         if (!data || !data.url.includes('slt.lk')) {
-            statusText.textContent = "Please navigate to the SLT Portal to see data.";
+            statusText.textContent = "Please navigate to SLT Portal (e.g. SOD Details).";
             detailsList.innerHTML = '';
             return;
         }
 
-        statusText.textContent = "Monitoring SLT Portal Data";
+        statusText.textContent = `Monitoring: ${data.soNum || 'Unknown SOD'}`;
         detailsList.innerHTML = '';
 
-        const details = data.details || {};
-        const keys = Object.keys(details);
+        // 1. Team & Serials Section
+        if (data.teamDetails && Object.keys(data.teamDetails).length > 0) {
+            const header = document.createElement('div');
+            header.className = 'section-header';
+            header.innerHTML = '<div class="label" style="background:#e0f2fe; padding:4px 8px; border-radius:4px; margin-bottom:8px">TEAM & SERIALS</div>';
+            detailsList.appendChild(header);
 
-        if (keys.length === 0) {
-            detailsList.innerHTML = '<div class="empty-state">No specific details detected yet. Try refreshing the SLT page.</div>';
-            return;
+            Object.keys(data.teamDetails).forEach(key => {
+                detailsList.appendChild(createDetailItem(key, data.teamDetails[key], '#0ea5e9'));
+            });
         }
 
-        keys.forEach(key => {
-            const item = document.createElement('div');
-            item.className = 'detail-item';
-            item.innerHTML = `
-                <div class="label">${key}</div>
-                <div class="value">${details[key]}</div>
-            `;
-            detailsList.appendChild(item);
-        });
+        // 2. Material Section
+        if (data.materialDetails && data.materialDetails.length > 0) {
+            const header = document.createElement('div');
+            header.className = 'section-header';
+            header.innerHTML = '<div class="label" style="background:#fef3c7; padding:4px 8px; border-radius:4px; margin-top:12px; margin-bottom:8px">MATERIAL USAGE</div>';
+            detailsList.appendChild(header);
+
+            data.materialDetails.forEach((mat, idx) => {
+                const matText = Object.entries(mat).map(([k, v]) => `${k}: ${v}`).join(' | ');
+                detailsList.appendChild(createDetailItem(`ITEM ${idx + 1}`, matText, '#d97706'));
+            });
+        }
+
+        // 3. Other Details
+        const otherKeys = Object.keys(data.details || {});
+        if (otherKeys.length > 0) {
+            const header = document.createElement('div');
+            header.className = 'section-header';
+            header.innerHTML = '<div class="label" style="background:#f1f5f9; padding:4px 8px; border-radius:4px; margin-top:12px; margin-bottom:8px">ORDER DETAILS</div>';
+            detailsList.appendChild(header);
+
+            otherKeys.forEach(key => {
+                detailsList.appendChild(createDetailItem(key, data.details[key]));
+            });
+        }
+
+        if (detailsList.innerHTML === '') {
+            detailsList.innerHTML = '<div class="empty-state">Waiting for data to load... Click on the tabs in SLT portal to trigger capture.</div>';
+        }
     }
 
     function refreshData() {
@@ -61,9 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (activeTab && activeTab.url.includes('slt.lk')) {
                 chrome.tabs.sendMessage(activeTab.id, { action: "getPortalData" }, (response) => {
                     if (response) updateDataUI(response);
-                }).catch(() => {
-                    // Script not injected yet?
-                });
+                }).catch(() => { });
             }
         });
     }

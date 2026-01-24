@@ -2,17 +2,17 @@
 // It has access to the page's window object directly
 (function () {
     window.SLT_BRIDGE_INSTALLED = true;
-    window.SLT_BRIDGE_VERSION = "1.0.9";
+    window.SLT_BRIDGE_VERSION = "1.1.0";
 
     // Dispatch events
     const event = new CustomEvent('SLT_BRIDGE_DETECTED', {
         detail: {
-            version: "1.0.9",
+            version: "1.1.0",
             status: 'active'
         }
     });
     window.dispatchEvent(event);
     document.dispatchEvent(event);
 
-    console.log("🚀 SLT-ERP Bridge Trace: Main-World Signal Active [v1.0.9]");
+    console.log("🚀 SLT-ERP Bridge Trace: Main-World Signal Active [v1.1.0]");
 })();

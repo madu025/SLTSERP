@@ -15,21 +15,19 @@ export default function ExtensionStatus() {
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
-        // 1. Initial Check function
         const check = () => {
             const hasAttr = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true';
             const ver = document.documentElement.getAttribute('data-slt-bridge-version') || (window as any).SLT_BRIDGE_VERSION;
 
             if (hasAttr || ver) {
                 setIsInstalled(true);
-                setVersion(ver || "1.0.x");
+                setVersion(ver || "1.1.0");
                 setChecking(false);
                 return true;
             }
             return false;
         };
 
-        // 2. Listen for the event
         const handleDetected = () => {
             setIsInstalled(true);
             setChecking(false);
@@ -37,7 +35,6 @@ export default function ExtensionStatus() {
 
         window.addEventListener('SLT_BRIDGE_DETECTED', handleDetected);
 
-        // 3. Retry checks (sometimes document_start injection is slightly late)
         const check1 = setTimeout(() => { if (!check()) { /* continue waiting */ } }, 500);
         const check2 = setTimeout(() => { if (!check()) setChecking(false); }, 2000);
         const check3 = setTimeout(() => { if (!check()) setChecking(false); }, 5000);
@@ -73,7 +70,7 @@ export default function ExtensionStatus() {
                         </div>
                         <div className="mt-2 pt-2 border-t border-slate-100">
                             <p className="text-[10px] text-slate-400 leading-tight">
-                                Bridge is actively monitoring for SLT portal data and ready to sync.
+                                Extension is ready. Navigating to SOD details in SLT portal will sync data to ERP.
                             </p>
                         </div>
                     </div>
@@ -94,17 +91,17 @@ export default function ExtensionStatus() {
                 <div className="bg-amber-50 p-4 border-b border-amber-100">
                     <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                         <Download className="w-4 h-4" />
-                        Install SLT Bridge
+                        Install SLT Bridge v1.1.0
                     </h3>
                     <p className="text-xs text-amber-700 mt-1 leading-relaxed">
-                        To sync return data and status updates directly from SLT Portal, you need to install the browser extension.
+                        To sync Team Assignments, Serial Numbers, and Materials directly from SLT Portal, install the updated extension.
                     </p>
                 </div>
                 <div className="p-4 space-y-4">
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">1</div>
-                            <span className="text-xs font-medium">Download the extension ZIP</span>
+                            <span className="text-xs font-medium">Download the updated ZIP</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold">2</div>
@@ -121,7 +118,7 @@ export default function ExtensionStatus() {
                         size="sm"
                         onClick={() => window.open('/slt-bridge.zip', '_blank')}
                     >
-                        Download Extension
+                        Download Extension v1.1.0
                     </Button>
                 </div>
             </PopoverContent>
