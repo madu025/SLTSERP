@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
-import { Download, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
+import { Download, RefreshCw, Calendar as CalendarIcon, TrendingUp, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function DailyOperationalReportPage() {
     const [data, setData] = useState<any>(null);
@@ -76,7 +77,11 @@ export default function DailyOperationalReportPage() {
             Object.keys(row.inHandMorning).forEach(k => grandTotal.inHandMorning[k] += row.inHandMorning[k]);
             Object.keys(row.received).forEach(k => grandTotal.received[k] += row.received[k]);
             grandTotal.totalInHand += row.totalInHand;
-            Object.keys(row.completed).forEach(k => grandTotal.completed[k] += row.completed[k]);
+            Object.keys(row.completed).forEach(k => grandTotal.completed[k] += grandTotal.completed[k] !== undefined ? row.completed[k] : 0); // Safety check
+            // Fix: Actually accumulate the completed keys properly
+            ['create', 'recon', 'upgrade', 'fnc', 'or', 'ml', 'frl', 'data', 'total'].forEach(k => {
+                grandTotal.completed[k] += row.completed[k] || 0;
+            });
             Object.keys(row.material).forEach(k => grandTotal.material[k] += row.material[k]);
             Object.keys(row.returned).forEach(k => grandTotal.returned[k] += row.returned[k]);
             Object.keys(row.wiredOnly).forEach(k => grandTotal.wiredOnly[k] += row.wiredOnly[k]);
@@ -91,64 +96,25 @@ export default function DailyOperationalReportPage() {
     const { summaries, grandTotal } = reportData.length > 0 ? calculateSummaries() : { summaries: {}, grandTotal: null };
 
     const SummaryRow = ({ label, data, isGrandTotal = false }: any) => (
-        <tr className={isGrandTotal ? "bg-yellow-200 font-bold border-t-4 border-slate-600" : "bg-yellow-100 font-bold border-t-2 border-slate-400"}>
-            <td colSpan={3} className="border border-slate-300 px-2 py-2 text-center">{label}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.regularTeams}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.teamsWorked}</td>
+        <tr className={isGrandTotal ? "bg-slate-900 text-white font-bold" : "bg-slate-100 font-bold"}>
+            <td colSpan={2} className="border border-slate-300 px-2 py-1.5 text-right uppercase tracking-wider">{label}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center bg-blue-50/10 font-bold">{data.inHandMorning.total}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center bg-emerald-50/10 font-bold">{data.received.total}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center bg-indigo-50/10 font-bold">{data.totalInHand}</td>
 
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.inHandMorning.nc}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.inHandMorning.rl}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.inHandMorning.data}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.inHandMorning.total}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.create}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.recon}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.upgrade}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.fnc}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.or}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.ml}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.completed.frl}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center font-bold bg-green-500 text-white">{data.completed.total}</td>
 
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.received.nc}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.received.rl}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.received.data}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.received.total}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.totalInHand}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.create}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.recon}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.upgrade}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.fnc}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.or}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.ml}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.frl}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.data}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.completed.total}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.material.dw}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.material.pole56}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.material.pole67}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.material.pole80}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.returned.nc}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.returned.rl}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.returned.data}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.returned.total}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.wiredOnly.nc}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.wiredOnly.rl}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.wiredOnly.data}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.wiredOnly.total}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.ontShortage}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.stbShortage}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.nokia}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.system}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.opmc}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.cxDelay}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.sameDay}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.delays.polePending}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.balance.nc}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.balance.rl}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.balance.data}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.balance.total}</td>
-
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.shortages.stb}</td>
-            <td className="border border-slate-300 px-2 py-1 text-center">{data.shortages.ont}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.material.dw.toFixed(1)}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.returned.total}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center">{data.wiredOnly.total}</td>
+            <td className="border border-slate-300 px-1 py-1 text-center font-bold bg-slate-200 text-slate-900">{data.balance.total}</td>
         </tr>
     );
 
@@ -163,7 +129,7 @@ export default function DailyOperationalReportPage() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900">Daily Operational Report</h1>
-                            <p className="text-slate-500">Comprehensive daily performance tracking with progressive summaries</p>
+                            <p className="text-slate-500">Compact performance tracking & regional summaries</p>
                         </div>
 
                         <div className="flex gap-3">
@@ -180,102 +146,98 @@ export default function DailyOperationalReportPage() {
                                 onClick={fetchReport}
                                 disabled={loading}
                                 variant="outline"
+                                size="sm"
                                 className="gap-2"
                             >
                                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                                 Refresh
                             </Button>
-                            <Button className="gap-2 bg-slate-900 hover:bg-slate-800">
-                                <Download className="w-4 h-4" /> Export Excel
+                            <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                                <Download className="w-4 h-4" /> Export
                             </Button>
                         </div>
                     </div>
 
+                    {/* Summary Cards */}
+                    {grandTotal && (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <Card className="bg-blue-50 border-blue-100 shadow-sm">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="p-2 bg-blue-500 rounded-lg"><Clock className="w-5 h-5 text-white" /></div>
+                                    <div>
+                                        <p className="text-xs text-blue-600 font-semibold uppercase">Morning Hand</p>
+                                        <p className="text-2xl font-bold text-blue-900">{grandTotal.inHandMorning.total}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-emerald-50 border-emerald-100 shadow-sm">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="p-2 bg-emerald-500 rounded-lg"><TrendingUp className="w-5 h-5 text-white" /></div>
+                                    <div>
+                                        <p className="text-xs text-emerald-600 font-semibold uppercase">Received Today</p>
+                                        <p className="text-2xl font-bold text-emerald-900">{grandTotal.received.total}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-green-50 border-green-100 shadow-sm">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="p-2 bg-green-500 rounded-lg"><CheckCircle2 className="w-5 h-5 text-white" /></div>
+                                    <div>
+                                        <p className="text-xs text-green-600 font-semibold uppercase">Completed</p>
+                                        <p className="text-2xl font-bold text-green-900">{grandTotal.completed.total}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-slate-100 border-slate-200 shadow-sm">
+                                <CardContent className="p-4 flex items-center gap-4">
+                                    <div className="p-2 bg-slate-700 rounded-lg"><AlertCircle className="w-5 h-5 text-white" /></div>
+                                    <div>
+                                        <p className="text-xs text-slate-600 font-semibold uppercase">Pending Balance</p>
+                                        <p className="text-2xl font-bold text-slate-900">{grandTotal.balance.total}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
                     {/* Main Report Table */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-xs border-collapse">
-                                {/* Table headers - same as before */}
-                                <thead className="bg-slate-800 text-white sticky top-0">
-                                    <tr>
-                                        <th rowSpan={2} className="border border-slate-600 px-2 py-2 font-semibold">Region</th>
-                                        <th rowSpan={2} className="border border-slate-600 px-2 py-2 font-semibold">Province</th>
-                                        <th rowSpan={2} className="border border-slate-600 px-2 py-2 font-semibold">RTOM</th>
-                                        <th rowSpan={2} className="border border-slate-600 px-2 py-2 font-semibold">Regular Teams</th>
-                                        <th rowSpan={2} className="border border-slate-600 px-2 py-2 font-semibold">Teams Worked</th>
-
-                                        <th colSpan={4} className="border border-slate-600 px-2 py-2 font-semibold bg-blue-700">In Hand SOD (Morning)</th>
-                                        <th colSpan={4} className="border border-slate-600 px-2 py-2 font-semibold bg-emerald-700">Received SOD</th>
-                                        <th rowSpan={2} className="border border-slate-600 px-2 py-2 font-semibold bg-indigo-700">Total In Hand</th>
-
-                                        <th colSpan={9} className="border border-slate-600 px-2 py-2 font-semibold bg-green-700">Completed</th>
-                                        <th colSpan={4} className="border border-slate-600 px-2 py-2 font-semibold bg-amber-700">Material Usage</th>
-                                        <th colSpan={4} className="border border-slate-600 px-2 py-2 font-semibold bg-rose-700">Returned</th>
-                                        <th colSpan={4} className="border border-slate-600 px-2 py-2 font-semibold bg-purple-700">Wired Only</th>
-
-                                        <th colSpan={8} className="border border-slate-600 px-2 py-2 font-semibold bg-orange-700">Delay Reasons</th>
-                                        <th colSpan={4} className="border border-slate-600 px-2 py-2 font-semibold bg-slate-700">Balance</th>
-                                        <th colSpan={2} className="border border-slate-600 px-2 py-2 font-semibold bg-red-700">Shortages</th>
+                            <table className="w-full text-[11px] border-collapse">
+                                <thead className="bg-slate-900 text-white sticky top-0 z-20">
+                                    <tr className="divide-x divide-slate-700">
+                                        <th rowSpan={2} className="px-2 py-2 text-left w-24">Province</th>
+                                        <th rowSpan={2} className="px-2 py-2 text-center w-20">RTOM</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-blue-900/50 text-center w-14">In Hand<br />(AM)</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-emerald-900/50 text-center w-14">Recv<br />Today</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-indigo-900 text-center w-14">Total<br />Hand</th>
+                                        <th colSpan={8} className="px-2 py-1 bg-green-900 text-center border-b border-green-800">Completed Orders</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-amber-900/50 text-center w-12">DW<br />(km)</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-rose-900/50 text-center w-12">Ret<br />SOD</th>
+                                        <th rowSpan={2} className="px-1 py-2 bg-purple-900/50 text-center w-12">Wired<br />Only</th>
+                                        <th rowSpan={2} className="px-2 py-2 bg-slate-700 text-center w-16 uppercase">BAL</th>
                                     </tr>
-                                    <tr>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-blue-600">NC</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-blue-600">RL</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-blue-600">DATA</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-blue-600">Total</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-emerald-600">NC</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-emerald-600">RL</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-emerald-600">DATA</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-emerald-600">Total</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">Create</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">Re-Con</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">Upgrade</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">F-NC</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">OR</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">ML</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">F-RL</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">DATA</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-green-600">Total</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-amber-600">DW</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-amber-600">Pole 5.6</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-amber-600">Pole 6.7</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-amber-600">Pole 8.0</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-rose-600">NC</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-rose-600">RL</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-rose-600">DATA</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-rose-600">Total</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-purple-600">NC</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-purple-600">RL</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-purple-600">DATA</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-purple-600">Total</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">ONT Short</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">STB Short</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">Nokia</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">System</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">OPMC</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">CX Delay</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">Same Day</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-orange-600">Pole Pend</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-slate-600">NC</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-slate-600">RL</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-slate-600">DATA</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-slate-600">Total</th>
-
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-red-600">STB</th>
-                                        <th className="border border-slate-600 px-2 py-1 text-[10px] bg-red-600">ONT</th>
+                                    <tr className="bg-green-800 text-[9px] uppercase font-bold tracking-tighter divide-x divide-slate-700">
+                                        <th className="px-0.5 py-1 w-7">CR</th>
+                                        <th className="px-0.5 py-1 w-7">RC</th>
+                                        <th className="px-0.5 py-1 w-7">UP</th>
+                                        <th className="px-0.5 py-1 w-7">FNC</th>
+                                        <th className="px-0.5 py-1 w-7">OR</th>
+                                        <th className="px-0.5 py-1 w-7">ML</th>
+                                        <th className="px-0.5 py-1 w-7">FRL</th>
+                                        <th className="px-1 py-1 w-10 bg-green-600">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white">
                                     {reportData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={50} className="text-center py-8 text-slate-400">
-                                                {loading ? 'Loading...' : 'No data available for selected date'}
+                                            <td colSpan={16} className="text-center py-12 text-slate-400">
+                                                {loading ? (
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <RefreshCw className="w-8 h-8 animate-spin text-slate-300" />
+                                                        <span>Loading report data...</span>
+                                                    </div>
+                                                ) : 'No data available for selected date'}
                                             </td>
                                         </tr>
                                     ) : (
@@ -285,82 +247,52 @@ export default function DailyOperationalReportPage() {
                                                 const rows: any[] = [];
 
                                                 reportData.forEach((row: any, idx: number) => {
-                                                    // Add region summary before changing region
-                                                    if (currentRegion && currentRegion !== row.region) {
-                                                        rows.push(<SummaryRow key={`summary-${currentRegion}`} label={`${currentRegion} - TOTAL`} data={summaries[currentRegion]} />);
+                                                    // Add region header
+                                                    if (currentRegion !== row.region) {
+                                                        // Before starting new region, add summary of previous region if it exists
+                                                        if (currentRegion && summaries[currentRegion]) {
+                                                            rows.push(<SummaryRow key={`summary-${currentRegion}`} label={`${currentRegion} TOTAL`} data={summaries[currentRegion]} />);
+                                                        }
+
+                                                        currentRegion = row.region;
+                                                        rows.push(
+                                                            <tr key={`header-${row.region}`} className="bg-slate-200 border-y border-slate-300">
+                                                                <td colSpan={16} className="px-3 py-1 text-[11px] font-black text-slate-800 tracking-wider uppercase">{row.region} REGION</td>
+                                                            </tr>
+                                                        );
                                                     }
 
-                                                    currentRegion = row.region;
-
-                                                    // Add data row (same as before - keeping existing row structure)
+                                                    // Add data row
                                                     rows.push(
-                                                        <tr key={idx} className="hover:bg-slate-50 border-b">
-                                                            <td className="border border-slate-200 px-2 py-1 text-center">{row.region}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center">{row.province}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center font-medium">{row.rtom}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center">{row.regularTeams}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center">{row.teamsWorked}</td>
+                                                        <tr key={`${idx}-${row.rtom}`} className="hover:bg-blue-50/40 border-b group transition-colors">
+                                                            <td className="border border-slate-200 px-2 py-1 text-slate-600 text-[10px] uppercase">{row.province}</td>
+                                                            <td className="border border-slate-200 px-2 py-1 text-center font-bold text-slate-900">{row.rtom}</td>
 
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-blue-50">{row.inHandMorning.nc}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-blue-50">{row.inHandMorning.rl}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-blue-50">{row.inHandMorning.data}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-blue-100 font-semibold">{row.inHandMorning.total}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-blue-50/50 text-blue-700 font-bold">{row.inHandMorning.total}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-emerald-50/50 text-emerald-700 font-bold">{row.received.total}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-indigo-50 font-black text-indigo-900">{row.totalInHand}</td>
 
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-emerald-50">{row.received.nc}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-emerald-50">{row.received.rl}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-emerald-50">{row.received.data}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-emerald-100 font-semibold">{row.received.total}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.create}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.recon}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.upgrade}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.fnc}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.or}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.ml}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center group-hover:bg-white">{row.completed.frl}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-green-100/50 font-black text-green-900">{row.completed.total}</td>
 
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-indigo-100 font-bold">{row.totalInHand}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-amber-50/50 text-amber-900 font-medium">{row.material.dw.toFixed(1)}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-rose-50/50 text-rose-900 font-medium">{row.returned.total}</td>
+                                                            <td className="border border-slate-200 px-1 py-1 text-center bg-purple-50/50 text-purple-900 font-medium">{row.wiredOnly.total}</td>
 
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.create}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.recon}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.upgrade}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.fnc}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.or}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.ml}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.frl}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-50">{row.completed.data}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-green-100 font-semibold">{row.completed.total}</td>
-
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-amber-50">{row.material.dw}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-amber-50">{row.material.pole56}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-amber-50">{row.material.pole67}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-amber-50">{row.material.pole80}</td>
-
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-rose-50">{row.returned.nc}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-rose-50">{row.returned.rl}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-rose-50">{row.returned.data}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-rose-100 font-semibold">{row.returned.total}</td>
-
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-purple-50">{row.wiredOnly.nc}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-purple-50">{row.wiredOnly.rl}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-purple-50">{row.wiredOnly.data}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-purple-100 font-semibold">{row.wiredOnly.total}</td>
-
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.ontShortage}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.stbShortage}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.nokia}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.system}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.opmc}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.cxDelay}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.sameDay}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-orange-50">{row.delays.polePending}</td>
-
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-slate-50">{row.balance.nc}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-slate-50">{row.balance.rl}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-slate-50">{row.balance.data}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-slate-100 font-bold">{row.balance.total}</td>
-
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-red-50">{row.shortages.stb}</td>
-                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-red-50">{row.shortages.ont}</td>
+                                                            <td className="border border-slate-200 px-2 py-1 text-center bg-slate-100 font-black text-slate-900">{row.balance.total}</td>
                                                         </tr>
                                                     );
                                                 });
 
                                                 // Add last region summary
                                                 if (currentRegion && summaries[currentRegion]) {
-                                                    rows.push(<SummaryRow key={`summary-${currentRegion}`} label={`${currentRegion} - TOTAL`} data={summaries[currentRegion]} />);
+                                                    rows.push(<SummaryRow key={`summary-${currentRegion}`} label={`${currentRegion} TOTAL`} data={summaries[currentRegion]} />);
                                                 }
 
                                                 // Add grand total
