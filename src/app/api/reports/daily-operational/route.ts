@@ -185,15 +185,19 @@ export async function GET(request: Request) {
             by: ['rtom', 'orderType'],
             where: {
                 createdAt: { lt: startDate },
-                OR: [
-                    { completedDate: null },
-                    { completedDate: { gte: startDate } },
-                ],
                 AND: [
+                    // Was NOT completed before today
+                    {
+                        OR: [
+                            { sltsStatus: { not: 'COMPLETED' } },
+                            { statusDate: { gte: startDate } }
+                        ]
+                    },
+                    // Was NOT returned before today
                     {
                         OR: [
                             { sltsStatus: { not: 'RETURN' } },
-                            { statusDate: { gte: startDate } },
+                            { statusDate: { gte: startDate } }
                         ]
                     }
                 ]
@@ -231,8 +235,8 @@ export async function GET(request: Request) {
             const regularTeams = opmc.contractorTeams.length;
             const teamsWorked = new Set(orders.map(o => o.teamId).filter(Boolean)).size;
 
-            // Helper function to categorize orders based on Order Type
-            const categorizeOrder = (order: ServiceOrderWithRelations) => {
+            // Unified categorization function
+            const categorizeOrder = (order: { orderType?: string | null; package?: string | null }) => {
                 const orderType = order.orderType?.toUpperCase() || '';
                 const packageInfo = (order.package || '').toUpperCase();
 
@@ -240,14 +244,31 @@ export async function GET(request: Request) {
                     return 'rl' as const;
                 }
 
-                if (orderType.includes('CREATE') || orderType.includes('F-NC') || packageInfo.includes('FNC') || packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
+                if (
+                    orderType.includes('CREATE') ||
+                    orderType.includes('F-NC') ||
+                    orderType.includes('RECON') ||
+                    orderType.includes('UPGRADE') ||
+                    orderType.includes('UPGRD') ||
+                    packageInfo.includes('FNC') ||
+                    packageInfo.includes('VOICE') ||
+                    packageInfo.includes('INT') ||
+                    packageInfo.includes('IPTV')
+                ) {
                     return 'nc' as const;
                 }
 
                 return 'data' as const;
             };
 
-            const inHandMorning = inHandMorningMap.get(opmc.rtom) || { nc: 0, rl: 0, data: 0, total: 0 };
+            const inHandMorning = { nc: 0, rl: 0, data: 0, total: 0 };
+            const opmcInHandMorning = inHandMorningOrders.filter(row => row.rtom === opmc.rtom);
+            opmcInHandMorning.forEach(row => {
+                const category = categorizeOrder({ orderType: row.orderType });
+                const count = row._count.id;
+                inHandMorning[category] += count;
+                inHandMorning.total += count;
+            });
 
             const received: ReceivedEntry = { nc: 0, rl: 0, data: 0, total: 0 };
             const completed: CompletedEntry = { create: 0, recon: 0, upgrade: 0, fnc: 0, or: 0, ml: 0, frl: 0, data: 0, total: 0 };
@@ -260,7 +281,7 @@ export async function GET(request: Request) {
                 const category = categorizeOrder(order);
                 const source = sourceMap.get(order.id) || 'SLT';
 
-                const rDate = order.receivedDate || order.createdAt;
+                const rDate = order.createdAt; // Use system arrival date for "Received Today"
                 if (rDate >= startDate && rDate <= endDate) {
                     received[category]++;
                     received.total++;
@@ -367,8 +388,8 @@ export async function GET(request: Request) {
             const totalInHand = inHandMorning.total + received.total;
 
             const balance: BalanceEntry = {
-                nc: inHandMorning.nc + received.nc - completed.create - completed.fnc - returned.nc,
-                rl: inHandMorning.rl + received.rl - completed.or - completed.ml - completed.frl - returned.rl,
+                nc: inHandMorning.nc + received.nc - (completed.create + completed.fnc + completed.recon + completed.upgrade) - returned.nc,
+                rl: inHandMorning.rl + received.rl - (completed.or + completed.ml + completed.frl) - returned.rl,
                 data: inHandMorning.data + received.data - completed.data - returned.data,
                 total: 0
             };

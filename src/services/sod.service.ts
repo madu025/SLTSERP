@@ -3,6 +3,7 @@ import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData } from './slt-api.service';
 import { NotificationService } from './notification.service';
 import { TransactionClient } from './inventory/types';
+import { addJob, statsUpdateQueue, sodSyncQueue } from '../lib/queue';
 
 interface MaterialUsageInput {
     itemId: string;
@@ -940,8 +941,10 @@ export class ServiceOrderService {
         }
 
         if (updated > 0) {
-            const { StatsService } = await import('../lib/stats.service');
-            await StatsService.syncOpmcStats(opmcId);
+            await addJob(statsUpdateQueue, `stats-${opmcId}`, {
+                opmcId,
+                type: 'SINGLE_OPMC'
+            }, { jobId: `stats-${opmcId}-${new Date().toISOString().split('T')[0]}` });
         }
 
         return { rtom, updated };
@@ -957,17 +960,25 @@ export class ServiceOrderService {
         console.log('[PAT-SYNC] Fetching global HO Rejected list...');
         const hoRejected = await sltApiService.fetchHORejected();
 
-        let totalUpdated = 0;
-        for (const opmc of opmcs) {
-            try {
-                const res = await this.syncPatResults(opmc.id, opmc.rtom, hoRejected);
-                totalUpdated += res.updated;
-            } catch (err) {
-                console.error(`PAT/Rejection Sync failed for ${opmc.rtom}:`, err);
-            }
-        }
+        console.log(`[PAT-SYNC] Queueing ${opmcs.length} OPMC PAT sync jobs...`);
 
-        return { totalUpdated, hoApproved: { totalCached: 0, totalUpdated: 0 } };
+        const jobs = await Promise.all(
+            opmcs.map(opmc =>
+                sodSyncQueue.add(`sync-pat-${opmc.rtom}`, {
+                    opmcId: opmc.id,
+                    rtom: opmc.rtom,
+                    type: 'PAT_REJECTION',
+                    hoRejected // Passing hoRejected list to avoid re-fetching in each job
+                }, {
+                    jobId: `pat-sync-${opmc.id}-${new Date().toISOString().split('T')[0]}`
+                })
+            )
+        );
+
+        return {
+            queuedCount: opmcs.length,
+            jobIds: jobs.map(j => j.id)
+        };
     }
 
 
@@ -1105,9 +1116,11 @@ export class ServiceOrderService {
 
             // Sync all OPMCs affected by this bulk update
             const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
-            const { StatsService } = await import('../lib/stats.service');
             for (const opmc of opmcs) {
-                await StatsService.syncOpmcStats(opmc.id);
+                await addJob(statsUpdateQueue, `stats-${opmc.id}`, {
+                    opmcId: opmc.id,
+                    type: 'SINGLE_OPMC'
+                });
             }
 
             return { totalCached, totalUpdated };
@@ -1120,7 +1133,6 @@ export class ServiceOrderService {
 
     static async syncAllOpmcs() {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
-        const { sodSyncQueue } = await import('@/lib/queue');
 
         console.log(`[SOD-SYNC] Queueing ${opmcs.length} OPMC sync jobs...`);
 
@@ -1222,7 +1234,8 @@ export class ServiceOrderService {
                         ftthWifi: item.FTTH_WIFI,
                         ospPhoneClass: item.CON_OSP_PHONE_CLASS,
                         phonePurchase: item.CON_PHN_PURCH,
-                        sales: item.CON_SALES
+                        sales: item.CON_SALES,
+                        completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined
                     };
 
                     if (existing) {
@@ -1269,6 +1282,7 @@ export class ServiceOrderService {
                                     rtom: item.RTOM || rtom,
                                     soNum: item.SO_NUM,
                                     receivedDate: statusDate,
+                                    completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : null,
                                     sltsStatus: initialSltsStatus
                                 },
                                 select: { id: true }
@@ -1292,8 +1306,13 @@ export class ServiceOrderService {
         }
 
         if (created > 0 || updated > 0) {
-            const { StatsService } = await import('../lib/stats.service');
-            await StatsService.syncOpmcStats(opmcId).catch(e => console.error(`[SYNC] Stats update failed for ${opmcId}:`, e));
+            await addJob(statsUpdateQueue, `stats-${opmcId}`, {
+                opmcId,
+                type: 'SINGLE_OPMC'
+            }, {
+                jobId: `stats-${opmcId}-${new Date().getTime()}`,
+                removeOnComplete: true
+            });
         }
 
         return { created, updated, errorCount: errors.length, errors: errors.slice(0, 5) };

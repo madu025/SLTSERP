@@ -251,10 +251,8 @@ interface ResetResults {
 }
 
 interface SyncStats {
-    success: number;
-    failed: number;
-    created: number;
-    updated: number;
+    queuedCount: number;
+    lastSyncTriggered: string;
 }
 
 interface HistoricStats {
@@ -423,22 +421,29 @@ function AdvancedOperationsCard() {
                         </div>
 
                         {syncStats && (
-                            <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-                                <div className="p-2 bg-white rounded border">
-                                    <div className="text-xs text-slate-400">Success</div>
-                                    <div className="text-sm font-bold text-green-600">{syncStats.success}</div>
+                            <div className="mt-3 space-y-3">
+                                <div className="p-3 bg-white rounded border border-purple-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                                            <Layers className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Jobs Queued</p>
+                                            <p className="text-xl font-bold text-purple-700">{syncStats.queuedCount} RTOMs</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => router.push('/admin/jobs')}
+                                        className="text-xs border-purple-200 text-purple-700 hover:bg-purple-50"
+                                    >
+                                        Track Progress
+                                    </Button>
                                 </div>
-                                <div className="p-2 bg-white rounded border">
-                                    <div className="text-xs text-slate-400">Failed</div>
-                                    <div className="text-sm font-bold text-red-600">{syncStats.failed}</div>
-                                </div>
-                                <div className="p-2 bg-white rounded border">
-                                    <div className="text-sm font-bold text-blue-600">{syncStats.created}</div>
-                                </div>
-                                <div className="p-2 bg-white rounded border">
-                                    <div className="text-xs text-slate-400">Updated</div>
-                                    <div className="text-sm font-bold text-slate-600">{syncStats.updated}</div>
-                                </div>
+                                <p className="text-[10px] text-slate-400 italic text-center">
+                                    Sync triggered at {new Date(syncStats.lastSyncTriggered).toLocaleTimeString()}
+                                </p>
                             </div>
                         )}
                     </div>
