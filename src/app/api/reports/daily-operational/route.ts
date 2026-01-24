@@ -117,6 +117,7 @@ interface ServiceOrderWithRelations {
     receivedDate: Date | null;
     createdAt: Date;
     sltsStatus: string | null;
+    completedDate: Date | null;
     wiredOnly: boolean | null;
     teamId: string | null;
     materialUsage: MaterialUsageEntry[];
@@ -287,9 +288,14 @@ export async function GET(request: Request) {
                     received.total++;
                 }
 
-                const isInstallClosedToday = order.status === 'INSTALL_CLOSED' && order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate;
+                const statusStr = order.status?.toUpperCase() || '';
+                const isInstallClosedToday = (statusStr === 'INSTALL_CLOSED' || order.sltsStatus === 'COMPLETED') && (
+                    (order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate) ||
+                    (order.completedDate && order.completedDate >= startDate && order.completedDate <= endDate)
+                );
+
                 const hadInstallClosedHistoryToday = order.statusHistory?.some((h) =>
-                    h.status === 'INSTALL_CLOSED' &&
+                    h.status?.toUpperCase() === 'INSTALL_CLOSED' &&
                     h.statusDate && new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
                 );
 
@@ -311,12 +317,10 @@ export async function GET(request: Request) {
                         completed.frl++;
                     } else if (orderType.includes('CREATE')) {
                         completed.create++;
+                    } else if (packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
+                        completed.create++;
                     } else {
-                        if (packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
-                            completed.create++;
-                        } else {
-                            completed.data++;
-                        }
+                        completed.data++;
                     }
                     completed.total++;
                 }

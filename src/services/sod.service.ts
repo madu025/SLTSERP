@@ -1175,7 +1175,7 @@ export class ServiceOrderService {
         // Fetch existing status to decide on locking
         const existingSods = await prisma.serviceOrder.findMany({
             where: { soNum: { in: sltSoNums } },
-            select: { soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
+            select: { id: true, soNum: true, sltsStatus: true, status: true, returnReason: true, comments: true }
         });
         const existingMap = new Map(existingSods.map(s => [s.soNum, s]));
 
@@ -1235,7 +1235,8 @@ export class ServiceOrderService {
                         ospPhoneClass: item.CON_OSP_PHONE_CLASS,
                         phonePurchase: item.CON_PHN_PURCH,
                         sales: item.CON_SALES,
-                        completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined
+                        completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined,
+                        sltsStatus: initialSltsStatus
                     };
 
                     if (existing) {
@@ -1244,7 +1245,7 @@ export class ServiceOrderService {
                             where: { soNum: item.SO_NUM },
                             data: {
                                 ...updatePayload,
-                                sltsStatus: isRestoring ? 'INPROGRESS' : undefined,
+                                sltsStatus: isRestoring ? 'INPROGRESS' : updatePayload.sltsStatus,
                                 receivedDate: isRestoring ? new Date() : undefined,
                                 comments: isRestoring
                                     ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
@@ -1252,6 +1253,17 @@ export class ServiceOrderService {
                                 returnReason: isRestoring ? null : undefined
                             }
                         });
+
+                        // Log history if status changed
+                        if (existing.status !== item.CON_STATUS) {
+                            await prisma.serviceOrderStatusHistory.create({
+                                data: {
+                                    serviceOrderId: existing.id,
+                                    status: item.CON_STATUS,
+                                    statusDate: statusDate
+                                }
+                            }).catch(() => { });
+                        }
                         updated++;
                     } else {
                         const isFinished = initialSltsStatus === 'COMPLETED';

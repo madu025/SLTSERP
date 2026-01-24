@@ -5,9 +5,8 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
-import { GripVertical, Plus, Check, Users, Building2, UserCog, HardHat, Warehouse, FileText, Settings, Database, ChevronDown, ChevronUp, Layers, Table as TableIcon } from "lucide-react";
+import { GripVertical, Plus, Settings, Database, ChevronDown, Layers, Table as TableIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -263,6 +262,7 @@ interface HistoricStats {
 
 // Advanced Operations Component
 function AdvancedOperationsCard() {
+    const router = useRouter();
     const queryClient = useQueryClient();
     const [isSyncing, setIsSyncing] = useState(false);
     const [isHistoricSync, setIsHistoricSync] = useState(false);
@@ -364,7 +364,7 @@ function AdvancedOperationsCard() {
             } else {
                 toast.error("Clear failed: " + (data.message || 'Unknown error'));
             }
-        } catch (error) {
+        } catch {
             toast.error("Network error during clear operation");
         } finally {
             setIsClearing(false);
@@ -526,27 +526,14 @@ function AdvancedOperationsCard() {
                         </div>
 
                         {clearResults && (
-                            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                                <div className="p-2 bg-white rounded border">
-                                    <div className="text-xs text-slate-400">Orders</div>
-                                    <div className="text-sm font-bold text-red-600">{clearResults.serviceOrders}</div>
-                                </div>
-                                <div className="p-2 bg-white rounded border">
-                                    <div className="text-xs text-slate-400">History</div>
-                                    <div className="text-sm font-bold text-orange-600">{clearResults.statusHistory}</div>
-                                </div>
-                                <div className="p-2 bg-white rounded border">
-                                    <div className="text-xs text-slate-400">Total</div>
-                                    <div className="text-sm font-bold text-purple-600">
-                                        1
-                                    </div>
-                                </div>
+                            <div className="mt-3 p-3 bg-white rounded border border-red-100">
+                                <p className="text-xs text-slate-700">{clearResults.message}</p>
                             </div>
                         )}
                     </div>
-                </div >
-            </CardContent >
-        </Card >
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -579,7 +566,7 @@ function TableConfigCard({ tableName, settings, onSave, isSaving }: { tableName:
         e.dataTransfer.effectAllowed = "move";
     };
 
-    const handleDragOver = (e: React.DragEvent, index: number) => {
+    const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
     };
@@ -625,7 +612,7 @@ function TableConfigCard({ tableName, settings, onSave, isSaving }: { tableName:
                                     key={col}
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, idx)}
-                                    onDragOver={(e) => handleDragOver(e, idx)}
+                                    onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, idx)}
                                     className="flex items-center gap-3 p-2 rounded-lg border bg-white hover:border-blue-300 transition-colors group cursor-move"
                                 >
