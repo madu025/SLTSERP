@@ -1179,17 +1179,18 @@ export class ServiceOrderService {
         });
         const existingMap = new Map(existingSods.map(s => [s.soNum, s]));
 
-        // Deduplicate syncable data by soNum and status to prevent parallel upsert collisions
+        // Deduplicate syncable data by soNum ONLY to prevent parallel upsert collisions.
+        // If the same SO appears multiple times in one batch (e.g. history), we process it only once.
         const uniqueSyncMap = new Map<string, SLTServiceOrderData>();
         sltData.forEach(item => {
             const existing = existingMap.get(item.SO_NUM);
-
-            // LOCK RULES:
-            // 1. Skip if already COMPLETED in our system.
-            // 2. If RETURNED in our system, ONLY proceed if new SLT status is active (NOT Install Closed yet)
             if (existing?.sltsStatus === 'COMPLETED') return;
 
-            uniqueSyncMap.set(`${item.SO_NUM}_${item.CON_STATUS}`, item);
+            // If we already have this SO in our batch, prefer the 'INSTALL_CLOSED' status if available
+            const currentInMap = uniqueSyncMap.get(item.SO_NUM);
+            if (currentInMap && currentInMap.CON_STATUS === 'INSTALL_CLOSED') return;
+
+            uniqueSyncMap.set(item.SO_NUM, item);
         });
         const syncableData = Array.from(uniqueSyncMap.values());
 
@@ -1242,7 +1243,7 @@ export class ServiceOrderService {
                     if (existing) {
                         const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
                         await prisma.serviceOrder.update({
-                            where: { soNum: item.SO_NUM },
+                            where: { id: existing.id },
                             data: {
                                 ...updatePayload,
                                 sltsStatus: isRestoring ? 'INPROGRESS' : updatePayload.sltsStatus,

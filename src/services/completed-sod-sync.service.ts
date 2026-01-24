@@ -45,16 +45,23 @@ export class CompletedSODSyncService {
                     console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 🔍 Checking OPMC: ${opmc.name} (${opmc.rtom}) from ${startDate}`);
 
                     // 1. Fetch Completed SODs
-                    // We fetch the FULL list from 2026-01-01
                     const completedResults = await sltApiService.fetchCompletedSODs(opmc.rtom, startDate, endDate);
                     checkedCount += completedResults.length;
 
-                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 📡 Found ${completedResults.length} records in SLT for ${opmc.rtom}`);
+                    // Deduplicate results to prevent collisions in the loop
+                    const uniqueCompletedMap = new Map();
+                    completedResults.forEach(r => {
+                        if (r.CON_STATUS === 'INSTALL_CLOSED') {
+                            uniqueCompletedMap.set(r.SO_NUM, r);
+                        }
+                    });
+                    const uniqueResults = Array.from(uniqueCompletedMap.values());
 
-                    // Process each completed SOD record
-                    for (const sltData of completedResults) {
+                    console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 📡 Found ${uniqueResults.length} unique completed records for ${opmc.rtom}`);
+
+                    // Process each unique completed SOD record
+                    for (const sltData of uniqueResults) {
                         try {
-                            // Strict Completion Check - Strictly 'INSTALL_CLOSED' per latest requirement
                             const completionStatuses = ['INSTALL_CLOSED'];
                             if (!completionStatuses.includes(sltData.CON_STATUS)) {
                                 continue;
