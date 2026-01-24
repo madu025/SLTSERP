@@ -22,34 +22,38 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshDiagnostics();
     });
 
-    function createDetailItem(label, value, color = '#3b82f6') {
+    function createDetailItem(label, value, color = '#3b82f6', subtext = '') {
         const item = document.createElement('div');
         item.className = 'detail-item';
         item.style.borderLeftColor = color;
         item.innerHTML = `
             <div class="label" style="color:${color}">${label}</div>
             <div class="value">${value}</div>
+            ${subtext ? `<div style="font-size:9px; color:#94a3b8; margin-top:2px">${subtext}</div>` : ''}
         `;
         return item;
     }
 
     function updateDataUI(data) {
         if (!data || !data.url.includes('slt.lk')) {
-            statusText.textContent = "Please navigate to SLT Portal (e.g. SOD Details).";
+            statusText.textContent = "Please navigate to SLT Portal.";
             detailsList.innerHTML = '';
+            statusText.style.color = '#ef4444';
             return;
         }
 
-        statusText.textContent = `Monitoring: ${data.soNum || 'Unknown SOD'}`;
+        statusText.textContent = `User: ${data.currentUser || 'Not Identified'}`;
+        statusText.style.color = '#22c55e';
         detailsList.innerHTML = '';
 
-        // 1. Team & Serials Section
-        if (data.teamDetails && Object.keys(data.teamDetails).length > 0) {
-            const header = document.createElement('div');
-            header.className = 'section-header';
-            header.innerHTML = '<div class="label" style="background:#e0f2fe; padding:4px 8px; border-radius:4px; margin-bottom:8px">TEAM & SERIALS</div>';
-            detailsList.appendChild(header);
+        // Context Badge
+        const contextBadge = document.createElement('div');
+        contextBadge.style = "font-size:9px; font-weight:bold; background:#f1f5f9; padding:2px 8px; border-radius:10px; display:inline-block; margin-bottom:10px; color:#64748b";
+        contextBadge.textContent = `ACTIVE TAB: ${data.activeTab || 'N/A'}`;
+        detailsList.appendChild(contextBadge);
 
+        // 1. Team Section
+        if (data.teamDetails && Object.keys(data.teamDetails).length > 0) {
             Object.keys(data.teamDetails).forEach(key => {
                 detailsList.appendChild(createDetailItem(key, data.teamDetails[key], '#0ea5e9'));
             });
@@ -57,33 +61,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Material Section
         if (data.materialDetails && data.materialDetails.length > 0) {
-            const header = document.createElement('div');
-            header.className = 'section-header';
-            header.innerHTML = '<div class="label" style="background:#fef3c7; padding:4px 8px; border-radius:4px; margin-top:12px; margin-bottom:8px">MATERIAL USAGE</div>';
-            detailsList.appendChild(header);
-
-            data.materialDetails.forEach((mat, idx) => {
-                const matText = Object.entries(mat).map(([k, v]) => `${k}: ${v}`).join(' | ');
-                detailsList.appendChild(createDetailItem(`ITEM ${idx + 1}`, matText, '#d97706'));
+            data.materialDetails.forEach(mat => {
+                const desc = mat.TYPE || '';
+                const val = mat.VALUE || mat.QTY || '';
+                const serial = mat.SERIAL ? ` | SN: ${mat.SERIAL}` : '';
+                detailsList.appendChild(createDetailItem(mat.ITEM, `${desc}: ${val}${serial}`, '#d97706'));
             });
         }
 
-        // 3. Other Details
+        // 3. Hidden System Info (High Accuracy)
+        if (data.hiddenInfo && Object.keys(data.hiddenInfo).length > 0) {
+            const hkeys = Object.keys(data.hiddenInfo);
+            const val = hkeys.map(k => `${k}:${data.hiddenInfo[k]}`).join(' | ');
+            detailsList.appendChild(createDetailItem('SYSTEM TAGS', val, '#8b5cf6', 'Hidden identifiers captured from portal background.'));
+        }
+
+        // 4. Order Details
         const otherKeys = Object.keys(data.details || {});
-        if (otherKeys.length > 0) {
-            const header = document.createElement('div');
-            header.className = 'section-header';
-            header.innerHTML = '<div class="label" style="background:#f1f5f9; padding:4px 8px; border-radius:4px; margin-top:12px; margin-bottom:8px">ORDER DETAILS</div>';
-            detailsList.appendChild(header);
-
-            otherKeys.forEach(key => {
-                detailsList.appendChild(createDetailItem(key, data.details[key]));
-            });
-        }
-
-        if (detailsList.innerHTML === '') {
-            detailsList.innerHTML = '<div class="empty-state">Waiting for data to load... Click on the tabs in SLT portal to trigger capture.</div>';
-        }
+        otherKeys.forEach(key => {
+            detailsList.appendChild(createDetailItem(key, data.details[key]));
+        });
     }
 
     function refreshData() {
@@ -104,25 +101,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function refreshDiagnostics() {
         chrome.storage.local.get(['diagnostics_slt', 'diagnostics_erp'], (res) => {
             const slt = res.diagnostics_slt;
-            const sltStatus = document.getElementById('diag-slt-status');
             if (slt && slt.status === 'ACTIVE') {
-                sltStatus.textContent = 'CONNECTED';
-                sltStatus.className = 'status-badge bg-green';
+                document.getElementById('diag-slt-status').textContent = 'CONNECTED';
+                document.getElementById('diag-slt-status').className = 'status-badge bg-green';
                 document.getElementById('diag-last-sync').textContent = slt.lastScrapeTime || '-';
                 document.getElementById('diag-fields').textContent = slt.elementsFound || '0';
-            } else {
-                sltStatus.textContent = 'NOT FOUND';
-                sltStatus.className = 'status-badge bg-red';
             }
 
             const erp = res.diagnostics_erp;
-            const erpStatus = document.getElementById('diag-erp-status');
             if (erp) {
-                erpStatus.textContent = 'DETECTED';
-                erpStatus.className = 'status-badge bg-green';
-            } else {
-                erpStatus.textContent = 'NOT FOUND';
-                erpStatus.className = 'status-badge bg-red';
+                document.getElementById('diag-erp-status').textContent = 'DETECTED';
+                document.getElementById('diag-erp-status').className = 'status-badge bg-green';
             }
         });
     }
