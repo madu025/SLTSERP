@@ -819,73 +819,81 @@ export class ServiceOrderService {
         // 3. Cache the current rejections in SLTPATStatus table
         // We Upsert them to ensure we have the latest rejected status
         for (const rej of opmcRejected) {
-            await prisma.sLTPATStatus.upsert({
-                where: { soNum: rej.SO_NUM },
-                update: {
-                    status: 'REJECTED',
-                    source: 'OPMC_REJECTED',
-                    lea: rej.LEA,
-                    voiceNumber: rej.VOICENUMBER,
-                    sType: rej.S_TYPE,
-                    orderType: rej.ORDER_TYPE,
-                    task: rej.CON_WORO_TASK_NAME,
-                    package: rej.PKG,
-                    conName: rej.CON_NAME,
-                    patUser: rej.PAT_USER,
-                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE),
-                    updatedAt: new Date()
-                },
-                create: {
-                    soNum: rej.SO_NUM,
-                    status: 'REJECTED',
-                    source: 'OPMC_REJECTED',
-                    rtom,
-                    lea: rej.LEA,
-                    voiceNumber: rej.VOICENUMBER,
-                    sType: rej.S_TYPE,
-                    orderType: rej.ORDER_TYPE,
-                    task: rej.CON_WORO_TASK_NAME,
-                    package: rej.PKG,
-                    conName: rej.CON_NAME,
-                    patUser: rej.PAT_USER,
-                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE)
-                }
-            });
+            try {
+                await prisma.sLTPATStatus.upsert({
+                    where: { soNum: rej.SO_NUM },
+                    update: {
+                        status: 'REJECTED',
+                        source: 'OPMC_REJECTED',
+                        lea: rej.LEA,
+                        voiceNumber: rej.VOICENUMBER,
+                        sType: rej.S_TYPE,
+                        orderType: rej.ORDER_TYPE,
+                        task: rej.CON_WORO_TASK_NAME,
+                        package: rej.PKG,
+                        conName: rej.CON_NAME,
+                        patUser: rej.PAT_USER,
+                        statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE),
+                        updatedAt: new Date()
+                    },
+                    create: {
+                        soNum: rej.SO_NUM,
+                        status: 'REJECTED',
+                        source: 'OPMC_REJECTED',
+                        rtom,
+                        lea: rej.LEA,
+                        voiceNumber: rej.VOICENUMBER,
+                        sType: rej.S_TYPE,
+                        orderType: rej.ORDER_TYPE,
+                        task: rej.CON_WORO_TASK_NAME,
+                        package: rej.PKG,
+                        conName: rej.CON_NAME,
+                        patUser: rej.PAT_USER,
+                        statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE)
+                    }
+                });
+            } catch (e) {
+                console.error(`[PAT-SYNC] Failed to cache OPMC rejection for ${rej.SO_NUM}:`, e);
+            }
         }
 
         for (const rej of rtHoRejected) {
-            await prisma.sLTPATStatus.upsert({
-                where: { soNum: rej.SO_NUM },
-                update: {
-                    status: 'REJECTED',
-                    source: 'HO_REJECTED',
-                    lea: rej.LEA,
-                    voiceNumber: rej.VOICENUMBER,
-                    sType: rej.S_TYPE,
-                    orderType: rej.ORDER_TYPE,
-                    task: rej.CON_WORO_TASK_NAME,
-                    package: rej.PKG,
-                    conName: rej.CON_NAME,
-                    patUser: rej.PAT_USER,
-                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE),
-                    updatedAt: new Date()
-                },
-                create: {
-                    soNum: rej.SO_NUM,
-                    status: 'REJECTED',
-                    source: 'HO_REJECTED',
-                    rtom,
-                    lea: rej.LEA,
-                    voiceNumber: rej.VOICENUMBER,
-                    sType: rej.S_TYPE,
-                    orderType: rej.ORDER_TYPE,
-                    task: rej.CON_WORO_TASK_NAME,
-                    package: rej.PKG,
-                    conName: rej.CON_NAME,
-                    patUser: rej.PAT_USER,
-                    statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE)
-                }
-            });
+            try {
+                await prisma.sLTPATStatus.upsert({
+                    where: { soNum: rej.SO_NUM },
+                    update: {
+                        status: 'REJECTED',
+                        source: 'HO_REJECTED',
+                        lea: rej.LEA,
+                        voiceNumber: rej.VOICENUMBER,
+                        sType: rej.S_TYPE,
+                        orderType: rej.ORDER_TYPE,
+                        task: rej.CON_WORO_TASK_NAME,
+                        package: rej.PKG,
+                        conName: rej.CON_NAME,
+                        patUser: rej.PAT_USER,
+                        statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE),
+                        updatedAt: new Date()
+                    },
+                    create: {
+                        soNum: rej.SO_NUM,
+                        status: 'REJECTED',
+                        source: 'HO_REJECTED',
+                        rtom,
+                        lea: rej.LEA,
+                        voiceNumber: rej.VOICENUMBER,
+                        sType: rej.S_TYPE,
+                        orderType: rej.ORDER_TYPE,
+                        task: rej.CON_WORO_TASK_NAME,
+                        package: rej.PKG,
+                        conName: rej.CON_NAME,
+                        patUser: rej.PAT_USER,
+                        statusDate: sltApiService.parseStatusDate(rej.CON_STATUS_DATE)
+                    }
+                });
+            } catch (e) {
+                console.error(`[PAT-SYNC] Failed to cache HO rejection for ${rej.SO_NUM}:`, e);
+            }
         }
 
         // 3. Clear 'REJECTED' status in Our DB (ServiceOrder) if no longer in API rejected list
@@ -1142,7 +1150,8 @@ export class ServiceOrderService {
                     opmcId: opmc.id,
                     rtom: opmc.rtom
                 }, {
-                    jobId: `sync-${opmc.id}-${new Date().toISOString().split('T')[0]}` // Prevent duplicate syncs for same OPMC on same day if a job is already there
+                    // jobId includes timestamp to allow manual retries if previous one failed
+                    jobId: `sync-${opmc.id}-${new Date().toISOString().split('T')[0]}-${Date.now()}`
                 })
             )
         );
@@ -1198,7 +1207,7 @@ export class ServiceOrderService {
         const errors: { soNum: string; error: string }[] = [];
 
         // Batch processing: Process in chunks of 20 to keep transactions manageable but fast
-        const chunkSize = 20;
+        const chunkSize = 10;
         for (let i = 0; i < syncableData.length; i += chunkSize) {
             const chunk = syncableData.slice(i, i + chunkSize);
 
