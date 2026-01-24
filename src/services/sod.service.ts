@@ -1120,27 +1120,25 @@ export class ServiceOrderService {
 
     static async syncAllOpmcs() {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
-        const results: Record<string, unknown>[] = [];
-        let created = 0;
-        let updated = 0;
-        let failed = 0;
+        const { sodSyncQueue } = await import('@/lib/queue');
 
-        for (const opmc of opmcs) {
-            try {
-                const res = await this.syncServiceOrders(opmc.id, opmc.rtom);
-                results.push({ rtom: opmc.rtom, ...res });
-                created += res.created || 0;
-                updated += res.updated || 0;
-            } catch (err) {
-                results.push({ rtom: opmc.rtom, error: err instanceof Error ? err.message : String(err) });
-                failed++;
-            }
-        }
+        console.log(`[SOD-SYNC] Queueing ${opmcs.length} OPMC sync jobs...`);
+
+        const jobs = await Promise.all(
+            opmcs.map(opmc =>
+                sodSyncQueue.add(`sync-${opmc.rtom}`, {
+                    opmcId: opmc.id,
+                    rtom: opmc.rtom
+                }, {
+                    jobId: `sync-${opmc.id}-${new Date().toISOString().split('T')[0]}` // Prevent duplicate syncs for same OPMC on same day if a job is already there
+                })
+            )
+        );
+
         const finalStats = {
-            created,
-            updated,
-            failed,
-            lastSync: new Date().toISOString()
+            queuedCount: opmcs.length,
+            jobIds: jobs.map(j => j.id),
+            lastSyncTriggered: new Date().toISOString()
         };
 
         // Update System Setting for Frontend
@@ -1154,7 +1152,7 @@ export class ServiceOrderService {
             console.error('Failed to update sync stats in DB:', e);
         }
 
-        return { stats: finalStats, details: results };
+        return { success: true, stats: finalStats };
     }
 
     static async syncServiceOrders(opmcId: string, rtom: string) {
@@ -1184,134 +1182,120 @@ export class ServiceOrderService {
         const syncableData = Array.from(uniqueSyncMap.values());
 
         let created = 0; let updated = 0;
-        for (const item of syncableData) {
-            try {
-                const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
+        const errors: { soNum: string; error: string }[] = [];
 
-                // Determine sltsStatus based on SLT status
-                const completionStatuses = ['INSTALL_CLOSED'];
-                const returnStatuses = ['RETURN_PENDING', 'CANCELLED'];
+        // Batch processing: Process in chunks of 20 to keep transactions manageable but fast
+        const chunkSize = 20;
+        for (let i = 0; i < syncableData.length; i += chunkSize) {
+            const chunk = syncableData.slice(i, i + chunkSize);
 
-                let initialSltsStatus = 'INPROGRESS';
-                if (completionStatuses.includes(item.CON_STATUS)) {
-                    initialSltsStatus = 'COMPLETED';
-                } else if (returnStatuses.some(s => item.CON_STATUS.includes(s))) {
-                    initialSltsStatus = 'RETURN';
-                }
+            await Promise.all(chunk.map(async (item) => {
+                try {
+                    const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
+                    const completionStatuses = ['INSTALL_CLOSED'];
+                    const returnStatuses = ['RETURN_PENDING', 'CANCELLED'];
 
-                // Check if this specific soNum exists
-                // Check if this soNum already exists in our system
-                const existing = await prisma.serviceOrder.findFirst({
-                    where: { soNum: item.SO_NUM }
-                });
-
-                let result;
-                const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
-                    status: item.CON_STATUS,
-                    lea: item.LEA,
-                    voiceNumber: item.VOICENUMBER,
-                    orderType: item.ORDER_TYPE,
-                    serviceType: item.S_TYPE,
-                    customerName: item.CON_CUS_NAME,
-                    techContact: item.CON_TEC_CONTACT,
-                    statusDate,
-                    address: item.ADDRE,
-                    dp: item.DP,
-                    package: item.PKG,
-                    woroTaskName: item.CON_WORO_TASK_NAME,
-                    iptv: item.IPTV,
-                    woroSeit: item.CON_WORO_SEIT,
-                    ftthInstSeit: item.FTTH_INST_SIET,
-                    ftthWifi: item.FTTH_WIFI,
-                    ospPhoneClass: item.CON_OSP_PHONE_CLASS,
-                    phonePurchase: item.CON_PHN_PURCH,
-                    sales: item.CON_SALES
-                };
-
-                if (existing) {
-                    const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
-
-                    result = await prisma.serviceOrder.update({
-                        where: { id: existing.id },
-                        data: {
-                            ...updatePayload,
-                            sltsStatus: isRestoring ? 'INPROGRESS' : undefined,
-                            receivedDate: isRestoring ? new Date() : undefined,
-                            comments: isRestoring
-                                ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
-                                : undefined,
-                            returnReason: isRestoring ? null : undefined
-                        },
-                        select: { id: true, createdAt: true, updatedAt: true }
-                    });
-                } else {
-                    // SMART FILTER: 
-                    // 1. Always import active work (INPROGRESS) regardless of date.
-                    // 2. ONLY import finished work (COMPLETED) if it happened in 2026 or later.
-                    const isFinished = initialSltsStatus === 'COMPLETED';
-                    const isRecent = statusDate.getFullYear() >= 2026;
-                    const shouldImport = !isFinished || isRecent;
-
-                    if (shouldImport) {
-                        result = await prisma.serviceOrder.create({
-                            data: {
-                                status: item.CON_STATUS,
-                                lea: item.LEA,
-                                voiceNumber: item.VOICENUMBER,
-                                orderType: item.ORDER_TYPE,
-                                serviceType: item.S_TYPE,
-                                customerName: item.CON_CUS_NAME,
-                                techContact: item.CON_TEC_CONTACT,
-                                statusDate,
-                                address: item.ADDRE,
-                                dp: item.DP,
-                                package: item.PKG,
-                                woroTaskName: item.CON_WORO_TASK_NAME,
-                                iptv: item.IPTV,
-                                woroSeit: item.CON_WORO_SEIT,
-                                ftthInstSeit: item.FTTH_INST_SIET,
-                                ftthWifi: item.FTTH_WIFI,
-                                ospPhoneClass: item.CON_OSP_PHONE_CLASS,
-                                phonePurchase: item.CON_PHN_PURCH,
-                                sales: item.CON_SALES,
-                                opmcId,
-                                rtom: item.RTOM || rtom,
-                                soNum: item.SO_NUM,
-                                receivedDate: statusDate,
-                                sltsStatus: initialSltsStatus
-                            },
-                            select: { id: true, createdAt: true, updatedAt: true }
-                        });
-                    } else {
-                        // Skip old, non-completed historical junk data
-                        continue;
+                    let initialSltsStatus = 'INPROGRESS';
+                    if (completionStatuses.includes(item.CON_STATUS)) {
+                        initialSltsStatus = 'COMPLETED';
+                    } else if (returnStatuses.some(s => item.CON_STATUS.includes(s))) {
+                        initialSltsStatus = 'RETURN';
                     }
-                }
 
-                // Record history if new
-                if (!existing) {
-                    await prisma.serviceOrderStatusHistory.create({
-                        data: {
-                            serviceOrderId: result.id,
-                            status: item.CON_STATUS,
-                            statusDate: statusDate
+                    const existing = existingMap.get(item.SO_NUM);
+                    const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
+                        status: item.CON_STATUS,
+                        lea: item.LEA,
+                        voiceNumber: item.VOICENUMBER,
+                        orderType: item.ORDER_TYPE,
+                        serviceType: item.S_TYPE,
+                        customerName: item.CON_CUS_NAME,
+                        techContact: item.CON_TEC_CONTACT,
+                        statusDate,
+                        address: item.ADDRE,
+                        dp: item.DP,
+                        package: item.PKG,
+                        woroTaskName: item.CON_WORO_TASK_NAME,
+                        iptv: item.IPTV,
+                        woroSeit: item.CON_WORO_SEIT,
+                        ftthInstSeit: item.FTTH_INST_SIET,
+                        ftthWifi: item.FTTH_WIFI,
+                        ospPhoneClass: item.CON_OSP_PHONE_CLASS,
+                        phonePurchase: item.CON_PHN_PURCH,
+                        sales: item.CON_SALES
+                    };
+
+                    if (existing) {
+                        const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
+                        await prisma.serviceOrder.update({
+                            where: { soNum: item.SO_NUM },
+                            data: {
+                                ...updatePayload,
+                                sltsStatus: isRestoring ? 'INPROGRESS' : undefined,
+                                receivedDate: isRestoring ? new Date() : undefined,
+                                comments: isRestoring
+                                    ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
+                                    : undefined,
+                                returnReason: isRestoring ? null : undefined
+                            }
+                        });
+                        updated++;
+                    } else {
+                        const isFinished = initialSltsStatus === 'COMPLETED';
+                        const isRecent = statusDate.getFullYear() >= 2026;
+                        if (!isFinished || isRecent) {
+                            const result = await prisma.serviceOrder.create({
+                                data: {
+                                    status: item.CON_STATUS,
+                                    lea: item.LEA,
+                                    voiceNumber: item.VOICENUMBER,
+                                    orderType: item.ORDER_TYPE,
+                                    serviceType: item.S_TYPE,
+                                    customerName: item.CON_CUS_NAME,
+                                    techContact: item.CON_TEC_CONTACT,
+                                    statusDate,
+                                    address: item.ADDRE,
+                                    dp: item.DP,
+                                    package: item.PKG,
+                                    woroTaskName: item.CON_WORO_TASK_NAME,
+                                    iptv: item.IPTV,
+                                    woroSeit: item.CON_WORO_SEIT,
+                                    ftthInstSeit: item.FTTH_INST_SIET,
+                                    ftthWifi: item.FTTH_WIFI,
+                                    ospPhoneClass: item.CON_OSP_PHONE_CLASS,
+                                    phonePurchase: item.CON_PHN_PURCH,
+                                    sales: item.CON_SALES,
+                                    opmcId,
+                                    rtom: item.RTOM || rtom,
+                                    soNum: item.SO_NUM,
+                                    receivedDate: statusDate,
+                                    sltsStatus: initialSltsStatus
+                                },
+                                select: { id: true }
+                            });
+
+                            await prisma.serviceOrderStatusHistory.create({
+                                data: {
+                                    serviceOrderId: result.id,
+                                    status: item.CON_STATUS,
+                                    statusDate: statusDate
+                                }
+                            }).catch(() => { });
+                            created++;
                         }
-                    }).catch(() => { });
+                    }
+                } catch (err) {
+                    console.error(`[SYNC] Failed to sync ${item.SO_NUM}:`, err);
+                    errors.push({ soNum: item.SO_NUM, error: err instanceof Error ? err.message : String(err) });
                 }
-
-                if (result.createdAt.getTime() === result.updatedAt.getTime()) created++;
-                else updated++;
-            } catch (err) {
-                console.error(`[SYNC] Failed to sync ${item.SO_NUM}:`, err);
-            }
+            }));
         }
 
-        // Sync Stats
         if (created > 0 || updated > 0) {
             const { StatsService } = await import('../lib/stats.service');
-            await StatsService.syncOpmcStats(opmcId);
+            await StatsService.syncOpmcStats(opmcId).catch(e => console.error(`[SYNC] Stats update failed for ${opmcId}:`, e));
         }
 
-        return { created, updated };
+        return { created, updated, errorCount: errors.length, errors: errors.slice(0, 5) };
     }
 }

@@ -69,12 +69,13 @@ export async function initializeBackgroundWorkers() {
         console.error('[WORKERS] ❌ Failed to schedule Daily Automation Tasks:', err);
     }
 
-    // 4. BullMQ Workers (SOD Import)
+    // 4. BullMQ Workers
     try {
         await import('./import.worker');
-        console.log('[WORKERS] ✅ SOD Import Worker (BullMQ) initialized');
+        await import('./sod-sync.worker'); // New Worker
+        console.log('[WORKERS] ✅ SOD Import & Sync Workers (BullMQ) initialized');
     } catch (err) {
-        console.error('[WORKERS] ❌ Failed to initialize SOD Import Worker:', err);
+        console.error('[WORKERS] ❌ Failed to initialize BullMQ Workers:', err);
     }
 
     console.log('[WORKERS] All background workers initialized successfully');
