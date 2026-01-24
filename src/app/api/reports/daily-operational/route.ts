@@ -20,13 +20,8 @@ export async function GET(request: Request) {
                             { createdAt: { gte: startDate, lte: endDate } },
                             { completedDate: { gte: startDate, lte: endDate } },
                             { statusDate: { gte: startDate, lte: endDate } },
-                            {
-                                statusHistory: {
-                                    some: {
-                                        statusDate: { gte: startDate, lte: endDate }
-                                    }
-                                }
-                            }
+                            { receivedDate: { gte: startDate, lte: endDate } },
+                            { updatedAt: { gte: startDate, lte: endDate } }
                         ]
                     },
                     include: {
@@ -35,11 +30,7 @@ export async function GET(request: Request) {
                                 item: true
                             }
                         },
-                        statusHistory: {
-                            where: {
-                                statusDate: { gte: startDate, lte: endDate }
-                            }
-                        }
+                        statusHistory: true
                     }
                 },
                 contractorTeams: {
@@ -223,22 +214,44 @@ export async function GET(request: Request) {
                     received.total++;
                 }
 
-                // Check if completed today via Status History
-                // "Daily Completion" = Any order that had INSTALL_CLOSED status TODAY
-                const hadInstallClosedToday = order.statusHistory?.some((h: any) => h.status === 'INSTALL_CLOSED');
+                // Check if completed today (The most inclusive check possible)
+                // 1. completedDate field is today
+                // 2. sltsStatus is COMPLETED AND (statusDate is today OR statusHistory has a completion today)
+                const isCompletedDateToday = order.completedDate && order.completedDate >= startDate && order.completedDate <= endDate;
+                const isStatusDateToday = order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate;
+                const hasCompletionStatus = order.sltsStatus === 'COMPLETED' || order.status === 'INSTALL_CLOSED' || order.status === 'COMPLETED';
 
-                if (hadInstallClosedToday) {
+                const hadCompletionHistoryToday = order.statusHistory?.some((h: any) =>
+                    (h.status === 'INSTALL_CLOSED' || h.status === 'COMPLETED') &&
+                    new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
+                );
+
+                if (isCompletedDateToday || (hasCompletionStatus && (isStatusDateToday || hadCompletionHistoryToday))) {
                     const orderType = order.orderType?.toUpperCase() || '';
-                    if (orderType.includes('CREATE') && !orderType.includes('CREATE-OR') && !orderType.includes('RECON') && !orderType.includes('UPGRD')) {
-                        completed.create++;
-                    } else if (orderType.includes('RECON')) {
+                    const packageInfo = (order.package || '').toUpperCase();
+
+                    // Comprehensive categorization
+                    if (orderType.includes('RECON')) {
                         completed.recon++;
-                    } else if (orderType.includes('UPGRD') || orderType.includes('UPGRADE')) {
+                    } else if (orderType.includes('UPGRADE') || orderType.includes('UPGRD')) {
                         completed.upgrade++;
                     } else if (orderType.includes('CREATE-OR')) {
                         completed.or++;
                     } else if (orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION')) {
                         completed.ml++;
+                    } else if (orderType.includes('F-NC') || packageInfo.includes('FNC')) {
+                        completed.fnc++;
+                    } else if (orderType.includes('F-RL') || packageInfo.includes('FRL')) {
+                        completed.frl++;
+                    } else if (orderType.includes('CREATE')) {
+                        completed.create++;
+                    } else {
+                        // Fallback: If it's a new connection (common for residential)
+                        if (packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
+                            completed.create++;
+                        } else {
+                            completed.data++;
+                        }
                     }
 
                     completed.total++;
