@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.0.8
+// Comprehensive Scraper for SLT i-Shamp Portal v1.0.9
 function updateLocalDiagnostics(foundItems) {
     chrome.storage.local.set({
         diagnostics_slt: {
@@ -16,71 +16,106 @@ function scrape() {
         url: window.location.href,
         title: document.title,
         timestamp: new Date().toISOString(),
-        details: {} // Dynamic key-value pairs
+        details: {}
     };
 
-    // 1. Helper to clean text
     const clean = (txt) => txt ? txt.replace(/\s+/g, ' ').trim() : '';
 
-    // 2. Try to find the Service Order Number first (Top Priority)
+    // 1. Parse URL Parameters (Useful for sod_details pages)
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('sod')) {
+            const rawSod = urlParams.get('sod');
+            const parts = rawSod.split('_');
+            data.details['URL SOD ID'] = parts[0];
+            data.details['URL STATUS'] = parts[1];
+            data.soNum = parts[0];
+        }
+    } catch (e) { }
+
+    // 2. SO Number Detection from text
     const bodyText = document.body.innerText;
     const soMatch = bodyText.match(/[A-Z]{3}20\d{11}|SO\/\d+|SOD\/\d+/);
-    if (soMatch) data.soNum = soMatch[0];
+    if (soMatch && !data.soNum) data.soNum = soMatch[0];
 
-    // 3. Look for Tables (Standard for i-Shamp)
+    // 3. Robust Table Scraper
     const tables = document.querySelectorAll('table');
     tables.forEach(table => {
-        // If it's a Vertical Table (Label | Value)
-        const rows = table.querySelectorAll('tr');
+        const rows = Array.from(table.querySelectorAll('tr'));
+
         rows.forEach(row => {
-            const cells = row.querySelectorAll('td, th');
-            if (cells.length >= 2) {
+            const cells = Array.from(row.querySelectorAll('td, th'));
+
+            // Pattern A: Key | Value (Common in details pages)
+            if (cells.length === 2) {
                 const label = clean(cells[0].innerText).toUpperCase().replace(/:$/, '');
                 const value = clean(cells[1].innerText);
-                if (label && value && label.length < 30) {
+                if (label && value && label.length < 50 && label.length > 1) {
                     data.details[label] = value;
+                }
+            }
+
+            // Pattern B: Key | Value | Key | Value (Multi-column details)
+            if (cells.length === 4) {
+                for (let i = 0; i < 4; i += 2) {
+                    const label = clean(cells[i].innerText).toUpperCase().replace(/:$/, '');
+                    const value = clean(cells[i + 1]?.innerText);
+                    if (label && value && label.length < 50 && label.length > 1) {
+                        data.details[label] = value;
+                    }
                 }
             }
         });
 
-        // If it's a Horizontal Table (Headers top, values below) - usually for lists
-        // We only take the first data row if present
+        // Pattern C: Header Row then Data Row
         const headers = Array.from(table.querySelectorAll('th')).map(h => clean(h.innerText).toUpperCase());
         if (headers.length > 0) {
-            const firstDataRow = table.querySelector('tbody tr');
-            if (firstDataRow) {
-                const cells = firstDataRow.querySelectorAll('td');
+            const dataRows = Array.from(table.querySelectorAll('tbody tr, tr:not(:first-child)'));
+            // If it's a details page, we likely only care about the specific record shown
+            if (dataRows.length > 0) {
+                const firstRowCells = Array.from(dataRows[0].querySelectorAll('td'));
                 headers.forEach((h, i) => {
-                    if (cells[i] && h) {
-                        data.details[h] = clean(cells[i].innerText);
+                    if (firstRowCells[i] && h && h.length < 50) {
+                        data.details[h] = clean(firstRowCells[i].innerText);
                     }
                 });
             }
         }
     });
 
-    // 4. Fallback search for specific labels in spans/divs if not in tables
-    const commonLabels = ['CUSTOMER NAME', 'STATUS', 'CIRCUIT', 'PACKAGE', 'SERVICE', 'TASK', 'ORDER TYPE', 'LEA'];
-    const allElements = document.querySelectorAll('span, div, label');
-    allElements.forEach(el => {
+    // 4. Label-Value Pair detection from Spans/Divs (for non-table layouts)
+    const allDivs = document.querySelectorAll('div, span, p, b, label');
+    allDivs.forEach(el => {
         const text = clean(el.innerText).toUpperCase();
-        if (commonLabels.includes(text)) {
-            // Check following sibling or parent's next sibling
-            let valNode = el.nextElementSibling;
-            if (!valNode || !valNode.innerText) {
-                valNode = el.parentElement?.nextElementSibling;
+        // Common labels we expect in SOD Details
+        const knownLabels = [
+            'CUSTOMER NAME', 'SERVICE ADDRESS', 'CONTACT NUMBER', 'CONTACT PERSON',
+            'ORDER TYPE', 'SERVICE TYPE', 'PACKAGE', 'LEA', 'RTOM', 'OPMC', 'EXCHANGE',
+            'DP NAME', 'DP DETAILS', 'PORT NO', 'STATUS', 'RECEIVED DATE', 'REQUIRED DATE'
+        ];
+
+        if (knownLabels.some(l => text === l || text === l + ':')) {
+            let value = '';
+            // Try next sibling
+            let sib = el.nextSibling;
+            if (sib && sib.textContent && clean(sib.textContent)) {
+                value = clean(sib.textContent);
+            } else if (el.nextElementSibling) {
+                value = clean(el.nextElementSibling.innerText);
             }
-            if (valNode && valNode.innerText) {
-                data.details[text] = clean(valNode.innerText);
+
+            if (value && value.length < 200) {
+                const cleanLabel = text.replace(/:$/, '');
+                if (!data.details[cleanLabel]) data.details[cleanLabel] = value;
             }
         }
     });
 
-    // Mapping key fields for backward compatibility with UI
+    // Mapping key fields
     if (data.details['CUSTOMER NAME']) data.customerName = data.details['CUSTOMER NAME'];
     if (data.details['STATUS']) data.status = data.details['STATUS'];
-    if (data.details['SOD'] && !data.soNum) data.soNum = data.details['SOD'];
-    if (data.details['SERVICE']) data.serviceType = data.details['SERVICE'];
+    if (data.details['SERVICE TYPE']) data.serviceType = data.details['SERVICE TYPE'];
+    if (data.details['LEA']) data.lea = data.details['LEA'];
 
     const foundCount = Object.keys(data.details).length;
     updateLocalDiagnostics(foundCount);
@@ -100,10 +135,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 if (!document.getElementById('slt-erp-indicator')) {
     const banner = document.createElement('div');
     banner.id = 'slt-erp-indicator';
-    banner.innerHTML = `<div style="position:fixed;top:0;right:20px;z-index:999999;background:#1e293b;color:#22c55e;padding:4px 10px;font-size:10px;font-weight:bold;border-radius:0 0 5px 5px;box-shadow:0 2px 5px rgba(0,0,0,0.2)">BRIDGE v1.0.8 ACTIVE</div>`;
+    banner.innerHTML = `<div style="position:fixed;top:0;right:20px;z-index:999999;background:#1e293b;color:#22c55e;padding:4px 10px;font-size:10px;font-weight:bold;border-radius:0 0 5px 5px;box-shadow:0 2px 5px rgba(0,0,0,0.2)">BRIDGE v1.0.9 ACTIVE</div>`;
     document.body.appendChild(banner);
 }
 
 // Manual trigger
 scrape();
-setInterval(scrape, 5000);
+// Observe changes for dynamic content
+const observer = new MutationObserver(() => scrape());
+observer.observe(document.body, { childList: true, subtree: true });
