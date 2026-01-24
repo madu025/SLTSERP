@@ -90,9 +90,12 @@ export async function GET(request: Request) {
             const orderType = (row.orderType || '').toUpperCase();
             const count = row._count.id;
 
-            if (orderType.includes('CREATE') && !orderType.includes('CREATE-OR')) {
+            // Use the same categorization logic as the main processor
+            if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION')) {
+                entry.rl += count;
+            } else if (orderType.includes('CREATE') || orderType.includes('F-NC')) {
                 entry.nc += count;
-            } else if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION')) {
+            } else if (orderType.includes('F-RL')) {
                 entry.rl += count;
             } else {
                 entry.data += count;
@@ -120,19 +123,18 @@ export async function GET(request: Request) {
             // Helper function to categorize orders based on Order Type
             const categorizeOrder = (order: any) => {
                 const orderType = order.orderType?.toUpperCase() || '';
+                const packageInfo = (order.package || '').toUpperCase();
 
-                // NC (New Connection): CREATE, CREATE-UPGRD SAME NO, CREATE-RECON
-                if (orderType.includes('CREATE') && !orderType.includes('CREATE-OR')) {
-                    return 'nc';
-                }
-
-                // RL (Relocation): CREATE-OR, MODIFY-LOCATION
-                if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION')) {
+                // RL: Relocation / Maintenance
+                if (orderType.includes('CREATE-OR') || orderType.includes('MODIFY-LOCATION') || orderType.includes('MODIFY LOCATION') || orderType.includes('F-RL') || packageInfo.includes('FRL')) {
                     return 'rl';
                 }
 
-                // DATA: Orders without proper Order Type or manual entries
-                // This ensures all orders are counted
+                // NC: New Connections / Upgrades
+                if (orderType.includes('CREATE') || orderType.includes('F-NC') || packageInfo.includes('FNC') || packageInfo.includes('VOICE') || packageInfo.includes('INT') || packageInfo.includes('IPTV')) {
+                    return 'nc';
+                }
+
                 return 'data';
             };
 
