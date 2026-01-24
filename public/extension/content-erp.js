@@ -2,12 +2,12 @@
 (function () {
     const diagInfo = {
         detectedAt: new Date().toISOString(),
-        version: "1.1.0",
+        version: "1.1.1",
         status: 'ACTIVE'
     };
 
     document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
-    document.documentElement.setAttribute('data-slt-bridge-version', "1.1.0");
+    document.documentElement.setAttribute('data-slt-bridge-version', "1.1.1");
 
     // Update storage so popup can see it
     chrome.storage.local.set({ diagnostics_erp: diagInfo });
