@@ -178,6 +178,7 @@ export async function GET(request: Request) {
             const material = {
                 dwSlt: 0,      // Drop Wire (SLT Source)
                 dwCompany: 0,  // Drop Wire (Company Source)
+                dw: 0,         // Combined Drop Wire for summary
                 pole56: 0,  // 5.6m poles
                 pole67: 0,  // 6.7m poles
                 pole80: 0   // 8.0m poles
@@ -215,8 +216,9 @@ export async function GET(request: Request) {
             orders.forEach(order => {
                 const category = categorizeOrder(order);
 
-                // Check if received today (created today)
-                if (order.createdAt >= startDate && order.createdAt <= endDate) {
+                // Check if received today (actual received date from SLT)
+                const rDate = order.receivedDate || order.createdAt;
+                if (rDate >= startDate && rDate <= endDate) {
                     received[category]++;
                     received.total++;
                 }
@@ -287,6 +289,7 @@ export async function GET(request: Request) {
                             } else {
                                 material.dwSlt += quantity;
                             }
+                            material.dw += quantity;
                         }
                         // Poles - categorized by size
                         else if (itemCategory.includes('pole')) {
