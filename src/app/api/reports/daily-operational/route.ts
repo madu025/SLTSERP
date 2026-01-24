@@ -266,10 +266,14 @@ export async function GET(request: Request) {
                     returned.total++;
                 }
 
-                // Track wired-only orders (PROV_CLOSED status reached TODAY via statusHistory)
-                const hadProvClosedToday = order.statusHistory?.some((h: any) => h.status === 'PROV_CLOSED');
+                // Track wired-only orders (PROV_CLOSED status or wiredOnly boolean)
+                const isProvClosedToday = order.status === 'PROV_CLOSED' && order.statusDate && order.statusDate >= startDate && order.statusDate <= endDate;
+                const hadProvClosedHistoryToday = order.statusHistory?.some((h: any) =>
+                    h.status === 'PROV_CLOSED' &&
+                    new Date(h.statusDate) >= startDate && new Date(h.statusDate) <= endDate
+                );
 
-                if (hadProvClosedToday) {
+                if (isProvClosedToday || hadProvClosedHistoryToday || order.wiredOnly === true) {
                     wiredOnly[category]++;
                     wiredOnly.total++;
                 }
