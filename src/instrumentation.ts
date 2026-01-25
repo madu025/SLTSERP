@@ -8,7 +8,9 @@
  */
 
 export async function register() {
+    console.log('[INSTRUMENTATION] 🚀 Registering server-side processes...');
     if (process.env.NEXT_RUNTIME === 'nodejs') {
+        console.log('[INSTRUMENTATION] 📦 Node.js runtime detected, initializing workers...');
         const { initializeBackgroundWorkers } = await import('./workers/init');
         await initializeBackgroundWorkers();
     }

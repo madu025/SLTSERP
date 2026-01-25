@@ -9,7 +9,11 @@ import { AutomationService } from '@/services/automation.service';
  * It is called by Next.js instrumentation.ts.
  */
 export async function initializeBackgroundWorkers() {
-    console.log('[WORKERS] Initializing background workers...');
+    console.log('==================================================');
+    console.log('[WORKERS] 🔄 BACKGROUND WORKER INIT STARTING... ');
+    console.log('==================================================');
+    console.log(`[WORKERS] Runtime: ${process.env.NEXT_RUNTIME}, Node: ${process.version}`);
+    console.log(`[WORKERS] Redis URL: ${process.env.REDIS_URL || 'NOT SET (using default localhost:6379)'}`);
 
     // 1. Completed SOD Sync (10-minute intervals) - Processes PAT Success portal
     if (process.env.ENABLE_COMPLETED_SOD_SYNC !== 'false') {

@@ -26,6 +26,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redis for BullMQ (Queues)
+  redis:
+    image: redis:7-alpine
+    container_name: sltserp-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - sltserp-network
+
   # Next.js Application
   app:
     build:
@@ -36,12 +47,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://sltserp_user:${POSTGRES_PASSWORD:-ChangeThisPassword123!}@postgres:5432/sltserp_db
       DIRECT_URL: postgresql://sltserp_user:${POSTGRES_PASSWORD:-ChangeThisPassword123!}@postgres:5432/sltserp_db
+      REDIS_URL: redis://redis:6379
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NODE_ENV: production
+      CRON_SECRET: ${CRON_SECRET}
     ports:
       - "3000:3000"
     networks:
@@ -69,7 +84,7 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
+  redis_data:
   pgadmin_data:
     driver: local
 

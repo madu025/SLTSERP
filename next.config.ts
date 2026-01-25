@@ -6,9 +6,10 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
+    removeConsole: false, // Keep logs for debugging background workers in production
   },
   experimental: {
+    instrumentationHook: true,
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts']
   },
   // Build Performance Optimizations
