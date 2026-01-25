@@ -16,21 +16,23 @@ export async function GET() {
             });
         }
 
-        const stats = syncStats.value;
-        const lastSyncDate = new Date(stats.lastSync);
+        const stats = syncStats.value as any;
+        const lastSync = stats.lastSyncTriggered || stats.lastSync || new Date().toISOString();
+        const lastSyncDate = new Date(lastSync);
         const nextSyncDate = new Date(lastSyncDate.getTime() + 30 * 60 * 1000); // 30 minutes later
 
         // Stale if last sync was more than 45 minutes ago
         const isStale = (Date.now() - lastSyncDate.getTime()) > (45 * 60 * 1000);
 
         return NextResponse.json({
-            lastSync: stats.lastSync,
+            lastSync: lastSync,
             nextSync: nextSyncDate.toISOString(),
             stats: {
-                created: stats.created,
-                updated: stats.updated,
-                failed: stats.failed,
-                patUpdated: stats.patUpdated
+                created: stats.created || 0,
+                updated: stats.updated || 0,
+                failed: stats.failed || 0,
+                patUpdated: stats.patUpdated || 0,
+                queuedCount: stats.queuedCount || 0
             },
             isStale
         });
