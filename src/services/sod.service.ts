@@ -1165,7 +1165,10 @@ export class ServiceOrderService {
         const finalStats = {
             queuedCount: opmcs.length,
             jobIds: jobs.map(j => j.id),
-            lastSyncTriggered: new Date().toISOString()
+            lastSyncTriggered: new Date().toISOString(),
+            created: 0,
+            updated: 0,
+            failed: 0
         };
 
         // Update System Setting for Frontend
@@ -1180,6 +1183,41 @@ export class ServiceOrderService {
         }
 
         return { success: true, stats: finalStats };
+    }
+
+    static async updateGlobalSyncStats(incremental: { created?: number; updated?: number; failed?: number }) {
+        try {
+            await prisma.$transaction(async (tx) => {
+                const current = await tx.systemSetting.findUnique({
+                    where: { key: 'LAST_SYNC_STATS' }
+                });
+
+                if (!current) return;
+                interface SyncStats {
+                    created?: number;
+                    updated?: number;
+                    failed?: number;
+                    queuedCount?: number;
+                    jobIds?: string[];
+                    lastSyncTriggered?: string;
+                }
+                const stats = current.value as SyncStats;
+
+                await tx.systemSetting.update({
+                    where: { key: 'LAST_SYNC_STATS' },
+                    data: {
+                        value: {
+                            ...stats,
+                            created: (stats.created || 0) + (incremental.created || 0),
+                            updated: (stats.updated || 0) + (incremental.updated || 0),
+                            failed: (stats.failed || 0) + (incremental.failed || 0)
+                        }
+                    }
+                });
+            });
+        } catch (e) {
+            console.error('Failed to update incremental sync stats:', e);
+        }
     }
 
     static async syncServiceOrders(opmcId: string, rtom: string) {

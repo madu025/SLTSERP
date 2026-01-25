@@ -21,7 +21,7 @@ export class AutomationService {
 
         if (criticalItems.length > 0) {
             // Group by store
-            const storeGroups = criticalItems.reduce((acc: any, curr) => {
+            const storeGroups = criticalItems.reduce((acc: Record<string, string[]>, curr) => {
                 if (!acc[curr.store.name]) acc[curr.store.name] = [];
                 acc[curr.store.name].push(curr.item.name);
                 return acc;
@@ -144,10 +144,12 @@ export class AutomationService {
      * Master Runner
      */
     static async runAllDailyTasks() {
+        const { StatsService } = await import('../lib/stats.service');
         const results = {
             lowStock: await this.runLowStockAudit(),
             reminders: await this.runPendingApprovalReminder(),
             performance: await this.runDailyPerformanceSummary(),
+            stats: await StatsService.globalRecalculate(),
             cleanup: await this.runAuditLogCleanup()
         };
         return results;

@@ -2,7 +2,7 @@
 process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
-import { QUEUE_NAMES } from '../lib/queue';
+import { QUEUE_NAMES, statsUpdateQueue, addJob } from '../lib/queue';
 import { ServiceOrderService } from '../services/sod.service';
 import { SLTPATData } from '../services/slt-api.service';
 
@@ -20,15 +20,20 @@ export const sodSyncWorker = new Worker(
             if (type === 'PAT_REJECTION') {
                 console.log(`[SOD-SYNC-WORKER] Starting PAT/Rejection sync for RTOM: ${rtom} (Job ID: ${job.id})`);
                 const result = await ServiceOrderService.syncPatResults(opmcId, rtom, hoRejected || []);
+                await ServiceOrderService.updateGlobalSyncStats({ updated: result.updated });
+                await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
                 console.log(`[SOD-SYNC-WORKER] Completed PAT sync for RTOM: ${rtom}. Updated: ${result.updated}`);
                 return result;
             } else {
                 console.log(`[SOD-SYNC-WORKER] Starting Pending SOD sync for RTOM: ${rtom} (Job ID: ${job.id})`);
                 const result = await ServiceOrderService.syncServiceOrders(opmcId, rtom);
+                await ServiceOrderService.updateGlobalSyncStats({ created: result.created, updated: result.updated });
+                await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
                 console.log(`[SOD-SYNC-WORKER] Completed SOD sync for RTOM: ${rtom}. Created: ${result.created}, Updated: ${result.updated}`);
                 return result;
             }
         } catch (err) {
+            await ServiceOrderService.updateGlobalSyncStats({ failed: 1 });
             console.error(`[SOD-SYNC-WORKER] ❌ FATAL ERROR for RTOM ${rtom} (Job: ${job.id}):`, err);
             throw err;
         }

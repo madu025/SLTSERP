@@ -102,6 +102,45 @@ interface SummaryMetrics {
     };
 }
 
+interface OrderActionData {
+    date: string;
+    comment?: string;
+    reason?: string;
+    ontSerialNumber?: string;
+    ontType?: 'NEW' | 'EXISTING';
+    iptvSerialNumbers?: string[];
+    dpDetails?: string;
+    contractorId?: string;
+    materialStatus?: string;
+    teamId?: string;
+    directTeamName?: string;
+    opmcPatStatus?: string;
+    sltsPatStatus?: string;
+    hoPatStatus?: string;
+    dropWireDistance?: number;
+    wiredOnly?: boolean;
+    delayReasons?: {
+        ontShortage: boolean;
+        stbShortage: boolean;
+        nokia: boolean;
+        system: boolean;
+        opmc: boolean;
+        cxDelay: boolean;
+        sameDay: boolean;
+        polePending: boolean;
+    };
+    stbShortage?: boolean;
+    ontShortage?: boolean;
+    materialUsage?: Array<{
+        itemId: string;
+        quantity: string;
+        usageType: string;
+        comment?: string;
+    }>;
+    completionMode?: 'ONLINE' | 'OFFLINE';
+    photoUrls?: string[];
+}
+
 interface ServiceOrdersPageProps {
     filterType?: 'pending' | 'completed' | 'return';
     pageTitle?: string;
@@ -552,24 +591,28 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                         Synced: {lastSyncTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 )}
-                                <Button
-                                    size="sm"
-                                    className="h-7 text-xs px-2"
-                                    onClick={() => setShowManualModal(true)}
-                                    disabled={!selectedRtomId}
-                                >
-                                    <Plus className="w-3 h-3 mr-1.5" />
-                                    Entry
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs px-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                                    onClick={() => setShowExcelModal(true)}
-                                >
-                                    <FileSpreadsheet className="w-3 h-3 mr-1.5" />
-                                    Import
-                                </Button>
+                                {filterType === 'pending' && (
+                                    <>
+                                        <Button
+                                            size="sm"
+                                            className="h-7 text-xs px-2"
+                                            onClick={() => setShowManualModal(true)}
+                                            disabled={!selectedRtomId}
+                                        >
+                                            <Plus className="w-3 h-3 mr-1.5" />
+                                            Entry
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 text-xs px-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                            onClick={() => setShowExcelModal(true)}
+                                        >
+                                            <FileSpreadsheet className="w-3 h-3 mr-1.5" />
+                                            Import
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -1059,7 +1102,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 <OrderActionModal
                     isOpen={showActionModal}
                     onClose={() => setShowActionModal(false)}
-                    onConfirm={(data: any) => {
+                    onConfirm={(data: OrderActionData) => {
                         let finalComment = data.comment || "";
                         let statusToUpdate = pendingStatusChange?.newStatus;
 

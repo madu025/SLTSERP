@@ -61,8 +61,9 @@ export class StatsService {
         const opmc = await prisma.oPMC.findUnique({ where: { id: opmcId }, select: { rtom: true } });
         if (!opmc) return;
 
-        const currentYearStart = new Date('2026-01-01T00:00:00Z');
-        const nextYearStart = new Date('2027-01-01T00:00:00Z');
+        const currentYear = new Date().getFullYear();
+        const currentYearStart = new Date(`${currentYear}-01-01T00:00:00Z`);
+        const nextYearStart = new Date(`${currentYear + 1}-01-01T00:00:00Z`);
 
 
         const [

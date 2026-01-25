@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { startOfDay, endOfDay } from 'date-fns';
+import { getSriLankaStartOfDay, getSriLankaEndOfDay } from '@/lib/timezone';
 
 interface InHandMorningEntry {
     nc: number;
@@ -133,8 +133,8 @@ export async function GET(request: Request) {
         const dateParam = searchParams.get('date');
 
         const selectedDate = dateParam ? new Date(dateParam) : new Date();
-        const startDate = startOfDay(selectedDate);
-        const endDate = endOfDay(selectedDate);
+        const startDate = getSriLankaStartOfDay(selectedDate);
+        const endDate = getSriLankaEndOfDay(selectedDate);
 
         // Get all OPMCs with their service orders for the day
         const opmcs = await prisma.oPMC.findMany({
