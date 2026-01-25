@@ -8,6 +8,9 @@
  */
 
 export async function register() {
+    // Skip initialization during build phase
+    if (process.env.NEXT_PHASE === 'phase-production-build') return;
+
     console.log('[INSTRUMENTATION] 🚀 Registering server-side processes...');
     if (process.env.NEXT_RUNTIME === 'nodejs') {
         console.log('[INSTRUMENTATION] 📦 Node.js runtime detected, initializing workers...');
