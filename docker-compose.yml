@@ -11,6 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeThisPassword123!}
       POSTGRES_DB: sltserp_db
       PGDATA: /var/lib/postgresql/data/pgdata
+      TZ: Asia/Colombo
     # Added logging for connections
     command: [ "postgres", "-c", "wal_level=logical", "-c", "log_connections=on", "-c", "log_disconnections=on" ]
     ports:
@@ -57,6 +58,7 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NODE_ENV: production
       CRON_SECRET: ${CRON_SECRET}
+      TZ: Asia/Colombo
     ports:
       - "3000:3000"
     networks:

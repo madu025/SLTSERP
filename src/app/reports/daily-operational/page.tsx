@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Download, RefreshCw, Calendar as CalendarIcon, TrendingUp, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getSriLankaToday } from '@/lib/timezone';
 import * as XLSX from 'xlsx';
 
 interface ReportMetrics {
@@ -65,7 +66,7 @@ interface ReportData {
 export default function DailyOperationalReportPage() {
     const [data, setData] = useState<ReportData | null>(null);
     const [loading, setLoading] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(getSriLankaToday());
 
     const fetchReport = React.useCallback(async () => {
         setLoading(true);
