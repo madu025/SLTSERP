@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
 import { QUEUE_NAMES } from '../lib/queue';

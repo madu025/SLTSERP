@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+process.env.IS_WORKER = 'true';
 import { Worker, Job } from 'bullmq';
 import { redis } from '../lib/redis';
 import { prisma } from '../lib/prisma';
@@ -147,11 +148,11 @@ export const sodImportWorker = new Worker(
                     }
                 }
 
-                // IDEMPOTENT Logic: Check if same SO Number with status COMPLETED already exists
+                // IDEMPOTENT Logic: Check if same SO Number already exists
                 await prisma.$transaction(async (tx) => {
                     const existing = await tx.serviceOrder.findUnique({
-                        where: { soNum_status: { soNum, status: 'COMPLETED' } },
-                        select: { id: true }
+                        where: { soNum },
+                        select: { id: true, status: true }
                     });
 
                     const baseData = {

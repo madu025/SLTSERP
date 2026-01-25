@@ -12,8 +12,12 @@ const getSafeDatabaseUrl = (url: string, isWorker: boolean = false) => {
         if (!urlObj.searchParams.has('statement_timeout')) {
             urlObj.searchParams.set('statement_timeout', '30000'); // 30s timeout
         }
-        if (isWorker && !urlObj.searchParams.has('connection_limit')) {
-            urlObj.searchParams.set('connection_limit', '50'); // Increased for high concurrency workers
+        if (isWorker) {
+            const currentLimit = parseInt(urlObj.searchParams.get('connection_limit') || '0');
+            if (currentLimit < 10) {
+                urlObj.searchParams.set('connection_limit', '50'); // Force increase for workers
+                console.log(`[PRISMA] Worker detected: Increasing connection_limit from ${currentLimit} to 50`);
+            }
         }
         return urlObj.toString();
     } catch {
