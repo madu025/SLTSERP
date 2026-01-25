@@ -28,7 +28,7 @@ export const sodSyncWorker = new Worker(
                 return result;
             }
         } catch (err) {
-            console.error(`[SOD-SYNC-WORKER] Failed job ${type || 'PENDING'} for RTOM: ${rtom}`, err);
+            console.error(`[SOD-SYNC-WORKER] ❌ FATAL ERROR for RTOM ${rtom} (Job: ${job.id}):`, err);
             throw err;
         }
     },

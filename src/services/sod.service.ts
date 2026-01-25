@@ -1144,17 +1144,23 @@ export class ServiceOrderService {
 
         console.log(`[SOD-SYNC] Queueing ${opmcs.length} OPMC sync jobs...`);
 
-        const jobs = await Promise.all(
-            opmcs.map(opmc =>
-                sodSyncQueue.add(`sync-${opmc.rtom}`, {
-                    opmcId: opmc.id,
-                    rtom: opmc.rtom
-                }, {
-                    // jobId includes timestamp to allow manual retries if previous one failed
-                    jobId: `sync-${opmc.id}-${new Date().toISOString().split('T')[0]}-${Date.now()}`
-                })
-            )
-        );
+        let jobs;
+        try {
+            jobs = await Promise.all(
+                opmcs.map(opmc =>
+                    sodSyncQueue.add(`sync-${opmc.rtom}`, {
+                        opmcId: opmc.id,
+                        rtom: opmc.rtom
+                    }, {
+                        // jobId includes timestamp to allow manual retries if previous one failed
+                        jobId: `sync-${opmc.id}-${new Date().toISOString().split('T')[0]}-${Date.now()}`
+                    })
+                )
+            );
+        } catch (queueErr) {
+            console.error('[SOD-SYNC] Failed to queue jobs in BullMQ:', queueErr);
+            throw new Error(`Failed to initialize background sync: ${queueErr instanceof Error ? queueErr.message : 'Redis/Queue error'}`);
+        }
 
         const finalStats = {
             queuedCount: opmcs.length,
@@ -1207,7 +1213,8 @@ export class ServiceOrderService {
         const errors: { soNum: string; error: string }[] = [];
 
         // Batch processing: Process in chunks of 20 to keep transactions manageable but fast
-        const chunkSize = 10;
+        // Batch processing: Process in small chunks to stay within connection limits
+        const chunkSize = 5;
         for (let i = 0; i < syncableData.length; i += chunkSize) {
             const chunk = syncableData.slice(i, i + chunkSize);
 

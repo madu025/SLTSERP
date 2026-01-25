@@ -13,7 +13,7 @@ const getSafeDatabaseUrl = (url: string, isWorker: boolean = false) => {
             urlObj.searchParams.set('statement_timeout', '30000'); // 30s timeout
         }
         if (isWorker && !urlObj.searchParams.has('connection_limit')) {
-            urlObj.searchParams.set('connection_limit', '5');
+            urlObj.searchParams.set('connection_limit', '50'); // Increased for high concurrency workers
         }
         return urlObj.toString();
     } catch {
