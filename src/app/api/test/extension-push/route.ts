@@ -15,24 +15,67 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
+        const soNum = body.soNum;
 
-        // Log the raw data to the database for testing
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const log = await (prisma as any).extensionRawData.create({
-            data: {
-                soNum: body.soNum || null,
-                sltUser: body.currentUser || null,
-                activeTab: body.activeTab || null,
-                url: body.url || null,
-                scrapedData: body, // Store the entire object
+        // Ignore IMAGES tab as requested
+        if (body.activeTab === 'IMAGES' || body.activeTab === 'PHOTOS') {
+            return NextResponse.json({ success: true, message: 'Images tab ignored' }, {
+                headers: { 'Access-Control-Allow-Origin': '*' }
+            });
+        }
+
+        let log;
+        if (soNum) {
+            // Try to find existing row for this SO
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const existing = await (prisma as any).extensionRawData.findFirst({
+                where: { soNum: soNum }
+            });
+
+            if (existing) {
+                // Update existing row
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                log = await (prisma as any).extensionRawData.update({
+                    where: { id: existing.id },
+                    data: {
+                        sltUser: body.currentUser || null,
+                        activeTab: body.activeTab || null,
+                        url: body.url || null,
+                        scrapedData: body,
+                    }
+                });
+            } else {
+                // Create new row
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                log = await (prisma as any).extensionRawData.create({
+                    data: {
+                        soNum: soNum,
+                        sltUser: body.currentUser || null,
+                        activeTab: body.activeTab || null,
+                        url: body.url || null,
+                        scrapedData: body,
+                    }
+                });
             }
-        });
+        } else {
+            // No soNum, just create (should not happen often with updated addon)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            log = await (prisma as any).extensionRawData.create({
+                data: {
+                    soNum: null,
+                    sltUser: body.currentUser || null,
+                    activeTab: body.activeTab || null,
+                    url: body.url || null,
+                    scrapedData: body,
+                }
+            });
+        }
 
-        console.log(`[EXTENSION-PUSH] Received data for SO: ${body.soNum} from user: ${body.currentUser}`);
+        console.log(`[EXTENSION-PUSH] Updated data for SO: ${soNum}`);
 
         return NextResponse.json({
             success: true,
-            message: 'Data logged successfully',
+            message: 'Data logged/updated successfully',
             id: log.id
         }, {
             headers: {
@@ -54,7 +97,7 @@ export async function GET() {
     try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const logs = await (prisma as any).extensionRawData.findMany({
-            orderBy: { createdAt: 'desc' },
+            orderBy: { updatedAt: 'desc' }, // Show most recently updated first
             take: 100
         });
 

@@ -26,6 +26,7 @@ interface RawLog {
     url: string;
     scrapedData: Record<string, unknown>;
     createdAt: string;
+    updatedAt: string;
 }
 
 export default function ExtensionTestPage() {
@@ -39,7 +40,7 @@ export default function ExtensionTestPage() {
             if (!resp.ok) throw new Error('Failed to fetch logs');
             return resp.json();
         },
-        refetchInterval: 5000 // Poll every 5 seconds for live testing
+        refetchInterval: 3000 // Poll every 3 seconds for live update feel
     });
 
     const logs: RawLog[] = data?.logs || [];
@@ -55,7 +56,7 @@ export default function ExtensionTestPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <h1 className="text-2xl font-bold text-slate-900">Extension Data Monitor</h1>
-                                <p className="text-slate-500 text-sm mt-1">Real-time feed of raw data captured by the SLT Bridge add-on.</p>
+                                <p className="text-slate-500 text-sm mt-1">Real-time status of synced SODs. Each entry updates automatically.</p>
                             </div>
                             <Button
                                 variant="outline"
@@ -84,10 +85,10 @@ export default function ExtensionTestPage() {
                                         <Table>
                                             <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
                                                 <TableRow>
-                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">Time</TableHead>
                                                     <TableHead className="text-[11px] uppercase tracking-wider font-bold">SO Number</TableHead>
+                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">Current Tab</TableHead>
                                                     <TableHead className="text-[11px] uppercase tracking-wider font-bold">SLT User</TableHead>
-                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">Tab</TableHead>
+                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">Last Sync</TableHead>
                                                     <TableHead className="text-right"></TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -103,16 +104,16 @@ export default function ExtensionTestPage() {
                                                             className={`cursor-pointer transition-colors ${selectedLog?.id === log.id ? 'bg-primary/5' : 'hover:bg-slate-50'}`}
                                                             onClick={() => setSelectedLog(log)}
                                                         >
-                                                            <TableCell className="text-xs font-medium text-slate-500 whitespace-nowrap">
-                                                                {format(new Date(log.createdAt), 'HH:mm:ss')}
-                                                            </TableCell>
                                                             <TableCell className="text-xs font-bold text-slate-900">{log.soNum || 'N/A'}</TableCell>
-                                                            <TableCell className="text-xs text-slate-600">{log.sltUser || 'Unknown'}</TableCell>
                                                             <TableCell className="text-xs">
-                                                                <Badge variant="outline" className="text-[10px] py-0">{log.activeTab || 'N/A'}</Badge>
+                                                                <Badge variant="outline" className="text-[10px] py-0 border-blue-100 text-blue-600 bg-blue-50/30 uppercase">{log.activeTab || 'N/A'}</Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-xs text-slate-600 font-medium">{log.sltUser || 'Unknown'}</TableCell>
+                                                            <TableCell className="text-xs font-medium text-emerald-600 whitespace-nowrap">
+                                                                {format(new Date(log.updatedAt || log.createdAt), 'HH:mm:ss a')}
                                                             </TableCell>
                                                             <TableCell className="text-right">
-                                                                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold">View Raw</Button>
+                                                                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold">View Data</Button>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))
