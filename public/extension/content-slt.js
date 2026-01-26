@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.1.5
+// Comprehensive Scraper for SLT i-Shamp Portal v1.1.6
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -94,37 +94,38 @@ function scrape() {
 
     // 7. Robust Voice Test Details Scraper
     data.voiceTest = {};
-    const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, b, strong, td, label, div, span');
+    const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, b, strong, td, label, div, span, a');
 
     allElements.forEach(el => {
         const text = el.innerText.toUpperCase();
         if (text.includes('VOICE TEST') || text.includes('V-TEST')) {
-            // Find the nearest container following this text header
-            let next = el;
-            let containerFound = null;
+            // Try to find if this header is part of a card
+            const closestCard = el.closest('.card');
+            if (closestCard) {
+                containerFound = closestCard;
+            } else {
+                // Look ahead to find a table or a data container
+                for (let i = 0; i < 8; i++) {
+                    if (!next) break;
 
-            // Look ahead to find a table or a data container
-            for (let i = 0; i < 8; i++) {
-                if (!next) break;
+                    // Priority 1: Table
+                    if (next.tagName === 'TABLE') {
+                        containerFound = next;
+                        break;
+                    }
+                    const innerTable = next.querySelector('table');
+                    if (innerTable) {
+                        containerFound = innerTable;
+                        break;
+                    }
 
-                // Priority 1: Table
-                if (next.tagName === 'TABLE') {
-                    containerFound = next;
-                    break;
+                    // Priority 2: List-like structure (divs with labels)
+                    if (next.querySelectorAll('.row, .form-group').length > 1) {
+                        containerFound = next;
+                    }
+
+                    next = next.nextElementSibling || next.parentElement?.nextElementSibling;
                 }
-                const innerTable = next.querySelector('table');
-                if (innerTable) {
-                    containerFound = innerTable;
-                    break;
-                }
-
-                // Priority 2: List-like structure (divs with labels)
-                if (next.querySelectorAll('.row, .form-group').length > 1) {
-                    containerFound = next;
-                    // don't break yet, maybe a table is nearby
-                }
-
-                next = next.nextElementSibling || next.parentElement?.nextElementSibling;
             }
 
             if (containerFound) {
@@ -261,7 +262,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.5';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.6';
             }, 3000);
         }
     }
@@ -301,7 +302,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.5</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.6</span>
     `;
     document.body.appendChild(banner);
 }
