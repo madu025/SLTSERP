@@ -17,7 +17,7 @@ export default function ExtensionStatus() {
     useEffect(() => {
         const check = () => {
             const hasAttr = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true';
-            const ver = document.documentElement.getAttribute('data-slt-bridge-version') || (window as any).SLT_BRIDGE_VERSION;
+            const ver = document.documentElement.getAttribute('data-slt-bridge-version') || (window as unknown as { SLT_BRIDGE_VERSION: string }).SLT_BRIDGE_VERSION;
 
             if (hasAttr || ver) {
                 setIsInstalled(true);
@@ -91,7 +91,7 @@ export default function ExtensionStatus() {
                 <div className="bg-amber-50 p-4 border-b border-amber-100">
                     <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                         <Download className="w-4 h-4" />
-                        Install SLT Bridge v1.3.8
+                        Install SLT Bridge v1.4.0
                     </h3>
                     <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                         To sync Team Assignments, Serial Numbers, and Materials directly from SLT Portal, install the updated extension.
@@ -118,7 +118,7 @@ export default function ExtensionStatus() {
                         size="sm"
                         onClick={() => window.open('/slt-bridge.zip', '_blank')}
                     >
-                        Download Extension v1.3.8
+                        Download Extension v1.4.0
                     </Button>
                 </div>
             </PopoverContent>

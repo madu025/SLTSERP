@@ -2,15 +2,15 @@
 (function () {
     const diagInfo = {
         detectedAt: new Date().toISOString(),
-        version: "1.1.2",
+        version: "1.4.0",
         status: 'ACTIVE'
     };
 
     document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
-    document.documentElement.setAttribute('data-slt-bridge-version', "1.1.2");
+    document.documentElement.setAttribute('data-slt-bridge-version', "1.4.0");
 
     // Update storage so popup can see it
     chrome.storage.local.set({ diagnostics_erp: diagInfo });
 
-    console.log("🛠️ SLT-ERP Bridge: Isolated Identity Set");
+    console.log("🛠️ SLT-ERP Bridge: Isolated Identity Set [v1.4.0]");
 })();
