@@ -1,6 +1,6 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.3.0
+// Comprehensive Scraper for SLT i-Shamp Portal v1.3.1
 console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
-const CURRENT_VERSION = '1.3.0';
+const CURRENT_VERSION = '1.3.1';
 
 // "High Accuracy" Edition
 
@@ -210,6 +210,16 @@ function scrape() {
     if (chrome.runtime?.id) chrome.storage.local.set({ lastScraped: data });
 
     if (data.soNum) {
+        // Skip sync for Broadband as requested
+        const serviceType = (data.details['SERVICE TYPE'] || data.details['TYPE'] || '').toUpperCase();
+        const isBroadband = serviceType.includes('BROADBAND') || serviceType.includes('BB-INTERNET') || serviceType.includes('BB_INTERNET');
+
+        if (isBroadband) {
+            console.log('🚫 [SLT-BRIDGE] Sync Restricted: Broadband service detected.');
+            updateIndicator('BRIDGE RESTRICTED (BB)', '#94a3b8');
+            return data;
+        }
+
         if (data.activeTab === 'IMAGES' || data.activeTab === 'PHOTOS') {
             updateIndicator(`BRIDGE ACTIVE (SKIP ${data.activeTab})`, '#94a3b8');
             return data;
