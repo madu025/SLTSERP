@@ -112,7 +112,6 @@ function scrape() {
 
 async function pushToERP(data) {
     try {
-        // 1. Check if data actually changed to avoid flooding server
         const currentHash = JSON.stringify({
             details: data.details,
             team: data.teamDetails,
@@ -122,35 +121,58 @@ async function pushToERP(data) {
 
         if (currentHash === lastPushedHash) return;
 
-        // 2. Identify ERP Target (Local Test vs Production)
-        // Since content script runs on SLT portal, we try to detect if we're in "Test Mode"
-        // For now, we'll try to push to BOTH if on a dev machine, or just production.
         const targets = [
-            'https://d2ixqikwtprwf0.cloudfront.net',
-            'http://localhost:3000'
+            'http://localhost:3000',
+            'http://127.0.0.1:3000',
+            'https://d2ixqikwtprwf0.cloudfront.net'
         ];
 
+        let success = false;
         for (const target of targets) {
             try {
-                const apiUrl = `${target}/api/test/extension-push`;
-                const response = await fetch(apiUrl, {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+                const response = await fetch(`${target}/api/test/extension-push`, {
                     method: 'POST',
                     mode: 'cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(data),
+                    signal: controller.signal
                 });
+
+                clearTimeout(timeoutId);
 
                 if (response.ok) {
                     console.log(`✅ [SLT-BRIDGE] Synced to: ${target}`);
-                    lastPushedHash = currentHash;
-                    break; // stop after first successful push
+                    success = true;
+                    break;
                 }
-            } catch (e) {
-                // Silently skip if one target is offline
-            }
+            } catch (e) { /* target offline */ }
+        }
+
+        if (success) {
+            lastPushedHash = currentHash;
+            updateIndicator('SYNC OK', '#22c55e');
+        } else {
+            updateIndicator('SYNC ERROR', '#ef4444');
         }
     } catch (err) {
         console.warn('❌ [SLT-BRIDGE] Push error:', err);
+    }
+}
+
+function updateIndicator(status, color) {
+    const el = document.getElementById('slt-erp-status-tag');
+    if (el) {
+        el.textContent = status;
+        el.style.color = color;
+        if (status === 'SYNC OK') {
+            setTimeout(() => {
+                if (el.textContent === 'SYNC OK') el.textContent = 'BRIDGE v1.1.2 ACTIVE';
+                el.style.color = '#22c55e';
+            }, 3000);
+        }
     }
 }
 
@@ -166,7 +188,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 if (!document.getElementById('slt-erp-indicator')) {
     const banner = document.createElement('div');
     banner.id = 'slt-erp-indicator';
-    banner.innerHTML = `<div style="position:fixed;top:0;right:20px;z-index:999999;background:#1e293b;color:#22c55e;padding:4px 10px;font-size:10px;font-weight:bold;border-radius:0 0 5px 5px;box-shadow:0 2px 5px rgba(0,0,0,0.2)">BRIDGE v1.1.2 ACTIVE</div>`;
+    banner.innerHTML = `<div style="position:fixed;top:0;right:20px;z-index:999999;background:#1e293b;color:#22c55e;padding:4px 10px;font-size:10px;font-weight:bold;border-radius:0 0 5px 5px;box-shadow:0 2px 5px rgba(0,0,0,0.2)"><span id="slt-erp-status-tag">BRIDGE v1.1.2 ACTIVE</span></div>`;
     document.body.appendChild(banner);
 }
 

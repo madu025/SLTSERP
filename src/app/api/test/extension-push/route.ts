@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export async function OPTIONS() {
+    return new NextResponse(null, {
+        status: 204,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role',
+        },
+    });
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -23,6 +34,10 @@ export async function POST(request: Request) {
             success: true,
             message: 'Data logged successfully',
             id: log.id
+        }, {
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            }
         });
 
     } catch (error: unknown) {
@@ -30,7 +45,7 @@ export async function POST(request: Request) {
         console.error('[EXTENSION-PUSH] Error logging data:', error);
         return NextResponse.json(
             { success: false, error: errorMessage },
-            { status: 500 }
+            { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
         );
     }
 }
