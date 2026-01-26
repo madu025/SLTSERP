@@ -1,6 +1,6 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.7
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.8
 console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
-const CURRENT_VERSION = '1.2.7';
+const CURRENT_VERSION = '1.2.8';
 
 // "High Accuracy" Edition
 
@@ -172,19 +172,23 @@ function scrape() {
         const text = clean(el.innerText).toUpperCase();
         if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
             console.log('🔍 [SLT-BRIDGE] Voice Test Header found:', text);
-            let containerFound = el.closest('.card') || el.closest('.container') || el.closest('.form-body');
+            let containerFound = el.closest('.card') || el.closest('.container') || el.closest('.form-body') || el.closest('.row');
 
-            // If direct closest fails, try searching siblings of parents (common in nested wrappers)
+            // If direct closest fails, try searching parents and their siblings
             if (!containerFound) {
-                let p = el.parentElement;
-                for (let i = 0; i < 3; i++) {
-                    if (!p) break;
-                    const sib = p.nextElementSibling;
-                    if (sib && (sib.classList.contains('card-body') || sib.querySelectorAll('.row').length > 0)) {
-                        containerFound = sib;
-                        break;
+                let curr = el;
+                for (let i = 0; i < 4; i++) {
+                    if (!curr) break;
+                    let next = curr.nextElementSibling;
+                    while (next) {
+                        if (next.tagName === 'TABLE' || next.classList.contains('card') || next.querySelectorAll('.row').length > 0) {
+                            containerFound = next;
+                            break;
+                        }
+                        next = next.nextElementSibling;
                     }
-                    p = p.parentElement;
+                    if (containerFound) break;
+                    curr = curr.parentElement;
                 }
             }
 
@@ -233,12 +237,10 @@ function scrape() {
 
                 // Strategy B: If still empty, Brute Force the rows
                 if (Object.keys(foundData).length === 0) {
-                    console.log('⚠️ [SLT-BRIDGE] Strategy A found nothing. Attempting Strategy B (Brute Force Rows)...');
                     const rows = Array.from(containerFound.querySelectorAll('.row'));
                     if (rows.length >= 2) {
                         const labels = Array.from(rows[0].querySelectorAll('div[class*="col-"]'));
                         const values = Array.from(rows[1].querySelectorAll('div[class*="col-"]'));
-                        console.log(` 📊 [SLT-BRIDGE] Brute Force: Found ${labels.length} potential label columns and ${values.length} value columns.`);
                         if (labels.length > 0 && values.length === labels.length) {
                             labels.forEach((l, i) => {
                                 const k = clean(l.innerText).toUpperCase();
@@ -257,11 +259,12 @@ function scrape() {
                     if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
                         data.voiceTest = { ...data.voiceTest, ...foundData };
                     }
-                } else {
-                    console.warn('❌ [SLT-BRIDGE] Failed to extract any voice test data from container.');
                 }
             } else {
-                console.warn('❌ [SLT-BRIDGE] Could not find a suitable data container near header.');
+                // Only warn if this looks like a primary header (Latest) and we find nothing
+                if (text.includes('LATEST')) {
+                    console.warn('❌ [SLT-BRIDGE] Could not find a suitable data container near LATEST VOICE TEST header.');
+                }
             }
         }
     });
