@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.1.8
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.0
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -52,14 +52,52 @@ function scrape() {
     if (activeTab) activeContext = clean(activeTab.innerText);
     data.activeTab = activeContext;
 
-    // 4. Core Info Scraper (Label and Next Value)
-    const labels = document.querySelectorAll('label');
-    labels.forEach(l => {
-        const text = clean(l.innerText).toUpperCase();
-        if (l.style.color === 'rgb(13, 202, 240)' || l.style.color === '#0dcaf0') {
-            const valNode = l.nextElementSibling?.nextElementSibling;
-            if (valNode && valNode.tagName === 'LABEL') {
-                data.details[text] = clean(valNode.innerText);
+    // 4. Universal Info Scraper (Finds all Cyan-themed labels and their values)
+    const allLabels = document.querySelectorAll('label, b, strong, span');
+    allLabels.forEach(l => {
+        const style = window.getComputedStyle(l);
+        const color = style.color;
+        const isCyan = color === 'rgb(13, 202, 240)' || color === 'rgb(0, 202, 240)' || color.includes('0dcaf0');
+
+        if (isCyan) {
+            const key = clean(l.innerText).toUpperCase();
+            if (!key || key.length > 50 || key.includes('VOICE TEST') || key === 'LATEST') return;
+
+            // Look for value: 1. Next sibling
+            let val = '';
+            let next = l.nextElementSibling || l.nextSibling;
+
+            // Skip text nodes that are just whitespace
+            while (next && next.nodeType === 3 && !next.textContent.trim()) next = next.nextSibling;
+
+            if (next) {
+                val = clean(next.textContent || next.innerText);
+            }
+
+            // 2. If no sibling, check parent's next elements (for grids)
+            if (!val || val === key) {
+                const parent = l.parentElement;
+                const grandParent = parent?.parentElement;
+
+                // Try sibling of parent
+                if (parent?.nextElementSibling) {
+                    val = clean(parent.nextElementSibling.innerText);
+                }
+
+                // Try sibling of grandparent (multi-row grids)
+                if ((!val || val === key) && grandParent?.classList.contains('row')) {
+                    const rowIdx = Array.from(grandParent.parentElement.children).indexOf(grandParent);
+                    const nextRow = grandParent.parentElement.children[rowIdx + 1];
+                    if (nextRow) {
+                        const colIdx = Array.from(grandParent.children).indexOf(parent);
+                        const targetCol = nextRow.children[colIdx];
+                        if (targetCol) val = clean(targetCol.innerText);
+                    }
+                }
+            }
+
+            if (val && val !== key && val.length < 500) {
+                data.details[key] = val;
             }
         }
     });
@@ -99,12 +137,14 @@ function scrape() {
     allElements.forEach(el => {
         const text = clean(el.innerText).toUpperCase();
         if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
+            let containerFound = null;
             // Try to find if this header is part of a card
             const closestCard = el.closest('.card');
             if (closestCard) {
                 containerFound = closestCard;
             } else {
                 // Look ahead to find a table or a data container
+                let next = el.nextElementSibling;
                 for (let i = 0; i < 8; i++) {
                     if (!next) break;
 
@@ -130,77 +170,47 @@ function scrape() {
 
             if (containerFound) {
                 const foundData = {};
-                if (containerFound.tagName === 'TABLE') {
-                    const rows = containerFound.querySelectorAll('tr');
-                    rows.forEach(row => {
-                        const cells = row.querySelectorAll('td, th');
-                        if (cells.length >= 2) {
-                            const key = clean(cells[0].innerText).replace(':', '').trim();
-                            const val = clean(cells[1].innerText).trim();
-                            if (key && key.length < 50 && val) {
-                                foundData[key] = val;
+                // Universal Logic for Cards: Find all Cyan labels inside the card
+                const cardLabels = containerFound.querySelectorAll('label, b, strong, span');
+                cardLabels.forEach(l => {
+                    const color = window.getComputedStyle(l).color;
+                    const isCyan = color === 'rgb(13, 202, 240)' || color === 'rgb(0, 202, 240)' || color.includes('0dcaf0');
+
+                    if (isCyan) {
+                        const key = clean(l.innerText).toUpperCase();
+                        if (!key || key.length > 50 || key === 'LATEST') return;
+
+                        // Find Value
+                        let val = '';
+
+                        // Strategy 1: Sibling (Vertical Stack in same container)
+                        let n = l.nextElementSibling;
+                        if (n && clean(n.innerText) !== key) {
+                            val = clean(n.innerText);
+                        }
+
+                        // Strategy 2: Grid Position (Find parallel element in next row)
+                        if (!val) {
+                            const col = l.parentElement;
+                            const row = col?.parentElement;
+                            if (row && col) {
+                                const colIdx = Array.from(row.children).indexOf(col);
+                                let nextRow = row.nextElementSibling;
+                                // Skip non-element nodes
+                                while (nextRow && nextRow.tagName !== 'DIV' && !nextRow.classList.contains('row')) nextRow = nextRow.nextElementSibling;
+
+                                if (nextRow) {
+                                    const targetCell = nextRow.children[colIdx];
+                                    if (targetCell) val = clean(targetCell.innerText);
+                                }
                             }
                         }
-                    });
-                } else {
-                    // Method A: Dynamic Grid (Search for header row by keywords)
-                    const gridRows = Array.from(containerFound.querySelectorAll('.row'));
-                    let gridSuccess = false;
 
-                    let headerRowIndex = -1;
-                    gridRows.forEach((row, i) => {
-                        const rowText = row.innerText.toUpperCase();
-                        if (rowText.includes('DATE') && (rowText.includes('TEST') || rowText.includes('TYPE'))) {
-                            headerRowIndex = i;
+                        if (val && val !== key) {
+                            foundData[key] = val;
                         }
-                    });
-
-                    if (headerRowIndex !== -1 && gridRows[headerRowIndex + 1]) {
-                        const headerCols = gridRows[headerRowIndex].querySelectorAll('[class*="col-"]');
-                        const valueCols = gridRows[headerRowIndex + 1].querySelectorAll('[class*="col-"]');
-
-                        headerCols.forEach((hCol, idx) => {
-                            const key = clean(hCol.innerText).toUpperCase();
-                            const vCol = valueCols[idx];
-                            if (key && key.length < 50 && vCol) {
-                                const val = clean(vCol.innerText);
-                                if (val && val !== key) {
-                                    foundData[key] = val;
-                                    gridSuccess = true;
-                                }
-                            }
-                        });
                     }
-
-                    // Method B: Vertical Stack (Label above Value in same column)
-                    if (!gridSuccess) {
-                        const allCols = containerFound.querySelectorAll('[class*="col-"]');
-                        allCols.forEach(col => {
-                            const subLabels = col.querySelectorAll('label, b, strong, span');
-                            if (subLabels.length >= 2) {
-                                const key = clean(subLabels[0].innerText).toUpperCase();
-                                const val = clean(subLabels[1].innerText);
-                                if (key && key.length > 2 && key.length < 50 && val && val !== key) {
-                                    foundData[key] = val;
-                                }
-                            }
-                        });
-                    }
-
-                    // Method C: Label/Value sibling pairs (Fallback)
-                    if (!gridSuccess) {
-                        const pairs = containerFound.querySelectorAll('label, b, strong, span');
-                        pairs.forEach(p => {
-                            const pText = clean(p.innerText).replace(':', '');
-                            if (pText.length > 2 && pText.length < 50) {
-                                const val = clean(p.nextSibling?.textContent || p.nextElementSibling?.innerText || '');
-                                if (val && val.length < 100 && val !== pText) {
-                                    foundData[pText.toUpperCase()] = val;
-                                }
-                            }
-                        });
-                    }
-                }
+                });
 
                 // If this is the "LATEST" voice test, or if we haven't found any yet, update
                 if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
@@ -283,7 +293,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.8';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.0';
             }, 3000);
         }
     }
@@ -323,7 +333,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.8</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.0</span>
     `;
     document.body.appendChild(banner);
 }
