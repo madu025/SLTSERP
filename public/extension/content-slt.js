@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.0
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.1
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -134,72 +134,55 @@ function scrape() {
     data.voiceTest = {};
     const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, b, strong, td, label, div, span, a');
 
+    const isCyanColor = (color) => {
+        if (!color) return false;
+        // Exact matches
+        if (color === 'rgb(13, 202, 240)' || color === 'rgb(0, 202, 240)' || color.includes('0dcaf0')) return true;
+        // Fuzzy match for Cyan-like (High Blue, High Green, Lower Red)
+        const parts = color.match(/\d+/g);
+        if (parts && parts.length >= 3) {
+            const r = parseInt(parts[0]);
+            const g = parseInt(parts[1]);
+            const b = parseInt(parts[2]);
+            return b > 200 && g > 150 && r < 100; // Cyanish
+        }
+        return false;
+    };
+
     allElements.forEach(el => {
         const text = clean(el.innerText).toUpperCase();
         if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
-            let containerFound = null;
-            // Try to find if this header is part of a card
-            const closestCard = el.closest('.card');
-            if (closestCard) {
-                containerFound = closestCard;
-            } else {
-                // Look ahead to find a table or a data container
-                let next = el.nextElementSibling;
-                for (let i = 0; i < 8; i++) {
-                    if (!next) break;
-
-                    // Priority 1: Table
-                    if (next.tagName === 'TABLE') {
-                        containerFound = next;
-                        break;
-                    }
-                    const innerTable = next.querySelector('table');
-                    if (innerTable) {
-                        containerFound = innerTable;
-                        break;
-                    }
-
-                    // Priority 2: List-like structure (divs with labels)
-                    if (next.querySelectorAll('.row, .form-group').length > 1) {
-                        containerFound = next;
-                    }
-
-                    next = next.nextElementSibling || next.parentElement?.nextElementSibling;
-                }
-            }
+            let containerFound = el.closest('.card') || el.closest('.container') || el.parentElement?.closest('div');
 
             if (containerFound) {
                 const foundData = {};
-                // Universal Logic for Cards: Find all Cyan labels inside the card
-                const cardLabels = containerFound.querySelectorAll('label, b, strong, span');
-                cardLabels.forEach(l => {
+                // Strategy A: Find all Blue-ish labels
+                const possibleLabels = containerFound.querySelectorAll('label, b, strong, span');
+                possibleLabels.forEach(l => {
                     const color = window.getComputedStyle(l).color;
-                    const isCyan = color === 'rgb(13, 202, 240)' || color === 'rgb(0, 202, 240)' || color.includes('0dcaf0');
-
-                    if (isCyan) {
+                    if (isCyanColor(color) || /DATE|TIME|TEST|DURATION|TYPE|RESULT/i.test(l.innerText)) {
                         const key = clean(l.innerText).toUpperCase();
                         if (!key || key.length > 50 || key === 'LATEST') return;
 
-                        // Find Value
                         let val = '';
-
-                        // Strategy 1: Sibling (Vertical Stack in same container)
-                        let n = l.nextElementSibling;
-                        if (n && clean(n.innerText) !== key) {
-                            val = clean(n.innerText);
+                        // Find Value: 
+                        // 1. Next sibling
+                        let sib = l.nextElementSibling || l.nextSibling;
+                        while (sib && sib.nodeType === 3 && !sib.textContent.trim()) sib = sib.nextSibling;
+                        if (sib && sib.innerText && clean(sib.innerText) !== key) {
+                            val = clean(sib.innerText);
                         }
 
-                        // Strategy 2: Grid Position (Find parallel element in next row)
+                        // 2. Grid Position
                         if (!val) {
-                            const col = l.parentElement;
+                            const col = l.closest('[class*="col-"]') || l.parentElement;
                             const row = col?.parentElement;
-                            if (row && col) {
-                                const colIdx = Array.from(row.children).indexOf(col);
+                            if (row && col && row.classList.contains('row')) {
+                                const rowChildren = Array.from(row.children);
+                                const colIdx = rowChildren.indexOf(col);
                                 let nextRow = row.nextElementSibling;
-                                // Skip non-element nodes
-                                while (nextRow && nextRow.tagName !== 'DIV' && !nextRow.classList.contains('row')) nextRow = nextRow.nextElementSibling;
-
-                                if (nextRow) {
+                                while (nextRow && nextRow.tagName !== 'DIV') nextRow = nextRow.nextElementSibling;
+                                if (nextRow && nextRow.classList.contains('row')) {
                                     const targetCell = nextRow.children[colIdx];
                                     if (targetCell) val = clean(targetCell.innerText);
                                 }
@@ -212,9 +195,28 @@ function scrape() {
                     }
                 });
 
-                // If this is the "LATEST" voice test, or if we haven't found any yet, update
-                if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
-                    data.voiceTest = { ...data.voiceTest, ...foundData };
+                // Strategy B: If still empty, Brute Force the rows
+                if (Object.keys(foundData).length === 0) {
+                    const rows = Array.from(containerFound.querySelectorAll('.row'));
+                    if (rows.length >= 2) {
+                        const labels = Array.from(rows[0].querySelectorAll('div[class*="col-"]'));
+                        const values = Array.from(rows[1].querySelectorAll('div[class*="col-"]'));
+                        if (labels.length > 0 && values.length === labels.length) {
+                            labels.forEach((l, i) => {
+                                const k = clean(l.innerText).toUpperCase();
+                                const v = clean(values[i].innerText);
+                                if (k && v && k !== v && k.length < 50) {
+                                    foundData[k] = v;
+                                }
+                            });
+                        }
+                    }
+                }
+
+                if (Object.keys(foundData).length > 0) {
+                    if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
+                        data.voiceTest = { ...data.voiceTest, ...foundData };
+                    }
                 }
             }
         }
@@ -293,7 +295,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.0';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.1';
             }, 3000);
         }
     }
@@ -333,7 +335,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.0</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.1</span>
     `;
     document.body.appendChild(banner);
 }
