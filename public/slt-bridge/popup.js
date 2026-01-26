@@ -22,13 +22,17 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshDiagnostics();
     });
 
-    function createDetailItem(label, value, color = '#3b82f6', subtext = '') {
+    function createDetailItem(label, value, color = '#3b82f6', subtext = '', isPrimary = false) {
         const item = document.createElement('div');
         item.className = 'detail-item';
+        if (isPrimary) {
+            item.style.borderLeftWidth = '5px';
+            item.style.background = '#eff6ff';
+        }
         item.style.borderLeftColor = color;
         item.innerHTML = `
             <div class="label" style="color:${color}">${label}</div>
-            <div class="value">${value}</div>
+            <div class="value" style="${isPrimary ? 'font-size:14px; color:#1e3a8a; font-weight:bold' : ''}">${value}</div>
             ${subtext ? `<div style="font-size:9px; color:#94a3b8; margin-top:2px">${subtext}</div>` : ''}
         `;
         return item;
@@ -38,18 +42,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!data || !data.url.includes('slt.lk')) {
             statusText.textContent = "Please navigate to SLT Portal.";
             detailsList.innerHTML = '';
-            statusText.style.color = '#ef4444';
             return;
         }
 
-        statusText.textContent = `User: ${data.currentUser || 'Not Identified'}`;
+        statusText.textContent = `User: ${data.currentUser || 'Identifying...'}`;
         statusText.style.color = '#22c55e';
         detailsList.innerHTML = '';
+
+        // 0. Primary Service Order (Master Key)
+        if (data.soNum) {
+            detailsList.appendChild(createDetailItem('ACTIVE SERVICE ORDER', data.soNum, '#2563eb', 'Primary identifier being used for sync.', true));
+        }
 
         // Context Badge
         const contextBadge = document.createElement('div');
         contextBadge.style = "font-size:9px; font-weight:bold; background:#f1f5f9; padding:2px 8px; border-radius:10px; display:inline-block; margin-bottom:10px; color:#64748b";
-        contextBadge.textContent = `ACTIVE TAB: ${data.activeTab || 'N/A'}`;
+        contextBadge.textContent = `TAB: ${data.activeTab || 'N/A'}`;
         detailsList.appendChild(contextBadge);
 
         // 1. Team Section
@@ -69,63 +77,54 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // 3. Hidden System Info (High Accuracy)
+        // 3. System Tags
         if (data.hiddenInfo && Object.keys(data.hiddenInfo).length > 0) {
             const hkeys = Object.keys(data.hiddenInfo);
             const val = hkeys.map(k => `${k}:${data.hiddenInfo[k]}`).join(' | ');
-            detailsList.appendChild(createDetailItem('SYSTEM TAGS', val, '#8b5cf6', 'Hidden identifiers captured from portal background.'));
+            detailsList.appendChild(createDetailItem('SYSTEM TAGS', val, '#8b5cf6'));
         }
 
-        // 4. Order Details
-        const otherKeys = Object.keys(data.details || {});
-        otherKeys.forEach(key => {
+        // 4. Core Details Table
+        const coreKeys = Object.keys(data.details || {});
+        coreKeys.forEach(key => {
+            if (key === 'SERVICE ORDER' && data.details[key] === data.soNum) return; // Skip if redundant
             detailsList.appendChild(createDetailItem(key, data.details[key]));
         });
+
+        // 5. Voice Test
+        if (data.voiceTest && Object.keys(data.voiceTest).length > 0) {
+            const vtKeys = Object.keys(data.voiceTest);
+            const val = vtKeys.map(k => `${k}: ${data.voiceTest[k]}`).join(', ');
+            detailsList.appendChild(createDetailItem('VOICE TEST RESULTS', val, '#10b981'));
+        }
     }
 
     async function refreshData() {
-        // 1. Get from local storage first (last known state)
         chrome.storage.local.get(['lastScraped'], (result) => {
             if (result.lastScraped) updateDataUI(result.lastScraped);
         });
 
-        // 2. Try to get fresh data from the active tab
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-            // Only message if it's our target portal
             if (tab && tab.url && tab.url.includes('slt.lk')) {
-                // Use promise-based sendMessage with a try-catch to suppress "Receiving end does not exist"
-                const response = await chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }).catch(err => {
-                    // Suppress the error if the content script isn't ready or injected
-                    return null;
-                });
-
+                const response = await chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }).catch(() => null);
                 if (response) updateDataUI(response);
             }
-        } catch (err) {
-            // Silently ignore tab query errors
-        }
+        } catch (err) { }
     }
 
     function refreshDiagnostics() {
         chrome.storage.local.get(['diagnostics_slt', 'diagnostics_erp'], (res) => {
             const slt = res.diagnostics_slt;
-            if (slt && slt.status === 'ACTIVE') {
-                document.getElementById('diag-slt-status').textContent = 'CONNECTED';
+            if (slt) {
+                document.getElementById('diag-slt-status').textContent = 'ACTIVE';
                 document.getElementById('diag-slt-status').className = 'status-badge bg-green';
                 document.getElementById('diag-last-sync').textContent = slt.lastScrapeTime || '-';
                 document.getElementById('diag-fields').textContent = slt.elementsFound || '0';
-            }
-
-            const erp = res.diagnostics_erp;
-            if (erp) {
-                document.getElementById('diag-erp-status').textContent = 'DETECTED';
-                document.getElementById('diag-erp-status').className = 'status-badge bg-green';
             }
         });
     }
 
     refreshData();
-    setInterval(refreshData, 3000);
+    setInterval(refreshData, 2000);
 });

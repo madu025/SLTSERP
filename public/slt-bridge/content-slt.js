@@ -1,8 +1,6 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.3.1
+// Comprehensive Scraper for SLT i-Shamp Portal v1.3.2
 console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
-const CURRENT_VERSION = '1.3.1';
-
-// "High Accuracy" Edition
+const CURRENT_VERSION = '1.3.2';
 
 function updateLocalDiagnostics(foundItems, context) {
     if (!chrome.runtime?.id) return;
@@ -49,7 +47,7 @@ function scrape() {
         if (val) data.hiddenInfo[id.toUpperCase()] = val;
     });
 
-    // 3. Determine Active Tab (Context)
+    // 3. Determine Active Tab
     let activeContext = 'GENERAL';
     const activeTab = document.querySelector('.nav-tabs .nav-link.active');
     if (activeTab) activeContext = clean(activeTab.innerText);
@@ -68,7 +66,6 @@ function scrape() {
             if (data.details[key]) return;
 
             let val = '';
-            // Grid Strategy
             const col = l.closest('[class*="col-"]') || l.parentElement;
             const row = col?.parentElement;
             if (row && col && row.classList.contains('row')) {
@@ -106,138 +103,101 @@ function scrape() {
         }
     });
 
-    // 5. Team & User Assignment
+    // 5. Materials & Team
     const selectedTeam = getVal('mobusr');
-    if (selectedTeam && !selectedTeam.includes('-- Select Team --')) {
-        data.teamDetails['SELECTED TEAM'] = selectedTeam;
-    }
+    if (selectedTeam && !selectedTeam.includes('-- Select Team --')) data.teamDetails['SELECTED TEAM'] = selectedTeam;
 
-    // 6. Detailed Material Scraping
     const dw = getVal('dwvalue');
     if (dw) data.materialDetails.push({ ITEM: 'DROPWIRE', VALUE: dw, TYPE: getVal('dw') });
+
     const pole = getVal('pole');
     if (pole && pole !== 'SELECT POLE ...') {
         data.materialDetails.push({ ITEM: 'POLE', TYPE: pole, QTY: getVal('qty'), SERIAL: getVal('snvalue') });
     }
-    const oth = getVal('oth');
-    if (oth && oth !== 'SELECT MATERIAL ...') {
-        data.materialDetails.push({ ITEM: 'OTHER', TYPE: oth, VALUE: getVal('othvalue') });
-    }
 
-    // 7. Robust Voice Test Details Scraper
+    // 6. Voice Test
     data.voiceTest = {};
     const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, b, strong, td, label, div, span, a');
-    const isCyanColor = (color) => {
-        if (!color) return false;
-        if (color === 'rgb(13, 202, 240)' || color === 'rgb(0, 202, 240)' || color.includes('0dcaf0')) return true;
-        const parts = color.match(/\d+/g);
-        if (parts && parts.length >= 3) {
-            const r = parseInt(parts[0]), g = parseInt(parts[1]), b = parseInt(parts[2]);
-            return b > 200 && g > 150 && r < 100;
-        }
-        return false;
-    };
-
     allElements.forEach(el => {
         const text = clean(el.innerText).toUpperCase();
-        if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
-            let containerFound = el.closest('.card') || el.closest('.container') || el.closest('.form-body') || el.closest('.row');
-            if (!containerFound) {
-                let curr = el;
-                for (let i = 0; i < 4; i++) {
-                    if (!curr) break;
-                    let next = curr.nextElementSibling;
-                    while (next) {
-                        if (next.tagName === 'TABLE' || next.classList.contains('card') || next.querySelectorAll('.row').length > 0) {
-                            containerFound = next; break;
-                        }
-                        next = next.nextElementSibling;
-                    }
-                    if (containerFound) break;
-                    curr = curr.parentElement;
-                }
-            }
+        if (/VOICE\s*TEST|V-TEST/i.test(text)) {
+            let containerFound = el.closest('.card') || el.closest('.container') || el.closest('.row');
             if (containerFound) {
                 const foundData = {};
-                const possibleLabels = containerFound.querySelectorAll('label, b, strong, span');
-                possibleLabels.forEach(l => {
-                    const color = window.getComputedStyle(l).color;
-                    if (isCyanColor(color) || /DATE|TIME|TEST|DURATION|TYPE|RESULT/i.test(l.innerText)) {
-                        const key = clean(l.innerText).toUpperCase();
-                        if (!key || key.length > 50 || key === 'LATEST') return;
-                        let val = '';
-                        let sib = l.nextElementSibling || l.nextSibling;
-                        while (sib && sib.nodeType === 3 && !sib.textContent.trim()) sib = sib.nextSibling;
-                        if (sib && sib.innerText && clean(sib.innerText) !== key) val = clean(sib.innerText);
-                        if (!val) {
-                            const col = l.closest('[class*="col-"]') || l.parentElement;
-                            const row = col?.parentElement;
-                            if (row && col && row.classList.contains('row')) {
-                                const rowChildren = Array.from(row.children);
-                                const colIdx = rowChildren.indexOf(col);
-                                let nextRow = row.nextElementSibling;
-                                while (nextRow && nextRow.tagName !== 'DIV') nextRow = nextRow.nextElementSibling;
-                                if (nextRow && nextRow.classList.contains('row')) {
-                                    const targetCell = nextRow.children[colIdx];
-                                    if (targetCell) val = clean(targetCell.innerText);
-                                }
-                            }
-                        }
-                        if (val && val !== key) foundData[key] = val;
-                    }
+                containerFound.querySelectorAll('label, b, strong, span').forEach(l => {
+                    const k = clean(l.innerText).toUpperCase();
+                    if (!k || k.length > 50 || k === 'LATEST') return;
+                    let val = '';
+                    let sib = l.nextElementSibling || l.nextSibling;
+                    while (sib && sib.nodeType === 3 && !sib.textContent.trim()) sib = sib.nextSibling;
+                    if (sib && sib.innerText && clean(sib.innerText) !== k) val = clean(sib.innerText);
+                    if (val) foundData[k] = val;
                 });
                 if (Object.keys(foundData).length > 0) {
-                    if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
-                        data.voiceTest = { ...data.voiceTest, ...foundData };
-                    }
+                    if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) data.voiceTest = foundData;
                 }
             }
         }
     });
 
-    // Capture SO Number (PRIORITIZATION FIX FOR v1.3.0)
-    // 1st Priority (Master): URL Parameter - Always matches the specific record viewed
-    const urlParams = new URLSearchParams(window.location.search);
-    data.soNum = urlParams.get('sod')?.split('_')[0] || '';
+    // 7. SO Number - ULTRA ACCURATE TARGETING
+    const url = window.location.href;
+    const sodMatch = url.match(/sod=([A-Z]{3}\d+)/i);
+    if (sodMatch) {
+        data.soNum = sodMatch[1].toUpperCase();
+        console.log('🎯 [SLT-BRIDGE] SO extracted from URL match:', data.soNum);
+    } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        data.soNum = urlParams.get('sod')?.split('_')[0] || '';
+    }
 
-    // Fallback Only: 2nd Priority labels
     if (!data.soNum) {
         data.soNum = data.details['SERVICE ORDER'] || data.details['SOD'] || data.hiddenInfo['BB'] || '';
     }
 
+    // Final Data Validation for Monitor
     const foundCount = Object.keys(data.details).length + data.materialDetails.length;
     updateLocalDiagnostics(foundCount, activeContext);
-    if (chrome.runtime?.id) chrome.storage.local.set({ lastScraped: data });
 
+    // CRITICAL: Always save to local storage so Data Monitor works
+    if (chrome.runtime?.id) {
+        chrome.storage.local.set({ lastScraped: data });
+    }
+
+    // 8. ERP Sync Restriction Logic
     if (data.soNum) {
-        // Skip sync for Broadband as requested
         const serviceType = (data.details['SERVICE TYPE'] || data.details['TYPE'] || '').toUpperCase();
-        const isBroadband = serviceType.includes('BROADBAND') || serviceType.includes('BB-INTERNET') || serviceType.includes('BB_INTERNET');
+        const packageInfo = (data.details['PACKAGE'] || '').toUpperCase();
+        const isBroadband = serviceType.includes('BROADBAND') || serviceType.includes('BB-INTERNET') || packageInfo.includes('BROADBAND') || packageInfo.includes('BB');
 
         if (isBroadband) {
-            console.log('🚫 [SLT-BRIDGE] Sync Restricted: Broadband service detected.');
-            updateIndicator('BRIDGE RESTRICTED (BB)', '#94a3b8');
+            updateIndicator('RESTRICTED (BB)', '#f59e0b');
             return data;
         }
 
         if (data.activeTab === 'IMAGES' || data.activeTab === 'PHOTOS') {
-            updateIndicator(`BRIDGE ACTIVE (SKIP ${data.activeTab})`, '#94a3b8');
+            updateIndicator('ACTIVE (SKIP TAB)', '#94a3b8');
             return data;
         }
+
         pushToERP(data);
     }
+
     return data;
 }
 
 async function pushToERP(data) {
-    const currentHash = JSON.stringify({ details: data.details, team: data.teamDetails, materials: data.materialDetails, tab: data.activeTab, voice: data.voiceTest });
+    const currentHash = JSON.stringify({ details: data.details, team: data.teamDetails, materials: data.materialDetails, voice: data.voiceTest });
     if (currentHash === lastPushedHash) return;
     if (!chrome.runtime?.id) return;
-    console.log('🛠️ [SLT-BRIDGE] Requesting background sync for SO:', data.soNum);
     chrome.runtime.sendMessage({ action: 'pushToERP', data }, (response) => {
         if (chrome.runtime.lastError) { updateIndicator('BRIDGE ERROR', '#ef4444'); return; }
-        if (response && response.success) { lastPushedHash = currentHash; updateIndicator('SYNC OK', '#22c55e'); }
-        else { updateIndicator('SYNC ERROR', '#ef4444'); }
+        if (response && response.success) {
+            lastPushedHash = currentHash;
+            updateIndicator('SYNC OK', '#22c55e');
+        } else {
+            updateIndicator('SYNC ERROR', '#ef4444');
+        }
     });
 }
 
@@ -248,7 +208,9 @@ function updateIndicator(status, color) {
         tag.textContent = status;
         dot.style.background = color;
         dot.style.boxShadow = `0 0 8px ${color}`;
-        if (status === 'SYNC OK') { setTimeout(() => { if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v' + CURRENT_VERSION; }, 3000); }
+        if (status === 'SYNC OK') {
+            setTimeout(() => { if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v' + CURRENT_VERSION; }, 3000);
+        }
     }
 }
 
@@ -261,22 +223,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     const banner = document.createElement('div'); banner.id = 'slt-erp-indicator';
     banner.style.cssText = `position: fixed; top: 10px; right: 20px; z-index: 2147483647; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); color: #fff; padding: 6px 14px; font-family: sans-serif; font-size: 11px; font-weight: 600; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px; pointer-events: none; transition: all 0.3s ease;`;
     banner.innerHTML = `<div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div><span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v${CURRENT_VERSION}</span>`;
-    const checkUpdates = async () => {
-        try {
-            const erpUrl = window.location.origin.includes('localhost') ? 'http://localhost:3000' : 'https://slts-erp.vercel.app';
-            const response = await fetch(`${erpUrl}/extension/manifest.json?t=${Date.now()}`);
-            if (response.ok) {
-                const manifest = await response.json();
-                if (manifest.version && manifest.version !== CURRENT_VERSION) {
-                    updateIndicator(`UPDATE v${manifest.version} AVAILABLE`, '#f59e0b');
-                    banner.style.cursor = 'pointer'; banner.style.pointerEvents = 'auto';
-                    banner.onclick = () => window.open(`${erpUrl}/slt-bridge.zip`, '_blank');
-                    banner.style.background = 'rgba(245, 158, 11, 0.95)';
-                }
-            }
-        } catch (e) { }
-    };
-    checkUpdates(); document.body.appendChild(banner);
+    document.body.appendChild(banner);
 }
 
 let timeout;
