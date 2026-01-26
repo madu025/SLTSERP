@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.1.6
+// Comprehensive Scraper for SLT i-Shamp Portal v1.1.8
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -97,8 +97,8 @@ function scrape() {
     const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, b, strong, td, label, div, span, a');
 
     allElements.forEach(el => {
-        const text = el.innerText.toUpperCase();
-        if (text.includes('VOICE TEST') || text.includes('V-TEST')) {
+        const text = clean(el.innerText).toUpperCase();
+        if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
             // Try to find if this header is part of a card
             const closestCard = el.closest('.card');
             if (closestCard) {
@@ -143,37 +143,58 @@ function scrape() {
                         }
                     });
                 } else {
-                    // Method A: Row/Column Grid (Labels in one Row, Values in another)
-                    const gridRows = containerFound.querySelectorAll('.row');
+                    // Method A: Dynamic Grid (Search for header row by keywords)
+                    const gridRows = Array.from(containerFound.querySelectorAll('.row'));
                     let gridSuccess = false;
 
-                    if (gridRows.length >= 2) {
-                        const headerCols = gridRows[0].querySelectorAll('[class*="col-"]');
-                        const valueCols = gridRows[1].querySelectorAll('[class*="col-"]');
-
-                        if (headerCols.length > 0 && valueCols.length > 0) {
-                            headerCols.forEach((hCol, idx) => {
-                                const key = clean(hCol.innerText).toUpperCase();
-                                const vCol = valueCols[idx];
-                                if (key && key.length < 50 && vCol) {
-                                    const val = clean(vCol.innerText);
-                                    if (val) {
-                                        foundData[key] = val;
-                                        gridSuccess = true;
-                                    }
-                                }
-                            });
+                    let headerRowIndex = -1;
+                    gridRows.forEach((row, i) => {
+                        const rowText = row.innerText.toUpperCase();
+                        if (rowText.includes('DATE') && (rowText.includes('TEST') || rowText.includes('TYPE'))) {
+                            headerRowIndex = i;
                         }
+                    });
+
+                    if (headerRowIndex !== -1 && gridRows[headerRowIndex + 1]) {
+                        const headerCols = gridRows[headerRowIndex].querySelectorAll('[class*="col-"]');
+                        const valueCols = gridRows[headerRowIndex + 1].querySelectorAll('[class*="col-"]');
+
+                        headerCols.forEach((hCol, idx) => {
+                            const key = clean(hCol.innerText).toUpperCase();
+                            const vCol = valueCols[idx];
+                            if (key && key.length < 50 && vCol) {
+                                const val = clean(vCol.innerText);
+                                if (val && val !== key) {
+                                    foundData[key] = val;
+                                    gridSuccess = true;
+                                }
+                            }
+                        });
                     }
 
-                    // Method B: Label/Value sibling pairs (Fallback or Parallel)
+                    // Method B: Vertical Stack (Label above Value in same column)
+                    if (!gridSuccess) {
+                        const allCols = containerFound.querySelectorAll('[class*="col-"]');
+                        allCols.forEach(col => {
+                            const subLabels = col.querySelectorAll('label, b, strong, span');
+                            if (subLabels.length >= 2) {
+                                const key = clean(subLabels[0].innerText).toUpperCase();
+                                const val = clean(subLabels[1].innerText);
+                                if (key && key.length > 2 && key.length < 50 && val && val !== key) {
+                                    foundData[key] = val;
+                                }
+                            }
+                        });
+                    }
+
+                    // Method C: Label/Value sibling pairs (Fallback)
                     if (!gridSuccess) {
                         const pairs = containerFound.querySelectorAll('label, b, strong, span');
                         pairs.forEach(p => {
                             const pText = clean(p.innerText).replace(':', '');
                             if (pText.length > 2 && pText.length < 50) {
                                 const val = clean(p.nextSibling?.textContent || p.nextElementSibling?.innerText || '');
-                                if (val && val.length < 100) {
+                                if (val && val.length < 100 && val !== pText) {
                                     foundData[pText.toUpperCase()] = val;
                                 }
                             }
@@ -262,7 +283,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.6';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.8';
             }, 3000);
         }
     }
@@ -302,7 +323,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.6</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.8</span>
     `;
     document.body.appendChild(banner);
 }
