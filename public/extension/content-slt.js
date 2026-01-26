@@ -91,6 +91,26 @@ function scrape() {
         data.materialDetails.push({ ITEM: 'OTHER', TYPE: oth, VALUE: getVal('othvalue') });
     }
 
+    // 7. Voice Test Details Scraper
+    data.voiceTest = {};
+    const voiceHeaders = document.querySelectorAll('h5, h6, b');
+    voiceHeaders.forEach(h => {
+        if (h.innerText.includes('VOICE TEST DETAILS')) {
+            const table = h.nextElementSibling?.tagName === 'TABLE' ? h.nextElementSibling : h.parentElement?.querySelector('table');
+            if (table) {
+                const rows = table.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length >= 2) {
+                        const key = clean(cells[0].innerText).replace(':', '');
+                        const val = clean(cells[1].innerText);
+                        if (key) data.voiceTest[key] = val;
+                    }
+                });
+            }
+        }
+    });
+
     // Capture SO Number
     data.soNum = data.details['SERVICE ORDER'] || data.details['SOD'] || data.hiddenInfo['BB'] || '';
     if (!data.soNum) {
@@ -115,7 +135,8 @@ async function pushToERP(data) {
         details: data.details,
         team: data.teamDetails,
         materials: data.materialDetails,
-        tab: data.activeTab
+        tab: data.activeTab,
+        voice: data.voiceTest
     });
 
     if (currentHash === lastPushedHash) return;
