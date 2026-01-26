@@ -14,13 +14,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Process sequentially
         const syncPromises = targets.map(async (target) => {
             try {
+                console.log(`[SLT-BRIDGE-BG] Attempting sync to: ${target}`);
                 const response = await fetch(`${target}/api/test/extension-push`, {
                     method: 'POST',
+                    mode: 'cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
+
+                if (!response.ok) {
+                    console.warn(`[SLT-BRIDGE-BG] Target ${target} returned status: ${response.status}`);
+                }
+
                 return { target, ok: response.ok };
             } catch (e) {
+                console.warn(`[SLT-BRIDGE-BG] Target ${target} failed:`, e.message);
                 return { target, ok: false, error: e.message };
             }
         });
