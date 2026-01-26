@@ -110,3 +110,17 @@ export async function GET() {
         );
     }
 }
+
+export async function DELETE() {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (prisma as any).extensionRawData.deleteMany({});
+        return NextResponse.json({ success: true, message: 'All logs cleared' });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json(
+            { success: false, error: errorMessage },
+            { status: 500 }
+        );
+    }
+}

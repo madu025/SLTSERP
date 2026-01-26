@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCcw, Database, Terminal, Clock, User, Link as LinkIcon } from 'lucide-react';
+import { RefreshCcw, Database, Terminal, Clock, User, Link as LinkIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
     Table,
@@ -43,6 +43,24 @@ export default function ExtensionTestPage() {
         refetchInterval: 3000 // Poll every 3 seconds for live update feel
     });
 
+    const clearMutation = useMutation({
+        mutationFn: async () => {
+            const resp = await fetch('/api/test/extension-push', { method: 'DELETE' });
+            if (!resp.ok) throw new Error('Failed to clear logs');
+            return resp.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['extension-logs'] });
+            setSelectedLog(null);
+        }
+    });
+
+    const handleClearAll = () => {
+        if (confirm('Are you sure you want to clear all raw logs? This cannot be undone.')) {
+            clearMutation.mutate();
+        }
+    };
+
     const logs: RawLog[] = data?.logs || [];
 
     return (
@@ -58,14 +76,25 @@ export default function ExtensionTestPage() {
                                 <h1 className="text-2xl font-bold text-slate-900">Extension Data Monitor</h1>
                                 <p className="text-slate-500 text-sm mt-1">Real-time status of synced SODs. Each entry updates automatically.</p>
                             </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => queryClient.invalidateQueries({ queryKey: ['extension-logs'] })}
-                                className="gap-2"
-                            >
-                                <RefreshCcw className="w-4 h-4" /> Refresh
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleClearAll}
+                                    disabled={logs.length === 0 || clearMutation.isPending}
+                                    className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
+                                >
+                                    <Trash2 className="w-4 h-4" /> Clear All
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => queryClient.invalidateQueries({ queryKey: ['extension-logs'] })}
+                                    className="gap-2"
+                                >
+                                    <RefreshCcw className="w-4 h-4" /> Refresh
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
