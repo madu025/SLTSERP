@@ -1,6 +1,6 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.8
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.9
 console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
-const CURRENT_VERSION = '1.2.8';
+const CURRENT_VERSION = '1.2.9';
 
 // "High Accuracy" Edition
 
@@ -42,7 +42,7 @@ function scrape() {
     const userEl = document.querySelector('.user-profile-dropdown h6');
     if (userEl) data.currentUser = clean(userEl.innerText).replace('Welcome, ', '');
 
-    // 2. Capture Hidden System Values (For high accuracy service tracking)
+    // 2. Capture Hidden System Values
     const hiddenIds = ['iptv1', 'iptv2', 'iptv3', 'bb', 'voice2', 'sval'];
     hiddenIds.forEach(id => {
         const val = getVal(id);
@@ -55,7 +55,7 @@ function scrape() {
     if (activeTab) activeContext = clean(activeTab.innerText);
     data.activeTab = activeContext;
 
-    // 4. Universal Info Scraper (Smart Grid & Sibling Resolver)
+    // 4. Universal Info Scraper
     const allLabels = document.querySelectorAll('label, b, strong, span');
     allLabels.forEach(l => {
         const style = window.getComputedStyle(l);
@@ -66,12 +66,11 @@ function scrape() {
             const key = clean(l.innerText).toUpperCase();
             if (!key || key.length > 50 || key.includes('VOICE TEST') || key === 'LATEST') return;
 
-            // CRITICAL: If we already have this key, don't overwrite it (fixes SO number picking up secondary card values)
             if (data.details[key]) return;
 
             let val = '';
 
-            // Strategy 1: Grid Logic (Target below current label)
+            // Strategy 1: Grid Logic
             const col = l.closest('[class*="col-"]') || l.parentElement;
             const row = col?.parentElement;
             if (row && col && row.classList.contains('row')) {
@@ -83,7 +82,6 @@ function scrape() {
                 if (nextRow && nextRow.classList.contains('row')) {
                     const targetCell = nextRow.children[colIdx];
                     if (targetCell) {
-                        // Anti-Shifting Fix: Ensure targetCell doesn't contain another cyan label
                         const subLabels = targetCell.querySelectorAll('label, b, strong, span');
                         let cellIsLabelRow = false;
                         subLabels.forEach(sl => {
@@ -99,7 +97,7 @@ function scrape() {
                 }
             }
 
-            // Strategy 2: Sibling Logic (If Grid Logic failed)
+            // Strategy 2: Sibling Logic
             if (!val) {
                 let next = l.nextElementSibling || l.nextSibling;
                 while (next && next.nodeType === 3 && !next.textContent.trim()) next = next.nextSibling;
@@ -121,29 +119,19 @@ function scrape() {
         }
     });
 
-    // 5. Team & User Assignment (From #sn tab)
+    // 5. Team & User Assignment
     const selectedTeam = getVal('mobusr');
     if (selectedTeam && !selectedTeam.includes('-- Select Team --')) {
         data.teamDetails['SELECTED TEAM'] = selectedTeam;
     }
 
-    // 6. Detailed Material Scraping (From #met tab)
-    // Dropwire
+    // 6. Detailed Material Scraping
     const dw = getVal('dwvalue');
     if (dw) data.materialDetails.push({ ITEM: 'DROPWIRE', VALUE: dw, TYPE: getVal('dw') });
-
-    // Poles
     const pole = getVal('pole');
     if (pole && pole !== 'SELECT POLE ...') {
-        data.materialDetails.push({
-            ITEM: 'POLE',
-            TYPE: pole,
-            QTY: getVal('qty'),
-            SERIAL: getVal('snvalue')
-        });
+        data.materialDetails.push({ ITEM: 'POLE', TYPE: pole, QTY: getVal('qty'), SERIAL: getVal('snvalue') });
     }
-
-    // Others
     const oth = getVal('oth');
     if (oth && oth !== 'SELECT MATERIAL ...') {
         data.materialDetails.push({ ITEM: 'OTHER', TYPE: oth, VALUE: getVal('othvalue') });
@@ -155,15 +143,13 @@ function scrape() {
 
     const isCyanColor = (color) => {
         if (!color) return false;
-        // Exact matches
         if (color === 'rgb(13, 202, 240)' || color === 'rgb(0, 202, 240)' || color.includes('0dcaf0')) return true;
-        // Fuzzy match for Cyan-like (High Blue, High Green, Lower Red)
         const parts = color.match(/\d+/g);
         if (parts && parts.length >= 3) {
             const r = parseInt(parts[0]);
             const g = parseInt(parts[1]);
             const b = parseInt(parts[2]);
-            return b > 200 && g > 150 && r < 100; // Cyanish
+            return b > 200 && g > 150 && r < 100;
         }
         return false;
     };
@@ -171,10 +157,8 @@ function scrape() {
     allElements.forEach(el => {
         const text = clean(el.innerText).toUpperCase();
         if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
-            console.log('🔍 [SLT-BRIDGE] Voice Test Header found:', text);
             let containerFound = el.closest('.card') || el.closest('.container') || el.closest('.form-body') || el.closest('.row');
 
-            // If direct closest fails, try searching parents and their siblings
             if (!containerFound) {
                 let curr = el;
                 for (let i = 0; i < 4; i++) {
@@ -193,9 +177,7 @@ function scrape() {
             }
 
             if (containerFound) {
-                console.log('📦 [SLT-BRIDGE] Container identified for scraping:', containerFound);
                 const foundData = {};
-                // Strategy A: Find all Blue-ish labels
                 const possibleLabels = containerFound.querySelectorAll('label, b, strong, span');
                 possibleLabels.forEach(l => {
                     const color = window.getComputedStyle(l).color;
@@ -204,15 +186,12 @@ function scrape() {
                         if (!key || key.length > 50 || key === 'LATEST') return;
 
                         let val = '';
-                        // Find Value: 
-                        // 1. Next sibling
                         let sib = l.nextElementSibling || l.nextSibling;
                         while (sib && sib.nodeType === 3 && !sib.textContent.trim()) sib = sib.nextSibling;
                         if (sib && sib.innerText && clean(sib.innerText) !== key) {
                             val = clean(sib.innerText);
                         }
 
-                        // 2. Grid Position
                         if (!val) {
                             const col = l.closest('[class*="col-"]') || l.parentElement;
                             const row = col?.parentElement;
@@ -229,55 +208,38 @@ function scrape() {
                         }
 
                         if (val && val !== key) {
-                            console.log(` ✨ [SLT-BRIDGE] Found Pair (Strategy A): [${key}] = [${val}]`);
                             foundData[key] = val;
                         }
                     }
                 });
 
-                // Strategy B: If still empty, Brute Force the rows
-                if (Object.keys(foundData).length === 0) {
-                    const rows = Array.from(containerFound.querySelectorAll('.row'));
-                    if (rows.length >= 2) {
-                        const labels = Array.from(rows[0].querySelectorAll('div[class*="col-"]'));
-                        const values = Array.from(rows[1].querySelectorAll('div[class*="col-"]'));
-                        if (labels.length > 0 && values.length === labels.length) {
-                            labels.forEach((l, i) => {
-                                const k = clean(l.innerText).toUpperCase();
-                                const v = clean(values[i].innerText);
-                                if (k && v && k !== v && k.length < 50) {
-                                    console.log(` ✨ [SLT-BRIDGE] Found Pair (Strategy B): [${k}] = [${v}]`);
-                                    foundData[k] = v;
-                                }
-                            });
-                        }
-                    }
-                }
-
                 if (Object.keys(foundData).length > 0) {
-                    console.log('✅ [SLT-BRIDGE] Voice Test Scraping Successful. Total fields:', Object.keys(foundData).length);
                     if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
                         data.voiceTest = { ...data.voiceTest, ...foundData };
                     }
                 }
-            } else {
-                // Only warn if this looks like a primary header (Latest) and we find nothing
-                if (text.includes('LATEST')) {
-                    console.warn('❌ [SLT-BRIDGE] Could not find a suitable data container near LATEST VOICE TEST header.');
-                }
+            } else if (text.includes('LATEST')) {
+                console.warn('❌ [SLT-BRIDGE] Could not find a suitable data container near LATEST VOICE TEST header.');
             }
         }
     });
 
-    console.log(`[SLT-BRIDGE] Scrape complete. Found ${Object.keys(data.details).length} core fields, ${data.materialDetails.length} materials, ${Object.keys(data.voiceTest).length} voice tests.`);
+    // Capture SO Number (PRIORITIZATION FIX FOR v1.2.9)
+    // 1. First Priority: The literal visible label on screen (Target for accuracy)
+    const soRegex = /^[A-Z]{3}\d{10,}/;
+    let labelSO = data.details['SERVICE ORDER'] || data.details['SOD'] || '';
 
-    // Capture SO Number (PRIORITIZE URL - Source of truth for main order)
-    const urlParams = new URLSearchParams(window.location.search);
-    data.soNum = urlParams.get('sod')?.split('_')[0] || '';
+    if (labelSO && soRegex.test(labelSO)) {
+        data.soNum = labelSO;
+    } else {
+        // 2. Second Priority: URL Parameter (Fallback)
+        const urlParams = new URLSearchParams(window.location.search);
+        data.soNum = urlParams.get('sod')?.split('_')[0] || '';
 
-    // Fallback to labels if URL fails, but only pick first successful match
-    if (!data.soNum) {
-        data.soNum = data.details['SERVICE ORDER'] || data.details['SOD'] || data.hiddenInfo['BB'] || '';
+        // 3. Third Priority: Hidden System Tag (Broadband fallback)
+        if (!data.soNum || !soRegex.test(data.soNum)) {
+            data.soNum = data.hiddenInfo['BB'] || '';
+        }
     }
 
     const foundCount = Object.keys(data.details).length + data.materialDetails.length;
@@ -287,11 +249,8 @@ function scrape() {
         chrome.storage.local.set({ lastScraped: data });
     }
 
-    // Push to ERP (Background Sync)
     if (data.soNum) {
-        // Skip sync for specific tabs as requested
         if (data.activeTab === 'IMAGES' || data.activeTab === 'PHOTOS') {
-            console.log('ℹ️ [SLT-BRIDGE] Skipping sync for tab:', data.activeTab);
             updateIndicator(`BRIDGE ACTIVE (SKIP ${data.activeTab})`, '#94a3b8');
             return data;
         }
@@ -309,26 +268,17 @@ async function pushToERP(data) {
         tab: data.activeTab,
         voice: data.voiceTest
     });
-
     if (currentHash === lastPushedHash) return;
-
-    if (!chrome.runtime?.id) return; // Context invalidated
-
-    console.log('🛠️ [SLT-BRIDGE] Requesting background sync for SO:', data.soNum);
-
+    if (!chrome.runtime?.id) return;
     chrome.runtime.sendMessage({ action: 'pushToERP', data }, (response) => {
         if (chrome.runtime.lastError) {
-            console.warn('❌ [SLT-BRIDGE] Background sync message failed:', chrome.runtime.lastError.message);
             updateIndicator('BRIDGE ERROR', '#ef4444');
             return;
         }
-
         if (response && response.success) {
-            console.log('✅ [SLT-BRIDGE] Background sync success.');
             lastPushedHash = currentHash;
             updateIndicator('SYNC OK', '#22c55e');
         } else {
-            console.warn('❌ [SLT-BRIDGE] Background sync: ERP targets unreachable.');
             updateIndicator('SYNC ERROR', '#ef4444');
         }
     });
@@ -341,7 +291,6 @@ function updateIndicator(status, color) {
         tag.textContent = status;
         dot.style.background = color;
         dot.style.boxShadow = `0 0 8px ${color}`;
-
         if (status === 'SYNC OK') {
             setTimeout(() => {
                 if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v' + CURRENT_VERSION;
@@ -350,7 +299,6 @@ function updateIndicator(status, color) {
     }
 }
 
-// Message Listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "getPortalData") {
         sendResponse(scrape());
@@ -358,77 +306,47 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
 });
 
-// Visual Indicator
 if (!document.getElementById('slt-erp-indicator')) {
     const banner = document.createElement('div');
     banner.id = 'slt-erp-indicator';
     banner.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 20px;
-        z-index: 2147483647;
-        background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(8px);
-        color: #fff;
-        padding: 6px 14px;
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        pointer-events: none;
-        transition: all 0.3s ease;
+        position: fixed; top: 10px; right: 20px; z-index: 2147483647;
+        background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+        color: #fff; padding: 6px 14px; font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 11px; font-weight: 600; border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px;
+        pointer-events: none; transition: all 0.3s ease;
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
         <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v${CURRENT_VERSION}</span>
     `;
 
-    // Check for Updates
     const checkUpdates = async () => {
         try {
-            // Try to fetch manifest from ERP to compare versions
             const erpUrl = window.location.origin.includes('localhost') ? 'http://localhost:3000' : 'https://slts-erp.vercel.app';
             const response = await fetch(`${erpUrl}/extension/manifest.json?t=${Date.now()}`);
             if (response.ok) {
                 const manifest = await response.json();
                 if (manifest.version && manifest.version !== CURRENT_VERSION) {
-                    console.log(`🆕 [SLT-BRIDGE] Update available: v${manifest.version}`);
                     updateIndicator(`UPDATE v${manifest.version} AVAILABLE`, '#f59e0b');
-                    banner.style.cursor = 'pointer';
-                    banner.style.pointerEvents = 'auto';
-                    banner.title = 'Click to download the latest extension';
+                    banner.style.cursor = 'pointer'; banner.style.pointerEvents = 'auto';
                     banner.onclick = () => window.open(`${erpUrl}/slt-bridge.zip`, '_blank');
                     banner.style.background = 'rgba(245, 158, 11, 0.95)';
                 }
             }
-        } catch (e) {
-            // Silence silent check
-        }
+        } catch (e) { }
     };
     checkUpdates();
-
     document.body.appendChild(banner);
 }
 
-// Debounced observation
 let timeout;
 const observer = new MutationObserver(() => {
-    if (!chrome.runtime?.id) {
-        observer.disconnect();
-        return;
-    }
+    if (!chrome.runtime?.id) { observer.disconnect(); return; }
     clearTimeout(timeout);
     timeout = setTimeout(scrape, 1000);
 });
 observer.observe(document.body, { childList: true, subtree: true, attributes: true });
 
-try {
-    console.log('🏁 [SLT-BRIDGE] Running initial scrape...');
-    scrape();
-} catch (e) {
-    console.error('💥 [SLT-BRIDGE] Fatal error during initial scrape:', e);
-}
+try { scrape(); } catch (e) { console.error('💥 [SLT-BRIDGE] Fatal error:', e); }
