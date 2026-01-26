@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import Providers from "@/components/Providers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import SessionManager from "@/components/SessionManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +56,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <Providers>
             <ThemeProvider>
+              <SessionManager />
               {children}
             </ThemeProvider>
           </Providers>

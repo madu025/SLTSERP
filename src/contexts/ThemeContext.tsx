@@ -18,32 +18,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const [colorTheme, setColorThemeState] = useState<ColorTheme>('blue');
     const [mode, setModeState] = useState<Mode>('light');
 
-    useEffect(() => {
-        const savedColorTheme = localStorage.getItem('colorTheme') as ColorTheme;
-        const savedMode = localStorage.getItem('mode') as Mode;
-
-        if (savedColorTheme) {
-            setColorThemeState(savedColorTheme);
-        }
-        if (savedMode) {
-            setModeState(savedMode);
-        }
-
-        applyTheme(savedColorTheme || 'blue', savedMode || 'light');
-    }, []);
-
-    const setColorTheme = (newTheme: ColorTheme) => {
-        setColorThemeState(newTheme);
-        localStorage.setItem('colorTheme', newTheme);
-        applyTheme(newTheme, mode);
-    };
-
-    const setMode = (newMode: Mode) => {
-        setModeState(newMode);
-        localStorage.setItem('mode', newMode);
-        applyTheme(colorTheme, newMode);
-    };
-
     const applyTheme = (theme: ColorTheme, themeMode: Mode) => {
         const root = document.documentElement;
 
@@ -105,11 +79,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
                 border: '226 232 240',
             },
             dark: {
-                background: '15 23 42',
-                foreground: '248 250 252',
-                sidebar: '2 6 23',
-                card: '30 41 59',
-                border: '51 65 85',
+                background: '11 17 29', // Deep Midnight (Eye-friendly)
+                foreground: '241 245 249', // Slate 100
+                sidebar: '7 11 20', // Solid Darker Sidebar
+                card: '17 25 40', // Refined Card Blue
+                border: '30 41 59', // Subtle Border (Slate 800)
             }
         };
 
@@ -133,6 +107,32 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             document.documentElement.classList.remove('dark');
             document.body.classList.remove('dark-mode');
         }
+    };
+
+    useEffect(() => {
+        const savedColorTheme = localStorage.getItem('colorTheme') as ColorTheme;
+        const savedMode = localStorage.getItem('mode') as Mode;
+
+        if (savedColorTheme) {
+            setColorThemeState(savedColorTheme);
+        }
+        if (savedMode) {
+            setModeState(savedMode);
+        }
+
+        applyTheme(savedColorTheme || 'blue', savedMode || 'light');
+    }, []);
+
+    const setColorTheme = (newTheme: ColorTheme) => {
+        setColorThemeState(newTheme);
+        localStorage.setItem('colorTheme', newTheme);
+        applyTheme(newTheme, mode);
+    };
+
+    const setMode = (newMode: Mode) => {
+        setModeState(newMode);
+        localStorage.setItem('mode', newMode);
+        applyTheme(colorTheme, newMode);
     };
 
     return (

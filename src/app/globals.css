@@ -161,18 +161,15 @@ body.dark-mode textarea,
 .dark input,
 .dark select,
 .dark textarea {
-  background-color: #1e293b !important;
-  /* Slate 800 */
-  color: #f8fafc !important;
-  /* Slate 50 */
-  border-color: #334155 !important;
-  /* Slate 700 */
+  background-color: rgb(var(--color-card)) !important;
+  color: rgb(var(--color-foreground)) !important;
+  border-color: rgb(var(--color-border)) !important;
 }
 
 /* Force label visibility */
 body.dark-mode label,
 .dark label {
-  color: #f8fafc !important;
+  color: rgb(var(--color-foreground)) !important;
 }
 
 body.dark-mode input::placeholder,
