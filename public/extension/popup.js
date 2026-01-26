@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function update(data) {
         if (!data || !data.url.includes('slt.lk')) {
             statusText.textContent = "Please open SLT Portal";
+            detailsList.innerHTML = '';
             return;
         }
 
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
             detailsList.appendChild(createItem('ACTIVE SERVICE ORDER', data.soNum, '#2563eb', true));
         }
 
-        // MATERIAL SECTION (NEW)
+        // MATERIAL SECTION
         if (data.materialDetails && data.materialDetails.length > 0) {
             data.materialDetails.forEach(m => {
                 const val = m.VALUE || m.QTY || 'N/A';
@@ -60,18 +61,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function refresh() {
+        // 1. Get from storage cache
         chrome.storage.local.get(['lastScraped'], (res) => {
             if (res.lastScraped) update(res.lastScraped);
         });
+
+        // 2. Request fresh data with connection error suppression
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
             if (tab?.url?.includes('slt.lk')) {
                 chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }, (resp) => {
+                    if (chrome.runtime.lastError) {
+                        // Connection failed (receiving end does not exist) - silently fail
+                        return;
+                    }
                     if (resp) update(resp);
                 });
             }
         });
     }
 
-    setInterval(refresh, 1500);
+    setInterval(refresh, 2000);
     refresh();
 });
