@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.3
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.4
 console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
 // "High Accuracy" Edition
 
@@ -154,7 +154,21 @@ function scrape() {
         const text = clean(el.innerText).toUpperCase();
         if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
             console.log('🔍 [SLT-BRIDGE] Voice Test Header found:', text);
-            let containerFound = el.closest('.card') || el.closest('.container') || el.parentElement?.closest('div');
+            let containerFound = el.closest('.card') || el.closest('.container') || el.closest('.form-body');
+
+            // If direct closest fails, try searching siblings of parents (common in nested wrappers)
+            if (!containerFound) {
+                let p = el.parentElement;
+                for (let i = 0; i < 3; i++) {
+                    if (!p) break;
+                    const sib = p.nextElementSibling;
+                    if (sib && (sib.classList.contains('card-body') || sib.querySelectorAll('.row').length > 0)) {
+                        containerFound = sib;
+                        break;
+                    }
+                    p = p.parentElement;
+                }
+            }
 
             if (containerFound) {
                 console.log('📦 [SLT-BRIDGE] Container identified for scraping:', containerFound);
@@ -307,7 +321,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.3';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.4';
             }, 3000);
         }
     }
@@ -347,7 +361,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.3</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.4</span>
     `;
     document.body.appendChild(banner);
 }
