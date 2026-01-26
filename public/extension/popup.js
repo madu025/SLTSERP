@@ -83,19 +83,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function refreshData() {
+    async function refreshData() {
+        // 1. Get from local storage first (last known state)
         chrome.storage.local.get(['lastScraped'], (result) => {
             if (result.lastScraped) updateDataUI(result.lastScraped);
         });
 
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            const activeTab = tabs[0];
-            if (activeTab && activeTab.url.includes('slt.lk')) {
-                chrome.tabs.sendMessage(activeTab.id, { action: "getPortalData" }, (response) => {
-                    if (response) updateDataUI(response);
-                }).catch(() => { });
+        // 2. Try to get fresh data from the active tab
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+            // Only message if it's our target portal
+            if (tab && tab.url && tab.url.includes('slt.lk')) {
+                // Use promise-based sendMessage with a try-catch to suppress "Receiving end does not exist"
+                const response = await chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }).catch(err => {
+                    // Suppress the error if the content script isn't ready or injected
+                    return null;
+                });
+
+                if (response) updateDataUI(response);
             }
-        });
+        } catch (err) {
+            // Silently ignore tab query errors
+        }
     }
 
     function refreshDiagnostics() {

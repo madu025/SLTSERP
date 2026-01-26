@@ -102,7 +102,7 @@ function scrape() {
     updateLocalDiagnostics(foundCount, activeContext);
     chrome.storage.local.set({ lastScraped: data });
 
-    // Push to ERP for testing (only if soNum is present to avoid noise)
+    // Push to ERP (Background Sync)
     if (data.soNum) {
         pushToERP(data);
     }
@@ -111,55 +111,33 @@ function scrape() {
 }
 
 async function pushToERP(data) {
-    try {
-        const currentHash = JSON.stringify({
-            details: data.details,
-            team: data.teamDetails,
-            materials: data.materialDetails,
-            tab: data.activeTab
-        });
+    const currentHash = JSON.stringify({
+        details: data.details,
+        team: data.teamDetails,
+        materials: data.materialDetails,
+        tab: data.activeTab
+    });
 
-        if (currentHash === lastPushedHash) return;
+    if (currentHash === lastPushedHash) return;
 
-        const targets = [
-            'http://localhost:3000',
-            'http://127.0.0.1:3000',
-            'https://d2ixqikwtprwf0.cloudfront.net'
-        ];
+    console.log('🛠️ [SLT-BRIDGE] Requesting background sync for SO:', data.soNum);
 
-        let success = false;
-        for (const target of targets) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 1500);
-
-                const response = await fetch(`${target}/api/test/extension-push`, {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                    signal: controller.signal
-                });
-
-                clearTimeout(timeoutId);
-
-                if (response.ok) {
-                    console.log(`✅ [SLT-BRIDGE] Synced to: ${target}`);
-                    success = true;
-                    break;
-                }
-            } catch (e) { /* target offline */ }
+    chrome.runtime.sendMessage({ action: 'pushToERP', data }, (response) => {
+        if (chrome.runtime.lastError) {
+            console.warn('❌ [SLT-BRIDGE] Background sync message failed:', chrome.runtime.lastError.message);
+            updateIndicator('BRIDGE ERROR', '#ef4444');
+            return;
         }
 
-        if (success) {
+        if (response && response.success) {
+            console.log('✅ [SLT-BRIDGE] Background sync success.');
             lastPushedHash = currentHash;
             updateIndicator('SYNC OK', '#22c55e');
         } else {
+            console.warn('❌ [SLT-BRIDGE] Background sync: ERP targets unreachable.');
             updateIndicator('SYNC ERROR', '#ef4444');
         }
-    } catch (err) {
-        console.warn('❌ [SLT-BRIDGE] Push error:', err);
-    }
+    });
 }
 
 function updateIndicator(status, color) {

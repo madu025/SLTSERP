@@ -8,6 +8,9 @@
         "activeTab",
         "tabs"
     ],
+    "background": {
+        "service_worker": "background.js"
+    },
     "host_permissions": [
         "*://d2ixqikwtprwf0.cloudfront.net/*",
         "*://serviceportal.slt.lk/*",
