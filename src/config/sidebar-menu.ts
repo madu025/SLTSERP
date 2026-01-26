@@ -16,7 +16,8 @@ import {
     Shield,
     FolderKanban,
     Upload,
-    History
+    History,
+    Terminal
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -388,6 +389,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'SOD Import',
                 path: '/admin/sod-import',
                 icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'Extension Test Monitor',
+                path: '/admin/test-extension',
+                icon: Terminal,
                 allowedRoles: ROLE_GROUPS.ADMINS
             }
         ]
