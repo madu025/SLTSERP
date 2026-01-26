@@ -10,7 +10,9 @@
     ],
     "host_permissions": [
         "*://d2ixqikwtprwf0.cloudfront.net/*",
-        "*://serviceportal.slt.lk/*"
+        "*://serviceportal.slt.lk/*",
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*"
     ],
     "action": {
         "default_popup": "popup.html"

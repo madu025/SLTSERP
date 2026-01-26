@@ -1354,6 +1354,19 @@ model DashboardStat {
   @@index([rtom])
 }
 
+model ExtensionRawData {
+  id          String   @id @default(cuid())
+  soNum       String?
+  sltUser     String?
+  activeTab   String?
+  scrapedData Json
+  url         String?
+  createdAt   DateTime @default(now())
+
+  @@index([soNum])
+  @@index([createdAt])
+}
+
 model NotificationPreference {
   id        String   @id @default(cuid())
   userId    String

@@ -13,6 +13,8 @@ function updateLocalDiagnostics(foundItems, context) {
     });
 }
 
+let lastPushedHash = "";
+
 function scrape() {
     const data = {
         url: window.location.href,
@@ -99,7 +101,57 @@ function scrape() {
     const foundCount = Object.keys(data.details).length + data.materialDetails.length;
     updateLocalDiagnostics(foundCount, activeContext);
     chrome.storage.local.set({ lastScraped: data });
+
+    // Push to ERP for testing (only if soNum is present to avoid noise)
+    if (data.soNum) {
+        pushToERP(data);
+    }
+
     return data;
+}
+
+async function pushToERP(data) {
+    try {
+        // 1. Check if data actually changed to avoid flooding server
+        const currentHash = JSON.stringify({
+            details: data.details,
+            team: data.teamDetails,
+            materials: data.materialDetails,
+            tab: data.activeTab
+        });
+
+        if (currentHash === lastPushedHash) return;
+
+        // 2. Identify ERP Target (Local Test vs Production)
+        // Since content script runs on SLT portal, we try to detect if we're in "Test Mode"
+        // For now, we'll try to push to BOTH if on a dev machine, or just production.
+        const targets = [
+            'https://d2ixqikwtprwf0.cloudfront.net',
+            'http://localhost:3000'
+        ];
+
+        for (const target of targets) {
+            try {
+                const apiUrl = `${target}/api/test/extension-push`;
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    console.log(`✅ [SLT-BRIDGE] Synced to: ${target}`);
+                    lastPushedHash = currentHash;
+                    break; // stop after first successful push
+                }
+            } catch (e) {
+                // Silently skip if one target is offline
+            }
+        }
+    } catch (err) {
+        console.warn('❌ [SLT-BRIDGE] Push error:', err);
+    }
 }
 
 // Message Listener
