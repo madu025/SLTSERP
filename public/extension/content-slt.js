@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.1
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.2
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -152,9 +152,11 @@ function scrape() {
     allElements.forEach(el => {
         const text = clean(el.innerText).toUpperCase();
         if (/VOICE\s*TEST|V-TEST|V\s*TEST/i.test(text)) {
+            console.log('🔍 [SLT-BRIDGE] Voice Test Header found:', text);
             let containerFound = el.closest('.card') || el.closest('.container') || el.parentElement?.closest('div');
 
             if (containerFound) {
+                console.log('📦 [SLT-BRIDGE] Container identified for scraping:', containerFound);
                 const foundData = {};
                 // Strategy A: Find all Blue-ish labels
                 const possibleLabels = containerFound.querySelectorAll('label, b, strong, span');
@@ -190,6 +192,7 @@ function scrape() {
                         }
 
                         if (val && val !== key) {
+                            console.log(` ✨ [SLT-BRIDGE] Found Pair (Strategy A): [${key}] = [${val}]`);
                             foundData[key] = val;
                         }
                     }
@@ -197,15 +200,18 @@ function scrape() {
 
                 // Strategy B: If still empty, Brute Force the rows
                 if (Object.keys(foundData).length === 0) {
+                    console.log('⚠️ [SLT-BRIDGE] Strategy A found nothing. Attempting Strategy B (Brute Force Rows)...');
                     const rows = Array.from(containerFound.querySelectorAll('.row'));
                     if (rows.length >= 2) {
                         const labels = Array.from(rows[0].querySelectorAll('div[class*="col-"]'));
                         const values = Array.from(rows[1].querySelectorAll('div[class*="col-"]'));
+                        console.log(` 📊 [SLT-BRIDGE] Brute Force: Found ${labels.length} potential label columns and ${values.length} value columns.`);
                         if (labels.length > 0 && values.length === labels.length) {
                             labels.forEach((l, i) => {
                                 const k = clean(l.innerText).toUpperCase();
                                 const v = clean(values[i].innerText);
                                 if (k && v && k !== v && k.length < 50) {
+                                    console.log(` ✨ [SLT-BRIDGE] Found Pair (Strategy B): [${k}] = [${v}]`);
                                     foundData[k] = v;
                                 }
                             });
@@ -214,10 +220,15 @@ function scrape() {
                 }
 
                 if (Object.keys(foundData).length > 0) {
+                    console.log('✅ [SLT-BRIDGE] Voice Test Scraping Successful. Total fields:', Object.keys(foundData).length);
                     if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
                         data.voiceTest = { ...data.voiceTest, ...foundData };
                     }
+                } else {
+                    console.warn('❌ [SLT-BRIDGE] Failed to extract any voice test data from container.');
                 }
+            } else {
+                console.warn('❌ [SLT-BRIDGE] Could not find a suitable data container near header.');
             }
         }
     });
@@ -295,7 +306,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.1';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.2';
             }, 3000);
         }
     }
@@ -335,7 +346,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.1</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.2</span>
     `;
     document.body.appendChild(banner);
 }
