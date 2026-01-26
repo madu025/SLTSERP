@@ -1,6 +1,7 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.6
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.7
 console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
-const CURRENT_VERSION = '1.2.6';
+const CURRENT_VERSION = '1.2.7';
+
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -65,6 +66,9 @@ function scrape() {
             const key = clean(l.innerText).toUpperCase();
             if (!key || key.length > 50 || key.includes('VOICE TEST') || key === 'LATEST') return;
 
+            // CRITICAL: If we already have this key, don't overwrite it (fixes SO number picking up secondary card values)
+            if (data.details[key]) return;
+
             let val = '';
 
             // Strategy 1: Grid Logic (Target below current label)
@@ -79,14 +83,17 @@ function scrape() {
                 if (nextRow && nextRow.classList.contains('row')) {
                     const targetCell = nextRow.children[colIdx];
                     if (targetCell) {
-                        const cellText = clean(targetCell.innerText);
-                        // Ensure it's not another cyan label row
-                        const cellStyle = window.getComputedStyle(targetCell.querySelector('label, b, strong') || targetCell);
-                        const cellColor = cellStyle.color;
-                        const cellIsCyan = cellColor === 'rgb(13, 202, 240)' || cellColor === 'rgb(0, 202, 240)' || cellColor.includes('0dcaf0');
+                        // Anti-Shifting Fix: Ensure targetCell doesn't contain another cyan label
+                        const subLabels = targetCell.querySelectorAll('label, b, strong, span');
+                        let cellIsLabelRow = false;
+                        subLabels.forEach(sl => {
+                            const c = window.getComputedStyle(sl).color;
+                            if (c === 'rgb(13, 202, 240)' || c === 'rgb(0, 202, 240)' || c.includes('0dcaf0')) cellIsLabelRow = true;
+                        });
 
-                        if (!cellIsCyan && cellText && cellText !== key) {
-                            val = cellText;
+                        if (!cellIsLabelRow) {
+                            const cellText = clean(targetCell.innerText);
+                            if (cellText && cellText !== key) val = cellText;
                         }
                     }
                 }
@@ -261,11 +268,13 @@ function scrape() {
 
     console.log(`[SLT-BRIDGE] Scrape complete. Found ${Object.keys(data.details).length} core fields, ${data.materialDetails.length} materials, ${Object.keys(data.voiceTest).length} voice tests.`);
 
-    // Capture SO Number
-    data.soNum = data.details['SERVICE ORDER'] || data.details['SOD'] || data.hiddenInfo['BB'] || '';
+    // Capture SO Number (PRIORITIZE URL - Source of truth for main order)
+    const urlParams = new URLSearchParams(window.location.search);
+    data.soNum = urlParams.get('sod')?.split('_')[0] || '';
+
+    // Fallback to labels if URL fails, but only pick first successful match
     if (!data.soNum) {
-        const urlParams = new URLSearchParams(window.location.search);
-        data.soNum = urlParams.get('sod')?.split('_')[0] || '';
+        data.soNum = data.details['SERVICE ORDER'] || data.details['SOD'] || data.hiddenInfo['BB'] || '';
     }
 
     const foundCount = Object.keys(data.details).length + data.materialDetails.length;
@@ -394,7 +403,7 @@ if (!document.getElementById('slt-erp-indicator')) {
                 }
             }
         } catch (e) {
-            console.warn('⚠️ [SLT-BRIDGE] Could not check for updates.');
+            // Silence silent check
         }
     };
     checkUpdates();
