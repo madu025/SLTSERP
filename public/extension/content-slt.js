@@ -1,4 +1,5 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.2
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.3
+console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -306,7 +307,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.2';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.3';
             }, 3000);
         }
     }
@@ -346,7 +347,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.2</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.3</span>
     `;
     document.body.appendChild(banner);
 }
@@ -363,4 +364,9 @@ const observer = new MutationObserver(() => {
 });
 observer.observe(document.body, { childList: true, subtree: true, attributes: true });
 
-scrape();
+try {
+    console.log('🏁 [SLT-BRIDGE] Running initial scrape...');
+    scrape();
+} catch (e) {
+    console.error('💥 [SLT-BRIDGE] Fatal error during initial scrape:', e);
+}
