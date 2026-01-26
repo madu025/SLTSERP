@@ -1,7 +1,8 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.1.4
+// Comprehensive Scraper for SLT i-Shamp Portal v1.1.5
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
+    if (!chrome.runtime?.id) return; // Context invalidated
     chrome.storage.local.set({
         diagnostics_slt: {
             status: 'ACTIVE',
@@ -198,7 +199,10 @@ function scrape() {
 
     const foundCount = Object.keys(data.details).length + data.materialDetails.length;
     updateLocalDiagnostics(foundCount, activeContext);
-    chrome.storage.local.set({ lastScraped: data });
+
+    if (chrome.runtime?.id) {
+        chrome.storage.local.set({ lastScraped: data });
+    }
 
     // Push to ERP (Background Sync)
     if (data.soNum) {
@@ -224,6 +228,8 @@ async function pushToERP(data) {
     });
 
     if (currentHash === lastPushedHash) return;
+
+    if (!chrome.runtime?.id) return; // Context invalidated
 
     console.log('🛠️ [SLT-BRIDGE] Requesting background sync for SO:', data.soNum);
 
@@ -255,7 +261,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.4';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.5';
             }, 3000);
         }
     }
@@ -295,7 +301,7 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.4</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.5</span>
     `;
     document.body.appendChild(banner);
 }
@@ -303,6 +309,10 @@ if (!document.getElementById('slt-erp-indicator')) {
 // Debounced observation
 let timeout;
 const observer = new MutationObserver(() => {
+    if (!chrome.runtime?.id) {
+        observer.disconnect();
+        return;
+    }
     clearTimeout(timeout);
     timeout = setTimeout(scrape, 1000);
 });
