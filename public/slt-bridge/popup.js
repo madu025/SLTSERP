@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
         statusText.textContent = `User: ${data.currentUser || 'Detected'}`;
         detailsList.innerHTML = '';
 
-        // BROADBRAND NOTICE
         if (data.isBroadband) {
             const notice = document.createElement('div');
             notice.style = "background:#fff7ed; color:#9a3412; padding:8px; border-radius:6px; font-size:10px; margin-bottom:10px; border:1px solid #ffedd5; font-weight:bold; text-align:center";
@@ -35,8 +34,16 @@ document.addEventListener('DOMContentLoaded', () => {
             detailsList.appendChild(createItem('ACTIVE SERVICE ORDER', data.soNum, '#2563eb', true));
         }
 
+        // MATERIAL SECTION (NEW)
+        if (data.materialDetails && data.materialDetails.length > 0) {
+            data.materialDetails.forEach(m => {
+                const val = m.VALUE || m.QTY || 'N/A';
+                detailsList.appendChild(createItem(`MATERIAL: ${m.ITEM}`, `${m.TYPE} (QTY: ${val})`, '#d97706'));
+            });
+        }
+
         const context = document.createElement('div');
-        context.style = "font-size:10px; color:#64748b; margin-bottom:10px; text-align:center";
+        context.style = "font-size:10px; color:#64748b; margin-bottom:10px; text-align:center; border-top:1px solid #f1f5f9; padding-top:10px";
         context.textContent = `Tab: ${data.activeTab || 'N/A'}`;
         detailsList.appendChild(context);
 
@@ -56,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.local.get(['lastScraped'], (res) => {
             if (res.lastScraped) update(res.lastScraped);
         });
-
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
             if (tab?.url?.includes('slt.lk')) {
                 chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }, (resp) => {
