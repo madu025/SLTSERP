@@ -24,7 +24,12 @@ interface RawLog {
     sltUser: string;
     activeTab: string;
     url: string;
-    scrapedData: Record<string, unknown>;
+    scrapedData: {
+        details?: Record<string, string>;
+        voiceTest?: Record<string, string>;
+        materialDetails?: Array<Record<string, unknown>>;
+        teamDetails?: Record<string, string>;
+    } & Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
 }
@@ -177,6 +182,24 @@ export default function ExtensionTestPage() {
                                                     <span className="text-[10px] break-all text-blue-600 bg-blue-50 p-1.5 rounded mt-1 font-mono uppercase truncate">{selectedLog.url || 'N/A'}</span>
                                                 </div>
                                             </div>
+
+                                            {/* Voice Test Breakdown */}
+                                            {selectedLog.scrapedData?.voiceTest && Object.keys(selectedLog.scrapedData.voiceTest).length > 0 && (
+                                                <div className="space-y-2">
+                                                    <span className="text-[10px] uppercase font-bold text-emerald-600 flex items-center gap-1">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                        Voice Test Details
+                                                    </span>
+                                                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 grid grid-cols-1 gap-2">
+                                                        {Object.entries(selectedLog.scrapedData.voiceTest).map(([key, val]) => (
+                                                            <div key={key} className="flex justify-between items-center text-[11px] border-b border-emerald-100/50 last:border-0 pb-1">
+                                                                <span className="text-slate-500 font-medium">{key}</span>
+                                                                <span className="font-bold text-slate-900">{String(val)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             <div className="space-y-2">
                                                 <span className="text-[10px] uppercase font-bold text-slate-400">JSON Payload:</span>

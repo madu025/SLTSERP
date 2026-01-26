@@ -1,4 +1,4 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.1.2
+// Comprehensive Scraper for SLT i-Shamp Portal v1.1.4
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -91,25 +91,103 @@ function scrape() {
         data.materialDetails.push({ ITEM: 'OTHER', TYPE: oth, VALUE: getVal('othvalue') });
     }
 
-    // 7. Voice Test Details Scraper
+    // 7. Robust Voice Test Details Scraper
     data.voiceTest = {};
-    const voiceHeaders = document.querySelectorAll('h5, h6, b');
-    voiceHeaders.forEach(h => {
-        if (h.innerText.includes('VOICE TEST DETAILS')) {
-            const table = h.nextElementSibling?.tagName === 'TABLE' ? h.nextElementSibling : h.parentElement?.querySelector('table');
-            if (table) {
-                const rows = table.querySelectorAll('tr');
-                rows.forEach(row => {
-                    const cells = row.querySelectorAll('td');
-                    if (cells.length >= 2) {
-                        const key = clean(cells[0].innerText).replace(':', '');
-                        const val = clean(cells[1].innerText);
-                        if (key) data.voiceTest[key] = val;
+    const allElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, b, strong, td, label, div, span');
+
+    allElements.forEach(el => {
+        const text = el.innerText.toUpperCase();
+        if (text.includes('VOICE TEST') || text.includes('V-TEST')) {
+            // Find the nearest container following this text header
+            let next = el;
+            let containerFound = null;
+
+            // Look ahead to find a table or a data container
+            for (let i = 0; i < 8; i++) {
+                if (!next) break;
+
+                // Priority 1: Table
+                if (next.tagName === 'TABLE') {
+                    containerFound = next;
+                    break;
+                }
+                const innerTable = next.querySelector('table');
+                if (innerTable) {
+                    containerFound = innerTable;
+                    break;
+                }
+
+                // Priority 2: List-like structure (divs with labels)
+                if (next.querySelectorAll('.row, .form-group').length > 1) {
+                    containerFound = next;
+                    // don't break yet, maybe a table is nearby
+                }
+
+                next = next.nextElementSibling || next.parentElement?.nextElementSibling;
+            }
+
+            if (containerFound) {
+                const foundData = {};
+                if (containerFound.tagName === 'TABLE') {
+                    const rows = containerFound.querySelectorAll('tr');
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('td, th');
+                        if (cells.length >= 2) {
+                            const key = clean(cells[0].innerText).replace(':', '').trim();
+                            const val = clean(cells[1].innerText).trim();
+                            if (key && key.length < 50 && val) {
+                                foundData[key] = val;
+                            }
+                        }
+                    });
+                } else {
+                    // Method A: Row/Column Grid (Labels in one Row, Values in another)
+                    const gridRows = containerFound.querySelectorAll('.row');
+                    let gridSuccess = false;
+
+                    if (gridRows.length >= 2) {
+                        const headerCols = gridRows[0].querySelectorAll('[class*="col-"]');
+                        const valueCols = gridRows[1].querySelectorAll('[class*="col-"]');
+
+                        if (headerCols.length > 0 && valueCols.length > 0) {
+                            headerCols.forEach((hCol, idx) => {
+                                const key = clean(hCol.innerText).toUpperCase();
+                                const vCol = valueCols[idx];
+                                if (key && key.length < 50 && vCol) {
+                                    const val = clean(vCol.innerText);
+                                    if (val) {
+                                        foundData[key] = val;
+                                        gridSuccess = true;
+                                    }
+                                }
+                            });
+                        }
                     }
-                });
+
+                    // Method B: Label/Value sibling pairs (Fallback or Parallel)
+                    if (!gridSuccess) {
+                        const pairs = containerFound.querySelectorAll('label, b, strong, span');
+                        pairs.forEach(p => {
+                            const pText = clean(p.innerText).replace(':', '');
+                            if (pText.length > 2 && pText.length < 50) {
+                                const val = clean(p.nextSibling?.textContent || p.nextElementSibling?.innerText || '');
+                                if (val && val.length < 100) {
+                                    foundData[pText.toUpperCase()] = val;
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // If this is the "LATEST" voice test, or if we haven't found any yet, update
+                if (text.includes('LATEST') || Object.keys(data.voiceTest).length === 0) {
+                    data.voiceTest = { ...data.voiceTest, ...foundData };
+                }
             }
         }
     });
+
+    console.log(`[SLT-BRIDGE] Scrape complete. Found ${Object.keys(data.details).length} core fields, ${data.materialDetails.length} materials, ${Object.keys(data.voiceTest).length} voice tests.`);
 
     // Capture SO Number
     data.soNum = data.details['SERVICE ORDER'] || data.details['SOD'] || data.hiddenInfo['BB'] || '';
@@ -124,6 +202,12 @@ function scrape() {
 
     // Push to ERP (Background Sync)
     if (data.soNum) {
+        // Skip sync for specific tabs as requested
+        if (data.activeTab === 'IMAGES' || data.activeTab === 'PHOTOS') {
+            console.log('ℹ️ [SLT-BRIDGE] Skipping sync for tab:', data.activeTab);
+            updateIndicator(`BRIDGE ACTIVE (SKIP ${data.activeTab})`, '#94a3b8');
+            return data;
+        }
         pushToERP(data);
     }
 
@@ -162,14 +246,16 @@ async function pushToERP(data) {
 }
 
 function updateIndicator(status, color) {
-    const el = document.getElementById('slt-erp-status-tag');
-    if (el) {
-        el.textContent = status;
-        el.style.color = color;
+    const tag = document.getElementById('slt-erp-status-tag');
+    const dot = document.getElementById('slt-erp-status-dot');
+    if (tag && dot) {
+        tag.textContent = status;
+        dot.style.background = color;
+        dot.style.boxShadow = `0 0 8px ${color}`;
+
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (el.textContent === 'SYNC OK') el.textContent = 'BRIDGE v1.1.2 ACTIVE';
-                el.style.color = '#22c55e';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.1.4';
             }, 3000);
         }
     }
@@ -187,7 +273,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 if (!document.getElementById('slt-erp-indicator')) {
     const banner = document.createElement('div');
     banner.id = 'slt-erp-indicator';
-    banner.innerHTML = `<div style="position:fixed;top:0;right:20px;z-index:999999;background:#1e293b;color:#22c55e;padding:4px 10px;font-size:10px;font-weight:bold;border-radius:0 0 5px 5px;box-shadow:0 2px 5px rgba(0,0,0,0.2)"><span id="slt-erp-status-tag">BRIDGE v1.1.2 ACTIVE</span></div>`;
+    banner.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 20px;
+        z-index: 2147483647;
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(8px);
+        color: #fff;
+        padding: 6px 14px;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        pointer-events: none;
+        transition: all 0.3s ease;
+    `;
+    banner.innerHTML = `
+        <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.1.4</span>
+    `;
     document.body.appendChild(banner);
 }
 
