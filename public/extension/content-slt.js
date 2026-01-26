@@ -1,5 +1,6 @@
-// Comprehensive Scraper for SLT i-Shamp Portal v1.2.5
+// Comprehensive Scraper for SLT i-Shamp Portal v1.2.6
 console.log('🚀 [SLT-BRIDGE] Content script injected and starting...');
+const CURRENT_VERSION = '1.2.6';
 // "High Accuracy" Edition
 
 function updateLocalDiagnostics(foundItems, context) {
@@ -331,7 +332,7 @@ function updateIndicator(status, color) {
 
         if (status === 'SYNC OK') {
             setTimeout(() => {
-                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v1.2.5';
+                if (tag.textContent === 'SYNC OK') tag.textContent = 'SLT BRIDGE v' + CURRENT_VERSION;
             }, 3000);
         }
     }
@@ -371,8 +372,33 @@ if (!document.getElementById('slt-erp-indicator')) {
     `;
     banner.innerHTML = `
         <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;" id="slt-erp-status-dot"></div>
-        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v1.2.5</span>
+        <span id="slt-erp-status-tag" style="letter-spacing: 0.02em;">SLT BRIDGE v${CURRENT_VERSION}</span>
     `;
+
+    // Check for Updates
+    const checkUpdates = async () => {
+        try {
+            // Try to fetch manifest from ERP to compare versions
+            const erpUrl = window.location.origin.includes('localhost') ? 'http://localhost:3000' : 'https://slts-erp.vercel.app';
+            const response = await fetch(`${erpUrl}/extension/manifest.json?t=${Date.now()}`);
+            if (response.ok) {
+                const manifest = await response.json();
+                if (manifest.version && manifest.version !== CURRENT_VERSION) {
+                    console.log(`🆕 [SLT-BRIDGE] Update available: v${manifest.version}`);
+                    updateIndicator(`UPDATE v${manifest.version} AVAILABLE`, '#f59e0b');
+                    banner.style.cursor = 'pointer';
+                    banner.style.pointerEvents = 'auto';
+                    banner.title = 'Click to download the latest extension';
+                    banner.onclick = () => window.open(`${erpUrl}/slt-bridge.zip`, '_blank');
+                    banner.style.background = 'rgba(245, 158, 11, 0.95)';
+                }
+            }
+        } catch (e) {
+            console.warn('⚠️ [SLT-BRIDGE] Could not check for updates.');
+        }
+    };
+    checkUpdates();
+
     document.body.appendChild(banner);
 }
 
