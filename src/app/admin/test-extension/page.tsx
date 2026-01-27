@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCcw, Database, Terminal, Clock, User, Link as LinkIcon, Trash2 } from 'lucide-react';
+import { RefreshCcw, Database, Terminal, Clock, User, Link as LinkIcon, Trash2, Search, Zap, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
 import { format } from 'date-fns';
 import {
     Table,
@@ -17,6 +17,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface RawLog {
     id: string;
@@ -34,6 +35,59 @@ interface RawLog {
     updatedAt: string;
 }
 
+/**
+ * UI Deep Parse Engine
+ * Matches the backend logic to show user what we're extracting
+ */
+function deepParseUI(scrapedData: any) {
+    const details = scrapedData.details || {};
+    const mashed = details['SERVICE ORDER DETAILS'] || "";
+
+    const extracted: Record<string, string> = {
+        'SO Number': scrapedData.soNum || 'N/A',
+        'Portal User': scrapedData.currentUser || 'N/A',
+        'Active Tab': scrapedData.activeTab || 'N/A'
+    };
+
+    if (mashed) {
+        const keywords = [
+            'RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'RECEIVED DATE',
+            'CUSTOMER NAME', 'CONTACT NO', 'ADDRESS', 'STATUS', 'STATUS DATE',
+            'ORDER TYPE', 'TASK', 'PACKAGE', 'EQUIPMENT CLASS',
+            'EQUIPMENT PURCHASE FROM SLT', 'SALES PERSON', 'DP LOOP'
+        ];
+
+        keywords.forEach((key) => {
+            const start = mashed.indexOf(key);
+            if (start === -1) return;
+
+            let end = mashed.length;
+            for (let j = 0; j < keywords.length; j++) {
+                const nextKey = keywords[j];
+                const nextIdx = mashed.indexOf(nextKey, start + key.length);
+                if (nextIdx !== -1 && nextIdx < end) {
+                    end = nextIdx;
+                }
+            }
+
+            let val = mashed.substring(start + key.length, end).trim();
+            extracted[key] = val;
+        });
+    }
+
+    // Add serials if found in mashed or directly
+    const serials = details['SERIAL NUMBER DETAILS'] || details['ONT_ROUTER_SERIAL_NUMBER'] || "";
+    if (serials) {
+        if (serials.includes('ONT_ROUTER_SERIAL_NUMBER')) {
+            extracted['ONT Serial'] = serials.split('ONT_ROUTER_SERIAL_NUMBER')[1]?.trim();
+        } else {
+            extracted['Serial Inf'] = serials;
+        }
+    }
+
+    return extracted;
+}
+
 export default function ExtensionTestPage() {
     const queryClient = useQueryClient();
     const [selectedLog, setSelectedLog] = useState<RawLog | null>(null);
@@ -45,7 +99,7 @@ export default function ExtensionTestPage() {
             if (!resp.ok) throw new Error('Failed to fetch logs');
             return resp.json();
         },
-        refetchInterval: 3000 // Poll every 3 seconds for live update feel
+        refetchInterval: 3000
     });
 
     const clearMutation = useMutation({
@@ -67,6 +121,7 @@ export default function ExtensionTestPage() {
     };
 
     const logs: RawLog[] = data?.logs || [];
+    const parsedData = selectedLog ? deepParseUI(selectedLog.scrapedData) : null;
 
     return (
         <div className="min-h-screen flex bg-slate-50">
@@ -74,80 +129,115 @@ export default function ExtensionTestPage() {
             <main className="flex-1 flex flex-col min-w-0">
                 <Header />
                 <div className="flex-1 overflow-y-auto p-4 lg:p-8">
-                    <div className="max-w-7xl mx-auto space-y-6">
+                    <div className="max-w-[1600px] mx-auto space-y-6">
 
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Extension Data Monitor</h1>
-                                <p className="text-slate-500 text-sm mt-1">Real-time status of synced SODs. Each entry updates automatically.</p>
+                                <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 rounded-lg">
+                                        <Zap className="w-6 h-6 text-primary fill-primary" />
+                                    </div>
+                                    Phoenix Bridge Monitor
+                                </h1>
+                                <p className="text-slate-500 text-sm mt-1">Live data interception from SLT Service Portal. Powered by Phoenix Elite v3.1.5</p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={handleClearAll}
                                     disabled={logs.length === 0 || clearMutation.isPending}
-                                    className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
+                                    className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100 font-bold"
                                 >
-                                    <Trash2 className="w-4 h-4" /> Clear All
+                                    <Trash2 className="w-4 h-4" /> Purge Logs
                                 </Button>
                                 <Button
-                                    variant="outline"
                                     size="sm"
                                     onClick={() => queryClient.invalidateQueries({ queryKey: ['extension-logs'] })}
-                                    className="gap-2"
+                                    className="gap-2 font-bold shadow-lg shadow-primary/20"
                                 >
-                                    <RefreshCcw className="w-4 h-4" /> Refresh
+                                    <RefreshCcw className="w-4 h-4" /> Sync Now
                                 </Button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-20">
 
                             {/* Table Section */}
-                            <Card className="lg:col-span-2 shadow-sm">
-                                <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                        <Database className="w-4 h-4 text-primary" /> Incoming Raw Logs
+                            <Card className="lg:col-span-7 shadow-sm border-slate-200 overflow-hidden">
+                                <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between bg-slate-50/50">
+                                    <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-500">
+                                        <Layers className="w-4 h-4 text-primary" /> Captured Stream
                                     </CardTitle>
-                                    <Badge variant="secondary" className="font-mono text-[10px]">
-                                        {logs.length} Entries
+                                    <Badge variant="secondary" className="font-mono text-[10px] bg-white border border-slate-200">
+                                        {logs.length} Packets
                                     </Badge>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    <div className="max-h-[70vh] overflow-y-auto">
+                                    <div className="max-h-[75vh] overflow-y-auto">
                                         <Table>
-                                            <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
+                                            <TableHeader className="bg-slate-50/80 backdrop-blur sticky top-0 z-10 border-b border-slate-200">
                                                 <TableRow>
-                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">SO Number</TableHead>
-                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">Current Tab</TableHead>
-                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">SLT User</TableHead>
-                                                    <TableHead className="text-[11px] uppercase tracking-wider font-bold">Last Sync</TableHead>
-                                                    <TableHead className="text-right"></TableHead>
+                                                    <TableHead className="text-[10px] uppercase font-bold text-slate-400">SO Identification</TableHead>
+                                                    <TableHead className="text-[10px] uppercase font-bold text-slate-400">Current Context</TableHead>
+                                                    <TableHead className="text-[10px] uppercase font-bold text-slate-400">Agent</TableHead>
+                                                    <TableHead className="text-[10px] uppercase font-bold text-slate-400">Capture Time</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {isLoading && logs.length === 0 ? (
-                                                    <TableRow><TableCell colSpan={5} className="text-center py-12 text-slate-400">Waiting for data...</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={4} className="text-center py-20">
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <RefreshCcw className="w-8 h-8 text-slate-200 animate-spin" />
+                                                            <span className="text-xs text-slate-400 font-medium">Scanning for incoming packets...</span>
+                                                        </div>
+                                                    </TableCell></TableRow>
                                                 ) : logs.length === 0 ? (
-                                                    <TableRow><TableCell colSpan={5} className="text-center py-12 text-slate-400">No logs found. Open an SOD in i-Shamp to test.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={4} className="text-center py-20">
+                                                        <div className="flex flex-col items-center gap-3">
+                                                            <div className="p-4 bg-slate-100 rounded-full">
+                                                                <Terminal className="w-8 h-8 text-slate-300" />
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-sm font-bold text-slate-600">No Data Captured</p>
+                                                                <p className="text-xs text-slate-400 max-w-[200px] mx-auto leading-relaxed">Navigate to an SOD page in the SLT Portal to begin real-time sync.</p>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell></TableRow>
                                                 ) : (
                                                     logs.map((log) => (
                                                         <TableRow
                                                             key={log.id}
-                                                            className={`cursor-pointer transition-colors ${selectedLog?.id === log.id ? 'bg-primary/5' : 'hover:bg-slate-50'}`}
+                                                            className={`cursor-pointer transition-all border-l-4 ${selectedLog?.id === log.id ? 'bg-primary/5 border-l-primary' : 'hover:bg-slate-50/50 border-l-transparent'}`}
                                                             onClick={() => setSelectedLog(log)}
                                                         >
-                                                            <TableCell className="text-xs font-bold text-slate-900">{log.soNum || 'N/A'}</TableCell>
-                                                            <TableCell className="text-xs">
-                                                                <Badge variant="outline" className="text-[10px] py-0 border-blue-100 text-blue-600 bg-blue-50/30 uppercase">{log.activeTab || 'N/A'}</Badge>
+                                                            <TableCell>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors">{log.soNum || 'UNKNOWN_SO'}</span>
+                                                                    <span className="text-[10px] text-slate-400 font-mono">ID: {log.id.substring(0, 8)}...</span>
+                                                                </div>
                                                             </TableCell>
-                                                            <TableCell className="text-xs text-slate-600 font-medium">{log.sltUser || 'Unknown'}</TableCell>
-                                                            <TableCell className="text-xs font-medium text-emerald-600 whitespace-nowrap">
-                                                                {format(new Date(log.updatedAt || log.createdAt), 'HH:mm:ss a')}
+                                                            <TableCell>
+                                                                <Badge variant="outline" className={`text-[10px] py-0 px-2 font-bold uppercase rounded ${log.activeTab === 'SERVICE ORDER' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                                        log.activeTab?.includes('TEST') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                                            'bg-slate-50 text-slate-500 border-slate-200'
+                                                                    }`}>
+                                                                    {log.activeTab || 'N/A'}
+                                                                </Badge>
                                                             </TableCell>
-                                                            <TableCell className="text-right">
-                                                                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold">View Data</Button>
+                                                            <TableCell>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 border border-slate-200 uppercase">
+                                                                        {log.sltUser?.charAt(0) || '?'}
+                                                                    </div>
+                                                                    <span className="text-xs font-semibold text-slate-600 truncate max-w-[120px]">{log.sltUser?.split('-')[0] || 'System'}</span>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-xs font-bold text-slate-500">
+                                                                <div className="flex flex-col">
+                                                                    <span>{format(new Date(log.updatedAt || log.createdAt), 'HH:mm:ss')}</span>
+                                                                    <span className="text-[9px] font-normal text-slate-400">{format(new Date(log.updatedAt || log.createdAt), 'MMM d, yyyy')}</span>
+                                                                </div>
                                                             </TableCell>
                                                         </TableRow>
                                                     ))
@@ -159,61 +249,85 @@ export default function ExtensionTestPage() {
                             </Card>
 
                             {/* Details Section */}
-                            <Card className="shadow-sm h-fit">
-                                <CardHeader className="pb-3 border-b border-slate-100">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                        <Terminal className="w-4 h-4 text-primary" /> Data Inspector
-                                    </CardTitle>
+                            <Card className="lg:col-span-5 shadow-sm border-slate-200 h-fit bg-white overflow-hidden">
+                                <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-slate-500">
+                                            <Search className="w-4 h-4 text-primary" /> Data Inspector
+                                        </CardTitle>
+                                        {selectedLog && (
+                                            <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                                                <CheckCircle2 className="w-3 h-3" /> Live
+                                            </div>
+                                        )}
+                                    </div>
                                 </CardHeader>
-                                <CardContent className="p-4">
+                                <CardContent className="p-0">
                                     {selectedLog ? (
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-2 gap-3 pb-4 border-b border-slate-100">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> Received</span>
-                                                    <span className="text-xs font-semibold">{format(new Date(selectedLog.createdAt), 'PPP HH:mm:ss')}</span>
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1"><User className="w-3 h-3" /> Portal User</span>
-                                                    <span className="text-xs font-semibold">{selectedLog.sltUser || 'N/A'}</span>
-                                                </div>
-                                                <div className="flex flex-col col-span-2 mt-2">
-                                                    <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1"><LinkIcon className="w-3 h-3" /> Source URL</span>
-                                                    <span className="text-[10px] break-all text-blue-600 bg-blue-50 p-1.5 rounded mt-1 font-mono uppercase truncate">{selectedLog.url || 'N/A'}</span>
-                                                </div>
-                                            </div>
+                                        <Tabs defaultValue="clean" className="w-full">
+                                            <TabsList className="w-full justify-start rounded-none border-b border-slate-100 p-0 h-10 bg-white">
+                                                <TabsTrigger value="clean" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/5 px-6 text-xs font-bold">Smart View</TabsTrigger>
+                                                <TabsTrigger value="raw" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/5 px-6 text-xs font-bold font-mono">JSON Source</TabsTrigger>
+                                            </TabsList>
 
-                                            {/* Voice Test Breakdown */}
-                                            {selectedLog.scrapedData?.voiceTest && Object.keys(selectedLog.scrapedData.voiceTest).length > 0 && (
-                                                <div className="space-y-2">
-                                                    <span className="text-[10px] uppercase font-bold text-emerald-600 flex items-center gap-1">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                        Voice Test Details
-                                                    </span>
-                                                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 grid grid-cols-1 gap-2">
-                                                        {Object.entries(selectedLog.scrapedData.voiceTest).map(([key, val]) => (
-                                                            <div key={key} className="flex justify-between items-center text-[11px] border-b border-emerald-100/50 last:border-0 pb-1">
-                                                                <span className="text-slate-500 font-medium">{key}</span>
-                                                                <span className="font-bold text-slate-900">{String(val)}</span>
-                                                            </div>
-                                                        ))}
+                                            <TabsContent value="clean" className="p-6 m-0 space-y-6">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    {Object.entries(parsedData || {}).map(([key, val]) => (
+                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
+                                                                ['ADDRESS', 'CUSTOMER NAME'].includes(key) ? 'col-span-2' : 'col-span-1'
+                                                            }`}>
+                                                            <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{key}</span>
+                                                            <span className={`text-[11px] font-bold ${key === 'STATUS' && (val as string).includes('CLOSED') ? 'text-emerald-600' :
+                                                                    key === 'SO Number' ? 'text-primary font-black' :
+                                                                        'text-slate-900'
+                                                                }`}>
+                                                                {val as string || '---'}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {selectedLog.scrapedData?.materialDetails && (selectedLog.scrapedData.materialDetails as any).length > 0 && (
+                                                    <div className="space-y-2">
+                                                        <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2">
+                                                            Captured Materials <Badge className="text-[9px] h-4">{(selectedLog.scrapedData.materialDetails as any).length}</Badge>
+                                                        </span>
+                                                        <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 space-y-2">
+                                                            {(selectedLog.scrapedData.materialDetails as any).map((mat: any, i: number) => (
+                                                                <div key={i} className="flex justify-between items-center bg-white p-2 rounded-lg border border-amber-100 shadow-sm">
+                                                                    <span className="text-[11px] font-bold text-slate-700">{mat.ITEM || mat.DESC || 'N/A'}</span>
+                                                                    <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{mat.QTY || mat.QUANTITY || '0'}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
 
-                                            <div className="space-y-2">
-                                                <span className="text-[10px] uppercase font-bold text-slate-400">JSON Payload:</span>
-                                                <pre className="bg-slate-900 text-emerald-400 p-4 rounded-lg text-[10px] font-mono overflow-auto max-h-[40vh] shadow-inner">
-                                                    {JSON.stringify(selectedLog.scrapedData, null, 2)}
-                                                </pre>
-                                            </div>
-                                        </div>
+                                                <div className="flex flex-col gap-2 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                                                    <div className="flex items-center gap-2 text-[10px] font-black text-blue-600 uppercase">
+                                                        <LinkIcon className="w-3.5 h-3.5" /> Source Metadata
+                                                    </div>
+                                                    <span className="text-[10px] text-blue-800 break-all font-mono leading-relaxed bg-white/50 p-2 rounded border border-blue-100/50">{selectedLog.url}</span>
+                                                </div>
+                                            </TabsContent>
+
+                                            <TabsContent value="raw" className="p-0 m-0">
+                                                <div className="bg-slate-900 p-0 overflow-hidden">
+                                                    <pre className="p-6 text-[11px] font-mono text-emerald-400 overflow-auto max-h-[60vh] leading-relaxed custom-scrollbar">
+                                                        {JSON.stringify(selectedLog.scrapedData, null, 2)}
+                                                    </pre>
+                                                </div>
+                                            </TabsContent>
+                                        </Tabs>
                                     ) : (
-                                        <div className="flex flex-col items-center justify-center py-24 text-center space-y-3">
-                                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                                                <Terminal className="w-6 h-6 text-slate-300" />
+                                        <div className="flex flex-col items-center justify-center py-40 text-center space-y-4 px-10">
+                                            <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center border-2 border-dashed border-slate-200 shadow-inner">
+                                                <Terminal className="w-10 h-10 text-slate-200" />
                                             </div>
-                                            <p className="text-xs text-slate-400 max-w-[150px]">Select an entry from the list to inspect raw details.</p>
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Inspector Idle</p>
+                                                <p className="text-xs text-slate-300 leading-relaxed">Select a captured packet from the stream to begin deep forensic analysis.</p>
+                                            </div>
                                         </div>
                                     )}
                                 </CardContent>
