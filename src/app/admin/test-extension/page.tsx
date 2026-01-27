@@ -80,12 +80,19 @@ function deepParseForensic(scrapedLog: any) {
         });
     }
 
-    // 2. Specialized Extractions (Serials & Assignments)
-    const ontSerial = details['ONT_ROUTER_SERIAL_NUMBER'] || details['ONT_ROUTER_SERIAL_NUMBER_'] || "";
+    // 2. Specialized Extractions (Serials & Assignments) - Search across all tabs for persistence
+    const allDetails = { ...details };
+    if (scrapedData.allTabs) {
+        Object.values(scrapedData.allTabs).forEach((tabData: any) => {
+            Object.assign(allDetails, tabData);
+        });
+    }
+
+    const ontSerial = allDetails['ONT_ROUTER_SERIAL_NUMBER'] || allDetails['ONT_ROUTER_SERIAL_NUMBER_'] || "";
     if (ontSerial) info['ONT Serial'] = ontSerial;
 
     // Dynamic Multi-IPTV Detection
-    Object.entries(details).forEach(([k, v]) => {
+    Object.entries(allDetails).forEach(([k, v]) => {
         if (k.startsWith('IPTV_CPE_SERIAL_NUMBER')) {
             const num = k.match(/\d+/);
             const label = num ? `IPTV CPE Serial ${num[0]}` : 'IPTV CPE Serial';
@@ -93,51 +100,63 @@ function deepParseForensic(scrapedLog: any) {
         }
     });
 
-    const dpLoop = details['DP_LOOP'] || info['DP LOOP'] || "";
+    const dpLoop = allDetails['DP_LOOP'] || info['DP LOOP'] || "";
     if (dpLoop) info['DP Loop Profile'] = dpLoop.split('OLT MANUFACTURER')[0]?.trim();
 
-    const sales = details['SALES_PERSON'] || info['SALES PERSON'] || "";
+    const sales = allDetails['SALES_PERSON'] || info['SALES PERSON'] || "";
     if (sales) info['Sales Agent'] = sales.split('DP LOOP')[0]?.trim();
 
-    // Secondary Team Detection
-    const altTeam = details['TEAM_ASSIGN'] || details['ASSIGNED_TEAM'];
-    if (altTeam && !info['Selected Team']) info['Selected Team'] = altTeam;
+    // 3. Forensic Status & Voice Audit (Universal Search)
+    let voiceStatus = "⌛ NOT TESTED";
+    const voicePatterns = [/PASS/i, /SUCCESS/i, /COMPLETED/i, /✅/];
 
-    // 3. Status & Linkage Audit
-    const voiceRaw = details['LATEST VOICE TEST DETAILS'] || "";
-    if (voiceRaw && voiceRaw.match(/\d{4}-\d{2}-\d{2}T/)) {
-        info['Voice Test Audit'] = "✅ TEST PASSED";
-    }
+    // Check every single value in every tab for voice success signals
+    Object.entries(allDetails).forEach(([k, v]) => {
+        const key = k.toUpperCase();
+        const val = String(v).toUpperCase();
+
+        if (key.includes('VOICE') || key.includes('LINE_TEST')) {
+            if (voicePatterns.some(p => p.test(val)) || val.match(/\d{4}-\d{2}-\d{2}T/)) {
+                voiceStatus = "✅ TEST PASSED";
+            } else if (val.includes('FAIL')) {
+                voiceStatus = "❌ TEST FAILED";
+            }
+        }
+    });
+    info['Voice Test Audit'] = voiceStatus;
 
     // IPTV Linkage Detection
-    const iptvSO = details['IPTV1_HIDDEN'];
+    const iptvSO = allDetails['IPTV1_HIDDEN'] || allDetails['IPTV_SO'];
     if (iptvSO && iptvSO.startsWith('HK')) {
         info['Linked IPTV SO'] = `🔗 ${iptvSO}`;
     }
 
+    const altTeam = allDetails['TEAM_ASSIGN'] || allDetails['ASSIGNED_TEAM'] || scrapedData.teamDetails?.['SELECTED TEAM'];
+    if (altTeam) info['Selected Team'] = altTeam;
+
     // SLT Internal Metrics
-    if (details['SVAL_HIDDEN']) info['Portal S-Val'] = details['SVAL_HIDDEN'];
+    if (allDetails['SVAL_HIDDEN']) info['Portal S-Val'] = allDetails['SVAL_HIDDEN'];
 
     // 4. Warning & Inconsistency Detection
     const warnings: string[] = [];
-    Object.entries(details).forEach(([k, v]) => {
+    Object.entries(allDetails).forEach(([k, v]) => {
         if (typeof v === 'string' && v.includes('SELECT MATERIAL')) {
-            warnings.push(`Warning: ${k.replace('_HIDDEN', '')} selection is missing!`);
+            warnings.push(`Warning: ${k.replace('_HIDDEN', '').replace(/_/g, ' ')} selection is missing!`);
         }
     });
 
-    if (details['POLES'] === 'NUMBER OF POLES') {
+    if (allDetails['POLES'] === 'NUMBER OF POLES') {
         warnings.push(`Incomplete: Poles count field is still at default placeholder.`);
     }
 
     // 5. Photo Audit Engine (Forensic)
     const photos: Array<{ label: string, status: 'SUCCESS' | 'MISSING', id?: string }> = [];
-    Object.entries(details).forEach(([k, v]) => {
+    Object.entries(allDetails).forEach(([k, v]) => {
         const match = k.match(/^(\d+)IMGDN_HIDDEN$/);
         if (match) {
             const idx = match[1];
             const label = v as string;
-            const limg = details[`${idx}LIMG_HIDDEN`];
+            const limg = allDetails[`${idx}LIMG_HIDDEN`];
             photos.push({
                 label,
                 status: limg ? 'SUCCESS' : 'MISSING',
@@ -148,9 +167,9 @@ function deepParseForensic(scrapedLog: any) {
 
     // 6. Materials Intelligence
     const materials = scrapedData.materialDetails || [];
-    // If no materials in array, check if mashed usage exists
-    if (materials.length === 0 && (details['MATERIAL DETAILS'] || details['METERIAL DETAILS'])) {
-        materials.push({ ITEM: 'Portal Usage', QTY: details['MATERIAL DETAILS'] || details['METERIAL DETAILS'] });
+    // If no materials in array, check for mashed usage or registry
+    if (materials.length === 0 && (allDetails['MATERIAL DETAILS'] || allDetails['METERIAL DETAILS'])) {
+        materials.push({ ITEM: 'Portal Usage', QTY: allDetails['MATERIAL DETAILS'] || allDetails['METERIAL DETAILS'] });
     }
 
     return { info, photos, materials, warnings };
