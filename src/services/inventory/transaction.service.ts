@@ -66,24 +66,27 @@ export class TransactionService {
         }
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            const existing = await tx.contractorMaterialBalanceSheet.findUnique({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const existing = await (tx as any).contractorMaterialBalanceSheet.findUnique({
                 where: {
                     contractorId_storeId_month: { contractorId, storeId, month }
                 }
             });
 
             if (existing) {
-                await tx.contractorBalanceSheetItem.deleteMany({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (tx as any).contractorBalanceSheetItem.deleteMany({
                     where: { balanceSheetId: existing.id }
                 });
 
-                return await tx.contractorMaterialBalanceSheet.update({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return await (tx as any).contractorMaterialBalanceSheet.update({
                     where: { id: existing.id },
                     data: {
                         generatedAt: new Date(),
                         generatedBy: userId,
                         items: {
-                            create: items.map((item) => ({
+                            create: items.map((item: BalanceSheetItemInput) => ({
                                 itemId: item.itemId,
                                 openingBalance: item.opening,
                                 received: item.received,
@@ -96,14 +99,15 @@ export class TransactionService {
                     }
                 });
             } else {
-                return await tx.contractorMaterialBalanceSheet.create({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                return await (tx as any).contractorMaterialBalanceSheet.create({
                     data: {
                         contractorId,
                         storeId,
                         month,
                         generatedBy: userId,
                         items: {
-                            create: items.map((item) => ({
+                            create: items.map((item: BalanceSheetItemInput) => ({
                                 itemId: item.itemId,
                                 openingBalance: item.opening,
                                 received: item.received,

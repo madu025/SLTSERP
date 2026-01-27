@@ -15,7 +15,7 @@ export class ItemService {
             const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
             const source = configs[0]?.value || 'SLT';
 
-            items = items.filter((item) => {
+            items = items.filter((item: InventoryItem) => {
                 // Precise filtering based on Admin Assignment (isOspFtth flag)
                 if (!item.isOspFtth) return false;
 
@@ -98,7 +98,8 @@ export class ItemService {
 
         // Use transaction for bulk updates
         await prisma.$transaction(
-            updates.map((update) =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            updates.map((update: any) =>
                 prisma.inventoryItem.update({
                     where: { id: update.id },
                     data: update.data as Prisma.InventoryItemUpdateInput

@@ -20,14 +20,16 @@ export class WastageService {
             if (!storeId) throw new Error('STORE_ID_REQUIRED');
 
             return await prisma.$transaction(async (tx: TransactionClient) => {
-                const wastage = await tx.contractorWastage.create({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const wastage = await (tx as any).contractorWastage.create({
                     data: {
                         contractorId,
                         storeId,
                         month: month || new Date().toISOString().slice(0, 7),
                         description: description || reason,
                         items: {
-                            create: items.map((item) => ({
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            create: items.map((item: any) => ({
                                 itemId: item.itemId,
                                 quantity: parseFloat(item.quantity.toString()),
                                 unit: item.unit || 'Nos'
@@ -43,14 +45,16 @@ export class WastageService {
                     // A. FIFO Deduction from Contractor Batches
                     const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);
                     for (const picked of pickedBatches) {
-                        await tx.contractorBatchStock.update({
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        await (tx as any).contractorBatchStock.update({
                             where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
                             data: { quantity: { decrement: picked.quantity } }
                         });
                     }
 
                     // B. Reduce Contractor Total Stock
-                    await tx.contractorStock.update({
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await (tx as any).contractorStock.update({
                         where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
                         data: { quantity: { decrement: qty } }
                     });
@@ -74,7 +78,7 @@ export class WastageService {
 
         // SCENARIO 2: Store Wastage (Reduce Store Stock)
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            const transactionItems = [];
+            const transactionItems: { itemId: string; quantity: number }[] = [];
 
             for (const item of items) {
                 const qty = StockService.round(parseFloat(item.quantity.toString()));
@@ -83,14 +87,16 @@ export class WastageService {
                 // A. FIFO Deduction from Store Batches
                 const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);
                 for (const picked of pickedBatches) {
-                    await tx.inventoryBatchStock.update({
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await (tx as any).inventoryBatchStock.update({
                         where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                         data: { quantity: { decrement: picked.quantity } }
                     });
                 }
 
                 // B. Reduce Store Total Stock
-                await tx.inventoryStock.upsert({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (tx as any).inventoryStock.upsert({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     update: { quantity: { decrement: qty } },
                     create: { storeId, itemId: item.itemId, quantity: -qty }
@@ -100,7 +106,8 @@ export class WastageService {
             }
 
             // Create Transaction Log
-            const txRecord = await tx.inventoryTransaction.create({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const txRecord = await (tx as any).inventoryTransaction.create({
                 data: {
                     type: 'WASTAGE',
                     storeId,
@@ -108,7 +115,8 @@ export class WastageService {
                     referenceId: `STORE-WASTAGE-${Date.now()}`,
                     notes: reason || description,
                     items: {
-                        create: transactionItems.map((ti) => ({
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        create: transactionItems.map((ti: any) => ({
                             itemId: ti.itemId,
                             quantity: ti.quantity
                         }))

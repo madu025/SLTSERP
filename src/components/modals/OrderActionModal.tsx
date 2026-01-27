@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, X, ChevronRight, ChevronLeft, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info } from "lucide-react";
+import { CalendarIcon, Plus, X, ChevronRight, ChevronLeft, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -232,6 +232,7 @@ export default function OrderActionModal({
     const getFilteredItems = () => {
         if (itemFilter === 'ALL') return items;
         return items.filter(i => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let tags: any = i.commonFor;
             if (!tags || (Array.isArray(tags) && tags.length === 0)) return true; // Include if no tags
 
@@ -292,9 +293,11 @@ export default function OrderActionModal({
             if (!item) return;
             const existingIdx = newRows.findIndex(r => r.itemId === item.id);
             if (existingIdx >= 0) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (newRows[existingIdx] as any)[field] = value;
             } else {
                 const newRow = { itemId: item.id, usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: '' };
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (newRow as any)[field] = value;
                 newRows.push(newRow);
             }
@@ -1485,7 +1488,14 @@ export default function OrderActionModal({
     );
 }
 // Helper Component for Material Selection
-function MaterialCombobox({ items, value, onChange, inputRef }: { items: any[], value: string, onChange: (val: string) => void, inputRef?: any }) {
+interface ComboboxItem {
+    id: string;
+    code: string;
+    name: string;
+    commonName?: string | null;
+}
+
+function MaterialCombobox({ items, value, onChange, inputRef }: { items: ComboboxItem[], value: string, onChange: (val: string) => void, inputRef?: React.RefObject<any> }) {
     const [open, setOpen] = useState(false);
     const selectedItem = items.find(i => i.id === value);
 

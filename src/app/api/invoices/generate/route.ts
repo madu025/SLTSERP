@@ -25,8 +25,9 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json(result);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Invoice Generation Error:', error);
-        return NextResponse.json({ success: false, message: 'Internal Server Error', error: (error as any).message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return NextResponse.json({ success: false, message: 'Internal Server Error', error: errorMessage }, { status: 500 });
     }
 }

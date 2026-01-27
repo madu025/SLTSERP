@@ -14,6 +14,17 @@ interface GroupByRtomSltsStatus {
     _count: { _all: number };
 }
 
+interface RawStat {
+    sltsStatus: string;
+    _count: { _all: number };
+}
+
+interface ContractorRawStat {
+    contractorId: string | null;
+    sltsStatus: string;
+    _count: { _all: number };
+}
+
 interface ContractorStat {
     name: string;
     completed: number;
@@ -32,7 +43,7 @@ interface RtomStat {
     sltsPatRejected?: number;
 }
 
-export const GET = withTracing(async (request: any) => {
+export const GET = withTracing(async (request: Request) => {
     try {
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
@@ -92,9 +103,9 @@ export const GET = withTracing(async (request: any) => {
         const [
             monthlyStatsRaw,
             totalStatsRaw,
-            _patLegacy,
+            ,
             rtomStatsRaw,
-            _sltsPatLegacy,
+            ,
             contractorPerfRaw,
             broughtForward,
             agingRaw,
@@ -144,11 +155,11 @@ export const GET = withTracing(async (request: any) => {
                     _count: { _all: true }
                 }),
             ]).then(([pending, completed, returned]) => {
-                const results: any[] = [];
+                const results: GroupByRtomSltsStatus[] = [];
                 pending.forEach(p => results.push({ rtom: p.rtom, sltsStatus: 'INPROGRESS', _count: { _all: p._count._all } }));
                 completed.forEach(c => results.push({ rtom: c.rtom, sltsStatus: 'COMPLETED', _count: { _all: c._count._all } }));
                 returned.forEach(r => results.push({ rtom: r.rtom, sltsStatus: 'RETURN', _count: { _all: r._count._all } }));
-                return results;
+                return results as GroupByRtomSltsStatus[];
             }),
             // Legacy/Unused
             Promise.resolve([]),
@@ -180,10 +191,10 @@ export const GET = withTracing(async (request: any) => {
             })
         ]);
 
-        const monthlyStats = monthlyStatsRaw as any[];
-        const totalStats = totalStatsRaw as any[];
-        const rtomStats = rtomStatsRaw as unknown as GroupByRtomSltsStatus[];
-        const contractorPerf = contractorPerfRaw as any[];
+        const monthlyStats = monthlyStatsRaw as RawStat[];
+        const totalStats = totalStatsRaw as RawStat[];
+        const rtomStats = rtomStatsRaw as GroupByRtomSltsStatus[];
+        const contractorPerf = contractorPerfRaw as ContractorRawStat[];
 
         const stats = {
             monthly: {
@@ -225,10 +236,10 @@ export const GET = withTracing(async (request: any) => {
             _count: { _all: true }
         });
 
-        stats.statusBreakdown = statusBreakdownRaw.map((s: any) => ({
+        stats.statusBreakdown = (statusBreakdownRaw as unknown as { status: string; _count: { _all: number } }[]).map((s) => ({
             status: s.status,
             count: s._count?._all || 0
-        })).sort((a: any, b: any) => b.count - a.count);
+        })).sort((a, b) => b.count - a.count);
 
         const contractorIds = [...new Set(contractorPerf.map((c) => c.contractorId))].filter(Boolean) as string[];
         const contractorsData = await prisma.contractor.findMany({

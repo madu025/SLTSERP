@@ -102,14 +102,16 @@ export class MRNService {
 
         if (action === 'APPROVE') {
             return await prisma.$transaction(async (tx: TransactionClient) => {
-                const mrn = await tx.mRN.findUnique({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const mrn = await (tx as any).mRN.findUnique({
                     where: { id: mrnId },
                     include: { items: true }
                 });
 
                 if (!mrn) throw new Error("MRN_NOT_FOUND");
 
-                const updatedMrn = await tx.mRN.update({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const updatedMrn = await (tx as any).mRN.update({
                     where: { id: mrnId },
                     data: {
                         status: 'COMPLETED',
@@ -117,18 +119,20 @@ export class MRNService {
                     }
                 });
 
-                const transactionItems = [];
+                const transactionItems: { itemId: string; quantity: number }[] = [];
                 for (const item of mrn.items) {
                     const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, mrn.storeId, item.itemId, item.quantity);
 
                     for (const picked of pickedBatches) {
-                        await tx.inventoryBatchStock.update({
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        await (tx as any).inventoryBatchStock.update({
                             where: { storeId_batchId: { storeId: mrn.storeId, batchId: picked.batchId } },
                             data: { quantity: { decrement: picked.quantity } }
                         });
                     }
 
-                    await tx.inventoryStock.upsert({
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await (tx as any).inventoryStock.upsert({
                         where: { storeId_itemId: { storeId: mrn.storeId, itemId: item.itemId } },
                         update: { quantity: { decrement: item.quantity } },
                         create: { storeId: mrn.storeId, itemId: item.itemId, quantity: -item.quantity }
@@ -140,7 +144,8 @@ export class MRNService {
                     });
                 }
 
-                await tx.inventoryTransaction.create({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (tx as any).inventoryTransaction.create({
                     data: {
                         type: 'RETURN',
                         storeId: mrn.storeId,

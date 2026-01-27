@@ -43,7 +43,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
         }
 
-        const serviceOrder = await ServiceOrderService.createServiceOrder(validation.data);
+        const { rtom: _, ...serviceOrderData } = validation.data;
+        const serviceOrder = await ServiceOrderService.createServiceOrder(serviceOrderData);
         return NextResponse.json(serviceOrder);
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
