@@ -175,7 +175,9 @@ async function orchestrate() {
         currentUser: PhoenixScanner.clean(document.querySelector('.user-profile-dropdown h6, #user_name')?.innerText || "").replace("Welcome, ", "")
     };
 
-    const hash = btoa(JSON.stringify(GLOBAL_RECON.tabs) + JSON.stringify(payload.materialDetails)).substring(0, 32);
+    const rawPayload = JSON.stringify(GLOBAL_RECON.tabs) + JSON.stringify(payload.materialDetails);
+    // Safe hash for Unicode characters
+    const hash = rawPayload.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0).toString();
     if (hash !== GLOBAL_RECON.lastHash) {
         GLOBAL_RECON.lastHash = hash;
         chrome.storage.local.set({ lastScraped: payload, [`sod_${soNum}`]: GLOBAL_RECON.tabs });
