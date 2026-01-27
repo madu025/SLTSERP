@@ -3,9 +3,48 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
 /**
- * SLT-ERP PHOENIX BRIDGE SYNC
+ * SLT-ERP PHOENIX BRIDGE SYNC v3.2.0
  * Receives detailed capture from the Chrome Extension
+ * Features: Intelligent Deep-Parsing for Mashed Portal Data
  */
+
+function deepParse(masterData: Record<string, string>) {
+    const mashed = masterData['SERVICE ORDER DETAILS'] || "";
+    if (!mashed || mashed.length < 50) return {};
+
+    const extracted: Record<string, string> = {};
+    const keywords = [
+        'RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'RECEIVED DATE',
+        'CUSTOMER NAME', 'CONTACT NO', 'ADDRESS', 'STATUS', 'STATUS DATE',
+        'ORDER TYPE', 'TASK', 'PACKAGE', 'EQUIPMENT CLASS',
+        'EQUIPMENT PURCHASE FROM SLT', 'SALES PERSON', 'DP LOOP'
+    ];
+
+    keywords.forEach((key, idx) => {
+        const start = mashed.indexOf(key);
+        if (start === -1) return;
+
+        let end = mashed.length;
+        // Find the next keyword to determine the end of current value
+        for (let j = 0; j < keywords.length; j++) {
+            const nextKey = keywords[j];
+            const nextIdx = mashed.indexOf(nextKey, start + key.length);
+            if (nextIdx !== -1 && nextIdx < end) {
+                end = nextIdx;
+            }
+        }
+
+        let val = mashed.substring(start + key.length, end).trim();
+        // Cleanup specific values
+        if (key === 'RTOM') val = val.replace('R-', '');
+        if (key === 'CIRCUIT') val = val.split(' ')[0]; // Pick first segment
+
+        extracted[key] = val;
+    });
+
+    return extracted;
+}
+
 export async function POST(request: Request) {
     try {
         const payload = await request.json();
@@ -17,7 +56,7 @@ export async function POST(request: Request) {
 
         console.log(`[BRIDGE-SYNC] Processing sync for SO: ${soNum}`);
 
-        // 1. Flatten all tabs into a single data object for mapping
+        // 1. Flatten all tabs into a single data object
         const masterData: Record<string, string> = {};
         if (allTabs) {
             Object.values(allTabs).forEach((tabData: any) => {
@@ -25,39 +64,42 @@ export async function POST(request: Request) {
             });
         }
 
-        // 2. Map Bridge Keys to ServiceOrder Model
+        // 2. Deep Parsing Strategy (Fixing Portal Mashing)
+        const deepData = deepParse(masterData);
+
+        // 3. Map Bridge Keys to ServiceOrder Model with mash-recovery
         const mapping: Partial<Prisma.ServiceOrderUncheckedCreateInput> = {
-            rtom: masterData['RTOM'],
+            rtom: masterData['RTOM'] || deepData['RTOM'],
             lea: masterData['LEA'],
-            voiceNumber: masterData['CIRCUIT'] || masterData['VOICE NUMBER'],
-            orderType: masterData['ORDER TYPE'],
-            serviceType: masterData['SERVICE TYPE'] || masterData['SERVICE'],
-            customerName: masterData['CUSTOMER NAME'],
-            techContact: masterData['CONTACT NO'] || masterData['CONTACT NUMBER'],
-            address: masterData['ADDRESS'],
-            status: masterData['STATUS'],
-            package: masterData['PACKAGE'],
+            voiceNumber: masterData['CIRCUIT'] || masterData['VOICE NUMBER'] || deepData['CIRCUIT'] || masterData['PRIMARY'],
+            orderType: masterData['ORDER TYPE'] || deepData['ORDER TYPE'],
+            serviceType: masterData['SERVICE TYPE'] || masterData['SERVICE'] || deepData['SERVICE'],
+            customerName: masterData['CUSTOMER NAME'] || deepData['CUSTOMER NAME'],
+            techContact: masterData['CONTACT NO'] || masterData['CONTACT NUMBER'] || deepData['CONTACT NO'],
+            address: masterData['ADDRESS'] || deepData['ADDRESS'],
+            status: masterData['STATUS'] || deepData['STATUS'],
+            package: masterData['PACKAGE'] || deepData['PACKAGE'],
             iptv: masterData['IPTV'],
-            ontSerialNumber: masterData['ONT'] || masterData['ONT SERIAL'] || masterData['SERIAL'],
+            ontSerialNumber: masterData['ONT'] || masterData['ONT SERIAL'] || masterData['SERIAL'] || masterData['ONT_ROUTER_SERIAL_NUMBER'],
             iptvSerialNumbers: masterData['IPTV SERIAL'] || masterData['STB SERIAL'],
-            sales: masterData['SALES PERSON'] || masterData['SALES'],
+            sales: masterData['SALES PERSON'] || masterData['SALES'] || deepData['SALES PERSON'],
         };
 
-        // 3. Find or Create the Service Order
+        // 4. Find or Create the Service Order
         let serviceOrder = await prisma.serviceOrder.findUnique({
             where: { soNum }
         });
 
         // Resolve OPMC
         let opmcId = serviceOrder?.opmcId;
-        if (!opmcId && masterData['RTOM']) {
+        const rtomVal = mapping.rtom as string;
+        if (!opmcId && rtomVal) {
             const opmc = await prisma.oPMC.findFirst({
-                where: { rtom: { contains: (masterData['RTOM'] || '').substring(0, 4), mode: 'insensitive' } }
+                where: { rtom: { contains: rtomVal.substring(0, 4), mode: 'insensitive' } }
             });
             opmcId = opmc?.id;
         }
 
-        // Default OPMC fallback
         if (!opmcId) {
             const firstOpmc = await prisma.oPMC.findFirst();
             opmcId = firstOpmc?.id || '';
@@ -70,11 +112,14 @@ export async function POST(request: Request) {
         };
 
         // Process Dates
-        if (masterData['RECEIVED DATE']) {
-            try { dataToUpdate.receivedDate = new Date(masterData['RECEIVED DATE']); } catch { /* ignore */ }
+        const receivedDateStr = masterData['RECEIVED DATE'] || deepData['RECEIVED DATE'];
+        if (receivedDateStr) {
+            try { dataToUpdate.receivedDate = new Date(receivedDateStr); } catch { /* ignore */ }
         }
-        if (masterData['STATUS DATE']) {
-            try { dataToUpdate.statusDate = new Date(masterData['STATUS DATE']); } catch { /* ignore */ }
+
+        const statusDateStr = masterData['STATUS DATE'] || deepData['STATUS DATE'];
+        if (statusDateStr) {
+            try { dataToUpdate.statusDate = new Date(statusDateStr); } catch { /* ignore */ }
         }
 
         // Match Team
@@ -106,7 +151,7 @@ export async function POST(request: Request) {
             });
         }
 
-        // 4. Save/Update Raw Data Dump for Monitor
+        // 5. Save/Update Raw Data Dump for Monitor
         const existingLog = await prisma.extensionRawData.findFirst({
             where: { soNum: soNum }
         });
@@ -138,7 +183,7 @@ export async function POST(request: Request) {
             success: true,
             id: serviceOrder.id,
             soNum: serviceOrder.soNum,
-            message: 'Bridge sync complete'
+            message: 'Bridge sync complete (Deep-Parse Active)'
         });
 
     } catch (error: any) {
