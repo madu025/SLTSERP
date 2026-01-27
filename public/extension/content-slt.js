@@ -1,17 +1,17 @@
 /**
- * SLT-ERP PHOENIX OMNISCIENT v4.0.5
- * Engine: Hyper-Proximity Linking & Cross-Context Harvesting
+ * SLT-ERP PHOENIX OMNISCIENT v4.2.0
+ * Engine: Hybrid Automated + Manual Forensic Scraper
  * Role: 100% Coverage SLT Portal Scraper
  */
 
-console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.0.5 Engaged (Hyper-Precision)', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
+console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.2.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
 
 const PHOENIX_CONFIG = {
     IDENTIFIERS: {
         CYAN_RANGE: { r: [0, 200], g: [100, 255], b: [100, 255] },
         MATERIAL_KEYWORDS: ['WIRE', 'POLE', 'CABLE', 'SOCKET', 'ONT', 'IPTV', 'ROUT', 'STB', 'SPLITTER', 'CONNECTOR', 'FTTH', 'METER', 'DROP']
     },
-    JUNK: [/WELCOME/i, /LOGOUT/i, /CLICK HERE/i, /DASHBOARD/i, /IMPORTANT/i, /WARNING/i, /PENDING/i],
+    JUNK: [/WELCOME/i, /LOGOUT/i, /CLICK HERE/i, /DASHBOARD/i, /IMPORTANT/i, /WARNING/i, /PENDING/i, /PHOENIX OMNI/i],
     PULSE_RATE: 2000
 };
 
@@ -35,8 +35,10 @@ const PhoenixScanner = {
     },
 
     isKey: (el) => {
+        if (!el || el.closest('#phoenix-hud')) return false;
+
         const text = PhoenixScanner.clean(el.innerText || '').toUpperCase();
-        if (text.length < 2 || text.length > 50) return false;
+        if (text.length < 2 || text.length > 60) return false;
 
         const style = window.getComputedStyle(el);
         const color = style.color;
@@ -50,18 +52,57 @@ const PhoenixScanner = {
                 b >= conf.b[0] && b <= conf.b[1];
         }
 
+        // Check for common label indicators
         const isBold = parseInt(style.fontWeight) >= 600;
         const hasColon = text.endsWith(':');
-        return (isCyan || isBold || hasColon);
+        const isLabelTag = el.tagName === 'LABEL';
+        const hasLabelClass = el.className && (
+            typeof el.className === 'string' && (
+                el.className.includes('label') ||
+                el.className.includes('field-name') ||
+                el.className.includes('form-label')
+            )
+        );
+
+        // Check position (labels usually come before inputs)
+        const nextEl = el.nextElementSibling;
+        const hasInputSibling = nextEl && (
+            nextEl.tagName === 'INPUT' ||
+            nextEl.tagName === 'SELECT' ||
+            nextEl.tagName === 'TEXTAREA' ||
+            nextEl.querySelector('input, select, textarea')
+        );
+
+        return (isCyan || isBold || hasColon || isLabelTag || hasLabelClass || hasInputSibling);
+    },
+
+    isShadow: (el) => !!(el.shadowRoot),
+
+    queryShadow: (selector, root = document) => {
+        const elements = [];
+        // Query regular DOM (if root has querySelectorAll)
+        if (root.querySelectorAll) {
+            elements.push(...root.querySelectorAll(selector));
+        }
+
+        // Query inside shadow roots
+        const allElements = (root === document) ? document.querySelectorAll('*') : root.querySelectorAll('*');
+        allElements.forEach(el => {
+            if (el.shadowRoot) {
+                elements.push(...PhoenixScanner.queryShadow(selector, el.shadowRoot));
+            }
+        });
+        return elements;
     }
 };
 
 class PhoenixOmniEngine {
     static async scan() {
-        const data = { details: {}, materials: [], visuals: [] };
+        const data = { details: {}, materials: [], visuals: [], teamDetails: [], history: [] };
 
-        // 1. Force Discovery: All Inputs
-        const allInputs = Array.from(document.querySelectorAll('input:not([type="hidden"]), select'));
+        // 1. Force Discovery: All Inputs (Regular + Shadow DOM)
+        const allInputs = PhoenixScanner.queryShadow('input:not([type="hidden"]), select')
+            .filter(i => !i.closest('#phoenix-hud'));
 
         allInputs.forEach((input, idx) => {
             const val = PhoenixScanner.extractValue(input);
@@ -103,24 +144,125 @@ class PhoenixOmniEngine {
             }
         });
 
-        // 2. Fallback Table Scraper
+        // 2. Advanced Table Scraper (Multiple Table Types)
         document.querySelectorAll('table').forEach(table => {
+            // Skip if table is inside HUD
+            if (table.closest('#phoenix-hud')) return;
+
             const rows = Array.from(table.querySelectorAll('tr'));
             if (rows.length < 2) return;
-            const headers = Array.from(rows[0].querySelectorAll('th, td')).map(h => PhoenixScanner.clean(h.innerText).toUpperCase());
 
-            rows.slice(1).forEach(row => {
+            // Try to find headers
+            let headers = [];
+            const headerRow = rows[0];
+
+            // Check for th elements first, then td
+            const headerCells = Array.from(headerRow.querySelectorAll('th, td'));
+            headers = headerCells.map(h => PhoenixScanner.clean(h.innerText).toUpperCase());
+
+            // If no headers found, use index-based approach
+            if (headers.length === 0 || headers.every(h => h === '')) {
+                // Assume first row is data, create generic headers
+                const firstDataRow = rows[0];
+                const cellCount = firstDataRow.querySelectorAll('td').length;
+                headers = Array.from({ length: cellCount }, (_, i) => `COL_${i}`);
+            }
+
+            console.log('[PHOENIX] Table detected with headers:', headers);
+
+            // Detect table type based on content
+            const isMaterialTable = headers.some(h =>
+                h.includes('ITEM') || h.includes('MATERIAL') || h.includes('QTY') ||
+                h.includes('QUANTITY') || h.includes('UNIT') || h.includes('DESCRIPTION')
+            );
+
+            const isTeamTable = headers.some(h =>
+                h.includes('TEAM') || h.includes('NAME') || h.includes('ASSIGNED') || h.includes('TECH')
+            );
+
+            const isHistoryTable = headers.some(h =>
+                h.includes('DATE') || h.includes('STATUS') || h.includes('REMARKS') || h.includes('COMMENT')
+            );
+
+            rows.slice(1).forEach((row, rowIndex) => {
                 const cells = Array.from(row.querySelectorAll('td'));
                 if (cells.length < 2) return;
-                const itmIdx = headers.findIndex(h => h.includes('ITEM') || h.includes('DESC') || h.includes('MAT'));
-                const valIdx = headers.findIndex(h => h.includes('QTY') || h.includes('VALUE'));
 
-                if (itmIdx !== -1 && valIdx !== -1) {
-                    const k = PhoenixScanner.clean(cells[itmIdx].innerText);
-                    const v = PhoenixScanner.extractValue(cells[valIdx]);
-                    if (k && v) data.materials.push({ ITEM: 'TABLE_MAT', TYPE: k, QTY: v });
+                const rowData = {};
+                cells.forEach((cell, idx) => {
+                    if (headers[idx]) {
+                        rowData[headers[idx]] = PhoenixScanner.extractValue(cell);
+                    }
+                });
+
+                // Categorize based on table type
+                if (isMaterialTable) {
+                    // Extract material info
+                    const itemName = rowData['ITEM'] || rowData['DESCRIPTION'] || rowData['MATERIAL'] || rowData['COL_1'];
+                    const qty = rowData['QTY'] || rowData['QUANTITY'] || rowData['COL_2'];
+                    const unit = rowData['UNIT'] || rowData['UOM'] || '';
+
+                    if (itemName && qty) {
+                        data.materials.push({
+                            ITEM: 'TABLE_MAT',
+                            TYPE: itemName,
+                            QTY: qty,
+                            UNIT: unit,
+                            RAW: rowData // Keep full row for reference
+                        });
+                    }
+                } else if (isTeamTable) {
+                    data.teamDetails.push(rowData);
+                } else if (isHistoryTable) {
+                    data.history.push(rowData);
+                } else {
+                    // Generic table - store as key-value pairs
+                    const keyCol = cells[0];
+                    const valCol = cells[1];
+                    if (keyCol && valCol) {
+                        const key = PhoenixScanner.clean(keyCol.innerText).replace(':', '').toUpperCase();
+                        const val = PhoenixScanner.extractValue(valCol);
+                        if (key && val) data.details[key] = val;
+                    }
                 }
             });
+        });
+
+        // 3. Force open hidden tabs/accordions to scrape lazy-loaded content
+        const hiddenSections = document.querySelectorAll('.tab-pane, .accordion-collapse, .collapse, [style*="display: none"]');
+        hiddenSections.forEach(section => {
+            if (section.closest('#phoenix-hud')) return;
+            // Temporarily show to scrape
+            const originalDisplay = section.style.display;
+            section.style.display = 'block';
+
+            // Scrape inputs inside
+            const hiddenInputs = section.querySelectorAll('input, select, textarea');
+            hiddenInputs.forEach(input => {
+                const val = PhoenixScanner.extractValue(input);
+                if (val && !PHOENIX_CONFIG.JUNK.some(p => p.test(val))) {
+                    // Find label
+                    let label = input.getAttribute('name') || input.getAttribute('id') || 'HIDDEN_FIELD';
+                    const labelEl = document.querySelector(`label[for="${input.id}"]`);
+                    if (labelEl) {
+                        label = PhoenixScanner.clean(labelEl.innerText).replace(':', '');
+                    }
+                    data.details[`${label.toUpperCase()}_HIDDEN`] = val;
+                }
+            });
+
+            // Restore original display
+            section.style.display = originalDisplay;
+        });
+
+        // 4. Scrape Data Attributes (SLT sometimes stores data in data-* attributes)
+        document.querySelectorAll('[data-value], [data-field], [data-so]').forEach(el => {
+            if (el.closest('#phoenix-hud')) return;
+            const fieldName = el.getAttribute('data-field') || el.getAttribute('name') || 'DATA_ATTR';
+            const fieldValue = el.getAttribute('data-value') || el.textContent;
+            if (fieldValue && fieldValue.trim().length > 0) {
+                data.details[`DATA_${fieldName.toUpperCase()}`] = fieldValue.trim();
+            }
         });
 
         return data;
@@ -130,6 +272,69 @@ class PhoenixOmniEngine {
         if (window.location.href.includes('materials')) return 'MATERIALS';
         const t = document.querySelector('.active a, .nav-link.active, .current-tab');
         return t ? PhoenixScanner.clean(t.innerText || t.textContent).toUpperCase() : 'GENERAL';
+    }
+}
+
+let manualScrapeMode = false;
+
+function enableManualScrape() {
+    manualScrapeMode = true;
+    document.body.style.cursor = 'crosshair';
+
+    const clickHandler = (e) => {
+        if (!manualScrapeMode) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const target = e.target;
+        const scrapedData = {
+            tag: target.tagName,
+            id: target.id,
+            class: target.className,
+            text: target.innerText?.substring(0, 100),
+            value: target.value || target.textContent?.trim(),
+            dataAttrs: {}
+        };
+
+        for (let attr of target.attributes) {
+            if (attr.name.startsWith('data-')) {
+                scrapedData.dataAttrs[attr.name] = attr.value;
+            }
+        }
+
+        console.log('🎯 [PHOENIX-MANUAL] Scraped:', scrapedData);
+
+        chrome.storage.local.get(['manualScrapes'], (res) => {
+            const existing = res.manualScrapes || [];
+            existing.push({
+                soNum: GLOBAL_RECON.so,
+                timestamp: new Date().toISOString(),
+                data: scrapedData
+            });
+            chrome.storage.local.set({ manualScrapes: existing });
+
+            // Re-sync ERP with manual data
+            orchestrate();
+        });
+
+        const highlight = document.createElement('div');
+        highlight.style.cssText = `position:fixed;left:${e.clientX - 25}px;top:${e.clientY - 25}px;width:50px;height:50px;border:3px solid #10b981;border-radius:50%;pointer-events:none;z-index:99999;animation:phoenix-ping 0.8s ease-out forwards;`;
+        document.body.appendChild(highlight);
+        setTimeout(() => highlight.remove(), 800);
+
+        manualScrapeMode = false;
+        document.body.style.cursor = 'default';
+        document.removeEventListener('click', clickHandler, true);
+
+        const indicator = document.getElementById('phoenix-manual-indicator');
+        if (indicator) indicator.style.display = 'none';
+    };
+
+    document.addEventListener('click', clickHandler, true);
+
+    const indicator = document.getElementById('phoenix-manual-indicator');
+    if (indicator) {
+        indicator.style.display = 'inline';
     }
 }
 
@@ -165,12 +370,16 @@ async function orchestrate() {
         url, soNum, activeTab: currentTab, timestamp: new Date().toISOString(),
         details: captured.details,
         allTabs: GLOBAL_RECON.tabs,
-        teamDetails: { 'SELECTED TEAM': PhoenixScanner.extractValue(document.querySelector('#mobusr')) },
+        teamDetails: {
+            'SELECTED TEAM': PhoenixScanner.extractValue(document.querySelector('#mobusr')),
+            'LIST': captured.teamDetails || []
+        },
         materialDetails: GLOBAL_RECON.tabs['MATERIALS_REGISTRY'] || [],
+        history: captured.history || [],
         currentUser: PhoenixScanner.clean(document.querySelector('.user-profile-dropdown h6, #user_name')?.innerText || "").replace("Welcome, ", "")
     };
 
-    const hash = JSON.stringify(GLOBAL_RECON.tabs) + JSON.stringify(payload.materialDetails);
+    const hash = JSON.stringify(GLOBAL_RECON.tabs) + JSON.stringify(payload.materialDetails) + JSON.stringify(payload.history);
     const currentHash = hash.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0).toString();
 
     if (currentHash !== GLOBAL_RECON.lastHash) {
@@ -180,7 +389,10 @@ async function orchestrate() {
         const hud = document.getElementById('phoenix-hud');
         if (hud) {
             const count = Object.values(GLOBAL_RECON.tabs).reduce((a, b) => a + (Array.isArray(b) ? b.length : Object.keys(b).length), 0);
-            hud.innerHTML = `<span style="color:#22c55e">●</span> PHOENIX OMNI <span style="background:#8b5cf6;color:white;padding:0 4px;margin:0 5px">${soNum}</span> [${count} DATA]`;
+            const status = hud.querySelector('#phoenix-status');
+            if (status) {
+                status.innerHTML = `<span style="color:#22c55e">●</span> PHOENIX OMNI <span style="background:#8b5cf6;color:white;padding:0 4px;margin:0 5px">${soNum}</span> [${count} DATA]`;
+            }
         }
     }
 }
@@ -190,9 +402,29 @@ setInterval(orchestrate, PHOENIX_CONFIG.PULSE_RATE);
 orchestrate();
 
 if (!document.getElementById('phoenix-hud')) {
+    const style = document.createElement('style');
+    style.innerHTML = `@keyframes phoenix-ping { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }`;
+    document.head.appendChild(style);
+
     const h = document.createElement('div');
     h.id = 'phoenix-hud';
-    h.style.cssText = `position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(15,23,42,0.9); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: 'Inter', sans-serif; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); pointer-events: none; transition: 0.3s;`;
-    h.innerHTML = `PHOENIX OMNI v4.0.5`;
+    h.style.cssText = `position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(15,23,42,0.9); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: 'Inter', sans-serif; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); display: flex; align-items: center; pointer-events: none; transition: 0.3s;`;
+
+    h.innerHTML = `
+        <span id="phoenix-status">PHOENIX OMNI v4.2.0</span>
+        <span id="phoenix-manual-indicator" style="display:none; color:#fbbf24; margin-left:8px;">[MANUAL MODE]</span>
+        <button id="phoenix-manual-btn" style="margin-left:8px; background:#8b5cf6; border:none; color:white; border-radius:4px; cursor:pointer; padding:2px 8px; font-size:12px; pointer-events:auto; transition:0.2s;">+</button>
+    `;
+
     document.body.appendChild(h);
+
+    const btn = h.querySelector('#phoenix-manual-btn');
+    if (btn) {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            enableManualScrape();
+        };
+        btn.onmouseover = () => btn.style.background = '#7c3aed';
+        btn.onmouseout = () => btn.style.background = '#8b5cf6';
+    }
 }

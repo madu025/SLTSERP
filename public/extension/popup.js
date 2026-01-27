@@ -74,24 +74,82 @@ document.addEventListener('DOMContentLoaded', () => {
         statusText.innerText = `PHOENIX FOCUS: ${data.soNum}`;
         list.innerHTML = '';
 
-        // 1. Details rendering
-        const details = data.details || {};
-        const entries = Object.entries(details);
+        // Group data by category
+        const categories = {
+            'BASIC INFO': [],
+            'MATERIALS': [],
+            'TEAM': [],
+            'HISTORY': [],
+            'OTHER': []
+        };
 
-        if (entries.length === 0) {
-            list.innerHTML = `<div class="empty">🔍<br><br><span style="font-size:11px">No data captured for this SO yet. Try clicking different tabs.</span></div>`;
-        } else {
-            entries.forEach(([k, v]) => {
+        const details = data.details || {};
+
+        Object.entries(details).forEach(([k, v]) => {
+            if (k.includes('MATERIAL') || k.includes('ITEM')) {
+                categories['MATERIALS'].push([k, v]);
+            } else if (k.includes('TEAM') || k.includes('TECH') || k.includes('ASSIGNED')) {
+                categories['TEAM'].push([k, v]);
+            } else if (k.includes('DATE') || k.includes('STATUS') || k.includes('REMARK')) {
+                categories['HISTORY'].push([k, v]);
+            } else if (['SO_NUM', 'SERVICE_ORDER', 'CUSTOMER', 'NAME', 'ADDRESS', 'PHONE'].some(x => k.includes(x))) {
+                categories['BASIC INFO'].push([k, v]);
+            } else {
+                categories['OTHER'].push([k, v]);
+            }
+        });
+
+        // Render by category
+        Object.entries(categories).forEach(([catName, items]) => {
+            if (items.length === 0) return;
+
+            const catHeader = document.createElement('div');
+            catHeader.style.cssText = 'background:#334155;color:#94a3b8;padding:6px 12px;margin:12px 0 8px 0;font-size:10px;font-weight:800;letter-spacing:1px;border-radius:4px;';
+            catHeader.innerText = `${catName} (${items.length})`;
+            list.appendChild(catHeader);
+
+            items.forEach(([k, v]) => {
                 const card = document.createElement('div');
                 card.className = 'detail-card';
-                card.innerHTML = `<div class="label">${k}</div><div class="value">${v}</div>`;
+
+                // Truncate long values
+                const displayValue = (typeof v === 'string' && v.length > 100) ? v.substring(0, 100) + '...' : v;
+
+                card.innerHTML = `
+                <div class="label">${k}</div>
+                <div class="value" title="${v}">${displayValue}</div>
+            `;
                 list.appendChild(card);
             });
+        });
+
+        // Show Materials Table separately if available
+        if (data.materialDetails && data.materialDetails.length > 0) {
+            const matHeader = document.createElement('div');
+            matHeader.style.cssText = 'background:#8b5cf6;color:white;padding:6px 12px;margin:16px 0 8px 0;font-size:10px;font-weight:800;letter-spacing:1px;border-radius:4px;';
+            matHeader.innerText = `📦 MATERIALS LIST (${data.materialDetails.length})`;
+            list.appendChild(matHeader);
+
+            const matTable = document.createElement('div');
+            matTable.style.cssText = 'background:#1e293b;border-radius:6px;overflow:hidden;font-size:11px;';
+
+            data.materialDetails.forEach((mat, idx) => {
+                const row = document.createElement('div');
+                row.style.cssText = `padding:8px 12px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;${idx % 2 === 0 ? 'background:rgba(255,255,255,0.02)' : ''}`;
+                row.innerHTML = `
+                <span style="color:#e2e8f0">${mat.TYPE || mat.ITEM}</span>
+                <span style="color:#10b981;font-weight:700">${mat.QTY} ${mat.UNIT || ''}</span>
+            `;
+                matTable.appendChild(row);
+            });
+
+            list.appendChild(matTable);
         }
 
-        // Diagnostics
+        // Diagnostics update
         if (diagSo) diagSo.innerText = data.soNum;
-        if (diagFields) diagFields.innerText = `${entries.length} Fields (Synced)`;
+        const totalFields = Object.values(categories).flat().length;
+        if (diagFields) diagFields.innerText = `${totalFields} Fields (Synced)`;
 
         if (diagSync && data.timestamp) {
             const lastSync = new Date(data.timestamp);
