@@ -27,11 +27,19 @@ const PhoenixScanner = {
     // Advanced Key-Value Extractor
     extractValue: (el) => {
         if (!el) return '';
+
+        // Handle Text Nodes early
+        if (el.nodeType === 3) return PhoenixScanner.clean(el.textContent);
+
+        // Standard Element checks
         if (el.tagName === 'SELECT') return el.options[el.selectedIndex]?.text || '';
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return el.value || '';
 
-        // Check for nested inputs
-        const input = el.querySelector('input, select, textarea');
+        // Check for nested inputs safely
+        const input = (el.nodeType === 1 && typeof el.querySelector === 'function')
+            ? el.querySelector('input, select, textarea')
+            : null;
+
         if (input) return PhoenixScanner.extractValue(input);
 
         return PhoenixScanner.clean(el.innerText || el.textContent || '');
