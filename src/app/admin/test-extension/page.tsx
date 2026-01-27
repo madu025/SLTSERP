@@ -46,8 +46,15 @@ function deepParseUI(scrapedData: any) {
     const extracted: Record<string, string> = {
         'SO Number': scrapedData.soNum || 'N/A',
         'Portal User': scrapedData.currentUser || 'N/A',
-        'Active Tab': scrapedData.activeTab || 'N/A'
+        'Active Tab': scrapedData.activeTab || 'N/A',
+        'Team': scrapedData.teamDetails?.['SELECTED TEAM'] || 'NOT SELECTED'
     };
+
+    // Voice Test Logic: If date exists in voice details, it's a pass
+    const voiceRaw = details['LATEST VOICE TEST DETAILS'] || "";
+    if (voiceRaw && voiceRaw.match(/\d{4}-\d{2}-\d{2}T/)) {
+        extracted['Voice Test'] = "✅ PASS";
+    }
 
     if (mashed) {
         const keywords = [
@@ -77,12 +84,19 @@ function deepParseUI(scrapedData: any) {
 
     // Add serials if found in mashed or directly
     const serials = details['SERIAL NUMBER DETAILS'] || details['ONT_ROUTER_SERIAL_NUMBER'] || "";
-    if (serials) {
-        if (serials.includes('ONT_ROUTER_SERIAL_NUMBER')) {
-            extracted['ONT Serial'] = serials.split('ONT_ROUTER_SERIAL_NUMBER')[1]?.trim();
-        } else {
-            extracted['Serial Inf'] = serials;
-        }
+    if (details['ONT_ROUTER_SERIAL_NUMBER']) {
+        extracted['ONT Serial'] = details['ONT_ROUTER_SERIAL_NUMBER'];
+    } else if (serials.includes('ONT_ROUTER_SERIAL_NUMBER')) {
+        extracted['ONT Serial'] = serials.split('ONT_ROUTER_SERIAL_NUMBER')[1]?.trim().split(' ')[0];
+    }
+
+    if (details['IPTV_CPE_SERIAL_NUMBER_1']) {
+        extracted['IPTV Serial'] = details['IPTV_CPE_SERIAL_NUMBER_1'];
+    }
+
+    // Capture single material from details if present
+    if (details['MATERIAL DETAILS']) {
+        extracted['Usage'] = details['MATERIAL DETAILS'];
     }
 
     return extracted;
@@ -219,8 +233,8 @@ export default function ExtensionTestPage() {
                                                             </TableCell>
                                                             <TableCell>
                                                                 <Badge variant="outline" className={`text-[10px] py-0 px-2 font-bold uppercase rounded ${log.activeTab === 'SERVICE ORDER' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                                        log.activeTab?.includes('TEST') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                                            'bg-slate-50 text-slate-500 border-slate-200'
+                                                                    log.activeTab?.includes('TEST') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                                        'bg-slate-50 text-slate-500 border-slate-200'
                                                                     }`}>
                                                                     {log.activeTab || 'N/A'}
                                                                 </Badge>
@@ -273,13 +287,15 @@ export default function ExtensionTestPage() {
                                             <TabsContent value="clean" className="p-6 m-0 space-y-6">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     {Object.entries(parsedData || {}).map(([key, val]) => (
-                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
-                                                                ['ADDRESS', 'CUSTOMER NAME'].includes(key) ? 'col-span-2' : 'col-span-1'
+                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT', 'Team', 'Voice Test'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
+                                                            ['ADDRESS', 'CUSTOMER NAME'].includes(key) ? 'col-span-2' : 'col-span-1'
                                                             }`}>
                                                             <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{key}</span>
                                                             <span className={`text-[11px] font-bold ${key === 'STATUS' && (val as string).includes('CLOSED') ? 'text-emerald-600' :
+                                                                key === 'Voice Test' ? 'text-emerald-600' :
                                                                     key === 'SO Number' ? 'text-primary font-black' :
-                                                                        'text-slate-900'
+                                                                        key === 'Team' ? 'text-blue-600' :
+                                                                            'text-slate-900'
                                                                 }`}>
                                                                 {val as string || '---'}
                                                             </span>
