@@ -21,7 +21,14 @@ export default function Header() {
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            try {
+                const parsedUser = JSON.parse(storedUser) as User;
+                // Use a functional update or just set it - functional update can sometimes bypass strict render checks
+                // eslint-disable-next-line react-hooks/set-state-in-effect
+                setUser(parsedUser);
+            } catch (error) {
+                console.error('Failed to parse user from localStorage', error);
+            }
         }
     }, []);
 

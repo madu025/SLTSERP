@@ -15,9 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function update(data) {
-        if (!data || !data.url.includes('slt.lk')) {
-            statusText.textContent = "Please open SLT Portal";
-            detailsList.innerHTML = '';
+        if (!data || !data.url || !data.url.includes('slt.lk')) {
+            statusText.textContent = "SLT Portal Not Detected";
+            detailsList.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:11px;">Waiting for SLT i-Shamp Portal to be opened...</div>';
             return;
         }
 
@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
             detailsList.appendChild(createItem('ACTIVE SERVICE ORDER', data.soNum, '#2563eb', true));
         }
 
-        // MATERIAL SECTION
         if (data.materialDetails && data.materialDetails.length > 0) {
             data.materialDetails.forEach(m => {
                 const val = m.VALUE || m.QTY || 'N/A';
@@ -61,23 +60,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function refresh() {
-        // 1. Get from storage cache
+        // 1. Get from storage cache first (always safe)
         chrome.storage.local.get(['lastScraped'], (res) => {
             if (res.lastScraped) update(res.lastScraped);
         });
 
-        // 2. Request fresh data with connection error suppression
-        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-            if (tab?.url?.includes('slt.lk')) {
-                chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }, (resp) => {
-                    if (chrome.runtime.lastError) {
-                        // Connection failed (receiving end does not exist) - silently fail
-                        return;
-                    }
-                    if (resp) update(resp);
-                });
-            }
-        });
+        // 2. Request fresh data with AGGRESSIVE connection error suppression
+        try {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (chrome.runtime.lastError || !tabs || tabs.length === 0) return;
+
+                const tab = tabs[0];
+                // Only attempt message if we are strictly on portal
+                if (tab.url && tab.url.includes('serviceportal.slt.lk')) {
+                    chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }, (resp) => {
+                        const err = chrome.runtime.lastError; // CRITICAL: Reading this suppresses the "Unchecked" error
+                        if (!err && resp) {
+                            update(resp);
+                        }
+                    });
+                }
+            });
+        } catch {
+            // Silently swallow any browser communication errors
+        }
     }
 
     setInterval(refresh, 2000);
