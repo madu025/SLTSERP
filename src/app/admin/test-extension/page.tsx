@@ -89,13 +89,34 @@ function deepParseForensic(scrapedLog: any) {
     const sales = details['SALES PERSON'] || info['SALES PERSON'] || "";
     if (sales) info['Sales Agent'] = sales.split('DP LOOP')[0]?.trim();
 
-    // 3. Status Validations
+    // 3. Status & Linkage Audit
     const voiceRaw = details['LATEST VOICE TEST DETAILS'] || "";
     if (voiceRaw && voiceRaw.match(/\d{4}-\d{2}-\d{2}T/)) {
         info['Voice Test Audit'] = "✅ TEST PASSED";
     }
 
-    // 4. Photo Audit Engine (Forensic)
+    // IPTV Linkage Detection
+    const iptvSO = details['IPTV1_HIDDEN'];
+    if (iptvSO && iptvSO.startsWith('HK')) {
+        info['Linked IPTV SO'] = `🔗 ${iptvSO}`;
+    }
+
+    // SLT Internal Metrics
+    if (details['SVAL_HIDDEN']) info['Portal S-Val'] = details['SVAL_HIDDEN'];
+
+    // 4. Warning & Inconsistency Detection
+    const warnings: string[] = [];
+    Object.entries(details).forEach(([k, v]) => {
+        if (typeof v === 'string' && v.includes('SELECT MATERIAL')) {
+            warnings.push(`Warning: ${k.replace('_HIDDEN', '')} selection is missing!`);
+        }
+    });
+
+    if (details['POLES'] === 'NUMBER OF POLES') {
+        warnings.push(`Incomplete: Poles count field is still at default placeholder.`);
+    }
+
+    // 5. Photo Audit Engine (Forensic)
     const photos: Array<{ label: string, status: 'SUCCESS' | 'MISSING', id?: string }> = [];
     Object.entries(details).forEach(([k, v]) => {
         const match = k.match(/^(\d+)IMGDN_HIDDEN$/);
@@ -111,14 +132,14 @@ function deepParseForensic(scrapedLog: any) {
         }
     });
 
-    // 4. Materials Intelligence
+    // 6. Materials Intelligence
     const materials = scrapedData.materialDetails || [];
     // If no materials in array, check if mashed usage exists
     if (materials.length === 0 && (details['MATERIAL DETAILS'] || details['METERIAL DETAILS'])) {
         materials.push({ ITEM: 'Portal Usage', QTY: details['MATERIAL DETAILS'] || details['METERIAL DETAILS'] });
     }
 
-    return { info, photos, materials };
+    return { info, photos, materials, warnings };
 }
 
 export default function ExtensionTestPage() {
@@ -363,6 +384,23 @@ export default function ExtensionTestPage() {
                                                                     <Badge variant={photo.status === 'SUCCESS' ? 'default' : 'destructive'} className={`text-[9px] font-black uppercase ${photo.status === 'SUCCESS' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}>
                                                                         {photo.status === 'SUCCESS' ? '✅ Uploaded' : '❌ Missing'}
                                                                     </Badge>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Forensic Insights & Warnings */}
+                                                {parsed?.warnings && parsed.warnings.length > 0 && (
+                                                    <div className="space-y-3">
+                                                        <span className="text-[10px] uppercase font-black text-rose-500 flex items-center gap-2">
+                                                            <AlertTriangle className="w-3.5 h-3.5" /> High-Priority Issues ({parsed.warnings.length})
+                                                        </span>
+                                                        <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 space-y-2">
+                                                            {parsed.warnings.map((warn, i) => (
+                                                                <div key={i} className="flex items-start gap-2 text-[11px] font-bold text-rose-700">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1 flex-shrink-0" />
+                                                                    {warn}
                                                                 </div>
                                                             ))}
                                                         </div>
