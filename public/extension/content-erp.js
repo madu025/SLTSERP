@@ -1,16 +1,26 @@
-// This script runs in the ISOLATED world (Default)
+/**
+ * SLT-ERP PHOENIX ELITE v3.1.0
+ * World: ISOLATED
+ * Role: ERP Identity & Bridge
+ */
+
 (function () {
-    const diagInfo = {
-        detectedAt: new Date().toISOString(),
-        version: "1.4.0",
-        status: 'ACTIVE'
-    };
+    const version = "3.1.0";
 
-    document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
-    document.documentElement.setAttribute('data-slt-bridge-version', "1.4.0");
+    // Set identity for ERP website to detect the extension
+    document.documentElement.setAttribute('data-phoenix-bridge', 'active');
+    document.documentElement.setAttribute('data-phoenix-version', version);
 
-    // Update storage so popup can see it
-    chrome.storage.local.set({ diagnostics_erp: diagInfo });
+    // Sync Diagnostics
+    chrome.storage.local.get(['lastScraped'], (res) => {
+        const info = {
+            detectedAt: new Date().toISOString(),
+            version: version,
+            status: 'CONNECTED',
+            lastSO: res.lastScraped?.soNum || 'NONE'
+        };
+        chrome.storage.local.set({ diagnostics_erp: info });
+    });
 
-    console.log("🛠️ SLT-ERP Bridge: Isolated Identity Set [v1.4.0]");
+    console.log(`%c⚡ PHOENIX ELITE v${version} Ready on ERP`, 'color: #10b981; font-weight: bold;');
 })();

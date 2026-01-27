@@ -2,187 +2,187 @@
 <html>
 
 <head>
-    <title>SLT-ERP Bridge</title>
+    <title>Phoenix Bridge</title>
     <style>
+        :root {
+            --primary: #ff4d4d;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+        }
+
         body {
-            width: 350px;
-            padding: 0;
+            width: 360px;
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: #f8fafc;
-            color: #1e293b;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
         }
 
         .header {
-            background: #1e293b;
-            color: white;
-            padding: 14px 16px;
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            padding: 16px;
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            border-bottom: 2px solid #3b82f6;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(255, 77, 77, 0.3);
         }
 
-        .header h3 {
+        .header h1 {
             margin: 0;
-            font-size: 13px;
-            letter-spacing: 0.1em;
-            color: #3b82f6;
+            font-size: 14px;
+            letter-spacing: 1px;
+            font-weight: 900;
         }
 
-        .tab-bar {
+        .version {
+            font-size: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .tabs {
             display: flex;
-            background: #f1f5f9;
-            border-bottom: 1px solid #e2e8f0;
+            background: var(--card);
+            border-bottom: 1px solid #334155;
         }
 
         .tab {
             flex: 1;
-            padding: 10px;
+            padding: 12px;
             text-align: center;
             font-size: 11px;
-            font-weight: bold;
+            font-weight: 700;
             cursor: pointer;
-            color: #64748b;
+            color: var(--muted);
+            transition: 0.3s;
         }
 
         .tab.active {
-            color: #3b82f6;
-            border-bottom: 2px solid #3b82f6;
-            background: white;
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            background: rgba(255, 77, 77, 0.05);
         }
 
         .content {
-            padding: 12px;
-            min-height: 200px;
+            padding: 16px;
             max-height: 450px;
             overflow-y: auto;
         }
 
-        .section {
-            margin-bottom: 12px;
+        .status-box {
+            background: #10b98115;
+            border: 1px solid #10b98130;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .detail-card {
+            background: var(--card);
+            border-left: 4px solid var(--primary);
+            padding: 10px 12px;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .label {
             font-size: 9px;
-            color: #94a3b8;
+            color: var(--muted);
             text-transform: uppercase;
-            font-weight: bold;
+            font-weight: 800;
         }
 
         .value {
-            font-size: 11px;
+            font-size: 12px;
             margin-top: 2px;
-            font-weight: 500;
+            font-weight: 600;
             word-break: break-all;
         }
 
         .diag-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 11px;
+            padding: 10px 0;
+            border-bottom: 1px solid #334155;
         }
 
         .diag-label {
-            color: #64748b;
+            font-size: 11px;
+            color: var(--muted);
         }
 
-        .status-badge {
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 9px;
-            font-weight: bold;
+        .diag-value {
+            font-size: 11px;
+            font-weight: 700;
         }
 
-        .bg-green {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .bg-red {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .footer {
-            padding: 8px;
-            font-size: 9px;
-            color: #94a3b8;
+        .empty {
             text-align: center;
-            border-top: 1px solid #e2e8f0;
-            background: white;
-            position: sticky;
-            bottom: 0;
-        }
-
-        .detail-item {
-            padding: 6px;
-            background: white;
-            border-radius: 4px;
-            margin-bottom: 4px;
-            border-left: 3px solid #3b82f6;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 20px;
-            color: #94a3b8;
-            font-size: 12px;
+            padding: 40px 20px;
+            color: var(--muted);
         }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <h3>SLT-ERP BRIDGE</h3>
-        <span id="version" style="font-size: 10px; opacity: 0.8;">v1.3.7</span>
+        <h1>PHOENIX BRIDGE</h1>
+        <div class="version">v3.0.0</div>
     </div>
-
-    <div class="tab-bar">
-        <div id="tab-data" class="tab active">SOD DETAILS</div>
-        <div id="tab-diag" class="tab">DIAGNOSTICS</div>
+    <div class="tabs">
+        <div class="tab active" id="tab-data">DATA</div>
+        <div class="tab" id="tab-diag">DIAGNOSTICS</div>
     </div>
-
     <div class="content">
-        <!-- Data View -->
         <div id="view-data">
-            <div id="status-container" class="section">
-                <div id="status-text" class="value" style="color: #64748b; font-size: 12px; text-align: center;">
-                    Detecting portal...</div>
+            <div class="status-box" id="status-container">
+                <div class="status-dot"></div>
+                <div style="font-size: 11px; font-weight: 700;" id="status-text">Detecting Portal...</div>
             </div>
-
-            <div id="details-list">
-                <!-- Dynamic details will be injected here -->
-            </div>
+            <div id="list"></div>
         </div>
-
-        <!-- Diagnostics View -->
-        <div id="view-diag" style="display: none;">
-            <div class="diag-row">
-                <span class="diag-label">SLT Connection</span>
-                <span id="diag-slt-status" class="status-badge bg-red">DISCONNECTED</span>
-            </div>
-            <div class="diag-row">
-                <span class="diag-label">ERP System</span>
-                <span id="diag-erp-status" class="status-badge bg-red">NOT FOUND</span>
-            </div>
-            <div class="diag-row">
-                <span class="diag-label">Last Sync</span>
-                <span id="diag-last-sync" class="value">-</span>
-            </div>
-            <div class="diag-row">
-                <span class="diag-label">Items Found</span>
-                <span id="diag-fields" class="value">0</span>
-            </div>
+        <div id="view-diag" style="display:none">
+            <div class="diag-row"><span class="diag-label">Engine Status</span><span class="diag-value"
+                    style="color:#10b981">STABLE</span></div>
+            <div class="diag-row"><span class="diag-label">Sync Latency</span><span class="diag-value"
+                    id="diag-sync">-</span></div>
+            <div class="diag-row"><span class="diag-label">Memory Utilization</span><span class="diag-value"
+                    id="diag-fields">0 Fields</span></div>
+            <div class="diag-row"><span class="diag-label">Service Order</span><span class="diag-value"
+                    id="diag-so">-</span></div>
         </div>
     </div>
-
-    <div class="footer">
-        Automatic Real-time Update Enabled | v1.3.7
-    </div>
-
     <script src="popup.js"></script>
 </body>
 

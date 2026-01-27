@@ -1,60 +1,45 @@
 {
     "manifest_version": 3,
-    "name": "SLT-ERP Bridge",
-    "version": "1.3.7",
-    "description": "Syncs data between SLT Portal and SLT-ERP System",
+    "name": "SLT-ERP PHOENIX ELITE",
+    "version": "3.1.0",
+    "description": "Premium High-Precision Sync for SLT-ERP",
     "permissions": [
         "storage",
+        "tabs",
         "activeTab",
-        "tabs"
+        "alarms"
+    ],
+    "host_permissions": [
+        "https://serviceportal.slt.lk/*",
+        "https://*.slt.lk/*",
+        "http://localhost:3000/*",
+        "https://d2ixqikwtprwf0.cloudfront.net/*"
     ],
     "background": {
         "service_worker": "background.js"
     },
-    "host_permissions": [
-        "*://d2ixqikwtprwf0.cloudfront.net/*",
-        "*://serviceportal.slt.lk/*",
-        "http://localhost/*",
-        "http://127.0.0.1/*",
-        "http://localhost:3000/*",
-        "http://127.0.0.1:3000/*"
-    ],
     "action": {
         "default_popup": "popup.html"
     },
     "content_scripts": [
         {
             "matches": [
-                "*://localhost/*",
-                "*://*.vercel.app/*",
-                "*://d2ixqikwtprwf0.cloudfront.net/*"
-            ],
-            "js": [
-                "content-erp.js"
-            ],
-            "run_at": "document_start",
-            "world": "ISOLATED"
-        },
-        {
-            "matches": [
-                "*://localhost/*",
-                "*://*.vercel.app/*",
-                "*://d2ixqikwtprwf0.cloudfront.net/*"
-            ],
-            "js": [
-                "content-main.js"
-            ],
-            "run_at": "document_start",
-            "world": "MAIN"
-        },
-        {
-            "matches": [
-                "*://serviceportal.slt.lk/*"
+                "https://serviceportal.slt.lk/*"
             ],
             "js": [
                 "content-slt.js"
             ],
             "run_at": "document_end"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "*"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
         }
     ]
 }

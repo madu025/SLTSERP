@@ -1,77 +1,71 @@
+/**
+ * PHOENIX BRIDGE v3.0.0
+ * Popup Logic: Modern Reactive Bridge
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
-    const detailsList = document.getElementById('details-list');
+    const list = document.getElementById('list');
     const statusText = document.getElementById('status-text');
 
-    function createItem(label, value, color = '#3b82f6', isHigh = false) {
-        const div = document.createElement('div');
-        div.className = 'detail-item';
-        div.style.borderLeft = `4px solid ${color}`;
-        if (isHigh) div.style.background = '#eff6ff';
-        div.innerHTML = `
-            <div class="label" style="color:${color}">${label}</div>
-            <div class="value" style="${isHigh ? 'font-size:14px; font-weight:bold; color:#1e40af' : ''}">${value}</div>
-        `;
-        return div;
-    }
+    // Tab Management
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
 
-    function update(data) {
-        if (!data || !data.url.includes('slt.lk')) {
-            statusText.textContent = "Please open SLT Portal";
+            const viewData = document.getElementById('view-data');
+            const viewDiag = document.getElementById('view-diag');
+            if (tab.id === 'tab-data') {
+                viewData.style.display = 'block';
+                viewDiag.style.display = 'none';
+            } else {
+                viewData.style.display = 'none';
+                viewDiag.style.display = 'block';
+            }
+        });
+    });
+
+    function render(data) {
+        if (!data || !data.soNum) {
+            statusText.innerText = "Waiting for SLT Portal...";
+            list.innerHTML = `<div class="empty">📡<br><br><span style="font-size:11px">Navigate to a Service Order to begin synchronization.</span></div>`;
             return;
         }
 
-        statusText.textContent = `User: ${data.currentUser || 'Detected'}`;
-        detailsList.innerHTML = '';
+        statusText.innerText = `PHOENIX ACTIVE: ${data.soNum}`;
+        list.innerHTML = '';
 
-        if (data.isBroadband) {
-            const notice = document.createElement('div');
-            notice.style = "background:#fff7ed; color:#9a3412; padding:8px; border-radius:6px; font-size:10px; margin-bottom:10px; border:1px solid #ffedd5; font-weight:bold; text-align:center";
-            notice.textContent = "⚠️ BROADBAND DETECTED: SYNC RESTRICTED";
-            detailsList.appendChild(notice);
+        // 1. Details
+        const details = data.details || {};
+        Object.entries(details).forEach(([k, v]) => {
+            const card = document.createElement('div');
+            card.className = 'detail-card';
+            card.innerHTML = `<div class="label">${k}</div><div class="value">${v}</div>`;
+            list.appendChild(card);
+        });
+
+        // 2. Materials
+        if (data.materialDetails?.length > 0) {
+            const matCard = document.createElement('div');
+            matCard.className = 'detail-card';
+            matCard.style.borderLeftColor = '#f59e0b';
+            matCard.innerHTML = `<div class="label">MATERIALS</div><div class="value">${data.materialDetails.length} Items Captured</div>`;
+            list.appendChild(matCard);
         }
 
-        if (data.soNum) {
-            detailsList.appendChild(createItem('ACTIVE SERVICE ORDER', data.soNum, '#2563eb', true));
-        }
+        // Diagnostics
+        document.getElementById('diag-so').innerText = data.soNum;
+        document.getElementById('diag-fields').innerText = `${Object.keys(details).length + (data.materialDetails?.length || 0)} Fields`;
 
-        // MATERIAL SECTION (NEW)
-        if (data.materialDetails && data.materialDetails.length > 0) {
-            data.materialDetails.forEach(m => {
-                const val = m.VALUE || m.QTY || 'N/A';
-                detailsList.appendChild(createItem(`MATERIAL: ${m.ITEM}`, `${m.TYPE} (QTY: ${val})`, '#d97706'));
-            });
-        }
-
-        const context = document.createElement('div');
-        context.style = "font-size:10px; color:#64748b; margin-bottom:10px; text-align:center; border-top:1px solid #f1f5f9; padding-top:10px";
-        context.textContent = `Tab: ${data.activeTab || 'N/A'}`;
-        detailsList.appendChild(context);
-
-        if (data.teamDetails) {
-            Object.keys(data.teamDetails).forEach(k => detailsList.appendChild(createItem(k, data.teamDetails[k], '#0ea5e9')));
-        }
-
-        if (data.details) {
-            Object.keys(data.details).forEach(k => {
-                if (k === 'SERVICE ORDER' && data.details[k] === data.soNum) return;
-                detailsList.appendChild(createItem(k, data.details[k]));
-            });
-        }
+        const lastSync = new Date(data.timestamp);
+        const diff = Math.floor((new Date() - lastSync) / 1000);
+        document.getElementById('diag-sync').innerText = diff < 5 ? 'Real-time' : `${diff}s ago`;
     }
 
-    function refresh() {
-        chrome.storage.local.get(['lastScraped'], (res) => {
-            if (res.lastScraped) update(res.lastScraped);
-        });
-        chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-            if (tab?.url?.includes('slt.lk')) {
-                chrome.tabs.sendMessage(tab.id, { action: "getPortalData" }, (resp) => {
-                    if (resp) update(resp);
-                });
-            }
-        });
-    }
+    // Polling
+    setInterval(() => {
+        chrome.storage.local.get(['lastScraped'], res => render(res.lastScraped));
+    }, 1500);
 
-    setInterval(refresh, 1500);
-    refresh();
+    chrome.storage.local.get(['lastScraped'], res => render(res.lastScraped));
 });
