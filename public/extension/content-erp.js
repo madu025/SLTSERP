@@ -11,6 +11,10 @@
     document.documentElement.setAttribute('data-phoenix-bridge', 'active');
     document.documentElement.setAttribute('data-phoenix-version', version);
 
+    // Legacy support for ERP Header Detection
+    document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
+    document.documentElement.setAttribute('data-slt-bridge-version', version);
+
     // Sync Diagnostics
     chrome.storage.local.get(['lastScraped'], (res) => {
         const info = {

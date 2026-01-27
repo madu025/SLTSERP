@@ -16,8 +16,11 @@ export default function ExtensionStatus() {
 
     useEffect(() => {
         const check = () => {
-            const hasAttr = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true';
-            const ver = document.documentElement.getAttribute('data-slt-bridge-version') || (window as unknown as { SLT_BRIDGE_VERSION: string }).SLT_BRIDGE_VERSION;
+            const hasAttr = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true' ||
+                document.documentElement.getAttribute('data-phoenix-bridge') === 'active';
+            const ver = document.documentElement.getAttribute('data-slt-bridge-version') ||
+                document.documentElement.getAttribute('data-phoenix-bridge-version') ||
+                (window as unknown as { SLT_BRIDGE_VERSION: string }).SLT_BRIDGE_VERSION;
 
             if (hasAttr || ver) {
                 setIsInstalled(true);
@@ -91,7 +94,7 @@ export default function ExtensionStatus() {
                 <div className="bg-amber-50 p-4 border-b border-amber-100">
                     <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                         <Download className="w-4 h-4" />
-                        Install Phoenix Elite v3.1.0 (Master Build)
+                        Install Phoenix Elite v3.1.5 (Master Build)
                     </h3>
                     <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                         To sync Team Assignments, Serial Numbers, and Materials directly from SLT Portal, install the updated extension.
@@ -118,7 +121,7 @@ export default function ExtensionStatus() {
                         size="sm"
                         onClick={() => window.open('/slt-bridge.zip', '_blank')}
                     >
-                        Download Elite Extension v3.1.0
+                        Download Elite Extension v3.1.5
                     </Button>
                 </div>
             </PopoverContent>
