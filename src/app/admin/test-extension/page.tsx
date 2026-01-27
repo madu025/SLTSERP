@@ -80,14 +80,28 @@ function deepParseForensic(scrapedLog: any) {
         });
     }
 
-    // 2. Specialized Extractions
-    if (details['ONT_ROUTER_SERIAL_NUMBER']) info['ONT Serial'] = details['ONT_ROUTER_SERIAL_NUMBER'];
+    // 2. Specialized Extractions (Serials & Assignments)
+    const ontSerial = details['ONT_ROUTER_SERIAL_NUMBER'] || details['ONT_ROUTER_SERIAL_NUMBER_'] || "";
+    if (ontSerial) info['ONT Serial'] = ontSerial;
 
-    const dpLoop = details['DP LOOP'] || info['DP LOOP'] || "";
+    // Dynamic Multi-IPTV Detection
+    Object.entries(details).forEach(([k, v]) => {
+        if (k.startsWith('IPTV_CPE_SERIAL_NUMBER')) {
+            const num = k.match(/\d+/);
+            const label = num ? `IPTV CPE Serial ${num[0]}` : 'IPTV CPE Serial';
+            info[label] = v;
+        }
+    });
+
+    const dpLoop = details['DP_LOOP'] || info['DP LOOP'] || "";
     if (dpLoop) info['DP Loop Profile'] = dpLoop.split('OLT MANUFACTURER')[0]?.trim();
 
-    const sales = details['SALES PERSON'] || info['SALES PERSON'] || "";
+    const sales = details['SALES_PERSON'] || info['SALES PERSON'] || "";
     if (sales) info['Sales Agent'] = sales.split('DP LOOP')[0]?.trim();
+
+    // Secondary Team Detection
+    const altTeam = details['TEAM_ASSIGN'] || details['ASSIGNED_TEAM'];
+    if (altTeam && !info['Selected Team']) info['Selected Team'] = altTeam;
 
     // 3. Status & Linkage Audit
     const voiceRaw = details['LATEST VOICE TEST DETAILS'] || "";
@@ -328,15 +342,17 @@ export default function ExtensionTestPage() {
                                                 {/* Core Information Grid */}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     {Object.entries(parsed?.info || {}).map(([key, val]) => (
-                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT', 'Selected Team', 'Material usage'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
+                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'IPTV CPE Serial', 'CIRCUIT', 'Selected Team', 'Material usage', 'Voice Test Audit'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
                                                             ['ADDRESS', 'CUSTOMER NAME'].includes(key) ? 'col-span-2' : 'col-span-1'
                                                             }`}>
                                                             <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{key}</span>
                                                             <span className={`text-[11px] font-bold ${key === 'STATUS' && (val as string).includes('CLOSED') ? 'text-emerald-600' :
                                                                 key === 'SO Number' ? 'text-primary font-black' :
                                                                     key === 'Selected Team' ? 'text-blue-600' :
-                                                                        key === 'Material usage' ? 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 inline-block w-fit' :
-                                                                            'text-slate-900'
+                                                                        key.includes('Serial') ? 'text-purple-600 font-mono' :
+                                                                            key === 'Voice Test Audit' ? 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100' :
+                                                                                key === 'Material usage' ? 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 inline-block w-fit' :
+                                                                                    'text-slate-900'
                                                                 }`}>
                                                                 {val as string || '---'}
                                                             </span>
