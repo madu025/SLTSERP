@@ -39,23 +39,23 @@ interface RawLog {
  * UI Deep Parse Engine
  * Matches the backend logic to show user what we're extracting
  */
-function deepParseUI(scrapedData: any) {
+/**
+ * Forensic Analysis Engine
+ * Extracts deep insights from mashed portal data
+ */
+function deepParseForensic(scrapedLog: any) {
+    const scrapedData = scrapedLog.scrapedData || {};
     const details = scrapedData.details || {};
     const mashed = details['SERVICE ORDER DETAILS'] || "";
 
-    const extracted: Record<string, string> = {
+    const info: Record<string, any> = {
         'SO Number': scrapedData.soNum || 'N/A',
         'Portal User': scrapedData.currentUser || 'N/A',
         'Active Tab': scrapedData.activeTab || 'N/A',
-        'Team': scrapedData.teamDetails?.['SELECTED TEAM'] || 'NOT SELECTED'
+        'Selected Team': scrapedData.teamDetails?.['SELECTED TEAM'] || 'NOT SELECTED',
     };
 
-    // Voice Test Logic: If date exists in voice details, it's a pass
-    const voiceRaw = details['LATEST VOICE TEST DETAILS'] || "";
-    if (voiceRaw && voiceRaw.match(/\d{4}-\d{2}-\d{2}T/)) {
-        extracted['Voice Test'] = "✅ PASS";
-    }
-
+    // 1. Core Field Extraction (Mashed String)
     if (mashed) {
         const keywords = [
             'RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'RECEIVED DATE',
@@ -72,41 +72,53 @@ function deepParseUI(scrapedData: any) {
             for (let j = 0; j < keywords.length; j++) {
                 const nextKey = keywords[j];
                 const nextIdx = mashed.indexOf(nextKey, start + key.length);
-                if (nextIdx !== -1 && nextIdx < end) {
-                    end = nextIdx;
-                }
+                if (nextIdx !== -1 && nextIdx < end) end = nextIdx;
             }
 
             let val = mashed.substring(start + key.length, end).trim();
-            extracted[key] = val;
+            info[key] = val;
         });
     }
 
-    // Add serials if found in mashed or directly
-    const serials = details['SERIAL NUMBER DETAILS'] || details['ONT_ROUTER_SERIAL_NUMBER'] || "";
-    if (details['ONT_ROUTER_SERIAL_NUMBER']) {
-        extracted['ONT Serial'] = details['ONT_ROUTER_SERIAL_NUMBER'];
-    } else if (serials.includes('ONT_ROUTER_SERIAL_NUMBER')) {
-        extracted['ONT Serial'] = serials.split('ONT_ROUTER_SERIAL_NUMBER')[1]?.trim().split(' ')[0];
+    // 2. Specialized Extractions
+    if (details['ONT_ROUTER_SERIAL_NUMBER']) info['ONT Serial'] = details['ONT_ROUTER_SERIAL_NUMBER'];
+
+    const dpLoop = details['DP LOOP'] || info['DP LOOP'] || "";
+    if (dpLoop) info['DP Loop Profile'] = dpLoop.split('OLT MANUFACTURER')[0]?.trim();
+
+    const sales = details['SALES PERSON'] || info['SALES PERSON'] || "";
+    if (sales) info['Sales Agent'] = sales.split('DP LOOP')[0]?.trim();
+
+    // 3. Status Validations
+    const voiceRaw = details['LATEST VOICE TEST DETAILS'] || "";
+    if (voiceRaw && voiceRaw.match(/\d{4}-\d{2}-\d{2}T/)) {
+        info['Voice Test Audit'] = "✅ TEST PASSED";
     }
 
-    const desc = details['DP LOOP'] || extracted['DP LOOP'] || "";
-    if (desc) {
-        extracted['DP Loop'] = desc.split('OLT MANUFACTURER')[0]?.trim();
+    // 4. Photo Audit Engine (Forensic)
+    const photos: Array<{ label: string, status: 'SUCCESS' | 'MISSING', id?: string }> = [];
+    Object.entries(details).forEach(([k, v]) => {
+        const match = k.match(/^(\d+)IMGDN_HIDDEN$/);
+        if (match) {
+            const idx = match[1];
+            const label = v as string;
+            const limg = details[`${idx}LIMG_HIDDEN`];
+            photos.push({
+                label,
+                status: limg ? 'SUCCESS' : 'MISSING',
+                id: limg as string
+            });
+        }
+    });
+
+    // 4. Materials Intelligence
+    const materials = scrapedData.materialDetails || [];
+    // If no materials in array, check if mashed usage exists
+    if (materials.length === 0 && (details['MATERIAL DETAILS'] || details['METERIAL DETAILS'])) {
+        materials.push({ ITEM: 'Portal Usage', QTY: details['MATERIAL DETAILS'] || details['METERIAL DETAILS'] });
     }
 
-    const sales = details['SALES PERSON'] || extracted['SALES PERSON'] || "";
-    if (sales) {
-        extracted['Sales Agent'] = sales.split('DP LOOP')[0]?.trim();
-    }
-
-    // Capture single material from details if present (The 'Usage' field user requested)
-    const usage = details['MATERIAL DETAILS'] || details['METERIAL DETAILS'] || "";
-    if (usage) {
-        extracted['Material usage'] = `📦 ${usage}`;
-    }
-
-    return extracted;
+    return { info, photos, materials };
 }
 
 export default function ExtensionTestPage() {
@@ -142,7 +154,7 @@ export default function ExtensionTestPage() {
     };
 
     const logs: RawLog[] = data?.logs || [];
-    const parsedData = selectedLog ? deepParseUI(selectedLog.scrapedData) : null;
+    const parsed = selectedLog ? deepParseForensic(selectedLog) : null;
 
     return (
         <div className="min-h-screen flex bg-slate-50">
@@ -291,19 +303,19 @@ export default function ExtensionTestPage() {
                                                 <TabsTrigger value="raw" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/5 px-6 text-xs font-bold font-mono">JSON Source</TabsTrigger>
                                             </TabsList>
 
-                                            <TabsContent value="clean" className="p-6 m-0 space-y-6">
+                                            <TabsContent value="clean" className="p-6 m-0 space-y-8">
+                                                {/* Core Information Grid */}
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    {Object.entries(parsedData || {}).map(([key, val]) => (
-                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT', 'Team', 'Voice Test', 'Material usage'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
+                                                    {Object.entries(parsed?.info || {}).map(([key, val]) => (
+                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT', 'Selected Team', 'Material usage'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
                                                             ['ADDRESS', 'CUSTOMER NAME'].includes(key) ? 'col-span-2' : 'col-span-1'
                                                             }`}>
                                                             <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{key}</span>
                                                             <span className={`text-[11px] font-bold ${key === 'STATUS' && (val as string).includes('CLOSED') ? 'text-emerald-600' :
-                                                                key === 'Voice Test' ? 'text-emerald-600' :
-                                                                    key === 'SO Number' ? 'text-primary font-black' :
-                                                                        key === 'Team' ? 'text-blue-600' :
-                                                                            key === 'Material usage' ? 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 inline-block w-fit' :
-                                                                                'text-slate-900'
+                                                                key === 'SO Number' ? 'text-primary font-black' :
+                                                                    key === 'Selected Team' ? 'text-blue-600' :
+                                                                        key === 'Material usage' ? 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 inline-block w-fit' :
+                                                                            'text-slate-900'
                                                                 }`}>
                                                                 {val as string || '---'}
                                                             </span>
@@ -311,16 +323,46 @@ export default function ExtensionTestPage() {
                                                     ))}
                                                 </div>
 
-                                                {selectedLog.scrapedData?.materialDetails && (selectedLog.scrapedData.materialDetails as any).length > 0 && (
-                                                    <div className="space-y-2">
+                                                {/* Materials Intelligence Section */}
+                                                {parsed?.materials && parsed.materials.length > 0 && (
+                                                    <div className="space-y-3">
                                                         <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2">
-                                                            Captured Materials <Badge className="text-[9px] h-4">{(selectedLog.scrapedData.materialDetails as any).length}</Badge>
+                                                            <Database className="w-3.5 h-3.5 text-amber-500" /> Materials Intelligence
                                                         </span>
-                                                        <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 space-y-2">
-                                                            {(selectedLog.scrapedData.materialDetails as any).map((mat: any, i: number) => (
-                                                                <div key={i} className="flex justify-between items-center bg-white p-2 rounded-lg border border-amber-100 shadow-sm">
-                                                                    <span className="text-[11px] font-bold text-slate-700">{mat.ITEM || mat.DESC || 'N/A'}</span>
-                                                                    <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{mat.QTY || mat.QUANTITY || '0'}</span>
+                                                        <div className="bg-amber-50/30 border border-amber-100 rounded-xl p-4 overflow-hidden">
+                                                            <Table>
+                                                                <TableBody>
+                                                                    {parsed.materials.map((mat: any, i: number) => (
+                                                                        <TableRow key={i} className="border-amber-100/50 hover:bg-white/50">
+                                                                            <TableCell className="py-2 text-[11px] font-bold text-slate-700">{mat.ITEM || mat.TYPE || 'Material'}</TableCell>
+                                                                            <TableCell className="py-2 text-[11px] font-medium text-slate-500">{mat.TYPE || mat.ITEM || '---'}</TableCell>
+                                                                            <TableCell className="py-2 text-right">
+                                                                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 text-[10px] font-black">{mat.QTY}</Badge>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Forensic Photo Audit Section */}
+                                                {parsed?.photos && parsed.photos.length > 0 && (
+                                                    <div className="space-y-3">
+                                                        <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2">
+                                                            <Layers className="w-3.5 h-3.5 text-purple-500" /> Forensic Photo Audit
+                                                        </span>
+                                                        <div className="grid grid-cols-1 gap-2">
+                                                            {parsed.photos.map((photo, i) => (
+                                                                <div key={i} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[11px] font-bold text-slate-700">{photo.label}</span>
+                                                                        {photo.id && <span className="text-[9px] font-mono text-slate-400">UUID: {photo.id}</span>}
+                                                                    </div>
+                                                                    <Badge variant={photo.status === 'SUCCESS' ? 'default' : 'destructive'} className={`text-[9px] font-black uppercase ${photo.status === 'SUCCESS' ? 'bg-emerald-500 hover:bg-emerald-600' : ''}`}>
+                                                                        {photo.status === 'SUCCESS' ? '✅ Uploaded' : '❌ Missing'}
+                                                                    </Badge>
                                                                 </div>
                                                             ))}
                                                         </div>
