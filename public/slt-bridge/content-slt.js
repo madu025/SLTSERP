@@ -101,7 +101,7 @@ class PhoenixOmniEngine {
             // Try to find the associated label
             let container = input.closest('div, tr, .row, .form-group');
             if (container) {
-                const labelEl = Array.from(container.querySelectorAll('label, b, span, th, h1, h2, h3, h4, 5'))
+                const labelEl = Array.from(container.querySelectorAll('label, b, span, th, h1, h2, h3, h4, h5'))
                     .find(l => PhoenixScanner.isKey(l));
                 if (labelEl) {
                     const key = PhoenixScanner.clean(labelEl.innerText).replace(':', '').toUpperCase();
