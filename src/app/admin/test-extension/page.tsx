@@ -90,13 +90,19 @@ function deepParseUI(scrapedData: any) {
         extracted['ONT Serial'] = serials.split('ONT_ROUTER_SERIAL_NUMBER')[1]?.trim().split(' ')[0];
     }
 
-    if (details['IPTV_CPE_SERIAL_NUMBER_1']) {
-        extracted['IPTV Serial'] = details['IPTV_CPE_SERIAL_NUMBER_1'];
+    if (desc) {
+        extracted['DP Loop'] = desc.split('OLT MANUFACTURER')[0]?.trim();
     }
 
-    // Capture single material from details if present
-    if (details['MATERIAL DETAILS']) {
-        extracted['Usage'] = details['MATERIAL DETAILS'];
+    const sales = details['SALES PERSON'] || deepData['SALES PERSON'] || "";
+    if (sales) {
+        extracted['Sales Agent'] = sales.split('DP LOOP')[0]?.trim();
+    }
+
+    // Capture single material from details if present (The 'Usage' field user requested)
+    const usage = details['MATERIAL DETAILS'] || details['METERIAL DETAILS'] || "";
+    if (usage) {
+        extracted['Material usage'] = `📦 ${usage}`;
     }
 
     return extracted;
@@ -287,7 +293,7 @@ export default function ExtensionTestPage() {
                                             <TabsContent value="clean" className="p-6 m-0 space-y-6">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     {Object.entries(parsedData || {}).map(([key, val]) => (
-                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT', 'Team', 'Voice Test'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
+                                                        <div key={key} className={`flex flex-col p-3 rounded-lg border border-slate-100 ${['SO Number', 'STATUS', 'ONT Serial', 'CIRCUIT', 'Team', 'Voice Test', 'Material usage'].includes(key) ? 'bg-slate-50 border-slate-200 col-span-1 shadow-sm' :
                                                             ['ADDRESS', 'CUSTOMER NAME'].includes(key) ? 'col-span-2' : 'col-span-1'
                                                             }`}>
                                                             <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{key}</span>
@@ -295,7 +301,8 @@ export default function ExtensionTestPage() {
                                                                 key === 'Voice Test' ? 'text-emerald-600' :
                                                                     key === 'SO Number' ? 'text-primary font-black' :
                                                                         key === 'Team' ? 'text-blue-600' :
-                                                                            'text-slate-900'
+                                                                            key === 'Material usage' ? 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 inline-block w-fit' :
+                                                                                'text-slate-900'
                                                                 }`}>
                                                                 {val as string || '---'}
                                                             </span>
