@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "SLT-ERP PHOENIX ELITE",
-    "version": "4.3.0",
+    "version": "4.4.0",
     "description": "Premium High-Precision Sync for SLT-ERP",
     "permissions": [
         "storage",

@@ -1,10 +1,10 @@
 /**
- * SLT-ERP PHOENIX OMNISCIENT v4.3.0
- * Engine: Forensic Serial & Voice Test Specialist
+ * SLT-ERP PHOENIX OMNISCIENT v4.4.0
+ * Engine: Dynamic Grid & Multi-Material Recon
  * Role: 100% Coverage SLT Portal Scraper
  */
 
-console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.3.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
+console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.4.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
 
 const PHOENIX_CONFIG = {
     IDENTIFIERS: {
@@ -139,6 +139,30 @@ class PhoenixOmniEngine {
                             console.log(`💎 [PHOENIX-MAT] Captured: ${label} -> ${val} (Qty: ${nextVal})`);
                             data.materials.push({ ITEM: label, TYPE: val, QTY: nextVal });
                         }
+                    }
+                }
+            }
+        });
+
+        // 1. Dynamic Grid Discovery (Multi-row Materials like Unit Designator/Quantity)
+        document.querySelectorAll('.row, tr, div[style*="display: flex"]').forEach(container => {
+            const labels = Array.from(container.querySelectorAll('label, .text-cyan, span'))
+                .map(l => PhoenixScanner.clean(l.innerText).toUpperCase());
+
+            const hasUnit = labels.some(l => l.includes('UNIT DESIGNATOR'));
+            const hasQty = labels.some(l => l.includes('QUANTITY'));
+
+            if (hasUnit && hasQty) {
+                const inputs = Array.from(container.querySelectorAll('input, select, .form-control'))
+                    .filter(i => i.type !== 'hidden' && window.getComputedStyle(i).display !== 'none');
+
+                if (inputs.length >= 2) {
+                    const unitVal = PhoenixScanner.extractValue(inputs[0]);
+                    const qtyVal = PhoenixScanner.extractValue(inputs[1]);
+
+                    if (unitVal && unitVal !== 'SELECT MATERIAL ...' && qtyVal) {
+                        console.log(`📦 [PHOENIX-GRID] Captured: ${unitVal} -> Qty: ${qtyVal}`);
+                        data.materials.push({ ITEM: 'GRID_MATERIAL', TYPE: unitVal, QTY: qtyVal });
                     }
                 }
             }
@@ -439,7 +463,7 @@ if (!document.getElementById('phoenix-hud')) {
     h.style.cssText = `position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(15,23,42,0.9); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: 'Inter', sans-serif; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); display: flex; align-items: center; pointer-events: none; transition: 0.3s;`;
 
     h.innerHTML = `
-        <span id="phoenix-status">PHOENIX OMNI v4.3.0</span>
+        <span id="phoenix-status">PHOENIX OMNI v4.4.0</span>
         <span id="phoenix-manual-indicator" style="display:none; color:#fbbf24; margin-left:8px;">[MANUAL MODE]</span>
         <button id="phoenix-manual-btn" style="margin-left:8px; background:#8b5cf6; border:none; color:white; border-radius:4px; cursor:pointer; padding:2px 8px; font-size:12px; pointer-events:auto; transition:0.2s;">+</button>
     `;
