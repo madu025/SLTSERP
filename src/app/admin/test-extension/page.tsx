@@ -90,11 +90,12 @@ function deepParseUI(scrapedData: any) {
         extracted['ONT Serial'] = serials.split('ONT_ROUTER_SERIAL_NUMBER')[1]?.trim().split(' ')[0];
     }
 
+    const desc = details['DP LOOP'] || extracted['DP LOOP'] || "";
     if (desc) {
         extracted['DP Loop'] = desc.split('OLT MANUFACTURER')[0]?.trim();
     }
 
-    const sales = details['SALES PERSON'] || deepData['SALES PERSON'] || "";
+    const sales = details['SALES PERSON'] || extracted['SALES PERSON'] || "";
     if (sales) {
         extracted['Sales Agent'] = sales.split('DP LOOP')[0]?.trim();
     }
