@@ -1,10 +1,10 @@
 /**
- * SLT-ERP PHOENIX OMNISCIENT v4.0.2
+ * SLT-ERP PHOENIX OMNISCIENT v4.0.3
  * Engine: Ultra-Aggressive Global Discovery & Semantic Reconstruction
  * Role: 100% Coverage SLT Portal Scraper
  */
 
-console.log('%c🔥 [PHOENIX-OMNISCIENT] v4.0.2 Activated', 'color: #ef4444; font-weight: bold; font-size: 18px; text-shadow: 0 0 8px rgba(239, 68, 68, 0.4);');
+console.log('%c🔥 [PHOENIX-OMNISCIENT] v4.0.3 Activated', 'color: #ef4444; font-weight: bold; font-size: 18px; text-shadow: 0 0 8px rgba(239, 68, 68, 0.4);');
 
 const PHOENIX_CONFIG = {
     IDENTIFIERS: {
@@ -13,7 +13,8 @@ const PHOENIX_CONFIG = {
             'RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'RECEIVED DATE',
             'CUSTOMER NAME', 'CONTACT NO', 'ADDRESS', 'STATUS', 'STATUS DATE',
             'ORDER TYPE', 'TASK', 'PACKAGE', 'EQUIPMENT CLASS', 'SALES PERSON'
-        ]
+        ],
+        MATERIAL_KEYWORDS: ['WIRE', 'POLE', 'CABLE', 'SOCKET', 'ONT', 'IPTV', 'ROUT', 'STB', 'SPLITTER', 'CONNECTOR', 'FTTH', 'METER']
     },
     JUNK: [/WELCOME/i, /LOGOUT/i, /CLICK HERE/i, /DASHBOARD/i, /IMPORTANT/i, /WARNING/i, /PENDING IMAGES/i],
     PULSE_RATE: 2000
@@ -53,7 +54,9 @@ const PhoenixScanner = {
         }
         const isBold = parseInt(style.fontWeight) >= 600;
         const hasColon = text.endsWith(':');
-        return (isCyan || (isBold && hasColon)) && text.length > 1 && text.length < 50;
+        const isMaterialHeading = PHOENIX_CONFIG.IDENTIFIERS.MATERIAL_KEYWORDS.some(k => text.toUpperCase().includes(k));
+
+        return (isCyan || (isBold && hasColon) || (isCyan && isMaterialHeading)) && text.length > 1 && text.length < 50;
     },
 
     unmask: (text) => {
@@ -79,26 +82,34 @@ class PhoenixOmniEngine {
         const data = { details: {}, materials: [], visuals: [] };
         const activeTab = PhoenixOmniEngine.getTab();
 
-        // Step 1: Deep Semantic Walk (Fields)
-        document.querySelectorAll('label, th, h1, h2, h3, h4, h5, b, strong, span, td, div').forEach(el => {
-            if (PhoenixScanner.isKey(el)) {
-                const key = PhoenixScanner.clean(el.innerText).replace(':', '').toUpperCase();
+        // Step 1: Material Dashboard Discovery (Aggressive)
+        // Focus on the layout shown in the screenshot: Cyan labels with adjacent inputs
+        if (activeTab === 'MATERIALS' || window.location.href.includes('materials')) {
+            document.querySelectorAll('div, tr, .row').forEach(container => {
+                const labels = Array.from(container.querySelectorAll('label, h1, h2, h3, h4, h5, b, strong, span, .text-cyan'))
+                    .filter(el => PhoenixScanner.isKey(el));
 
-                // Logic for "Form-Grid" items (Materials dashboard style)
-                // If we find a Cyan label, look for inputs/values in the immediate next container (row)
-                let parentRow = el.closest('.row, tr, div');
-                if (activeTab === 'MATERIALS' && parentRow) {
-                    const inputs = Array.from(parentRow.querySelectorAll('input, select, .form-control, .txtbg'));
+                if (labels.length > 0) {
+                    const inputs = Array.from(container.querySelectorAll('input, select, .form-control, .txtbg'))
+                        .filter(i => i.style.display !== 'none' && i.type !== 'hidden');
+
                     if (inputs.length >= 2) {
+                        const key = PhoenixScanner.clean(labels[0].innerText).replace(':', '').toUpperCase();
                         const itmName = PhoenixScanner.extractValue(inputs[0]);
                         const itmQty = PhoenixScanner.extractValue(inputs[1]);
-                        if (itmName && itmQty && !isNaN(parseInt(itmQty))) {
+
+                        if (itmName && itmQty && !isNaN(parseFloat(itmQty)) && itmName !== itmQty) {
                             data.materials.push({ ITEM: key, TYPE: itmName, QTY: itmQty });
                         }
                     }
                 }
+            });
+        }
 
-                // General Value Discovery
+        // Step 2: Global Semantic Walk
+        document.querySelectorAll('label, th, h1, h2, h3, h4, h5, b, strong, span, td, div').forEach(el => {
+            if (PhoenixScanner.isKey(el)) {
+                const key = PhoenixScanner.clean(el.innerText).replace(':', '').toUpperCase();
                 let val = '';
                 let next = el.nextElementSibling || el.nextSibling;
                 while (next && (next.nodeType === 3 && !next.textContent.trim())) next = next.nextSibling;
@@ -118,33 +129,6 @@ class PhoenixOmniEngine {
             }
         });
 
-        // Step 2: Adaptive Table Matrixing
-        document.querySelectorAll('table').forEach(table => {
-            const rows = Array.from(table.querySelectorAll('tr'));
-            if (rows.length < 1) return;
-            const headers = Array.from(rows[0].querySelectorAll('th, td')).map(h => PhoenixScanner.clean(h.innerText).toUpperCase());
-
-            rows.forEach((row, rIdx) => {
-                const cells = Array.from(row.querySelectorAll('td, th'));
-                if (cells.length < 2) return;
-
-                const itmIdx = headers.findIndex(h => h.includes('ITEM') || h.includes('DESCRIPTION') || h.includes('ATTRIBUTE'));
-                const valIdx = headers.findIndex(h => h.includes('QTY') || h.includes('VALUE') || h.includes('DEFAULT') || h.includes('SERIAL'));
-
-                if (itmIdx !== -1 && valIdx !== -1 && rIdx > 0) {
-                    const k = PhoenixScanner.clean(cells[itmIdx].innerText).toUpperCase();
-                    const v = PhoenixScanner.extractValue(cells[valIdx]);
-                    if (k && v && !PHOENIX_CONFIG.JUNK.some(p => p.test(v))) {
-                        if (headers[itmIdx].includes('ITEM') || headers[itmIdx].includes('DESCRIPTION')) {
-                            data.materials.push({ ITEM: 'MATERIAL', TYPE: k, QTY: v });
-                        } else {
-                            data.details[k] = v;
-                        }
-                    }
-                }
-            });
-        });
-
         // Step 3: Photo Synthesis
         if (activeTab.includes('IMAGE') || activeTab.includes('PHOTO')) {
             document.querySelectorAll('img').forEach(img => {
@@ -160,9 +144,9 @@ class PhoenixOmniEngine {
     }
 
     static getTab() {
-        const t = document.querySelector('.active a, .nav-link.active, .current-tab, #Materials_tab');
+        const t = document.querySelector('.active a, .nav-link.active, .current-tab, #Materials_tab, .tab-active');
         let name = t ? PhoenixScanner.clean(t.innerText || t.textContent).toUpperCase() : 'GENERAL';
-        if (window.location.href.includes('sod_materials')) name = 'MATERIALS';
+        if (window.location.href.includes('sod_materials') || window.location.href.includes('material')) name = 'MATERIALS';
         return name;
     }
 }
@@ -187,12 +171,16 @@ async function orchestrate() {
         const existing = GLOBAL_RECON.tabs[currentTab] || {};
         GLOBAL_RECON.tabs[currentTab] = { ...existing, ...captured.details };
 
-        // Material sync (Avoid duplicates)
+        // Permanent Material Registry
         if (captured.materials.length > 0) {
             if (!GLOBAL_RECON.tabs['MATERIALS_LIST']) GLOBAL_RECON.tabs['MATERIALS_LIST'] = [];
             captured.materials.forEach(m => {
-                const exists = GLOBAL_RECON.tabs['MATERIALS_LIST'].find(x => x.TYPE === m.TYPE && x.QTY === m.QTY);
-                if (!exists) GLOBAL_RECON.tabs['MATERIALS_LIST'].push(m);
+                const idx = GLOBAL_RECON.tabs['MATERIALS_LIST'].findIndex(x => x.ITEM === m.ITEM || x.TYPE === m.TYPE);
+                if (idx === -1) {
+                    GLOBAL_RECON.tabs['MATERIALS_LIST'].push(m);
+                } else {
+                    GLOBAL_RECON.tabs['MATERIALS_LIST'][idx] = m; // Update with latest values
+                }
             });
         }
     }
@@ -232,6 +220,6 @@ if (!document.getElementById('phoenix-hud')) {
     const h = document.createElement('div');
     h.id = 'phoenix-hud';
     h.style.cssText = `position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(15,23,42,0.9); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: 'Inter', sans-serif; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 8px; pointer-events: none;`;
-    h.innerHTML = `PHOENIX OMNI v4.0.2`;
+    h.innerHTML = `PHOENIX OMNI v4.0.3`;
     document.body.appendChild(h);
 }
