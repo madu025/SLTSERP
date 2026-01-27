@@ -1,26 +1,22 @@
 /**
- * SLT-ERP PHOENIX OMNISCIENT v4.0.3
- * Engine: Ultra-Aggressive Global Discovery & Semantic Reconstruction
+ * SLT-ERP PHOENIX OMNISCIENT v4.0.4
+ * Engine: Universal Input Mapping & Cross-Frame Harvesting
  * Role: 100% Coverage SLT Portal Scraper
  */
 
-console.log('%c🔥 [PHOENIX-OMNISCIENT] v4.0.3 Activated', 'color: #ef4444; font-weight: bold; font-size: 18px; text-shadow: 0 0 8px rgba(239, 68, 68, 0.4);');
+console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.0.4 Engaged (Universal)', 'color: #3b82f6; font-weight: bold; font-size: 18px;');
 
 const PHOENIX_CONFIG = {
     IDENTIFIERS: {
-        CYAN_RANGE: { r: [0, 180], g: [100, 255], b: [100, 255] },
-        MASH_KEYWORDS: [
-            'RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'RECEIVED DATE',
-            'CUSTOMER NAME', 'CONTACT NO', 'ADDRESS', 'STATUS', 'STATUS DATE',
-            'ORDER TYPE', 'TASK', 'PACKAGE', 'EQUIPMENT CLASS', 'SALES PERSON'
-        ],
+        CYAN_RANGE: { r: [0, 200], g: [100, 255], b: [100, 255] },
+        MASH_KEYWORDS: ['RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'CUSTOMER NAME', 'CONTACT NO', 'ADDRESS', 'STATUS', 'ORDER TYPE', 'PACKAGE', 'ONT', 'IPTV'],
         MATERIAL_KEYWORDS: ['WIRE', 'POLE', 'CABLE', 'SOCKET', 'ONT', 'IPTV', 'ROUT', 'STB', 'SPLITTER', 'CONNECTOR', 'FTTH', 'METER']
     },
-    JUNK: [/WELCOME/i, /LOGOUT/i, /CLICK HERE/i, /DASHBOARD/i, /IMPORTANT/i, /WARNING/i, /PENDING IMAGES/i],
+    JUNK: [/WELCOME/i, /LOGOUT/i, /CLICK HERE/i, /DASHBOARD/i, /IMPORTANT/i, /WARNING/i, /PENDING/i],
     PULSE_RATE: 2000
 };
 
-let GLOBAL_RECON = { so: '', tabs: {}, lastHash: '', stats: { fields: 0, tabs: 0 } };
+let GLOBAL_RECON = { so: '', tabs: {}, lastHash: '' };
 
 const PhoenixScanner = {
     clean: t => t ? t.replace(/\s+/g, ' ').trim() : '',
@@ -40,9 +36,11 @@ const PhoenixScanner = {
     },
 
     isKey: (el) => {
+        const text = PhoenixScanner.clean(el.innerText || '').toUpperCase();
+        if (text.length < 2 || text.length > 60) return false;
+
         const style = window.getComputedStyle(el);
         const color = style.color;
-        const text = PhoenixScanner.clean(el.innerText || '');
         const m = color.match(/\d+/g);
         let isCyan = false;
         if (m && m.length >= 3) {
@@ -52,28 +50,12 @@ const PhoenixScanner = {
                 g >= conf.g[0] && g <= conf.g[1] &&
                 b >= conf.b[0] && b <= conf.b[1];
         }
+
         const isBold = parseInt(style.fontWeight) >= 600;
         const hasColon = text.endsWith(':');
-        const isMaterialHeading = PHOENIX_CONFIG.IDENTIFIERS.MATERIAL_KEYWORDS.some(k => text.toUpperCase().includes(k));
+        const isKnownKey = PHOENIX_CONFIG.IDENTIFIERS.MATERIAL_KEYWORDS.some(k => text.includes(k));
 
-        return (isCyan || (isBold && hasColon) || (isCyan && isMaterialHeading)) && text.length > 1 && text.length < 50;
-    },
-
-    unmask: (text) => {
-        const results = {};
-        const keys = PHOENIX_CONFIG.IDENTIFIERS.MASH_KEYWORDS;
-        keys.forEach((key) => {
-            const start = text.indexOf(key);
-            if (start === -1) return;
-            let end = text.length;
-            keys.forEach(k2 => {
-                const nextIdx = text.indexOf(k2, start + key.length);
-                if (nextIdx !== -1 && nextIdx < end) end = nextIdx;
-            });
-            let val = PhoenixScanner.clean(text.substring(start + key.length, end));
-            if (val) results[key.toUpperCase()] = val;
-        });
-        return results;
+        return (isCyan || isBold || hasColon || isKnownKey);
     }
 };
 
@@ -82,39 +64,24 @@ class PhoenixOmniEngine {
         const data = { details: {}, materials: [], visuals: [] };
         const activeTab = PhoenixOmniEngine.getTab();
 
-        // Step 1: Material Dashboard Discovery (Aggressive)
-        // Focus on the layout shown in the screenshot: Cyan labels with adjacent inputs
-        if (activeTab === 'MATERIALS' || window.location.href.includes('materials')) {
-            document.querySelectorAll('div, tr, .row').forEach(container => {
-                const labels = Array.from(container.querySelectorAll('label, h1, h2, h3, h4, h5, b, strong, span, .text-cyan'))
-                    .filter(el => PhoenixScanner.isKey(el));
-
-                if (labels.length > 0) {
-                    const inputs = Array.from(container.querySelectorAll('input, select, .form-control, .txtbg'))
-                        .filter(i => i.style.display !== 'none' && i.type !== 'hidden');
-
-                    if (inputs.length >= 2) {
-                        const key = PhoenixScanner.clean(labels[0].innerText).replace(':', '').toUpperCase();
-                        const itmName = PhoenixScanner.extractValue(inputs[0]);
-                        const itmQty = PhoenixScanner.extractValue(inputs[1]);
-
-                        if (itmName && itmQty && !isNaN(parseFloat(itmQty)) && itmName !== itmQty) {
-                            data.materials.push({ ITEM: key, TYPE: itmName, QTY: itmQty });
-                        }
-                    }
-                }
-            });
-        }
-
-        // Step 2: Global Semantic Walk
-        document.querySelectorAll('label, th, h1, h2, h3, h4, h5, b, strong, span, td, div').forEach(el => {
+        // Strategy 1: Smart Semantic Extraction
+        document.querySelectorAll('label, th, b, strong, span, td, div, h1, h2, h3, h4, h5').forEach(el => {
             if (PhoenixScanner.isKey(el)) {
                 const key = PhoenixScanner.clean(el.innerText).replace(':', '').toUpperCase();
+
+                // Immediate Next Value
                 let val = '';
-                let next = el.nextElementSibling || el.nextSibling;
-                while (next && (next.nodeType === 3 && !next.textContent.trim())) next = next.nextSibling;
+                let next = el.nextElementSibling;
+                if (!next) {
+                    const parent = el.parentElement;
+                    if (parent && parent.children.length > 1) {
+                        next = Array.from(parent.children).find(c => c !== el);
+                    }
+                }
+
                 if (next) val = PhoenixScanner.extractValue(next);
 
+                // Grid fallback
                 if (!val || val === key) {
                     const cell = el.closest('td');
                     if (cell?.nextElementSibling) val = PhoenixScanner.extractValue(cell.nextElementSibling);
@@ -122,31 +89,46 @@ class PhoenixOmniEngine {
 
                 if (val && val !== key && !PHOENIX_CONFIG.JUNK.some(p => p.test(val))) {
                     data.details[key] = val;
-                    if (val.length > 50 && PHOENIX_CONFIG.IDENTIFIERS.MASH_KEYWORDS.some(k => val.includes(k))) {
-                        Object.assign(data.details, PhoenixScanner.unmask(val));
+                }
+            }
+        });
+
+        // Strategy 2: Universal Input -> Label Reverse Lookup (Brute Force)
+        document.querySelectorAll('input:not([type="hidden"]), select').forEach(input => {
+            const val = PhoenixScanner.extractValue(input);
+            if (!val || val.length < 1 || PHOENIX_CONFIG.JUNK.some(p => p.test(val))) return;
+
+            // Try to find the associated label
+            let container = input.closest('div, tr, .row, .form-group');
+            if (container) {
+                const labelEl = Array.from(container.querySelectorAll('label, b, span, th, h1, h2, h3, h4, 5'))
+                    .find(l => PhoenixScanner.isKey(l));
+                if (labelEl) {
+                    const key = PhoenixScanner.clean(labelEl.innerText).replace(':', '').toUpperCase();
+                    data.details[key] = val;
+
+                    // Specific Materials Tab support (Multiple inputs in one row)
+                    if (activeTab === 'MATERIALS' || window.location.href.includes('materials')) {
+                        const allInputs = Array.from(container.querySelectorAll('input, select'));
+                        if (allInputs.length >= 2) {
+                            const v1 = PhoenixScanner.extractValue(allInputs[0]);
+                            const v2 = PhoenixScanner.extractValue(allInputs[1]);
+                            if (v1 && v2 && !isNaN(parseFloat(v2))) {
+                                data.materials.push({ ITEM: key, TYPE: v1, QTY: v2 });
+                            }
+                        }
                     }
                 }
             }
         });
 
-        // Step 3: Photo Synthesis
-        if (activeTab.includes('IMAGE') || activeTab.includes('PHOTO')) {
-            document.querySelectorAll('img').forEach(img => {
-                const src = img.src || img.dataset.src;
-                if (src && src.startsWith('http') && !src.includes('no-image')) {
-                    const ctx = img.closest('.thumbnail, tr, td, div');
-                    data.visuals.push({ url: src, label: img.alt || 'Asset', context: PhoenixScanner.clean(ctx?.innerText || '').substring(0, 100) });
-                }
-            });
-        }
-
         return data;
     }
 
     static getTab() {
-        const t = document.querySelector('.active a, .nav-link.active, .current-tab, #Materials_tab, .tab-active');
+        const t = document.querySelector('.active a, .nav-link.active, .current-tab, #Materials_tab');
         let name = t ? PhoenixScanner.clean(t.innerText || t.textContent).toUpperCase() : 'GENERAL';
-        if (window.location.href.includes('sod_materials') || window.location.href.includes('material')) name = 'MATERIALS';
+        if (window.location.href.includes('sod_materials')) name = 'MATERIALS';
         return name;
     }
 }
@@ -167,20 +149,16 @@ async function orchestrate() {
     const currentTab = PhoenixOmniEngine.getTab();
     const captured = await PhoenixOmniEngine.scan();
 
+    // Persistent Merge
     if (Object.keys(captured.details).length > 0 || captured.materials.length > 0) {
-        const existing = GLOBAL_RECON.tabs[currentTab] || {};
-        GLOBAL_RECON.tabs[currentTab] = { ...existing, ...captured.details };
+        GLOBAL_RECON.tabs[currentTab] = { ...(GLOBAL_RECON.tabs[currentTab] || {}), ...captured.details };
 
-        // Permanent Material Registry
         if (captured.materials.length > 0) {
-            if (!GLOBAL_RECON.tabs['MATERIALS_LIST']) GLOBAL_RECON.tabs['MATERIALS_LIST'] = [];
+            if (!GLOBAL_RECON.tabs['MATERIALS_REGISTRY']) GLOBAL_RECON.tabs['MATERIALS_REGISTRY'] = [];
             captured.materials.forEach(m => {
-                const idx = GLOBAL_RECON.tabs['MATERIALS_LIST'].findIndex(x => x.ITEM === m.ITEM || x.TYPE === m.TYPE);
-                if (idx === -1) {
-                    GLOBAL_RECON.tabs['MATERIALS_LIST'].push(m);
-                } else {
-                    GLOBAL_RECON.tabs['MATERIALS_LIST'][idx] = m; // Update with latest values
-                }
+                const idx = GLOBAL_RECON.tabs['MATERIALS_REGISTRY'].findIndex(x => x.ITEM === m.ITEM);
+                if (idx === -1) GLOBAL_RECON.tabs['MATERIALS_REGISTRY'].push(m);
+                else GLOBAL_RECON.tabs['MATERIALS_REGISTRY'][idx] = m;
             });
         }
     }
@@ -193,8 +171,7 @@ async function orchestrate() {
         details: captured.details,
         allTabs: GLOBAL_RECON.tabs,
         teamDetails: { 'SELECTED TEAM': PhoenixScanner.extractValue(document.querySelector('#mobusr')) },
-        materialDetails: GLOBAL_RECON.tabs['MATERIALS_LIST'] || [],
-        visualDetails: captured.visuals,
+        materialDetails: GLOBAL_RECON.tabs['MATERIALS_REGISTRY'] || [],
         currentUser: PhoenixScanner.clean(document.querySelector('.user-profile-dropdown h6, #user_name')?.innerText || "").replace("Welcome, ", "")
     };
 
@@ -207,7 +184,7 @@ async function orchestrate() {
         const hud = document.getElementById('phoenix-hud');
         if (hud) {
             const count = Object.values(GLOBAL_RECON.tabs).reduce((a, b) => a + (Array.isArray(b) ? b.length : Object.keys(b).length), 0);
-            hud.innerHTML = `<span style="color:#22c55e">●</span> PHOENIX OMNI <span style="background:#f97316;color:black;padding:0 3px;margin:0 5px">${soNum}</span> [${count} DATA POINTS]`;
+            hud.innerHTML = `<span style="color:#22c55e">●</span> PHOENIX OMNI <span style="background:#3b82f6;color:white;padding:0 4px;margin:0 5px">${soNum}</span> [${count} FIELDS]`;
         }
     }
 }
@@ -219,7 +196,7 @@ orchestrate();
 if (!document.getElementById('phoenix-hud')) {
     const h = document.createElement('div');
     h.id = 'phoenix-hud';
-    h.style.cssText = `position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(15,23,42,0.9); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: 'Inter', sans-serif; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 8px; pointer-events: none;`;
-    h.innerHTML = `PHOENIX OMNI v4.0.3`;
+    h.style.cssText = `position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(15,23,42,0.9); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: 'Inter', sans-serif; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); pointer-events: none;`;
+    h.innerHTML = `PHOENIX OMNI v4.0.4`;
     document.body.appendChild(h);
 }
