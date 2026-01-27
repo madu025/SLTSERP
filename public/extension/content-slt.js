@@ -1,10 +1,10 @@
 /**
- * SLT-ERP PHOENIX OMNISCIENT v4.2.0
- * Engine: Hybrid Automated + Manual Forensic Scraper
+ * SLT-ERP PHOENIX OMNISCIENT v4.3.0
+ * Engine: Forensic Serial & Voice Test Specialist
  * Role: 100% Coverage SLT Portal Scraper
  */
 
-console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.2.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
+console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.3.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
 
 const PHOENIX_CONFIG = {
     IDENTIFIERS: {
@@ -144,7 +144,30 @@ class PhoenixOmniEngine {
             }
         });
 
-        // 2. Advanced Table Scraper (Multiple Table Types)
+        // 2. Specialized Key-Value Capture (Serials, Voice, Team)
+        // Targets: ONT_ROUTER_SERIAL_NUMBER, IPTV_CPE_SERIAL_NUMBER_1, VOICE_TEST_RESULT
+        const forensicTargets = ['SERIAL', 'NUMBER', 'VOICE', 'TEST', 'TEAM', 'ASSIGN', 'IPTV_CPE', 'ONT_ROUTER'];
+
+        PhoenixScanner.queryShadow('div, td, span, b, label').forEach(el => {
+            if (el.closest('#phoenix-hud')) return;
+            const text = PhoenixScanner.clean(el.innerText).toUpperCase();
+
+            if (forensicTargets.some(k => text.includes(k)) && text.length < 100) {
+                // Try to find the value in the next element or parent's next element
+                let val = "";
+                let next = el.nextElementSibling;
+                if (!next && el.parentElement) next = el.parentElement.nextElementSibling;
+
+                if (next) {
+                    val = PhoenixScanner.extractValue(next);
+                    if (val && val !== text && val.length > 2 && val.length < 200) {
+                        data.details[text.replace(/\s+/g, '_')] = val;
+                    }
+                }
+            }
+        });
+
+        // 3. Advanced Table Scraper (Multiple Table Types)
         document.querySelectorAll('table').forEach(table => {
             // Skip if table is inside HUD
             if (table.closest('#phoenix-hud')) return;
@@ -269,7 +292,12 @@ class PhoenixOmniEngine {
     }
 
     static getTab() {
-        if (window.location.href.includes('materials')) return 'MATERIALS';
+        const url = window.location.href;
+        if (url.includes('materials')) return 'MATERIALS';
+        if (url.includes('voice')) return 'VOICE_TEST';
+        if (url.includes('serial')) return 'SERIALS';
+        if (url.includes('team')) return 'TEAM';
+
         const t = document.querySelector('.active a, .nav-link.active, .current-tab');
         return t ? PhoenixScanner.clean(t.innerText || t.textContent).toUpperCase() : 'GENERAL';
     }
@@ -411,7 +439,7 @@ if (!document.getElementById('phoenix-hud')) {
     h.style.cssText = `position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(15,23,42,0.9); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; font-family: 'Inter', sans-serif; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); display: flex; align-items: center; pointer-events: none; transition: 0.3s;`;
 
     h.innerHTML = `
-        <span id="phoenix-status">PHOENIX OMNI v4.2.0</span>
+        <span id="phoenix-status">PHOENIX OMNI v4.3.0</span>
         <span id="phoenix-manual-indicator" style="display:none; color:#fbbf24; margin-left:8px;">[MANUAL MODE]</span>
         <button id="phoenix-manual-btn" style="margin-left:8px; background:#8b5cf6; border:none; color:white; border-radius:4px; cursor:pointer; padding:2px 8px; font-size:12px; pointer-events:auto; transition:0.2s;">+</button>
     `;
