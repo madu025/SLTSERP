@@ -4,7 +4,7 @@
  * Role: 100% Coverage SLT Portal Scraper
  */
 
-console.log('%c🚀 [PHOENIX-OMNISCIENT] v4.4.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
+console.log('%c[i-SHAMP-BRIDGE] v4.4.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
 
 const PHOENIX_CONFIG = {
     IDENTIFIERS: {
@@ -136,7 +136,7 @@ class PhoenixOmniEngine {
                     if (nextInput) {
                         const nextVal = PhoenixScanner.extractValue(nextInput);
                         if (nextVal && !isNaN(parseFloat(nextVal))) {
-                            console.log(`💎 [PHOENIX-MAT] Captured: ${label} -> ${val} (Qty: ${nextVal})`);
+                            console.log(`[i-SHAMP-MAT] Captured: ${label} -> ${val} (Qty: ${nextVal})`);
                             data.materials.push({ ITEM: label, TYPE: val, QTY: nextVal });
                         }
                     }
@@ -161,7 +161,7 @@ class PhoenixOmniEngine {
                     const qtyVal = PhoenixScanner.extractValue(inputs[1]);
 
                     if (unitVal && unitVal !== 'SELECT MATERIAL ...' && qtyVal) {
-                        console.log(`📦 [PHOENIX-GRID] Captured: ${unitVal} -> Qty: ${qtyVal}`);
+                        console.log(`[i-SHAMP-GRID] Captured: ${unitVal} -> Qty: ${qtyVal}`);
                         data.materials.push({ ITEM: 'GRID_MATERIAL', TYPE: unitVal, QTY: qtyVal });
                     }
                 }

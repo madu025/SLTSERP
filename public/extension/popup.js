@@ -1,5 +1,5 @@
 /**
- * SLT-ERP PHOENIX ELITE v3.1.5
+ * SLT-ERP i-SHAMP BRIDGE v4.4.0
  * Popup Logic: Intelligent Tab-Aware Bridge
  */
 
@@ -66,12 +66,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function render(data) {
         if (!data || !data.soNum) {
-            statusText.innerText = "Waiting for SLT Portal...";
-            list.innerHTML = `<div class="empty">📡<br><br><span style="font-size:11px">Navigate to a Service Order to begin synchronization.</span></div>`;
+            statusText.innerText = "Searching SLT Portal...";
+            list.innerHTML = `<div class="empty">(Scanning)<br><br><span style="font-size:11px">Navigate to a Service Order to begin synchronization.</span></div>`;
             return;
         }
 
-        statusText.innerText = `PHOENIX FOCUS: ${data.soNum}`;
+        statusText.innerText = `i-SHAMP ACTIVE: ${data.soNum}`;
         list.innerHTML = '';
 
         // Group data by category
@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.materialDetails && data.materialDetails.length > 0) {
             const matHeader = document.createElement('div');
             matHeader.style.cssText = 'background:#8b5cf6;color:white;padding:6px 12px;margin:16px 0 8px 0;font-size:10px;font-weight:800;letter-spacing:1px;border-radius:4px;';
-            matHeader.innerText = `📦 MATERIALS LIST (${data.materialDetails.length})`;
+            matHeader.innerText = `MATERIALS LIST (${data.materialDetails.length})`;
             list.appendChild(matHeader);
 
             const matTable = document.createElement('div');
