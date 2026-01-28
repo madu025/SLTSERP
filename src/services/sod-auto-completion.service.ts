@@ -40,9 +40,6 @@ export class SODAutoCompletionService {
         endDate: string
     ): Promise<SLTCompletedSOD[]> {
         try {
-            // Use existing SLT API service
-            const { sltApiService } = await import('./slt-api.service');
-
             // Fetch completed SODs using the same pattern as other methods
             const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load`;
             const params = new URLSearchParams({
@@ -154,7 +151,6 @@ export class SODAutoCompletionService {
                                     status: 'COMPLETED',
                                     sltsStatus: 'COMPLETED',
                                     completedDate: new Date(sltSOD.CON_STATUS_DATE),
-                                    sltsPatStatus: sltSOD.CON_STATUS,
                                 },
                                 'SYSTEM_AUTO_COMPLETE' // System user ID for audit
                             );

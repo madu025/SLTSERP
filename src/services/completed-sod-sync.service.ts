@@ -94,7 +94,6 @@ export class CompletedSODSyncService {
                                             {
                                                 status: sltData.CON_STATUS,
                                                 sltsStatus: finalSltsStatus,
-                                                sltsPatStatus: sltData.CON_STATUS,
                                                 completedDate: completedDate,
                                                 wiredOnly: isWiredOnly,
                                                 dpDetails: sltData.DP,
@@ -142,7 +141,6 @@ export class CompletedSODSyncService {
                                         // Status fields
                                         status: sltData.CON_STATUS,
                                         sltsStatus: finalSltsStatus,
-                                        sltsPatStatus: sltData.CON_STATUS,
 
                                         // Dates
                                         receivedDate: completedDate,

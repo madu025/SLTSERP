@@ -719,8 +719,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     <thead className="bg-slate-50 text-slate-600 font-medium border-b sticky top-0 z-40 shadow-sm shadow-slate-200/50">
                                         <tr>
                                             {isColumnVisible('soNum') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('soNum')}>SO Number <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'soNum' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('lea') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('lea')}>LEA <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'lea' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
-                                            {isColumnVisible('customerName') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('customerName')}>Customer <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'customerName' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                            {isColumnVisible('lea') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('lea')}>LEA <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'lea' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
+                                            {isColumnVisible('customerName') && filterType !== 'completed' && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('customerName')}>Customer <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'customerName' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                             {isColumnVisible('voiceNumber') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('voiceNumber')}>Voice <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'voiceNumber' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                             {isColumnVisible('package') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('package')}>Package <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'package' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                             {isColumnVisible('orderType') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('orderType')}>Order Type <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'orderType' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
@@ -745,8 +745,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Contractor</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap">Mat Status</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">OPMC PAT</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">Head Office PAT</th>}
-                                                    {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center text-[10px]">PAT Month</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">SLTS PAT</th>}
                                                     {filterType === 'completed' && <th className="px-3 py-2 whitespace-nowrap text-center">Invoice</th>}
                                                     {isColumnVisible('dp') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('dp')}>DP <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'dp' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
@@ -760,9 +758,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     <thead className="bg-[#f8f9fc] text-[9px] text-slate-400 font-bold border-b sticky top-[33px] z-30 shadow-sm backdrop-blur-md">
                                         {filterType === 'completed' && (
                                             <tr className="divide-x divide-slate-200/60 uppercase tracking-tight">
-                                                <th colSpan={10} className="px-3 py-0.5 text-left">Base Information</th>
+                                                <th colSpan={filterType === 'completed' ? 7 : 10} className="px-3 py-0.5 text-left">Base Information</th>
                                                 <th colSpan={2} className="px-3 py-0.5 text-center">Execution</th>
-                                                <th colSpan={5} className="px-3 py-0.5 text-center bg-blue-50/40 text-blue-500 font-black">PAT Clearance & Verification</th>
+                                                <th colSpan={3} className="px-3 py-0.5 text-center bg-blue-50/40 text-blue-500 font-black">PAT Clearance & Verification</th>
                                                 <th colSpan={3} className="px-3 py-0.5 text-center">Equipment</th>
                                             </tr>
                                         )}
@@ -797,8 +795,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                 </div>
                                                             </td>
                                                         )}
-                                                        {isColumnVisible('lea') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.lea || '-'}</td>}
-                                                        {isColumnVisible('customerName') && <td className="px-3 py-1.5 max-w-[120px] truncate" title={order.customerName || ''}>{order.customerName || '-'}</td>}
+                                                        {isColumnVisible('lea') && filterType !== 'completed' && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.lea || '-'}</td>}
+                                                        {isColumnVisible('customerName') && filterType !== 'completed' && <td className="px-3 py-1.5 max-w-[120px] truncate" title={order.customerName || ''}>{order.customerName || '-'}</td>}
                                                         {isColumnVisible('voiceNumber') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">{order.voiceNumber || '-'}</td>}
                                                         {isColumnVisible('package') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-semibold">{order.package || '-'}</span></td>}
                                                         {isColumnVisible('orderType') && <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-medium">{order.orderType || '-'}</span></td>}
@@ -898,17 +896,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                                     {new Date(order.opmcPatDate).toLocaleDateString()}
                                                                                 </div>
                                                                             )}
-                                                                        </td>
-                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase border ${order.hoPatStatus === 'PASS' || order.hoPatStatus === 'PAT_PASSED' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' :
-                                                                                order.hoPatStatus === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                                                    'bg-slate-50 text-slate-400 border-slate-200 opacity-60'
-                                                                                }`}>
-                                                                                {order.hoPatStatus || 'PENDING'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap text-[9px] text-slate-500 font-bold tracking-tighter uppercase italic">
-                                                                            {order.hoPatDate ? new Date(order.hoPatDate).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '-'}
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
                                                                             <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase border ${order.sltsPatStatus === 'PASS' || order.sltsPatStatus === 'PAT_PASSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm' :
