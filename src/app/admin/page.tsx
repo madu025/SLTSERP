@@ -14,31 +14,14 @@ export default function AdminPanel() {
     const { data: stats = { users: 0, staff: 0, opmcs: 0, contractors: 0 } } = useQuery({
         queryKey: ["admin-stats"],
         queryFn: async () => {
-            const [usersRes, staffRes, opmcsRes, contractorsRes] = await Promise.all([
-                fetch('/api/users'),
-                fetch('/api/staff'),
-                fetch('/api/opmcs'),
-                fetch('/api/contractors')
-            ]);
-
-            const usersData = await usersRes.json();
-            const staff = await staffRes.json();
-            const opmcs = await opmcsRes.json();
-            const contractorsData = await contractorsRes.json();
-
-            const usersCount = usersData.users ? usersData.users.length : (Array.isArray(usersData) ? usersData.length : 0);
-            const contractorsCount = contractorsData.contractors ? contractorsData.contractors.length : (Array.isArray(contractorsData) ? contractorsData.length : 0);
-
-            return {
-                users: usersCount,
-                staff: Array.isArray(staff) ? staff.length : 0,
-                opmcs: Array.isArray(opmcs) ? opmcs.length : 0,
-                contractors: contractorsCount
-            };
+            const res = await fetch('/api/admin/stats');
+            if (!res.ok) throw new Error('Failed to fetch stats');
+            return res.json();
         },
         staleTime: 600000, // 👈 Optimized: Keep stats fresh for 10 minutes
         refetchOnWindowFocus: false // 👈 Optimized: Don't refresh on tab Switch
     });
+
 
     const modules = [
         {

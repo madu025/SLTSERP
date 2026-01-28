@@ -113,6 +113,9 @@ model ServiceOrder {
   @@index([updatedAt])
   @@index([opmcId, status])
   @@index([opmcId, sltsStatus])
+  @@index([receivedDate])
+  @@index([statusDate])
+  @@index([isInvoicable])
   
   forensicAudit     SODForensicAudit?
 }
