@@ -1,5 +1,5 @@
 /**
- * SLT-ERP PHOENIX ELITE v3.1.0
+ * SLT-ERP i-SHAMP BRIDGE v4.4.0
  * World: ISOLATED
  * Role: ERP Identity & Bridge
  */
@@ -8,12 +8,18 @@
     const version = "4.4.0";
 
     // Set identity for ERP website to detect the extension
-    document.documentElement.setAttribute('data-phoenix-bridge', 'active');
-    document.documentElement.setAttribute('data-phoenix-version', version);
+    document.documentElement.setAttribute('data-ishamp-bridge', 'active');
+    document.documentElement.setAttribute('data-ishamp-version', version);
 
-    // Legacy support for ERP Header Detection
+    // Legacy support
+    document.documentElement.setAttribute('data-phoenix-bridge', 'active');
     document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
     document.documentElement.setAttribute('data-slt-bridge-version', version);
+
+    // Dispatch detection event for React components
+    window.dispatchEvent(new CustomEvent('SLT_BRIDGE_DETECTED', {
+        detail: { version: version }
+    }));
 
     // Sync Diagnostics
     chrome.storage.local.get(['lastScraped'], (res) => {
@@ -26,5 +32,6 @@
         chrome.storage.local.set({ diagnostics_erp: info });
     });
 
-    console.log(`%c⚡ PHOENIX ELITE v${version} Ready on ERP`, 'color: #10b981; font-weight: bold;');
+    console.log(`%c[i-SHAMP] Bridge v${version} Ready on ERP`, 'color: #10b981; font-weight: bold;');
 })();
+

@@ -16,9 +16,11 @@ export default function ExtensionStatus() {
 
     useEffect(() => {
         const check = () => {
-            const hasAttr = document.documentElement.getAttribute('data-slt-bridge-installed') === 'true' ||
+            const hasAttr = document.documentElement.getAttribute('data-ishamp-bridge') === 'active' ||
+                document.documentElement.getAttribute('data-slt-bridge-installed') === 'true' ||
                 document.documentElement.getAttribute('data-phoenix-bridge') === 'active';
-            const ver = document.documentElement.getAttribute('data-slt-bridge-version') ||
+            const ver = document.documentElement.getAttribute('data-ishamp-version') ||
+                document.documentElement.getAttribute('data-slt-bridge-version') ||
                 document.documentElement.getAttribute('data-phoenix-bridge-version') ||
                 (window as unknown as { SLT_BRIDGE_VERSION: string }).SLT_BRIDGE_VERSION;
 
