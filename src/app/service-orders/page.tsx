@@ -100,9 +100,14 @@ interface ServiceOrdersPageProps {
     pageTitle?: string;
 }
 
-// Helper for summary cards - Fixed Height Compact
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const SummaryCard = ({ title, value, icon: Icon, colorClass }: any) => (
+interface SummaryCardProps {
+    title: string;
+    value: string | number;
+    icon: React.ElementType;
+    colorClass: string;
+}
+
+const SummaryCard = ({ title, value, icon: Icon, colorClass }: SummaryCardProps) => (
     <Card className="shadow-none border h-14">
         <CardContent className="h-full px-3 flex items-center justify-between">
             <div>
@@ -1111,6 +1116,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     isReturn={pendingStatusChange?.newStatus === 'RETURN'}
                     isComplete={pendingStatusChange?.newStatus === 'COMPLETED'}
                     orderData={selectedOrder ? {
+                        id: selectedOrder.id, // Added ID
                         package: selectedOrder.package,
                         serviceType: selectedOrder.serviceType, // Pass Service Type
                         orderType: selectedOrder.orderType,     // Pass Order Type

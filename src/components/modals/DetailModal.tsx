@@ -20,6 +20,7 @@ import {
     History,
     Info,
     Package,
+    RefreshCw,
     ShieldCheck,
     Smartphone,
     User,
@@ -43,26 +44,45 @@ interface DetailModalProps {
 
 export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailModalProps) {
     const [activeTab, setActiveTab] = useState("details");
-    const [bridgeData, setBridgeData] = useState<Record<string, any> | null>(null);
+    const [coreOrder, setCoreOrder] = useState<Record<string, unknown> | null>(selectedOrder as unknown as Record<string, unknown>);
+    const [isLoadingCore, setIsLoadingCore] = useState(false);
+    const [bridgeData, setBridgeData] = useState<Record<string, unknown> | null>(null);
     const [isLoadingBridge, setIsLoadingBridge] = useState(false);
 
     useEffect(() => {
-        if (isOpen && selectedOrder?.soNum && activeTab === "inspector") {
-            const fetchData = async () => {
-                setIsLoadingBridge(true);
+        if (isOpen && selectedOrder?.soNum) {
+            setCoreOrder(selectedOrder); // Reset to prop first
+            const fetchCoreData = async () => {
+                setIsLoadingCore(true);
                 try {
-                    const res = await fetch(`/api/service-orders/bridge-data/${selectedOrder.soNum}`);
-                    const data = await res.json();
-                    if (data.success) setBridgeData(data.data);
+                    const res = await fetch(`/api/service-orders/core-data/${selectedOrder.soNum}`);
+                    const json = await res.json();
+                    if (json.success) setCoreOrder(json.data);
                 } catch (err) {
-                    console.error("Bridge fetch error:", err);
+                    console.error("Core fetch error:", err);
                 } finally {
-                    setIsLoadingBridge(false);
+                    setIsLoadingCore(false);
                 }
             };
-            fetchData();
+            fetchCoreData();
+
+            if (activeTab === "inspector") {
+                const fetchBridgeData = async () => {
+                    setIsLoadingBridge(true);
+                    try {
+                        const res = await fetch(`/api/service-orders/bridge-data/${selectedOrder.soNum}`);
+                        const data = await res.json();
+                        if (data.success) setBridgeData(data.data);
+                    } catch (err) {
+                        console.error("Bridge fetch error:", err);
+                    } finally {
+                        setIsLoadingBridge(false);
+                    }
+                };
+                fetchBridgeData();
+            }
         }
-    }, [isOpen, selectedOrder?.soNum, activeTab]);
+    }, [isOpen, selectedOrder, activeTab]);
 
     if (!selectedOrder) return null;
 
@@ -74,15 +94,16 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                         <div>
                             <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
                                 <Box className="w-5 h-5 text-blue-600" />
-                                {selectedOrder.soNum}
+                                {coreOrder?.soNum || selectedOrder.soNum}
+                                {isLoadingCore && <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />}
                             </DialogTitle>
                             <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wider">
-                                {selectedOrder.customerName || "Service Order Details"}
+                                {coreOrder?.customerName || selectedOrder.customerName || "Service Order Details"}
                             </p>
                         </div>
                         <div className="flex gap-2">
-                            <Badge variant={selectedOrder.sltsStatus === 'COMPLETED' ? "default" : "secondary"} className={selectedOrder.sltsStatus === 'COMPLETED' ? "bg-emerald-500 text-white border-none font-bold" : "font-bold"}>
-                                {selectedOrder.sltsStatus}
+                            <Badge variant={(coreOrder?.sltsStatus || selectedOrder.sltsStatus) === 'COMPLETED' ? "default" : "secondary"} className={(coreOrder?.sltsStatus || selectedOrder.sltsStatus) === 'COMPLETED' ? "bg-emerald-500 text-white border-none font-bold" : "font-bold"}>
+                                {coreOrder?.sltsStatus || selectedOrder.sltsStatus}
                             </Badge>
                         </div>
                     </div>
@@ -107,32 +128,41 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                         {/* Tab 1: Standard Details */}
                         <TabsContent value="details" className="p-6 m-0 outline-none">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <DetailItem icon={<Info className="w-3.5 h-3.5" />} label="SO Number" value={selectedOrder.soNum} isMono />
-                                <DetailItem icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="SLTS Status" value={selectedOrder.sltsStatus} isBold />
-                                <DetailItem icon={<User className="w-3.5 h-3.5" />} label="Customer Name" value={selectedOrder.customerName} />
-                                <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="Voice Number" value={selectedOrder.voiceNumber} />
-                                <DetailItem icon={<Package className="w-3.5 h-3.5" />} label="Service Type" value={selectedOrder.serviceType} />
-                                <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="DP" value={selectedOrder.dp} />
-                                <DetailItem icon={<Activity className="w-3.5 h-3.5" />} label="Status" value={selectedOrder.status} />
-                                <DetailItem icon={<FileJson className="w-3.5 h-3.5" />} label="Order Type" value={selectedOrder.orderType} />
-                                <DetailItem icon={<Package className="w-3.5 h-3.5" />} label="Package" value={selectedOrder.package} />
-                                <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="Tech Contact" value={selectedOrder.techContact} />
-                                <DetailItem icon={<User className="w-3.5 h-3.5" />} label="Sales Person" value={selectedOrder.sales} />
-                                <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="RTOM" value={selectedOrder.rtom} />
-                                <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="LEA" value={selectedOrder.lea} />
-                                <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="IPTV Number" value={selectedOrder.iptv} />
-                                <DetailItem icon={<FileJson className="w-3.5 h-3.5" />} label="WORO Task" value={selectedOrder.woroTaskName} />
-                                <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Received Date" value={selectedOrder.statusDate ? new Date(selectedOrder.statusDate).toLocaleDateString() : '-'} />
-                                <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Imported Date" value={selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString() : '-'} />
-                                <DetailItem icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SEIT (OSP)" value={selectedOrder.woroSeit} />
-                                <DetailItem icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SEIT (Inst)" value={selectedOrder.ftthInstSeit} />
-                                {selectedOrder.completionMode && <DetailItem icon={<Activity className="w-3.5 h-3.5" />} label="Completion Mode" value={selectedOrder.completionMode} />}
+                                <DetailItem icon={<Info className="w-3.5 h-3.5" />} label="SO Number" value={coreOrder?.soNum} isMono />
+                                <DetailItem icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="SLTS Status" value={coreOrder?.sltsStatus} isBold />
+                                <DetailItem icon={<User className="w-3.5 h-3.5" />} label="Customer Name" value={coreOrder?.customerName} />
+                                <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="Voice Number" value={coreOrder?.voiceNumber} />
+                                <DetailItem icon={<Package className="w-3.5 h-3.5" />} label="Service Type" value={coreOrder?.serviceType} />
+                                <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="DP" value={coreOrder?.dp} />
+                                <DetailItem icon={<Activity className="w-3.5 h-3.5" />} label="Status" value={coreOrder?.status} />
+                                <DetailItem icon={<FileJson className="w-3.5 h-3.5" />} label="Order Type" value={coreOrder?.orderType} />
+                                <DetailItem icon={<Package className="w-3.5 h-3.5" />} label="Package" value={coreOrder?.package} />
+                                <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="Tech Contact" value={coreOrder?.techContact} />
+                                <DetailItem icon={<User className="w-3.5 h-3.5" />} label="Sales Person" value={coreOrder?.sales} />
+                                <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="RTOM" value={coreOrder?.rtom} />
+                                <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="LEA" value={coreOrder?.lea} />
+                                <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="IPTV Number" value={coreOrder?.iptv} />
+                                <DetailItem icon={<FileJson className="w-3.5 h-3.5" />} label="WORO Task" value={coreOrder?.woroTaskName} />
+                                <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Received Date" value={coreOrder?.statusDate ? new Date(coreOrder.statusDate).toLocaleDateString() : '-'} />
+                                <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Imported Date" value={coreOrder?.createdAt ? new Date(coreOrder.createdAt).toLocaleDateString() : '-'} />
+                                <DetailItem icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SEIT (OSP)" value={coreOrder?.woroSeit} />
+                                <DetailItem icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SEIT (Inst)" value={coreOrder?.ftthInstSeit} />
+                                {coreOrder?.contractor?.name && (
+                                    <DetailItem icon={<ShieldCheck className="w-3.5 h-3.5" />} label="Contractor" value={coreOrder.contractor.name} isBold />
+                                )}
+                                {coreOrder?.directTeam && (
+                                    <DetailItem icon={<User className="w-3.5 h-3.5" />} label="Execution Team" value={coreOrder.directTeam} />
+                                )}
+                                {coreOrder?.completionMode && <DetailItem icon={<Activity className="w-3.5 h-3.5" />} label="Completion Mode" value={coreOrder.completionMode} />}
 
+                                {coreOrder?.completedDate && (
+                                    <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Completed Date" value={new Date(coreOrder.completedDate).toLocaleDateString()} isBold />
+                                )}
                                 <div className="md:col-span-2 lg:col-span-3">
-                                    <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="Address" value={selectedOrder.address} />
+                                    <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="Address" value={coreOrder?.address} />
                                 </div>
 
-                                {selectedOrder.scheduledDate && (
+                                {coreOrder?.scheduledDate && (
                                     <div className="md:col-span-2 lg:col-span-3 bg-slate-50 p-4 rounded-lg border border-slate-100 flex items-start gap-4">
                                         <div className="p-2 bg-blue-100 rounded-full text-blue-600">
                                             <Clock className="w-4 h-4" />
@@ -140,42 +170,42 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                         <div>
                                             <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Scheduled Appointment</label>
                                             <p className="text-sm text-slate-900 font-bold">
-                                                {new Date(selectedOrder.scheduledDate).toLocaleDateString()} at {selectedOrder.scheduledTime}
+                                                {new Date(coreOrder.scheduledDate).toLocaleDateString()} at {coreOrder.scheduledTime}
                                             </p>
                                         </div>
                                     </div>
                                 )}
 
-                                {selectedOrder.comments && (
+                                {coreOrder?.comments && (
                                     <div className="md:col-span-2 lg:col-span-3 bg-yellow-50/50 p-4 rounded-lg border border-yellow-100">
                                         <label className="text-xs font-bold text-yellow-700 uppercase block mb-1 flex items-center gap-1">
                                             <Info className="w-3 h-3" />
                                             System & User Comments
                                         </label>
-                                        <p className="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedOrder.comments}</p>
+                                        <p className="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">{coreOrder.comments}</p>
                                     </div>
                                 )}
 
                                 {/* NEW: Serials Display in Standard View */}
-                                {(selectedOrder.ontSerialNumber || selectedOrder.dpDetails || selectedOrder.iptvSerialNumbers) && (
+                                {(coreOrder?.ontSerialNumber || coreOrder?.dpDetails || coreOrder?.iptvSerialNumbers) && (
                                     <div className="md:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-900 rounded-xl border border-slate-800 text-white">
                                         <div>
                                             <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">ONT Serial Number</label>
-                                            <p className="text-xs font-mono font-bold text-emerald-400">{selectedOrder.ontSerialNumber || 'N/A'}</p>
+                                            <p className="text-xs font-mono font-bold text-emerald-400">{coreOrder.ontSerialNumber || 'N/A'}</p>
                                         </div>
                                         <div>
                                             <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">IPTV Serials</label>
-                                            <p className="text-xs font-mono font-bold text-blue-400">{selectedOrder.iptvSerialNumbers || 'N/A'}</p>
+                                            <p className="text-xs font-mono font-bold text-blue-400">{coreOrder.iptvSerialNumbers || 'N/A'}</p>
                                         </div>
                                         <div>
                                             <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">DP Details</label>
-                                            <p className="text-xs font-bold text-slate-300">{selectedOrder.dpDetails || 'N/A'}</p>
+                                            <p className="text-xs font-bold text-slate-300">{coreOrder.dpDetails || 'N/A'}</p>
                                         </div>
                                     </div>
                                 )}
 
                                 {/* NEW: Core Database Material Usage Display */}
-                                {selectedOrder.materialUsage && selectedOrder.materialUsage.length > 0 && (
+                                {coreOrder?.materialUsage && coreOrder.materialUsage.length > 0 && (
                                     <div className="md:col-span-2 lg:col-span-3">
                                         <div className="flex items-center gap-2 mb-3 mt-2">
                                             <Box className="w-3.5 h-3.5 text-blue-600" />
@@ -183,7 +213,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                             <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">VERIFIED</span>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {selectedOrder.materialUsage.map((usage, i) => (
+                                            {(coreOrder?.materialUsage as Array<Record<string, unknown>>)?.map((usage: Record<string, unknown>, i: number) => (
                                                 <div key={i} className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm hover:border-blue-200 transition-colors">
                                                     <div className="min-w-0">
                                                         <p className="text-[11px] font-bold text-slate-800 truncate">{usage.item?.name || 'Unknown Item'}</p>
@@ -202,7 +232,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                 )}
 
                                 {/* NEW: Forensic Audit Summary in Standard View */}
-                                {selectedOrder.forensicAudit && (
+                                {coreOrder?.forensicAudit && (
                                     <div className="md:col-span-2 lg:col-span-3">
                                         <div className="flex items-center gap-2 mb-3 mt-2">
                                             <Camera className="w-3.5 h-3.5 text-indigo-600" />
@@ -214,13 +244,13 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-400 uppercase font-black">Photos Captured</span>
                                                     <span className="text-sm font-black text-slate-900">
-                                                        {selectedOrder.forensicAudit.auditData.filter(a => a.status === 'UPLOADED').length} / {selectedOrder.forensicAudit.auditData.length}
+                                                        {(coreOrder as Record<string, unknown>)?.forensicAudit?.auditData?.filter((a: Record<string, unknown>) => a.status === 'UPLOADED').length || 0} / {(coreOrder as Record<string, unknown>)?.forensicAudit?.auditData?.length || 0}
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-col border-l pl-4">
                                                     <span className="text-[10px] text-slate-400 uppercase font-black">Voice Test</span>
-                                                    <Badge variant="outline" className={`mt-0.5 font-bold ${selectedOrder.forensicAudit.voiceTestStatus?.includes('PASS') ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
-                                                        {selectedOrder.forensicAudit.voiceTestStatus || 'NOT TESTED'}
+                                                    <Badge variant="outline" className={`mt-0.5 font-bold ${coreOrder.forensicAudit.voiceTestStatus?.includes('PASS') ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                                        {coreOrder.forensicAudit.voiceTestStatus || 'NOT TESTED'}
                                                     </Badge>
                                                 </div>
                                             </div>
@@ -273,9 +303,9 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     />
                                     <InspectorCard
                                         label="Voice Test"
-                                        value={selectedOrder.forensicAudit?.voiceTestStatus || "NOT TESTED"}
+                                        value={coreOrder?.forensicAudit?.voiceTestStatus || "NOT TESTED"}
                                         icon={<Smartphone className="w-4 h-4" />}
-                                        color={selectedOrder.forensicAudit?.voiceTestStatus?.includes('PASS') ? 'emerald' : 'amber'}
+                                        color={coreOrder?.forensicAudit?.voiceTestStatus?.includes('PASS') ? 'emerald' : 'amber'}
                                     />
                                     <InspectorCard
                                         label="Portal S-Val"
@@ -299,8 +329,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                         <span className="ml-auto text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">SMART VIEW</span>
                                     </div>
                                     <div className="space-y-2">
-                                        {bridgeData?.scrapedData && (bridgeData.scrapedData as Record<string, any>).materialDetails ? (
-                                            ((bridgeData.scrapedData as Record<string, any>).materialDetails as Array<{ NAME?: string; TYPE?: string; CODE?: string; QTY?: string; QUANTITY?: string }>).map((mat, i: number) => (
+                                        {bridgeData?.scrapedData && (bridgeData.scrapedData as Record<string, unknown>).materialDetails ? (
+                                            ((bridgeData.scrapedData as Record<string, unknown>).materialDetails as Array<{ NAME?: string; TYPE?: string; CODE?: string; QTY?: string; QUANTITY?: string }>).map((mat, i: number) => (
                                                 <div key={i} className="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
                                                     <span className="text-[11px] font-bold text-slate-300">{mat.NAME || mat.TYPE}</span>
                                                     <div className="flex gap-3 items-center">
@@ -331,16 +361,17 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {selectedOrder.forensicAudit?.auditData && selectedOrder.forensicAudit.auditData.length > 0 ? (
-                                            selectedOrder.forensicAudit.auditData.map((item, idx) => {
-                                                const isOptional = item.name?.toLowerCase().includes('feedback') || item.name?.toLowerCase().includes('additional');
-                                                const isMissing = item.status === 'MISSING';
+                                        {coreOrder?.forensicAudit?.auditData && (coreOrder.forensicAudit.auditData as Array<Record<string, unknown>>).length > 0 ? (
+                                            (coreOrder.forensicAudit.auditData as Array<Record<string, unknown>>).map((item: Record<string, unknown>, idx: number) => {
+                                                const itemTyped = item as { name?: string; status?: string; uuid?: string };
+                                                const isOptional = itemTyped.name?.toLowerCase().includes('feedback') || itemTyped.name?.toLowerCase().includes('additional');
+                                                const isMissing = itemTyped.status === 'MISSING';
 
                                                 return (
                                                     <div key={idx} className={`flex flex-col p-2.5 rounded-lg border transition-all duration-200 ${isMissing ? (isOptional ? 'bg-slate-800/40 border-slate-700' : 'bg-red-500/5 border-red-500/20') : 'bg-emerald-500/10 border-emerald-500/20'}`}>
                                                         <div className="flex items-start justify-between gap-2">
                                                             <span className={`text-[11px] font-bold leading-tight ${isMissing ? (isOptional ? 'text-slate-400' : 'text-red-300') : 'text-emerald-300'}`}>
-                                                                {item.name}
+                                                                {itemTyped.name}
                                                             </span>
                                                             {isMissing ? (
                                                                 <XCircle className="w-4 h-4 text-red-500 shrink-0" />
@@ -348,8 +379,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                                                             )}
                                                         </div>
-                                                        {!isMissing && item.uuid && (
-                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {item.uuid}</span>
+                                                        {!isMissing && itemTyped.uuid && (
+                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {itemTyped.uuid}</span>
                                                         )}
                                                         {!isMissing && (
                                                             <span className="text-[9px] font-bold text-emerald-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
@@ -386,7 +417,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                     </div>
                 </div>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }
 

@@ -17,7 +17,8 @@ function deepParse(masterData: Record<string, string>) {
         'RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'RECEIVED DATE',
         'CUSTOMER NAME', 'CONTACT NO', 'ADDRESS', 'STATUS', 'STATUS DATE',
         'ORDER TYPE', 'TASK', 'PACKAGE', 'EQUIPMENT CLASS',
-        'EQUIPMENT PURCHASE FROM SLT', 'SALES PERSON', 'DP LOOP'
+        'EQUIPMENT PURCHASE FROM SLT', 'SALES PERSON', 'DP LOOP',
+        'CONTRACTOR', 'TEAM', 'CON_NAME', 'MOBILE_TEAM'
     ];
 
     keywords.forEach((key) => {
@@ -47,8 +48,19 @@ function deepParse(masterData: Record<string, string>) {
 
 export async function POST(request: Request) {
     try {
-        const payload = await request.json();
-        const { soNum, allTabs, teamDetails, url, currentUser } = payload;
+        interface BridgeSyncPayload {
+            soNum: string;
+            allTabs?: Record<string, string>;
+            teamDetails?: Record<string, string>;
+            materialDetails?: Array<{ TYPE?: string; CODE?: string; NAME?: string; QTY?: string; qty?: string | number }>;
+            forensicAudit?: Array<Record<string, unknown>>;
+            url?: string;
+            currentUser?: string;
+            activeTab?: string;
+        }
+
+        const payload = (await request.json()) as BridgeSyncPayload;
+        const { soNum, allTabs, teamDetails, forensicAudit, url, currentUser } = payload;
 
         if (!soNum) {
             return NextResponse.json({ message: 'Service Order Number is required' }, { status: 400 });
@@ -96,8 +108,8 @@ export async function POST(request: Request) {
 
 
         // 5. Contractor Sync (Match by Name if captured)
-        const capturedContractorName = masterData['CON_NAME'] || masterData['CONTRACTOR'] || masterData['CONTRACTOR NAME'];
-        if (capturedContractorName && !mapping.contractorId) {
+        const capturedContractorName = masterData['CON_NAME'] || masterData['CONTRACTOR'] || masterData['CONTRACTOR NAME'] || masterData['CONTRACTOR_NAME'];
+        if (capturedContractorName && (!mapping.contractorId || mapping.contractorId === "")) {
             const contractor = await prisma.contractor.findFirst({
                 where: { name: { contains: capturedContractorName.trim(), mode: 'insensitive' } }
             });
@@ -117,7 +129,7 @@ export async function POST(request: Request) {
         }
 
         // 6.1 Always extract Serials & Materials from bridge
-        const materialDetails = (payload.materialDetails as Array<{ TYPE?: string; CODE?: string; NAME?: string; QTY?: string; qty?: string | number }>) || [];
+        const materialDetails = payload.materialDetails || [];
         const dropWireItem = materialDetails.find((m) => {
             const type = (m.TYPE || m.NAME || "").toUpperCase();
             return type && (type.includes('DROP WIRE') || type.includes('DWIRE') || type.includes('DW'));
@@ -163,8 +175,22 @@ export async function POST(request: Request) {
             try { dataToUpdate.statusDate = new Date(statusDateStr); } catch { /* ignore */ }
         }
 
+        // Handle Completed Status Automations
+        if (mapping.status === 'COMPLETED' || mapping.status === 'INSTALL_CLOSED' || mapping.status === 'PROV_CLOSED') {
+            // Auto-sync sltsStatus if it's not already something else final
+            if (!mapping.sltsStatus) {
+                dataToUpdate.sltsStatus = 'COMPLETED';
+            }
+
+            // Extract Completed Date
+            const compDateStr = masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || statusDateStr;
+            if (compDateStr) {
+                try { dataToUpdate.completedDate = new Date(compDateStr); } catch { /* ignore */ }
+            }
+        }
+
         // Match Team
-        const teamName = teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM'];
+        const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;
 
         if (teamName) {
             const teamCode = teamName.split('-')[0].trim();
@@ -182,7 +208,7 @@ export async function POST(request: Request) {
             }
         }
 
-        let syncedOrder: { id: string; soNum: string } | null = null;
+        let syncedOrder: { id: string; soNum: string; sltsStatus: string } | null = null;
         if (serviceOrder) {
             const result = await prisma.serviceOrder.update({
                 where: { id: serviceOrder.id },
@@ -201,12 +227,20 @@ export async function POST(request: Request) {
             syncedOrder = result;
         }
 
+        // 7.1 Auto-Pilot sltsStatus reinforcement
+        if (dataToUpdate.completedDate && syncedOrder && syncedOrder.sltsStatus !== 'COMPLETED') {
+            await prisma.serviceOrder.update({
+                where: { id: syncedOrder.id },
+                data: { sltsStatus: 'COMPLETED' }
+            });
+        }
+
         // 8. Forensic Audit Save
-        const forensictAuditPayload = (payload.forensicAudit as Record<string, unknown>[]) || [];
+        const forensictAuditPayload = forensicAudit || [];
         const voiceStatus = masterData['VOICE_TEST_RESULT'] || masterData['VOICE TEST'] || null;
 
         if (forensictAuditPayload.length > 0) {
-            const forensicModel = (prisma as Record<string, any>).sODForensicAudit;
+            const forensicModel = (prisma as unknown as { sODForensicAudit: { upsert: (args: Record<string, unknown>) => Promise<unknown> } }).sODForensicAudit;
             if (forensicModel) {
                 await forensicModel.upsert({
                     where: { soNum },

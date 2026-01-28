@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, X, ChevronRight, ChevronLeft, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info, RotateCcw } from "lucide-react";
+import { CalendarIcon, Plus, X, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -103,6 +104,7 @@ interface OrderActionModalProps {
     isReturn?: boolean;
     isComplete?: boolean;
     orderData?: {
+        id: string; // Added for type safety
         package?: string | null;
         serviceType?: string | null; // Added
         orderType?: string | null;   // Added
@@ -123,8 +125,8 @@ interface OrderActionModalProps {
         hoPatStatus?: string | null;
         materialUsage?: Array<{
             itemId: string;
-            quantity: string;
-            usageType: 'USED' | 'WASTAGE';
+            quantity: number | string;
+            usageType: string;
         }> | null;
     };
     contractors?: Array<{
@@ -180,6 +182,7 @@ export default function OrderActionModal({
 
     // Item Filtering State
     const [itemFilter, setItemFilter] = useState<string>("ALL");
+    const [prevOrderId, setPrevOrderId] = useState<string | null>(null);
 
     // Daily Operational Report Fields
     const [wiredOnly, setWiredOnly] = useState(false);
@@ -196,44 +199,148 @@ export default function OrderActionModal({
     const [stbShortage, setStbShortage] = useState(false);
     const [ontShortage, setOntShortage] = useState(false);
 
-    // Wizard Step State
-    const [step, setStep] = useState(1);
+    // Material Usage State (Moved to top)
+    const [materialUsage, setMaterialUsage] = useState<Array<{
+        itemId: string;
+        quantity: string;
+        usageType: 'USED' | 'WASTAGE';
+        comment: string;
+    }>>([]);
 
-    // ... (existing state) ...
+    // Extended Material View State (Moved to top)
+    const [extendedMaterialRows, setExtendedMaterialRows] = useState<Array<{
+        itemId: string;
+        usedQty: string;
+        wastageQty: string;
+        f1Qty?: string;
+        g1Qty?: string;
+        wastageReason?: string;
+        serialNumber?: string;
+    }>>([]);
+
+    // Tab Navigation State (Moved to top)
+    const [activeTab, setActiveTab] = useState<'details' | 'materials' | 'finish'>('details');
+
+    // Wizard Step State - (Retired for now)
+    // const [step, setStep] = useState(1);
+
 
     // Auto-detect filter based on order
-    useEffect(() => {
-        if (isOpen && orderData) {
-            // Auto-detect filter based on order
-            const pkg = (orderData.package || "").toUpperCase();
-            const sType = (orderData.serviceType || "").toUpperCase();
+    // Start of sync
+    // Reset state when modal closes to ensure fresh init on next open
+    if (!isOpen && prevOrderId !== null) {
+        setPrevOrderId(null);
+    }
 
-            if (pkg.includes("FIBER") || pkg.includes("FTTH") || sType.includes("FTTH")) {
-                setItemFilter("FTTH");
-            } else if (pkg.includes("PEO") || sType.includes("IPTV")) {
-                setItemFilter("FTTH"); // Usually Fiber
-            } else if (pkg.includes("MEGALINE") || pkg.includes("VOICE") || sType.includes("PSTN")) {
-                setItemFilter("PSTN");
-            } else {
-                setItemFilter("ALL");
-            }
-
-            // Auto-set Completion Mode
-            // If Order Type is MODIFY-LOCATION -> OFFLINE, else ONLINE
-            if (orderData.orderType?.toUpperCase().includes('MODIFY-LOCATION')) {
-                setCompletionMode('OFFLINE');
-            } else {
-                setCompletionMode('ONLINE');
-            }
+    // Initial sync
+    if (isOpen && orderData && orderData.id !== prevOrderId) {
+        setPrevOrderId(orderData.id);
+        // 1. Reset/Pre-fill Item Filter
+        const pkg_p = (orderData.package || "").toUpperCase();
+        const sType_p = (orderData.serviceType || "").toUpperCase();
+        let targetFilter = "ALL";
+        if (pkg_p.includes("FIBER") || pkg_p.includes("FTTH") || sType_p.includes("FTTH")) {
+            targetFilter = "FTTH";
+        } else if (pkg_p.includes("PEO") || sType_p.includes("IPTV")) {
+            targetFilter = "FTTH";
+        } else if (pkg_p.includes("MEGALINE") || pkg_p.includes("VOICE") || sType_p.includes("PSTN")) {
+            targetFilter = "PSTN";
         }
-    }, [isOpen, orderData]);
+        setItemFilter(targetFilter);
+
+        // 2. Pre-fill Date
+        if (orderData.completedDate) {
+            setDate(new Date(orderData.completedDate));
+        } else {
+            setDate(undefined);
+        }
+
+        // 3. Reset simple strings
+        setComment("");
+        setReason("");
+        setCustomReason("");
+        setOntType('NEW');
+
+        // 4. Pre-fill Serials
+        setOntSerialNumber(orderData.ontSerialNumber || "");
+
+        const iptvSerialsData = orderData.iptvSerialNumbers
+            ? (Array.isArray(orderData.iptvSerialNumbers) ? orderData.iptvSerialNumbers : [orderData.iptvSerialNumbers])
+            : [];
+
+        const iptvCount_val = orderData.iptv ? parseInt(orderData.iptv) : 0;
+        const isComplete_local = title?.toUpperCase().includes("COMPLETE");
+        const isReturn_local = title?.toUpperCase().includes("RETURN");
+        const useExtended_local = showExtendedFields || (isComplete_local && !isReturn_local);
+
+        if (useExtended_local && iptvCount_val > 0 && iptvSerialsData.length === 0) {
+            setIptvSerials(Array(iptvCount_val).fill(''));
+        } else {
+            setIptvSerials(iptvSerialsData);
+        }
+
+        setDpDetails(orderData.dp || "");
+
+        // 5. Pre-fill Material Usage
+        if (orderData.materialUsage && orderData.materialUsage.length > 0) {
+            const grouped: Record<string, { used: string, wastage: string }> = {};
+            orderData.materialUsage.forEach(m => {
+                const mid = m.itemId;
+                if (!grouped[mid]) grouped[mid] = { used: "", wastage: "" };
+                if (m.usageType === 'USED') grouped[mid].used = String(m.quantity);
+                if (m.usageType === 'WASTAGE') grouped[mid].wastage = String(m.quantity);
+            });
+
+            const rows = Object.entries(grouped).map(([itemId, qtys]) => ({
+                itemId,
+                usedQty: qtys.used,
+                wastageQty: qtys.wastage,
+                f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: ''
+            }));
+
+            setExtendedMaterialRows(rows);
+            setMaterialUsage(orderData.materialUsage.map(m => ({
+                itemId: m.itemId,
+                quantity: String(m.quantity),
+                usageType: (m.usageType === 'WASTAGE' ? 'WASTAGE' : 'USED') as 'USED' | 'WASTAGE',
+                comment: ''
+            })));
+            setMaterialStatus(orderData.comments?.includes('[MATERIAL_COMPLETED]') ? 'COMPLETED' : 'PENDING');
+        } else {
+            setExtendedMaterialRows([]);
+            setMaterialUsage([]);
+            setMaterialStatus('PENDING');
+        }
+
+        // 6. Assignment
+        setOpmcPatStatus(orderData.opmcPatStatus || 'PENDING');
+        setSltsPatStatus(orderData.sltsPatStatus || 'PENDING');
+        setHoPatStatus(orderData.hoPatStatus || 'PENDING');
+
+        if (orderData.directTeam) {
+            setAssignmentType('DIRECT_TEAM');
+            setDirectTeamName(orderData.directTeam);
+            setSelectedContractorId("");
+            setSelectedTeamId("");
+        } else if (orderData.contractorId) {
+            setAssignmentType('CONTRACTOR');
+            setSelectedContractorId(orderData.contractorId);
+            setSelectedTeamId(orderData.teamId || "");
+        } else {
+            setAssignmentType('CONTRACTOR');
+            setSelectedContractorId("");
+            setSelectedTeamId("");
+        }
+
+        // 7. Mode
+        setCompletionMode(orderData.completionMode as 'ONLINE' | 'OFFLINE' | null || (orderData.orderType?.toUpperCase().includes('MODIFY-LOCATION') ? 'OFFLINE' : 'ONLINE'));
+    }
 
     // Filter Items Logic
     const getFilteredItems = () => {
         if (itemFilter === 'ALL') return items;
         return items.filter(i => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let tags: any = i.commonFor;
+            let tags = i.commonFor as string | string[] | null | undefined;
             if (!tags || (Array.isArray(tags) && tags.length === 0)) return true; // Include if no tags
 
             // Handle Postgres raw string array format "{tag1,tag2}" or plain string "FTTH"
@@ -246,7 +353,7 @@ export default function OrderActionModal({
             // At this point, tags should be an array of strings (or we treat it as such)
             if (!Array.isArray(tags)) return false;
 
-            const upperTags = tags.map((t: string) => t.toUpperCase());
+            const upperTags = (tags as string[]).map((t: string) => t.toUpperCase());
             const filter = itemFilter.toUpperCase();
 
             return upperTags.includes(filter) ||
@@ -258,27 +365,6 @@ export default function OrderActionModal({
 
     const filteredItems = getFilteredItems();
 
-    // Material Usage State
-    const [materialUsage, setMaterialUsage] = useState<Array<{
-        itemId: string;
-        quantity: string;
-        usageType: 'USED' | 'WASTAGE';
-        comment: string;
-    }>>([]);
-
-    // Extended Material View State (Item Summary)
-    const [extendedMaterialRows, setExtendedMaterialRows] = useState<Array<{
-        itemId: string;
-        usedQty: string;
-        wastageQty: string;
-        f1Qty?: string;
-        g1Qty?: string;
-        wastageReason?: string;
-        serialNumber?: string;
-    }>>([]);
-
-    // Tab Navigation State
-    const [activeTab, setActiveTab] = useState<'details' | 'materials' | 'finish'>('details');
 
     // Preset Helper
     const applyMaterialPreset = (type: 'STANDARD' | 'CLEAR') => {
@@ -293,12 +379,10 @@ export default function OrderActionModal({
             if (!item) return;
             const existingIdx = newRows.findIndex(r => r.itemId === item.id);
             if (existingIdx >= 0) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (newRows[existingIdx] as any)[field] = value;
+                (newRows[existingIdx] as Record<string, string>)[field] = value;
             } else {
                 const newRow = { itemId: item.id, usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: '' };
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (newRow as any)[field] = value;
+                (newRow as Record<string, string>)[field] = value;
                 newRows.push(newRow);
             }
         };
@@ -317,44 +401,9 @@ export default function OrderActionModal({
         }
 
         setExtendedMaterialRows(newRows);
-        toast?.info && (toast as any).info(`${type === 'STANDARD' ? 'Standard' : 'Fresh'} materials applied`);
+        (toast as unknown as { info: (m: string) => void })?.info(`${type === 'STANDARD' ? 'Standard' : 'Fresh'} materials applied`);
     };
 
-    // Quick Entry State
-    const [quickMaterialId, setQuickMaterialId] = useState('');
-    const [quickUsedQty, setQuickUsedQty] = useState('');
-    const [quickWastageQty, setQuickWastageQty] = useState('');
-    const quickMaterialInputRef = React.useRef<any>(null);
-
-    const handleQuickAddMaterial = () => {
-        if (!quickMaterialId) {
-            alert('Please select a material item');
-            return;
-        }
-
-        // Add to extended rows
-        setExtendedMaterialRows([...extendedMaterialRows, {
-            itemId: quickMaterialId,
-            usedQty: quickUsedQty || '0',
-            wastageQty: quickWastageQty || '0',
-            f1Qty: '',
-            g1Qty: '',
-            wastageReason: '',
-            serialNumber: ''
-        }]);
-
-        // Clear inputs
-        setQuickMaterialId('');
-        setQuickUsedQty('');
-        setQuickWastageQty('');
-
-        // Focus back to material input
-        setTimeout(() => {
-            if (quickMaterialInputRef.current) {
-                quickMaterialInputRef.current.focus();
-            }
-        }, 100);
-    };
 
     const addExtendedRow = () => {
         setExtendedMaterialRows([...extendedMaterialRows, { itemId: '', usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: '' }]);
@@ -362,7 +411,7 @@ export default function OrderActionModal({
 
     const updateExtendedRow = (idx: number, field: string, value: string) => {
         const rows = [...extendedMaterialRows];
-        (rows[idx] as any)[field] = value;
+        (rows[idx] as Record<string, string | undefined>)[field] = value;
         setExtendedMaterialRows(rows);
     };
 
@@ -378,14 +427,14 @@ export default function OrderActionModal({
         } else {
             // Add new row
             const initialRow = { itemId, usedQty: '', wastageQty: '', f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: '' };
-            (initialRow as any)[field] = qty;
+            (initialRow as Record<string, string | undefined>)[field] = qty;
             setExtendedMaterialRows([...extendedMaterialRows, initialRow]);
         }
     };
 
     const getQuickQty = (itemId: string, field: string) => {
         const row = extendedMaterialRows.find(r => r.itemId === itemId);
-        return row ? (row as any)[field] : '';
+        return row ? (row as Record<string, string | undefined>)[field] : '';
     };
 
     // Identify Common Items dynamically with Priority Logic
@@ -453,162 +502,27 @@ export default function OrderActionModal({
     const selectedContractor = contractors.find(c => c.id === selectedContractorId);
     const availableTeams = selectedContractor?.teams || [];
 
-    useEffect(() => {
-        if (isOpen) {
-            // Pre-fill date if editing completed order
-            if (orderData?.completedDate) {
-                setDate(new Date(orderData.completedDate));
-            } else {
-                setDate(undefined);
-            }
-
-            setComment("");
-            setReason("");
-            setCustomReason("");
-            setOntType('NEW');
-
-            // Pre-fill ONT serial if editing completed order
-            if (orderData?.ontSerialNumber) {
-                setOntSerialNumber(orderData.ontSerialNumber);
-            } else {
-                setOntSerialNumber("");
-            }
-
-            if (orderData?.iptvSerialNumbers && orderData.iptvSerialNumbers.length > 0) {
-                setIptvSerials(orderData.iptvSerialNumbers);
-            } else {
-                setIptvSerials([]);
-            }
-            setDpDetails(orderData?.dp || "");
-
-            // Pre-fill extended material rows
-            if (orderData?.materialUsage && orderData.materialUsage.length > 0) {
-                const grouped: Record<string, { used: string, wastage: string }> = {};
-
-                orderData.materialUsage.forEach(m => {
-                    if (!grouped[m.itemId]) grouped[m.itemId] = { used: "", wastage: "" };
-                    if (m.usageType === 'USED') grouped[m.itemId].used = String(m.quantity);
-                    if (m.usageType === 'WASTAGE') grouped[m.itemId].wastage = String(m.quantity);
-                });
-
-                const rows = Object.entries(grouped).map(([itemId, qtys]) => ({
-                    itemId,
-                    usedQty: qtys.used,
-                    wastageQty: qtys.wastage
-                }));
-                setExtendedMaterialRows(rows);
-
-                // Set Material Status from comments
-                if (orderData.comments?.includes('[MATERIAL_COMPLETED]')) {
-                    setMaterialStatus('COMPLETED');
-                } else {
-                    setMaterialStatus('PENDING');
-                }
-
-                // Also set legacy material usage state
-                setMaterialUsage(orderData.materialUsage.map(m => ({
-                    itemId: m.itemId,
-                    quantity: String(m.quantity),
-                    usageType: m.usageType,
-                    comment: ''
-                })));
-            } else {
-                setMaterialUsage([]);
-                setExtendedMaterialRows([]);
-            }
-
-            if (orderData?.opmcPatStatus) {
-                setOpmcPatStatus(orderData.opmcPatStatus);
-            } else {
-                setOpmcPatStatus('PENDING');
-            }
-
-            if (orderData?.sltsPatStatus) {
-                setSltsPatStatus(orderData.sltsPatStatus);
-            } else {
-                setSltsPatStatus('PENDING');
-            }
-
-            if (orderData?.hoPatStatus) {
-                setHoPatStatus((orderData as any).hoPatStatus);
-            } else {
-                setHoPatStatus('PENDING');
-            }
-
-            // Assignment Pre-fill
-            if ((orderData as any)?.directTeam) {
-                setAssignmentType('DIRECT_TEAM');
-                setDirectTeamName((orderData as any).directTeam);
-                setSelectedContractorId("");
-                setSelectedTeamId("");
-            } else if (orderData?.contractorId) {
-                setAssignmentType('CONTRACTOR');
-                setSelectedContractorId(orderData.contractorId);
-                setSelectedTeamId(orderData.teamId || "");
-            } else {
-                setAssignmentType('CONTRACTOR');
-                setSelectedContractorId("");
-                setSelectedTeamId("");
-            }
-
-            // Set completion mode
-            setCompletionMode(orderData?.completionMode as any || (orderData?.orderType?.toUpperCase().includes('MODIFY-LOCATION') ? 'OFFLINE' : 'ONLINE'));
-        }
-    }, [isOpen, orderData]);
 
     // Calculate required IPTV serials count based on package type
     const iptvCount = orderData?.iptv ? parseInt(orderData.iptv) : 0;
-    const packageName = orderData?.package?.toUpperCase() || '';
 
     // Check if package requires IPTV serials
     const useExtendedView = showExtendedFields || (isComplete && !isReturn);
     const requiresIPTV = useExtendedView && iptvCount > 0;
 
-    // Initialize IPTV serial fields
-    useEffect(() => {
-        if (requiresIPTV && iptvSerials.length === 0) {
-            setIptvSerials(Array(iptvCount).fill(''));
-        }
-    }, [requiresIPTV, iptvCount]);
-
-    const handleIPTVSerialChange = (index: number, value: string) => {
-        const newSerials = [...iptvSerials];
-        newSerials[index] = value;
-        setIptvSerials(newSerials);
-    };
-
-    // Material Helpers
-    const addMaterialRow = () => {
-        setMaterialUsage([...materialUsage, { itemId: '', quantity: '', usageType: 'USED', comment: '' }]);
-    };
-
-    const removeMaterialRow = (idx: number) => {
-        setMaterialUsage(materialUsage.filter((_, i) => i !== idx));
-    };
-
-    const updateMaterialRow = (idx: number, field: string, value: string) => {
-        const newUsage = [...materialUsage];
-        (newUsage[idx] as any)[field] = value;
-        setMaterialUsage(newUsage);
-    };
 
     const handleConfirm = () => {
         if (!date) return;
 
-        // Validation: wastage check
         if (isComplete && materialStatus !== 'PENDING') {
-            const allRows = showExtendedFields
-                ? extendedMaterialRows
-                : materialUsage.filter(m => m.itemId && parseFloat(m.quantity) > 0).map(m => ({ itemId: m.itemId, usedQty: m.usageType === 'USED' ? m.quantity : '', wastageQty: m.usageType === 'WASTAGE' ? m.quantity : '', f1Qty: '', g1Qty: '' }));
-
             // We need to check combined usage for items (since Quick Add rows are in extendedMaterialRows)
             for (const row of extendedMaterialRows) {
                 if (!row.itemId) continue;
                 const item = items.find(i => i.id === row.itemId);
                 if (!item) continue;
 
-                const maxPerc = (item as any).maxWastagePercentage ?? 0;
-                const isWastageAllowed = (item as any).isWastageAllowed ?? true;
+                const maxPerc = item.maxWastagePercentage ?? 0;
+                const isWastageAllowed = item.isWastageAllowed ?? true;
                 if (!isWastageAllowed) continue; // Should not happen if UI is correct
 
                 // Calculate Usage
@@ -716,7 +630,7 @@ export default function OrderActionModal({
                             }
 
                             const item = items.find(i => i.id === row.itemId);
-                            const maxPerc = (item as any)?.maxWastagePercentage || 0;
+                            const maxPerc = item?.maxWastagePercentage || 0;
                             const wastage = parseFloat(row.wastageQty || '0') || 0;
 
                             // Calculate usage (F1+G1 for Drop Wire, usedQty for others)
@@ -763,7 +677,6 @@ export default function OrderActionModal({
                     <DialogTitle>{title}</DialogTitle>
                     {useExtendedView && (
                         <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 pt-2 border-t border-slate-100">
-                            {/* ... (Header badge content unchanged) ... */}
                             <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Voice</span><span className="text-xs font-mono font-medium text-slate-700">{orderData?.voiceNumber || 'N/A'}</span></div>
                             <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Pkg</span><span className="text-xs font-medium text-slate-700">{orderData?.package || 'N/A'}</span></div>
                             <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">IPTV</span><span className="text-xs font-medium text-slate-700">{orderData?.iptv || '0'}</span></div>
@@ -1009,8 +922,8 @@ export default function OrderActionModal({
                                             </div>
 
                                             {/* HERO SECTION: DROP WIRE */}
-                                            {quickItems.filter((q: any) => q.item.code === 'OSPFTA003').map((q: any) => {
-                                                const maxWastage = (q.item as any).maxWastagePercentage ?? 0;
+                                            {quickItems.filter((q) => q.item.code === 'OSPFTA003').map((q) => {
+                                                const maxWastage = q.item.maxWastagePercentage ?? 0;
                                                 const f1 = parseFloat(getQuickQty(q.item.id, 'f1Qty') || '0');
                                                 const g1 = parseFloat(getQuickQty(q.item.id, 'g1Qty') || '0');
                                                 const w = parseFloat(getQuickQty(q.item.id, 'wastageQty') || '0');
@@ -1111,13 +1024,13 @@ export default function OrderActionModal({
                                             {/* GRID SECTION: POLES & ACCESSORIES */}
                                             {/* GRID SECTION: COMMON MATERIALS */}
                                             {(() => {
-                                                const commonItems = quickItems.filter((q: any) => q.item.code !== 'OSPFTA003');
+                                                const commonItems = quickItems.filter((q) => q.item.code !== 'OSPFTA003');
                                                 const chunkSize = Math.ceil(commonItems.length / 3);
                                                 const leftItems = commonItems.slice(0, chunkSize);
                                                 const centerItems = commonItems.slice(chunkSize, chunkSize * 2);
                                                 const rightItems = commonItems.slice(chunkSize * 2);
 
-                                                const renderTable = (items: any[]) => (
+                                                const renderTable = (itemsToRender: typeof quickItems) => (
                                                     <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden ring-1 ring-slate-900/5">
                                                         <table className="w-full">
                                                             <thead className="bg-slate-50 border-b border-slate-100">
@@ -1129,8 +1042,8 @@ export default function OrderActionModal({
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
-                                                                {items.map((q: any) => {
-                                                                    const maxPerc = (q.item as any).maxWastagePercentage ?? 0;
+                                                                {itemsToRender.map((q) => {
+                                                                    const maxPerc = q.item.maxWastagePercentage ?? 0;
                                                                     const used = parseFloat(getQuickQty(q.item.id, 'usedQty') || '0');
                                                                     const wastage = parseFloat(getQuickQty(q.item.id, 'wastageQty') || '0');
                                                                     const limit = used * (maxPerc / 100);
@@ -1177,7 +1090,7 @@ export default function OrderActionModal({
                                                                                 </div>
                                                                             </td>
                                                                             <td className="px-1 py-2 text-center">
-                                                                                {((q.item as any).isWastageAllowed ?? true) ? (
+                                                                                {q.item.isWastageAllowed ?? true ? (
                                                                                     <div className="flex flex-col items-center gap-1 py-1">
                                                                                         <Input className={cn("h-7 w-12 mx-auto text-center font-mono text-xs shadow-sm transition-colors", exceeded ? "border-rose-400 focus:border-rose-500 bg-rose-50 text-rose-700" : "border-slate-100 bg-slate-50")}
                                                                                             placeholder="-"
@@ -1241,11 +1154,11 @@ export default function OrderActionModal({
                                                         </thead>
                                                         <tbody className="divide-y divide-slate-100">
                                                             {extendedMaterialRows.map((row, idx) => {
-                                                                const isQuickItem = quickItems.some((q: any) => q.item.id === row.itemId);
+                                                                const isQuickItem = quickItems.some((q) => q.item.id === row.itemId);
                                                                 if (isQuickItem) return null;
 
                                                                 const item = items.find(i => i.id === row.itemId);
-                                                                const maxPerc = ((item as any)?.maxWastagePercentage ?? 0);
+                                                                const maxPerc = (item?.maxWastagePercentage ?? 0);
                                                                 const usedQty = parseFloat(row.usedQty || '0');
                                                                 const wastageQty = parseFloat(row.wastageQty || '0');
                                                                 const limit = usedQty * (maxPerc / 100);
@@ -1262,7 +1175,7 @@ export default function OrderActionModal({
                                                                             <Input type="number" placeholder="0" className="h-8 text-right font-mono" value={row.usedQty} onChange={e => updateExtendedRow(idx, 'usedQty', e.target.value)} />
                                                                         </td>
                                                                         <td className="px-4 py-2 relative">
-                                                                            {((item as any)?.isWastageAllowed ?? true) ? (
+                                                                            {item?.isWastageAllowed ?? true ? (
                                                                                 <div className="flex flex-col gap-1.5 py-1">
                                                                                     <div className="relative">
                                                                                         <Input type="number" placeholder="0" className={cn("h-8 text-right font-mono transition-colors", blocked ? "bg-rose-50 text-rose-700 border-rose-300" : "")} value={row.wastageQty} onChange={e => updateExtendedRow(idx, 'wastageQty', e.target.value)} />
@@ -1293,7 +1206,7 @@ export default function OrderActionModal({
                                                                 )
                                                             })}
 
-                                                            {(!extendedMaterialRows.length || !extendedMaterialRows.some(row => !quickItems.some((q: any) => q.item.id === row.itemId))) && (
+                                                            {(!extendedMaterialRows.length || !extendedMaterialRows.some(row => !quickItems.some((q) => q.item.id === row.itemId))) && (
                                                                 <tr>
                                                                     <td colSpan={5} className="py-6 text-center text-slate-400 italic text-xs">No additional items added.</td>
                                                                 </tr>
@@ -1495,7 +1408,7 @@ interface ComboboxItem {
     commonName?: string | null;
 }
 
-function MaterialCombobox({ items, value, onChange, inputRef }: { items: ComboboxItem[], value: string, onChange: (val: string) => void, inputRef?: React.RefObject<any> }) {
+function MaterialCombobox({ items, value, onChange, inputRef }: { items: ComboboxItem[], value: string, onChange: (val: string) => void, inputRef?: React.RefObject<HTMLButtonElement | null> }) {
     const [open, setOpen] = useState(false);
     const selectedItem = items.find(i => i.id === value);
 
