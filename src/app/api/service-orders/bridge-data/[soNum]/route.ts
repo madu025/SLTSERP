@@ -3,19 +3,23 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
     request: Request,
-    { params }: { params: { soNum: string } }
+    { params }: { params: Promise<{ soNum: string }> }
 ) {
     try {
-        const { soNum } = params;
+        const { soNum } = await params;
 
         if (!soNum) {
             return NextResponse.json({ message: 'SO Number is required' }, { status: 400 });
         }
 
+        console.log(`[API-BRIDGE-DATA] Fetching for SO: ${soNum}`);
+
         const rawData = await prisma.extensionRawData.findFirst({
-            where: { soNum },
+            where: { soNum: { equals: soNum, mode: 'insensitive' } },
             orderBy: { createdAt: 'desc' }
         });
+
+        console.log(`[API-BRIDGE-DATA] Found: ${rawData ? 'YES' : 'NO'}`);
 
         return NextResponse.json({
             success: true,

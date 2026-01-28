@@ -171,6 +171,12 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                         color="indigo"
                                     />
                                     <InspectorCard
+                                        label="Selected Team"
+                                        value={bridgeData?.scrapedData?.teamDetails?.name || bridgeData?.scrapedData?.selectedTeam || "N/A"}
+                                        icon={<User className="w-4 h-4" />}
+                                        color="blue"
+                                    />
+                                    <InspectorCard
                                         label="ONT Serial"
                                         value={selectedOrder.ontSerialNumber || "PENDING"}
                                         icon={<ShieldCheck className="w-4 h-4" />}
