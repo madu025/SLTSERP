@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RefreshCw, Plus, Calendar, MessageSquare, ArrowUpDown, ChevronLeft, ChevronRight, FileText, UserCheck, CalendarCheck, Activity, RotateCcw, ClipboardList, AlertCircle, FileSpreadsheet, Info } from "lucide-react";
 
 import { toast } from "sonner";
+import { ServiceOrder } from "@/types/service-order";
 
 const ManualEntryModal = dynamic(() => import("@/components/modals/ManualEntryModal"), { ssr: false });
 const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"), { ssr: false });
@@ -22,53 +23,6 @@ const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionMo
 const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportModal"), { ssr: false });
 
 
-interface ServiceOrder {
-    id: string;
-    rtom: string;
-    lea: string | null;
-    soNum: string;
-    voiceNumber: string | null;
-    orderType: string | null;
-    serviceType: string | null;
-    customerName: string | null;
-    techContact: string | null;
-    status: string;
-    statusDate: string | null;
-    address: string | null;
-    dp: string | null;
-    package: string | null;
-    sales: string | null;
-    woroTaskName: string | null;
-    iptv: string | null;
-    sltsStatus: string;
-    scheduledDate: string | null;
-    scheduledTime: string | null;
-    comments: string | null;
-    createdAt: string;
-    contractorId?: string | null;
-    teamId?: string | null;
-    contractor?: { name: string };
-    completedDate?: string | null;
-    updatedAt?: string | null;
-    ontSerialNumber?: string | null;
-    iptvSerialNumbers?: string | null;
-    dpDetails?: string | null;
-    patStatus?: string | null;
-    opmcPatStatus?: string | null;
-    opmcPatDate?: string | null;
-    sltsPatStatus?: string | null;
-    hoPatStatus?: string | null;
-    hoPatDate?: string | null;
-    isInvoicable: boolean;
-    revenueAmount?: number | null;
-    contractorAmount?: number | null;
-    dropWireDistance?: number | null;
-    materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
-    directTeam?: string | null;
-    completionMode?: 'ONLINE' | 'OFFLINE';
-    isManualEntry?: boolean;
-    isLegacyImport?: boolean;
-}
 
 interface OPMC {
     id: string;
@@ -171,7 +125,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [selectedRtom, setSelectedRtom] = useState<string>("");
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
     const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
-    const [isRefreshing, setIsRefreshing] = useState(false);
     const [isSyncingCompleted, setIsSyncingCompleted] = useState(false);
 
     const handleManualCompletedSync = async () => {
@@ -193,7 +146,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             } else {
                 toast.error(data.error || "Sync failed");
             }
-        } catch (err) {
+        } catch {
             toast.error("Network error during sync");
         } finally {
             setIsSyncingCompleted(true); // Small delay before enabling
@@ -763,7 +716,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 <div className="p-8 text-center text-slate-500">Loading Orders...</div>
                             ) : (
                                 <table className="w-full text-xs text-left relative">
-                                    <thead className="bg-slate-50 text-slate-600 font-medium border-b sticky top-0 z-10 shadow-sm">
+                                    <thead className="bg-slate-50 text-slate-600 font-medium border-b sticky top-0 z-40 shadow-sm shadow-slate-200/50">
                                         <tr>
                                             {isColumnVisible('soNum') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('soNum')}>SO Number <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'soNum' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
                                             {isColumnVisible('lea') && <th className="px-3 py-2 cursor-pointer hover:bg-slate-100 whitespace-nowrap group" onClick={() => requestSort('lea')}>LEA <ArrowUpDown className={`w-3 h-3 inline ml-1 transition-opacity ${sortConfig?.key === 'lea' ? 'opacity-100 text-blue-600' : 'opacity-30 group-hover:opacity-100'}`} /></th>}
@@ -803,6 +756,16 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
 
                                             <th className="px-3 py-2 text-right whitespace-nowrap">Actions</th>
                                         </tr>
+                                    </thead>
+                                    <thead className="bg-[#f8f9fc] text-[9px] text-slate-400 font-bold border-b sticky top-[33px] z-30 shadow-sm backdrop-blur-md">
+                                        {filterType === 'completed' && (
+                                            <tr className="divide-x divide-slate-200/60 uppercase tracking-tight">
+                                                <th colSpan={10} className="px-3 py-0.5 text-left">Base Information</th>
+                                                <th colSpan={2} className="px-3 py-0.5 text-center">Execution</th>
+                                                <th colSpan={5} className="px-3 py-0.5 text-center bg-blue-50/40 text-blue-500 font-black">PAT Clearance & Verification</th>
+                                                <th colSpan={3} className="px-3 py-0.5 text-center">Equipment</th>
+                                            </tr>
+                                        )}
                                     </thead>
                                     <tbody className="divide-y text-[11px]">
                                         {paginatedOrders.length === 0 ? (
@@ -887,7 +850,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                             <SelectContent>
                                                                                 <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
                                                                                 <SelectItem value="COMPLETED" className="text-xs">Completed</SelectItem>
-                                                                                <SelectItem value="RETURN" className="text-xs">Return</SelectItem>
+                                                                                {/* Optimized: RETURN status removed from manual ERP selection. 
+                                                                                    Return processing must be done via the Chrome Addon for forensic capture. */}
                                                                             </SelectContent>
                                                                         </Select>
                                                                     </td>
@@ -917,47 +881,54 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     <>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
                                                                             {order.comments?.includes('[MATERIAL_COMPLETED]') ? (
-                                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-100 text-green-700 border border-green-200">DONE</span>
+                                                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">DONE</span>
                                                                             ) : (
-                                                                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500 border border-slate-200">PENDING</span>
+                                                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-400 border border-slate-200">PENDING</span>
                                                                             )}
                                                                         </td>
-                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${order.opmcPatStatus === 'PASS' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                                                                order.opmcPatStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                                                                                    'bg-slate-50 text-slate-400 border-slate-200'
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap group/pat relative">
+                                                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase border transition-all ${order.opmcPatStatus === 'PASS' || order.opmcPatStatus === 'PAT_PASSED' ? 'bg-sky-50 text-sky-700 border-sky-200 shadow-sm' :
+                                                                                order.opmcPatStatus === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                                                    'bg-slate-50 text-slate-400 border-slate-200 opacity-60'
                                                                                 }`}>
                                                                                 {order.opmcPatStatus || 'PENDING'}
                                                                             </span>
+                                                                            {order.opmcPatDate && (
+                                                                                <div className="hidden group-hover/pat:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-800 text-white text-[7px] px-1.5 py-0.5 rounded whitespace-nowrap z-50">
+                                                                                    {new Date(order.opmcPatDate).toLocaleDateString()}
+                                                                                </div>
+                                                                            )}
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${order.hoPatStatus === 'PASS' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                                                                order.hoPatStatus === 'REJECTED' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                                                                                    'bg-slate-50 text-slate-400 border-slate-200'
+                                                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase border ${order.hoPatStatus === 'PASS' || order.hoPatStatus === 'PAT_PASSED' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' :
+                                                                                order.hoPatStatus === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                                                    'bg-slate-50 text-slate-400 border-slate-200 opacity-60'
                                                                                 }`}>
                                                                                 {order.hoPatStatus || 'PENDING'}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap text-[10px] text-slate-500 font-medium">
+                                                                        <td className="px-3 py-1.5 text-center whitespace-nowrap text-[9px] text-slate-500 font-bold tracking-tighter uppercase italic">
                                                                             {order.hoPatDate ? new Date(order.hoPatDate).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '-'}
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${order.sltsPatStatus === 'PASS' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                                                                                order.sltsPatStatus === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
-                                                                                    'bg-yellow-100 text-yellow-700 border-yellow-200'
+                                                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold uppercase border ${order.sltsPatStatus === 'PASS' || order.sltsPatStatus === 'PAT_PASSED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm' :
+                                                                                order.sltsPatStatus === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                                                    'bg-amber-50 text-amber-600 border-amber-200'
                                                                                 }`}>
-                                                                                {order.sltsPatStatus || 'PENDING'}
+                                                                                {order.sltsStatus === 'COMPLETED' && (!order.sltsPatStatus || order.sltsPatStatus === 'PENDING') ? 'PENDING' : (order.sltsPatStatus || 'PENDING')}
                                                                             </span>
                                                                         </td>
                                                                         <td className="px-3 py-1.5 text-center whitespace-nowrap">
-                                                                            {order.isInvoicable ? (
-                                                                                <div className="flex flex-col items-center">
-                                                                                    <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[9px] font-bold uppercase shadow-sm">READY</span>
-                                                                                    <span className="text-[7px] text-blue-600 font-bold mt-0.5 uppercase tracking-tighter">INVOICABLE</span>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-bold uppercase border border-slate-200 opacity-50">BLOCKED</span>
-                                                                            )}
+                                                                            <div className="flex flex-col items-center justify-center min-h-[24px]">
+                                                                                {order.isInvoicable ? (
+                                                                                    <>
+                                                                                        <span className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[8px] font-black uppercase shadow-sm">READY</span>
+                                                                                        <span className="text-[6px] text-blue-500 font-black mt-0.5 uppercase tracking-tighter leading-none">INVOICABLE</span>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <span className="px-1.5 py-0.5 rounded-md bg-slate-50 text-slate-300 text-[8px] font-bold uppercase border border-slate-100">BLOCKED</span>
+                                                                                )}
+                                                                            </div>
                                                                         </td>
                                                                     </>
                                                                 )}

@@ -8,51 +8,19 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-
-interface AuditItem {
-    name: string;
-    status: string;
-    uuid?: string;
-}
+import { ServiceOrder, AuditItem } from "@/types/service-order";
 
 interface DetailModalProps {
     isOpen: boolean;
     onClose: () => void;
-    selectedOrder: {
-        soNum: string;
-        sltsStatus: string;
-        customerName: string;
-        voiceNumber: string;
-        serviceType: string;
-        dp: string;
-        status: string;
-        orderType: string;
-        package: string;
-        techContact: string;
-        sales: string;
-        rtom: string;
-        lea: string;
-        iptv: string;
-        woroTaskName: string;
-        statusDate: string;
-        createdAt: string;
-        updatedAt: string;
-        woroSeit: string;
-        ftthInstSeit: string;
-        completionMode?: string;
-        address: string;
-        scheduledDate?: string;
-        scheduledTime?: string;
-        comments?: string;
-        ontSerialNumber?: string;
-        iptvSerialNumbers?: string;
-        dpDetails?: string;
-        dropWireDistance?: number;
+    selectedOrder: (ServiceOrder & {
+        woroSeit?: string | null;
+        ftthInstSeit?: string | null;
         forensicAudit?: {
             auditData: AuditItem[];
             voiceTestStatus: string | null;
         };
-    } | null;
+    }) | null;
 }
 
 export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailModalProps) {
@@ -202,7 +170,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </div>
 
                             <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
-                                <span className="text-[10px] text-slate-500 italic">Last forensic sync: {new Date(selectedOrder.updatedAt).toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-500 italic">Last forensic sync: {selectedOrder.updatedAt ? new Date(selectedOrder.updatedAt).toLocaleString() : 'Never'}</span>
                                 <div className="flex gap-4 text-[10px] font-bold">
                                     <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> <span className="text-emerald-500">UPLOADED</span></div>
                                     <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-red-500 rounded-full" /> <span className="text-red-500">MISSING</span></div>
