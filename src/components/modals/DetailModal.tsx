@@ -29,24 +29,49 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+// Define the shape of the extended ServiceOrder
+export type DetailedServiceOrder = ServiceOrder & {
+    woroSeit?: string | null;
+    ftthInstSeit?: string | null;
+    forensicAudit?: {
+        auditData: AuditItem[];
+        voiceTestStatus: string | null;
+    };
+};
+
+// Define the shape of the Bridge Data (Scraped Data)
+export interface BridgeData {
+    sltUser?: string;
+    activeTab?: string;
+    updatedAt?: string;
+    scrapedData?: {
+        teamDetails?: { name?: string };
+        selectedTeam?: string;
+        masterData?: Record<string, string>;
+        materialDetails?: Array<{
+            NAME?: string;
+            TYPE?: string;
+            CODE?: string;
+            QTY?: string;
+            QUANTITY?: string;
+        }>;
+    };
+}
+
 interface DetailModalProps {
     isOpen: boolean;
     onClose: () => void;
-    selectedOrder: (ServiceOrder & {
-        woroSeit?: string | null;
-        ftthInstSeit?: string | null;
-        forensicAudit?: {
-            auditData: AuditItem[];
-            voiceTestStatus: string | null;
-        };
-    }) | null;
+    selectedOrder: DetailedServiceOrder | null;
 }
 
 export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailModalProps) {
     const [activeTab, setActiveTab] = useState("details");
-    const [coreOrder, setCoreOrder] = useState<Record<string, unknown> | null>(selectedOrder as unknown as Record<string, unknown>);
+
+    // Initialize with prop, strictly typed
+    const [coreOrder, setCoreOrder] = useState<DetailedServiceOrder | null>(selectedOrder);
     const [isLoadingCore, setIsLoadingCore] = useState(false);
-    const [bridgeData, setBridgeData] = useState<Record<string, unknown> | null>(null);
+
+    const [bridgeData, setBridgeData] = useState<BridgeData | null>(null);
     const [isLoadingBridge, setIsLoadingBridge] = useState(false);
 
     useEffect(() => {
@@ -57,7 +82,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                 try {
                     const res = await fetch(`/api/service-orders/core-data/${selectedOrder.soNum}`);
                     const json = await res.json();
-                    if (json.success) setCoreOrder(json.data);
+                    if (json.success) setCoreOrder(json.data as DetailedServiceOrder);
                 } catch (err) {
                     console.error("Core fetch error:", err);
                 } finally {
@@ -72,7 +97,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                     try {
                         const res = await fetch(`/api/service-orders/bridge-data/${selectedOrder.soNum}`);
                         const data = await res.json();
-                        if (data.success) setBridgeData(data.data);
+                        if (data.success) setBridgeData(data.data as BridgeData);
                     } catch (err) {
                         console.error("Bridge fetch error:", err);
                     } finally {
@@ -213,7 +238,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                             <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">VERIFIED</span>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {(coreOrder?.materialUsage as Array<Record<string, unknown>>)?.map((usage: Record<string, unknown>, i: number) => (
+                                            {coreOrder.materialUsage.map((usage, i) => (
                                                 <div key={i} className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm hover:border-blue-200 transition-colors">
                                                     <div className="min-w-0">
                                                         <p className="text-[11px] font-bold text-slate-800 truncate">{usage.item?.name || 'Unknown Item'}</p>
@@ -244,7 +269,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                 <div className="flex flex-col">
                                                     <span className="text-[10px] text-slate-400 uppercase font-black">Photos Captured</span>
                                                     <span className="text-sm font-black text-slate-900">
-                                                        {(coreOrder as Record<string, unknown>)?.forensicAudit?.auditData?.filter((a: Record<string, unknown>) => a.status === 'UPLOADED').length || 0} / {(coreOrder as Record<string, unknown>)?.forensicAudit?.auditData?.length || 0}
+                                                        {coreOrder.forensicAudit?.auditData?.filter(a => a.status === 'UPLOADED').length || 0} / {coreOrder.forensicAudit?.auditData?.length || 0}
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-col border-l pl-4">
@@ -329,8 +354,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                         <span className="ml-auto text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">SMART VIEW</span>
                                     </div>
                                     <div className="space-y-2">
-                                        {bridgeData?.scrapedData && (bridgeData.scrapedData as Record<string, unknown>).materialDetails ? (
-                                            ((bridgeData.scrapedData as Record<string, unknown>).materialDetails as Array<{ NAME?: string; TYPE?: string; CODE?: string; QTY?: string; QUANTITY?: string }>).map((mat, i: number) => (
+                                        {bridgeData?.scrapedData?.materialDetails ? (
+                                            bridgeData.scrapedData.materialDetails.map((mat, i) => (
                                                 <div key={i} className="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
                                                     <span className="text-[11px] font-bold text-slate-300">{mat.NAME || mat.TYPE}</span>
                                                     <div className="flex gap-3 items-center">
@@ -361,17 +386,16 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {coreOrder?.forensicAudit?.auditData && (coreOrder.forensicAudit.auditData as Array<Record<string, unknown>>).length > 0 ? (
-                                            (coreOrder.forensicAudit.auditData as Array<Record<string, unknown>>).map((item: Record<string, unknown>, idx: number) => {
-                                                const itemTyped = item as { name?: string; status?: string; uuid?: string };
-                                                const isOptional = itemTyped.name?.toLowerCase().includes('feedback') || itemTyped.name?.toLowerCase().includes('additional');
-                                                const isMissing = itemTyped.status === 'MISSING';
+                                        {coreOrder?.forensicAudit?.auditData && coreOrder.forensicAudit.auditData.length > 0 ? (
+                                            coreOrder.forensicAudit.auditData.map((item, idx) => {
+                                                const isOptional = item.name?.toLowerCase().includes('feedback') || item.name?.toLowerCase().includes('additional');
+                                                const isMissing = item.status === 'MISSING';
 
                                                 return (
                                                     <div key={idx} className={`flex flex-col p-2.5 rounded-lg border transition-all duration-200 ${isMissing ? (isOptional ? 'bg-slate-800/40 border-slate-700' : 'bg-red-500/5 border-red-500/20') : 'bg-emerald-500/10 border-emerald-500/20'}`}>
                                                         <div className="flex items-start justify-between gap-2">
                                                             <span className={`text-[11px] font-bold leading-tight ${isMissing ? (isOptional ? 'text-slate-400' : 'text-red-300') : 'text-emerald-300'}`}>
-                                                                {itemTyped.name}
+                                                                {item.name}
                                                             </span>
                                                             {isMissing ? (
                                                                 <XCircle className="w-4 h-4 text-red-500 shrink-0" />
@@ -379,8 +403,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                                                             )}
                                                         </div>
-                                                        {!isMissing && itemTyped.uuid && (
-                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {itemTyped.uuid}</span>
+                                                        {!isMissing && item.uuid && (
+                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {item.uuid}</span>
                                                         )}
                                                         {!isMissing && (
                                                             <span className="text-[9px] font-bold text-emerald-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
