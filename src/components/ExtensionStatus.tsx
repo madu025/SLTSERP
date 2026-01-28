@@ -58,7 +58,7 @@ export default function ExtensionStatus() {
                 <PopoverTrigger asChild>
                     <button className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 hover:bg-emerald-100 transition-all font-bold">
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span className="text-[10px] uppercase tracking-wider">Bridge Connected</span>
+                        <span className="text-[10px] uppercase tracking-wider">i-Shamp Connected</span>
                     </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 p-4 shadow-xl border-emerald-100" align="end">
@@ -87,14 +87,14 @@ export default function ExtensionStatus() {
             <PopoverTrigger asChild>
                 <button className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 text-amber-600 rounded-full border border-amber-100 animate-pulse hover:bg-amber-100 transition-colors">
                     <AlertCircle className="w-3.5 h-3.5" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Bridge Missing</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">i-Shamp Missing</span>
                 </button>
             </PopoverTrigger>
             <PopoverContent className="w-80 p-0 shadow-xl border-amber-100" align="end">
                 <div className="bg-amber-50 p-4 border-b border-amber-100">
                     <h3 className="text-sm font-bold text-amber-900 flex items-center gap-2">
                         <Download className="w-4 h-4" />
-                        Install Phoenix Omniscient v4.0.0 (Master Build)
+                        Install i-Shamp Bridge v4.4.0 (Master Build)
                     </h3>
                     <p className="text-xs text-amber-700 mt-1 leading-relaxed">
                         To sync Team Assignments, Serial Numbers, and Materials directly from SLT Portal, install the updated extension.
@@ -121,7 +121,7 @@ export default function ExtensionStatus() {
                         size="sm"
                         onClick={() => window.open('/slt-bridge.zip', '_blank')}
                     >
-                        Download Omniscient Extension v4.0.0
+                        Download i-Shamp Bridge Extension v4.4.0
                     </Button>
                 </div>
             </PopoverContent>

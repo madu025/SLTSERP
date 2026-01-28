@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "SLT-ERP PHOENIX ELITE",
+    "name": "SLT-ERP i-Shamp Bridge",
     "version": "4.4.0",
     "description": "Premium High-Precision Sync for SLT-ERP",
     "permissions": [
@@ -31,6 +31,27 @@
             ],
             "run_at": "document_end",
             "all_frames": true
+        },
+        {
+            "matches": [
+                "http://localhost:3000/*",
+                "https://d2ixqikwtprwf0.cloudfront.net/*"
+            ],
+            "js": [
+                "content-erp.js"
+            ],
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "http://localhost:3000/*",
+                "https://d2ixqikwtprwf0.cloudfront.net/*"
+            ],
+            "js": [
+                "content-main.js"
+            ],
+            "run_at": "document_end",
+            "world": "MAIN"
         }
     ],
     "web_accessible_resources": [
