@@ -39,7 +39,12 @@ export interface ServiceOrder {
     revenueAmount?: number | null;
     contractorAmount?: number | null;
     dropWireDistance?: number | null;
-    materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
+    materialUsage?: Array<{
+        itemId: string;
+        quantity: number;
+        usageType: string;
+        item?: { name: string; code: string; unit: string };
+    }> | null;
     directTeam?: string | null;
     completionMode?: 'ONLINE' | 'OFFLINE';
     isManualEntry?: boolean;

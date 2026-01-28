@@ -83,7 +83,8 @@ export async function POST(request: Request) {
             package: masterData['PACKAGE'] || deepData['PACKAGE'],
             iptv: masterData['IPTV'],
             ontSerialNumber: masterData['ONT'] || masterData['ONT SERIAL'] || masterData['SERIAL'] || masterData['ONT_ROUTER_SERIAL_NUMBER'],
-            iptvSerialNumbers: masterData['IPTV SERIAL'] || masterData['STB SERIAL'],
+            iptvSerialNumbers: masterData['IPTV SERIAL'] || masterData['STB SERIAL'] || masterData['IPTV_CPE_SERIAL_NUMBER_1'],
+            dpDetails: masterData['DP LOOP'] || masterData['DP'] || deepData['DP LOOP'] || masterData['DP_DETAILS'] || masterData['CONNECTION POINT (DP)'],
             sales: masterData['SALES PERSON'] || masterData['SALES'] || deepData['SALES PERSON'],
         };
 
@@ -115,40 +116,24 @@ export async function POST(request: Request) {
             mapping.comments = masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || 'Customer delays';
         }
 
-        // If it's a standard completed order (previous logic preserved)
-        const isCompletedInERP = serviceOrder?.sltsStatus === 'COMPLETED' ||
-            serviceOrder?.sltsStatus === 'INSTALL_CLOSED' ||
-            serviceOrder?.sltsStatus === 'PROV_CLOSED';
+        // 6.1 Always extract Serials & Materials from bridge
+        const materialDetails = (payload.materialDetails as Array<{ TYPE?: string; CODE?: string; NAME?: string; QTY?: string; qty?: string | number }>) || [];
+        const dropWireItem = materialDetails.find((m) => {
+            const type = (m.TYPE || m.NAME || "").toUpperCase();
+            return type && (type.includes('DROP WIRE') || type.includes('DWIRE') || type.includes('DW'));
+        });
 
-        if (isCompletedInERP && !isServiceReturn) {
-            console.log(`[BRIDGE-SYNC] Auto-Pilot: Detected Completed SO ${soNum}. Syncing forensic data...`);
-
-            // Extract Fiber Drop Wire from materialDetails
-            const materialDetails = (payload.materialDetails as { TYPE?: string; QTY?: string }[]) || [];
-            const dropWireItem = materialDetails.find((m) => {
-                const type = m.TYPE?.toUpperCase();
-                return type && (type.includes('DROP WIRE') || type.includes('DWIRE'));
-            });
-
-            if (dropWireItem && dropWireItem.QTY) {
-                const qty = parseFloat(dropWireItem.QTY);
-                if (!isNaN(qty)) {
-                    mapping.dropWireDistance = qty;
-                    console.log(`[BRIDGE-SYNC] Auto-Pilot: Extracted Drop Wire Distance: ${qty}m`);
-                }
+        if (dropWireItem && (dropWireItem.QTY || dropWireItem.qty)) {
+            const qtyStr = dropWireItem.QTY || String(dropWireItem.qty);
+            const qty = parseFloat(qtyStr);
+            if (!isNaN(qty)) {
+                mapping.dropWireDistance = qty;
             }
-
-            // Enhanced Serial Extraction
-            const ontSerial = masterData['ONT_ROUTER_SERIAL_NUMBER'] || masterData['ONT'] || masterData['ONT SERIAL'] || masterData['SERIAL'];
-            const iptvSerial = masterData['IPTV_CPE_SERIAL_NUMBER_1'] || masterData['IPTV SERIAL'] || masterData['STB SERIAL'];
-
-            if (ontSerial) mapping.ontSerialNumber = ontSerial;
-            if (iptvSerial) mapping.iptvSerialNumbers = iptvSerial;
         }
 
         // 7. Resolve OPMC
         let opmcId = serviceOrder?.opmcId;
-        const rtomVal = mapping.rtom as string;
+        const rtomVal = (mapping.rtom as string) || (serviceOrder?.rtom);
         if (!opmcId && rtomVal) {
             const opmc = await prisma.oPMC.findFirst({
                 where: { rtom: { contains: rtomVal.substring(0, 4), mode: 'insensitive' } }
@@ -217,30 +202,74 @@ export async function POST(request: Request) {
         }
 
         // 8. Forensic Audit Save
-        const forensicData = (payload.forensicAudit as Record<string, unknown>[]) || [];
+        const forensictAuditPayload = (payload.forensicAudit as Record<string, unknown>[]) || [];
         const voiceStatus = masterData['VOICE_TEST_RESULT'] || masterData['VOICE TEST'] || null;
 
-        if (forensicData.length > 0) {
-            const forensicModel = (prisma as any).sODForensicAudit;
+        if (forensictAuditPayload.length > 0) {
+            const forensicModel = (prisma as Record<string, any>).sODForensicAudit;
             if (forensicModel) {
                 await forensicModel.upsert({
                     where: { soNum },
                     update: {
-                        auditData: forensicData,
+                        auditData: forensictAuditPayload,
                         voiceTestStatus: voiceStatus,
                         updatedAt: new Date()
                     },
                     create: {
                         soNum,
-                        auditData: forensicData,
+                        auditData: forensictAuditPayload,
                         voiceTestStatus: voiceStatus
                     }
                 });
             }
         }
 
+        // 9. Material Usage Synchronization (The "Portal Truth" sync)
+        if (materialDetails.length > 0 && syncedOrder) {
+            console.log(`[BRIDGE-SYNC] Synchronizing ${materialDetails.length} materials for SO: ${soNum}`);
 
-        // 9. Save/Update Raw Data Dump for Monitor
+            // For now, we clear existing PORTAL_SYNC materials and re-insert to match portal truth
+            // This avoids duplicates while keeping historical manual entries (if any)
+            await prisma.sODMaterialUsage.deleteMany({
+                where: { serviceOrderId: syncedOrder.id, usageType: 'PORTAL_SYNC' }
+            });
+
+            for (const mat of materialDetails) {
+                const code = mat.CODE || mat.TYPE;
+                const name = mat.NAME;
+                const qty = parseFloat(mat.QTY || "0");
+
+                if (qty > 0 && (code || name)) {
+                    // Try to find matching ERP Item
+                    const item = await prisma.inventoryItem.findFirst({
+                        where: {
+                            OR: [
+                                { code: { equals: code, mode: 'insensitive' } },
+                                { name: { equals: name, mode: 'insensitive' } },
+                                { importAliases: { has: code || "" } }
+                            ]
+                        }
+                    });
+
+                    if (item) {
+                        await prisma.sODMaterialUsage.create({
+                            data: {
+                                serviceOrderId: syncedOrder.id,
+                                itemId: item.id,
+                                quantity: qty,
+                                unit: item.unit || "Nos",
+                                usageType: 'PORTAL_SYNC',
+                                unitPrice: item.unitPrice || 0,
+                                costPrice: item.costPrice || 0,
+                                comment: 'Auto-synced from SLT Portal'
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        // 10. Save/Update Raw Data Dump for Monitor
         const existingLog = await prisma.extensionRawData.findFirst({
             where: { soNum: soNum }
         });
@@ -272,10 +301,8 @@ export async function POST(request: Request) {
             success: true,
             id: syncedOrder?.id,
             soNum: syncedOrder?.soNum,
-            message: isCompletedInERP ? 'Bridge sync complete (Auto-Pilot Saved forensic data)' : 'Bridge sync complete (Deep-Parse Active)'
+            message: 'Bridge sync successful. Core tables updated.'
         });
-
-
 
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);

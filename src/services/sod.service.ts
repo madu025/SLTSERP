@@ -215,7 +215,8 @@ export class ServiceOrderService {
                         select: {
                             quantity: true,
                             unitPrice: true,
-                            costPrice: true
+                            usageType: true,
+                            item: { select: { name: true, code: true, unit: true } }
                         }
                     },
                     forensicAudit: {

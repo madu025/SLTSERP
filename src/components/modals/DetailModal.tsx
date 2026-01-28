@@ -43,19 +43,24 @@ interface DetailModalProps {
 
 export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailModalProps) {
     const [activeTab, setActiveTab] = useState("details");
-    const [bridgeData, setBridgeData] = useState<any>(null);
+    const [bridgeData, setBridgeData] = useState<Record<string, any> | null>(null);
     const [isLoadingBridge, setIsLoadingBridge] = useState(false);
 
     useEffect(() => {
         if (isOpen && selectedOrder?.soNum && activeTab === "inspector") {
-            setIsLoadingBridge(true);
-            fetch(`/api/service-orders/bridge-data/${selectedOrder.soNum}`)
-                .then(res => res.json())
-                .then(res => {
-                    if (res.success) setBridgeData(res.data);
-                })
-                .catch(err => console.error("Bridge fetch error:", err))
-                .finally(() => setIsLoadingBridge(false));
+            const fetchData = async () => {
+                setIsLoadingBridge(true);
+                try {
+                    const res = await fetch(`/api/service-orders/bridge-data/${selectedOrder.soNum}`);
+                    const data = await res.json();
+                    if (data.success) setBridgeData(data.data);
+                } catch (err) {
+                    console.error("Bridge fetch error:", err);
+                } finally {
+                    setIsLoadingBridge(false);
+                }
+            };
+            fetchData();
         }
     }, [isOpen, selectedOrder?.soNum, activeTab]);
 
@@ -76,7 +81,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </p>
                         </div>
                         <div className="flex gap-2">
-                            <Badge variant={selectedOrder.sltsStatus === 'COMPLETED' ? "success" : "secondary"} className="font-bold">
+                            <Badge variant={selectedOrder.sltsStatus === 'COMPLETED' ? "default" : "secondary"} className={selectedOrder.sltsStatus === 'COMPLETED' ? "bg-emerald-500 text-white border-none font-bold" : "font-bold"}>
                                 {selectedOrder.sltsStatus}
                             </Badge>
                         </div>
@@ -150,11 +155,94 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                         <p className="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedOrder.comments}</p>
                                     </div>
                                 )}
+
+                                {/* NEW: Serials Display in Standard View */}
+                                {(selectedOrder.ontSerialNumber || selectedOrder.dpDetails || selectedOrder.iptvSerialNumbers) && (
+                                    <div className="md:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-900 rounded-xl border border-slate-800 text-white">
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">ONT Serial Number</label>
+                                            <p className="text-xs font-mono font-bold text-emerald-400">{selectedOrder.ontSerialNumber || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">IPTV Serials</label>
+                                            <p className="text-xs font-mono font-bold text-blue-400">{selectedOrder.iptvSerialNumbers || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">DP Details</label>
+                                            <p className="text-xs font-bold text-slate-300">{selectedOrder.dpDetails || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* NEW: Core Database Material Usage Display */}
+                                {selectedOrder.materialUsage && selectedOrder.materialUsage.length > 0 && (
+                                    <div className="md:col-span-2 lg:col-span-3">
+                                        <div className="flex items-center gap-2 mb-3 mt-2">
+                                            <Box className="w-3.5 h-3.5 text-blue-600" />
+                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Database Material Usage</h3>
+                                            <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">VERIFIED</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {selectedOrder.materialUsage.map((usage, i) => (
+                                                <div key={i} className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm hover:border-blue-200 transition-colors">
+                                                    <div className="min-w-0">
+                                                        <p className="text-[11px] font-bold text-slate-800 truncate">{usage.item?.name || 'Unknown Item'}</p>
+                                                        <p className="text-[9px] text-slate-400 font-mono uppercase">
+                                                            {usage.item?.code || 'NO-CODE'} • {usage.usageType}
+                                                            {usage.usageType === 'PORTAL_SYNC' && " (Synced)"}
+                                                        </p>
+                                                    </div>
+                                                    <Badge variant="secondary" className="bg-slate-100 text-slate-800 font-black text-[10px] border-none shrink-0">
+                                                        {usage.quantity} {usage.item?.unit}
+                                                    </Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* NEW: Forensic Audit Summary in Standard View */}
+                                {selectedOrder.forensicAudit && (
+                                    <div className="md:col-span-2 lg:col-span-3">
+                                        <div className="flex items-center gap-2 mb-3 mt-2">
+                                            <Camera className="w-3.5 h-3.5 text-indigo-600" />
+                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Forensic Photo Audit</h3>
+                                            <span className="text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold">CAPTURE STATUS</span>
+                                        </div>
+                                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-wrap gap-4 items-center justify-between">
+                                            <div className="flex gap-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-black">Photos Captured</span>
+                                                    <span className="text-sm font-black text-slate-900">
+                                                        {selectedOrder.forensicAudit.auditData.filter(a => a.status === 'UPLOADED').length} / {selectedOrder.forensicAudit.auditData.length}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-col border-l pl-4">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-black">Voice Test</span>
+                                                    <Badge variant="outline" className={`mt-0.5 font-bold ${selectedOrder.forensicAudit.voiceTestStatus?.includes('PASS') ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                                                        {selectedOrder.forensicAudit.voiceTestStatus || 'NOT TESTED'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            <Button variant="outline" size="sm" onClick={() => setActiveTab('inspector')} className="h-7 text-[10px] font-black uppercase border-slate-300 hover:bg-slate-100">
+                                                View Full Report
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
 
                         {/* Tab 2: Smart Inspector (NEW) */}
-                        <TabsContent value="inspector" className="p-6 m-0 outline-none">
+                        <TabsContent value="inspector" className="p-6 m-0 outline-none relative min-h-[400px]">
+                            {isLoadingBridge && (
+                                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                        <p className="text-xs font-bold text-slate-600 animate-pulse uppercase tracking-widest">Bridging Data...</p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="space-y-6">
                                 {/* Header Info mimics Data Inspector */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -211,8 +299,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                         <span className="ml-auto text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">SMART VIEW</span>
                                     </div>
                                     <div className="space-y-2">
-                                        {bridgeData?.scrapedData?.materialDetails ? (
-                                            bridgeData.scrapedData.materialDetails.map((mat: any, i: number) => (
+                                        {bridgeData?.scrapedData && (bridgeData.scrapedData as Record<string, any>).materialDetails ? (
+                                            ((bridgeData.scrapedData as Record<string, any>).materialDetails as Array<{ NAME?: string; TYPE?: string; CODE?: string; QTY?: string; QUANTITY?: string }>).map((mat, i: number) => (
                                                 <div key={i} className="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
                                                     <span className="text-[11px] font-bold text-slate-300">{mat.NAME || mat.TYPE}</span>
                                                     <div className="flex gap-3 items-center">
@@ -243,42 +331,44 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {selectedOrder.forensicAudit?.auditData.map((item, idx) => {
-                                            const isOptional = item.name?.toLowerCase().includes('feedback') || item.name?.toLowerCase().includes('additional');
-                                            const isMissing = item.status === 'MISSING';
+                                        {selectedOrder.forensicAudit?.auditData && selectedOrder.forensicAudit.auditData.length > 0 ? (
+                                            selectedOrder.forensicAudit.auditData.map((item, idx) => {
+                                                const isOptional = item.name?.toLowerCase().includes('feedback') || item.name?.toLowerCase().includes('additional');
+                                                const isMissing = item.status === 'MISSING';
 
-                                            return (
-                                                <div key={idx} className={`flex flex-col p-2.5 rounded-lg border transition-all duration-200 ${isMissing ? (isOptional ? 'bg-slate-800/40 border-slate-700' : 'bg-red-500/5 border-red-500/20') : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <span className={`text-[11px] font-bold leading-tight ${isMissing ? (isOptional ? 'text-slate-400' : 'text-red-300') : 'text-emerald-300'}`}>
-                                                            {item.name}
-                                                        </span>
-                                                        {isMissing ? (
-                                                            <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-                                                        ) : (
-                                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                return (
+                                                    <div key={idx} className={`flex flex-col p-2.5 rounded-lg border transition-all duration-200 ${isMissing ? (isOptional ? 'bg-slate-800/40 border-slate-700' : 'bg-red-500/5 border-red-500/20') : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <span className={`text-[11px] font-bold leading-tight ${isMissing ? (isOptional ? 'text-slate-400' : 'text-red-300') : 'text-emerald-300'}`}>
+                                                                {item.name}
+                                                            </span>
+                                                            {isMissing ? (
+                                                                <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                                                            ) : (
+                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                                            )}
+                                                        </div>
+                                                        {!isMissing && item.uuid && (
+                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {item.uuid}</span>
+                                                        )}
+                                                        {!isMissing && (
+                                                            <span className="text-[9px] font-bold text-emerald-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
+                                                                <CheckCircle2 className="w-2 h-2" /> Uploaded
+                                                            </span>
+                                                        )}
+                                                        {isMissing && (
+                                                            <span className="text-[9px] font-bold text-red-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
+                                                                <XCircle className="w-2 h-2" /> Missing
+                                                            </span>
                                                         )}
                                                     </div>
-                                                    {!isMissing && item.uuid && (
-                                                        <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {item.uuid}</span>
-                                                    )}
-                                                    {!isMissing && (
-                                                        <span className="text-[9px] font-bold text-emerald-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
-                                                            <CheckCircle2 className="w-2 h-2" /> Uploaded
-                                                        </span>
-                                                    )}
-                                                    {isMissing && (
-                                                        <span className="text-[9px] font-bold text-red-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
-                                                            <XCircle className="w-2 h-2" /> Missing
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            );
-                                        }) || (
-                                                <div className="col-span-3 text-center py-8">
-                                                    <p className="text-xs text-slate-500 italic">No forensic data found. Please run capture via SLT-ERP Addon.</p>
-                                                </div>
-                                            )}
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="col-span-3 text-center py-8">
+                                                <p className="text-xs text-slate-500 italic">No forensic data found. Please run capture via SLT-ERP Addon.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
