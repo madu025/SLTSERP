@@ -179,11 +179,17 @@ export async function POST(request: Request) {
         }
 
         // Match Team
-        if (teamDetails?.['SELECTED TEAM']) {
-            const teamName = teamDetails['SELECTED TEAM'];
+        const teamName = teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM'];
+
+        if (teamName) {
             const teamCode = teamName.split('-')[0].trim();
             const team = await prisma.contractorTeam.findFirst({
-                where: { OR: [{ name: teamName }, { sltCode: teamCode }] }
+                where: {
+                    OR: [
+                        { name: { contains: teamName.trim(), mode: 'insensitive' } },
+                        { sltCode: { equals: teamCode, mode: 'insensitive' } }
+                    ]
+                }
             });
             if (team) {
                 dataToUpdate.teamId = team.id;
