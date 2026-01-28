@@ -5,7 +5,7 @@
  */
 
 (function () {
-    const version = "4.4.0";
+    const version = "4.4.2";
 
     // Set identity for ERP website to detect the extension
     document.documentElement.setAttribute('data-ishamp-bridge', 'active');

@@ -4,7 +4,25 @@
  * Role: ERP Smart Injector
  */
 
-console.log('%c🦢 [PHOENIX-INJECTOR] Engaged', 'color: #3b82f6; font-weight: bold;');
+console.log('%c[i-SHAMP-INJECTOR] Engaged', 'color: #3b82f6; font-weight: bold;');
+
+// 1. Identity Verification (Shared with ERP UI)
+(function () {
+    const version = "4.4.2";
+    document.documentElement.setAttribute('data-ishamp-bridge', 'active');
+    document.documentElement.setAttribute('data-ishamp-version', version);
+
+    // Legacy support
+    document.documentElement.setAttribute('data-phoenix-bridge', 'active');
+    document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
+
+    // Dispatch for React components (Now in MAIN world, so this works!)
+    window.dispatchEvent(new CustomEvent('SLT_BRIDGE_DETECTED', {
+        detail: { version: version }
+    }));
+
+    console.log(`%c[i-SHAMP] Bridge Identity Verified (v${version})`, 'color: #10b981; font-weight: bold;');
+})();
 
 window.addEventListener('message', (event) => {
     if (event.source !== window || !event.data.payload) return;
