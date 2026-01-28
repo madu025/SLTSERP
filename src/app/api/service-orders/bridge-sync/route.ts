@@ -20,7 +20,7 @@ function deepParse(masterData: Record<string, string>) {
         'EQUIPMENT PURCHASE FROM SLT', 'SALES PERSON', 'DP LOOP'
     ];
 
-    keywords.forEach((key, idx) => {
+    keywords.forEach((key) => {
         const start = mashed.indexOf(key);
         if (start === -1) return;
 
@@ -59,8 +59,10 @@ export async function POST(request: Request) {
         // 1. Flatten all tabs into a single data object
         const masterData: Record<string, string> = {};
         if (allTabs) {
-            Object.values(allTabs).forEach((tabData: any) => {
-                Object.assign(masterData, tabData);
+            Object.values(allTabs).forEach((tabData) => {
+                if (tabData && typeof tabData === 'object') {
+                    Object.assign(masterData, tabData);
+                }
             });
         }
 
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
         const deepData = deepParse(masterData);
 
         // 3. Map Bridge Keys to ServiceOrder Model with mash-recovery
-        const mapping: Partial<Prisma.ServiceOrderUncheckedCreateInput> = {
+        const mapping: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             rtom: masterData['RTOM'] || deepData['RTOM'],
             lea: masterData['LEA'],
             voiceNumber: masterData['CIRCUIT'] || masterData['VOICE NUMBER'] || deepData['CIRCUIT'] || masterData['PRIMARY'],
@@ -85,12 +87,66 @@ export async function POST(request: Request) {
             sales: masterData['SALES PERSON'] || masterData['SALES'] || deepData['SALES PERSON'],
         };
 
-        // 4. Find or Create the Service Order
-        let serviceOrder = await prisma.serviceOrder.findUnique({
-            where: { soNum }
+        // 4. Find the existing Service Order
+        const serviceOrder = await prisma.serviceOrder.findUnique({
+            where: { soNum },
+            include: { materialUsage: true }
         });
 
-        // Resolve OPMC
+
+        // 5. Contractor Sync (Match by Name if captured)
+        const capturedContractorName = masterData['CON_NAME'] || masterData['CONTRACTOR'] || masterData['CONTRACTOR NAME'];
+        if (capturedContractorName && !mapping.contractorId) {
+            const contractor = await prisma.contractor.findFirst({
+                where: { name: { contains: capturedContractorName.trim(), mode: 'insensitive' } }
+            });
+            if (contractor) {
+                mapping.contractorId = contractor.id;
+            }
+        }
+
+        // 6. Return Connection & Auto-Pilot Logic
+        const isServiceReturn = masterData['SERVICE RETURN'] === 'on' || masterData['IS_RETURN'] === 'on';
+
+        if (isServiceReturn) {
+            console.log(`[BRIDGE-SYNC] Auto-Pilot: Detected RETURN Service Order: ${soNum}`);
+            mapping.sltsStatus = 'RETURN';
+            mapping.returnReason = masterData['RTRESONALL_HIDDEN'] || masterData['RETURN REASON'] || 'CUSTOMER NOT READY';
+            mapping.comments = masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || 'Customer delays';
+        }
+
+        // If it's a standard completed order (previous logic preserved)
+        const isCompletedInERP = serviceOrder?.sltsStatus === 'COMPLETED' ||
+            serviceOrder?.sltsStatus === 'INSTALL_CLOSED' ||
+            serviceOrder?.sltsStatus === 'PROV_CLOSED';
+
+        if (isCompletedInERP && !isServiceReturn) {
+            console.log(`[BRIDGE-SYNC] Auto-Pilot: Detected Completed SO ${soNum}. Syncing forensic data...`);
+
+            // Extract Fiber Drop Wire from materialDetails
+            const materialDetails = (payload.materialDetails as { TYPE?: string; QTY?: string }[]) || [];
+            const dropWireItem = materialDetails.find((m) => {
+                const type = m.TYPE?.toUpperCase();
+                return type && (type.includes('DROP WIRE') || type.includes('DWIRE'));
+            });
+
+            if (dropWireItem && dropWireItem.QTY) {
+                const qty = parseFloat(dropWireItem.QTY);
+                if (!isNaN(qty)) {
+                    mapping.dropWireDistance = qty;
+                    console.log(`[BRIDGE-SYNC] Auto-Pilot: Extracted Drop Wire Distance: ${qty}m`);
+                }
+            }
+
+            // Enhanced Serial Extraction
+            const ontSerial = masterData['ONT_ROUTER_SERIAL_NUMBER'] || masterData['ONT'] || masterData['ONT SERIAL'] || masterData['SERIAL'];
+            const iptvSerial = masterData['IPTV_CPE_SERIAL_NUMBER_1'] || masterData['IPTV SERIAL'] || masterData['STB SERIAL'];
+
+            if (ontSerial) mapping.ontSerialNumber = ontSerial;
+            if (iptvSerial) mapping.iptvSerialNumbers = iptvSerial;
+        }
+
+        // 7. Resolve OPMC
         let opmcId = serviceOrder?.opmcId;
         const rtomVal = mapping.rtom as string;
         if (!opmcId && rtomVal) {
@@ -135,13 +191,15 @@ export async function POST(request: Request) {
             }
         }
 
+        let syncedOrder: { id: string; soNum: string } | null = null;
         if (serviceOrder) {
-            serviceOrder = await prisma.serviceOrder.update({
+            const result = await prisma.serviceOrder.update({
                 where: { id: serviceOrder.id },
                 data: dataToUpdate
             });
+            syncedOrder = result;
         } else {
-            serviceOrder = await prisma.serviceOrder.create({
+            const result = await prisma.serviceOrder.create({
                 data: {
                     ...(dataToUpdate as Prisma.ServiceOrderUncheckedCreateInput),
                     soNum,
@@ -149,9 +207,34 @@ export async function POST(request: Request) {
                     sltsStatus: 'INPROGRESS'
                 }
             });
+            syncedOrder = result;
         }
 
-        // 5. Save/Update Raw Data Dump for Monitor
+        // 8. Forensic Audit Save
+        const forensicData = (payload.forensicAudit as Record<string, unknown>[]) || [];
+        const voiceStatus = masterData['VOICE_TEST_RESULT'] || masterData['VOICE TEST'] || null;
+
+        if (forensicData.length > 0) {
+            const forensicModel = (prisma as any).sODForensicAudit;
+            if (forensicModel) {
+                await forensicModel.upsert({
+                    where: { soNum },
+                    update: {
+                        auditData: forensicData,
+                        voiceTestStatus: voiceStatus,
+                        updatedAt: new Date()
+                    },
+                    create: {
+                        soNum,
+                        auditData: forensicData,
+                        voiceTestStatus: voiceStatus
+                    }
+                });
+            }
+        }
+
+
+        // 9. Save/Update Raw Data Dump for Monitor
         const existingLog = await prisma.extensionRawData.findFirst({
             where: { soNum: soNum }
         });
@@ -181,17 +264,22 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             success: true,
-            id: serviceOrder.id,
-            soNum: serviceOrder.soNum,
-            message: 'Bridge sync complete (Deep-Parse Active)'
+            id: syncedOrder?.id,
+            soNum: syncedOrder?.soNum,
+            message: isCompletedInERP ? 'Bridge sync complete (Auto-Pilot Saved forensic data)' : 'Bridge sync complete (Deep-Parse Active)'
         });
 
-    } catch (error: any) {
+
+
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
         console.error('[BRIDGE-SYNC] Fatal Error:', error);
+
         return NextResponse.json({
             success: false,
             message: 'Internal sync error',
-            error: error.message
+            error: msg
         }, { status: 500 });
     }
 }
+

@@ -113,7 +113,22 @@ model ServiceOrder {
   @@index([updatedAt])
   @@index([opmcId, status])
   @@index([opmcId, sltsStatus])
+  
+  forensicAudit     SODForensicAudit?
 }
+
+model SODForensicAudit {
+  id              String       @id @default(cuid())
+  soNum           String       @unique
+  serviceOrder    ServiceOrder @relation(fields: [soNum], references: [soNum], onDelete: Cascade)
+  auditData       Json         // [{ name: string, status: string, uuid: string }]
+  voiceTestStatus String?      // PASS/FAIL
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([soNum])
+}
+
 
 model ServiceOrderStatusHistory {
   id              String       @id @default(cuid())

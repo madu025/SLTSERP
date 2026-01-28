@@ -7,8 +7,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCcw, Database, Terminal, Clock, User, Link as LinkIcon, Trash2, Search, Zap, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
-import { format } from 'date-fns';
 import {
     Table,
     TableBody,
@@ -17,7 +15,21 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { RefreshCcw, Database, Terminal, Link as LinkIcon, Trash2, Search, Zap, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
+import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface MaterialItem {
+    ITEM?: string;
+    TYPE?: string;
+    QTY?: string | number;
+}
+
+interface PhotoAudit {
+    label: string;
+    status: 'SUCCESS' | 'MISSING';
+    id?: string;
+}
 
 interface RawLog {
     id: string;
@@ -28,8 +40,12 @@ interface RawLog {
     scrapedData: {
         details?: Record<string, string>;
         voiceTest?: Record<string, string>;
-        materialDetails?: Array<Record<string, unknown>>;
+        materialDetails?: MaterialItem[];
         teamDetails?: Record<string, string>;
+        allTabs?: Record<string, Record<string, string>>;
+        currentUser?: string;
+        soNum?: string;
+        activeTab?: string;
     } & Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
@@ -43,12 +59,12 @@ interface RawLog {
  * Forensic Analysis Engine
  * Extracts deep insights from mashed portal data
  */
-function deepParseForensic(scrapedLog: any) {
+function deepParseForensic(scrapedLog: RawLog) {
     const scrapedData = scrapedLog.scrapedData || {};
     const details = scrapedData.details || {};
     const mashed = details['SERVICE ORDER DETAILS'] || "";
 
-    const info: Record<string, any> = {
+    const info: Record<string, string> = {
         'SO Number': scrapedData.soNum || 'N/A',
         'Portal User': scrapedData.currentUser || 'N/A',
         'Active Tab': scrapedData.activeTab || 'N/A',
@@ -75,16 +91,18 @@ function deepParseForensic(scrapedLog: any) {
                 if (nextIdx !== -1 && nextIdx < end) end = nextIdx;
             }
 
-            let val = mashed.substring(start + key.length, end).trim();
+            const val = mashed.substring(start + key.length, end).trim();
             info[key] = val;
         });
     }
 
     // 2. Specialized Extractions (Serials & Assignments) - Search across all tabs for persistence
-    const allDetails = { ...details };
+    const allDetails: Record<string, string> = { ...details };
     if (scrapedData.allTabs) {
-        Object.values(scrapedData.allTabs).forEach((tabData: any) => {
-            Object.assign(allDetails, tabData);
+        Object.values(scrapedData.allTabs).forEach((tabData) => {
+            if (tabData && typeof tabData === 'object') {
+                Object.assign(allDetails, tabData);
+            }
         });
     }
 
@@ -131,7 +149,7 @@ function deepParseForensic(scrapedLog: any) {
         info['Linked IPTV SO'] = `🔗 ${iptvSO}`;
     }
 
-    const altTeam = allDetails['TEAM_ASSIGN'] || allDetails['ASSIGNED_TEAM'] || scrapedData.teamDetails?.['SELECTED TEAM'];
+    const altTeam = allDetails['TEAM_ASSIGN'] || allDetails['ASSIGNED_TEAM'] || (scrapedData.teamDetails?.['SELECTED TEAM'] as string);
     if (altTeam) info['Selected Team'] = altTeam;
 
     // SLT Internal Metrics
@@ -150,23 +168,23 @@ function deepParseForensic(scrapedLog: any) {
     }
 
     // 5. Photo Audit Engine (Forensic)
-    const photos: Array<{ label: string, status: 'SUCCESS' | 'MISSING', id?: string }> = [];
+    const photos: PhotoAudit[] = [];
     Object.entries(allDetails).forEach(([k, v]) => {
         const match = k.match(/^(\d+)IMGDN_HIDDEN$/);
         if (match) {
             const idx = match[1];
-            const label = v as string;
+            const label = v;
             const limg = allDetails[`${idx}LIMG_HIDDEN`];
             photos.push({
                 label,
                 status: limg ? 'SUCCESS' : 'MISSING',
-                id: limg as string
+                id: limg
             });
         }
     });
 
     // 6. Materials Intelligence
-    const materials = scrapedData.materialDetails || [];
+    const materials: MaterialItem[] = scrapedData.materialDetails || [];
     // If no materials in array, check for mashed usage or registry
     if (materials.length === 0 && (allDetails['MATERIAL DETAILS'] || allDetails['METERIAL DETAILS'])) {
         materials.push({ ITEM: 'Portal Usage', QTY: allDetails['MATERIAL DETAILS'] || allDetails['METERIAL DETAILS'] });
@@ -365,7 +383,7 @@ export default function ExtensionTestPage() {
                                                             ['ADDRESS', 'CUSTOMER NAME'].includes(key) ? 'col-span-2' : 'col-span-1'
                                                             }`}>
                                                             <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{key}</span>
-                                                            <span className={`text-[11px] font-bold ${key === 'STATUS' && (val as string).includes('CLOSED') ? 'text-emerald-600' :
+                                                            <span className={`text-[11px] font-bold ${key === 'STATUS' && val.includes('CLOSED') ? 'text-emerald-600' :
                                                                 key === 'SO Number' ? 'text-primary font-black' :
                                                                     key === 'Selected Team' ? 'text-blue-600' :
                                                                         key.includes('Serial') ? 'text-purple-600 font-mono' :
@@ -373,7 +391,7 @@ export default function ExtensionTestPage() {
                                                                                 key === 'Material usage' ? 'text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 inline-block w-fit' :
                                                                                     'text-slate-900'
                                                                 }`}>
-                                                                {val as string || '---'}
+                                                                {val || '---'}
                                                             </span>
                                                         </div>
                                                     ))}
@@ -388,7 +406,7 @@ export default function ExtensionTestPage() {
                                                         <div className="bg-amber-50/30 border border-amber-100 rounded-xl p-4 overflow-hidden">
                                                             <Table>
                                                                 <TableBody>
-                                                                    {parsed.materials.map((mat: any, i: number) => (
+                                                                    {parsed.materials.map((mat, i) => (
                                                                         <TableRow key={i} className="border-amber-100/50 hover:bg-white/50">
                                                                             <TableCell className="py-2 text-[11px] font-bold text-slate-700">{mat.ITEM || mat.TYPE || 'Material'}</TableCell>
                                                                             <TableCell className="py-2 text-[11px] font-medium text-slate-500">{mat.TYPE || mat.ITEM || '---'}</TableCell>

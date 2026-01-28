@@ -214,8 +214,15 @@ export class ServiceOrderService {
                             unitPrice: true,
                             costPrice: true
                         }
+                    },
+                    forensicAudit: {
+                        select: {
+                            auditData: true,
+                            voiceTestStatus: true
+                        }
                     }
-                },
+
+                } as unknown as Prisma.ServiceOrderSelect,
                 orderBy,
                 skip,
                 take: limit,

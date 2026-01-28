@@ -168,9 +168,33 @@ class PhoenixOmniEngine {
             }
         });
 
-        // 2. Specialized Key-Value Capture (Serials, Voice, Team)
-        // Targets: ONT_ROUTER_SERIAL_NUMBER, IPTV_CPE_SERIAL_NUMBER_1, VOICE_TEST_RESULT
+        // 2. Forensic Photo Audit Capture
+        const auditItems = [];
+        PhoenixScanner.queryShadow('div, td, span, b, label').forEach(el => {
+            if (el.closest('#phoenix-hud')) return;
+            const text = PhoenixScanner.clean(el.innerText);
+            const parentText = PhoenixScanner.clean(el.parentElement?.innerText || "");
+
+            // Check for Forensic patterns: Name + UUID + Status
+            if (parentText.includes('UUID:') && (parentText.includes('Uploaded') || parentText.includes('Missing'))) {
+                // If this is the name (usually before UUID)
+                if (text && !text.includes('UUID:') && !text.includes('Uploaded') && !text.includes('Missing') && text.length < 50) {
+                    const status = parentText.includes('Uploaded') ? 'UPLOADED' : 'MISSING';
+                    const uuidMatch = parentText.match(/UUID:\s*(\d+)/);
+                    const uuid = uuidMatch ? uuidMatch[1] : "";
+
+                    const exists = auditItems.find(a => a.name === text);
+                    if (!exists) {
+                        auditItems.push({ name: text, status, uuid });
+                    }
+                }
+            }
+        });
+        data.forensicAudit = auditItems;
+
+        // 3. Specialized Key-Value Capture (Serials, Voice, Team)
         const forensicTargets = ['SERIAL', 'NUMBER', 'VOICE', 'TEST', 'TEAM', 'ASSIGN', 'IPTV_CPE', 'ONT_ROUTER'];
+
 
         PhoenixScanner.queryShadow('div, td, span, b, label').forEach(el => {
             if (el.closest('#phoenix-hud')) return;
@@ -428,10 +452,12 @@ async function orchestrate() {
         },
         materialDetails: GLOBAL_RECON.tabs['MATERIALS_REGISTRY'] || [],
         history: captured.history || [],
+        forensicAudit: captured.forensicAudit || [],
         currentUser: PhoenixScanner.clean(document.querySelector('.user-profile-dropdown h6, #user_name')?.innerText || "").replace("Welcome, ", "")
     };
 
-    const hash = JSON.stringify(GLOBAL_RECON.tabs) + JSON.stringify(payload.materialDetails) + JSON.stringify(payload.history);
+    const hash = JSON.stringify(GLOBAL_RECON.tabs) + JSON.stringify(payload.materialDetails) + JSON.stringify(payload.history) + JSON.stringify(payload.forensicAudit);
+
     const currentHash = hash.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0).toString();
 
     if (currentHash !== GLOBAL_RECON.lastHash) {

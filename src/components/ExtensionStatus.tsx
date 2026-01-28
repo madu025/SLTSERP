@@ -73,7 +73,10 @@ export default function ExtensionStatus() {
 
         // Method 5: Check for global objects
         if (!result.installed) {
-            const win = window as any;
+            const win = window as unknown as {
+                ISHAMP_BRIDGE?: { version: string },
+                PHOENIX_BRIDGE?: { version: string }
+            };
             if (win.ISHAMP_BRIDGE) {
                 result.installed = true;
                 result.type = 'ishamp';
@@ -87,6 +90,7 @@ export default function ExtensionStatus() {
 
         return result;
     }, []);
+
 
     const checkExtension = useCallback(() => {
         const result = detectExtension();
@@ -288,8 +292,9 @@ export default function ExtensionStatus() {
                             className="w-full text-[11px] text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1.5 py-2"
                         >
                             <RefreshCw className="w-3.5 h-3.5" />
-                            I've installed it, check again
+                            I&apos;ve installed it, check again
                         </button>
+
                     </div>
                 </div>
             </PopoverContent>
