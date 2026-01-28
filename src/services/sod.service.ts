@@ -222,7 +222,7 @@ export class ServiceOrderService {
                         }
                     }
 
-                } as unknown as Prisma.ServiceOrderSelect,
+                },
                 orderBy,
                 skip,
                 take: limit,
@@ -420,7 +420,9 @@ export class ServiceOrderService {
                 if (statusVal === 'INSTALL_CLOSED' || statusVal === 'COMPLETED' || statusVal === 'PROV_CLOSED' || statusVal === 'INPROGRESS' || statusVal === 'ASSIGNED') {
                     sltsStatus = 'INPROGRESS';
                 } else if (statusVal.includes('RETURN') || statusVal === 'CANCELLED') {
-                    sltsStatus = 'RETURN';
+                    // Optimized: ERP no longer accepts RETURN status from external sync/imports
+                    // RETURN status must come exclusively from the Chrome Addon
+                    sltsStatus = 'INPROGRESS';
                 }
 
                 // Fetch existing to check for history preservation
@@ -1273,7 +1275,9 @@ export class ServiceOrderService {
                     if (completionStatuses.includes(item.CON_STATUS)) {
                         initialSltsStatus = 'COMPLETED';
                     } else if (returnStatuses.some(s => item.CON_STATUS.includes(s))) {
-                        initialSltsStatus = 'RETURN';
+                        // Optimized: ERP no longer accepts RETURN status from external sync/imports
+                        // RETURN status must come exclusively from the Chrome Addon
+                        initialSltsStatus = 'INPROGRESS';
                     }
 
                     const existing = existingMap.get(item.SO_NUM);

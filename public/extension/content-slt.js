@@ -255,7 +255,7 @@ class PhoenixOmniEngine {
                 h.includes('DATE') || h.includes('STATUS') || h.includes('REMARKS') || h.includes('COMMENT')
             );
 
-            rows.slice(1).forEach((row, rowIndex) => {
+            rows.slice(1).forEach((row) => {
                 const cells = Array.from(row.querySelectorAll('td'));
                 if (cells.length < 2) return;
 
