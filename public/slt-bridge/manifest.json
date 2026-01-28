@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "SLT-ERP i-Shamp Bridge",
-    "version": "4.4.0",
+    "version": "4.4.3",
     "description": "Premium High-Precision Sync for SLT-ERP",
     "permissions": [
         "storage",
@@ -12,7 +12,10 @@
     "host_permissions": [
         "https://serviceportal.slt.lk/*",
         "https://*.slt.lk/*",
-        "http://localhost:3000/*",
+        "http://localhost/*",
+        "https://localhost/*",
+        "http://127.0.0.1/*",
+        "https://127.0.0.1/*",
         "https://d2ixqikwtprwf0.cloudfront.net/*"
     ],
     "background": {
@@ -34,7 +37,10 @@
         },
         {
             "matches": [
-                "http://localhost:3000/*",
+                "http://localhost/*",
+                "https://localhost/*",
+                "http://127.0.0.1/*",
+                "https://127.0.0.1/*",
                 "https://d2ixqikwtprwf0.cloudfront.net/*"
             ],
             "js": [
@@ -44,7 +50,10 @@
         },
         {
             "matches": [
-                "http://localhost:3000/*",
+                "http://localhost/*",
+                "https://localhost/*",
+                "http://127.0.0.1/*",
+                "https://127.0.0.1/*",
                 "https://d2ixqikwtprwf0.cloudfront.net/*"
             ],
             "js": [

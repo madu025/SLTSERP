@@ -1,10 +1,10 @@
 /**
- * SLT-ERP PHOENIX OMNISCIENT v4.4.0
+ * SLT-ERP PHOENIX OMNISCIENT v4.4.3
  * Engine: Dynamic Grid & Multi-Material Recon
  * Role: 100% Coverage SLT Portal Scraper
  */
 
-console.log('%c[i-SHAMP-BRIDGE] v4.4.0 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
+console.log('%c[i-SHAMP-BRIDGE] v4.4.3 Engaged', 'color: #8b5cf6; font-weight: bold; font-size: 18px;');
 
 const PHOENIX_CONFIG = {
     IDENTIFIERS: {

@@ -6,22 +6,50 @@
 
 console.log('%c[i-SHAMP-INJECTOR] Engaged', 'color: #3b82f6; font-weight: bold;');
 
-// 1. Identity Verification (Shared with ERP UI)
+// 1. Identity Verification (v4.4.3)
 (function () {
-    const version = "4.4.2";
+    const version = "4.4.3";
+
+    // Set identity attributes for ERP UI
     document.documentElement.setAttribute('data-ishamp-bridge', 'active');
     document.documentElement.setAttribute('data-ishamp-version', version);
+    document.documentElement.setAttribute('data-ishamp-detected', new Date().toISOString());
 
-    // Legacy support
+    // Legacy support attributes
     document.documentElement.setAttribute('data-phoenix-bridge', 'active');
+    document.documentElement.setAttribute('data-phoenix-version', version);
     document.documentElement.setAttribute('data-slt-bridge-installed', 'true');
 
-    // Dispatch for React components (Now in MAIN world, so this works!)
-    window.dispatchEvent(new CustomEvent('SLT_BRIDGE_DETECTED', {
-        detail: { version: version }
-    }));
+    // Discovery Dispatcher (Multi-Event for maximum compatibility)
+    const dispatchDiscovery = () => {
+        const detail = {
+            version: version,
+            brand: 'i-Shamp',
+            timestamp: new Date().toISOString()
+        };
 
-    console.log(`%c[i-SHAMP] Bridge Identity Verified (v${version})`, 'color: #10b981; font-weight: bold;');
+        // Multi-channel broadcast
+        window.dispatchEvent(new CustomEvent('ISHAMP_BRIDGE_DETECTED', { detail }));
+        window.dispatchEvent(new CustomEvent('SLT_BRIDGE_DETECTED', { detail }));
+        window.dispatchEvent(new CustomEvent('PHOENIX_BRIDGE_DETECTED', { detail }));
+
+        console.log(`[i-SHAMP] Discovery broadcast (v${version})`);
+    };
+
+    // Staggered dispatches to catch React hydration
+    dispatchDiscovery();
+    setTimeout(dispatchDiscovery, 1000);
+    setTimeout(dispatchDiscovery, 3000);
+    setTimeout(dispatchDiscovery, 5000);
+
+    // Global Identity Exposure (MAIN world only)
+    window.ISHAMP_BRIDGE = {
+        version: version,
+        status: 'CONNECTED',
+        detected: true
+    };
+
+    console.log(`%c[i-SHAMP] Universal Bridge Handshake Initialized`, 'color: #10b981; font-weight: bold;');
 })();
 
 window.addEventListener('message', (event) => {
