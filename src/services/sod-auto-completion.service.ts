@@ -32,6 +32,22 @@ export class SODAutoCompletionService {
     private static intervalId: NodeJS.Timeout | null = null;
 
     /**
+     * Fixes timezone rollover issues.
+     * SLT API returns date/time in LK Time (UTC+5:30).
+     * If the server assumes it's UTC (default behavior for date strings), it stores "20:00" as "20:00 UTC".
+     * When displayed back in LK (+5:30), "20:00 UTC" becomes "01:30 Next Day".
+     * Valid Fix: Subtract 5.5 hours (330 minutes) from the parsed date to treat input as LK Time.
+     */
+    private static parseSLTDate(dateStr: string): Date {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return new Date(); // Fallback to now if invalid
+
+        // Shift back by 5.5 hours to correct for the UTC assumption on an LK Time string
+        date.setMinutes(date.getMinutes() - 330);
+        return date;
+    }
+
+    /**
      * Fetch completed SODs from SLT API
      */
     static async fetchCompletedSODsFromSLT(
@@ -150,7 +166,7 @@ export class SODAutoCompletionService {
                                 {
                                     status: 'COMPLETED',
                                     sltsStatus: 'COMPLETED',
-                                    completedDate: new Date(sltSOD.CON_STATUS_DATE),
+                                    completedDate: this.parseSLTDate(sltSOD.CON_STATUS_DATE),
                                 },
                                 'SYSTEM_AUTO_COMPLETE' // System user ID for audit
                             );
