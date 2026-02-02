@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,79 +9,103 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Check, X, ArrowRight, User as UserIcon, Printer, Calendar, AlertCircle, Trash2, Eye } from "lucide-react";
+import { Printer } from "lucide-react";
 import { toast } from 'sonner';
 import { processStockRequestAction } from '@/actions/inventory-actions';
 import { generateGatePassPDF } from '@/utils/pdfGenerator';
 import { cn } from "@/lib/utils";
 
+interface User {
+    id: string;
+    name: string;
+    role: string;
+}
+
+interface InventoryItem {
+    id: string;
+    itemId: string;
+    item: { name: string; code?: string; unit: string };
+    requestedQty: number;
+    approvedQty?: number;
+    remarks?: string;
+}
+
+interface InventoryRequest {
+    id: string;
+    requestNr: string;
+    priority: string;
+    status: string;
+    fromStoreId: string;
+    fromStore: { name: string };
+    toStoreId?: string | null;
+    requestedBy: { name: string };
+    requiredDate?: string;
+    createdAt: string;
+    purpose?: string;
+    remarks?: string;
+    items: InventoryItem[];
+}
+
 export default function RequestsPage() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
-    const [user, setUser] = useState<any>(null);
+    const [user] = useState<User | null>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('user');
+            return stored ? JSON.parse(stored) : null;
+        }
+        return null;
+    });
 
     // Approval State
-    const [selectedRequest, setSelectedRequest] = useState<any>(null);
+    const [selectedRequest, setSelectedRequest] = useState<InventoryRequest | null>(null);
     const [approvalMode, setApprovalMode] = useState(false);
     const [allocation, setAllocation] = useState<Record<string, number>>({});
     const [approverRemarks, setApproverRemarks] = useState("");
 
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (stored) {
-            const parsedToken = JSON.parse(stored);
-            if (parsedToken?.id !== user?.id) {
-                setUser(parsedToken);
-            }
-        }
-    }, [user?.id]);
 
     // Fetch Requests (Internal Store-to-Store Transfers ONLY)
     // Procurement requests (toStoreId = NULL) go to OSP Managers > Approvals
-    const { data: requests = [], isLoading } = useQuery({
+    const { data: requests = [], isLoading } = useQuery<InventoryRequest[]>({
         queryKey: ['requests'],
         queryFn: async () => {
-            // Filter: Only fetch requests with toStoreId (internal transfers)
-            // Procurement requests have toStoreId = NULL and go through OSP approval workflow
             const res = await fetch(`/api/inventory/requests`);
-            const allRequests = await res.json();
-            // Client-side filter for now (can optimize with API param later)
-            return allRequests.filter((r: any) => r.toStoreId !== null);
+            const allRequests: InventoryRequest[] = await res.json();
+            return allRequests.filter((r) => r.toStoreId !== null);
         }
     });
 
-    const filteredRequests = requests.filter((r: any) => {
+    const filteredRequests = requests.filter((r) => {
         if (activeTab === 'pending') return r.status === 'PENDING';
         return true;
     });
 
     const approvalMutation = useMutation({
         mutationFn: async ({ action }: { action: 'APPROVE' | 'REJECT' }) => {
-            const body: any = {
+            if (!selectedRequest) return;
+
+            const body = {
                 requestId: selectedRequest.id,
                 action,
                 remarks: approverRemarks,
-                userId: user?.id
-            };
-
-            if (action === 'APPROVE') {
-                body.allocation = selectedRequest.items.map((i: any) => ({
+                userId: user?.id,
+                allocation: action === 'APPROVE' ? selectedRequest.items.map((i) => ({
                     itemId: i.itemId,
                     approvedQty: allocation[i.itemId] ?? i.requestedQty
-                }));
-            }
+                })) : undefined
+            };
 
             return await processStockRequestAction(body);
         },
         onSuccess: (result) => {
-            if (result.success) {
+            if (result && result.success) {
                 toast.success("Request processed successfully");
                 setApprovalMode(false);
                 setSelectedRequest(null);
                 setApproverRemarks("");
                 queryClient.invalidateQueries({ queryKey: ['requests'] });
             } else {
-                toast.error(result.error || "Failed to process request");
+                toast.error(result?.error || "Failed to process request");
             }
         },
         onError: () => toast.error("Failed to process request")
@@ -152,7 +176,7 @@ export default function RequestsPage() {
                                         ) : filteredRequests.length === 0 ? (
                                             <tr><td colSpan={8} className="p-8 text-center text-slate-400">No requests found.</td></tr>
                                         ) : (
-                                            filteredRequests.map((r: any) => (
+                                            filteredRequests.map((r: InventoryRequest) => (
                                                 <tr key={r.id} className="hover:bg-slate-50">
                                                     <td className="px-4 py-3 font-mono text-slate-500 text-xs">{r.requestNr}</td>
                                                     <td className="px-4 py-3">
@@ -211,8 +235,8 @@ export default function RequestsPage() {
 
                 {/* Approval/Detail Modal */}
                 <Dialog open={!!selectedRequest} onOpenChange={(o) => { if (!o) { setSelectedRequest(null); setApproverRemarks(""); } }}>
-                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
+                    <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
+                        <DialogHeader className="px-6 py-4 border-b">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <DialogTitle className="text-xl flex items-center gap-3">
@@ -222,7 +246,7 @@ export default function RequestsPage() {
                                         </Badge>
                                     </DialogTitle>
                                     <DialogDescription className="mt-1">
-                                        Requested by {selectedRequest?.requestedBy?.name} on {new Date(selectedRequest?.createdAt).toLocaleDateString()}
+                                        Requested by {selectedRequest?.requestedBy?.name} on {new Date(selectedRequest?.createdAt || '').toLocaleDateString()}
                                     </DialogDescription>
                                 </div>
                                 <div className="text-right">
@@ -234,95 +258,110 @@ export default function RequestsPage() {
                             </div>
                         </DialogHeader>
 
-                        {selectedRequest && (
-                            <div className="space-y-6">
-                                {/* Details Card */}
-                                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <div className="text-xs text-slate-500 uppercase font-semibold">Purpose</div>
-                                        <div className="mt-1 text-slate-700 whitespace-pre-wrap">{selectedRequest.purpose || 'No purpose specified'}</div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-xs text-slate-500 uppercase font-semibold">Store Details</div>
-                                        <div className="mt-1 text-slate-700">
-                                            From: <strong>{selectedRequest.fromStore.name}</strong>
-                                            <br />
-                                            Type: {selectedRequest.toStoreId ? 'Internal Transfer' : 'External Purchase (SLT)'}
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 no-scrollbar">
+                            {selectedRequest && (
+                                <div className="space-y-6">
+                                    {/* Details Card */}
+                                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <div className="text-xs text-slate-500 uppercase font-semibold">Purpose</div>
+                                            <div className="mt-1 text-slate-700 whitespace-pre-wrap">{selectedRequest.purpose || 'No purpose specified'}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xs text-slate-500 uppercase font-semibold">Store Details</div>
+                                            <div className="mt-1 text-slate-700">
+                                                From: <strong>{selectedRequest.fromStore.name}</strong>
+                                                <br />
+                                                Type: {selectedRequest.toStoreId ? 'Internal Transfer' : 'External Purchase (SLT)'}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Items Table */}
-                                <div className="border rounded-lg overflow-hidden">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-slate-100 border-b text-slate-600">
-                                            <tr>
-                                                <th className="px-4 py-2 w-12">#</th>
-                                                <th className="px-4 py-2">Item</th>
-                                                <th className="px-4 py-2">Remarks</th>
-                                                <th className="px-4 py-2 text-right">Req. Qty</th>
-                                                <th className="px-4 py-2 text-right w-32">
-                                                    {approvalMode ? 'Approved Qty' : 'Approved'}
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y">
-                                            {selectedRequest.items.map((item: any, idx: number) => (
-                                                <tr key={item.id} className="bg-white">
-                                                    <td className="px-4 py-2 text-slate-500 text-xs">{idx + 1}</td>
-                                                    <td className="px-4 py-2">
-                                                        <div className="font-medium text-slate-900">{item.item.name}</div>
-                                                        <div className="text-xs text-slate-500 font-mono">{item.item.code} • {item.item.unit}</div>
-                                                    </td>
-                                                    <td className="px-4 py-2 text-xs text-slate-600 italic">
-                                                        {item.remarks || '-'}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-right font-medium">
-                                                        {item.requestedQty}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-right">
-                                                        {approvalMode ? (
-                                                            <Input
-                                                                type="number"
-                                                                className="h-8 w-24 text-right ml-auto text-sm border-blue-200 focus:border-blue-500"
-                                                                defaultValue={item.requestedQty} // Default to requested
-                                                                onChange={(e) => setAllocation(prev => ({ ...prev, [item.itemId]: parseFloat(e.target.value) }))}
-                                                            />
-                                                        ) : (
-                                                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                                                                {item.approvedQty}
-                                                            </Badge>
-                                                        )}
-                                                    </td>
+                                    {/* Items Table */}
+                                    <div className="border rounded-lg overflow-hidden">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-slate-100 border-b text-slate-600">
+                                                <tr>
+                                                    <th className="px-4 py-2 w-12">#</th>
+                                                    <th className="px-4 py-2">Item</th>
+                                                    <th className="px-4 py-2">Remarks</th>
+                                                    <th className="px-4 py-2 text-right">Req. Qty</th>
+                                                    <th className="px-4 py-2 text-right w-32">
+                                                        {approvalMode ? 'Approved Qty' : 'Approved'}
+                                                    </th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {selectedRequest.items.map((item: InventoryItem, idx: number) => (
+                                                    <tr key={item.id} className="bg-white">
+                                                        <td className="px-4 py-2 text-slate-500 text-xs">{idx + 1}</td>
+                                                        <td className="px-4 py-2">
+                                                            <div className="font-medium text-slate-900">{item.item.name}</div>
+                                                            <div className="text-xs text-slate-500 font-mono">{item.item.code} • {item.item.unit}</div>
+                                                        </td>
+                                                        <td className="px-4 py-2 text-xs text-slate-600 italic">
+                                                            {item.remarks || '-'}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-right font-medium">
+                                                            {item.requestedQty}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-right">
+                                                            {approvalMode ? (
+                                                                <Input
+                                                                    type="number"
+                                                                    className="h-8 w-24 text-right ml-auto text-sm border-blue-200 focus:border-blue-500"
+                                                                    defaultValue={item.requestedQty} // Default to requested
+                                                                    onChange={(e) => setAllocation(prev => ({ ...prev, [item.itemId]: parseFloat(e.target.value) }))}
+                                                                />
+                                                            ) : (
+                                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                                                    {item.approvedQty}
+                                                                </Badge>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Approver Section */}
+                                    {approvalMode && (
+                                        <div className="space-y-2 bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                                            <label className="text-sm font-semibold text-slate-700">Approver Remarks / Notes</label>
+                                            <Textarea
+                                                placeholder="Enter approval notes or rejection reason..."
+                                                className="bg-white"
+                                                value={approverRemarks}
+                                                onChange={(e) => setApproverRemarks(e.target.value)}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {selectedRequest.remarks && !approvalMode && (
+                                        <div className="space-y-1 bg-slate-50 p-4 rounded-lg">
+                                            <div className="text-xs font-semibold text-slate-500 uppercase">Approver Remarks</div>
+                                            <div className="text-sm text-slate-700">{selectedRequest.remarks}</div>
+                                        </div>
+                                    )}
+
+                                    {/* Print Button for Approved Requests */}
+                                    {selectedRequest?.status !== 'PENDING' && !approvalMode && (
+                                        <div className="flex justify-start pt-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => generateGatePassPDF(selectedRequest)}
+                                                className="gap-2 text-xs"
+                                            >
+                                                <Printer className="w-4 h-4" /> Print Document
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
+                            )}
+                        </div>
 
-                                {/* Approver Section */}
-                                {approvalMode && (
-                                    <div className="space-y-2 bg-yellow-50 p-4 rounded-lg border border-yellow-100">
-                                        <label className="text-sm font-semibold text-slate-700">Approver Remarks / Notes</label>
-                                        <Textarea
-                                            placeholder="Enter approval notes or rejection reason..."
-                                            className="bg-white"
-                                            value={approverRemarks}
-                                            onChange={(e) => setApproverRemarks(e.target.value)}
-                                        />
-                                    </div>
-                                )}
-
-                                {selectedRequest.remarks && !approvalMode && (
-                                    <div className="space-y-1 bg-slate-50 p-4 rounded-lg">
-                                        <div className="text-xs font-semibold text-slate-500 uppercase">Approver Remarks</div>
-                                        <div className="text-sm text-slate-700">{selectedRequest.remarks}</div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <DialogFooter className="mt-4 gap-2">
+                        <DialogFooter className="px-6 py-4 border-t bg-slate-50 gap-2">
                             <Button variant="outline" onClick={() => setSelectedRequest(null)}>Close</Button>
                             {approvalMode && (
                                 <>
@@ -343,19 +382,6 @@ export default function RequestsPage() {
                                 </>
                             )}
                         </DialogFooter>
-
-                        {/* Print Button for Approved Requests */}
-                        {selectedRequest?.status !== 'PENDING' && !approvalMode && (
-                            <div className="flex justify-start pt-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => generateGatePassPDF(selectedRequest)}
-                                    className="gap-2 text-xs"
-                                >
-                                    <Printer className="w-4 h-4" /> Print Document
-                                </Button>
-                            </div>
-                        )}
                     </DialogContent>
                 </Dialog>
             </main>

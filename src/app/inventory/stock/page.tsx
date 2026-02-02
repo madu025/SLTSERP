@@ -6,44 +6,74 @@ import Header from '@/components/Header';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Search, AlertTriangle, Trash2, Layers, History } from "lucide-react";
 import { toast } from 'sonner';
-import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
 import { recordWastage } from "@/actions/inventory-actions";
+
+interface User {
+    id: string;
+    name: string;
+}
+
+interface Store {
+    id: string;
+    name: string;
+    type: string;
+}
+
+interface StockItem {
+    id: string;
+    itemId: string;
+    item: { name: string; code: string; unit: string; category: string };
+    quantity: number;
+    minLevel?: number;
+}
 
 export default function StockPage() {
     const queryClient = useQueryClient();
     const [selectedStoreId, setSelectedStoreId] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
-    const [user, setUser] = useState<any>(null);
+    const [user] = useState<User | null>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('user');
+            return stored ? JSON.parse(stored) : null;
+        }
+        return null;
+    });
 
     // Wastage Modal
-    const [wastageItem, setWastageItem] = useState<any>(null);
+    const [wastageItem, setWastageItem] = useState<StockItem | null>(null);
     const [wastageQty, setWastageQty] = useState("");
     const [wastageReason, setWastageReason] = useState("");
 
     // Batch Details Modal
-    const [selectedItemForBatches, setSelectedItemForBatches] = useState<any>(null);
-    const { data: itemBatches = [], isLoading: isLoadingBatches } = useQuery({
+    const [selectedItemForBatches, setSelectedItemForBatches] = useState<StockItem | null>(null);
+    const { data: itemBatches = [], isLoading: isLoadingBatches } = useQuery<Array<{
+        id: string;
+        quantity: number;
+        batch: {
+            batchNumber: string;
+            createdAt: string;
+            grn?: { grnNumber: string; createdAt: string };
+            costPrice?: number;
+            initialQty: number;
+        };
+    }>>({
         queryKey: ['item-batches', selectedStoreId, selectedItemForBatches?.itemId],
         queryFn: async () => {
+            if (!selectedItemForBatches) return [];
             const res = await fetch(`/api/inventory/batches?storeId=${selectedStoreId}&itemId=${selectedItemForBatches.itemId}`);
             return res.json();
         },
         enabled: !!(selectedStoreId && selectedItemForBatches)
     });
 
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (stored) setUser(JSON.parse(stored));
-    }, []);
 
     // Fetch Stores
-    const { data: stores = [] } = useQuery({
+    const { data: stores = [] } = useQuery<Store[]>({
         queryKey: ['stores'],
         queryFn: async () => {
             const res = await fetch('/api/inventory/stores');
@@ -54,12 +84,13 @@ export default function StockPage() {
     // Default Store Selection
     useEffect(() => {
         if (stores.length > 0 && !selectedStoreId) {
-            setSelectedStoreId(stores[0].id);
+            const firstStoreId = stores[0].id;
+            setTimeout(() => setSelectedStoreId(firstStoreId), 0);
         }
     }, [stores, selectedStoreId]);
 
     // Fetch Stock
-    const { data: stock = [], isLoading } = useQuery({
+    const { data: stock = [], isLoading } = useQuery<StockItem[]>({
         queryKey: ['stock', selectedStoreId],
         queryFn: async () => {
             if (!selectedStoreId) return [];
@@ -72,6 +103,7 @@ export default function StockPage() {
     // Wastage Mutation
     const wastageMutation = useMutation({
         mutationFn: async () => {
+            if (!wastageItem) throw new Error("No item selected");
             return await recordWastage({
                 storeId: selectedStoreId,
                 userId: user?.id,
@@ -93,7 +125,7 @@ export default function StockPage() {
         onError: () => toast.error("Failed to record wastage")
     });
 
-    const filteredStock = Array.isArray(stock) ? stock.filter((s: any) =>
+    const filteredStock = Array.isArray(stock) ? stock.filter((s) =>
         s.item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.item.code.toLowerCase().includes(searchTerm.toLowerCase())
     ) : [];
@@ -119,7 +151,7 @@ export default function StockPage() {
                                             <SelectValue placeholder="Select Store" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {stores.map((s: any) => (
+                                            {stores.map((s) => (
                                                 <SelectItem key={s.id} value={s.id} className="text-xs">
                                                     {s.name} ({s.type})
                                                 </SelectItem>
@@ -159,7 +191,7 @@ export default function StockPage() {
                                         ) : filteredStock.length === 0 ? (
                                             <tr><td colSpan={6} className="p-8 text-center text-slate-400">No stock found for this store.</td></tr>
                                         ) : (
-                                            filteredStock.map((row: any) => (
+                                            filteredStock.map((row: StockItem) => (
                                                 <tr key={row.id} className="hover:bg-slate-50">
                                                     <td className="px-4 py-2 font-mono text-slate-500">{row.item.code}</td>
                                                     <td className="px-4 py-2 font-bold text-slate-800">{row.item.name}</td>
@@ -242,15 +274,15 @@ export default function StockPage() {
 
                 {/* Batches View Dialog */}
                 <Dialog open={!!selectedItemForBatches} onOpenChange={(o) => { if (!o) setSelectedItemForBatches(null); }}>
-                    <DialogContent className="max-w-2xl">
-                        <DialogHeader>
+                    <DialogContent className="max-w-2xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
+                        <DialogHeader className="px-6 py-4 border-b">
                             <DialogTitle className="flex items-center gap-2">
                                 <Layers className="w-5 h-5 text-blue-600" />
                                 Batch Breakdown: {selectedItemForBatches?.item?.name}
                             </DialogTitle>
                         </DialogHeader>
 
-                        <div className="space-y-4 pt-2">
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 no-scrollbar">
                             <div className="flex justify-between items-end px-1">
                                 <div className="text-xs text-slate-500">
                                     Product Code: <span className="font-mono font-bold text-slate-700">{selectedItemForBatches?.item?.code}</span>
@@ -277,7 +309,7 @@ export default function StockPage() {
                                         ) : itemBatches.length === 0 ? (
                                             <tr><td colSpan={5} className="p-8 text-center text-slate-400">No active batches for this item.</td></tr>
                                         ) : (
-                                            itemBatches.map((b: any) => (
+                                            itemBatches.map((b) => (
                                                 <tr key={b.id} className="hover:bg-slate-50/50">
                                                     <td className="px-3 py-2 font-mono font-bold text-slate-700">
                                                         {b.batch.batchNumber || 'N/A'}
@@ -314,7 +346,7 @@ export default function StockPage() {
                             </div>
                         </div>
 
-                        <DialogFooter>
+                        <DialogFooter className="px-6 py-4 border-t bg-slate-50">
                             <Button variant="outline" onClick={() => setSelectedItemForBatches(null)}>Close</Button>
                         </DialogFooter>
                     </DialogContent>

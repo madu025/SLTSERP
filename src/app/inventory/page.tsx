@@ -4,66 +4,82 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
     LayoutDashboard,
     Package,
     ArrowRightLeft,
     AlertTriangle,
     ChevronRight,
-    Search,
     TrendingUp, // For stock movement
     Clock, // For pending
     Store // For Store identifier
 } from "lucide-react";
 import Link from 'next/link';
-import { Input } from "@/components/ui/input";
 import { format } from 'date-fns';
 
-export default function InventoryDashboardPage() {
-    const [user, setUser] = useState<any>(null);
-    const [myStore, setMyStore] = useState<any>(null);
+interface User {
+    id: string;
+    name: string;
+    role: string;
+}
 
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (stored) {
-            const u = JSON.parse(stored);
-            setUser(u);
+interface Store {
+    id: string;
+    name: string;
+    managerId?: string;
+}
+
+interface Stock {
+    id: string;
+    itemId: string;
+    storeId: string;
+    quantity: number;
+}
+
+interface Item {
+    id: string;
+    name: string;
+    minLevel: number;
+}
+
+interface Transaction {
+    id: string;
+    type: string;
+    createdAt: string;
+    user: { name: string };
+    store: { name: string };
+    items: Array<{ id: string; quantity: number; item: { name: string } }>;
+}
+
+export default function InventoryDashboardPage() {
+    const [user] = useState<User | null>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('user');
+            return stored ? JSON.parse(stored) : null;
         }
-    }, []);
+        return null;
+    });
+    const [myStore, setMyStore] = useState<Store | { id: 'unassigned'; name: string } | null>(null);
 
     // --- 1. DETERMINE SCOPE (Role & Store) ---
-    const { data: stores = [] } = useQuery({
+    const { data: stores = [] } = useQuery<Store[]>({
         queryKey: ['stores'],
         queryFn: async () => (await fetch('/api/inventory/stores')).json()
     });
 
     useEffect(() => {
         if (user && stores.length > 0) {
-            // Logic:
-            // SUPER_ADMIN, ADMIN, STORES_MANAGER -> View ALL (Global Dashboard)
-            // STORE_KEEPER (or others) -> View ONLY their assigned store
-
             const isGlobalViewer = ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'].includes(user.role);
 
             if (isGlobalViewer) {
-                setMyStore(null); // Null means "All Stores"
+                setTimeout(() => setMyStore(null), 0);
             } else {
-                // Find store assigned to this user
-                // Assuming 'managerId' in store marks ownership, OR we just pick the first store they are assigned to if we had that mapping.
-                // For now, using managerId logic or defaulting to first store if not explicitly a manager but has role.
-                // Actually, if they are just a user, we might need a better link.
-                // Let's assume if not global admin, they are tied to a store via managerId or we force them to pick?
-                // For this improvement, let's try to find if they manage a store.
-                const managed = stores.find((s: any) => s.managerId === user.id);
+                const managed = stores.find((s) => s.managerId === user.id);
                 if (managed) {
-                    setMyStore(managed);
+                    setTimeout(() => setMyStore(managed), 0);
                 } else {
-                    // Fallback: If regular user with no store assignment, maybe show nothing or just Main Store read-only?
-                    // Let's assume they might be part of Main Store if nothing else.
-                    // But strictly specifically: "stor keeprslata adala bach eke detils pamank"
-                    // If no store found, we set myStore to a dummy to show empty or "Contact Admin".
-                    setMyStore({ id: 'unassigned', name: 'No Assigned Store' });
+                    setTimeout(() => setMyStore({ id: 'unassigned', name: 'No Assigned Store' }), 0);
                 }
             }
         }
@@ -75,32 +91,27 @@ export default function InventoryDashboardPage() {
     // --- 2. FETCH DATA BASED ON SCOPE ---
 
     // Stats: Stock Levels
-    const { data: stockData = [] } = useQuery({
+    const { data: stockData = [] } = useQuery<Stock[]>({
         queryKey: ['stock-levels', currentStoreId],
         queryFn: async () => {
-            let url = '/api/inventory/stock';
-            // If scoped to a store, we might want valid filtering. 
-            // Currently /api/inventory/stock returns ALL. We can filter on client for now if API doesn't support it fully efficiently, 
-            // OR update API. Updated API allows query params? No, let's filter client-side for simplicity as dataset is small.
-            const res = await fetch(url);
+            const res = await fetch('/api/inventory/stock');
             return res.json();
         },
         enabled: !!user
     });
 
     // Items (Global context needed for names etc)
-    const { data: items = [] } = useQuery({
+    const { data: items = [] } = useQuery<Item[]>({
         queryKey: ['items'],
         queryFn: async () => (await fetch('/api/inventory/items')).json()
     });
 
     // Recent Transactions
-    const { data: recentTx = [] } = useQuery({
+    const { data: recentTx = [] } = useQuery<Transaction[]>({
         queryKey: ['recent-tx', currentStoreId],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (currentStoreId && currentStoreId !== 'unassigned') params.append('storeId', currentStoreId);
-            // We want recent ones. API returns all ordered desc. We can slice.
             const res = await fetch(`/api/inventory/transactions?${params.toString()}`);
             const data = await res.json();
             return Array.isArray(data) ? data.slice(0, 5) : [];
@@ -109,13 +120,10 @@ export default function InventoryDashboardPage() {
     });
 
     // Pending Requests Count
-    const { data: requests = [] } = useQuery({
+    const { data: requests = [] } = useQuery<Array<{ status: string }>>({
         queryKey: ['requests-count', currentStoreId],
         queryFn: async () => {
             const params = new URLSearchParams();
-            // If I am Global, I want to see ALL PENDING requests system-wide (approvals needed).
-            // If I am Store, I want to see My Pending Outgoing Requests OR Incoming if I am Main Store?
-            // Simplification: Fetch all and count client side.
             if (currentStoreId && currentStoreId !== 'unassigned') params.append('storeId', currentStoreId);
             const res = await fetch(`/api/inventory/requests?${params.toString()}`);
             return res.json();
@@ -129,18 +137,18 @@ export default function InventoryDashboardPage() {
     const filteredStock = React.useMemo(() => {
         if (!Array.isArray(stockData)) return [];
         if (isGlobal || !currentStoreId || currentStoreId === 'unassigned') return stockData;
-        return stockData.filter((s: any) => s.storeId === currentStoreId);
+        return stockData.filter((s) => s.storeId === currentStoreId);
     }, [stockData, isGlobal, currentStoreId]);
 
     const lowStockAlerts = React.useMemo(() => {
         if (items.length === 0) return [];
-        const alerts: any[] = [];
+        const alerts: Array<Item & { currentQty: number }> = [];
 
-        items.forEach((item: any) => {
+        items.forEach((item) => {
             if (item.minLevel > 0) {
                 // Calculate total qty for this item within the current scope
-                const relevantStock = filteredStock.filter((s: any) => s.itemId === item.id);
-                const totalQty = relevantStock.reduce((acc: number, curr: any) => acc + curr.quantity, 0);
+                const relevantStock = filteredStock.filter((s) => s.itemId === item.id);
+                const totalQty = relevantStock.reduce((acc: number, curr) => acc + curr.quantity, 0);
 
                 if (totalQty <= item.minLevel) {
                     alerts.push({ ...item, currentQty: totalQty });
@@ -152,10 +160,10 @@ export default function InventoryDashboardPage() {
 
     const pendingRequestsCount = React.useMemo(() => {
         if (!Array.isArray(requests)) return 0;
-        return requests.filter((r: any) => r.status === 'PENDING').length;
+        return requests.filter((r: { status: string }) => r.status === 'PENDING').length;
     }, [requests]);
 
-    const totalStockCount = filteredStock.reduce((acc: number, curr: any) => acc + curr.quantity, 0);
+    const totalStockCount = filteredStock.reduce((acc: number, curr) => acc + curr.quantity, 0);
 
     // Filter recent TX to relevant ones if scope is global (API handles store filter)
     const displayTx = recentTx;
@@ -296,7 +304,7 @@ export default function InventoryDashboardPage() {
                                             ) : (
                                                 <table className="w-full text-xs text-left">
                                                     <tbody className="divide-y">
-                                                        {displayTx.map((tx: any) => (
+                                                        {displayTx.map((tx) => (
                                                             <tr key={tx.id} className="hover:bg-slate-50">
                                                                 <td className="px-4 py-3 w-10">
                                                                     <div className={`w-2 h-2 rounded-full ${['GRN_IN'].includes(tx.type) ? 'bg-emerald-500' : 'bg-blue-400'}`}></div>

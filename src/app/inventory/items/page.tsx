@@ -389,209 +389,210 @@ export default function ItemMasterPage() {
 
                 {/* MODAL */}
                 <Dialog open={showModal} onOpenChange={setShowModal}>
-                    <DialogContent className="max-w-lg">
-                        <DialogHeader>
+                    <DialogContent className="max-w-lg max-h-[95vh] flex flex-col p-0 overflow-hidden">
+                        <DialogHeader className="px-6 py-4 border-b">
                             <DialogTitle>{editingItem ? 'Edit Item' : 'Register New Item'}</DialogTitle>
                             <DialogDescription>Define inventory item details.</DialogDescription>
                         </DialogHeader>
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4 py-2">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="code" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Item Code</FormLabel>
-                                            <FormControl><Input {...field} placeholder="e.g. CAB-001" className="h-8 text-xs" disabled={!!editingItem} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="unit" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Unit</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="Nos" className="text-xs">Nos</SelectItem>
-                                                    <SelectItem value="m" className="text-xs">Meters (m)</SelectItem>
-                                                    <SelectItem value="kg" className="text-xs">Kilogram (kg)</SelectItem>
-                                                    <SelectItem value="gram" className="text-xs">Gram</SelectItem>
-                                                    <SelectItem value="L" className="text-xs">Liter (L)</SelectItem>
-                                                    <SelectItem value="ml" className="text-xs">Milliliter (ml)</SelectItem>
-                                                    <SelectItem value="Box" className="text-xs">Box</SelectItem>
-                                                    <SelectItem value="pkts" className="text-xs">Packets (pkts)</SelectItem>
-                                                    <SelectItem value="km" className="text-xs">Kilometer (km)</SelectItem>
-                                                    <SelectItem value="Set" className="text-xs">Set</SelectItem>
-                                                    <SelectItem value="Roll" className="text-xs">Roll</SelectItem>
-                                                    <SelectItem value="Bot" className="text-xs">Bottle (Bot)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </div>
-
-                                <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs">Item Name</FormLabel>
-                                        <FormControl><Input {...field} placeholder="Item Name" className="h-8 text-xs" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="type" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Source / Owner</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="SLTS" className="text-xs">SLTS</SelectItem>
-                                                    <SelectItem value="SLT" className="text-xs">SLT</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-
-                                    <FormField control={form.control} name="category" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Item Category</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="CABLES" className="text-xs">Cables & Wires</SelectItem>
-                                                    <SelectItem value="POLES" className="text-xs">Poles & Concrete</SelectItem>
-                                                    <SelectItem value="FIBER_ACCESSORIES" className="text-xs">Fiber Accessories</SelectItem>
-                                                    <SelectItem value="COPPER_ACCESSORIES" className="text-xs">Copper Accessories</SelectItem>
-                                                    <SelectItem value="HARDWARE" className="text-xs">General Hardware</SelectItem>
-                                                    <SelectItem value="EQUIPMENT" className="text-xs">Equipment / Tools</SelectItem>
-                                                    <SelectItem value="OTHERS" className="text-xs">Others</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </div>
-
-                                <FormField control={form.control} name="commonName" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs">SLT Material Name (Master Identifier)</FormLabel>
-                                        <FormControl><Input {...field} placeholder="e.g. Drop Wire" className="h-8 text-xs font-bold border-blue-200 bg-blue-50/30" /></FormControl>
-                                        <FormMessage />
-                                        <p className="text-[10px] text-slate-500 italic">
-                                            <strong>CRITICAL:</strong> Use the same name for both SLT and SLTS versions of this material.
-                                            This bridges different product codes together for reporting and auto-selection.
-                                        </p>
-                                    </FormItem>
-                                )} />
-
-                                <FormField control={form.control} name="importAliases" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs">Import Aliases / SLT UI Names</FormLabel>
-                                        <div className="space-y-2">
-                                            <div className="flex flex-wrap gap-1.5 p-2 border rounded-md bg-slate-50/50 min-h-[40px]">
-                                                {field.value?.map((alias, i) => (
-                                                    <Badge key={i} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
-                                                        {alias}
-                                                        <button type="button" onClick={() => field.onChange(field.value?.filter((_, idx) => idx !== i))} className="hover:text-red-500">
-                                                            <Trash2 className="w-2.5 h-2.5" />
-                                                        </button>
-                                                    </Badge>
-                                                ))}
-                                                {(!field.value || field.value.length === 0) && <span className="text-[10px] text-slate-400 italic">No aliases added...</span>}
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    placeholder="Add alias (e.g. FTTH-DW)"
-                                                    className="h-8 text-xs flex-1"
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            const val = e.currentTarget.value.trim();
-                                                            if (val && !field.value?.includes(val)) {
-                                                                field.onChange([...(field.value || []), val]);
-                                                                e.currentTarget.value = '';
-                                                            }
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                            <p className="text-[9px] text-slate-400">Press Enter to add multiple names seen in SLT system.</p>
-                                        </div>
-                                    </FormItem>
-                                )} />
-
-                                <FormField control={form.control} name="minLevel" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-bold text-orange-600 flex items-center gap-2">
-                                            <AlertTriangle className="w-3 h-3" /> Low Stock Warning Level
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input {...field} type="number" placeholder="0 = Disable" className="h-8 text-xs border-orange-200 focus:ring-orange-200" />
-                                        </FormControl>
-                                        <FormMessage />
-                                        <p className="text-[10px] text-slate-400">Set minimum quantity to trigger alerts.</p>
-                                    </FormItem>
-                                )} />
-
-                                <div className="p-3 bg-slate-50 rounded border space-y-3">
-                                    <FormField control={form.control} name="isWastageAllowed" render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center justify-between rounded-lg p-0 space-y-0">
-                                            <div>
-                                                <FormLabel className="text-xs font-semibold">Allow Wastage</FormLabel>
-                                                <p className="text-[10px] text-slate-500">Enable wastage entry for this item in SOD.</p>
-                                            </div>
-                                            <FormControl>
-                                                <Checkbox
-                                                    checked={field.value}
-                                                    onCheckedChange={field.onChange}
-                                                    className="data-[state=checked]:bg-blue-600 border-slate-300"
-                                                />
-                                            </FormControl>
-                                        </FormItem>
-                                    )} />
-
-                                    {form.watch("isWastageAllowed") && (
-                                        <FormField control={form.control} name="maxWastagePercentage" render={({ field }) => (
+                            <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="flex-1 flex flex-col overflow-hidden">
+                                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="code" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs">Max Wastage %</FormLabel>
-                                                <FormControl>
-                                                    <div className="relative">
-                                                        <Input {...field} type="number" placeholder="e.g. 5" className="h-8 text-xs pr-6" />
-                                                        <span className="absolute right-2 top-2 text-xs text-slate-400">%</span>
-                                                    </div>
-                                                </FormControl>
+                                                <FormLabel className="text-xs">Item Code</FormLabel>
+                                                <FormControl><Input {...field} placeholder="e.g. CAB-001" className="h-8 text-xs" disabled={!!editingItem} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
-                                    )}
-                                </div>
+                                        <FormField control={form.control} name="unit" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Unit</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="Nos" className="text-xs">Nos</SelectItem>
+                                                        <SelectItem value="m" className="text-xs">Meters (m)</SelectItem>
+                                                        <SelectItem value="kg" className="text-xs">Kilogram (kg)</SelectItem>
+                                                        <SelectItem value="gram" className="text-xs">Gram</SelectItem>
+                                                        <SelectItem value="L" className="text-xs">Liter (L)</SelectItem>
+                                                        <SelectItem value="ml" className="text-xs">Milliliter (ml)</SelectItem>
+                                                        <SelectItem value="Box" className="text-xs">Box</SelectItem>
+                                                        <SelectItem value="pkts" className="text-xs">Packets (pkts)</SelectItem>
+                                                        <SelectItem value="km" className="text-xs">Kilometer (km)</SelectItem>
+                                                        <SelectItem value="Set" className="text-xs">Set</SelectItem>
+                                                        <SelectItem value="Roll" className="text-xs">Roll</SelectItem>
+                                                        <SelectItem value="Bot" className="text-xs">Bottle (Bot)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="costPrice" render={({ field }) => (
+                                    <FormField control={form.control} name="name" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-bold text-rose-600">Internal Cost (LKR)</FormLabel>
-                                            <FormControl><Input {...field} type="number" step="0.01" className="h-8 text-xs border-rose-100" /></FormControl>
+                                            <FormLabel className="text-xs">Item Name</FormLabel>
+                                            <FormControl><Input {...field} placeholder="Item Name" className="h-8 text-xs" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
-                                    <FormField control={form.control} name="unitPrice" render={({ field }) => (
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="type" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Source / Owner</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="SLTS" className="text-xs">SLTS</SelectItem>
+                                                        <SelectItem value="SLT" className="text-xs">SLT</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+
+                                        <FormField control={form.control} name="category" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">Item Category</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="CABLES" className="text-xs">Cables & Wires</SelectItem>
+                                                        <SelectItem value="POLES" className="text-xs">Poles & Concrete</SelectItem>
+                                                        <SelectItem value="FIBER_ACCESSORIES" className="text-xs">Fiber Accessories</SelectItem>
+                                                        <SelectItem value="COPPER_ACCESSORIES" className="text-xs">Copper Accessories</SelectItem>
+                                                        <SelectItem value="HARDWARE" className="text-xs">General Hardware</SelectItem>
+                                                        <SelectItem value="EQUIPMENT" className="text-xs">Equipment / Tools</SelectItem>
+                                                        <SelectItem value="OTHERS" className="text-xs">Others</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+
+                                    <FormField control={form.control} name="commonName" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs font-bold text-emerald-600">Unit Rate / Revenue (LKR)</FormLabel>
-                                            <FormControl><Input {...field} type="number" step="0.01" className="h-8 text-xs border-emerald-100" /></FormControl>
+                                            <FormLabel className="text-xs">SLT Material Name (Master Identifier)</FormLabel>
+                                            <FormControl><Input {...field} placeholder="e.g. Drop Wire" className="h-8 text-xs font-bold border-blue-200 bg-blue-50/30" /></FormControl>
+                                            <FormMessage />
+                                            <p className="text-[10px] text-slate-500 italic">
+                                                <strong>CRITICAL:</strong> Use the same name for both SLT and SLTS versions of this material.
+                                                This bridges different product codes together for reporting and auto-selection.
+                                            </p>
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField control={form.control} name="importAliases" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Import Aliases / SLT UI Names</FormLabel>
+                                            <div className="space-y-2">
+                                                <div className="flex flex-wrap gap-1.5 p-2 border rounded-md bg-slate-50/50 min-h-[40px]">
+                                                    {field.value?.map((alias, i) => (
+                                                        <Badge key={i} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+                                                            {alias}
+                                                            <button type="button" onClick={() => field.onChange(field.value?.filter((_, idx) => idx !== i))} className="hover:text-red-500">
+                                                                <Trash2 className="w-2.5 h-2.5" />
+                                                            </button>
+                                                        </Badge>
+                                                    ))}
+                                                    {(!field.value || field.value.length === 0) && <span className="text-[10px] text-slate-400 italic">No aliases added...</span>}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        placeholder="Add alias (e.g. FTTH-DW)"
+                                                        className="h-8 text-xs flex-1"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                const val = e.currentTarget.value.trim();
+                                                                if (val && !field.value?.includes(val)) {
+                                                                    field.onChange([...(field.value || []), val]);
+                                                                    e.currentTarget.value = '';
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                                <p className="text-[9px] text-slate-400">Press Enter to add multiple names seen in SLT system.</p>
+                                            </div>
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField control={form.control} name="minLevel" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs font-bold text-orange-600 flex items-center gap-2">
+                                                <AlertTriangle className="w-3 h-3" /> Low Stock Warning Level
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input {...field} type="number" placeholder="0 = Disable" className="h-8 text-xs border-orange-200 focus:ring-orange-200" />
+                                            </FormControl>
+                                            <FormMessage />
+                                            <p className="text-[10px] text-slate-400">Set minimum quantity to trigger alerts.</p>
+                                        </FormItem>
+                                    )} />
+
+                                    <div className="p-3 bg-slate-50 rounded border space-y-3">
+                                        <FormField control={form.control} name="isWastageAllowed" render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between rounded-lg p-0 space-y-0">
+                                                <div>
+                                                    <FormLabel className="text-xs font-semibold">Allow Wastage</FormLabel>
+                                                    <p className="text-[10px] text-slate-500">Enable wastage entry for this item in SOD.</p>
+                                                </div>
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                        className="data-[state=checked]:bg-blue-600 border-slate-300"
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )} />
+
+                                        {form.watch("isWastageAllowed") && (
+                                            <FormField control={form.control} name="maxWastagePercentage" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-xs">Max Wastage %</FormLabel>
+                                                    <FormControl>
+                                                        <div className="relative">
+                                                            <Input {...field} type="number" placeholder="e.g. 5" className="h-8 text-xs pr-6" />
+                                                            <span className="absolute right-2 top-2 text-xs text-slate-400">%</span>
+                                                        </div>
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="costPrice" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs font-bold text-rose-600">Internal Cost (LKR)</FormLabel>
+                                                <FormControl><Input {...field} type="number" step="0.01" className="h-8 text-xs border-rose-100" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="unitPrice" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs font-bold text-emerald-600">Unit Rate / Revenue (LKR)</FormLabel>
+                                                <FormControl><Input {...field} type="number" step="0.01" className="h-8 text-xs border-emerald-100" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+
+                                    <FormField control={form.control} name="description" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Description (Optional)</FormLabel>
+                                            <FormControl><Input {...field} className="h-8 text-xs" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                 </div>
-
-                                <FormField control={form.control} name="description" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs">Description (Optional)</FormLabel>
-                                        <FormControl><Input {...field} className="h-8 text-xs" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-
-                                <DialogFooter>
+                                <DialogFooter className="px-6 py-4 border-t">
                                     <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
                                     <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? 'Saving...' : 'Save Item'}</Button>
                                 </DialogFooter>

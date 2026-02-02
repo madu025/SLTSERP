@@ -14,21 +14,61 @@ import { Package, CheckCircle, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { createGRN } from "@/actions/inventory-actions";
 
+interface GRNItem {
+    itemId: string;
+    itemName: string;
+    requestedQty: number;
+    receivedQty: number;
+    remarks: string;
+}
+
+interface InventoryRequest {
+    id: string;
+    requestNr: string;
+    poNumber?: string;
+    vendor?: string;
+    sourceType: string;
+    fromStoreId: string;
+    irNumber?: string;
+    items: {
+        id: string;
+        itemId: string;
+        item?: {
+            name: string;
+            code: string;
+            unit: string;
+        };
+        requestedQty: number;
+        batch?: {
+            batchNumber: string;
+        };
+    }[];
+    expectedDelivery?: string;
+}
+
 export default function GRNPage() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'READY' | 'COMPLETED'>('READY');
-    const [selectedRequest, setSelectedRequest] = useState<any>(null);
+    const [selectedRequest, setSelectedRequest] = useState<InventoryRequest | null>(null);
     const [showGRNDialog, setShowGRNDialog] = useState(false);
     const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
     // GRN Form State
     const [grnNumber, setGRNNumber] = useState('');
     const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [receivedItems, setReceivedItems] = useState<any[]>([]);
+    const [receivedItems, setReceivedItems] = useState<GRNItem[]>([]);
     const [grnRemarks, setGRNRemarks] = useState('');
 
+    // Generate GRN Number when dialog opens
+    useEffect(() => {
+        if (showGRNDialog && !grnNumber) {
+            const timestamp = Date.now();
+            setGRNNumber(`GRN-${timestamp}`);
+        }
+    }, [showGRNDialog, grnNumber]);
+
     // Fetch requests ready for GRN
-    const { data: requests = [], isLoading } = useQuery({
+    const { data: requests = [], isLoading } = useQuery<InventoryRequest[]>({
         queryKey: ['grn-requests', activeTab],
         queryFn: async () => {
             const res = await fetch(`/api/inventory/requests?workflowStage=${activeTab === 'READY' ? 'GRN_PENDING' : 'COMPLETED'}`);
@@ -53,15 +93,13 @@ export default function GRNPage() {
         onError: () => toast.error('Failed to create GRN')
     });
 
-    const handleOpenGRNDialog = (request: any) => {
+    const handleOpenGRNDialog = (request: InventoryRequest) => {
         setSelectedRequest(request);
-        const timestamp = Date.now();
-        setGRNNumber(`GRN-${timestamp}`);
 
         // Initialize received items with requested quantities
-        const items = request.items.map((item: any) => ({
+        const items: GRNItem[] = request.items.map((item) => ({
             itemId: item.itemId,
-            itemName: item.item?.name,
+            itemName: item.item?.name || 'Unknown Item',
             requestedQty: item.requestedQty,
             receivedQty: item.requestedQty, // Default to requested qty
             remarks: ''
@@ -75,6 +113,7 @@ export default function GRNPage() {
         setSelectedRequest(null);
         setReceivedItems([]);
         setGRNRemarks('');
+        setGRNNumber(''); // Reset GRN number
     };
 
     const handleCreateGRN = () => {
@@ -86,6 +125,8 @@ export default function GRNPage() {
         // Get user from localStorage
         const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+        if (!selectedRequest) return;
+
         const payload = {
             storeId: selectedRequest.fromStoreId,
             sourceType: selectedRequest.sourceType,
@@ -95,7 +136,7 @@ export default function GRNPage() {
             sltReferenceId: selectedRequest.irNumber || null,
             items: receivedItems.map(item => ({
                 itemId: item.itemId,
-                quantity: parseFloat(item.receivedQty)
+                quantity: parseFloat(item.receivedQty.toString())
             }))
         };
 
@@ -104,7 +145,7 @@ export default function GRNPage() {
 
     const updateReceivedQty = (index: number, value: string) => {
         const updated = [...receivedItems];
-        updated[index].receivedQty = value;
+        updated[index].receivedQty = parseFloat(value) || 0;
         setReceivedItems(updated);
     };
 
@@ -232,104 +273,106 @@ export default function GRNPage() {
 
             {/* Create GRN Dialog */}
             <Dialog open={showGRNDialog} onOpenChange={setShowGRNDialog}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
+                <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="px-6 py-4 border-b">
                         <DialogTitle>Create Goods Receipt Note</DialogTitle>
                     </DialogHeader>
-                    {selectedRequest && (
-                        <div className="space-y-4">
-                            {/* GRN Header Info */}
-                            <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded">
-                                <div className="text-sm">
-                                    <span className="font-bold">Request No:</span> {selectedRequest.requestNr}
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 no-scrollbar">
+                        {selectedRequest && (
+                            <div className="space-y-4">
+                                {/* GRN Header Info */}
+                                <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded">
+                                    <div className="text-sm">
+                                        <span className="font-bold">Request No:</span> {selectedRequest.requestNr}
+                                    </div>
+                                    <div className="text-sm">
+                                        <span className="font-bold">PO Number:</span> {selectedRequest.poNumber}
+                                    </div>
+                                    <div className="text-sm">
+                                        <span className="font-bold">Vendor:</span> {selectedRequest.vendor}
+                                    </div>
+                                    <div className="text-sm">
+                                        <span className="font-bold">Source:</span> {selectedRequest.sourceType}
+                                    </div>
                                 </div>
-                                <div className="text-sm">
-                                    <span className="font-bold">PO Number:</span> {selectedRequest.poNumber}
-                                </div>
-                                <div className="text-sm">
-                                    <span className="font-bold">Vendor:</span> {selectedRequest.vendor}
-                                </div>
-                                <div className="text-sm">
-                                    <span className="font-bold">Source:</span> {selectedRequest.sourceType}
-                                </div>
-                            </div>
 
-                            {/* GRN Form */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 uppercase">GRN Number</label>
-                                    <Input
-                                        className="mt-1"
-                                        value={grnNumber}
-                                        onChange={e => setGRNNumber(e.target.value)}
-                                    />
+                                {/* GRN Form */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 uppercase">GRN Number</label>
+                                        <Input
+                                            className="mt-1"
+                                            value={grnNumber}
+                                            onChange={e => setGRNNumber(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 uppercase">Received Date</label>
+                                        <Input
+                                            type="date"
+                                            className="mt-1"
+                                            value={receivedDate}
+                                            onChange={e => setReceivedDate(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 uppercase">Received Date</label>
-                                    <Input
-                                        type="date"
-                                        className="mt-1"
-                                        value={receivedDate}
-                                        onChange={e => setReceivedDate(e.target.value)}
-                                    />
-                                </div>
-                            </div>
 
-                            {/* Items Table */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-600 uppercase mb-2 block">Received Items</label>
-                                <div className="border rounded overflow-hidden">
-                                    <table className="w-full text-xs">
-                                        <thead className="bg-slate-100">
-                                            <tr>
-                                                <th className="px-3 py-2 text-left">Item</th>
-                                                <th className="px-3 py-2 text-center">Ordered Qty</th>
-                                                <th className="px-3 py-2 text-center">Received Qty</th>
-                                                <th className="px-3 py-2 text-left">Batch/Remarks</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y">
-                                            {receivedItems.map((item, idx) => (
-                                                <tr key={idx}>
-                                                    <td className="px-3 py-2">{item.itemName}</td>
-                                                    <td className="px-3 py-2 text-center font-medium">{item.requestedQty}</td>
-                                                    <td className="px-3 py-2">
-                                                        <Input
-                                                            type="number"
-                                                            className="h-8 text-center"
-                                                            value={item.receivedQty}
-                                                            onChange={e => updateReceivedQty(idx, e.target.value)}
-                                                        />
-                                                    </td>
-                                                    <td className="px-3 py-2 flex flex-col gap-1">
-                                                        <Input
-                                                            className="h-8 text-xs font-mono"
-                                                            placeholder="Manual Batch ID (Optional)"
-                                                            value={item.remarks}
-                                                            onChange={e => updateItemRemarks(idx, e.target.value)}
-                                                        />
-                                                    </td>
+                                {/* Items Table */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 uppercase mb-2 block">Received Items</label>
+                                    <div className="border rounded overflow-hidden">
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-slate-100">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left">Item</th>
+                                                    <th className="px-3 py-2 text-center">Ordered Qty</th>
+                                                    <th className="px-3 py-2 text-center">Received Qty</th>
+                                                    <th className="px-3 py-2 text-left">Batch/Remarks</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {receivedItems.map((item, idx) => (
+                                                    <tr key={idx}>
+                                                        <td className="px-3 py-2">{item.itemName}</td>
+                                                        <td className="px-3 py-2 text-center font-medium">{item.requestedQty}</td>
+                                                        <td className="px-3 py-2">
+                                                            <Input
+                                                                type="number"
+                                                                className="h-8 text-center"
+                                                                value={item.receivedQty}
+                                                                onChange={e => updateReceivedQty(idx, e.target.value)}
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2 flex flex-col gap-1">
+                                                            <Input
+                                                                className="h-8 text-xs font-mono"
+                                                                placeholder="Manual Batch ID (Optional)"
+                                                                value={item.remarks}
+                                                                onChange={e => updateItemRemarks(idx, e.target.value)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* GRN Remarks */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 uppercase">GRN Remarks</label>
+                                    <Textarea
+                                        className="mt-1"
+                                        rows={3}
+                                        value={grnRemarks}
+                                        onChange={e => setGRNRemarks(e.target.value)}
+                                        placeholder="Quality check notes, delivery condition, etc."
+                                    />
                                 </div>
                             </div>
-
-                            {/* GRN Remarks */}
-                            <div>
-                                <label className="text-xs font-bold text-slate-600 uppercase">GRN Remarks</label>
-                                <Textarea
-                                    className="mt-1"
-                                    rows={3}
-                                    value={grnRemarks}
-                                    onChange={e => setGRNRemarks(e.target.value)}
-                                    placeholder="Quality check notes, delivery condition, etc."
-                                />
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter>
+                        )}
+                    </div>
+                    <DialogFooter className="px-6 py-4 border-t bg-slate-50">
                         <Button variant="outline" onClick={handleCloseGRNDialog}>Cancel</Button>
                         <Button
                             onClick={handleCreateGRN}

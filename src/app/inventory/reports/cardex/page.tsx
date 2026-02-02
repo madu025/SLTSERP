@@ -4,14 +4,34 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Loader2, FileText, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from 'next/navigation';
+
+interface Store {
+    id: string;
+    name: string;
+}
+
+interface Item {
+    id: string;
+    name: string;
+    code: string;
+}
+
+interface Transaction {
+    id: string;
+    createdAt: string;
+    type: string;
+    items: Array<{ itemId: string; quantity: number; item: { name: string } }>;
+    store: { name: string };
+    user?: { name: string };
+}
 
 export default function CardexReportPage() {
     const router = useRouter();
@@ -20,19 +40,19 @@ export default function CardexReportPage() {
     const [searchTerm, setSearchTerm] = useState("");
 
     // Fetch Stores
-    const { data: stores = [] } = useQuery({
+    const { data: stores = [] } = useQuery<Store[]>({
         queryKey: ['stores'],
         queryFn: async () => (await fetch('/api/inventory/stores')).json()
     });
 
     // Fetch Items
-    const { data: items = [] } = useQuery({
+    const { data: items = [] } = useQuery<Item[]>({
         queryKey: ['items'],
         queryFn: async () => (await fetch('/api/inventory/items')).json()
     });
 
     // Fetch Transactions
-    const { data: transactions = [], isLoading } = useQuery({
+    const { data: transactions = [], isLoading } = useQuery<Transaction[]>({
         queryKey: ['transactions', selectedItemId, selectedStoreId],
         queryFn: async () => {
             const params = new URLSearchParams();
@@ -43,20 +63,20 @@ export default function CardexReportPage() {
     });
 
     // Filter Items for Dropdown
-    const filteredItems = Array.isArray(items) ? items.filter((i: any) =>
+    const filteredItems = Array.isArray(items) ? items.filter((i: Item) =>
         i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         i.code.toLowerCase().includes(searchTerm.toLowerCase())
     ) : [];
 
     // Helper to extract quantity of specific item from transaction
-    const getItemQty = (tx: any, itemId: string) => {
+    const getItemQty = (tx: Transaction, itemId: string) => {
         // If "ALL" items selected, we might want to list all items in the tx, but that's messy for a table.
         // If specific item selected, show its qty.
         if (itemId !== 'ALL') {
-            const line = tx.items.find((i: any) => i.itemId === itemId);
+            const line = tx.items.find((i) => i.itemId === itemId);
             return line ? line.quantity : '-';
         }
-        return tx.items.reduce((acc: number, curr: any) => acc + curr.quantity, 0); // Total items qty
+        return tx.items.reduce((acc: number, curr) => acc + curr.quantity, 0); // Total items qty
     };
 
     return (
@@ -86,7 +106,7 @@ export default function CardexReportPage() {
                                         <SelectTrigger className="text-xs bg-white"><SelectValue placeholder="All Stores" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="ALL">All Stores</SelectItem>
-                                            {stores.map((s: any) => (
+                                            {stores.map((s) => (
                                                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -107,7 +127,7 @@ export default function CardexReportPage() {
                                                 />
                                             </div>
                                             <SelectItem value="ALL">All Items (Summary)</SelectItem>
-                                            {filteredItems.map((i: any) => (
+                                            {filteredItems.map((i) => (
                                                 <SelectItem key={i.id} value={i.id}>{i.code} - {i.name}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -126,7 +146,7 @@ export default function CardexReportPage() {
                             <CardHeader className="py-4 border-b bg-slate-50/50">
                                 <CardTitle className="text-sm">
                                     Movement History
-                                    {selectedItemId !== 'ALL' && <span className="text-slate-500 font-normal ml-2"> for {items.find((i: any) => i.id === selectedItemId)?.name}</span>}
+                                    {selectedItemId !== 'ALL' && <span className="text-slate-500 font-normal ml-2"> for {items.find((i) => i.id === selectedItemId)?.name}</span>}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
@@ -156,7 +176,7 @@ export default function CardexReportPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            transactions.map((tx: any) => (
+                                            transactions.map((tx) => (
                                                 <TableRow key={tx.id} className="hover:bg-slate-50">
                                                     <TableCell className="text-xs font-mono text-slate-500">
                                                         {format(new Date(tx.createdAt), 'yyyy-MM-dd HH:mm')}

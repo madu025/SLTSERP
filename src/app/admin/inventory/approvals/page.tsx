@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Package, Loader2, Eye } from "lucide-react";
+import { CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 
@@ -34,6 +34,15 @@ interface StockRequest {
     armRemarks?: string;
     storesManagerRemarks?: string;
     remarks?: string;
+}
+
+interface ProcessActionPayload {
+    requestId: string;
+    action: string;
+    remarks: string;
+    userId?: string;
+    approvedById?: string;
+    allocation?: Array<{ itemId: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }>;
 }
 
 export default function ApprovalsPage() {
@@ -65,7 +74,7 @@ export default function ApprovalsPage() {
     };
 
     // Fetch pending requests
-    const { data: requests = [], isLoading } = useQuery({
+    const { data: requests = [], isLoading } = useQuery<StockRequest[]>({
         queryKey: ['approval-requests', userRole],
         queryFn: async () => {
             const stage = getWorkflowStageFilter();
@@ -79,7 +88,7 @@ export default function ApprovalsPage() {
 
     // Process action mutation
     const processActionMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: ProcessActionPayload) => {
             const res = await fetch('/api/inventory/requests/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -99,7 +108,7 @@ export default function ApprovalsPage() {
             setRemarks("");
             setAllocation([]);
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
             toast.error(error.message || 'Failed to process action');
         }
     });
@@ -319,15 +328,15 @@ export default function ApprovalsPage() {
             {/* Action Modal */}
             {showModal && selectedRequest && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b sticky top-0 bg-white">
+                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="p-6 border-b bg-white">
                             <h2 className="text-xl font-bold text-slate-800">
                                 {actionType === 'approve' ? 'Approve' : actionType === 'reject' ? 'Reject' :
                                     actionType === 'MAIN_STORE_RELEASE' ? 'Release Materials' : 'Confirm Receipt'} - {selectedRequest.requestNr}
                             </h2>
                         </div>
 
-                        <div className="p-6 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
                             {/* Items Table */}
                             <div>
                                 <h3 className="font-semibold text-slate-700 mb-2">Items:</h3>

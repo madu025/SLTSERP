@@ -9,12 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Plus, Trash, Pencil, Factory, Building2 } from "lucide-react";
+import { Search, Plus, Trash, Pencil, Building2 } from "lucide-react";
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
 import { createOPMC, updateOPMC, deleteOPMC } from '@/actions/opmc-actions';
 
@@ -32,6 +31,12 @@ interface OPMC {
         staff: number;
         projects: number;
     };
+}
+
+interface Store {
+    id: string;
+    name: string;
+    type: string;
 }
 
 // Zod Schema
@@ -61,12 +66,12 @@ export default function RTOMRegistrationPage() {
     });
 
     // --- QUERIES ---
-    const { data: opmcs = [], isLoading } = useQuery<OPMC[]>({
+    const { data: opmcs = [] } = useQuery<OPMC[]>({
         queryKey: ["opmcs"],
         queryFn: async () => (await fetch("/api/opmcs")).json()
     });
 
-    const { data: stores = [] } = useQuery({
+    const { data: stores = [] } = useQuery<Store[]>({
         queryKey: ['stores'],
         queryFn: async () => (await fetch('/api/inventory/stores')).json()
     });
@@ -213,7 +218,7 @@ export default function RTOMRegistrationPage() {
 
                 {/* Modal */}
                 <Dialog open={showModal} onOpenChange={setShowModal}>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-md max-h-[95vh] flex flex-col p-0 overflow-hidden">
                         <DialogHeader>
                             <DialogTitle>{selectedOPMC ? 'Edit RTOM' : 'Register RTOM'}</DialogTitle>
                             <DialogDescription>Enter RTOM details and assign a store.</DialogDescription>
@@ -221,65 +226,67 @@ export default function RTOMRegistrationPage() {
 
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                                <FormField control={form.control} name="rtom" render={({ field }) => (
-                                    <FormItem><FormLabel>RTOM Code *</FormLabel><FormControl><Input {...field} placeholder="e.g. KAD" className="uppercase" /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem><FormLabel>RTOM Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Kaduwela" /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={form.control} name="region" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Region</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select Region" /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="METRO">METRO</SelectItem>
-                                                    <SelectItem value="REGION 01">REGION 01</SelectItem>
-                                                    <SelectItem value="REGION 02">REGION 02</SelectItem>
-                                                    <SelectItem value="REGION 03">REGION 03</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
+                                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                                    <FormField control={form.control} name="rtom" render={({ field }) => (
+                                        <FormItem><FormLabel>RTOM Code *</FormLabel><FormControl><Input {...field} placeholder="e.g. KAD" className="uppercase" /></FormControl><FormMessage /></FormItem>
                                     )} />
-                                    <FormField control={form.control} name="province" render={({ field }) => (
+                                    <FormField control={form.control} name="name" render={({ field }) => (
+                                        <FormItem><FormLabel>RTOM Name</FormLabel><FormControl><Input {...field} placeholder="e.g. Kaduwela" /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="region" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Region</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select Region" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="METRO">METRO</SelectItem>
+                                                        <SelectItem value="REGION 01">REGION 01</SelectItem>
+                                                        <SelectItem value="REGION 02">REGION 02</SelectItem>
+                                                        <SelectItem value="REGION 03">REGION 03</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="province" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Province</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Select Province" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="METRO 01">METRO 01</SelectItem>
+                                                        <SelectItem value="METRO 02">METRO 02</SelectItem>
+                                                        <SelectItem value="CP">CP</SelectItem>
+                                                        <SelectItem value="NWP">NWP</SelectItem>
+                                                        <SelectItem value="WPN">WPN</SelectItem>
+                                                        <SelectItem value="UVA">UVA</SelectItem>
+                                                        <SelectItem value="SAB">SAB</SelectItem>
+                                                        <SelectItem value="SP">SP</SelectItem>
+                                                        <SelectItem value="WPS">WPS</SelectItem>
+                                                        <SelectItem value="EP">EP</SelectItem>
+                                                        <SelectItem value="NP">NP</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
+                                    <FormField control={form.control} name="storeId" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Province</FormLabel>
+                                            <FormLabel>Assigned Store / Branch</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="Select Province" /></SelectTrigger></FormControl>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select Store (Optional)" /></SelectTrigger></FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="METRO 01">METRO 01</SelectItem>
-                                                    <SelectItem value="METRO 02">METRO 02</SelectItem>
-                                                    <SelectItem value="CP">CP</SelectItem>
-                                                    <SelectItem value="NWP">NWP</SelectItem>
-                                                    <SelectItem value="WPN">WPN</SelectItem>
-                                                    <SelectItem value="UVA">UVA</SelectItem>
-                                                    <SelectItem value="SAB">SAB</SelectItem>
-                                                    <SelectItem value="SP">SP</SelectItem>
-                                                    <SelectItem value="WPS">WPS</SelectItem>
-                                                    <SelectItem value="EP">EP</SelectItem>
-                                                    <SelectItem value="NP">NP</SelectItem>
+                                                    {stores.map((s: Store) => <SelectItem key={s.id} value={s.id}>{s.name} ({s.type})</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                 </div>
-                                <FormField control={form.control} name="storeId" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Assigned Store / Branch</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Select Store (Optional)" /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                {stores.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name} ({s.type})</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
 
-                                <DialogFooter>
+                                <DialogFooter className="px-6 py-4 border-t">
                                     <Button type="button" variant="outline" onClick={handleCloseModal}>Cancel</Button>
                                     <Button type="submit" disabled={mutation.isPending}>{selectedOPMC ? 'Update' : 'Register'}</Button>
                                 </DialogFooter>
