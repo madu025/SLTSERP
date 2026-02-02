@@ -357,21 +357,31 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                 <SummaryItem label="ONT Router Serial Number" value={coreOrder?.ontSerialNumber} isMono color="indigo" />
                                             </div>
                                             {/* Potential Pole Serials from Audit Data or Scraping */}
-                                            {coreOrder?.forensicAudit?.auditData?.some(a => a.name?.toLowerCase().includes('pole') && a.uuid) && (
-                                                <div className="space-y-2 mt-4">
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pole Identification Serials:</p>
-                                                    <div className="flex flex-wrap gap-3">
-                                                        {coreOrder.forensicAudit.auditData
-                                                            .filter(a => a.name?.toLowerCase().includes('pole') && a.uuid)
-                                                            .map((p, i) => (
-                                                                <div key={i} className="bg-slate-100 px-3 py-1.5 rounded-lg border flex items-center gap-2">
-                                                                    <span className="text-[10px] font-bold text-slate-500">Pole {i + 1}:</span>
-                                                                    <span className="text-xs font-black font-mono text-slate-800">{p.uuid}</span>
+                                            {(() => {
+                                                const forensicPoles = coreOrder?.forensicAudit?.auditData?.filter(a => a.name?.toLowerCase().includes('pole') && a.uuid) || [];
+                                                // Also look into scraped masterData for keys like "Serial Number 1", "SerialNumber_1", "Pole 1 Serial"
+                                                const scrapedPoles = bridgeData?.scrapedData?.masterData ? Object.entries(bridgeData.scrapedData.masterData)
+                                                    .filter(([key, val]) => (key.toLowerCase().includes('serial') && key.toLowerCase().includes('pole')) || (key.toLowerCase().startsWith('serial number') && val))
+                                                    .map(([key, val]) => ({ name: key, uuid: val })) : [];
+
+                                                const allPoles = [...scrapedPoles, ...forensicPoles];
+
+                                                if (allPoles.length === 0) return null;
+
+                                                return (
+                                                    <div className="space-y-3 mt-4">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pole Serial Numbers (Identified):</p>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                            {allPoles.map((p, i) => (
+                                                                <div key={i} className="bg-white px-3 py-2 rounded-lg border border-slate-200 border-dashed flex justify-between items-center">
+                                                                    <span className="text-[10px] font-bold text-slate-500 truncate mr-2">{p.name || `Pole ${i + 1}`}:</span>
+                                                                    <span className="text-xs font-black font-mono text-indigo-600">{p.uuid}</span>
                                                                 </div>
                                                             ))}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                );
+                                            })()}
                                         </div>
                                     </section>
 
