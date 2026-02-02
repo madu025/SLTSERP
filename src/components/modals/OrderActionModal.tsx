@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, X, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info, RotateCcw } from "lucide-react";
+import { CalendarIcon, Plus, X, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info, RotateCcw, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -834,6 +834,20 @@ export default function OrderActionModal({
                                                                         Offline
                                                                     </button>
                                                                 </div>
+                                                            </div>
+
+                                                            <div className="space-y-1.5 pt-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                                                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Distribution Point (DP)</Label>
+                                                                <div className="relative">
+                                                                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-300" />
+                                                                    <Input
+                                                                        value={dpDetails}
+                                                                        onChange={(e) => setDpDetails(e.target.value)}
+                                                                        placeholder="Update DP Name"
+                                                                        className="bg-white pl-9 h-11 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-500 shadow-sm font-medium"
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-400 mt-1 ml-1 italic">* Update if the DP assigned is incorrect.</p>
                                                             </div>
                                                         </div>
 
