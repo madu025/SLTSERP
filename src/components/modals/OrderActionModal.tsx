@@ -673,14 +673,26 @@ export default function OrderActionModal({
                         : "sm:max-w-lg max-h-[90vh]"
                 )}
             >
-                <DialogHeader className="px-6 py-3 border-b shrink-0">
-                    <DialogTitle>{title}</DialogTitle>
+                <DialogHeader className="px-6 py-4 border-b shrink-0 bg-white">
+                    <DialogTitle className="text-xl font-extrabold text-slate-900 tracking-tight">{title}</DialogTitle>
                     {useExtendedView && (
-                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 pt-2 border-t border-slate-100">
-                            <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Voice</span><span className="text-xs font-mono font-medium text-slate-700">{orderData?.voiceNumber || 'N/A'}</span></div>
-                            <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Pkg</span><span className="text-xs font-medium text-slate-700">{orderData?.package || 'N/A'}</span></div>
-                            <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">IPTV</span><span className="text-xs font-medium text-slate-700">{orderData?.iptv || '0'}</span></div>
-                            <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">DP</span><span className="text-xs font-medium text-slate-700">{orderData?.dp || 'N/A'}</span></div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
+                            <div className="flex flex-col gap-1 p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Voice</span>
+                                <span className="text-sm font-mono font-bold text-slate-800">{orderData?.voiceNumber || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1 p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Pkg</span>
+                                <span className="text-sm font-bold text-slate-800 truncate" title={orderData?.package || 'N/A'}>{orderData?.package || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1 p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">IPTV</span>
+                                <span className="text-sm font-bold text-slate-800">{orderData?.iptv || '0'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1 p-2 rounded-lg bg-slate-50 border border-slate-100">
+                                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">DP</span>
+                                <span className="text-sm font-bold text-slate-800">{orderData?.dp || 'N/A'}</span>
+                            </div>
                         </div>
                     )}
                 </DialogHeader>
@@ -778,60 +790,70 @@ export default function OrderActionModal({
                                     {/* TAB 1: JOB DETAILS */}
                                     {activeTab === 'details' && (
                                         <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-left-4 duration-300">
-                                            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-6">
-                                                <div className="grid grid-cols-1 gap-6">
-                                                    <div className="space-y-4">
-                                                        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                                                            <CalendarIcon className="w-4 h-4 text-blue-500" /> Completion Date
-                                                        </h3>
-                                                        <Popover>
-                                                            <PopoverTrigger asChild>
-                                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal bg-white", !date && "text-muted-foreground")}>
-                                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                    {date ? format(date, "PPP") : <span>Pick a date</span>}
-                                                                </Button>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-0" align="start">
-                                                                <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                                                            </PopoverContent>
-                                                        </Popover>
+                                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-8">
 
-                                                        <div className="pt-2">
-                                                            <Label className="text-xs font-semibold text-slate-500 uppercase mb-2 block">Mode</Label>
-                                                            <div className="flex gap-4">
-                                                                <div className="flex items-center space-x-2">
-                                                                    <input type="radio" id="mode-on" checked={completionMode === 'ONLINE'} onChange={() => setCompletionMode('ONLINE')} className="text-blue-600 focus:ring-blue-500" />
-                                                                    <label htmlFor="mode-on" className="text-sm">Online (iShamp)</label>
-                                                                </div>
-                                                                <div className="flex items-center space-x-2">
-                                                                    <input type="radio" id="mode-off" checked={completionMode === 'OFFLINE'} onChange={() => setCompletionMode('OFFLINE')} className="text-blue-600 focus:ring-blue-500" />
-                                                                    <label htmlFor="mode-off" className="text-sm">Offline</label>
+                                                {/* SECTION 01: JOB DETAILS */}
+                                                <div className="space-y-6">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">01</div>
+                                                        <h3 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">Job Details</h3>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                        {/* LEFT COLUMN: Date & Mode */}
+                                                        <div className="space-y-6">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Completion Date</Label>
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button variant={"outline"} className={cn("w-full h-11 justify-start text-left font-semibold border-slate-200 hover:bg-slate-50", !date && "text-muted-foreground")}>
+                                                                            <CalendarIcon className="mr-2 h-4 w-4 text-blue-500" />
+                                                                            {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                                        <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            </div>
+
+                                                            <div className="space-y-3">
+                                                                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Completion Mode</Label>
+                                                                <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setCompletionMode('ONLINE')}
+                                                                        className={cn("flex-1 py-2.5 text-xs font-bold rounded-lg transition-all", completionMode === 'ONLINE' ? "bg-white text-blue-600 shadow-md ring-1 ring-slate-900/5" : "text-slate-500 hover:text-slate-700")}
+                                                                    >
+                                                                        Online (iShamp)
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setCompletionMode('OFFLINE')}
+                                                                        className={cn("flex-1 py-2.5 text-xs font-bold rounded-lg transition-all", completionMode === 'OFFLINE' ? "bg-white text-blue-600 shadow-md ring-1 ring-slate-900/5" : "text-slate-500 hover:text-slate-700")}
+                                                                    >
+                                                                        Offline
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
 
-                                                    <div className="space-y-4">
-                                                        <div>
-                                                            <Label className="text-xs font-semibold text-slate-500 uppercase mb-1.5 block">Connection Point (DP)</Label>
-                                                            <Input value={dpDetails} onChange={(e) => setDpDetails(e.target.value)} placeholder="e.g. DP_01_05" className="bg-white" />
-                                                        </div>
-
-                                                        <div className="pt-2 border-t border-slate-100 mt-2">
-                                                            <div className="flex items-center justify-between mb-3">
-                                                                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assignment</Label>
-                                                                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                                                        {/* RIGHT COLUMN: Assignment */}
+                                                        <div className="space-y-6 border-l border-slate-100 pl-0 md:pl-8">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Assignment Type</Label>
+                                                                <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setAssignmentType('CONTRACTOR')}
-                                                                        className={cn("px-3 py-1 text-[10px] font-bold rounded-md transition-all", assignmentType === 'CONTRACTOR' ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700")}
+                                                                        className={cn("flex-1 py-2.5 text-xs font-bold rounded-lg transition-all", assignmentType === 'CONTRACTOR' ? "bg-white text-blue-600 shadow-md ring-1 ring-slate-900/5" : "text-slate-500 hover:text-slate-700")}
                                                                     >
                                                                         CONTRACTOR
                                                                     </button>
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setAssignmentType('DIRECT_TEAM')}
-                                                                        className={cn("px-3 py-1 text-[10px] font-bold rounded-md transition-all", assignmentType === 'DIRECT_TEAM' ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700")}
+                                                                        className={cn("flex-1 py-2.5 text-xs font-bold rounded-lg transition-all", assignmentType === 'DIRECT_TEAM' ? "bg-white text-blue-600 shadow-md ring-1 ring-slate-900/5" : "text-slate-500 hover:text-slate-700")}
                                                                     >
                                                                         DIRECT TEAM
                                                                     </button>
@@ -839,45 +861,45 @@ export default function OrderActionModal({
                                                             </div>
 
                                                             {assignmentType === 'CONTRACTOR' ? (
-                                                                <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                                    <div className="space-y-1">
-                                                                        <Label className="text-[10px] text-slate-400 font-bold uppercase ml-1">Select Contractor</Label>
+                                                                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                                                                    <div className="space-y-1.5">
+                                                                        <Label className="text-[10px] text-slate-400 font-bold uppercase ml-1">Pick Contractor</Label>
                                                                         <Select value={selectedContractorId} onValueChange={(v) => { setSelectedContractorId(v); setSelectedTeamId(""); }}>
-                                                                            <SelectTrigger className="bg-white h-9 text-xs border-slate-200 focus:ring-blue-500"><SelectValue placeholder="Pick Contractor" /></SelectTrigger>
-                                                                            <SelectContent>{contractors.map(c => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}</SelectContent>
+                                                                            <SelectTrigger className="bg-white h-11 text-sm border-slate-200 focus:ring-blue-500 font-medium"><SelectValue placeholder="Pick Contractor" /></SelectTrigger>
+                                                                            <SelectContent>{contractors.map(c => <SelectItem key={c.id} value={c.id} className="text-sm">{c.name}</SelectItem>)}</SelectContent>
                                                                         </Select>
                                                                     </div>
-                                                                    <div className="space-y-1">
-                                                                        <Label className="text-[10px] text-slate-400 font-bold uppercase ml-1">Team (Optional)</Label>
+                                                                    <div className="space-y-1.5">
+                                                                        <Label className="text-[10px] text-slate-400 font-bold uppercase ml-1">Select Team</Label>
                                                                         <Select value={selectedTeamId} onValueChange={setSelectedTeamId} disabled={!selectedContractorId}>
-                                                                            <SelectTrigger className="bg-white h-9 text-xs border-slate-200 focus:ring-blue-500"><SelectValue placeholder="Select Team" /></SelectTrigger>
+                                                                            <SelectTrigger className="bg-white h-11 text-sm border-slate-200 focus:ring-blue-500 font-medium"><SelectValue placeholder="Select Team" /></SelectTrigger>
                                                                             <SelectContent>
                                                                                 {availableTeams.length > 0 ? (
                                                                                     availableTeams.map(t => (
-                                                                                        <SelectItem key={t.id} value={t.id} className="text-xs">
+                                                                                        <SelectItem key={t.id} value={t.id} className="text-sm">
                                                                                             {t.name} {t.sltCode ? `[${t.sltCode}]` : '(No SLT Code)'}
                                                                                         </SelectItem>
                                                                                     ))
                                                                                 ) : (
-                                                                                    <div className="p-2 text-[10px] text-slate-400 text-center italic">No teams registered</div>
+                                                                                    <div className="p-2 text-xs text-slate-400 text-center italic">No teams registered</div>
                                                                                 )}
                                                                             </SelectContent>
                                                                         </Select>
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                                                                    <Label className="text-[10px] text-slate-400 font-bold uppercase ml-1 mb-1 block">Direct Team Name</Label>
+                                                                <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                                                    <Label className="text-[10px] text-slate-400 font-bold uppercase ml-1 mb-1 block">Team Name</Label>
                                                                     <div className="relative">
-                                                                        <Users className="absolute left-3 top-2.5 w-4 h-4 text-slate-300" />
+                                                                        <Users className="absolute left-3 top-3 w-4 h-4 text-slate-300" />
                                                                         <Input
                                                                             value={directTeamName}
                                                                             onChange={(e) => setDirectTeamName(e.target.value)}
-                                                                            placeholder="Enter direct team name/ID..."
-                                                                            className="bg-white pl-9 h-10 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-500 shadow-sm"
+                                                                            placeholder="Select Team (Direct Name)"
+                                                                            className="bg-white pl-9 h-11 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-500 shadow-sm font-medium"
                                                                         />
                                                                     </div>
-                                                                    <p className="text-[9px] text-slate-400 mt-1.5 ml-1 italic">* Use this for internal staff or RTOM direct maintenance teams.</p>
+                                                                    <p className="text-[10px] text-slate-400 mt-2 ml-1 italic">* Use for internal staff teams.</p>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -935,7 +957,7 @@ export default function OrderActionModal({
                                                     <div key={q.label} className={cn("bg-white border rounded-xl p-5 shadow-sm ring-1 ring-slate-900/5 transition-all duration-300", isWastageExceeded ? "border-rose-200 ring-rose-500/10" : "border-slate-200")}>
                                                         <div className="flex flex-col md:flex-row md:items-center gap-6">
                                                             <div className="md:w-[28%] border-r border-slate-100 pr-4">
-                                                                <h4 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">{q.label}</h4>
+                                                                <h4 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">Fiber DROP Wire</h4>
                                                                 <div className="flex items-center gap-2 mt-1.5">
                                                                     <code className="text-[11px] font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-100 text-slate-500 font-medium">{q.item.code}</code>
                                                                     {maxWastage > 0 && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">Max {maxWastage}%</span>}
@@ -1291,13 +1313,39 @@ export default function OrderActionModal({
                                                         )}
                                                     </div>
 
+                                                    {/* SPECIAL CIRCUMSTANCES (OPERATIONAL REPORTING) */}
+                                                    <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 space-y-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <AlertCircle className="w-4 h-4 text-amber-500" />
+                                                            <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Special Circumstances</h4>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox id="wired-only" checked={wiredOnly} onCheckedChange={(v) => setWiredOnly(!!v)} />
+                                                                <Label htmlFor="wired-only" className="text-[11px] font-semibold text-amber-900 cursor-pointer">Wired Only (Pending Equipment)</Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox id="ont-short" checked={ontShortage} onCheckedChange={(v) => setOntShortage(!!v)} />
+                                                                <Label htmlFor="ont-short" className="text-[11px] font-semibold text-amber-900 cursor-pointer">ONT Shortage</Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox id="stb-short" checked={stbShortage} onCheckedChange={(v) => setStbShortage(!!v)} />
+                                                                <Label htmlFor="stb-short" className="text-[11px] font-semibold text-amber-900 cursor-pointer">STB Shortage</Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox id="cx-delay" checked={delayReasons.cxDelay} onCheckedChange={(v) => setDelayReasons({ ...delayReasons, cxDelay: !!v })} />
+                                                                <Label htmlFor="cx-delay" className="text-[11px] font-semibold text-amber-900 cursor-pointer">Customer Delay</Label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
                                                     <div className="space-y-2">
                                                         <Label className="text-sm font-medium text-slate-700">Completion Notes / Comments</Label>
                                                         <Textarea
                                                             value={comment}
                                                             onChange={e => setComment(e.target.value)}
                                                             placeholder="Add specific details about standard usage, variations, or site conditions..."
-                                                            className="min-h-[120px] resize-y"
+                                                            className="min-h-[120px] resize-y bg-white"
                                                         />
                                                     </div>
                                                 </div>
