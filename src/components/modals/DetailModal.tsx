@@ -287,6 +287,120 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </div>
                         </TabsContent>
 
+                        <TabsContent value="inspector" className="p-6 m-0 outline-none relative min-h-[400px]">
+                            <div className="space-y-6">
+                                {/* Header Info mimics Data Inspector */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <InspectorCard
+                                        label="ONT Serial"
+                                        value={selectedOrder.ontSerialNumber || "PENDING"}
+                                        icon={<ShieldCheck className="w-4 h-4" />}
+                                        color="emerald"
+                                        isMono
+                                    />
+                                    <InspectorCard
+                                        label="Pole Serials"
+                                        value={(() => {
+                                            const poles = coreOrder?.forensicAudit?.auditData?.filter(a => a.name?.toLowerCase().includes('pole') && a.uuid) || [];
+                                            return poles.length > 0 ? poles.map(p => p.uuid).join(', ') : "N/A";
+                                        })()}
+                                        icon={<Box className="w-4 h-4" />}
+                                        color="indigo"
+                                        isMono
+                                    />
+                                    <InspectorCard
+                                        label="Voice Test"
+                                        value={coreOrder?.forensicAudit?.voiceTestStatus || "NOT TESTED"}
+                                        icon={<Smartphone className="w-4 h-4" />}
+                                        color={coreOrder?.forensicAudit?.voiceTestStatus?.includes('PASS') ? 'emerald' : 'amber'}
+                                    />
+                                    <InspectorCard
+                                        label="Portal S-Val"
+                                        value={bridgeData?.scrapedData?.masterData?.['STATUS VALUE'] || "101000"}
+                                        icon={<FileJson className="w-4 h-4" />}
+                                        color="slate"
+                                    />
+                                </div>
+
+                                {/* Materials Intelligence Section */}
+                                <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-xl overflow-hidden">
+                                    <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
+                                        <Box className="w-4 h-4 text-emerald-400" />
+                                        <h3 className="text-sm font-black text-white uppercase tracking-wider">Materials Intelligence</h3>
+                                        <span className="ml-auto text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">SMART VIEW</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {bridgeData?.scrapedData?.materialDetails ? (
+                                            bridgeData.scrapedData.materialDetails.map((mat, i) => (
+                                                <div key={i} className="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
+                                                    <span className="text-[11px] font-bold text-slate-300">{mat.NAME || mat.TYPE}</span>
+                                                    <div className="flex gap-3 items-center">
+                                                        <span className="text-[10px] text-slate-500 font-mono">{mat.CODE || i.toString().padStart(3, '0')}</span>
+                                                        <span className="text-xs font-black text-emerald-400">{mat.QTY || mat.QUANTITY}</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-4">
+                                                <p className="text-xs text-slate-500 italic">No materials scraped for this order yet.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Forensic Photo Audit View */}
+                                <div className="bg-slate-900 text-white p-5 rounded-xl border border-slate-800 shadow-xl overflow-hidden relative">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+                                        <Camera className="w-20 h-20" />
+                                    </div>
+
+                                    <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                                            <h3 className="text-sm font-black tracking-wider uppercase text-blue-400">Forensic Photo Audit</h3>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {coreOrder?.forensicAudit?.auditData && coreOrder.forensicAudit.auditData.length > 0 ? (
+                                            coreOrder.forensicAudit.auditData.map((item, idx) => {
+                                                const isOptional = item.name?.toLowerCase().includes('feedback') || item.name?.toLowerCase().includes('additional');
+                                                const isMissing = item.status === 'MISSING';
+
+                                                return (
+                                                    <div key={idx} className={`flex flex-col p-2.5 rounded-lg border transition-all duration-200 ${isMissing ? (isOptional ? 'bg-slate-800/40 border-slate-700' : 'bg-red-500/5 border-red-500/20') : 'bg-emerald-500/10 border-emerald-500/20'}`}>
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <span className={`text-[11px] font-bold leading-tight ${isMissing ? (isOptional ? 'text-slate-400' : 'text-red-300') : 'text-emerald-300'}`}>
+                                                                {item.name}
+                                                            </span>
+                                                            {!isMissing && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                                                        </div>
+                                                        {!isMissing && item.uuid && (
+                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {item.uuid}</span>
+                                                        )}
+                                                        {!isMissing && (
+                                                            <span className="text-[9px] font-bold text-emerald-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
+                                                                <CheckCircle2 className="w-2 h-2" /> Uploaded
+                                                            </span>
+                                                        )}
+                                                        {isMissing && (
+                                                            <span className="text-[9px] font-bold text-red-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
+                                                                Missing
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="col-span-3 text-center py-8">
+                                                <p className="text-xs text-slate-500 italic">No forensic data found.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </TabsContent>
+
                         {/* Tab 3: Smart Summary (Point-wise View) */}
                         <TabsContent value="summary" className="p-0 m-0 outline-none">
                             <div className="bg-white">
@@ -557,6 +671,29 @@ function AuditCategory({ id, title, items, filter, isLast = false }: { id: strin
                     <p className="text-[10px] text-slate-300 italic">No matching images uploaded for this category.</p>
                 )}
             </div>
+        </div>
+    );
+}
+
+function InspectorCard({ label, value, icon, color, isMono = false }: { label: string, value: string, icon: React.ReactNode, color: string, isMono?: boolean }) {
+    const colorMap: Record<string, string> = {
+        blue: 'bg-blue-50 text-blue-600 border-blue-100',
+        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        amber: 'bg-amber-50 text-amber-600 border-amber-100',
+        slate: 'bg-slate-50 text-slate-600 border-slate-100',
+        rose: 'bg-rose-50 text-rose-600 border-rose-100',
+    };
+
+    return (
+        <div className={`p-3 rounded-xl border ${colorMap[color] || colorMap.slate} flex flex-col gap-1 shadow-sm`}>
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider opacity-70">{label}</span>
+                {icon}
+            </div>
+            <p className={`text-xs font-black truncate mt-1 ${isMono ? 'font-mono' : ''}`}>
+                {value}
+            </p>
         </div>
     );
 }
