@@ -111,12 +111,6 @@ export async function POST(request: Request) {
             sales: masterData['SALES PERSON'] || masterData['SALES'] || deepData['SALES PERSON'],
         };
 
-        // Handle Pole Serial Number (Mapped to Comments to avoid DB Schema Change)
-        const poleSerial = masterData['POLE_SERIAL_NUMBER'] || masterData['POLE_SERIAL'] || deepData['POLE'];
-        if (poleSerial) {
-            mapping.comments = (mapping.comments ? mapping.comments + " | " : "") + `Pole Serial: ${poleSerial}`;
-        }
-
         // 4. Find the existing Service Order
         const serviceOrder = await prisma.serviceOrder.findUnique({
             where: { soNum },
@@ -285,21 +279,7 @@ export async function POST(request: Request) {
                 where: { serviceOrderId: syncedOrder.id, usageType: 'PORTAL_SYNC' }
             });
 
-            // ERROR FIX: Deduplicate payload before processing
-            const uniqueMaterials = new Map<string, typeof materialDetails[0]>();
-
-            materialDetails.forEach(mat => {
-                const code = (mat.CODE || mat.TYPE || mat.NAME || "").trim();
-                const key = code.toUpperCase();
-                // If duplicates exist, we might want to sum quantities or take the last one. 
-                // Usually for this sync, taking the last valid one or just one is fine. 
-                // Let's assume unique items.
-                if (key && !uniqueMaterials.has(key)) {
-                    uniqueMaterials.set(key, mat);
-                }
-            });
-
-            for (const mat of uniqueMaterials.values()) {
+            for (const mat of materialDetails) {
                 const code = mat.CODE || mat.TYPE;
                 const name = mat.NAME;
                 const qty = parseFloat(mat.QTY || "0");

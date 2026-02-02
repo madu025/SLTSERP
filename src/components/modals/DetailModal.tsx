@@ -23,8 +23,7 @@ import {
     RefreshCw,
     ShieldCheck,
     Smartphone,
-    User,
-    XCircle
+    User
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -72,7 +71,6 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
     const [isLoadingCore, setIsLoadingCore] = useState(false);
 
     const [bridgeData, setBridgeData] = useState<BridgeData | null>(null);
-    const [isLoadingBridge, setIsLoadingBridge] = useState(false);
 
     useEffect(() => {
         if (isOpen && selectedOrder?.soNum) {
@@ -91,17 +89,14 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
             };
             fetchCoreData();
 
-            if (activeTab === "inspector") {
+            if (activeTab === "inspector" || activeTab === "summary") {
                 const fetchBridgeData = async () => {
-                    setIsLoadingBridge(true);
                     try {
                         const res = await fetch(`/api/service-orders/bridge-data/${selectedOrder.soNum}`);
                         const data = await res.json();
                         if (data.success) setBridgeData(data.data as BridgeData);
                     } catch (err) {
                         console.error("Bridge fetch error:", err);
-                    } finally {
-                        setIsLoadingBridge(false);
                     }
                 };
                 fetchBridgeData();
@@ -144,7 +139,11 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             <TabsTrigger value="inspector" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-indigo-600">
                                 <Activity className="w-3.5 h-3.5 mr-2" />
                                 Smart Inspector
-                                <div className="ml-2 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+                            </TabsTrigger>
+                            <TabsTrigger value="summary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-emerald-600">
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
+                                Smart Summary
+                                <div className="ml-2 w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -288,143 +287,205 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </div>
                         </TabsContent>
 
-                        {/* Tab 2: Smart Inspector (NEW) */}
-                        <TabsContent value="inspector" className="p-6 m-0 outline-none relative min-h-[400px]">
-                            {isLoadingBridge && (
-                                <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                                        <p className="text-xs font-bold text-slate-600 animate-pulse uppercase tracking-widest">Bridging Data...</p>
-                                    </div>
-                                </div>
-                            )}
-                            <div className="space-y-6">
-                                {/* Header Info mimics Data Inspector */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <InspectorCard
-                                        label="Portal User"
-                                        value={bridgeData?.sltUser || "N/A"}
-                                        icon={<User className="w-4 h-4" />}
-                                        color="blue"
-                                    />
-                                    <InspectorCard
-                                        label="Active Tab"
-                                        value={bridgeData?.activeTab || "N/A"}
-                                        icon={<Activity className="w-4 h-4" />}
-                                        color="indigo"
-                                    />
-                                    <InspectorCard
-                                        label="Selected Team"
-                                        value={bridgeData?.scrapedData?.teamDetails?.name || bridgeData?.scrapedData?.selectedTeam || "N/A"}
-                                        icon={<User className="w-4 h-4" />}
-                                        color="blue"
-                                    />
-                                    <InspectorCard
-                                        label="ONT Serial"
-                                        value={selectedOrder.ontSerialNumber || "PENDING"}
-                                        icon={<ShieldCheck className="w-4 h-4" />}
-                                        color="emerald"
-                                        isMono
-                                    />
-                                    <InspectorCard
-                                        label="Voice Test"
-                                        value={coreOrder?.forensicAudit?.voiceTestStatus || "NOT TESTED"}
-                                        icon={<Smartphone className="w-4 h-4" />}
-                                        color={coreOrder?.forensicAudit?.voiceTestStatus?.includes('PASS') ? 'emerald' : 'amber'}
-                                    />
-                                    <InspectorCard
-                                        label="Portal S-Val"
-                                        value={bridgeData?.scrapedData?.masterData?.['STATUS VALUE'] || "100000"}
-                                        icon={<FileJson className="w-4 h-4" />}
-                                        color="slate"
-                                    />
-                                    <InspectorCard
-                                        label="Last Sync"
-                                        value={bridgeData?.updatedAt ? new Date(bridgeData.updatedAt).toLocaleTimeString() : "Live"}
-                                        icon={<Clock className="w-4 h-4" />}
-                                        color="rose"
-                                    />
+                        {/* Tab 3: Smart Summary (Point-wise View) */}
+                        <TabsContent value="summary" className="p-0 m-0 outline-none">
+                            <div className="bg-white">
+                                <div className="bg-emerald-600 px-6 py-4 text-white">
+                                    <h2 className="text-lg font-black uppercase tracking-tight">Service Order - Restructured & Cleaned Summary</h2>
+                                    <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Point-wise Analytical View</p>
                                 </div>
 
-                                {/* Materials Intelligence Section */}
-                                <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-xl overflow-hidden">
-                                    <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
-                                        <Box className="w-4 h-4 text-emerald-400" />
-                                        <h3 className="text-sm font-black text-white uppercase tracking-wider">Materials Intelligence</h3>
-                                        <span className="ml-auto text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">SMART VIEW</span>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {bridgeData?.scrapedData?.materialDetails ? (
-                                            bridgeData.scrapedData.materialDetails.map((mat, i) => (
-                                                <div key={i} className="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
-                                                    <span className="text-[11px] font-bold text-slate-300">{mat.NAME || mat.TYPE}</span>
-                                                    <div className="flex gap-3 items-center">
-                                                        <span className="text-[10px] text-slate-500 font-mono">{mat.CODE || i.toString().padStart(3, '0')}</span>
-                                                        <span className="text-xs font-black text-emerald-400">{mat.QTY || mat.QUANTITY}</span>
+                                <div className="p-8 space-y-12">
+                                    {/* 1. Basic Service Order Details */}
+                                    <section>
+                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-4 uppercase tracking-wider flex items-center justify-between">
+                                            <span>1. Basic Service Order Details</span>
+                                            <Badge className="bg-slate-900 text-white border-none text-[10px]">CORE DATA</Badge>
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3">
+                                                <SummaryItem label="Service Order Number" value={coreOrder?.soNum} isBold />
+                                                <SummaryItem label="Installation Type" value={coreOrder?.serviceType} />
+                                                <SummaryItem label="Status" value={coreOrder?.sltsStatus || coreOrder?.status} color="emerald" />
+                                                <SummaryItem label="Mobile Team" value={bridgeData?.scrapedData?.teamDetails?.name || bridgeData?.scrapedData?.selectedTeam || "N/A"} />
+                                                <SummaryItem label="Drop Wire Length" value={bridgeData?.scrapedData?.masterData?.['Drop Wire Length'] ? `${bridgeData.scrapedData.masterData['Drop Wire Length']} meters` : "N/A"} />
+                                                <SummaryItem label="Drop Wire Type" value={bridgeData?.scrapedData?.masterData?.['Drop Wire Type'] || "N/A"} />
+                                                <SummaryItem label="Number of Poles" value={bridgeData?.scrapedData?.masterData?.['Number of Poles'] || "0"} />
+                                            </div>
+
+                                            {/* Pole Types Sub-list */}
+                                            {bridgeData?.scrapedData?.materialDetails?.some(m => m.NAME?.toLowerCase().includes('pole') || m.NAME?.startsWith('PL-')) && (
+                                                <div className="mt-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pole Types Identified:</p>
+                                                    <ul className="space-y-1">
+                                                        {bridgeData.scrapedData.materialDetails
+                                                            .filter(m => m.NAME?.toLowerCase().includes('pole') || m.NAME?.startsWith('PL-'))
+                                                            .map((p, i) => (
+                                                                <li key={i} className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                                                                    <div className="w-1 h-1 bg-slate-400 rounded-full" />
+                                                                    {p.QTY || p.QUANTITY} × {p.NAME}
+                                                                </li>
+                                                            ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+
+                                            {/* Voice Service Sub-section */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-slate-100 border-dashed">
+                                                <SummaryItem label="Voice Service" value={coreOrder?.voiceNumber ? `CREATE (${coreOrder.status})` : "N/A"} />
+                                                {coreOrder?.forensicAudit?.voiceTestStatus && (
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Voice Test Details:</p>
+                                                        <div className="text-xs space-y-0.5">
+                                                            <p className="font-bold text-slate-700">Test Type: DURATION (Passed)</p>
+                                                            <p className="text-slate-500">Status: <span className="text-emerald-600 font-black italic">{coreOrder.forensicAudit.voiceTestStatus}</span></p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* 2. Serial Numbers */}
+                                    <section>
+                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-4 uppercase tracking-wider flex items-center justify-between">
+                                            <span>2. Serial Numbers (Wenama List Karala)</span>
+                                            <Badge className="bg-indigo-600 text-white border-none text-[10px]">EQUIPMENT</Badge>
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100 border-dashed">
+                                                <SummaryItem label="ONT Router Serial Number" value={coreOrder?.ontSerialNumber} isMono color="indigo" />
+                                            </div>
+                                            {/* Potential Pole Serials from Audit Data or Scraping */}
+                                            {coreOrder?.forensicAudit?.auditData?.some(a => a.name?.toLowerCase().includes('pole') && a.uuid) && (
+                                                <div className="space-y-2 mt-4">
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pole Identification Serials:</p>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        {coreOrder.forensicAudit.auditData
+                                                            .filter(a => a.name?.toLowerCase().includes('pole') && a.uuid)
+                                                            .map((p, i) => (
+                                                                <div key={i} className="bg-slate-100 px-3 py-1.5 rounded-lg border flex items-center gap-2">
+                                                                    <span className="text-[10px] font-bold text-slate-500">Pole {i + 1}:</span>
+                                                                    <span className="text-xs font-black font-mono text-slate-800">{p.uuid}</span>
+                                                                </div>
+                                                            ))}
                                                     </div>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-center py-4">
-                                                <p className="text-xs text-slate-500 italic">No materials scraped for this order yet.</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Forensic Photo Audit View */}
-                                <div className="bg-slate-900 text-white p-5 rounded-xl border border-slate-800 shadow-xl overflow-hidden relative">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                                        <Camera className="w-20 h-20" />
-                                    </div>
-
-                                    <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                                            <h3 className="text-sm font-black tracking-wider uppercase text-blue-400">Forensic Photo Audit</h3>
+                                            )}
                                         </div>
-                                    </div>
+                                    </section>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {coreOrder?.forensicAudit?.auditData && coreOrder.forensicAudit.auditData.length > 0 ? (
-                                            coreOrder.forensicAudit.auditData.map((item, idx) => {
-                                                const isOptional = item.name?.toLowerCase().includes('feedback') || item.name?.toLowerCase().includes('additional');
-                                                const isMissing = item.status === 'MISSING';
-
-                                                return (
-                                                    <div key={idx} className={`flex flex-col p-2.5 rounded-lg border transition-all duration-200 ${isMissing ? (isOptional ? 'bg-slate-800/40 border-slate-700' : 'bg-red-500/5 border-red-500/20') : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                                                        <div className="flex items-start justify-between gap-2">
-                                                            <span className={`text-[11px] font-bold leading-tight ${isMissing ? (isOptional ? 'text-slate-400' : 'text-red-300') : 'text-emerald-300'}`}>
-                                                                {item.name}
-                                                            </span>
-                                                            {isMissing ? (
-                                                                <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-                                                            ) : (
-                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                                                            )}
-                                                        </div>
-                                                        {!isMissing && item.uuid && (
-                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {item.uuid}</span>
-                                                        )}
-                                                        {!isMissing && (
-                                                            <span className="text-[9px] font-bold text-emerald-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
-                                                                <CheckCircle2 className="w-2 h-2" /> Uploaded
-                                                            </span>
-                                                        )}
-                                                        {isMissing && (
-                                                            <span className="text-[9px] font-bold text-red-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
-                                                                <XCircle className="w-2 h-2" /> Missing
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })
-                                        ) : (
-                                            <div className="col-span-3 text-center py-8">
-                                                <p className="text-xs text-slate-500 italic">No forensic data found. Please run capture via SLT-ERP Addon.</p>
+                                    {/* 3. Materials Used */}
+                                    <section>
+                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-4 uppercase tracking-wider flex items-center justify-between">
+                                            <span>3. Materials Used</span>
+                                            <Badge className="bg-emerald-600 text-white border-none text-[10px]">INVENTORY</Badge>
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                                            <div>
+                                                <SummaryItem label="Drop Wire" value={bridgeData?.scrapedData?.masterData?.['Drop Wire Length'] ? `${bridgeData.scrapedData.masterData['Drop Wire Length']} meters (${bridgeData.scrapedData.masterData['Drop Wire Type'] || 'FTTH-DW'})` : "N/A"} />
+                                                <SummaryItem label="Poles" value={bridgeData?.scrapedData?.masterData?.['Number of Poles'] ? `${bridgeData.scrapedData.masterData['Number of Poles']} (Total Poles)` : "0"} />
                                             </div>
-                                        )}
-                                    </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                    Grid Materials Checklist:
+                                                    <span className="h-[1px] flex-1 bg-slate-100" />
+                                                </p>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {bridgeData?.scrapedData?.materialDetails && bridgeData.scrapedData.materialDetails.length > 0 ? (
+                                                        bridgeData.scrapedData.materialDetails
+                                                            .filter(m => !(m.NAME?.toLowerCase().includes('drop wire') || m.NAME?.toLowerCase().includes('cable')))
+                                                            .map((m, i) => (
+                                                                <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-1 transition-colors">
+                                                                    <span className="font-bold text-slate-600">{m.NAME || m.TYPE || m.CODE}</span>
+                                                                    <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{m.QTY || m.QUANTITY}</span>
+                                                                </div>
+                                                            ))
+                                                    ) : (
+                                                        <p className="text-xs text-slate-400 italic">No inventory sequence detected.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* 4. Categorized Audit Photos */}
+                                    <section>
+                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-6 uppercase tracking-wider flex items-center justify-between">
+                                            <span>4. Uploaded Images (Categorized)</span>
+                                            <Badge className="bg-indigo-600 text-white border-none text-[10px]">AUDIT COMPLETE</Badge>
+                                        </h3>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            {/* Category A: FDP & Wire */}
+                                            <AuditCategory
+                                                id="A"
+                                                title="Drop Wire & FDP Related"
+                                                items={coreOrder?.forensicAudit?.auditData || []}
+                                                filter={['dw', 'fdp', 'wire', 'card', 'label', 'brand']}
+                                            />
+                                            {/* Category B: Rosette */}
+                                            <AuditCategory
+                                                id="B"
+                                                title="Rosette & Premise Related"
+                                                items={coreOrder?.forensicAudit?.auditData || []}
+                                                filter={['rosette', 'power', 'premise', 'hook', 'outside view']}
+                                            />
+                                            {/* Category C: ONT */}
+                                            <AuditCategory
+                                                id="C"
+                                                title="ONT & Performance"
+                                                items={coreOrder?.forensicAudit?.auditData || []}
+                                                filter={['ont', 'rear', 'wiring', 'wifi', 'strength', 'speed']}
+                                            />
+                                            {/* Category D: Pole */}
+                                            <AuditCategory
+                                                id="D"
+                                                title="Pole Related"
+                                                items={coreOrder?.forensicAudit?.auditData || []}
+                                                filter={['pole', 'l-hook', 'span', 'path', 'sketch', 'upper', 'lower']}
+                                            />
+                                            {/* Category E: Team & Feedback */}
+                                            <AuditCategory
+                                                id="E"
+                                                title="Customer & Team"
+                                                items={coreOrder?.forensicAudit?.auditData || []}
+                                                filter={['customer', 'feedback', 'request', 'team', 'additional']}
+                                                isLast
+                                            />
+                                        </div>
+                                    </section>
+
+                                    {/* 5. Additional Metadata */}
+                                    <section className="bg-slate-900 rounded-2xl p-6 text-white overflow-hidden relative">
+                                        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                                            <ShieldCheck className="w-32 h-32" />
+                                        </div>
+                                        <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                                            5. Additional Metadata & Signature
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+                                            <div>
+                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Record Generation Timestamp</p>
+                                                <p className="text-xs font-mono text-slate-300">
+                                                    {coreOrder?.createdAt ? new Date(coreOrder.createdAt).toISOString() : new Date().toISOString()}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Current Reviewer Context</p>
+                                                <p className="text-xs font-bold text-blue-300">
+                                                    {bridgeData?.sltUser || "Nisha Hiruni"} - SLTS Intelligence Suite
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Active Tab Reference</p>
+                                                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                                                    {bridgeData?.activeTab || "SERVICE ORDER"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </section>
                                 </div>
                             </div>
                         </TabsContent>
@@ -445,6 +506,51 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
     );
 }
 
+function SummaryItem({ label, value, isMono = false, isBold = false, color = 'slate' }: { label: string, value: string | null | undefined, isMono?: boolean, isBold?: boolean, color?: 'slate' | 'emerald' | 'indigo' }) {
+    const colorClass = color === 'emerald' ? 'text-emerald-600' : color === 'indigo' ? 'text-indigo-600' : 'text-slate-900';
+    return (
+        <div className="space-y-0.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">{label}</label>
+            <p className={`text-xs ${colorClass} ${isMono ? 'font-mono' : ''} ${isBold ? 'font-black uppercase tracking-tight' : 'font-bold'}`}>
+                {value || 'N/A'}
+            </p>
+        </div>
+    );
+}
+
+function AuditCategory({ id, title, items, filter, isLast = false }: { id: string, title: string, items: AuditItem[], filter: string[], isLast?: boolean }) {
+    const categoryItems = items.filter(item =>
+        filter.some(f => item.name?.toLowerCase().includes(f))
+    );
+
+    return (
+        <div className={`space-y-3 ${isLast ? 'md:col-span-2' : ''}`}>
+            <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
+                <span className="text-xs font-black text-slate-300">{id}.</span>
+                <h4 className="text-[11px] font-black text-slate-600 uppercase tracking-widest">{title}</h4>
+            </div>
+            <div className="space-y-1.5">
+                {categoryItems.length > 0 ? (
+                    categoryItems.map((item, i) => (
+                        <div key={i} className="flex justify-between items-center group">
+                            <span className="text-[11px] font-bold text-slate-500 group-hover:text-slate-900 transition-colors">
+                                {item.name || 'Unknown Photo'}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-mono ${item.status === 'UPLOADED' ? 'text-emerald-500' : 'text-red-400 italic'}`}>
+                                    {item.status === 'UPLOADED' ? (item.uuid || 'SUCCESS') : '(Missing)'}
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-[10px] text-slate-300 italic">No matching images uploaded for this category.</p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 function DetailItem({ icon, label, value, isMono = false, isBold = false }: { icon?: React.ReactNode, label: string, value: string | null | undefined, isMono?: boolean, isBold?: boolean }) {
     return (
         <div className="space-y-1">
@@ -459,25 +565,3 @@ function DetailItem({ icon, label, value, isMono = false, isBold = false }: { ic
     );
 }
 
-function InspectorCard({ label, value, icon, color, isMono = false }: { label: string, value: string, icon: React.ReactNode, color: string, isMono?: boolean }) {
-    const colorMap: Record<string, string> = {
-        blue: 'bg-blue-50 text-blue-600 border-blue-100',
-        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-        amber: 'bg-amber-50 text-amber-600 border-amber-100',
-        slate: 'bg-slate-50 text-slate-600 border-slate-100',
-        rose: 'bg-rose-50 text-rose-600 border-rose-100',
-    };
-
-    return (
-        <div className={`p-3 rounded-xl border ${colorMap[color] || colorMap.slate} flex flex-col gap-1 shadow-sm`}>
-            <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider opacity-70">{label}</span>
-                {icon}
-            </div>
-            <p className={`text-sm font-black truncate mt-1 ${isMono ? 'font-mono' : ''}`}>
-                {value}
-            </p>
-        </div>
-    );
-}
