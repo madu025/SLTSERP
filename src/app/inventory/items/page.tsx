@@ -158,6 +158,7 @@ export default function ItemMasterPage() {
             if (editingItem) {
                 form.reset({
                     code: editingItem.code,
+                    sltCode: editingItem.sltCode || '',
                     name: editingItem.name,
                     commonName: editingItem.commonName || '',
                     unit: editingItem.unit,
@@ -175,6 +176,7 @@ export default function ItemMasterPage() {
             } else {
                 form.reset({
                     code: '',
+                    sltCode: '',
                     name: '',
                     commonName: '',
                     unit: 'Nos',
