@@ -37,7 +37,8 @@ export class CompletedSODSyncService {
         try {
             // Get all OPMCs with RTOM
             const opmcs = await prisma.oPMC.findMany({
-                select: { id: true, name: true, rtom: true }
+                select: { id: true, name: true, rtom: true },
+                orderBy: { rtom: 'asc' }
             });
 
             for (const opmc of opmcs) {

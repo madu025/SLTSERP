@@ -975,7 +975,7 @@ export class ServiceOrderService {
      * All the rest of the sync methods from previous version...
      */
     static async syncAllPatResults() {
-        const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
+        const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
 
         // Fetch HO Rejected ONCE (Global API)
         console.log('[PAT-SYNC] Fetching global HO Rejected list...');
@@ -1136,7 +1136,7 @@ export class ServiceOrderService {
             console.log(`[PAT-SYNC] HO Approved Sync complete. Cached: ${totalCached}, Updated: ${totalUpdated}`);
 
             // Sync all OPMCs affected by this bulk update
-            const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
+            const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
             for (const opmc of opmcs) {
                 await addJob(statsUpdateQueue, `stats-${opmc.id}`, {
                     opmcId: opmc.id,
@@ -1153,7 +1153,7 @@ export class ServiceOrderService {
     }
 
     static async syncAllOpmcs() {
-        const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
+        const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
 
         console.log(`[SOD-SYNC] Queueing ${opmcs.length} OPMC sync jobs...`);
 

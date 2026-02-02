@@ -119,7 +119,8 @@ export class SODAutoCompletionService {
         try {
             // Get all OPMCs
             const opmcs = await prisma.oPMC.findMany({
-                select: { id: true, name: true }
+                select: { id: true, name: true, rtom: true },
+                orderBy: { rtom: 'asc' }
             });
 
             // Date range: last 7 days
@@ -136,7 +137,7 @@ export class SODAutoCompletionService {
 
                     // Fetch completed SODs from SLT
                     const completedSODs = await this.fetchCompletedSODsFromSLT(
-                        opmc.id,
+                        opmc.rtom,
                         startDateStr,
                         endDateStr
                     );

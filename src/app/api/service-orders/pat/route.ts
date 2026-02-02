@@ -55,7 +55,7 @@ export async function GET(request: Request) {
             prisma.sLTPATStatus.count({
                 where
             }),
-            prisma.oPMC.findMany({ select: { rtom: true } })
+            prisma.oPMC.findMany({ select: { rtom: true }, orderBy: { rtom: 'asc' } })
         ]);
 
         // Enrich results with ServiceOrder internal info

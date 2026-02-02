@@ -36,7 +36,7 @@ export async function GET() {
                     }
                 }
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { rtom: 'asc' }
         });
 
         // await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
