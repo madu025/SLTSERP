@@ -46,6 +46,17 @@ function deepParse(masterData: Record<string, string>) {
     return extracted;
 }
 
+export async function OPTIONS() {
+    return new NextResponse(null, {
+        status: 204,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role',
+        },
+    });
+}
+
 export async function POST(request: Request) {
     try {
         interface BridgeSyncPayload {
@@ -336,6 +347,8 @@ export async function POST(request: Request) {
             id: syncedOrder?.id,
             soNum: syncedOrder?.soNum,
             message: 'Bridge sync successful. Core tables updated.'
+        }, {
+            headers: { 'Access-Control-Allow-Origin': '*' }
         });
 
     } catch (error: unknown) {
@@ -346,7 +359,10 @@ export async function POST(request: Request) {
             success: false,
             message: 'Internal sync error',
             error: msg
-        }, { status: 500 });
+        }, {
+            status: 500,
+            headers: { 'Access-Control-Allow-Origin': '*' }
+        });
     }
 }
 
