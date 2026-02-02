@@ -63,7 +63,7 @@ export default function GRNPage() {
     useEffect(() => {
         if (showGRNDialog && !grnNumber) {
             const timestamp = Date.now();
-            setGRNNumber(`GRN-${timestamp}`);
+            setTimeout(() => setGRNNumber(`GRN-${timestamp}`), 0);
         }
     }, [showGRNDialog, grnNumber]);
 
@@ -78,7 +78,15 @@ export default function GRNPage() {
 
     // Create GRN mutation
     const createGRNMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: {
+            storeId: string;
+            sourceType: string;
+            supplier?: string;
+            receivedById: string;
+            requestId: string;
+            sltReferenceId: string | null;
+            items: Array<{ itemId: string; quantity: number }>;
+        }) => {
             return await createGRN(data);
         },
         onSuccess: (result) => {
@@ -221,7 +229,7 @@ export default function GRNPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y">
-                                                {requests.map((req: any) => (
+                                                {requests.map((req) => (
                                                     <tr key={req.id} className="hover:bg-slate-50">
                                                         <td className="px-4 py-3 font-medium">{req.requestNr}</td>
                                                         <td className="px-4 py-3">
@@ -409,7 +417,7 @@ export default function GRNPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {selectedRequest.items?.map((item: any) => (
+                                    {selectedRequest.items?.map((item) => (
                                         <tr key={item.id}>
                                             <td className="p-2 border">{item.item?.name}</td>
                                             <td className="p-2 border text-center">{item.requestedQty}</td>
