@@ -94,7 +94,7 @@ export default function LoginPage() {
       } else {
         setError(data.message || "Login failed");
       }
-    } catch (err) {
+    } catch {
       setError("Something went wrong. Please try again.");
     }
   };
@@ -118,7 +118,7 @@ export default function LoginPage() {
           {/* Top Branding */}
           <div className="relative z-10 flex items-center gap-3">
             <div className="bg-white/10 p-1.5 rounded-xl backdrop-blur-md border border-white/20">
-              <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+              <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
             </div>
             <span className="text-xl font-bold tracking-wider opacity-95">SLTS Nexus</span>
           </div>
@@ -139,8 +139,8 @@ export default function LoginPage() {
           <div className="relative z-10 mt-12">
             <div className="h-24 flex items-end">
               <div key={quoteIndex} className="animate-fadeIn transition-all duration-500">
-                <p className="text-lg italic font-medium text-white/90">"{premiumQuotes[quoteIndex].content}"</p>
-                <p className="text-sm text-sky-200 mt-2 font-semibold">— {premiumQuotes[quoteIndex].author}</p>
+                <p className="text-lg italic font-medium text-white/90">&ldquo;{premiumQuotes[quoteIndex].content}&rdquo;</p>
+                <p className="text-sm text-sky-200 mt-2 font-semibold">&mdash; {premiumQuotes[quoteIndex].author}</p>
               </div>
             </div>
             {/* Indicators */}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
 import SyncStatus from './SyncStatus';
+import Image from 'next/image';
 
 interface User {
     name: string;
@@ -63,7 +64,7 @@ export default function Sidebar() {
                 {!isCollapsed && (
                     <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 flex-shrink-0 animate-in zoom-in duration-500">
-                            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
+                            <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
                         </div>
                         <div className="animate-in fade-in slide-in-from-left duration-500">
                             <h2 className="text-xl font-bold text-white tracking-wider leading-none">SLTS Nexus</h2>

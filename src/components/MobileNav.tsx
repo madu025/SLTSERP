@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, Menu } from 'lucide-react';
+import Image from 'next/image';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
 
 interface User {
@@ -13,22 +14,16 @@ interface User {
 }
 
 export default function MobileNav() {
-    const [isOpen, setIsOpen] = useState(false);
-    const [user, setUser] = useState<User | null>(null);
-    const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
     const pathname = usePathname();
-
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+    const [isOpen, setIsOpen] = useState(false);
+    const [user, setUser] = useState<User | null>(() => {
+        if (typeof window !== 'undefined') {
+            const storedUser = localStorage.getItem('user');
+            return storedUser ? JSON.parse(storedUser) : null;
         }
-    }, []);
-
-    // Close menu on route change
-    useEffect(() => {
-        setIsOpen(false);
-    }, [pathname]);
+        return null;
+    });
+    const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
     // Auto-expand menu if a child is active or parent matches
     useEffect(() => {
@@ -96,7 +91,7 @@ export default function MobileNav() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="bg-white/10 p-1.5 rounded-lg border border-white/10">
-                                <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+                                <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-white tracking-wider leading-none">SLTS Nexus</h2>
@@ -161,6 +156,7 @@ export default function MobileNav() {
                                                     <Link
                                                         key={`mobile-sub-${sub.path}`}
                                                         href={sub.path}
+                                                        onClick={() => setIsOpen(false)}
                                                         className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isSubActive
                                                             ? 'bg-primary text-white'
                                                             : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -181,6 +177,7 @@ export default function MobileNav() {
                             <Link
                                 key={`mobile-menu-${item.title}-${item.path}`}
                                 href={item.path}
+                                onClick={() => setIsOpen(false)}
                                 className={`flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors ${isActive
                                     ? 'bg-primary text-white'
                                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'

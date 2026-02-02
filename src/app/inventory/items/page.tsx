@@ -55,7 +55,7 @@ export default function ItemMasterPage() {
     const [bulkCommonFor, setBulkCommonFor] = useState<string[]>([]);
 
     // --- QUERIES ---
-    const { data: items = [], isLoading } = useQuery({
+    const { data: items = [], isLoading } = useQuery<(ItemFormValues & { id: string })[]>({
         queryKey: ['items'],
         queryFn: async () => (await fetch('/api/inventory/items')).json()
     });
@@ -101,7 +101,7 @@ export default function ItemMasterPage() {
     const bulkMutation = useMutation({
         mutationFn: async () => {
             const updates = Array.from(selectedIds).map((id) => {
-                const item = items.find((i: ItemFormValues & { id: string }) => i.id === id);
+                const item = items.find((i) => i.id === id);
                 if (!item) return null;
 
                 return {
@@ -192,7 +192,7 @@ export default function ItemMasterPage() {
         }
     }, [showModal, editingItem, form]);
 
-    const filteredItems = Array.isArray(items) ? items.filter((i: ItemFormValues & { id: string }) =>
+    const filteredItems = Array.isArray(items) ? items.filter((i) =>
         (categoryFilter === "ALL" || i.category === categoryFilter) &&
         (i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             i.code.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -203,7 +203,7 @@ export default function ItemMasterPage() {
         if (selectedIds.size === filteredItems.length) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(filteredItems.map((i: any) => i.id)));
+            setSelectedIds(new Set(filteredItems.map((i) => i.id)));
         }
     };
 
@@ -349,7 +349,7 @@ export default function ItemMasterPage() {
                                                         </Badge>
                                                     </td>
                                                     <td className="px-4 py-2 text-slate-700">
-                                                        {item.minLevel > 0 ? (
+                                                        {item.minLevel && parseFloat(item.minLevel) > 0 ? (
                                                             <div className="flex items-center gap-1">
                                                                 <AlertTriangle className="w-3 h-3 text-orange-400" />
                                                                 {item.minLevel}
