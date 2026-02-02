@@ -109,12 +109,23 @@ function deepParseForensic(scrapedLog: RawLog) {
     const ontSerial = allDetails['ONT_ROUTER_SERIAL_NUMBER'] || allDetails['ONT_ROUTER_SERIAL_NUMBER_'] || "";
     if (ontSerial) info['ONT Serial'] = ontSerial;
 
-    // Dynamic Multi-IPTV Detection
+    // Dynamic Multi-IPTV & Pole Serial Detection
     Object.entries(allDetails).forEach(([k, v]) => {
-        if (k.startsWith('IPTV_CPE_SERIAL_NUMBER')) {
+        const key = k.toLowerCase();
+        const val = String(v);
+
+        // IPTV Detection
+        if (key.startsWith('iptv_cpe_serial_number')) {
             const num = k.match(/\d+/);
             const label = num ? `IPTV CPE Serial ${num[0]}` : 'IPTV CPE Serial';
-            info[label] = v;
+            info[label] = val;
+        }
+
+        // Pole Serial Detection (Matched with DetailModal logic)
+        if ((key.includes('serial') && key.includes('pole')) || (key.startsWith('serial number') && val && val.length > 5)) {
+            // If it's something like "Serial Number 1" or "Pole 1 Serial"
+            const label = k.replace(/_HIDDEN/g, '').replace(/_/g, ' ');
+            info[label] = val;
         }
     });
 
