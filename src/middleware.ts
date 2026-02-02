@@ -19,7 +19,9 @@ const publicPaths = [
     '/api/team-members/public',
     '/api/health',
     '/api/cron',
-    '/api/test/extension-push'
+    '/api/test/extension-push',
+    '/api/service-orders/bridge-sync',
+    '/api/service-orders/bridge-data'
 ];
 
 export async function middleware(request: NextRequest) {
