@@ -106,7 +106,7 @@ export class ItemService {
             updates.map((update) =>
                 prisma.inventoryItem.update({
                     where: { id: update.id },
-                    data: update.data as Prisma.InventoryItemUpdateInput
+                    data: update.data as unknown as Prisma.InventoryItemUpdateInput
                 })
             )
         );
