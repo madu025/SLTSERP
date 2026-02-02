@@ -100,7 +100,57 @@ class PhoenixOmniEngine {
     static async scan() {
         const data = { details: {}, materials: [], visuals: [], teamDetails: [], history: [] };
 
-        // 1. Force Discovery: All Inputs (Regular + Shadow DOM)
+        // 1. RAW ID-BASED EXTRACTION (Primary Strategy for this Portal Version)
+        // Helper to safely get value by ID
+        const getVal = (id) => {
+            const el = document.getElementById(id) || document.getElementsByName(id)[0];
+            return el ? PhoenixScanner.extractValue(el) : '';
+        }
+
+        // 1.1 Basic Service Order Info
+        data.details['MOBILE_TEAM'] = getVal('mobusr') || getVal('MOBILE_TEAM');
+        data.details['DROP_WIRE_TYPE'] = getVal('dw');
+        data.details['DROP_WIRE_LENGTH'] = getVal('DROP WIRE') || getVal('dw_length') || '0';
+
+        // 1.2 Forensic Image Extraction (Pattern: 1imgDN, 1limg, etc.)
+        const auditItems = [];
+        const categories = {
+            'A': ['DW METER', 'DROP WIRE', 'FDP', 'C HOOK', 'FDP CARD', 'INSIDE FDP', 'OUTSIDE FDP'],
+            'B': ['ROSETTE', 'PREMISE', 'COVER CLOSED', 'COVER OPEN'],
+            'C': ['ONT', 'WI-FI', 'SPEED', 'PERFORMANCE', 'POWER'],
+            'D': ['POLE', 'L-HOOK', 'SPAN', 'PATH SKETCH'],
+            'E': ['CUSTOMER', 'TEAM', 'ADDITIONAL', 'FEEDBACK']
+        };
+
+        for (let i = 1; i <= 50; i++) {
+            const nameId = `${i}imgDN`;
+            const valId = `${i}limg`;
+
+            const name = getVal(nameId);
+            const uuid = getVal(valId);
+
+            if (name && uuid) {
+                let category = 'OTHERS';
+                const upperText = name.toUpperCase();
+                for (const [cat, keywords] of Object.entries(categories)) {
+                    if (keywords.some(k => upperText.includes(k))) {
+                        category = cat;
+                        break;
+                    }
+                }
+
+                auditItems.push({
+                    name: name,
+                    uuid: uuid,
+                    status: 'UPLOADED',
+                    category: category,
+                    index: i
+                });
+            }
+        }
+        data.forensicAudit = auditItems;
+
+        // 2. DOM SCAN (Redundant Safety Net)
         const allInputs = PhoenixScanner.queryShadow('input:not([type="hidden"]), select')
             .filter(i => !i.closest('#phoenix-hud'));
 
@@ -108,14 +158,10 @@ class PhoenixOmniEngine {
             const val = PhoenixScanner.extractValue(input);
             if (!val || PHOENIX_CONFIG.JUNK.some(p => p.test(val))) return;
 
-            // Find nearest Label by hierarchy or proximity
             let label = "";
             let current = input;
-
-            // Look sideways and up for Cyan labels
             for (let i = 0; i < 5; i++) {
                 if (!current) break;
-                // Check siblings
                 const sibs = Array.from(current.parentElement?.children || []);
                 const found = sibs.find(s => s !== current && PhoenixScanner.isKey(s));
                 if (found) {
@@ -126,20 +172,16 @@ class PhoenixOmniEngine {
             }
 
             if (label && val) {
-                // STRUCTURED DATA MAPPING (Basic Details)
-                if (label.includes('MOBILE TEAM')) data.details['MOBILE_TEAM'] = val;
-                if (label.includes('PORTAL URL')) data.details['PORTAL_URL'] = val;
-                if (label.includes('DROP WIRE LENGTH')) data.details['DROP_WIRE_LENGTH'] = val;
+                if (!data.details[label]) data.details[label] = val;
 
-                data.details[label] = val;
-
-                // Material Intelligence: Linked Pair Capture (Name + Qty)
                 const isMatLabel = PHOENIX_CONFIG.IDENTIFIERS.MATERIAL_KEYWORDS.some(k => label.includes(k));
                 if (isMatLabel) {
                     const nextInput = allInputs[idx + 1];
                     if (nextInput) {
                         const nextVal = PhoenixScanner.extractValue(nextInput);
-                        if (nextVal && !isNaN(parseFloat(nextVal))) {
+                        if (!isNaN(parseFloat(val)) && label.includes('DROP WIRE')) {
+                            data.materials.push({ ITEM: 'DROP WIRE', TYPE: 'FTTH-DW', QTY: val });
+                        } else if (nextVal && !isNaN(parseFloat(nextVal))) {
                             data.materials.push({ ITEM: label, TYPE: val, QTY: nextVal });
                         }
                     }
@@ -147,33 +189,46 @@ class PhoenixOmniEngine {
             }
         });
 
-        // 2. Dynamic Grid Discovery (Multi-row Materials)
+        // 3. Dynamic Grid & Table Discovery
         document.querySelectorAll('.row, tr, div[style*="display: flex"]').forEach(container => {
             const labels = Array.from(container.querySelectorAll('label, .text-cyan, span'))
                 .map(l => PhoenixScanner.clean(l.innerText).toUpperCase());
-
-            const hasUnit = labels.some(l => l.includes('UNIT DESIGNATOR'));
-            const hasQty = labels.some(l => l.includes('QUANTITY'));
+            const hasUnit = labels.some(l => l.includes('UNIT DESIGNATOR') || l.includes('MATERIAL'));
+            const hasQty = labels.some(l => l.includes('QUANTITY') || l.includes('QTY'));
 
             if (hasUnit && hasQty) {
                 const inputs = Array.from(container.querySelectorAll('input, select, .form-control'))
                     .filter(i => i.type !== 'hidden' && window.getComputedStyle(i).display !== 'none');
 
                 if (inputs.length >= 2) {
-                    const unitVal = PhoenixScanner.extractValue(inputs[0]);
-                    const qtyVal = PhoenixScanner.extractValue(inputs[1]);
-                    if (unitVal && unitVal !== 'SELECT MATERIAL ...' && qtyVal) {
-                        data.materials.push({ ITEM: 'GRID_MATERIAL', TYPE: unitVal, QTY: qtyVal });
+                    const val1 = PhoenixScanner.extractValue(inputs[0]);
+                    const val2 = PhoenixScanner.extractValue(inputs[1]);
+
+                    let type = val1;
+                    let qty = val2;
+
+                    if (!isNaN(parseFloat(val1)) && isNaN(parseFloat(val2))) {
+                        type = val2; qty = val1;
+                    }
+
+                    if (type && qty && type !== 'SELECT MATERIAL ...') {
+                        data.materials.push({ ITEM: 'GRID_MATERIAL', TYPE: type, QTY: qty });
                     }
                 }
+            }
+        });
+
+        // 4. Voice Test Specifics
+        PhoenixScanner.queryShadow('div, span, p').forEach(el => {
+            const txt = el.innerText;
+            if (txt.includes('LATEST_VOICE_TEST_DETAILS') || txt.includes('DATE TEST TYPE')) {
+                data.details['VOICE_TEST_RESULT'] = txt;
             }
         });
 
         // CRITICAL: DEDUPLICATE MATERIALS
         const uniqueMaterials = new Map();
         data.materials.forEach(m => {
-            // Create a unique key based on the material type/name
-            // We strip spaces to handle loose matching
             const key = (m.TYPE + (m.ITEM !== 'GRID_MATERIAL' ? m.ITEM : '')).toUpperCase().replace(/\s+/g, '');
             if (!uniqueMaterials.has(key)) {
                 uniqueMaterials.set(key, m);
@@ -181,132 +236,11 @@ class PhoenixOmniEngine {
         });
         data.materials = Array.from(uniqueMaterials.values());
 
-
-        // 3. Categorized Image Capture
-        const auditItems = [];
-        const categories = {
-            'A': ['DW METER', 'DROP WIRE', 'FDP', 'C HOOK', 'FDP CARD'],
-            'B': ['ROSETTE', 'PREMISE', 'COVER CLOSED', 'COVER OPEN'],
-            'C': ['ONT', 'WI-FI', 'SPEED', 'PERFORMANCE', 'POWER'],
-            'D': ['POLE', 'L-HOOK', 'SPAN', 'PATH SKETCH'],
-            'E': ['CUSTOMER', 'TEAM', 'ADDITIONAL', 'FEEDBACK']
-        };
-
-        PhoenixScanner.queryShadow('div, td, span, b, label').forEach(el => {
-            if (el.closest('#phoenix-hud')) return;
-            const text = PhoenixScanner.clean(el.innerText);
-            const parentText = PhoenixScanner.clean(el.parentElement?.innerText || "");
-
-            if (parentText.includes('UUID:') && (parentText.includes('Uploaded') || parentText.includes('Missing'))) {
-                if (text && !text.includes('UUID:') && !text.includes('Uploaded') && !text.includes('Missing') && text.length < 50) {
-                    const status = parentText.includes('Uploaded') ? 'UPLOADED' : 'MISSING';
-                    const uuidMatch = parentText.match(/UUID:\s*(\d+)/);
-                    const uuid = uuidMatch ? uuidMatch[1] : "";
-
-                    // Determine Category
-                    let category = 'OTHERS';
-                    const upperText = text.toUpperCase();
-                    for (const [cat, keywords] of Object.entries(categories)) {
-                        if (keywords.some(k => upperText.includes(k))) {
-                            category = cat;
-                            break;
-                        }
-                    }
-
-                    const exists = auditItems.find(a => a.name === text);
-                    if (!exists) {
-                        auditItems.push({ name: text, status, uuid, category });
-                    }
-                }
-            }
-        });
-        data.forensicAudit = auditItems;
-
-        // ... (Remaining Logic for Tables and Tab Detection preserved)
-        // 4. Specialized Key-Value (Serials etc...)
-        const forensicTargets = ['SERIAL', 'NUMBER', 'VOICE', 'TEST', 'TEAM', 'ASSIGN', 'IPTV_CPE', 'ONT_ROUTER'];
-        PhoenixScanner.queryShadow('div, td, span, b, label').forEach(el => {
-            if (el.closest('#phoenix-hud')) return;
-            const text = PhoenixScanner.clean(el.innerText).toUpperCase();
-
-            if (forensicTargets.some(k => text.includes(k)) && text.length < 100) {
-                let val = "";
-                let next = el.nextElementSibling;
-                if (!next && el.parentElement) next = el.parentElement.nextElementSibling;
-
-                if (next) {
-                    val = PhoenixScanner.extractValue(next);
-                    if (val && val !== text && val.length > 2 && val.length < 200) {
-                        data.details[text.replace(/\s+/g, '_')] = val;
-                    }
-                }
-            }
-        });
-
-        // ... Table Logic omitted for brevity, assuming existing logic holds ...
-        document.querySelectorAll('table').forEach(table => {
-            if (table.closest('#phoenix-hud')) return;
-            // ... Simple check to ensure we still scrape tables ...
-            const rows = Array.from(table.querySelectorAll('tr'));
-            if (rows.length < 2) return;
-            // (Re-using existing generic table logic briefly here implicit)
-            const headerRow = rows[0];
-            const headerCells = Array.from(headerRow.querySelectorAll('th, td'));
-            const headers = headerCells.map(h => PhoenixScanner.clean(h.innerText).toUpperCase());
-
-            // Detect table type
-            const isMater = headers.some(h => h.includes('ITEM') || h.includes('MATERIAL'));
-
-            rows.slice(1).forEach((row) => {
-                const cells = Array.from(row.querySelectorAll('td'));
-                if (cells.length < 2) return;
-
-                const rowData = {};
-                cells.forEach((cell, idx) => {
-                    if (headers[idx]) rowData[headers[idx]] = PhoenixScanner.extractValue(cell);
-                });
-
-                if (isMater) {
-                    const itemName = rowData['ITEM'] || rowData['DESCRIPTION'];
-                    const qty = rowData['QTY'] || rowData['QUANTITY'];
-                    if (itemName && qty) {
-                        // Push to materials but relies on final deduplication if I moved it down...
-                        // Actually, I should push here and then dedupe again or move dedupe to end.
-                        // For safety, I'll push to a temp array and rely on main data.materials? 
-                        // The code block above closed deduplication before this. 
-                        // Ideally, Table logic should run BEFORE deduplication.
-                        data.materials.push({ ITEM: 'TABLE_MAT', TYPE: itemName, QTY: qty });
-                    }
-                }
-            });
-        });
-
-        // re-deduplicate incase table added more
-        const finalMaterials = new Map();
-        data.materials.forEach(m => {
-            const key = (m.TYPE + (m.ITEM !== 'GRID_MATERIAL' ? m.ITEM : '')).toUpperCase().replace(/\s+/g, '');
-            if (!finalMaterials.has(key)) finalMaterials.set(key, m);
-        });
-        data.materials = Array.from(finalMaterials.values());
-
-
-        // ... (Hidden Sections & Data Attrs logic preserved) ...
-        const hiddenSections = document.querySelectorAll('.tab-pane, .accordion-collapse, .collapse, [style*="display: none"]');
-        hiddenSections.forEach(section => {
-            if (section.closest('#phoenix-hud')) return;
-            // ...
-            const inputs = section.querySelectorAll('input, select');
-            inputs.forEach(i => {
-                const v = PhoenixScanner.extractValue(i);
-                if (v) data.details[i.id || 'HIDDEN'] = v;
-            })
-        });
-
         // 6. Final Constructed Payload matching User Request
         const payloadDetails = {
             ...data.details,
             // Explicit Mappings for "Restructured Summary"
-            'MOBILE_TEAM': data.details['MOBILE_TEAM'] || data.details['TEAM_NAME'] || 'PENDING',
+            'MOBILE_TEAM': data.details['MOBILE_TEAM'] || data.details['TEAM_NAME'] || data.details['mobusr'] || 'PENDING',
             'ONT_ROUTER_SERIAL': data.details['ONT_ROUTER_SERIAL_NUMBER'] || data.details['SERIAL_NUMBER'],
             // Add other structured keys if found
         };
