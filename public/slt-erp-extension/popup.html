@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Phoenix Bridge</title>
+    <style>
+        :root {
+            --primary: #ff4d4d;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+        }
+
+        body {
+            width: 360px;
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(255, 77, 77, 0.3);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 14px;
+            letter-spacing: 1px;
+            font-weight: 900;
+        }
+
+        .version {
+            font-size: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            background: var(--card);
+            border-bottom: 1px solid #334155;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--muted);
+            transition: 0.3s;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            background: rgba(255, 77, 77, 0.05);
+        }
+
+        .content {
+            padding: 16px;
+            max-height: 450px;
+            overflow-y: auto;
+        }
+
+        .status-box {
+            background: #10b98115;
+            border: 1px solid #10b98130;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .detail-card {
+            background: var(--card);
+            border-left: 4px solid var(--primary);
+            padding: 10px 12px;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .label {
+            font-size: 9px;
+            color: var(--muted);
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+
+        .value {
+            font-size: 12px;
+            margin-top: 2px;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .diag-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #334155;
+        }
+
+        .diag-label {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .diag-value {
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--muted);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>i-SHAMP BRIDGE</h1>
+        <div class="version">v4.4.0</div>
+    </div>
+    <div class="tabs">
+        <div class="tab active" id="tab-data">DATA</div>
+        <div class="tab" id="tab-diag">DIAGNOSTICS</div>
+    </div>
+    <div class="content">
+        <div id="view-data">
+            <div class="status-box" id="status-container">
+                <div class="status-dot"></div>
+                <div style="font-size: 11px; font-weight: 700;" id="status-text">Detecting Portal...</div>
+            </div>
+            <div id="list"></div>
+        </div>
+        <div id="view-diag" style="display:none">
+            <div class="diag-row"><span class="diag-label">Engine Status</span><span class="diag-value"
+                    style="color:#10b981">STABLE</span></div>
+            <div class="diag-row"><span class="diag-label">Sync Latency</span><span class="diag-value"
+                    id="diag-sync">-</span></div>
+            <div class="diag-row"><span class="diag-label">Memory Utilization</span><span class="diag-value"
+                    id="diag-fields">0 Fields</span></div>
+            <div class="diag-row"><span class="diag-label">Service Order</span><span class="diag-value"
+                    id="diag-so">-</span></div>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+
+</html>

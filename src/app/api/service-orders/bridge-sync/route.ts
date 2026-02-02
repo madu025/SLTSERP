@@ -111,6 +111,12 @@ export async function POST(request: Request) {
             sales: masterData['SALES PERSON'] || masterData['SALES'] || deepData['SALES PERSON'],
         };
 
+        // Handle Pole Serial Number (Mapped to Comments to avoid DB Schema Change)
+        const poleSerial = masterData['POLE_SERIAL_NUMBER'] || masterData['POLE_SERIAL'] || deepData['POLE'];
+        if (poleSerial) {
+            mapping.comments = (mapping.comments ? mapping.comments + " | " : "") + `Pole Serial: ${poleSerial}`;
+        }
+
         // 4. Find the existing Service Order
         const serviceOrder = await prisma.serviceOrder.findUnique({
             where: { soNum },
