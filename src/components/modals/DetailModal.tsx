@@ -43,6 +43,7 @@ export interface BridgeData {
     sltUser?: string;
     activeTab?: string;
     updatedAt?: string;
+    url?: string;
     scrapedData?: {
         teamDetails?: { name?: string };
         selectedTeam?: string;
@@ -71,6 +72,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
     const [isLoadingCore, setIsLoadingCore] = useState(false);
 
     const [bridgeData, setBridgeData] = useState<BridgeData | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     useEffect(() => {
         if (isOpen && selectedOrder?.soNum) {
@@ -103,6 +105,42 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
             }
         }
     }, [isOpen, selectedOrder, activeTab]);
+
+    const handleSync = async () => {
+        if (!bridgeData || !coreOrder?.soNum) return;
+
+        setIsSyncing(true);
+        try {
+            const payload = {
+                ...bridgeData.scrapedData,
+                soNum: coreOrder.soNum,
+                currentUser: bridgeData.sltUser,
+                url: bridgeData.url,
+                activeTab: bridgeData.activeTab
+            };
+
+            const res = await fetch('/api/service-orders/bridge-sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                // Refresh core data after sync
+                const coreRes = await fetch(`/api/service-orders/core-data/${coreOrder.soNum}`);
+                const coreJson = await coreRes.json();
+                if (coreJson.success) setCoreOrder(coreJson.data as DetailedServiceOrder);
+            } else {
+                alert("Sync failed: " + result.message);
+            }
+        } catch (err) {
+            console.error("Sync error:", err);
+            alert("Sync failed. Check console for details.");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     if (!selectedOrder) return null;
 
@@ -503,7 +541,19 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     <section>
                                         <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-4 uppercase tracking-wider flex items-center justify-between">
                                             <span>3. Materials Used</span>
-                                            <Badge className="bg-emerald-600 text-white border-none text-[10px]">INVENTORY</Badge>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-[10px] font-black uppercase border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white gap-2 transition-all duration-300"
+                                                    onClick={handleSync}
+                                                    disabled={isSyncing || !bridgeData}
+                                                >
+                                                    {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                                    Sync to ERP
+                                                </Button>
+                                                <Badge className="bg-emerald-600 text-white border-none text-[10px]">INVENTORY</Badge>
+                                            </div>
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
                                             <div>
