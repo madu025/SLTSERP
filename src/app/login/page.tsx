@@ -120,18 +120,18 @@ export default function LoginPage() {
             <div className="bg-white/10 p-1.5 rounded-xl backdrop-blur-md border border-white/20">
               <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
             </div>
-            <span className="text-xl font-bold tracking-wider opacity-95">SLTSERP</span>
+            <span className="text-xl font-bold tracking-wider opacity-95">SLTS Nexus</span>
           </div>
 
           {/* Center Content */}
           <div className="relative z-10 space-y-6">
             <h2 className="text-4xl lg:text-5xl font-bold leading-tight">
               Manage Your <br />
-              <span className="text-sky-200">Construction</span> <br />
-              Projects
+              <span className="text-sky-200">Workflow</span> <br />
+              Optimization
             </h2>
             <p className="text-sky-100 max-w-md text-lg leading-relaxed opacity-90">
-              Streamline your OSP construction workflows with our advanced enterprise resource planning solution.
+              Streamline your OSP management workflows with our next-generation Nexus enterprise solution.
             </p>
           </div>
 

@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SLTSERP - Construction ERP",
-  description: "OSP Construction Management System",
+  title: "SLTS Nexus - Workflow management system",
+  description: "Next-Gen Workflow & OSP Management System",
   formatDetection: {
     telephone: false,
   },
@@ -30,14 +30,14 @@ export const metadata: Metadata = {
     apple: '/logo.png',
   },
   openGraph: {
-    title: 'SLTSERP - Construction ERP',
-    description: 'OSP Construction Management System',
+    title: 'SLTS Nexus - Workflow management system',
+    description: 'Next-Gen Workflow & OSP Management System',
     images: [
       {
         url: '/logo.png',
         width: 800,
         height: 600,
-        alt: 'SLTSERP Logo',
+        alt: 'SLTS Nexus Logo',
       },
     ],
   },

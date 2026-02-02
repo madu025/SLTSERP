@@ -99,8 +99,8 @@ export default function MobileNav() {
                                 <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-white tracking-wider leading-none">SLTSERP</h2>
-                                <p className="text-[10px] text-sky-400 mt-1 uppercase tracking-widest font-medium">Construction</p>
+                                <h2 className="text-lg font-bold text-white tracking-wider leading-none">SLTS Nexus</h2>
+                                <p className="text-[10px] text-sky-400 mt-1 uppercase tracking-widest font-medium">Workflow Management</p>
                             </div>
                         </div>
                         <button

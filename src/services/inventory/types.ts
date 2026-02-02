@@ -24,6 +24,8 @@ export interface CreateItemData {
     isWastageAllowed?: boolean;
     maxWastagePercentage?: string | number;
     isOspFtth?: boolean;
+    commonName?: string;
+    importAliases?: string[];
 }
 
 export interface UpdateStoreData {

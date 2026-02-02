@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Square, Layers, Tag, Package } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package } from "lucide-react";
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,7 +32,8 @@ const itemSchema = z.object({
     maxWastagePercentage: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     unitPrice: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     costPrice: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
-    description: z.string().optional()
+    description: z.string().optional(),
+    importAliases: z.array(z.string()).optional()
 });
 
 type ItemFormValues = z.infer<typeof itemSchema>;
@@ -41,7 +42,7 @@ export default function ItemMasterPage() {
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
     const [showModal, setShowModal] = useState(false);
-    const [editingItem, setEditingItem] = useState<any>(null);
+    const [editingItem, setEditingItem] = useState<ItemFormValues & { id: string } | null>(null);
     const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
     // Filter & Batch State
@@ -68,7 +69,7 @@ export default function ItemMasterPage() {
                 return await createItem(values);
             }
         },
-        onSuccess: (result) => {
+        onSuccess: (result: { success: boolean; error?: string }) => {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ['items'] });
                 setShowModal(false);
@@ -78,14 +79,14 @@ export default function ItemMasterPage() {
                 toast.error(result.error || 'Failed to save item');
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
             return await deleteItem(id);
         },
-        onSuccess: (result) => {
+        onSuccess: (result: { success: boolean; error?: string }) => {
             if (result.success) {
                 queryClient.invalidateQueries({ queryKey: ['items'] });
                 setDeletingItemId(null);
@@ -94,13 +95,13 @@ export default function ItemMasterPage() {
                 toast.error(result.error || 'Failed to delete item');
             }
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err: Error) => toast.error(err.message)
     });
 
     const bulkMutation = useMutation({
         mutationFn: async () => {
             const updates = Array.from(selectedIds).map((id) => {
-                const item = items.find((i: any) => i.id === id);
+                const item = items.find((i: ItemFormValues & { id: string }) => i.id === id);
                 if (!item) return null;
 
                 return {
@@ -116,7 +117,7 @@ export default function ItemMasterPage() {
             }
             return { success: true };
         },
-        onSuccess: (result: any) => {
+        onSuccess: (result: { success: boolean; error?: string } | undefined) => {
             if (result?.success) {
                 queryClient.invalidateQueries({ queryKey: ['items'] });
                 setShowBulkEdit(false);
@@ -145,7 +146,8 @@ export default function ItemMasterPage() {
             maxWastagePercentage: '0',
             unitPrice: '0',
             costPrice: '0',
-            description: ''
+            description: '',
+            importAliases: []
         }
     });
 
@@ -166,7 +168,8 @@ export default function ItemMasterPage() {
                     maxWastagePercentage: (editingItem.maxWastagePercentage ?? 0).toString(),
                     unitPrice: (editingItem.unitPrice ?? 0).toString(),
                     costPrice: (editingItem.costPrice ?? 0).toString(),
-                    description: editingItem.description || ''
+                    description: editingItem.description || '',
+                    importAliases: editingItem.importAliases || []
                 });
             } else {
                 form.reset({
@@ -182,13 +185,14 @@ export default function ItemMasterPage() {
                     maxWastagePercentage: '0',
                     unitPrice: '0',
                     costPrice: '0',
-                    description: ''
+                    description: '',
+                    importAliases: []
                 });
             }
         }
     }, [showModal, editingItem, form]);
 
-    const filteredItems = Array.isArray(items) ? items.filter((i: any) =>
+    const filteredItems = Array.isArray(items) ? items.filter((i: ItemFormValues & { id: string }) =>
         (categoryFilter === "ALL" || i.category === categoryFilter) &&
         (i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             i.code.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -320,11 +324,11 @@ export default function ItemMasterPage() {
                                     </thead>
                                     <tbody className="divide-y">
                                         {isLoading ? (
-                                            <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading items...</td></tr>
+                                            <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading items...</td></tr>
                                         ) : filteredItems.length === 0 ? (
-                                            <tr><td colSpan={7} className="p-8 text-center text-slate-400">No items found.</td></tr>
+                                            <tr><td colSpan={10} className="p-8 text-center text-slate-400">No items found.</td></tr>
                                         ) : (
-                                            filteredItems.map((item: any) => (
+                                            filteredItems.map((item) => (
                                                 <tr key={item.id} className="hover:bg-slate-50 group">
                                                     <td className="px-4 py-2">
                                                         <div className="flex items-center justify-center">
@@ -470,10 +474,49 @@ export default function ItemMasterPage() {
 
                                 <FormField control={form.control} name="commonName" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs">Common Name (Grouping)</FormLabel>
-                                        <FormControl><Input {...field} placeholder="e.g. Drop Wire" className="h-8 text-xs" /></FormControl>
+                                        <FormLabel className="text-xs">SLT Material Name (Master Identifier)</FormLabel>
+                                        <FormControl><Input {...field} placeholder="e.g. Drop Wire" className="h-8 text-xs font-bold border-blue-200 bg-blue-50/30" /></FormControl>
                                         <FormMessage />
-                                        <p className="text-[10px] text-slate-400">Used to group SLT and Company items together in Quick Add.</p>
+                                        <p className="text-[10px] text-slate-500 italic">
+                                            <strong>CRITICAL:</strong> Use the same name for both SLT and SLTS versions of this material.
+                                            This bridges different product codes together for reporting and auto-selection.
+                                        </p>
+                                    </FormItem>
+                                )} />
+
+                                <FormField control={form.control} name="importAliases" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-xs">Import Aliases / SLT UI Names</FormLabel>
+                                        <div className="space-y-2">
+                                            <div className="flex flex-wrap gap-1.5 p-2 border rounded-md bg-slate-50/50 min-h-[40px]">
+                                                {field.value?.map((alias, i) => (
+                                                    <Badge key={i} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
+                                                        {alias}
+                                                        <button type="button" onClick={() => field.onChange(field.value?.filter((_, idx) => idx !== i))} className="hover:text-red-500">
+                                                            <Trash2 className="w-2.5 h-2.5" />
+                                                        </button>
+                                                    </Badge>
+                                                ))}
+                                                {(!field.value || field.value.length === 0) && <span className="text-[10px] text-slate-400 italic">No aliases added...</span>}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    placeholder="Add alias (e.g. FTTH-DW)"
+                                                    className="h-8 text-xs flex-1"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            const val = e.currentTarget.value.trim();
+                                                            if (val && !field.value?.includes(val)) {
+                                                                field.onChange([...(field.value || []), val]);
+                                                                e.currentTarget.value = '';
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <p className="text-[9px] text-slate-400">Press Enter to add multiple names seen in SLT system.</p>
+                                        </div>
                                     </FormItem>
                                 )} />
 

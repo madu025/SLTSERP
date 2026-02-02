@@ -134,7 +134,7 @@ interface OrderActionModalProps {
         name: string;
         teams?: Array<{ id: string; name: string; sltCode?: string }>;
     }>;
-    items?: Array<{ id: string; name: string; code: string; unit: string; commonFor?: string[]; commonName?: string; isOspFtth?: boolean; type?: string; maxWastagePercentage?: number; isWastageAllowed?: boolean; }>;
+    items?: Array<{ id: string; name: string; code: string; unit: string; commonFor?: string[]; commonName?: string; isOspFtth?: boolean; type?: string; maxWastagePercentage?: number; isWastageAllowed?: boolean; importAliases?: string[]; }>;
     showExtendedFields?: boolean;
     materialSource?: string;
     itemSortOrder?: string[];
@@ -453,15 +453,14 @@ export default function OrderActionModal({
 
         // 3. Select Best Item per Group
         const result = Object.entries(groups).map(([label, groupItems]) => {
-            // Priority A: Matches System Config Source (SLT or COMPANY)
-            let best = groupItems.find(i =>
-                (materialSource === 'SLT' && i.type === 'SLT') ||
-                (materialSource !== 'SLT' && i.type !== 'SLT')
-            );
+            // Priority A: Matches System Config Source (SLT or SLTS/COMPANY)
+            const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
 
-            // Priority B: Fallback to COMPANY (SLTS) if Source is SLT but item not found (e.g. Accessories)
+            let best = groupItems.find(i => i.type === activeSource);
+
+            // Priority B: Fallback to any variant if the preferred one is missing
             if (!best) {
-                best = groupItems.find(i => i.type !== 'SLT');
+                best = groupItems.find(i => i.type === (activeSource === 'SLT' ? 'SLTS' : 'SLT'));
             }
 
             // Priority C: Any
@@ -1454,6 +1453,7 @@ interface ComboboxItem {
     code: string;
     name: string;
     commonName?: string | null;
+    importAliases?: string[] | null;
 }
 
 function MaterialCombobox({ items, value, onChange, inputRef }: { items: ComboboxItem[], value: string, onChange: (val: string) => void, inputRef?: React.RefObject<HTMLButtonElement | null> }) {
@@ -1481,7 +1481,7 @@ function MaterialCombobox({ items, value, onChange, inputRef }: { items: Combobo
                             {items.map((item) => (
                                 <CommandItem
                                     key={item.id}
-                                    value={item.code + " " + item.name + " " + (item.commonName || "")}
+                                    value={item.code + " " + item.name + " " + (item.commonName || "") + " " + (item.importAliases?.join(" ") || "")}
                                     onSelect={() => {
                                         onChange(item.id === value ? "" : item.id);
                                         setOpen(false);

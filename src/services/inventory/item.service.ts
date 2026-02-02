@@ -52,7 +52,9 @@ export class ItemService {
                     costPrice: data.costPrice ? parseFloat(data.costPrice.toString()) : 0,
                     isWastageAllowed: data.isWastageAllowed !== undefined ? data.isWastageAllowed : true,
                     maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : 0,
-                    isOspFtth: data.isOspFtth || false
+                    isOspFtth: data.isOspFtth || false,
+                    commonName: data.commonName,
+                    importAliases: data.importAliases || []
                 }
             });
 
@@ -83,7 +85,9 @@ export class ItemService {
                 costPrice: data.costPrice ? parseFloat(data.costPrice.toString()) : undefined,
                 isWastageAllowed: data.isWastageAllowed,
                 maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : undefined,
-                isOspFtth: data.isOspFtth
+                isOspFtth: data.isOspFtth,
+                commonName: data.commonName,
+                importAliases: data.importAliases
             } as Prisma.InventoryItemUpdateInput
         });
 

@@ -66,8 +66,8 @@ export default function Sidebar() {
                             <img src="/logo.png" alt="Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
                         </div>
                         <div className="animate-in fade-in slide-in-from-left duration-500">
-                            <h2 className="text-xl font-bold text-white tracking-wider leading-none">SLTSERP</h2>
-                            <p className="text-[10px] text-sky-400/80 mt-1 uppercase tracking-[0.2em] font-medium leading-none">Construction</p>
+                            <h2 className="text-xl font-bold text-white tracking-wider leading-none">SLTS Nexus</h2>
+                            <p className="text-[10px] text-sky-400/80 mt-1 uppercase tracking-[0.2em] font-medium leading-none">Workflow Management</p>
                         </div>
                     </div>
                 )}
