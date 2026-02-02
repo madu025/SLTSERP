@@ -20,10 +20,11 @@ import { createItem, updateItem, deleteItem, patchBulkItemsAction } from '@/acti
 
 // --- SCHEMA ---
 const itemSchema = z.object({
-    code: z.string().min(2, "Code is required"),
-    name: z.string().min(2, "Name is required"),
-    commonName: z.string().optional(), // Added Common Name
-    unit: z.enum(['Nos', 'kg', 'L', 'm', 'km', 'pkts', 'Box', 'Bot', 'Set', 'Roll']),
+    code: z.string().min(2, "Code is required"), // SLTS Product Code
+    sltCode: z.string().optional(),               // SLT Product Code
+    name: z.string().min(2, "Name is required"), // Product Name
+    commonName: z.string().min(2, "Generic Name is required"), // Generic Name
+    unit: z.enum(['Nos', 'kg', 'L', 'm', 'km', 'pkts', 'Box', 'Bot', 'Set', 'Roll', 'gram', 'ml']),
     type: z.enum(['SLT', 'SLTS']),
     category: z.string().min(1, "Category is required"),
     commonFor: z.array(z.string()).optional(),
@@ -311,8 +312,9 @@ export default function ItemMasterPage() {
                                                     />
                                                 </div>
                                             </th>
-                                            <th className="px-4 py-3">Code</th>
-                                            <th className="px-4 py-3">Item Name</th>
+                                            <th className="px-4 py-3">SLTS Code</th>
+                                            <th className="px-4 py-3">SLT Code</th>
+                                            <th className="px-4 py-3">Product / Generic Name</th>
                                             <th className="px-4 py-3">Unit</th>
                                             <th className="px-4 py-3">Type</th>
                                             <th className="px-4 py-3">Reorder Level</th>
@@ -340,8 +342,12 @@ export default function ItemMasterPage() {
                                                             />
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-2 font-mono text-slate-500">{item.code}</td>
-                                                    <td className="px-4 py-2 font-bold text-slate-800">{item.name}</td>
+                                                    <td className="px-4 py-2 font-mono text-xs">{item.code}</td>
+                                                    <td className="px-4 py-2 text-xs text-slate-500">{item.sltCode || '-'}</td>
+                                                    <td className="px-4 py-2">
+                                                        <div className="font-semibold text-slate-800">{item.name}</div>
+                                                        {item.commonName && <div className="text-[10px] text-slate-400 italic">Generic: {item.commonName}</div>}
+                                                    </td>
                                                     <td className="px-4 py-2 text-slate-600">{item.unit}</td>
                                                     <td className="px-4 py-2">
                                                         <Badge variant="outline" className={`${item.type === 'SLT' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-purple-200 bg-purple-50 text-purple-700'}`}>
@@ -400,8 +406,15 @@ export default function ItemMasterPage() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField control={form.control} name="code" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-xs">Item Code</FormLabel>
-                                                <FormControl><Input {...field} placeholder="e.g. CAB-001" className="h-8 text-xs" disabled={!!editingItem} /></FormControl>
+                                                <FormLabel className="text-xs font-bold">SLTS Product Code</FormLabel>
+                                                <FormControl><Input {...field} placeholder="e.g. CAB-001" className="h-8 text-xs font-mono" disabled={!!editingItem} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="sltCode" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-xs">SLT Product Code (Optional)</FormLabel>
+                                                <FormControl><Input {...field} placeholder="e.g. SLT-X88" className="h-8 text-xs font-mono" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
@@ -432,8 +445,16 @@ export default function ItemMasterPage() {
 
                                     <FormField control={form.control} name="name" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-xs">Item Name</FormLabel>
-                                            <FormControl><Input {...field} placeholder="Item Name" className="h-8 text-xs" /></FormControl>
+                                            <FormLabel className="text-xs font-bold">Product Name</FormLabel>
+                                            <FormControl><Input {...field} placeholder="Complete product description" className="h-8 text-xs" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField control={form.control} name="commonName" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">Generic Name (e.g. Fiber Cable, Router)</FormLabel>
+                                            <FormControl><Input {...field} placeholder="Common grouping name" className="h-8 text-xs" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -589,6 +610,22 @@ export default function ItemMasterPage() {
                                             <FormLabel className="text-xs">Description (Optional)</FormLabel>
                                             <FormControl><Input {...field} className="h-8 text-xs" /></FormControl>
                                             <FormMessage />
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField control={form.control} name="importAliases" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-xs">SLT UI Codes / Import Aliases (Comma separated)</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    className="h-8 text-xs font-mono"
+                                                    placeholder="CODE1, CODE2, CODE3"
+                                                    value={field.value?.join(', ') || ''}
+                                                    onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                            <p className="text-[10px] text-slate-400">Used for mapping items when importing Excel from SLT systems.</p>
                                         </FormItem>
                                     )} />
                                 </div>

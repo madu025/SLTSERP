@@ -637,6 +637,7 @@ model InventoryItem {
   unitPrice             Float?                         @default(0)
   costPrice             Float?                         @default(0)
   commonName            String?
+  sltCode               String?
   isOspFtth             Boolean?                       @default(false)
   importAliases         String[]
   balanceSheetItems     ContractorBalanceSheetItem[]   @relation("BalanceSheetItems")

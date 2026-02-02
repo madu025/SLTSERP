@@ -33,8 +33,8 @@ export class ItemService {
     }
 
     static async createItem(data: CreateItemData): Promise<InventoryItem> {
-        if (!data.code || !data.name) {
-            throw new Error('CODE_AND_NAME_REQUIRED');
+        if (!data.code || !data.name || !data.commonName) {
+            throw new Error('CODE_NAME_AND_GENERIC_NAME_REQUIRED');
         }
 
         try {
@@ -54,8 +54,9 @@ export class ItemService {
                     maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : 0,
                     isOspFtth: data.isOspFtth || false,
                     commonName: data.commonName,
+                    sltCode: data.sltCode,
                     importAliases: data.importAliases || []
-                }
+                } as unknown as Prisma.InventoryItemCreateInput
             });
 
             emitSystemEvent('INVENTORY_UPDATE');
@@ -87,8 +88,9 @@ export class ItemService {
                 maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : undefined,
                 isOspFtth: data.isOspFtth,
                 commonName: data.commonName,
+                sltCode: data.sltCode,
                 importAliases: data.importAliases
-            } as Prisma.InventoryItemUpdateInput
+            } as unknown as Prisma.InventoryItemUpdateInput
         });
 
         emitSystemEvent('INVENTORY_UPDATE');
@@ -100,10 +102,8 @@ export class ItemService {
             throw new Error('UPDATES_MUST_BE_ARRAY');
         }
 
-        // Use transaction for bulk updates
         await prisma.$transaction(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            updates.map((update: any) =>
+            updates.map((update) =>
                 prisma.inventoryItem.update({
                     where: { id: update.id },
                     data: update.data as Prisma.InventoryItemUpdateInput

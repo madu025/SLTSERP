@@ -25,6 +25,7 @@ export interface CreateItemData {
     maxWastagePercentage?: string | number;
     isOspFtth?: boolean;
     commonName?: string;
+    sltCode?: string;
     importAliases?: string[];
 }
 
