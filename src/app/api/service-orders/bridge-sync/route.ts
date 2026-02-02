@@ -105,11 +105,41 @@ export async function POST(request: Request) {
             status: masterData['STATUS'] || deepData['STATUS'],
             package: masterData['PACKAGE'] || deepData['PACKAGE'],
             iptv: masterData['IPTV'],
-            ontSerialNumber: masterData['ONT'] || masterData['ONT SERIAL'] || masterData['SERIAL'] || masterData['ONT_ROUTER_SERIAL_NUMBER'],
-            iptvSerialNumbers: masterData['IPTV SERIAL'] || masterData['STB SERIAL'] || masterData['IPTV_CPE_SERIAL_NUMBER_1'],
             dpDetails: masterData['DP LOOP'] || masterData['DP'] || deepData['DP LOOP'] || masterData['DP_DETAILS'] || masterData['CONNECTION POINT (DP)'],
             sales: masterData['SALES PERSON'] || masterData['SALES'] || deepData['SALES PERSON'],
         };
+
+        // 3.1 Deep Serial Discovery (ONT & IPTV)
+        let ontVal = masterData['ONT_ROUTER_SERIAL_NUMBER'] || masterData['ONT'] || masterData['SERIAL'];
+        const iptvSerials: string[] = [];
+
+        Object.entries(masterData).forEach(([k, v]) => {
+            const key = k.toLowerCase();
+            const val = String(v).trim();
+            if (!val || val.length < 5) return;
+
+            if (key.includes('ont_router_serial') || key === 'ont serial' || (key === 'serial' && !ontVal)) {
+                ontVal = val;
+            }
+            if (key.includes('iptv_cpe_serial') || key.includes('stb serial') || key.includes('iptv serial')) {
+                if (!iptvSerials.includes(val)) iptvSerials.push(val);
+            }
+        });
+
+        if (ontVal) mapping.ontSerialNumber = ontVal;
+        if (iptvSerials.length > 0) mapping.iptvSerialNumbers = iptvSerials.join(', ');
+
+        // 3.2 Deep Pole Serial Extraction (Look for 'Serial Number 1', 'Pole 1 Serial', etc.)
+        const poleSerials: string[] = [];
+        Object.entries(masterData).forEach(([k, v]) => {
+            const key = k.toUpperCase();
+            if ((key.includes('SERIAL NUMBER') || key.includes('POLE')) && key !== 'ONT SERIAL' && key !== 'STB SERIAL') {
+                const val = String(v).trim();
+                if (val && val.length > 5 && !poleSerials.includes(val) && val !== ontVal && !iptvSerials.includes(val)) {
+                    poleSerials.push(val);
+                }
+            }
+        });
 
         // 4. Find the existing Service Order
         const serviceOrder = await prisma.serviceOrder.findUnique({
@@ -197,6 +227,11 @@ export async function POST(request: Request) {
             const compDateStr = masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || statusDateStr;
             if (compDateStr) {
                 try { dataToUpdate.completedDate = new Date(compDateStr); } catch { /* ignore */ }
+            }
+
+            // Auto-Promote to COMPLETED if it's already closed on portal
+            if (dataToUpdate.completedDate && (dataToUpdate.sltsStatus as string) !== 'COMPLETED') {
+                dataToUpdate.sltsStatus = 'COMPLETED';
             }
         }
 

@@ -146,7 +146,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl max-h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
+            <DialogContent className="sm:max-w-4xl h-[90vh] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
                 <DialogHeader className="p-6 pb-0">
                     <div className="flex items-center justify-between">
                         <div>
@@ -167,7 +167,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                     </div>
                 </DialogHeader>
 
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
                     <div className="px-6 border-b">
                         <TabsList className="bg-transparent h-12 p-0 gap-6">
                             <TabsTrigger value="details" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-slate-900">
@@ -186,7 +186,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                         </TabsList>
                     </div>
 
-                    <ScrollArea className="h-[calc(90vh-140px)] w-full">
+                    <ScrollArea className="flex-1 w-full">
                         {/* Tab 1: Standard Details */}
                         <TabsContent value="details" className="p-6 m-0 outline-none">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
