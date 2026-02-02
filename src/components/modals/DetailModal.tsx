@@ -15,6 +15,7 @@ import {
     Box,
     Camera,
     CheckCircle2,
+    CheckCheck,
     Clock,
     FileJson,
     History,
@@ -570,8 +571,18 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                         bridgeData.scrapedData.materialDetails
                                                             .filter(m => !(m.NAME?.toLowerCase().includes('drop wire') || m.NAME?.toLowerCase().includes('cable')))
                                                             .map((m, i) => (
-                                                                <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-1 transition-colors">
-                                                                    <span className="font-bold text-slate-600">{m.NAME || m.TYPE || m.CODE}</span>
+                                                                <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-1 transition-colors group">
+                                                                    <div className="flex items-center gap-2">
+                                                                        {coreOrder?.materialUsage?.some(mu => mu.usageType === 'PORTAL_SYNC' && (mu.item?.code === m.CODE || mu.item?.name === m.NAME)) ? (
+                                                                            <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
+                                                                        ) : (
+                                                                            <div className="w-3.5 h-3.5 rounded-full border border-slate-200" />
+                                                                        )}
+                                                                        <span className="font-bold text-slate-600">{m.NAME || m.TYPE || m.CODE}</span>
+                                                                        {coreOrder?.materialUsage?.some(mu => mu.usageType === 'PORTAL_SYNC' && (mu.item?.code === m.CODE || mu.item?.name === m.NAME)) && (
+                                                                            <span className="text-[8px] font-black bg-emerald-100 text-emerald-600 px-1 rounded uppercase tracking-tighter">Portal Sync</span>
+                                                                        )}
+                                                                    </div>
                                                                     <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{m.QTY || m.QUANTITY}</span>
                                                                 </div>
                                                             ))
