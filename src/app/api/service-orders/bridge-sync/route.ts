@@ -279,7 +279,21 @@ export async function POST(request: Request) {
                 where: { serviceOrderId: syncedOrder.id, usageType: 'PORTAL_SYNC' }
             });
 
-            for (const mat of materialDetails) {
+            // ERROR FIX: Deduplicate payload before processing
+            const uniqueMaterials = new Map<string, typeof materialDetails[0]>();
+
+            materialDetails.forEach(mat => {
+                const code = (mat.CODE || mat.TYPE || mat.NAME || "").trim();
+                const key = code.toUpperCase();
+                // If duplicates exist, we might want to sum quantities or take the last one. 
+                // Usually for this sync, taking the last valid one or just one is fine. 
+                // Let's assume unique items.
+                if (key && !uniqueMaterials.has(key)) {
+                    uniqueMaterials.set(key, mat);
+                }
+            });
+
+            for (const mat of uniqueMaterials.values()) {
                 const code = mat.CODE || mat.TYPE;
                 const name = mat.NAME;
                 const qty = parseFloat(mat.QTY || "0");
