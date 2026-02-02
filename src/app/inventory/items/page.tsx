@@ -496,53 +496,7 @@ export default function ItemMasterPage() {
                                         )} />
                                     </div>
 
-                                    <FormField control={form.control} name="commonName" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">SLT Material Name (Master Identifier)</FormLabel>
-                                            <FormControl><Input {...field} placeholder="e.g. Drop Wire" className="h-8 text-xs font-bold border-blue-200 bg-blue-50/30" /></FormControl>
-                                            <FormMessage />
-                                            <p className="text-[10px] text-slate-500 italic">
-                                                <strong>CRITICAL:</strong> Use the same name for both SLT and SLTS versions of this material.
-                                                This bridges different product codes together for reporting and auto-selection.
-                                            </p>
-                                        </FormItem>
-                                    )} />
 
-                                    <FormField control={form.control} name="importAliases" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-xs">Import Aliases / SLT UI Names</FormLabel>
-                                            <div className="space-y-2">
-                                                <div className="flex flex-wrap gap-1.5 p-2 border rounded-md bg-slate-50/50 min-h-[40px]">
-                                                    {field.value?.map((alias, i) => (
-                                                        <Badge key={i} variant="secondary" className="text-[10px] gap-1 px-1.5 py-0">
-                                                            {alias}
-                                                            <button type="button" onClick={() => field.onChange(field.value?.filter((_, idx) => idx !== i))} className="hover:text-red-500">
-                                                                <Trash2 className="w-2.5 h-2.5" />
-                                                            </button>
-                                                        </Badge>
-                                                    ))}
-                                                    {(!field.value || field.value.length === 0) && <span className="text-[10px] text-slate-400 italic">No aliases added...</span>}
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        placeholder="Add alias (e.g. FTTH-DW)"
-                                                        className="h-8 text-xs flex-1"
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                const val = e.currentTarget.value.trim();
-                                                                if (val && !field.value?.includes(val)) {
-                                                                    field.onChange([...(field.value || []), val]);
-                                                                    e.currentTarget.value = '';
-                                                                }
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                                <p className="text-[9px] text-slate-400">Press Enter to add multiple names seen in SLT system.</p>
-                                            </div>
-                                        </FormItem>
-                                    )} />
 
                                     <FormField control={form.control} name="minLevel" render={({ field }) => (
                                         <FormItem>
