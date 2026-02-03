@@ -18,24 +18,22 @@ const themes = [
 
 export function ThemeCustomizer() {
     const { theme, setTheme } = useTheme();
-    const [primaryColor, setPrimaryColor] = useState("6 182 212");
-
-    // Load saved color from local storage or default
-    useEffect(() => {
-        const storedColor = localStorage.getItem("theme-primary");
-        if (storedColor) {
-            updatePrimaryColor(storedColor);
+    const [primaryColor, setPrimaryColor] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem("theme-primary") || "6 182 212";
         }
-    }, []);
+        return "6 182 212";
+    });
 
     const updatePrimaryColor = (colorValue: string) => {
         setPrimaryColor(colorValue);
         localStorage.setItem("theme-primary", colorValue);
-        document.documentElement.style.setProperty("--color-primary", colorValue);
-
-        // Also update dark shade roughly
-        // This is a simplification. For full support we might need predefined shades.
     };
+
+    // Apply color to DOM when primaryColor changes (including on mount)
+    useEffect(() => {
+        document.documentElement.style.setProperty("--color-primary", primaryColor);
+    }, [primaryColor]);
 
     return (
         <Popover>
@@ -85,8 +83,8 @@ export function ThemeCustomizer() {
                                     key={t.name}
                                     onClick={() => updatePrimaryColor(t.value)}
                                     className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${primaryColor === t.value
-                                            ? 'border-slate-900 dark:border-white scale-110'
-                                            : 'border-transparent hover:scale-105'
+                                        ? 'border-slate-900 dark:border-white scale-110'
+                                        : 'border-transparent hover:scale-105'
                                         }`}
                                     style={{ backgroundColor: t.hex }}
                                 >

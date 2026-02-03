@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
     Popover,
     PopoverContent,
@@ -27,16 +28,19 @@ interface Notification {
 export default function NotificationBell() {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const [userId, setUserId] = useState<string | null>(null);
-
-    // Get current user from localStorage (client-side only)
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            const user = JSON.parse(storedUser);
-            setUserId(user.id);
+    const [userId] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                try {
+                    return JSON.parse(storedUser).id;
+                } catch (e) {
+                    console.error("Failed to parse user from localStorage", e);
+                }
+            }
         }
-    }, []);
+        return null;
+    });
 
     // SSE Connection for real-time notifications
     useEffect(() => {
@@ -73,13 +77,12 @@ export default function NotificationBell() {
                     // Play Notification Sound
                     try {
                         const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-                        audio.play().catch(e => console.log("Audio play blocked by browser policy"));
-                    } catch (e) {
-                        console.error("Audio error:", e);
+                        audio.play().catch(() => console.log("Audio play blocked by browser policy"));
+                    } catch {
+                        console.error("Audio error");
                     }
 
                     // Show a real-time Toast for instant feedback
-                    const { toast } = require("sonner");
                     toast.info(newNotification.title || "New Notification", {
                         description: newNotification.message,
                         action: newNotification.link ? {
@@ -90,9 +93,9 @@ export default function NotificationBell() {
                     });
 
                     // Update local query cache immediately
-                    queryClient.setQueryData(["notifications", userId], (oldData: any) => {
+                    queryClient.setQueryData(["notifications", userId], (oldData: Notification[] | undefined) => {
                         const currentData = Array.isArray(oldData) ? oldData : [];
-                        if (newNotification.id && currentData.some((n: any) => n.id === newNotification.id)) {
+                        if (newNotification.id && currentData.some((n: Notification) => n.id === newNotification.id)) {
                             return currentData;
                         }
                         const sanitized = {
@@ -110,7 +113,7 @@ export default function NotificationBell() {
                 }
             };
 
-            eventSource.onerror = (error) => {
+            eventSource.onerror = () => {
                 console.error("SSE Connection Error, attempting to reconnect...");
                 if (eventSource) eventSource.close();
                 // Attempt to reconnect after 5 seconds

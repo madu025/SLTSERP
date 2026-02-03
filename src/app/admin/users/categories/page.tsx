@@ -1,16 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Users, Plus, Edit, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Users } from "lucide-react";
 
 // User Categories
 const USER_CATEGORIES = {
@@ -75,18 +71,26 @@ const ALL_ROLES = [
     { value: 'FINANCE_ASSISTANT', label: 'Finance Assistant', category: 'FINANCE' }
 ];
 
+interface CategoryUser {
+    id: string;
+    name: string;
+    username: string;
+    email: string | null;
+    role: string;
+}
+
 export default function UsersCategoryPage() {
-    const queryClient = useQueryClient();
-    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [currentUser] = useState<CategoryUser | null>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('user');
+            try { return stored ? JSON.parse(stored) : null; } catch { return null; }
+        }
+        return null;
+    });
     const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (stored) setCurrentUser(JSON.parse(stored));
-    }, []);
-
     // Fetch users
-    const { data: users = [], isLoading } = useQuery({
+    const { data: users = [], isLoading } = useQuery<CategoryUser[]>({
         queryKey: ['users'],
         queryFn: async () => {
             const res = await fetch('/api/users?page=1&limit=1000');
@@ -102,7 +106,7 @@ export default function UsersCategoryPage() {
     };
 
     // Filter users based on selected category and permissions
-    const filteredUsers = users.filter((user: any) => {
+    const filteredUsers = users.filter((user) => {
         const userCategory = getUserCategory(user.role);
 
         // Super Admin & Admin can see all
@@ -112,14 +116,14 @@ export default function UsersCategoryPage() {
         }
 
         // Other users can only see their own category
-        const currentUserCategory = getUserCategory(currentUser?.role);
+        const currentUserCategory = getUserCategory(currentUser?.role || '');
         return userCategory === currentUserCategory;
     });
 
     // Get available categories for current user
     const availableCategories = Object.entries(USER_CATEGORIES).filter(([key]) => {
         if (currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN') return true;
-        return getUserCategory(currentUser?.role) === key;
+        return getUserCategory(currentUser?.role || '') === key;
     });
 
     const getRoleBadgeColor = (role: string) => {
@@ -156,7 +160,7 @@ export default function UsersCategoryPage() {
                                 </button>
                             )}
                             {availableCategories.map(([key, category]) => {
-                                const count = users.filter((u: any) => getUserCategory(u.role) === key).length;
+                                const count = users.filter((u) => getUserCategory(u.role) === key).length;
                                 return (
                                     <button
                                         key={key}
@@ -177,7 +181,7 @@ export default function UsersCategoryPage() {
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Users className="w-5 h-5" />
-                                    {selectedCategory === 'ALL' ? 'All Users' : USER_CATEGORIES[selectedCategory as keyof typeof USER_CATEGORIES]?.name}
+                                    {selectedCategory === 'ALL' ? 'All Users' : (USER_CATEGORIES[selectedCategory as keyof typeof USER_CATEGORIES] as { name: string })?.name}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -198,19 +202,19 @@ export default function UsersCategoryPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y">
-                                                {filteredUsers.map((user: any) => (
+                                                {filteredUsers.map((user) => (
                                                     <tr key={user.id} className="hover:bg-slate-50">
                                                         <td className="px-4 py-3 font-medium">{user.name}</td>
                                                         <td className="px-4 py-3">{user.username}</td>
                                                         <td className="px-4 py-3">{user.email || '-'}</td>
                                                         <td className="px-4 py-3">
-                                                            <Badge className={getRoleBadgeColor(user.role)}>
+                                                            <Badge className={getRoleBadgeColor(user.role || '')}>
                                                                 {ALL_ROLES.find(r => r.value === user.role)?.label || user.role}
                                                             </Badge>
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <Badge variant="outline">
-                                                                {USER_CATEGORIES[getUserCategory(user.role) as keyof typeof USER_CATEGORIES]?.name}
+                                                                {(USER_CATEGORIES[getUserCategory(user.role) as keyof typeof USER_CATEGORIES] as { name: string })?.name}
                                                             </Badge>
                                                         </td>
                                                     </tr>
@@ -228,7 +232,7 @@ export default function UsersCategoryPage() {
                                 <p className="text-sm text-blue-900">
                                     <strong>Access Control:</strong> {currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN'
                                         ? 'You have full access to view all users across all categories.'
-                                        : `You can only view users in your category: ${USER_CATEGORIES[getUserCategory(currentUser?.role) as keyof typeof USER_CATEGORIES]?.name}`
+                                        : `You can only view users in your category: ${(USER_CATEGORIES[getUserCategory(currentUser?.role || '') as keyof typeof USER_CATEGORIES] as { name: string })?.name}`
                                     }
                                 </p>
                             </CardContent>

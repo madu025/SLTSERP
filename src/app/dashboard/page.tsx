@@ -60,7 +60,7 @@ interface Stats {
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
 export default function DashboardPage() {
-    const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(() => {
+    const [user] = useState<{ id: string; name: string; role: string } | null>(() => {
         if (typeof window !== 'undefined') {
             const storedUser = localStorage.getItem('user');
             return storedUser ? JSON.parse(storedUser) : null;
@@ -70,7 +70,8 @@ export default function DashboardPage() {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
+        // Use a microtask to avoid synchronous setState warning while still handling hydration
+        Promise.resolve().then(() => setMounted(true));
     }, []);
 
 

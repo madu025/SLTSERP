@@ -1,26 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import { Plus, PackageMinus, Warehouse, Search, Undo2, CheckCircle2 } from 'lucide-react';
+import { PackageMinus, Undo2 } from 'lucide-react';
 
 interface ProjectMaterialIssuesProps {
-    project: any;
+    project: { id: string };
     refreshProject: () => void;
 }
 
+interface Store { id: string; name: string; }
+interface MaterialItem { id: string; name: string; unit: string; }
+interface StockItemRow { id: string; item: MaterialItem; quantity: number; }
+interface StockIssue { id: string; issueNumber: string; status: string; store: Store; items: StockItemRow[]; createdAt: string; }
+interface MaterialReturn { id: string; returnNumber: string; status: string; store: Store; items: StockItemRow[]; }
+
 export default function ProjectMaterialIssues({ project, refreshProject }: ProjectMaterialIssuesProps) {
-    const [issues, setIssues] = useState<any[]>([]);
-    const [returns, setReturns] = useState<any[]>([]);
-    const [stores, setStores] = useState<any[]>([]);
-    const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+    const [issues, setIssues] = useState<StockIssue[]>([]);
+    const [returns, setReturns] = useState<MaterialReturn[]>([]);
+    const [stores, setStores] = useState<Store[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<{ item: MaterialItem; quantity: number }[]>([]);
 
     const [isIssueOpen, setIsIssueOpen] = useState(false);
     const [isReturnOpen, setIsReturnOpen] = useState(false);
@@ -32,19 +38,8 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
     const [remarks, setRemarks] = useState('');
     const [selectedItems, setSelectedItems] = useState<{ itemId: string, quantity: string, condition?: string }[]>([]);
 
-    useEffect(() => {
-        if (project?.id) {
-            fetchData();
-        }
-    }, [project?.id]);
-
-    useEffect(() => {
-        if (selectedStore) {
-            fetchStoreItems(selectedStore);
-        }
-    }, [selectedStore]);
-
-    const fetchData = async () => {
+    const fetchData = React.useCallback(async () => {
+        if (!project?.id) return;
         // Fetch Issues
         const resIssues = await fetch(`/api/projects/stock-issue?projectId=${project.id}`);
         if (resIssues.ok) setIssues(await resIssues.json());
@@ -57,12 +52,24 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
         const resStores = await fetch('/api/inventory/stores');
         if (resStores.ok) setStores(await resStores.json());
         else setStores([]); // handle fail
-    };
+    }, [project.id]);
 
-    const fetchStoreItems = async (storeId: string) => {
+    const fetchStoreItems = React.useCallback(async (storeId: string) => {
         const res = await fetch(`/api/inventory/stocks?storeId=${storeId}`);
         if (res.ok) setInventoryItems(await res.json());
-    };
+    }, []);
+
+    useEffect(() => {
+        if (project?.id) {
+            Promise.resolve().then(() => fetchData());
+        }
+    }, [project?.id, fetchData]);
+
+    useEffect(() => {
+        if (selectedStore) {
+            Promise.resolve().then(() => fetchStoreItems(selectedStore));
+        }
+    }, [selectedStore, fetchStoreItems]);
 
     const handleAddItemRow = () => setSelectedItems([...selectedItems, { itemId: '', quantity: '' }]);
     const handleRemoveItemRow = (idx: number) => {
@@ -186,7 +193,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                             <td className="px-6 py-4 text-sm">{new Date(issue.createdAt).toLocaleDateString()}</td>
                                             <td className="px-6 py-4 text-sm">{issue.store?.name}</td>
                                             <td className="px-6 py-4 text-sm">
-                                                {issue.items.map((i: any) => (
+                                                {issue.items.map((i) => (
                                                     <div key={i.id}>{i.item.name}: {i.quantity} {i.item.unit}</div>
                                                 ))}
                                             </td>
@@ -228,7 +235,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                             <td className="px-6 py-4 text-sm font-medium">{ret.returnNumber}</td>
                                             <td className="px-6 py-4 text-sm">{ret.store?.name}</td>
                                             <td className="px-6 py-4 text-sm">
-                                                {ret.items.map((i: any) => (
+                                                {ret.items.map((i) => (
                                                     <div key={i.id}>{i.item.name}: {i.quantity}</div>
                                                 ))}
                                             </td>
@@ -281,7 +288,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                     }}>
                                         <SelectTrigger className="flex-1"><SelectValue placeholder="Item" /></SelectTrigger>
                                         <SelectContent>
-                                            {inventoryItems.map((i: any) => (
+                                            {inventoryItems.map((i: { item: MaterialItem, quantity: number }) => (
                                                 <SelectItem key={i.item.id} value={i.item.id}>{i.item.name} (Stock: {i.quantity})</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -335,7 +342,7 @@ export default function ProjectMaterialIssues({ project, refreshProject }: Proje
                                         <SelectTrigger className="flex-1"><SelectValue placeholder="Item" /></SelectTrigger>
                                         <SelectContent>
                                             {/* Ideally fetch items from Project BOQ Actuals or just all items */}
-                                            {inventoryItems.map((i: any) => (
+                                            {inventoryItems.map((i: { item: MaterialItem }) => (
                                                 <SelectItem key={i.item.id} value={i.item.id}>{i.item.name}</SelectItem>
                                             ))}
                                         </SelectContent>

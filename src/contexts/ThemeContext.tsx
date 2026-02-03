@@ -15,10 +15,21 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [colorTheme, setColorThemeState] = useState<ColorTheme>('blue');
-    const [mode, setModeState] = useState<Mode>('light');
+    const [colorTheme, setColorThemeState] = useState<ColorTheme>(() => {
+        if (typeof window !== 'undefined') {
+            return (localStorage.getItem('colorTheme') as ColorTheme) || 'blue';
+        }
+        return 'blue';
+    });
+    const [mode, setModeState] = useState<Mode>(() => {
+        if (typeof window !== 'undefined') {
+            return (localStorage.getItem('mode') as Mode) || 'light';
+        }
+        return 'light';
+    });
 
     const applyTheme = (theme: ColorTheme, themeMode: Mode) => {
+        if (typeof window === 'undefined') return;
         const root = document.documentElement;
 
         // Color themes
@@ -110,18 +121,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        const savedColorTheme = localStorage.getItem('colorTheme') as ColorTheme;
-        const savedMode = localStorage.getItem('mode') as Mode;
-
-        if (savedColorTheme) {
-            setColorThemeState(savedColorTheme);
-        }
-        if (savedMode) {
-            setModeState(savedMode);
-        }
-
-        applyTheme(savedColorTheme || 'blue', savedMode || 'light');
-    }, []);
+        applyTheme(colorTheme, mode);
+    }, [colorTheme, mode]);
 
     const setColorTheme = (newTheme: ColorTheme) => {
         setColorThemeState(newTheme);

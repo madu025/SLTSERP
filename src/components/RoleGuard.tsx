@@ -11,27 +11,27 @@ interface RoleGuardProps {
     allowedRoles: string[];
 }
 
+interface GuardUser {
+    role: string;
+}
+
 export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
     const router = useRouter();
-    const [user, setUser] = useState<any>(null);
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+    const [user] = useState<GuardUser | null>(() => {
+        if (typeof window !== 'undefined') {
+            const storedUser = localStorage.getItem('user');
+            try { return storedUser ? JSON.parse(storedUser) : null; } catch { return null; }
+        }
+        return null;
+    });
+
+    const isAuthorized = user ? hasAccess(user.role, allowedRoles) : null;
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-
-            if (hasAccess(parsedUser.role, allowedRoles)) {
-                setIsAuthorized(true);
-            } else {
-                setIsAuthorized(false);
-            }
-        } else {
-            // No user found, redirect to login
+        if (typeof window !== 'undefined' && !localStorage.getItem('user')) {
             router.push('/login');
         }
-    }, [allowedRoles, router]);
+    }, [router]);
 
     if (isAuthorized === null) {
         return (

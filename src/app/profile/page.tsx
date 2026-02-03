@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -20,20 +20,33 @@ interface ProfileUser {
     role: string;
 }
 
-export default function ProfilePage() {
-    const [user, setUser] = useState<ProfileUser | null>(null);
+interface AuditLog {
+    id: string;
+    action: string;
+    entity: string;
+    createdAt: string;
+}
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            try {
-                const parsed = JSON.parse(storedUser);
-                setUser(parsed);
-            } catch (e) {
-                console.error("Failed to parse user from localStorage", e);
+interface AccessibleOpmc {
+    id: string;
+    rtom: string;
+    name: string;
+}
+
+export default function ProfilePage() {
+    const [user] = useState<ProfileUser | null>(() => {
+        if (typeof window !== 'undefined') {
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                try {
+                    return JSON.parse(storedUser);
+                } catch (e) {
+                    console.error("Failed to parse user from localStorage", e);
+                }
             }
         }
-    }, []);
+        return null;
+    });
 
     const { data: profileDetails } = useQuery({
         queryKey: ["profile-details"],
@@ -201,7 +214,7 @@ export default function ProfilePage() {
                                     </CardHeader>
                                     <CardContent className="p-0">
                                         <div className="divide-y border-t">
-                                            {profileDetails?.auditLogs?.length > 0 ? profileDetails.auditLogs.map((log: any) => (
+                                            {profileDetails?.auditLogs?.length > 0 ? profileDetails.auditLogs.map((log: AuditLog) => (
                                                 <div key={log.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
@@ -232,7 +245,7 @@ export default function ProfilePage() {
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="flex flex-wrap gap-2">
-                                            {profileDetails?.accessibleOpmcs?.length > 0 ? profileDetails.accessibleOpmcs.map((opmc: any) => (
+                                            {profileDetails?.accessibleOpmcs?.length > 0 ? profileDetails.accessibleOpmcs.map((opmc: AccessibleOpmc) => (
                                                 <div key={opmc.id} className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3">
                                                     <div className="w-8 h-8 bg-white shadow-sm border rounded-xl flex items-center justify-center font-bold text-blue-600">
                                                         {opmc.rtom}

@@ -12,17 +12,18 @@ export async function POST(request: Request) {
 
         return NextResponse.json(result);
 
-    } catch (error: any) {
-        if (error.message === 'RTOM_AND_ID_REQUIRED') {
+    } catch (error) {
+        const err = error as Error;
+        if (err.message === 'RTOM_AND_ID_REQUIRED') {
             return NextResponse.json({
                 message: 'RTOM selection is required'
             }, { status: 400 });
         }
 
-        console.error('Error syncing service orders:', error);
+        console.error('Error syncing service orders:', err);
         return NextResponse.json({
             message: 'Error syncing service orders',
-            error: error.message || 'Unknown error'
+            error: err.message || 'Unknown error'
         }, { status: 500 });
     }
 }
