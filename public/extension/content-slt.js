@@ -24,7 +24,13 @@ const PhoenixScanner = {
         if (!el) return '';
         if (el.nodeType === 3) return PhoenixScanner.clean(el.textContent);
         if (el.tagName === 'SELECT') return el.options[el.selectedIndex]?.text || '';
-        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return el.value || '';
+        if (el.tagName === 'INPUT') {
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                return el.checked ? 'on' : 'off';
+            }
+            return el.value || '';
+        }
+        if (el.tagName === 'TEXTAREA') return el.value || '';
 
         const input = (el.nodeType === 1 && typeof el.querySelector === 'function')
             ? el.querySelector('input, select, textarea')
