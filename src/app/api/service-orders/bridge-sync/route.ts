@@ -168,12 +168,16 @@ export async function POST(request: Request) {
         }
 
         // 6. Return Connection & Auto-Pilot Logic
-        const isServiceReturn = masterData['SERVICE RETURN'] === 'on' || masterData['IS_RETURN'] === 'on';
+        const isServiceReturn =
+            masterData['SERVICE RETURN'] === 'on' ||
+            masterData['IS_RETURN'] === 'on' ||
+            masterData['CHKSODRTN_HIDDEN'] === 'on' ||
+            masterData['CHKSODRTN'] === 'on';
 
         if (isServiceReturn) {
             console.log(`[BRIDGE-SYNC] Auto-Pilot: Detected RETURN Service Order: ${soNum}`);
             mapping.sltsStatus = 'RETURN';
-            mapping.returnReason = masterData['RTRESONALL_HIDDEN'] || masterData['RETURN REASON'] || 'CUSTOMER NOT READY';
+            mapping.returnReason = masterData['RTRESONALL_HIDDEN'] || masterData['SOD RETURN'] || masterData['RETURN REASON'] || 'CUSTOMER NOT READY';
             mapping.comments = masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || 'Customer delays';
         }
 
@@ -262,7 +266,8 @@ export async function POST(request: Request) {
             }
         }
 
-        let syncedOrder: { id: string; soNum: string; sltsStatus: string } | null = null;
+        const oldStatus = serviceOrder?.sltsStatus || null;
+        let syncedOrder: { id: string; soNum: string; sltsStatus: string; opmcId: string } | null = null;
         if (serviceOrder) {
             const result = await prisma.serviceOrder.update({
                 where: { id: serviceOrder.id },
@@ -281,12 +286,41 @@ export async function POST(request: Request) {
             syncedOrder = result;
         }
 
-        // 7.1 Auto-Pilot sltsStatus reinforcement
+        // 7.1 Status Change Side Effects (Stats & Notifications)
+        if (syncedOrder && syncedOrder.sltsStatus !== oldStatus) {
+            try {
+                const { StatsService } = await import('@/lib/stats.service');
+                await StatsService.handleStatusChange(syncedOrder.opmcId, oldStatus, syncedOrder.sltsStatus);
+
+                if (syncedOrder.sltsStatus === 'RETURN') {
+                    const { NotificationService } = await import('@/services/notification.service');
+                    await NotificationService.notifyByRole({
+                        roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
+                        title: 'SOD Returned (Bridge Sync)',
+                        message: `Service Order ${syncedOrder.soNum} was marked as RETURN via Extension. Reason: ${mapping.returnReason || 'N/A'}.`,
+                        type: 'PROJECT',
+                        priority: 'HIGH',
+                        link: '/service-orders/return',
+                        opmcId: syncedOrder.opmcId,
+                        metadata: { soNum: syncedOrder.soNum, id: syncedOrder.id }
+                    });
+                }
+            } catch (e) {
+                console.error('[BRIDGE-SYNC] Side-effects failed:', e);
+            }
+        }
+
+        // 7.2 Auto-Pilot sltsStatus reinforcement
         if (dataToUpdate.completedDate && syncedOrder && syncedOrder.sltsStatus !== 'COMPLETED') {
             await prisma.serviceOrder.update({
                 where: { id: syncedOrder.id },
                 data: { sltsStatus: 'COMPLETED' }
             });
+            // Update stats if it was changed here too
+            try {
+                const { StatsService } = await import('@/lib/stats.service');
+                await StatsService.handleStatusChange(syncedOrder.opmcId, syncedOrder.sltsStatus, 'COMPLETED');
+            } catch (e) { /* ignore */ }
         }
 
         // 8. Forensic Audit Save
