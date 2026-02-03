@@ -179,6 +179,11 @@ export async function POST(request: Request) {
             mapping.sltsStatus = 'RETURN';
             mapping.returnReason = masterData['RTRESONALL_HIDDEN'] || masterData['SOD RETURN'] || masterData['RETURN REASON'] || 'CUSTOMER NOT READY';
             mapping.comments = masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || 'Customer delays';
+
+            // Set completedDate to current time if not already set, to mark the return action date
+            if (!serviceOrder?.completedDate) {
+                mapping.completedDate = new Date();
+            }
         }
 
         // 6.1 Always extract Serials & Materials from bridge
@@ -320,7 +325,7 @@ export async function POST(request: Request) {
             try {
                 const { StatsService } = await import('@/lib/stats.service');
                 await StatsService.handleStatusChange(syncedOrder.opmcId, syncedOrder.sltsStatus, 'COMPLETED');
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         }
 
         // 8. Forensic Audit Save
