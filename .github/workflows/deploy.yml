@@ -40,6 +40,16 @@ jobs:
           cp next.config.ts deploy/
           cp -r prisma deploy/
 
+      - name: Clear Target Directory
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            rm -rf ~/slts-erp/public/slt-erp-extension
+            rm -rf ~/slts-erp/.next/standalone/public/slt-erp-extension
+
       - name: Transfer Artifacts to Server
         uses: appleboy/scp-action@master
         with:
