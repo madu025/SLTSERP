@@ -63,7 +63,15 @@ export async function POST(request: Request) {
             soNum: string;
             allTabs?: Record<string, string>;
             teamDetails?: Record<string, string>;
-            materialDetails?: Array<{ TYPE?: string; CODE?: string; NAME?: string; QTY?: string; qty?: string | number }>;
+            materialDetails?: Array<{
+                TYPE?: string;
+                CODE?: string;
+                NAME?: string;
+                QTY?: string;
+                qty?: string | number;
+                SERIAL?: string;
+                RAW?: Record<string, string>;
+            }>;
             forensicAudit?: Array<Record<string, unknown>>;
             url?: string;
             currentUser?: string;
@@ -331,6 +339,9 @@ export async function POST(request: Request) {
                         }
                     });
 
+                    // Extra Serial Discovery for this specific material row
+                    const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['SERIAL NO'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_'] || mat.RAW['IPTV_CPE_SERIAL_NUMBER_']) : null);
+
                     if (item) {
                         await prisma.sODMaterialUsage.create({
                             data: {
@@ -339,6 +350,7 @@ export async function POST(request: Request) {
                                 quantity: qty,
                                 unit: item.unit || "Nos",
                                 usageType: 'PORTAL_SYNC',
+                                serialNumber: matSerial || null,
                                 unitPrice: item.unitPrice || 0,
                                 costPrice: item.costPrice || 0,
                                 comment: 'Auto-synced from SLT Portal'

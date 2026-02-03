@@ -43,6 +43,7 @@ export interface ServiceOrder {
         itemId: string;
         quantity: number;
         usageType: string;
+        serialNumber?: string | null;
         item?: { name: string; code: string; unit: string };
     }> | null;
     directTeam?: string | null;

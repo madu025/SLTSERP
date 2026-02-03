@@ -579,9 +579,20 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                                             <div className="w-3.5 h-3.5 rounded-full border border-slate-200" />
                                                                         )}
                                                                         <span className="font-bold text-slate-600">{m.NAME || m.TYPE || m.CODE}</span>
-                                                                        {coreOrder?.materialUsage?.some(mu => mu.usageType === 'PORTAL_SYNC' && (mu.item?.code === m.CODE || mu.item?.name === m.NAME)) && (
-                                                                            <span className="text-[8px] font-black bg-emerald-100 text-emerald-600 px-1 rounded uppercase tracking-tighter">Portal Sync</span>
-                                                                        )}
+                                                                        {(() => {
+                                                                            const syncedMat = coreOrder?.materialUsage?.find(mu => mu.usageType === 'PORTAL_SYNC' && (mu.item?.code === m.CODE || mu.item?.name === m.NAME));
+                                                                            if (!syncedMat) return null;
+                                                                            return (
+                                                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                                                    <span className="text-[8px] font-black bg-emerald-100 text-emerald-600 px-1 rounded uppercase tracking-tighter">Portal Sync</span>
+                                                                                    {syncedMat.serialNumber && (
+                                                                                        <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                                                                            SN: {syncedMat.serialNumber}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                     <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{m.QTY || m.QUANTITY}</span>
                                                                 </div>
