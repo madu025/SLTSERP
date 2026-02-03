@@ -828,7 +828,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     )}
                                                                 </td>
                                                                 <td className="px-3 py-1.5 text-slate-600 whitespace-nowrap">
-                                                                    {order.completedDate ? new Date(order.completedDate).toLocaleDateString() : (order.statusDate ? new Date(order.statusDate).toLocaleDateString() : (order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : '-'))}
+                                                                    {order.completedDate ? `${new Date(order.completedDate).toLocaleDateString()} ${new Date(order.completedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : (order.statusDate ? new Date(order.statusDate).toLocaleDateString() : (order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : '-'))}
                                                                 </td>
                                                                 <td className="px-3 py-1.5 text-slate-600 max-w-[200px] truncate" title={order.comments || ''}>
                                                                     {order.comments || '-'}

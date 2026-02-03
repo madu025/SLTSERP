@@ -223,7 +223,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     <DetailItem
                                         icon={<Clock className="w-3.5 h-3.5" />}
                                         label={coreOrder.sltsStatus === 'RETURN' ? "Returned Date" : "Completed Date"}
-                                        value={new Date(coreOrder.completedDate).toLocaleDateString()}
+                                        value={`${new Date(coreOrder.completedDate).toLocaleDateString()} ${new Date(coreOrder.completedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                                         isBold
                                     />
                                 )}
