@@ -95,6 +95,7 @@ interface OrderActionModalProps {
             itemId: string;
             quantity: string;
             usageType: string;
+            serialNumber?: string;
             comment?: string;
         }>;
         completionMode?: 'ONLINE' | 'OFFLINE';
@@ -127,6 +128,8 @@ interface OrderActionModalProps {
             itemId: string;
             quantity: number | string;
             usageType: string;
+            serialNumber?: string | null;
+            comment?: string | null;
         }> | null;
     };
     contractors?: Array<{
@@ -283,27 +286,56 @@ export default function OrderActionModal({
 
         // 5. Pre-fill Material Usage
         if (orderData.materialUsage && orderData.materialUsage.length > 0) {
-            const grouped: Record<string, { used: string, wastage: string }> = {};
-            orderData.materialUsage.forEach(m => {
-                const mid = m.itemId;
-                if (!grouped[mid]) grouped[mid] = { used: "", wastage: "" };
-                if (m.usageType === 'USED') grouped[mid].used = String(m.quantity);
-                if (m.usageType === 'WASTAGE') grouped[mid].wastage = String(m.quantity);
-            });
+            interface MaterialRow {
+                itemId: string;
+                usedQty: string;
+                wastageQty: string;
+                f1Qty: string;
+                g1Qty: string;
+                wastageReason: string;
+                serialNumber: string;
+            }
+            const rows: MaterialRow[] = [];
 
-            const rows = Object.entries(grouped).map(([itemId, qtys]) => ({
-                itemId,
-                usedQty: qtys.used,
-                wastageQty: qtys.wastage,
-                f1Qty: '', g1Qty: '', wastageReason: '', serialNumber: ''
-            }));
+            orderData.materialUsage.forEach(m => {
+                const qtyStr = String(m.quantity);
+                const serial = m.serialNumber || "";
+
+                if (m.usageType === 'PORTAL_SYNC' || m.usageType === 'USED' || m.usageType === 'USED_F1' || m.usageType === 'USED_G1') {
+                    rows.push({
+                        itemId: m.itemId,
+                        usedQty: (m.usageType === 'USED' || m.usageType === 'PORTAL_SYNC') ? qtyStr : '',
+                        f1Qty: m.usageType === 'USED_F1' ? qtyStr : '',
+                        g1Qty: m.usageType === 'USED_G1' ? qtyStr : '',
+                        wastageQty: '',
+                        wastageReason: '',
+                        serialNumber: serial
+                    });
+                } else if (m.usageType === 'WASTAGE') {
+                    // Attach wastage to an existing row of the same itemId if it doesn't have wastage yet
+                    const existingRow = rows.find(r => r.itemId === m.itemId && !r.wastageQty);
+                    if (existingRow) {
+                        existingRow.wastageQty = qtyStr;
+                        existingRow.wastageReason = m.comment || '';
+                    } else {
+                        rows.push({
+                            itemId: m.itemId,
+                            usedQty: '', f1Qty: '', g1Qty: '',
+                            wastageQty: qtyStr,
+                            wastageReason: m.comment || '',
+                            serialNumber: ''
+                        });
+                    }
+                }
+            });
 
             setExtendedMaterialRows(rows);
             setMaterialUsage(orderData.materialUsage.map(m => ({
                 itemId: m.itemId,
                 quantity: String(m.quantity),
                 usageType: (m.usageType === 'WASTAGE' ? 'WASTAGE' : 'USED') as 'USED' | 'WASTAGE',
-                comment: ''
+                serialNumber: m.serialNumber || undefined,
+                comment: m.comment || ''
             })));
             setMaterialStatus(orderData.comments?.includes('[MATERIAL_COMPLETED]') ? 'COMPLETED' : 'PENDING');
         } else {
@@ -615,8 +647,8 @@ export default function OrderActionModal({
                         const materialUsageItems = [];
                         if (row.itemId) {
                             // If F1 or G1 is present
-                            if (row.f1Qty && parseFloat(row.f1Qty) > 0) materialUsageItems.push({ itemId: row.itemId, quantity: row.f1Qty, usageType: 'USED_F1' });
-                            if (row.g1Qty && parseFloat(row.g1Qty) > 0) materialUsageItems.push({ itemId: row.itemId, quantity: row.g1Qty, usageType: 'USED_G1' });
+                            if (row.f1Qty && parseFloat(row.f1Qty) > 0) materialUsageItems.push({ itemId: row.itemId, quantity: row.f1Qty, usageType: 'USED_F1', serialNumber: row.serialNumber });
+                            if (row.g1Qty && parseFloat(row.g1Qty) > 0) materialUsageItems.push({ itemId: row.itemId, quantity: row.g1Qty, usageType: 'USED_G1', serialNumber: row.serialNumber });
 
                             // Standard 'Used'
                             if ((!row.f1Qty && !row.g1Qty) && row.usedQty && parseFloat(row.usedQty) > 0) {
@@ -648,6 +680,7 @@ export default function OrderActionModal({
                                     itemId: row.itemId,
                                     quantity: row.wastageQty,
                                     usageType: 'WASTAGE' as const,
+                                    serialNumber: row.serialNumber, // Added this
                                     comment: row.wastageReason || undefined,
                                     wastagePercent,
                                     exceedsLimit

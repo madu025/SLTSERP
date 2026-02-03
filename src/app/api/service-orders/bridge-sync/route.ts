@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         }
 
         const payload = (await request.json()) as BridgeSyncPayload;
-        const { soNum, allTabs, teamDetails, forensicAudit, url, currentUser } = payload;
+        const { soNum, allTabs, teamDetails, forensicAudit } = payload;
 
         if (!soNum) {
             return NextResponse.json({ message: 'Service Order Number is required' }, { status: 400 });
@@ -361,39 +361,12 @@ export async function POST(request: Request) {
             }
         }
 
-        // 10. Save/Update Raw Data Dump for Monitor
-        const existingLog = await prisma.extensionRawData.findFirst({
-            where: { soNum: soNum }
-        });
-
-        if (existingLog) {
-            await prisma.extensionRawData.update({
-                where: { id: existingLog.id },
-                data: {
-                    sltUser: currentUser,
-                    activeTab: payload.activeTab,
-                    scrapedData: payload,
-                    url,
-                    updatedAt: new Date()
-                }
-            });
-        } else {
-            await prisma.extensionRawData.create({
-                data: {
-                    soNum,
-                    sltUser: currentUser,
-                    activeTab: payload.activeTab,
-                    scrapedData: payload,
-                    url
-                }
-            });
-        }
-
+        // 10. Final Response (ExtensionRawData saving removed as requested to avoid duplication)
         return NextResponse.json({
             success: true,
             id: syncedOrder?.id,
             soNum: syncedOrder?.soNum,
-            message: 'Bridge sync successful. Core tables updated.'
+            message: 'Bridge sync successful. Core tables updated directly.'
         }, {
             headers: { 'Access-Control-Allow-Origin': '*' }
         });

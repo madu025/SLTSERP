@@ -216,6 +216,8 @@ export class ServiceOrderService {
                             quantity: true,
                             unitPrice: true,
                             usageType: true,
+                            serialNumber: true,
+                            comment: true,
                             item: { select: { name: true, code: true, unit: true } }
                         }
                     },

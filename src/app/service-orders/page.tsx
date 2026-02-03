@@ -376,7 +376,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             contractorId?: string;
             teamId?: string;
             directTeamName?: string;
-            materialUsage?: Array<{ itemId: string; quantity: string; usageType: 'USED' | 'WASTAGE' }> | null;
+            materialUsage?: Array<{ itemId: string; quantity: string; usageType: string; serialNumber?: string }> | null;
             patStatus?: string;
             opmcPatStatus?: string;
             sltsPatStatus?: string;
