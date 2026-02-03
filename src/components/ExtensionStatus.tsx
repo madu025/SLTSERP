@@ -125,7 +125,7 @@ export default function ExtensionStatus() {
             setStatus('installed');
             setBridgeInfo({
                 installed: true,
-                version: detail?.version || "4.4.3",
+                version: detail?.version || "4.5.0",
                 type: detail?.type || 'ishamp',
                 timestamp: new Date().toISOString()
             });
@@ -208,7 +208,7 @@ export default function ExtensionStatus() {
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-slate-500">Version</span>
                                 <span className="text-[10px] font-mono bg-slate-100 px-2 py-0.5 rounded">
-                                    {bridgeInfo.version || "4.4.3"}
+                                    {bridgeInfo.version || "4.5.0"}
                                 </span>
                             </div>
                             {lastChecked && (
@@ -284,7 +284,7 @@ export default function ExtensionStatus() {
                             onClick={() => window.open('/slt-bridge.zip', '_blank')}
                         >
                             <Download className="w-4 h-4 mr-2" />
-                            Download Extension v4.4.3
+                            Download Extension v4.5.0
                         </Button>
 
                         <button
