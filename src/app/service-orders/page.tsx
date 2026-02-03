@@ -792,6 +792,11 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     {order.isManualEntry && (
                                                                         <span className="text-[7px] bg-slate-100 text-slate-500 px-1 border border-slate-200 rounded font-bold uppercase">Manual</span>
                                                                     )}
+                                                                    {order.hasBridgeLog && (
+                                                                        <span className="text-[7px] bg-indigo-500 text-white px-1 rounded font-bold uppercase flex items-center gap-0.5 shadow-sm border border-indigo-400">
+                                                                            <Activity className="w-2 h-2" /> BRIDGE
+                                                                        </span>
+                                                                    )}
                                                                     {order.comments?.includes('[RESTORED]') && (
                                                                         <span className="text-[9px] text-orange-500" title={order.comments.split('\n').find(l => l.includes('[RESTORED]'))}>
                                                                             <Info className="w-2.5 h-2.5 inline" />

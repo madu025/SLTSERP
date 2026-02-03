@@ -50,6 +50,7 @@ export interface ServiceOrder {
     completionMode?: 'ONLINE' | 'OFFLINE';
     isManualEntry?: boolean;
     isLegacyImport?: boolean;
+    hasBridgeLog?: boolean;
 }
 
 export interface AuditItem {

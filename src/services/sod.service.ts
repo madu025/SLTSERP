@@ -260,8 +260,20 @@ export class ServiceOrderService {
             })
         ]);
 
+        // 4. Fetch Extension logs to mark records
+        const bridgeLogs = await prisma.extensionRawData.findMany({
+            where: { soNum: { in: items.map(i => i.soNum).filter(Boolean) as string[] } },
+            select: { soNum: true }
+        });
+        const bridgeLogSet = new Set(bridgeLogs.map(l => l.soNum));
+
+        const itemsWithLogs = items.map(item => ({
+            ...item,
+            hasBridgeLog: item.soNum ? bridgeLogSet.has(item.soNum) : false
+        }));
+
         return {
-            items,
+            items: itemsWithLogs,
             meta: {
                 total,
                 page,

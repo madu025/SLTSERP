@@ -158,6 +158,22 @@ export default function ExtensionStatus() {
         setTimeout(() => checkExtension(), 500);
     };
 
+    const [userDetail, setUserDetail] = useState<{ role?: string } | null>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('user');
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch (e) {
+                    console.error('Failed to parse user', e);
+                }
+            }
+        }
+        return null;
+    });
+
+    const isAdmin = userDetail?.role === 'SUPER_ADMIN' || userDetail?.role === 'ADMIN';
+
     if (status === 'checking') {
         return (
             <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 text-slate-400 rounded-full border border-slate-200">
@@ -235,18 +251,17 @@ export default function ExtensionStatus() {
                             Verify Again
                         </button>
 
-                        {(JSON.parse(localStorage.getItem('user') || '{}').role === 'SUPER_ADMIN' ||
-                            JSON.parse(localStorage.getItem('user') || '{}').role === 'ADMIN') && (
-                                <div className="pt-2 border-t border-slate-100 mt-2">
-                                    <button
-                                        onClick={() => window.location.href = '/admin/test-extension'}
-                                        className="w-full flex items-center justify-center gap-2 py-2 bg-slate-900 text-white rounded-lg text-[10px] font-bold hover:bg-slate-800 transition-colors"
-                                    >
-                                        <Terminal className="w-3 h-3" />
-                                        OPEN BRIDGE MONITOR
-                                    </button>
-                                </div>
-                            )}
+                        {isAdmin && (
+                            <div className="pt-2 border-t border-slate-100 mt-2">
+                                <button
+                                    onClick={() => window.location.href = '/admin/test-extension'}
+                                    className="w-full flex items-center justify-center gap-2 py-2 bg-slate-900 text-white rounded-lg text-[10px] font-bold hover:bg-slate-800 transition-colors"
+                                >
+                                    <Terminal className="w-3 h-3" />
+                                    OPEN BRIDGE MONITOR
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </PopoverContent>
             </Popover>
