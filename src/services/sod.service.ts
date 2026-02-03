@@ -96,7 +96,16 @@ export class ServiceOrderService {
             } else if (filter === 'completed') {
                 whereClause.completedDate = { gte: startDate, lt: nextMonth };
             } else if (filter === 'return') {
-                whereClause.updatedAt = { gte: startDate, lt: nextMonth };
+                // Filter by the date the return actually happened
+                whereClause.OR = [
+                    { completedDate: { gte: startDate, lt: nextMonth } },
+                    {
+                        AND: [
+                            { completedDate: null },
+                            { statusDate: { gte: startDate, lt: nextMonth } }
+                        ]
+                    }
+                ];
             } else {
                 whereClause.createdAt = { gte: startDate, lt: nextMonth };
             }
@@ -167,7 +176,7 @@ export class ServiceOrderService {
         if (filter === 'completed') {
             primaryOrderBy = { completedDate: 'desc' };
         } else if (filter === 'return') {
-            primaryOrderBy = { updatedAt: 'desc' };
+            primaryOrderBy = { completedDate: 'desc' };
         }
 
         // Use array for stable sorting with ID fallback
