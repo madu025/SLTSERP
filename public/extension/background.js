@@ -15,7 +15,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             mode: 'cors'
         })
             .then(res => res.json())
-            .then(data => sendResponse({ success: true, data }))
+            .then(data => {
+                // Persistent Sync History: Store the last successful sync
+                const syncRecord = {
+                    soNum: payload.soNum,
+                    timestamp: new Date().toISOString(),
+                    success: true
+                };
+                chrome.storage.local.set({ lastSuccessfulSync: syncRecord });
+                sendResponse({ success: true, data });
+            })
             .catch(() => {
                 console.warn('[PHOENIX-PROXY] Cloudfront ERP Sync Failed. Check Connection.');
                 sendResponse({ success: false, error: 'ERP_OFFLINE' });

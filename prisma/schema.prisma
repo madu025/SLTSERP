@@ -132,6 +132,19 @@ model SODForensicAudit {
   @@index([soNum])
 }
 
+model ExtensionRawData {
+  id          String   @id @default(cuid())
+  soNum       String?
+  sltUser     String?
+  activeTab   String?
+  url         String?
+  scrapedData Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([soNum])
+  @@index([updatedAt])
+}
 
 model ServiceOrderStatusHistory {
   id              String       @id @default(cuid())

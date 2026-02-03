@@ -361,7 +361,41 @@ export async function POST(request: Request) {
             }
         }
 
-        // 10. Final Response (ExtensionRawData saving removed as requested to avoid duplication)
+        // 10. Audit Log for Admin (Bridge Monitor)
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const monitorModel = (prisma as any).extensionRawData;
+            if (monitorModel) {
+                const existingRaw = await monitorModel.findFirst({ where: { soNum } });
+                if (existingRaw) {
+                    await monitorModel.update({
+                        where: { id: existingRaw.id },
+                        data: {
+                            sltUser: payload.currentUser || null,
+                            activeTab: payload.activeTab || 'SYNC_PUSH',
+                            url: payload.url || null,
+                            scrapedData: payload,
+                            updatedAt: new Date()
+                        }
+                    });
+                } else {
+                    await monitorModel.create({
+                        data: {
+                            soNum,
+                            sltUser: payload.currentUser || null,
+                            activeTab: payload.activeTab || 'SYNC_PUSH',
+                            url: payload.url || null,
+                            scrapedData: payload
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('[BRIDGE-SYNC] Monitor Log Failed:', e);
+            // Don't fail the whole sync if monitor logging fails
+        }
+
+        // 11. Final Response (ExtensionRawData saving removed as requested to avoid duplication)
         return NextResponse.json({
             success: true,
             id: syncedOrder?.id,

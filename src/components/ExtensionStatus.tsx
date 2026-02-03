@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Download, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Download, AlertCircle, CheckCircle2, RefreshCw, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Popover,
@@ -234,6 +234,19 @@ export default function ExtensionStatus() {
                             <RefreshCw className="w-3 h-3" />
                             Verify Again
                         </button>
+
+                        {(JSON.parse(localStorage.getItem('user') || '{}').role === 'SUPER_ADMIN' ||
+                            JSON.parse(localStorage.getItem('user') || '{}').role === 'ADMIN') && (
+                                <div className="pt-2 border-t border-slate-100 mt-2">
+                                    <button
+                                        onClick={() => window.location.href = '/admin/test-extension'}
+                                        className="w-full flex items-center justify-center gap-2 py-2 bg-slate-900 text-white rounded-lg text-[10px] font-bold hover:bg-slate-800 transition-colors"
+                                    >
+                                        <Terminal className="w-3 h-3" />
+                                        OPEN BRIDGE MONITOR
+                                    </button>
+                                </div>
+                            )}
                     </div>
                 </PopoverContent>
             </Popover>

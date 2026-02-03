@@ -392,7 +392,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {
-                title: 'Extension Test Monitor',
+                title: 'Phoenix Bridge Monitor',
                 path: '/admin/test-extension',
                 icon: Terminal,
                 allowedRoles: ROLE_GROUPS.ADMINS
