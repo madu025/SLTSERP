@@ -206,7 +206,8 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                 <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="LEA" value={coreOrder?.lea} />
                                 <DetailItem icon={<Smartphone className="w-3.5 h-3.5" />} label="IPTV Number" value={coreOrder?.iptv} />
                                 <DetailItem icon={<FileJson className="w-3.5 h-3.5" />} label="WORO Task" value={coreOrder?.woroTaskName} />
-                                <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Received Date" value={coreOrder?.statusDate ? new Date(coreOrder.statusDate).toLocaleDateString() : '-'} />
+                                <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Status Date" value={coreOrder?.statusDate ? new Date(coreOrder.statusDate).toLocaleDateString() : '-'} />
+                                <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Received Date" value={coreOrder?.receivedDate ? new Date(coreOrder.receivedDate).toLocaleDateString() : (coreOrder?.statusDate ? new Date(coreOrder.statusDate).toLocaleDateString() : '-')} />
                                 <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Imported Date" value={coreOrder?.createdAt ? new Date(coreOrder.createdAt).toLocaleDateString() : '-'} />
                                 <DetailItem icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SEIT (OSP)" value={coreOrder?.woroSeit} />
                                 <DetailItem icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SEIT (Inst)" value={coreOrder?.ftthInstSeit} />
@@ -219,7 +220,20 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                 {coreOrder?.completionMode && <DetailItem icon={<Activity className="w-3.5 h-3.5" />} label="Completion Mode" value={coreOrder.completionMode} />}
 
                                 {coreOrder?.completedDate && (
-                                    <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Completed Date" value={new Date(coreOrder.completedDate).toLocaleDateString()} isBold />
+                                    <DetailItem
+                                        icon={<Clock className="w-3.5 h-3.5" />}
+                                        label={coreOrder.sltsStatus === 'RETURN' ? "Returned Date" : "Completed Date"}
+                                        value={new Date(coreOrder.completedDate).toLocaleDateString()}
+                                        isBold
+                                    />
+                                )}
+                                {(coreOrder?.sltsStatus === 'RETURN' || coreOrder?.status?.includes('RETURN')) && !coreOrder?.completedDate && coreOrder?.statusDate && (
+                                    <DetailItem
+                                        icon={<Clock className="w-3.5 h-3.5" />}
+                                        label="Return Date (SLT)"
+                                        value={new Date(coreOrder.statusDate).toLocaleDateString()}
+                                        isBold
+                                    />
                                 )}
                                 <div className="md:col-span-2 lg:col-span-3">
                                     <DetailItem icon={<Box className="w-3.5 h-3.5" />} label="Address" value={coreOrder?.address} />

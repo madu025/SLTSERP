@@ -25,6 +25,7 @@ export interface ServiceOrder {
     teamId?: string | null;
     contractor?: { name: string };
     completedDate?: string | null;
+    receivedDate?: string | null;
     updatedAt?: string | null;
     ontSerialNumber?: string | null;
     iptvSerialNumbers?: string | null;

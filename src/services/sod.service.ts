@@ -210,6 +210,7 @@ export class ServiceOrderService {
                     revenueAmount: true,
                     contractorAmount: true,
                     dropWireDistance: true,
+                    receivedDate: true,
                     createdAt: true,
                     materialUsage: {
                         select: {
