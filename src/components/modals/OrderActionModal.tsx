@@ -1445,48 +1445,113 @@ export default function OrderActionModal({
 
 
 
-                        {/* Return Reason Dropdown (Only if Return) */}
-                        {(useExtendedView || !isComplete) && isReturn && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Return Reason</label>
-                                <Select value={reason} onValueChange={setReason}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Reason" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {RETURN_REASONS.map((r) => (
-                                            <SelectItem key={r} value={r}>{r}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        {/* Premium Simple View (Return / Basic Update) */}
+                        {!useExtendedView && (
+                            <div className="space-y-6 py-2">
+                                {/* Date Section */}
+                                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
+                                        <CalendarIcon className="w-20 h-20" />
+                                    </div>
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3 block ml-1">
+                                        {isReturn ? "Returned Date" : isComplete ? "Completion Date" : "Update Date"}
+                                    </Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full h-12 justify-start text-left font-bold text-sm bg-white border-slate-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all rounded-xl shadow-sm",
+                                                    !date && "text-muted-foreground"
+                                                )}
+                                            >
+                                                <CalendarIcon className="mr-3 h-5 w-5 text-blue-500" />
+                                                {date ? format(date, "PPPP") : <span>Pick a date</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={date}
+                                                onSelect={setDate}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <p className="text-[10px] text-slate-400 mt-2.5 ml-1 italic flex items-center gap-1.5 font-medium">
+                                        <Clock className="w-3 h-3" /> This will be recorded as the definitive action date.
+                                    </p>
+                                </div>
 
-                                {reason === "Other" && (
-                                    <Input
-                                        placeholder="Type specific reason..."
-                                        value={customReason}
-                                        onChange={(e) => setCustomReason(e.target.value)}
-                                    />
+                                {/* Return Reason Section (Only if Return) */}
+                                {(useExtendedView || !isComplete) && isReturn && (
+                                    <div className="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 shadow-sm relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
+                                            <RotateCcw className="w-20 h-20" />
+                                        </div>
+                                        <Label className="text-[10px] font-black text-rose-600 uppercase tracking-[0.15em] mb-3 block ml-1">
+                                            Primary Return Reason
+                                        </Label>
+                                        <Select value={reason} onValueChange={setReason}>
+                                            <SelectTrigger className="h-12 bg-white border-rose-200 focus:ring-rose-500 font-bold text-sm rounded-xl shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <AlertCircle className="w-4 h-4 text-rose-500" />
+                                                    <SelectValue placeholder="Select Reason" />
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-[300px]">
+                                                {RETURN_REASONS.map((r) => (
+                                                    <SelectItem key={r} value={r} className="font-medium">{r}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        {reason === "Other" && (
+                                            <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <Input
+                                                    placeholder="Type specific reason..."
+                                                    value={customReason}
+                                                    onChange={(e) => setCustomReason(e.target.value)}
+                                                    className="h-11 bg-white border-rose-200 focus:ring-rose-500 font-medium rounded-xl shadow-sm"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
-                            </div>
-                        )}
 
-                        {/* Comment Area */}
-                        {!useExtendedView && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Comment (Optional)</label>
-                                <Textarea
-                                    placeholder="Add any additional notes..."
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    rows={3}
-                                />
-                            </div>
-                        )}
+                                {/* Comment Section */}
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative group">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-3 block ml-1">
+                                        Action Methodology / Comments
+                                    </Label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-3 opacity-20 group-focus-within:opacity-50 transition-opacity">
+                                            <Info className="w-4 h-4" />
+                                        </div>
+                                        <Textarea
+                                            placeholder="Provide specific context or justification for this action..."
+                                            value={comment}
+                                            onChange={(e) => setComment(e.target.value)}
+                                            rows={4}
+                                            className="pl-9 bg-slate-50/30 border-slate-200 focus:border-blue-400 focus:ring-blue-400 font-medium text-sm rounded-xl transition-all resize-none"
+                                        />
+                                    </div>
+                                </div>
 
-                        {!useExtendedView && (
-                            <Button onClick={handleConfirm} disabled={!date} className="w-full mt-6">
-                                {isComplete ? "Confirm Completion" : isReturn ? "Confirm Return" : "Save Updates"}
-                            </Button>
+                                <Button
+                                    onClick={handleConfirm}
+                                    disabled={!date}
+                                    className={cn(
+                                        "w-full h-14 mt-2 text-sm font-black uppercase tracking-widest rounded-xl shadow-xl transition-all",
+                                        isReturn
+                                            ? "bg-rose-600 hover:bg-rose-700 text-white"
+                                            : "bg-slate-900 hover:bg-black text-white"
+                                    )}
+                                >
+                                    {isComplete ? "Finalize Completion" : isReturn ? "Execute SOD Return" : "Save Changes"}
+                                    <CheckCircle2 className="ml-3 w-5 h-5 opacity-50" />
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>

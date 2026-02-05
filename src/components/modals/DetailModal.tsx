@@ -346,7 +346,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <InspectorCard
                                         label="ONT Serial"
-                                        value={selectedOrder.ontSerialNumber || "PENDING"}
+                                        value={coreOrder?.ontSerialNumber || bridgeData?.scrapedData?.masterData?.['ONT_ROUTER_SERIAL_NUMBER'] || bridgeData?.scrapedData?.masterData?.['ONT_ROUTER_SERIAL_NUMBER_'] || "PENDING"}
                                         icon={<ShieldCheck className="w-4 h-4" />}
                                         color="emerald"
                                         isMono
@@ -354,8 +354,13 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     <InspectorCard
                                         label="Pole Serials"
                                         value={(() => {
-                                            const poles = coreOrder?.forensicAudit?.auditData?.filter(a => a.name?.toLowerCase().includes('pole') && a.uuid) || [];
-                                            return poles.length > 0 ? poles.map(p => p.uuid).join(', ') : "N/A";
+                                            const forensicPoles = coreOrder?.forensicAudit?.auditData?.filter(a => a.name?.toLowerCase().includes('pole') && a.uuid) || [];
+                                            const scrapedPoles = bridgeData?.scrapedData?.masterData ? Object.entries(bridgeData.scrapedData.masterData)
+                                                .filter(([key, val]) => (key.toLowerCase().includes('serial') && key.toLowerCase().includes('pole')) || (key.toLowerCase().startsWith('serial number') && val && val.length > 5))
+                                                .map(([, val]) => val) : [];
+
+                                            const allPoles = Array.from(new Set([...forensicPoles.map(p => p.uuid), ...scrapedPoles].filter(Boolean)));
+                                            return allPoles.length > 0 ? allPoles.join(', ') : "N/A";
                                         })()}
                                         icon={<Box className="w-4 h-4" />}
                                         color="indigo"
@@ -369,11 +374,70 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     />
                                     <InspectorCard
                                         label="Portal S-Val"
-                                        value={bridgeData?.scrapedData?.masterData?.['STATUS VALUE'] || "101000"}
+                                        value={bridgeData?.scrapedData?.masterData?.['STATUS VALUE'] || bridgeData?.scrapedData?.masterData?.['SVAL_HIDDEN'] || "101000"}
                                         icon={<FileJson className="w-4 h-4" />}
                                         color="slate"
                                     />
+
+                                    {/* New Forensic Cards */}
+                                    {bridgeData?.scrapedData?.masterData?.['SALES_PERSON'] && (
+                                        <InspectorCard
+                                            label="Sales Agent"
+                                            value={bridgeData.scrapedData.masterData['SALES_PERSON'].split('DP LOOP')[0]?.trim()}
+                                            icon={<User className="w-4 h-4" />}
+                                            color="blue"
+                                        />
+                                    )}
+                                    {(bridgeData?.scrapedData?.masterData?.['IPTV1_HIDDEN'] || bridgeData?.scrapedData?.masterData?.['IPTV_SO']) && (
+                                        <InspectorCard
+                                            label="Linked IPTV"
+                                            value={bridgeData.scrapedData.masterData['IPTV1_HIDDEN'] || bridgeData.scrapedData.masterData['IPTV_SO'] || ""}
+                                            icon={<Activity className="w-4 h-4" />}
+                                            color="emerald"
+                                            isMono
+                                        />
+                                    )}
+                                    {(coreOrder?.sltsStatus === 'RETURN' || bridgeData?.scrapedData?.masterData?.['CHKSODRTN_HIDDEN'] === 'on') && (
+                                        <div className="lg:col-span-2">
+                                            <InspectorCard
+                                                label="Return Context"
+                                                value={`${bridgeData?.scrapedData?.masterData?.['RTRESONALL_HIDDEN'] || bridgeData?.scrapedData?.masterData?.['SOD RETURN'] || "Reason N/A"} | ${bridgeData?.scrapedData?.masterData?.['RTCMTALL_HIDDEN'] || bridgeData?.scrapedData?.masterData?.['RETURN COMMENT'] || "No Comment"}`}
+                                                icon={<History className="w-4 h-4" />}
+                                                color="rose"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
+
+                                {/* Forensic Warnings Section */}
+                                {(() => {
+                                    const warnings: string[] = [];
+                                    const master = bridgeData?.scrapedData?.masterData || {};
+
+                                    if (master['POLES'] === 'NUMBER OF POLES') warnings.push("Poles count field is still at default placeholder.");
+
+                                    Object.entries(master).forEach(([k, v]) => {
+                                        if (typeof v === 'string' && v.includes('SELECT MATERIAL')) {
+                                            warnings.push(`${k.replace('_HIDDEN', '').replace(/_/g, ' ')} selection is missing!`);
+                                        }
+                                    });
+
+                                    if (warnings.length === 0) return null;
+
+                                    return (
+                                        <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl space-y-2">
+                                            <div className="flex items-center gap-2 text-rose-600 font-black text-[10px] uppercase tracking-widest mb-1">
+                                                <Activity className="w-4 h-4" /> High-Priority Forensic Warnings
+                                            </div>
+                                            {warnings.map((w, i) => (
+                                                <div key={i} className="flex items-start gap-2 text-[11px] font-bold text-rose-700">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1 flex-shrink-0" />
+                                                    {w}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* Materials Intelligence Section */}
                                 <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-xl overflow-hidden">
