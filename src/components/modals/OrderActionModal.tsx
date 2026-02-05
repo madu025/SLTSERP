@@ -244,23 +244,48 @@ export default function OrderActionModal({
 
             setExtendedMaterialRows(prevRows => {
                 const updatedRows = [...prevRows];
+
                 for (const mat of data.materialDetails) {
                     const pCode = (mat.CODE || mat.TYPE || "").toUpperCase();
                     const pName = (mat.NAME || "").toUpperCase();
-                    const qty = String(mat.QTY || mat.qty || "0");
+                    const qtyVal = parseFloat(String(mat.QTY || mat.qty || "0"));
 
-                    const matchingItems = items.filter(item =>
+                    // Skip entries with zero quantity to avoid clutter
+                    if (qtyVal <= 0) continue;
+
+                    // 1. PHASE 1: EXACT MATCHING (High Priority)
+                    let matchingItems = items.filter(item =>
                         item.code.toUpperCase() === pCode ||
                         item.name.toUpperCase() === pName ||
-                        item.importAliases?.some((a: string) => a.toUpperCase() === pCode || a.toUpperCase() === pName) ||
-                        (pName.includes("DROP WIRE") && item.code === "OSPFTA003") ||
-                        (pName.includes("ONT") && (item.name.toUpperCase().includes("ONT") || item.commonName?.toUpperCase().includes("ONT"))) ||
-                        (pName.includes("STB") && (item.name.toUpperCase().includes("STB") || item.commonName?.toUpperCase().includes("STB"))) ||
-                        (pName.includes("PVC") && item.name.toUpperCase().includes("PVC")) ||
-                        (pName.includes("CONNECTOR") && item.name.toUpperCase().includes("CONNECTOR")) ||
-                        (pName.includes("HOOK") && item.name.toUpperCase().includes("HOOK")) ||
-                        (pName.length > 5 && item.name.toUpperCase().includes(pName))
+                        item.importAliases?.some((a: string) => a.toUpperCase() === pCode || a.toUpperCase() === pName)
                     );
+
+                    // 2. PHASE 2: SEMANTIC MATCHING (Fallback)
+                    if (matchingItems.length === 0) {
+                        const searchName = pName.toUpperCase();
+                        matchingItems = items.filter(item => {
+                            const itemName = item.name.toUpperCase();
+                            const commonName = (item.commonName || "").toUpperCase();
+
+                            return (
+                                ((pCode === "OSPFTA003" || searchName.includes("DROP WIRE") || pCode.includes("DW")) && item.code === "OSPFTA003") ||
+                                (searchName.includes("ONT") && (itemName.includes("ONT") || commonName.includes("ONT"))) ||
+                                (searchName.includes("STB") && (itemName.includes("STB") || commonName.includes("STB"))) ||
+                                (searchName.includes("PVC") && itemName.includes("PVC")) ||
+                                (searchName.includes("CONNECTOR") && itemName.includes("CONNECTOR")) ||
+                                (searchName.includes("ROSETTE") && itemName.includes("ROSETTE")) ||
+                                (searchName.includes("HOOK") && itemName.includes("HOOK")) ||
+                                (searchName.includes("CLIP") && itemName.includes("CLIP")) ||
+                                (searchName.includes("TIE") && itemName.includes("TIE")) ||
+                                (searchName.includes("NAIL") && itemName.includes("NAIL")) ||
+                                (searchName.includes("SCREW") && itemName.includes("SCREW")) ||
+                                (searchName.includes("CONDUIT") && itemName.includes("CONDUIT")) ||
+                                (searchName.includes("PIPE") && itemName.includes("PIPE")) ||
+                                (searchName.includes("POLE") && itemName.includes("POLE")) ||
+                                (searchName.includes(" oto") || searchName.includes("oto ") || searchName === "OTO" && itemName.includes("OTO"))
+                            );
+                        });
+                    }
 
                     // Priority Logic: Pick item matching active materialSource (SLT/SLTS)
                     const activeType = materialSource === 'SLT' ? 'SLT' : 'SLTS';
@@ -271,24 +296,42 @@ export default function OrderActionModal({
 
                         // Find if ANY variant of this item already exists in the rows
                         const matchingIds = new Set(matchingItems.map(m => m.id));
-                        const existingIdx = updatedRows.findIndex(r => matchingIds.has(r.itemId));
+                        const existingIdx = updatedRows.findIndex(r =>
+                            matchingIds.has(r.itemId) ||
+                            (erpItem.commonName && items.find(i => i.id === r.itemId)?.commonName === erpItem.commonName)
+                        );
 
                         if (existingIdx > -1) {
-                            // Update existing row AND migrate to the preferred variant ID (important for UI grouping)
-                            updatedRows[existingIdx] = {
-                                ...updatedRows[existingIdx],
-                                itemId: erpItem.id, // Migrate to preferred SLT/SLTS variant
-                                usedQty: qty,
-                                serialNumber: serial || updatedRows[existingIdx].serialNumber
-                            };
+                            const existingRow = updatedRows[existingIdx];
+                            // SPECIAL CASE: Drop Wire uses f1Qty instead of usedQty in UI
+                            if (erpItem.code === 'OSPFTA003') {
+                                updatedRows[existingIdx] = {
+                                    ...existingRow,
+                                    itemId: erpItem.id,
+                                    f1Qty: String(qtyVal), // Map Drop Wire to F1
+                                    serialNumber: serial || existingRow.serialNumber
+                                };
+                            } else {
+                                updatedRows[existingIdx] = {
+                                    ...existingRow,
+                                    itemId: erpItem.id,
+                                    usedQty: String(qtyVal),
+                                    serialNumber: serial || existingRow.serialNumber
+                                };
+                            }
                         } else {
-                            // Add new row using the preferred variant
-                            updatedRows.push({
+                            // Add new row
+                            const newRow: any = {
                                 itemId: erpItem.id,
-                                usedQty: qty,
+                                usedQty: erpItem.code === 'OSPFTA003' ? '0' : String(qtyVal),
                                 wastageQty: "0",
                                 serialNumber: serial || ""
-                            });
+                            };
+                            if (erpItem.code === 'OSPFTA003') {
+                                newRow.f1Qty = String(qtyVal);
+                                newRow.g1Qty = '0';
+                            }
+                            updatedRows.push(newRow);
                         }
                         matchCount++;
                     }
@@ -1366,10 +1409,11 @@ export default function OrderActionModal({
                                                         </thead>
                                                         <tbody className="divide-y divide-slate-100">
                                                             {extendedMaterialRows.map((row, idx) => {
-                                                                // Better filter: Any item marked for OSP FTTH belongs in the top sections, not here
                                                                 const item = items.find(i => i.id === row.itemId);
-                                                                const isStandardItem = item?.isOspFtth || quickItems.some((q) => q.item.id === row.itemId);
-                                                                if (isStandardItem) return null;
+                                                                // Only hide if the item is explicitly shown in the Quick Items grid above
+                                                                const isShownInQuickGrid = quickItems.some(q => q.item.id === row.itemId);
+                                                                if (isShownInQuickGrid) return null;
+
                                                                 const maxPerc = (item?.maxWastagePercentage ?? 0);
                                                                 const usedQty = parseFloat(row.usedQty || '0');
                                                                 const wastageQty = parseFloat(row.wastageQty || '0');
