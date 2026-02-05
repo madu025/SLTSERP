@@ -23,6 +23,7 @@ export class InventoryService {
     static getItems = ItemService.getItems;
     static createItem = ItemService.createItem;
     static updateItem = ItemService.updateItem;
+    static mergeItems = ItemService.mergeItems;
     static patchBulkItems = ItemService.patchBulkItems;
     static deleteItem = ItemService.deleteItem;
 

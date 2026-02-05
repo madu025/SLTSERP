@@ -39,6 +39,17 @@ export async function deleteItem(id: string) {
     }
 }
 
+export async function mergeItemsAction(sourceId: string, targetId: string) {
+    await requireAuth(['ADMIN', 'SUPER_ADMIN']);
+    try {
+        await InventoryService.mergeItems(sourceId, targetId);
+        revalidatePath('/inventory/items');
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message || 'Error merging items' };
+    }
+}
+
 export async function patchBulkItemsAction(updates: any[]) {
     await requireAuth(['ADMIN', 'SUPER_ADMIN', 'PROCUREMENT_OFFICER']);
     try {

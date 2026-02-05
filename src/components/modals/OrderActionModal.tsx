@@ -249,7 +249,7 @@ export default function OrderActionModal({
                     const pName = (mat.NAME || "").toUpperCase();
                     const qty = String(mat.QTY || mat.qty || "0");
 
-                    const erpItem = items.find(item =>
+                    const matchingItems = items.filter(item =>
                         item.code.toUpperCase() === pCode ||
                         item.name.toUpperCase() === pName ||
                         item.importAliases?.some((a: string) => a.toUpperCase() === pCode || a.toUpperCase() === pName) ||
@@ -261,6 +261,10 @@ export default function OrderActionModal({
                         (pName.includes("HOOK") && item.name.toUpperCase().includes("HOOK")) ||
                         (pName.length > 5 && item.name.toUpperCase().includes(pName))
                     );
+
+                    // Priority Logic: Pick item matching active materialSource (SLT/SLTS)
+                    const activeType = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+                    const erpItem = matchingItems.find(m => m.type === activeType) || matchingItems[0];
 
                     if (erpItem) {
                         const existingIdx = updatedRows.findIndex(r => r.itemId === erpItem.id);
@@ -298,7 +302,7 @@ export default function OrderActionModal({
             toast.dismiss(loadingToast);
             toast.error("Failed to import from portal");
         }
-    }, [orderData?.soNum, items]);
+    }, [orderData?.soNum, items, materialSource]);
 
     // Initial sync & Auto-Portal Sync
     useEffect(() => {

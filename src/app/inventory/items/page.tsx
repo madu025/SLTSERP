@@ -11,12 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package, RotateCcw, Check } from "lucide-react";
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { createItem, updateItem, deleteItem, patchBulkItemsAction } from '@/actions/inventory-actions';
+import { createItem, updateItem, deleteItem, mergeItemsAction, patchBulkItemsAction } from '@/actions/inventory-actions';
 
 // --- SCHEMA ---
 const itemSchema = z.object({
@@ -46,6 +46,12 @@ export default function ItemMasterPage() {
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState<ItemFormValues & { id: string } | null>(null);
     const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+    const [aliasInput, setAliasInput] = useState("");
+
+    // Merge State
+    const [showMergeModal, setShowMergeModal] = useState(false);
+    const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
+    const [isMerging, setIsMerging] = useState(false);
 
     // Filter & Batch State
     const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -115,7 +121,7 @@ export default function ItemMasterPage() {
             }).filter(Boolean);
 
             if (updates.length > 0) {
-                return await patchBulkItemsAction(updates);
+                return await patchBulkItemsAction(updates as any);
             }
             return { success: true };
         },
@@ -130,6 +136,24 @@ export default function ItemMasterPage() {
             }
         },
         onError: () => toast.error("Failed to update items")
+    });
+
+    const mergeMutation = useMutation({
+        mutationFn: async ({ sourceId, targetId }: { sourceId: string; targetId: string }) => {
+            return await mergeItemsAction(sourceId, targetId);
+        },
+        onSuccess: (result) => {
+            if (result.success) {
+                queryClient.invalidateQueries({ queryKey: ['items'] });
+                setShowMergeModal(false);
+                setMergeTargetId(null);
+                setSelectedIds(new Set());
+                toast.success("Items merged successfully");
+            } else {
+                toast.error(result.error || "Failed to merge items");
+            }
+        },
+        onSettled: () => setIsMerging(false)
     });
 
     // --- FORM ---
@@ -176,6 +200,7 @@ export default function ItemMasterPage() {
                     description: editingItem.description || '',
                     importAliases: editingItem.importAliases || []
                 });
+                setAliasInput(editingItem.importAliases?.join(', ') || '');
             } else {
                 form.reset({
                     code: '',
@@ -195,6 +220,7 @@ export default function ItemMasterPage() {
                     description: '',
                     importAliases: []
                 });
+                setAliasInput('');
             }
         }
     }, [showModal, editingItem, form]);
@@ -263,6 +289,12 @@ export default function ItemMasterPage() {
                                             <Button size="sm" variant="outline" className="h-8 bg-white border-blue-200 text-blue-700 hover:bg-blue-100" onClick={() => { setBulkEditType('CATEGORY'); setShowBulkEdit(true); }}>
                                                 <Tag className="w-3.5 h-3.5 mr-2" /> Category
                                             </Button>
+
+                                            {selectedIds.size === 2 && (
+                                                <Button size="sm" variant="outline" className="h-8 bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-bold" onClick={() => setShowMergeModal(true)}>
+                                                    <RotateCcw className="w-3.5 h-3.5 mr-2" /> Merge Duplicates
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                     <Button size="sm" variant="ghost" className="h-8 text-blue-700 hover:bg-blue-100" onClick={() => setSelectedIds(new Set())}>
@@ -598,8 +630,12 @@ export default function ItemMasterPage() {
                                                 <Input
                                                     className="h-8 text-xs font-mono"
                                                     placeholder="CODE1, CODE2, CODE3"
-                                                    value={field.value?.join(', ') || ''}
-                                                    onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                                    value={aliasInput}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setAliasInput(val);
+                                                        field.onChange(val.split(',').map(s => s.trim()).filter(Boolean));
+                                                    }}
                                                 />
                                             </FormControl>
                                             <FormMessage />
@@ -711,6 +747,92 @@ export default function ItemMasterPage() {
                             <Button variant="outline" onClick={() => setShowBulkEdit(false)}>Cancel</Button>
                             <Button onClick={() => bulkMutation.mutate()} disabled={bulkMutation.isPending}>
                                 {bulkMutation.isPending ? 'Updating...' : 'Update All'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* MERGE MODAL */}
+                <Dialog open={showMergeModal} onOpenChange={(o) => !o && setShowMergeModal(false)}>
+                    <DialogContent className="max-w-xl">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <RotateCcw className="w-5 h-5 text-emerald-600" />
+                                Merge Duplicate Items
+                            </DialogTitle>
+                            <DialogDescription>
+                                Consolidated two items into one. All stock, transaction history, and codes will be transferred to the <strong>Primary (Keep)</strong> item. The <strong>Secondary</strong> item will be deleted.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {selectedIds.size === 2 && (() => {
+                            const selectedItems = items.filter(i => selectedIds.has(i.id));
+                            if (selectedItems.length !== 2) return null;
+
+                            return (
+                                <div className="space-y-4 py-4">
+                                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-[11px] text-amber-800 flex items-start gap-2">
+                                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                        <div>
+                                            <strong>Safety Note:</strong> This process automatically sums up stock levels across all stores and transfers all historical usage records. The code of the deleted item will be added to the primary item&apos;s aliases.
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {selectedItems.map((item, idx) => (
+                                            <div
+                                                key={item.id}
+                                                className={`border-2 rounded-xl p-4 cursor-pointer transition-all relative ${mergeTargetId === item.id ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-200' : 'border-slate-100 hover:border-slate-200 bg-slate-50'}`}
+                                                onClick={() => setMergeTargetId(item.id)}
+                                            >
+                                                <div className={`absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center ${mergeTargetId === item.id ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                                    {mergeTargetId === item.id ? <Check className="w-3 h-3" /> : (idx + 1)}
+                                                </div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{mergeTargetId === item.id ? 'PRIMARY (KEEP)' : `Option ${idx + 1}`}</div>
+                                                <div className="font-bold text-sm text-slate-900 leading-tight">{item.name}</div>
+                                                <div className="text-[11px] font-mono text-emerald-600 mt-1">{item.code}</div>
+                                                <div className="mt-2 space-y-1">
+                                                    <div className="text-[10px] flex justify-between">
+                                                        <span className="text-slate-500">Generic:</span>
+                                                        <span className="font-medium">{item.commonName || '-'}</span>
+                                                    </div>
+                                                    <div className="text-[10px] flex justify-between">
+                                                        <span className="text-slate-500">Unit:</span>
+                                                        <span className="font-medium">{item.unit}</span>
+                                                    </div>
+                                                    <div className="text-[10px] flex justify-between">
+                                                        <span className="text-slate-500">Rate:</span>
+                                                        <span className="font-medium">Rs. {item.unitPrice}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {!mergeTargetId && (
+                                        <div className="text-center py-2 text-xs text-slate-500 italic">
+                                            Select the primary record you want to keep.
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        <DialogFooter>
+                            <Button variant="outline" size="sm" onClick={() => setShowMergeModal(false)}>Cancel</Button>
+                            <Button
+                                size="sm"
+                                disabled={!mergeTargetId || isMerging}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white min-w-[140px]"
+                                onClick={() => {
+                                    const sourceId = Array.from(selectedIds).find(id => id !== mergeTargetId);
+                                    if (sourceId && mergeTargetId) {
+                                        setIsMerging(true);
+                                        mergeMutation.mutate({ sourceId, targetId: mergeTargetId });
+                                    }
+                                }}
+                            >
+                                {isMerging ? 'Merging Items...' : 'Finalize Merge'}
                             </Button>
                         </DialogFooter>
                     </DialogContent>

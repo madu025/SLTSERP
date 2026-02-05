@@ -117,6 +117,85 @@ export class ItemService {
         return true;
     }
 
+    static async mergeItems(sourceId: string, targetId: string): Promise<boolean> {
+        if (!sourceId || !targetId) throw new Error('BOTH_IDS_REQUIRED');
+        if (sourceId === targetId) throw new Error('CANNOT_MERGE_SAME_ITEM');
+
+        // 1. Validate both items exist
+        const source = await prisma.inventoryItem.findUnique({ where: { id: sourceId } });
+        const target = await prisma.inventoryItem.findUnique({ where: { id: targetId } });
+        if (!source || !target) throw new Error('ITEM_NOT_FOUND');
+
+        await prisma.$transaction(async (tx) => {
+            // 2. Transfer ContractorStock (Merge duplicates by summing quantity)
+            const sourceContractorStock = await tx.contractorStock.findMany({ where: { itemId: sourceId } });
+            for (const stock of sourceContractorStock) {
+                await tx.contractorStock.upsert({
+                    where: { contractorId_itemId: { contractorId: stock.contractorId, itemId: targetId } },
+                    create: { contractorId: stock.contractorId, itemId: targetId, quantity: stock.quantity },
+                    update: { quantity: { increment: stock.quantity } }
+                });
+            }
+            await tx.contractorStock.deleteMany({ where: { itemId: sourceId } });
+
+            // 3. Transfer InventoryStock (Merge duplicates by summing quantity)
+            const sourceInventoryStock = await tx.inventoryStock.findMany({ where: { itemId: sourceId } });
+            for (const stock of sourceInventoryStock) {
+                await tx.inventoryStock.upsert({
+                    where: { storeId_itemId: { storeId: stock.storeId, itemId: targetId } },
+                    create: { storeId: stock.storeId, itemId: targetId, quantity: stock.quantity, minLevel: stock.minLevel },
+                    update: { quantity: { increment: stock.quantity } }
+                });
+            }
+            await tx.inventoryStock.deleteMany({ where: { itemId: sourceId } });
+
+            // 4. Transfer Batches and Batch Stocks (No merge needed as batch IDs are unique)
+            await tx.inventoryBatch.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.inventoryBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorBatchStock.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+
+            // 5. Transfer History/Usage (Simple ID Update)
+            await tx.sODMaterialUsage.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.stockRequestItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.stockIssueItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.gRNItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.mRNItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.inventoryTransactionItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorMaterialIssueItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorMaterialReturnItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.projectMaterialReturnItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await tx.contractorWastageItem.updateMany({ where: { itemId: sourceId }, data: { itemId: targetId } });
+            await (tx as any).projectBOQItem.updateMany({ where: { materialId: sourceId }, data: { materialId: targetId } });
+
+            // 6. Update Aliases on Target to include source code and its aliases
+            const sourceAliases = source.importAliases || [];
+            const targetAliases = target.importAliases || [];
+            const mergedAliases = Array.from(new Set([
+                ...targetAliases,
+                source.code, // Main source code becomes an alias
+                ...(source.sltCode ? [source.sltCode] : []),
+                ...sourceAliases
+            ])).filter(Boolean);
+
+            await tx.inventoryItem.update({
+                where: { id: targetId },
+                data: {
+                    importAliases: mergedAliases,
+                    // Optionally preserve generic name if target's is empty
+                    commonName: target.commonName || source.commonName,
+                    // Preserve SLT code if target's is empty
+                    sltCode: target.sltCode || source.sltCode
+                }
+            });
+
+            // 7. Delete Source Item (Relations are gone, so this should work)
+            await tx.inventoryItem.delete({ where: { id: sourceId } });
+        });
+
+        emitSystemEvent('INVENTORY_UPDATE');
+        return true;
+    }
+
     static async deleteItem(id: string): Promise<boolean> {
         if (!id) throw new Error('ID_REQUIRED');
 
