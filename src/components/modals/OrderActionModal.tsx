@@ -204,12 +204,6 @@ export default function OrderActionModal({
     const [ontShortage, setOntShortage] = useState(false);
 
     // Material Usage State (Moved to top)
-    const [materialUsage, setMaterialUsage] = useState<Array<{
-        itemId: string;
-        quantity: string;
-        usageType: 'USED' | 'WASTAGE';
-        comment: string;
-    }>>([]);
 
     // Extended Material View State (Moved to top)
     const [extendedMaterialRows, setExtendedMaterialRows] = useState<Array<{
@@ -262,6 +256,9 @@ export default function OrderActionModal({
                         (pName.includes("DROP WIRE") && item.code === "OSPFTA003") ||
                         (pName.includes("ONT") && (item.name.toUpperCase().includes("ONT") || item.commonName?.toUpperCase().includes("ONT"))) ||
                         (pName.includes("STB") && (item.name.toUpperCase().includes("STB") || item.commonName?.toUpperCase().includes("STB"))) ||
+                        (pName.includes("PVC") && item.name.toUpperCase().includes("PVC")) ||
+                        (pName.includes("CONNECTOR") && item.name.toUpperCase().includes("CONNECTOR")) ||
+                        (pName.includes("HOOK") && item.name.toUpperCase().includes("HOOK")) ||
                         (pName.length > 5 && item.name.toUpperCase().includes(pName))
                     );
 
@@ -307,18 +304,23 @@ export default function OrderActionModal({
     useEffect(() => {
         if (!isOpen) {
             setPrevOrderId(null);
+            setLastAutoSyncId(null); // Reset sync state on close to ensure fresh sync when re-opening
             return;
         }
 
         if (!orderData) return;
 
+        // Create a hash of material usage to detect external changes (from parent/Smart Inspector)
         const materialUsageHash = JSON.stringify(orderData.materialUsage || []);
 
+        // RE-INITIALIZATION: Triggered if Order ID changes OR if external props (material usage) change
         if (orderData.id !== prevOrderId || materialUsageHash !== prevMaterialHash) {
+            console.log("[ACTION-MODAL] Initializing Modal State for SO:", orderData.soNum);
+
             setPrevOrderId(orderData.id);
             setPrevMaterialHash(materialUsageHash);
 
-            // 1. Reset/Pre-fill Item Filter
+            // 1. Pre-fill Item Filter based on package and service type
             const pkg_p = (orderData.package || "").toUpperCase();
             const sType_p = (orderData.serviceType || "").toUpperCase();
             let targetFilter = "ALL";
@@ -331,20 +333,21 @@ export default function OrderActionModal({
             }
             setItemFilter(targetFilter);
 
-            // 2. Pre-fill Date
+            // 2. Pre-fill Action Date
             if (orderData.completedDate) {
                 setDate(new Date(orderData.completedDate));
             } else {
                 setDate(undefined);
             }
 
-            // 3. Reset simple strings
+            // 3. Reset simple strings and flags
             setComment("");
             setReason("");
             setCustomReason("");
             setOntType('NEW');
+            setWiredOnly(orderData.comments?.includes('[WIRED_ONLY]') || false);
 
-            // 4. Pre-fill Serials
+            // 4. Pre-fill Device Serials
             setOntSerialNumber(orderData.ontSerialNumber || "");
 
             const iptvSerialsData = orderData.iptvSerialNumbers
@@ -356,6 +359,7 @@ export default function OrderActionModal({
             const isReturn_local = title?.toUpperCase().includes("RETURN");
             const useExtended_local = showExtendedFields || (isComplete_local && !isReturn_local);
 
+            // If IPTV is required but no serials exist yet, pre-populate empty slots
             if (useExtended_local && iptvCount_val > 0 && iptvSerialsData.length === 0) {
                 setIptvSerials(Array(iptvCount_val).fill(''));
             } else {
@@ -364,7 +368,7 @@ export default function OrderActionModal({
 
             setDpDetails(orderData.dp || "");
 
-            // 5. Pre-fill Material Usage
+            // 5. Pre-fill Material Usage (Convert from Core SOD format to Modal Extended format)
             if (orderData.materialUsage && orderData.materialUsage.length > 0) {
                 interface MaterialRow {
                     itemId: string;
@@ -381,6 +385,7 @@ export default function OrderActionModal({
                     const serial = m.serialNumber || "";
 
                     if (m.usageType === 'PORTAL_SYNC' || m.usageType === 'USED' || m.usageType === 'USED_F1' || m.usageType === 'USED_G1') {
+                        // Check if row already exists for this item (to merge F1/G1 later if needed)
                         rows.push({
                             itemId: m.itemId,
                             usedQty: (m.usageType === 'USED' || m.usageType === 'PORTAL_SYNC') ? qtyStr : '',
@@ -408,24 +413,15 @@ export default function OrderActionModal({
                 });
 
                 setExtendedMaterialRows(rows);
-                setMaterialUsage(orderData.materialUsage.map(m => ({
-                    itemId: m.itemId,
-                    quantity: String(m.quantity),
-                    usageType: (m.usageType === 'WASTAGE' ? 'WASTAGE' : 'USED') as 'USED' | 'WASTAGE',
-                    serialNumber: m.serialNumber || undefined,
-                    comment: m.comment || ''
-                })));
-                setMaterialStatus(orderData.comments?.includes('[MATERIAL_COMPLETED]') ? 'COMPLETED' : 'PENDING');
             } else {
                 setExtendedMaterialRows([]);
-                setMaterialUsage([]);
-                setMaterialStatus('PENDING');
             }
 
-            // 6. Assignment
+            // 6. Assignment and PAT Status
             setOpmcPatStatus(orderData.opmcPatStatus || 'PENDING');
             setSltsPatStatus(orderData.sltsPatStatus || 'PENDING');
             setHoPatStatus(orderData.hoPatStatus || 'PENDING');
+            setMaterialStatus(orderData.comments?.includes('[MATERIAL_COMPLETED]') ? 'COMPLETED' : 'PENDING');
 
             if (orderData.directTeam) {
                 setAssignmentType('DIRECT_TEAM');
@@ -445,14 +441,17 @@ export default function OrderActionModal({
             // 7. Mode
             setCompletionMode(orderData.completionMode as 'ONLINE' | 'OFFLINE' | null || (orderData.orderType?.toUpperCase().includes('MODIFY-LOCATION') ? 'OFFLINE' : 'ONLINE'));
 
-            // AUTO-SYNC TRIGGER: If we are completing/updating and haven't auto-synced for this order yet
+            // AUTO-SYNC TRIGGER: If we are completing/updating and haven't auto-synced for this SO yet (in this modal session)
+            // Triggered only on open or if the order ID changes
             if (isComplete && orderData.id !== lastAutoSyncId) {
                 setLastAutoSyncId(orderData.id);
-                console.log("[ACTION-MODAL] Triggering Auto-Sync for SO:", orderData.soNum);
+                console.log("[ACTION-MODAL] Automated Portal Sync triggered for SO:", orderData.soNum);
                 handlePortalImport();
             }
         }
     }, [isOpen, orderData, prevOrderId, prevMaterialHash, isComplete, title, showExtendedFields, lastAutoSyncId, handlePortalImport]);
+
+
 
     // Filter Items Logic
     const getFilteredItems = () => {
@@ -776,7 +775,16 @@ export default function OrderActionModal({
                         }
                         return materialUsageItems;
                     })
-                    : materialUsage.filter(m => m.itemId && parseFloat(m.quantity) > 0)
+                    : extendedMaterialRows.flatMap(row => {
+                        const items_m = [];
+                        if (row.itemId && (parseFloat(row.usedQty || '0') > 0)) {
+                            items_m.push({ itemId: row.itemId, quantity: row.usedQty, usageType: 'USED', serialNumber: row.serialNumber });
+                        }
+                        if (row.itemId && (parseFloat(row.wastageQty || '0') > 0)) {
+                            items_m.push({ itemId: row.itemId, quantity: row.wastageQty, usageType: 'WASTAGE', serialNumber: row.serialNumber, comment: row.wastageReason });
+                        }
+                        return items_m;
+                    })
             ) : undefined,
             completionMode
         });
