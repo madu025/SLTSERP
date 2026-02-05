@@ -16,7 +16,6 @@ import {
     Box,
     Camera,
     CheckCircle2,
-    CheckCheck,
     Clock,
     Database,
     FileJson,
@@ -99,7 +98,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
             };
             fetchCoreData();
 
-            if (activeTab === "inspector" || activeTab === "summary") {
+            if (activeTab === "inspector") {
                 const fetchBridgeData = async () => {
                     try {
                         const res = await fetch(`/api/service-orders/bridge-data/${selectedOrder.soNum}`);
@@ -185,11 +184,6 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             <TabsTrigger value="inspector" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-indigo-600">
                                 <Activity className="w-3.5 h-3.5 mr-2" />
                                 Smart Inspector
-                            </TabsTrigger>
-                            <TabsTrigger value="summary" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-emerald-600">
-                                <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
-                                Smart Summary
-                                <div className="ml-2 w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -350,6 +344,26 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                         <TabsContent value="inspector" className="p-0 m-0 outline-none min-h-[500px] bg-slate-50/50">
                             <div className="p-6 space-y-8 animate-in fade-in duration-300">
 
+                                <div className="flex items-center justify-between border-b border-indigo-100 pb-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-200">
+                                            <Activity className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-sm font-black uppercase text-slate-800 tracking-tight leading-none">Intelligence Inspector</h2>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Portal Bridge Analysis</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        onClick={handleSync}
+                                        disabled={isSyncing || !bridgeData}
+                                        className="h-8 text-[10px] font-black uppercase bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm"
+                                    >
+                                        {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                        Sync & Persist Data
+                                    </Button>
+                                </div>
+
                                 {/* Core Information Grid (Mimics Smart View) */}
                                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -450,31 +464,43 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2 font-mono">
                                         <Database className="w-3.5 h-3.5 text-amber-500" /> Materials Intelligence
                                     </span>
-                                    <div className="bg-amber-50/20 border border-amber-100 rounded-xl overflow-hidden shadow-sm">
-                                        <div className="bg-white/50 overflow-x-auto">
-                                            <table className="w-full text-[11px]">
-                                                <tbody className="divide-y divide-amber-100/50">
-                                                    {bridgeData?.scrapedData?.materialDetails && bridgeData.scrapedData.materialDetails.length > 0 ? (
-                                                        bridgeData.scrapedData.materialDetails.map((mat, i) => (
-                                                            <tr key={i} className="hover:bg-white transition-colors">
-                                                                <td className="px-5 py-2.5 font-bold text-slate-700">{mat.ITEM || mat.TYPE || mat.NAME}</td>
-                                                                <td className="px-5 py-2.5 text-slate-400 font-medium">{mat.CODE || i.toString().padStart(3, '0')}</td>
-                                                                <td className="px-5 py-2.5 text-right">
-                                                                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 text-[10px] font-black rounded-full px-2.5">
-                                                                        {mat.QTY || mat.QUANTITY}
-                                                                    </Badge>
-                                                                </td>
-                                                            </tr>
-                                                        ))
-                                                    ) : (
-                                                        <tr>
-                                                            <td colSpan={3} className="px-5 py-6 text-center text-slate-400 italic font-medium">No materials intelligence captured for this stream.</td>
-                                                        </tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                    {(() => {
+                                        const mats = bridgeData?.scrapedData?.materialDetails || [];
+                                        const master = bridgeData?.scrapedData?.masterData || {};
+
+                                        // Fallback: If no structured materials, check for mashed usage string
+                                        const mashedUsage = master['MATERIAL DETAILS'] || master['METERIAL DETAILS'] || master['Material usage'] || master['MATERIAL_USAGE'];
+
+                                        const displayMats = mats.length > 0 ? mats : (mashedUsage ? [{ NAME: 'Portal Managed Usage', QTY: String(mashedUsage), CODE: 'SYNC-DATA' }] : []);
+
+                                        return (
+                                            <div className="bg-amber-50/10 border border-amber-100 rounded-xl overflow-hidden shadow-sm">
+                                                <div className="bg-white/50 overflow-x-auto">
+                                                    <table className="w-full text-[11px]">
+                                                        <tbody className="divide-y divide-amber-100/50">
+                                                            {displayMats.length > 0 ? (
+                                                                displayMats.map((mat, i) => (
+                                                                    <tr key={i} className="hover:bg-white transition-colors">
+                                                                        <td className="px-5 py-2.5 font-bold text-slate-700">{mat.ITEM || mat.NAME || mat.TYPE || 'Material'}</td>
+                                                                        <td className="px-5 py-2.5 text-slate-400 font-medium font-mono text-[9px]">{mat.CODE || i.toString().padStart(3, '0')}</td>
+                                                                        <td className="px-5 py-2.5 text-right">
+                                                                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 text-[10px] font-black rounded-full px-2.5">
+                                                                                {mat.QTY || mat.QUANTITY}
+                                                                            </Badge>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))
+                                                            ) : (
+                                                                <tr>
+                                                                    <td colSpan={3} className="px-5 py-6 text-center text-slate-400 italic font-medium">No materials intelligence captured for this stream.</td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Forensic Photo Audit View (Purple/Slate Theme) */}
@@ -520,251 +546,6 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </div>
                         </TabsContent>
 
-                        {/* Tab 3: Smart Summary (Point-wise View) */}
-                        <TabsContent value="summary" className="p-0 m-0 outline-none">
-                            <div className="bg-white">
-                                <div className="bg-emerald-600 px-6 py-4 text-white">
-                                    <h2 className="text-lg font-black uppercase tracking-tight">Service Order - Restructured & Cleaned Summary</h2>
-                                    <p className="text-[10px] opacity-80 font-bold uppercase tracking-widest">Point-wise Analytical View</p>
-                                </div>
-
-                                <div className="p-8 space-y-12">
-                                    {/* 1. Basic Service Order Details */}
-                                    <section>
-                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-4 uppercase tracking-wider flex items-center justify-between">
-                                            <span>1. Basic Service Order Details</span>
-                                            <Badge className="bg-slate-900 text-white border-none text-[10px]">CORE DATA</Badge>
-                                        </h3>
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3">
-                                                <SummaryItem label="Service Order Number" value={coreOrder?.soNum} isBold />
-                                                <SummaryItem label="Installation Type" value={coreOrder?.serviceType} />
-                                                <SummaryItem label="Status" value={coreOrder?.sltsStatus || coreOrder?.status} color="emerald" />
-                                                <SummaryItem label="Mobile Team" value={String(bridgeData?.scrapedData?.teamDetails?.name || bridgeData?.scrapedData?.selectedTeam || "N/A")} />
-                                                <SummaryItem label="Drop Wire Length" value={bridgeData?.scrapedData?.masterData?.['Drop Wire Length'] ? `${bridgeData.scrapedData.masterData['Drop Wire Length']} meters` : "N/A"} />
-                                                <SummaryItem label="Drop Wire Type" value={String(bridgeData?.scrapedData?.masterData?.['Drop Wire Type'] || "N/A")} />
-                                                <SummaryItem label="Number of Poles" value={String(bridgeData?.scrapedData?.masterData?.['Number of Poles'] || "0")} />
-                                            </div>
-
-                                            {/* Pole Types Sub-list */}
-                                            {bridgeData?.scrapedData?.materialDetails?.some(m => m.NAME?.toLowerCase().includes('pole') || m.NAME?.startsWith('PL-')) && (
-                                                <div className="mt-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pole Types Identified:</p>
-                                                    <ul className="space-y-1">
-                                                        {bridgeData.scrapedData.materialDetails
-                                                            .filter(m => m.NAME?.toLowerCase().includes('pole') || m.NAME?.startsWith('PL-'))
-                                                            .map((p, i) => (
-                                                                <li key={i} className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                                                                    <div className="w-1 h-1 bg-slate-400 rounded-full" />
-                                                                    {p.QTY || p.QUANTITY} × {p.NAME}
-                                                                </li>
-                                                            ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-
-                                            {/* Voice Service Sub-section */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-slate-100 border-dashed">
-                                                <SummaryItem label="Voice Service" value={coreOrder?.voiceNumber ? `CREATE (${coreOrder.status})` : "N/A"} />
-                                                {coreOrder?.forensicAudit?.voiceTestStatus && (
-                                                    <div>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Voice Test Details:</p>
-                                                        <div className="text-xs space-y-0.5">
-                                                            <p className="font-bold text-slate-700">Test Type: DURATION (Passed)</p>
-                                                            <p className="text-slate-500">Status: <span className="text-emerald-600 font-black italic">{coreOrder.forensicAudit.voiceTestStatus}</span></p>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    {/* 2. Serial Numbers */}
-                                    <section>
-                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-4 uppercase tracking-wider flex items-center justify-between">
-                                            <span>2. Serial Numbers (Wenama List Karala)</span>
-                                            <Badge className="bg-indigo-600 text-white border-none text-[10px]">EQUIPMENT</Badge>
-                                        </h3>
-                                        <div className="space-y-4">
-                                            <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100 border-dashed">
-                                                <SummaryItem label="ONT Router Serial Number" value={coreOrder?.ontSerialNumber} isMono color="indigo" />
-                                            </div>
-                                            {/* Potential Pole Serials from Audit Data or Scraping */}
-                                            {(() => {
-                                                const forensicPoles = coreOrder?.forensicAudit?.auditData?.filter(a => a.name?.toLowerCase().includes('pole') && a.uuid) || [];
-                                                // Also look into scraped masterData for keys like "Serial Number 1", "SerialNumber_1", "Pole 1 Serial"
-                                                const scrapedPoles = bridgeData?.scrapedData?.masterData ? Object.entries(bridgeData.scrapedData.masterData)
-                                                    .filter(([key, val]) => (key.toLowerCase().includes('serial') && key.toLowerCase().includes('pole')) || (key.toLowerCase().startsWith('serial number') && val))
-                                                    .map(([key, val]) => ({ name: key, uuid: val })) : [];
-
-                                                const allPoles = [...scrapedPoles, ...forensicPoles];
-
-                                                if (allPoles.length === 0) return null;
-
-                                                return (
-                                                    <div className="space-y-3 mt-4">
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pole Serial Numbers (Identified):</p>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                            {allPoles.map((p, i) => (
-                                                                <div key={i} className="bg-white px-3 py-2 rounded-lg border border-slate-200 border-dashed flex justify-between items-center">
-                                                                    <span className="text-[10px] font-bold text-slate-500 truncate mr-2">{p.name || `Pole ${i + 1}`}:</span>
-                                                                    <span className="text-xs font-black font-mono text-indigo-600">{p.uuid}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    </section>
-
-                                    {/* 3. Materials Used */}
-                                    <section>
-                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-4 uppercase tracking-wider flex items-center justify-between">
-                                            <span>3. Materials Used</span>
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-7 text-[10px] font-black uppercase border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white gap-2 transition-all duration-300"
-                                                    onClick={handleSync}
-                                                    disabled={isSyncing || !bridgeData}
-                                                >
-                                                    {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                                    Sync to ERP
-                                                </Button>
-                                                <Badge className="bg-emerald-600 text-white border-none text-[10px]">INVENTORY</Badge>
-                                            </div>
-                                        </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                                            <div>
-                                                <SummaryItem label="Drop Wire" value={bridgeData?.scrapedData?.masterData?.['Drop Wire Length'] ? `${bridgeData.scrapedData.masterData['Drop Wire Length']} meters (${bridgeData.scrapedData.masterData['Drop Wire Type'] || 'FTTH-DW'})` : "N/A"} />
-                                                <SummaryItem label="Poles" value={bridgeData?.scrapedData?.masterData?.['Number of Poles'] ? `${bridgeData.scrapedData.masterData['Number of Poles']} (Total Poles)` : "0"} />
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                                    Grid Materials Checklist:
-                                                    <span className="h-[1px] flex-1 bg-slate-100" />
-                                                </p>
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    {bridgeData?.scrapedData?.materialDetails && bridgeData.scrapedData.materialDetails.length > 0 ? (
-                                                        bridgeData.scrapedData.materialDetails
-                                                            .filter(m => !(m.NAME?.toLowerCase().includes('drop wire') || m.NAME?.toLowerCase().includes('cable')))
-                                                            .map((m, i) => (
-                                                                <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 px-1 transition-colors group">
-                                                                    <div className="flex items-center gap-2">
-                                                                        {coreOrder?.materialUsage?.some(mu => mu.usageType === 'PORTAL_SYNC' && (mu.item?.code === m.CODE || mu.item?.name === m.NAME)) ? (
-                                                                            <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
-                                                                        ) : (
-                                                                            <div className="w-3.5 h-3.5 rounded-full border border-slate-200" />
-                                                                        )}
-                                                                        <span className="font-bold text-slate-600">{m.NAME || m.TYPE || m.CODE}</span>
-                                                                        {(() => {
-                                                                            const syncedMat = coreOrder?.materialUsage?.find(mu => mu.usageType === 'PORTAL_SYNC' && (mu.item?.code === m.CODE || mu.item?.name === m.NAME));
-                                                                            if (!syncedMat) return null;
-                                                                            return (
-                                                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                                                    <span className="text-[8px] font-black bg-emerald-100 text-emerald-600 px-1 rounded uppercase tracking-tighter">Portal Sync</span>
-                                                                                    {syncedMat.serialNumber && (
-                                                                                        <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                                                                            SN: {syncedMat.serialNumber}
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
-                                                                    <span className="font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{m.QTY || m.QUANTITY}</span>
-                                                                </div>
-                                                            ))
-                                                    ) : (
-                                                        <p className="text-xs text-slate-400 italic">No inventory sequence detected.</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </section>
-
-                                    {/* 4. Categorized Audit Photos */}
-                                    <section>
-                                        <h3 className="text-sm font-black text-slate-900 border-b-2 border-slate-900 pb-2 mb-6 uppercase tracking-wider flex items-center justify-between">
-                                            <span>4. Uploaded Images (Categorized)</span>
-                                            <Badge className="bg-indigo-600 text-white border-none text-[10px]">AUDIT COMPLETE</Badge>
-                                        </h3>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            {/* Category A: FDP & Wire */}
-                                            <AuditCategory
-                                                id="A"
-                                                title="Drop Wire & FDP Related"
-                                                items={coreOrder?.forensicAudit?.auditData || []}
-                                                filter={['dw', 'fdp', 'wire', 'card', 'label', 'brand']}
-                                            />
-                                            {/* Category B: Rosette */}
-                                            <AuditCategory
-                                                id="B"
-                                                title="Rosette & Premise Related"
-                                                items={coreOrder?.forensicAudit?.auditData || []}
-                                                filter={['rosette', 'power', 'premise', 'hook', 'outside view']}
-                                            />
-                                            {/* Category C: ONT */}
-                                            <AuditCategory
-                                                id="C"
-                                                title="ONT & Performance"
-                                                items={coreOrder?.forensicAudit?.auditData || []}
-                                                filter={['ont', 'rear', 'wiring', 'wifi', 'strength', 'speed']}
-                                            />
-                                            {/* Category D: Pole */}
-                                            <AuditCategory
-                                                id="D"
-                                                title="Pole Related"
-                                                items={coreOrder?.forensicAudit?.auditData || []}
-                                                filter={['pole', 'l-hook', 'span', 'path', 'sketch', 'upper', 'lower']}
-                                            />
-                                            {/* Category E: Team & Feedback */}
-                                            <AuditCategory
-                                                id="E"
-                                                title="Customer & Team"
-                                                items={coreOrder?.forensicAudit?.auditData || []}
-                                                filter={['customer', 'feedback', 'request', 'team', 'additional']}
-                                                isLast
-                                            />
-                                        </div>
-                                    </section>
-
-                                    {/* 5. Additional Metadata */}
-                                    <section className="bg-slate-900 rounded-2xl p-6 text-white overflow-hidden relative">
-                                        <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-                                            <ShieldCheck className="w-32 h-32" />
-                                        </div>
-                                        <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                                            5. Additional Metadata & Signature
-                                        </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-                                            <div>
-                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Record Generation Timestamp</p>
-                                                <p className="text-xs font-mono text-slate-300">
-                                                    {coreOrder?.createdAt ? new Date(coreOrder.createdAt).toISOString() : new Date().toISOString()}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Current Reviewer Context</p>
-                                                <p className="text-xs font-bold text-blue-300">
-                                                    {bridgeData?.sltUser || "Nisha Hiruni"} - SLTS Intelligence Suite
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Active Tab Reference</p>
-                                                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">
-                                                    {bridgeData?.activeTab || "SERVICE ORDER"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
-                            </div>
-                        </TabsContent>
                     </ScrollArea>
                 </Tabs>
 
@@ -779,51 +560,6 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                 </div>
             </DialogContent>
         </Dialog >
-    );
-}
-
-function SummaryItem({ label, value, isMono = false, isBold = false, color = 'slate' }: { label: string, value: string | null | undefined, isMono?: boolean, isBold?: boolean, color?: 'slate' | 'emerald' | 'indigo' }) {
-    const colorClass = color === 'emerald' ? 'text-emerald-600' : color === 'indigo' ? 'text-indigo-600' : 'text-slate-900';
-    return (
-        <div className="space-y-0.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">{label}</label>
-            <p className={`text-xs ${colorClass} ${isMono ? 'font-mono' : ''} ${isBold ? 'font-black uppercase tracking-tight' : 'font-bold'}`}>
-                {value || 'N/A'}
-            </p>
-        </div>
-    );
-}
-
-function AuditCategory({ id, title, items, filter, isLast = false }: { id: string, title: string, items: AuditItem[], filter: string[], isLast?: boolean }) {
-    const categoryItems = items.filter(item =>
-        filter.some(f => item.name?.toLowerCase().includes(f))
-    );
-
-    return (
-        <div className={`space-y-3 ${isLast ? 'md:col-span-2' : ''}`}>
-            <div className="flex items-center gap-2 mb-2 border-b border-slate-100 pb-2">
-                <span className="text-xs font-black text-slate-300">{id}.</span>
-                <h4 className="text-[11px] font-black text-slate-600 uppercase tracking-widest">{title}</h4>
-            </div>
-            <div className="space-y-1.5">
-                {categoryItems.length > 0 ? (
-                    categoryItems.map((item, i) => (
-                        <div key={i} className="flex justify-between items-center group">
-                            <span className="text-[11px] font-bold text-slate-500 group-hover:text-slate-900 transition-colors">
-                                {item.name || 'Unknown Photo'}
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-mono ${item.status === 'UPLOADED' ? 'text-emerald-500' : 'text-red-400 italic'}`}>
-                                    {item.status === 'UPLOADED' ? (item.uuid || 'SUCCESS') : '(Missing)'}
-                                </span>
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-[10px] text-slate-300 italic">No matching images uploaded for this category.</p>
-                )}
-            </div>
-        </div>
     );
 }
 
