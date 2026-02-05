@@ -33,6 +33,7 @@ const itemSchema = z.object({
     maxWastagePercentage: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     unitPrice: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
     costPrice: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) >= 0, { message: "Must be a valid number >= 0" }),
+    hasSerial: z.boolean(),
     description: z.string().optional(),
     importAliases: z.array(z.string()).optional()
 });
@@ -147,6 +148,7 @@ export default function ItemMasterPage() {
             maxWastagePercentage: '0',
             unitPrice: '0',
             costPrice: '0',
+            hasSerial: false,
             description: '',
             importAliases: []
         }
@@ -170,6 +172,7 @@ export default function ItemMasterPage() {
                     maxWastagePercentage: (editingItem.maxWastagePercentage ?? 0).toString(),
                     unitPrice: (editingItem.unitPrice ?? 0).toString(),
                     costPrice: (editingItem.costPrice ?? 0).toString(),
+                    hasSerial: editingItem.hasSerial ?? false,
                     description: editingItem.description || '',
                     importAliases: editingItem.importAliases || []
                 });
@@ -188,6 +191,7 @@ export default function ItemMasterPage() {
                     maxWastagePercentage: '0',
                     unitPrice: '0',
                     costPrice: '0',
+                    hasSerial: false,
                     description: '',
                     importAliases: []
                 });
@@ -542,6 +546,24 @@ export default function ItemMasterPage() {
                                                 </FormItem>
                                             )} />
                                         )}
+                                    </div>
+
+                                    <div className="p-3 bg-blue-50/50 rounded border border-blue-100 space-y-3">
+                                        <FormField control={form.control} name="hasSerial" render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between rounded-lg p-0 space-y-0">
+                                                <div>
+                                                    <FormLabel className="text-xs font-semibold text-blue-900">Serialized Item</FormLabel>
+                                                    <p className="text-[10px] text-blue-700">Require Serial Number for this item during SOD completion.</p>
+                                                </div>
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                        className="data-[state=checked]:bg-blue-600 border-blue-300"
+                                                    />
+                                                </FormControl>
+                                            </FormItem>
+                                        )} />
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">

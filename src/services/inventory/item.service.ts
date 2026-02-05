@@ -53,6 +53,7 @@ export class ItemService {
                     isWastageAllowed: data.isWastageAllowed !== undefined ? data.isWastageAllowed : true,
                     maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : 0,
                     isOspFtth: data.isOspFtth || false,
+                    hasSerial: data.hasSerial || false,
                     commonName: data.commonName,
                     sltCode: data.sltCode,
                     importAliases: data.importAliases || []
@@ -87,6 +88,7 @@ export class ItemService {
                 isWastageAllowed: data.isWastageAllowed,
                 maxWastagePercentage: data.maxWastagePercentage ? parseFloat(data.maxWastagePercentage.toString()) : undefined,
                 isOspFtth: data.isOspFtth,
+                hasSerial: data.hasSerial,
                 commonName: data.commonName,
                 sltCode: data.sltCode,
                 importAliases: data.importAliases

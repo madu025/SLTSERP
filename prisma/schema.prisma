@@ -643,6 +643,7 @@ model InventoryItem {
   minLevel              Float                          @default(0)
   isWastageAllowed      Boolean                        @default(true)
   maxWastagePercentage  Float                          @default(0)
+  hasSerial             Boolean                        @default(false)
   createdAt             DateTime                       @default(now())
   updatedAt             DateTime                       @updatedAt
   source                String                         @default("SLT")

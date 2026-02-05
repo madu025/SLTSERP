@@ -138,7 +138,7 @@ interface OrderActionModalProps {
         name: string;
         teams?: Array<{ id: string; name: string; sltCode?: string }>;
     }>;
-    items?: Array<{ id: string; name: string; code: string; unit: string; commonFor?: string[]; commonName?: string; isOspFtth?: boolean; type?: string; maxWastagePercentage?: number; isWastageAllowed?: boolean; importAliases?: string[]; }>;
+    items?: Array<{ id: string; name: string; code: string; unit: string; commonFor?: string[]; commonName?: string; isOspFtth?: boolean; type?: string; maxWastagePercentage?: number; isWastageAllowed?: boolean; hasSerial?: boolean; importAliases?: string[]; }>;
     showExtendedFields?: boolean;
     materialSource?: string;
     itemSortOrder?: string[];
@@ -1283,11 +1283,15 @@ export default function OrderActionModal({
                                                                                 ) : <div className="text-center text-slate-300 text-[10px]">-</div>}
                                                                             </td>
                                                                             <td className="px-1 py-2 text-center">
-                                                                                <Input className="h-7 w-12 mx-auto text-center font-mono text-[10px] border-slate-200 focus:border-blue-500 bg-white"
-                                                                                    placeholder="SN"
-                                                                                    value={getQuickQty(q.item.id, 'serialNumber')}
-                                                                                    onChange={(e) => handleQuickAdd(q.item.id, 'serialNumber', e.target.value)}
-                                                                                />
+                                                                                {q.item.hasSerial ? (
+                                                                                    <Input className="h-7 w-12 mx-auto text-center font-mono text-[10px] border-blue-200 focus:border-blue-500 bg-blue-50/30"
+                                                                                        placeholder="SN"
+                                                                                        value={getQuickQty(q.item.id, 'serialNumber')}
+                                                                                        onChange={(e) => handleQuickAdd(q.item.id, 'serialNumber', e.target.value)}
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="text-[10px] text-slate-300 font-mono italic">N/A</div>
+                                                                                )}
                                                                             </td>
                                                                         </tr>
                                                                     );
@@ -1371,7 +1375,11 @@ export default function OrderActionModal({
                                                                             ) : <span className="text-slate-300 text-xs text-center block">-</span>}
                                                                         </td>
                                                                         <td className="px-4 py-2">
-                                                                            <Input placeholder="Serial #" className="h-8 text-xs font-mono" value={row.serialNumber} onChange={e => updateExtendedRow(idx, 'serialNumber', e.target.value)} />
+                                                                            {item?.hasSerial ? (
+                                                                                <Input placeholder="Serial #" className="h-8 text-xs font-mono border-blue-200 focus:border-blue-500 bg-blue-50/20" value={row.serialNumber} onChange={e => updateExtendedRow(idx, 'serialNumber', e.target.value)} />
+                                                                            ) : (
+                                                                                <div className="h-8 flex items-center justify-center text-[10px] text-slate-400 font-mono bg-slate-50 rounded border border-dashed border-slate-200">NO SERIAL REQ.</div>
+                                                                            )}
                                                                         </td>
                                                                         <td className="px-4 py-2 text-center">
                                                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500" onClick={() => removeExtendedRow(idx)}><X className="w-4 h-4" /></Button>

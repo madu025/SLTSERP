@@ -24,6 +24,7 @@ export interface CreateItemData {
     isWastageAllowed?: boolean;
     maxWastagePercentage?: string | number;
     isOspFtth?: boolean;
+    hasSerial?: boolean;
     commonName?: string;
     sltCode?: string;
     importAliases?: string[];
