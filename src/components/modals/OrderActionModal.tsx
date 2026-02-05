@@ -267,16 +267,22 @@ export default function OrderActionModal({
                     const erpItem = matchingItems.find(m => m.type === activeType) || matchingItems[0];
 
                     if (erpItem) {
-                        const existingIdx = updatedRows.findIndex(r => r.itemId === erpItem.id);
                         const serial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['SERIAL NO'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_'] || mat.RAW['IPTV_CPE_SERIAL_NUMBER_']) : "");
 
+                        // Find if ANY variant of this item already exists in the rows
+                        const matchingIds = new Set(matchingItems.map(m => m.id));
+                        const existingIdx = updatedRows.findIndex(r => matchingIds.has(r.itemId));
+
                         if (existingIdx > -1) {
+                            // Update existing row AND migrate to the preferred variant ID (important for UI grouping)
                             updatedRows[existingIdx] = {
                                 ...updatedRows[existingIdx],
+                                itemId: erpItem.id, // Migrate to preferred SLT/SLTS variant
                                 usedQty: qty,
                                 serialNumber: serial || updatedRows[existingIdx].serialNumber
                             };
                         } else {
+                            // Add new row using the preferred variant
                             updatedRows.push({
                                 itemId: erpItem.id,
                                 usedQty: qty,
@@ -388,25 +394,49 @@ export default function OrderActionModal({
                     const qtyStr = String(m.quantity);
                     const serial = m.serialNumber || "";
 
+                    // Normalize ID to preferred variant (SLT/SLTS) based on current materialSource 
+                    // to ensure it shows up in the correct UI section (Standard vs Additional)
+                    const currentItem = items.find(i => i.id === m.itemId);
+                    let targetItemId = m.itemId;
+                    if (currentItem) {
+                        const activeType = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+                        // Match by code or common name to find variants
+                        const variants = items.filter(i =>
+                            (i.commonName && currentItem.commonName && i.commonName === currentItem.commonName) ||
+                            (i.code === currentItem.code) ||
+                            (i.importAliases?.some(a => currentItem.importAliases?.includes(a)))
+                        );
+                        const preferred = variants.find(i => i.type === activeType) || variants[0];
+                        if (preferred) targetItemId = preferred.id;
+                    }
+
                     if (m.usageType === 'PORTAL_SYNC' || m.usageType === 'USED' || m.usageType === 'USED_F1' || m.usageType === 'USED_G1') {
                         // Check if row already exists for this item (to merge F1/G1 later if needed)
-                        rows.push({
-                            itemId: m.itemId,
-                            usedQty: (m.usageType === 'USED' || m.usageType === 'PORTAL_SYNC') ? qtyStr : '',
-                            f1Qty: m.usageType === 'USED_F1' ? qtyStr : '',
-                            g1Qty: m.usageType === 'USED_G1' ? qtyStr : '',
-                            wastageQty: '',
-                            wastageReason: '',
-                            serialNumber: serial
-                        });
+                        const existingIdx = rows.findIndex(r => r.itemId === targetItemId);
+                        if (existingIdx > -1) {
+                            if (m.usageType === 'USED_F1') rows[existingIdx].f1Qty = qtyStr;
+                            else if (m.usageType === 'USED_G1') rows[existingIdx].g1Qty = qtyStr;
+                            else rows[existingIdx].usedQty = qtyStr;
+                            rows[existingIdx].serialNumber = serial || rows[existingIdx].serialNumber;
+                        } else {
+                            rows.push({
+                                itemId: targetItemId,
+                                usedQty: (m.usageType === 'USED' || m.usageType === 'PORTAL_SYNC') ? qtyStr : '',
+                                f1Qty: m.usageType === 'USED_F1' ? qtyStr : '',
+                                g1Qty: m.usageType === 'USED_G1' ? qtyStr : '',
+                                wastageQty: '',
+                                wastageReason: '',
+                                serialNumber: serial
+                            });
+                        }
                     } else if (m.usageType === 'WASTAGE') {
-                        const existingRow = rows.find(r => r.itemId === m.itemId && !r.wastageQty);
+                        const existingRow = rows.find(r => r.itemId === targetItemId && !r.wastageQty);
                         if (existingRow) {
                             existingRow.wastageQty = qtyStr;
                             existingRow.wastageReason = m.comment || '';
                         } else {
                             rows.push({
-                                itemId: m.itemId,
+                                itemId: targetItemId,
                                 usedQty: '', f1Qty: '', g1Qty: '',
                                 wastageQty: qtyStr,
                                 wastageReason: m.comment || '',
@@ -453,7 +483,7 @@ export default function OrderActionModal({
                 handlePortalImport();
             }
         }
-    }, [isOpen, orderData, prevOrderId, prevMaterialHash, isComplete, title, showExtendedFields, lastAutoSyncId, handlePortalImport]);
+    }, [isOpen, orderData, prevOrderId, prevMaterialHash, isComplete, title, showExtendedFields, lastAutoSyncId, handlePortalImport, items, materialSource]);
 
 
 
@@ -1336,10 +1366,10 @@ export default function OrderActionModal({
                                                         </thead>
                                                         <tbody className="divide-y divide-slate-100">
                                                             {extendedMaterialRows.map((row, idx) => {
-                                                                const isQuickItem = quickItems.some((q) => q.item.id === row.itemId);
-                                                                if (isQuickItem) return null;
-
+                                                                // Better filter: Any item marked for OSP FTTH belongs in the top sections, not here
                                                                 const item = items.find(i => i.id === row.itemId);
+                                                                const isStandardItem = item?.isOspFtth || quickItems.some((q) => q.item.id === row.itemId);
+                                                                if (isStandardItem) return null;
                                                                 const maxPerc = (item?.maxWastagePercentage ?? 0);
                                                                 const usedQty = parseFloat(row.usedQty || '0');
                                                                 const wastageQty = parseFloat(row.wastageQty || '0');
