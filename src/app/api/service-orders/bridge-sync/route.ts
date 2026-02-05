@@ -46,6 +46,22 @@ function deepParse(masterData: Record<string, string>) {
     return extracted;
 }
 
+const MATERIAL_MAP: Record<string, string> = {
+    'DROP WIRE': 'OSPFTA003',
+    'FTTH DROP WIRE': 'OSPFTA003',
+    'D-WIRE': 'OSPFTA003',
+    'DW': 'OSPFTA003',
+    'ONT': 'ONT',
+    'ONT ROUTER': 'ONT',
+    'IPTV': 'IPTV-CPE',
+    'STB': 'IPTV-CPE',
+    'SET TOP BOX': 'IPTV-CPE',
+    'PATCH CORD': 'OSPFTA004',
+    'P-CORD': 'OSPFTA004',
+    'OTO': 'OSPFTA005',
+    'ROSETTE': 'OSPFTA005'
+};
+
 export async function OPTIONS() {
     return new NextResponse(null, {
         status: 204,
@@ -55,6 +71,38 @@ export async function OPTIONS() {
             'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role',
         },
     });
+}
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const soNum = searchParams.get('soNum');
+
+    if (!soNum) {
+        return NextResponse.json({ error: 'soNum is required' }, { status: 400 });
+    }
+
+    try {
+        const rawData = await prisma.extensionRawData.findFirst({
+            where: { soNum },
+            orderBy: { updatedAt: 'desc' }
+        });
+
+        if (!rawData) {
+            return NextResponse.json({ success: false, message: 'No bridge data found' });
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scraped = (rawData.scrapedData as any);
+        return NextResponse.json({
+            success: true,
+            materialDetails: scraped?.materialDetails || [],
+            forensicAudit: scraped?.forensicAudit || [],
+            lastSynced: rawData.updatedAt
+        });
+    } catch (error) {
+        console.error('[BRIDGE-GET] Error:', error);
+        return NextResponse.json({ error: 'Failed to fetch bridge data' }, { status: 500 });
+    }
 }
 
 export async function POST(request: Request) {
@@ -368,15 +416,37 @@ export async function POST(request: Request) {
 
                 if (qty > 0 && (code || name)) {
                     // Try to find matching ERP Item
-                    const item = await prisma.inventoryItem.findFirst({
+                    let item = await prisma.inventoryItem.findFirst({
                         where: {
                             OR: [
                                 { code: { equals: code, mode: 'insensitive' } },
                                 { name: { equals: name, mode: 'insensitive' } },
-                                { importAliases: { has: code || "" } }
+                                { importAliases: { has: code || "" } },
+                                { importAliases: { has: name || "" } },
+                                { name: { contains: name || code || "", mode: 'insensitive' } }
                             ]
                         }
                     });
+
+                    // Fallback: Smart Mapping if no direct match found
+                    if (!item) {
+                        const searchKey = (name || code || "").toUpperCase();
+                        let mappedCode = null;
+
+                        // Check for exact phrases in the map
+                        for (const [key, val] of Object.entries(MATERIAL_MAP)) {
+                            if (searchKey.includes(key)) {
+                                mappedCode = val;
+                                break;
+                            }
+                        }
+
+                        if (mappedCode) {
+                            item = await prisma.inventoryItem.findFirst({
+                                where: { code: mappedCode }
+                            });
+                        }
+                    }
 
                     // Extra Serial Discovery for this specific material row
                     const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['SERIAL NO'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_'] || mat.RAW['IPTV_CPE_SERIAL_NUMBER_']) : null);
@@ -392,7 +462,7 @@ export async function POST(request: Request) {
                                 serialNumber: matSerial || null,
                                 unitPrice: item.unitPrice || 0,
                                 costPrice: item.costPrice || 0,
-                                comment: 'Auto-synced from SLT Portal'
+                                comment: `Auto-synced from Portal [Original: ${name || code}]`
                             }
                         });
                     }

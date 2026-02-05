@@ -282,32 +282,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     </div>
                                 )}
 
-                                {/* NEW: Core Database Material Usage Display */}
-                                {coreOrder?.materialUsage && coreOrder.materialUsage.length > 0 && (
-                                    <div className="md:col-span-2 lg:col-span-3">
-                                        <div className="flex items-center gap-2 mb-3 mt-2">
-                                            <Box className="w-3.5 h-3.5 text-blue-600" />
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Database Material Usage</h3>
-                                            <span className="text-[9px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">VERIFIED</span>
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            {coreOrder.materialUsage.map((usage, i) => (
-                                                <div key={i} className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm hover:border-blue-200 transition-colors">
-                                                    <div className="min-w-0">
-                                                        <p className="text-[11px] font-bold text-slate-800 truncate">{usage.item?.name || 'Unknown Item'}</p>
-                                                        <p className="text-[9px] text-slate-400 font-mono uppercase">
-                                                            {usage.item?.code || 'NO-CODE'} • {usage.usageType}
-                                                            {usage.usageType === 'PORTAL_SYNC' && " (Synced)"}
-                                                        </p>
-                                                    </div>
-                                                    <Badge variant="secondary" className="bg-slate-100 text-slate-800 font-black text-[10px] border-none shrink-0">
-                                                        {usage.quantity} {usage.item?.unit}
-                                                    </Badge>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                                {/* Material Usage moved to Smart Inspector tab to avoid duplication */}
 
                                 {/* NEW: Forensic Audit Summary in Standard View */}
                                 {coreOrder?.forensicAudit && (
@@ -459,85 +434,117 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     );
                                 })()}
 
-                                {/* Materials Intelligence Section (Amber Theme) */}
                                 <div className="space-y-3">
-                                    <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2 font-mono">
-                                        <Database className="w-3.5 h-3.5 text-amber-500" /> Materials Intelligence
-                                    </span>
-                                    {(() => {
-                                        const mats = bridgeData?.scrapedData?.materialDetails || [];
-                                        const master = bridgeData?.scrapedData?.masterData || {};
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2 font-mono">
+                                            <Database className="w-3.5 h-3.5 text-amber-500" /> Unified Material Usage
+                                        </span>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Action Modal Sync: Active</span>
+                                    </div>
 
-                                        // Fallback: If no structured materials, check for mashed usage string
-                                        const mashedUsage = master['MATERIAL DETAILS'] || master['METERIAL DETAILS'] || master['Material usage'] || master['MATERIAL_USAGE'];
-
-                                        const displayMats = mats.length > 0 ? mats : (mashedUsage ? [{ NAME: 'Portal Managed Usage', QTY: String(mashedUsage), CODE: 'SYNC-DATA' }] : []);
-
-                                        return (
-                                            <div className="bg-amber-50/10 border border-amber-100 rounded-xl overflow-hidden shadow-sm">
-                                                <div className="bg-white/50 overflow-x-auto">
-                                                    <table className="w-full text-[11px]">
-                                                        <tbody className="divide-y divide-amber-100/50">
-                                                            {displayMats.length > 0 ? (
-                                                                displayMats.map((mat, i) => (
-                                                                    <tr key={i} className="hover:bg-white transition-colors">
-                                                                        <td className="px-5 py-2.5 font-bold text-slate-700">{mat.ITEM || mat.NAME || mat.TYPE || 'Material'}</td>
-                                                                        <td className="px-5 py-2.5 text-slate-400 font-medium font-mono text-[9px]">{mat.CODE || i.toString().padStart(3, '0')}</td>
-                                                                        <td className="px-5 py-2.5 text-right">
-                                                                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 text-[10px] font-black rounded-full px-2.5">
-                                                                                {mat.QTY || mat.QUANTITY}
-                                                                            </Badge>
+                                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-[11px]">
+                                                <thead>
+                                                    <tr className="bg-slate-50 border-b border-slate-100">
+                                                        <th className="px-5 py-2 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Material Item</th>
+                                                        <th className="px-5 py-2 text-left text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                                                        <th className="px-5 py-2 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Quantity</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {coreOrder?.materialUsage && coreOrder.materialUsage.length > 0 ? (
+                                                        coreOrder.materialUsage.map((usage, i) => (
+                                                            <tr key={usage.itemId + i} className="hover:bg-slate-50/50 transition-colors">
+                                                                <td className="px-5 py-3">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-bold text-slate-800">{usage.item?.name || 'Unknown'}</span>
+                                                                        <span className="text-[9px] font-mono text-slate-400 uppercase">{usage.item?.code || 'NO-CODE'} {usage.serialNumber ? `• SN: ${usage.serialNumber}` : ''}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-5 py-3">
+                                                                    <Badge variant="outline" className={cn(
+                                                                        "text-[8px] font-black uppercase px-1.5 py-0 border-none",
+                                                                        usage.usageType === 'PORTAL_SYNC' ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
+                                                                    )}>
+                                                                        {usage.usageType === 'PORTAL_SYNC' ? 'Portal Sync' : usage.usageType}
+                                                                    </Badge>
+                                                                </td>
+                                                                <td className="px-5 py-3 text-right">
+                                                                    <span className="font-black text-slate-900">{usage.quantity}</span>
+                                                                    <span className="ml-1 text-[9px] font-bold text-slate-400 uppercase">{usage.item?.unit || 'Nos'}</span>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <>
+                                                            {/* Fallback to live bridge data if nothing persisted yet */}
+                                                            {bridgeData?.scrapedData?.materialDetails && bridgeData.scrapedData.materialDetails.length > 0 ? (
+                                                                bridgeData.scrapedData.materialDetails.map((mat, i) => (
+                                                                    <tr key={i} className="hover:bg-amber-50/10 transition-colors bg-amber-50/5">
+                                                                        <td className="px-5 py-3 font-bold text-slate-700">
+                                                                            {mat.NAME || mat.ITEM || 'Portal Material'}
+                                                                            <span className="block text-[8px] text-amber-500 uppercase font-black tracking-tighter mt-0.5">PENDING SYNC</span>
+                                                                        </td>
+                                                                        <td className="px-5 py-3">
+                                                                            <Badge variant="outline" className="text-[8px] font-black uppercase px-1.5 py-0 bg-white text-slate-400 border-slate-200">UNSAVED</Badge>
+                                                                        </td>
+                                                                        <td className="px-5 py-3 text-right">
+                                                                            <span className="font-black text-amber-600">{mat.QTY || mat.QUANTITY}</span>
                                                                         </td>
                                                                     </tr>
                                                                 ))
                                                             ) : (
                                                                 <tr>
-                                                                    <td colSpan={3} className="px-5 py-6 text-center text-slate-400 italic font-medium">No materials intelligence captured for this stream.</td>
+                                                                    <td colSpan={3} className="px-5 py-8 text-center text-slate-400 italic font-medium">No materials captured from portal or added manually.</td>
                                                                 </tr>
                                                             )}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
+                                                        </>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Forensic Photo Audit View (Purple/Slate Theme) */}
                                 <div className="space-y-4">
                                     <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2 font-mono">
-                                        <Layers className="w-3.5 h-3.5 text-purple-500" /> Forensic Photo Audit
+                                        <Layers className="w-3.5 h-3.5 text-purple-500" /> Forensic Photo Audit Intelligence
                                     </span>
 
-                                    <div className="grid grid-cols-1 gap-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {coreOrder?.forensicAudit?.auditData && coreOrder.forensicAudit.auditData.length > 0 ? (
-                                            coreOrder.forensicAudit.auditData.map((item, idx) => {
-                                                const isMissing = item.status === 'MISSING';
-
-                                                return (
-                                                    <div key={idx} className="flex items-center justify-between p-3.5 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all group">
-                                                        <div className="flex flex-col gap-0.5">
-                                                            <span className="text-[11px] font-extrabold text-slate-700 leading-tight">
-                                                                {item.name}
-                                                            </span>
-                                                            {!isMissing && item.uuid && (
-                                                                <span className="text-[9px] font-mono text-slate-400">UUID: {item.uuid}</span>
-                                                            )}
-                                                        </div>
-                                                        <Badge
-                                                            variant={isMissing ? 'destructive' : 'default'}
-                                                            className={cn(
-                                                                "text-[9px] font-black uppercase rounded-lg px-2 py-0.5 tracking-tighter",
-                                                                !isMissing && "bg-emerald-500 hover:bg-emerald-600"
-                                                            )}
-                                                        >
-                                                            {isMissing ? '❌ Missing' : '✅ Uploaded'}
-                                                        </Badge>
-                                                    </div>
-                                                );
-                                            })
+                                            <>
+                                                <AuditGridCategory
+                                                    title="Category A: Drop Wire & FDP"
+                                                    items={coreOrder.forensicAudit.auditData}
+                                                    filter={['dw', 'fdp', 'wire', 'card', 'label', 'brand']}
+                                                />
+                                                <AuditGridCategory
+                                                    title="Category B: Rosette & Premise"
+                                                    items={coreOrder.forensicAudit.auditData}
+                                                    filter={['rosette', 'power', 'premise', 'hook', 'outside']}
+                                                />
+                                                <AuditGridCategory
+                                                    title="Category C: ONT & Performance"
+                                                    items={coreOrder.forensicAudit.auditData}
+                                                    filter={['ont', 'rear', 'wiring', 'wifi', 'strength', 'speed']}
+                                                />
+                                                <AuditGridCategory
+                                                    title="Category D: Pole Infographics"
+                                                    items={coreOrder.forensicAudit.auditData}
+                                                    filter={['pole', 'l-hook', 'span', 'path', 'sketch', 'upper', 'lower']}
+                                                />
+                                                <AuditGridCategory
+                                                    title="Category E: Team & Feedback"
+                                                    items={coreOrder.forensicAudit.auditData}
+                                                    filter={['customer', 'feedback', 'request', 'team', 'additional']}
+                                                    isFullWidth
+                                                />
+                                            </>
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
+                                            <div className="col-span-full flex flex-col items-center justify-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
                                                 <p className="text-xs text-slate-400 font-medium italic">No forensic audit data available.</p>
                                             </div>
                                         )}
@@ -573,6 +580,42 @@ function DetailItem({ icon, label, value, isMono = false, isBold = false }: { ic
             <p className={`text-[13px] text-slate-900 leading-tight ${isMono ? 'font-mono' : ''} ${isBold ? 'font-extrabold' : 'font-semibold'}`}>
                 {value || '-'}
             </p>
+        </div>
+    );
+}
+
+function AuditGridCategory({ title, items, filter, isFullWidth = false }: { title: string, items: AuditItem[], filter: string[], isFullWidth?: boolean }) {
+    const categoryItems = items.filter(item =>
+        filter.some(f => item.name?.toLowerCase().includes(f))
+    );
+
+    if (categoryItems.length === 0) return null;
+
+    return (
+        <div className={cn("space-y-3", isFullWidth && "md:col-span-2")}>
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-indigo-50 pb-2">{title}</h4>
+            <div className="space-y-1.5">
+                {categoryItems.map((item, idx) => {
+                    const isMissing = item.status === 'MISSING';
+                    return (
+                        <div key={idx} className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-indigo-200 transition-all group">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-700 truncate max-w-[150px]">{item.name}</span>
+                                {!isMissing && item.uuid && <span className="text-[8px] font-mono text-indigo-400 italic">ID: {item.uuid}</span>}
+                            </div>
+                            <Badge
+                                variant={isMissing ? 'destructive' : 'default'}
+                                className={cn(
+                                    "text-[8px] font-black uppercase px-1.5 py-0 rounded",
+                                    !isMissing && "bg-emerald-500 hover:bg-emerald-600"
+                                )}
+                            >
+                                {isMissing ? 'MISSING' : 'OK'}
+                            </Badge>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }

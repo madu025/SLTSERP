@@ -1123,7 +1123,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     isReturn={pendingStatusChange?.newStatus === 'RETURN'}
                     isComplete={pendingStatusChange?.newStatus === 'COMPLETED'}
                     orderData={selectedOrder ? {
-                        id: selectedOrder.id, // Added ID
+                        id: selectedOrder.id,
+                        soNum: selectedOrder.soNum, // Added for portal sync
                         package: selectedOrder.package,
                         serviceType: selectedOrder.serviceType, // Pass Service Type
                         orderType: selectedOrder.orderType,     // Pass Order Type

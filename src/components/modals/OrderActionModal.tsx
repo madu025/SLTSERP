@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, X, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info, RotateCcw, MapPin } from "lucide-react";
+import { CalendarIcon, Plus, X, Save, ChevronsUpDown, Check, AlertCircle, Users, CheckCircle2, XCircle, Clock, Info, RotateCcw, MapPin, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -105,7 +105,8 @@ interface OrderActionModalProps {
     isReturn?: boolean;
     isComplete?: boolean;
     orderData?: {
-        id: string; // Added for type safety
+        id: string;
+        soNum?: string; // Added
         package?: string | null;
         serviceType?: string | null; // Added
         orderType?: string | null;   // Added
@@ -228,145 +229,230 @@ export default function OrderActionModal({
     // const [step, setStep] = useState(1);
 
 
-    // Auto-detect filter based on order
-    // Start of sync
-    // Reset state when modal closes to ensure fresh init on next open
-    if (!isOpen && prevOrderId !== null) {
-        setPrevOrderId(null);
-    }
 
-    // Initial sync
-    if (isOpen && orderData && orderData.id !== prevOrderId) {
-        setPrevOrderId(orderData.id);
-        // 1. Reset/Pre-fill Item Filter
-        const pkg_p = (orderData.package || "").toUpperCase();
-        const sType_p = (orderData.serviceType || "").toUpperCase();
-        let targetFilter = "ALL";
-        if (pkg_p.includes("FIBER") || pkg_p.includes("FTTH") || sType_p.includes("FTTH")) {
-            targetFilter = "FTTH";
-        } else if (pkg_p.includes("PEO") || sType_p.includes("IPTV")) {
-            targetFilter = "FTTH";
-        } else if (pkg_p.includes("MEGALINE") || pkg_p.includes("VOICE") || sType_p.includes("PSTN")) {
-            targetFilter = "PSTN";
-        }
-        setItemFilter(targetFilter);
+    const [prevMaterialHash, setPrevMaterialHash] = useState("");
+    const [lastAutoSyncId, setLastAutoSyncId] = useState<string | null>(null);
 
-        // 2. Pre-fill Date
-        if (orderData.completedDate) {
-            setDate(new Date(orderData.completedDate));
-        } else {
-            setDate(undefined);
-        }
+    const handlePortalImport = useCallback(async () => {
+        if (!orderData?.soNum) return;
+        const loadingToast = toast.loading("Fetching portal data...");
+        try {
+            const res = await fetch(`/api/service-orders/bridge-sync?soNum=${orderData.soNum}`);
+            const data = await res.json();
 
-        // 3. Reset simple strings
-        setComment("");
-        setReason("");
-        setCustomReason("");
-        setOntType('NEW');
-
-        // 4. Pre-fill Serials
-        setOntSerialNumber(orderData.ontSerialNumber || "");
-
-        const iptvSerialsData = orderData.iptvSerialNumbers
-            ? (Array.isArray(orderData.iptvSerialNumbers) ? orderData.iptvSerialNumbers : [orderData.iptvSerialNumbers])
-            : [];
-
-        const iptvCount_val = orderData.iptv ? parseInt(orderData.iptv) : 0;
-        const isComplete_local = title?.toUpperCase().includes("COMPLETE");
-        const isReturn_local = title?.toUpperCase().includes("RETURN");
-        const useExtended_local = showExtendedFields || (isComplete_local && !isReturn_local);
-
-        if (useExtended_local && iptvCount_val > 0 && iptvSerialsData.length === 0) {
-            setIptvSerials(Array(iptvCount_val).fill(''));
-        } else {
-            setIptvSerials(iptvSerialsData);
-        }
-
-        setDpDetails(orderData.dp || "");
-
-        // 5. Pre-fill Material Usage
-        if (orderData.materialUsage && orderData.materialUsage.length > 0) {
-            interface MaterialRow {
-                itemId: string;
-                usedQty: string;
-                wastageQty: string;
-                f1Qty: string;
-                g1Qty: string;
-                wastageReason: string;
-                serialNumber: string;
+            if (!data.success || !data.materialDetails || data.materialDetails.length === 0) {
+                toast.dismiss(loadingToast);
+                toast.error(data.message || "No portal material data found. Please sync from Smart Inspector first.");
+                return;
             }
-            const rows: MaterialRow[] = [];
 
-            orderData.materialUsage.forEach(m => {
-                const qtyStr = String(m.quantity);
-                const serial = m.serialNumber || "";
+            let matchCount = 0;
 
-                if (m.usageType === 'PORTAL_SYNC' || m.usageType === 'USED' || m.usageType === 'USED_F1' || m.usageType === 'USED_G1') {
-                    rows.push({
-                        itemId: m.itemId,
-                        usedQty: (m.usageType === 'USED' || m.usageType === 'PORTAL_SYNC') ? qtyStr : '',
-                        f1Qty: m.usageType === 'USED_F1' ? qtyStr : '',
-                        g1Qty: m.usageType === 'USED_G1' ? qtyStr : '',
-                        wastageQty: '',
-                        wastageReason: '',
-                        serialNumber: serial
-                    });
-                } else if (m.usageType === 'WASTAGE') {
-                    // Attach wastage to an existing row of the same itemId if it doesn't have wastage yet
-                    const existingRow = rows.find(r => r.itemId === m.itemId && !r.wastageQty);
-                    if (existingRow) {
-                        existingRow.wastageQty = qtyStr;
-                        existingRow.wastageReason = m.comment || '';
-                    } else {
-                        rows.push({
-                            itemId: m.itemId,
-                            usedQty: '', f1Qty: '', g1Qty: '',
-                            wastageQty: qtyStr,
-                            wastageReason: m.comment || '',
-                            serialNumber: ''
-                        });
+            setExtendedMaterialRows(prevRows => {
+                const updatedRows = [...prevRows];
+                for (const mat of data.materialDetails) {
+                    const pCode = (mat.CODE || mat.TYPE || "").toUpperCase();
+                    const pName = (mat.NAME || "").toUpperCase();
+                    const qty = String(mat.QTY || mat.qty || "0");
+
+                    const erpItem = items.find(item =>
+                        item.code.toUpperCase() === pCode ||
+                        item.name.toUpperCase() === pName ||
+                        item.importAliases?.some((a: string) => a.toUpperCase() === pCode || a.toUpperCase() === pName) ||
+                        (pName.includes("DROP WIRE") && item.code === "OSPFTA003") ||
+                        (pName.includes("ONT") && (item.name.toUpperCase().includes("ONT") || item.commonName?.toUpperCase().includes("ONT"))) ||
+                        (pName.includes("STB") && (item.name.toUpperCase().includes("STB") || item.commonName?.toUpperCase().includes("STB"))) ||
+                        (pName.length > 5 && item.name.toUpperCase().includes(pName))
+                    );
+
+                    if (erpItem) {
+                        const existingIdx = updatedRows.findIndex(r => r.itemId === erpItem.id);
+                        const serial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['SERIAL NO'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_'] || mat.RAW['IPTV_CPE_SERIAL_NUMBER_']) : "");
+
+                        if (existingIdx > -1) {
+                            updatedRows[existingIdx] = {
+                                ...updatedRows[existingIdx],
+                                usedQty: qty,
+                                serialNumber: serial || updatedRows[existingIdx].serialNumber
+                            };
+                        } else {
+                            updatedRows.push({
+                                itemId: erpItem.id,
+                                usedQty: qty,
+                                wastageQty: "0",
+                                serialNumber: serial || ""
+                            });
+                        }
+                        matchCount++;
                     }
                 }
+                return updatedRows;
             });
 
-            setExtendedMaterialRows(rows);
-            setMaterialUsage(orderData.materialUsage.map(m => ({
-                itemId: m.itemId,
-                quantity: String(m.quantity),
-                usageType: (m.usageType === 'WASTAGE' ? 'WASTAGE' : 'USED') as 'USED' | 'WASTAGE',
-                serialNumber: m.serialNumber || undefined,
-                comment: m.comment || ''
-            })));
-            setMaterialStatus(orderData.comments?.includes('[MATERIAL_COMPLETED]') ? 'COMPLETED' : 'PENDING');
-        } else {
-            setExtendedMaterialRows([]);
-            setMaterialUsage([]);
-            setMaterialStatus('PENDING');
+            if (matchCount > 0) {
+                toast.dismiss(loadingToast);
+                toast.success(`Successfully mapped ${matchCount} items from portal`);
+            } else {
+                toast.dismiss(loadingToast);
+                toast.error("Could not match portal items to ERP. Please map them in Smart Inspector first.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.dismiss(loadingToast);
+            toast.error("Failed to import from portal");
+        }
+    }, [orderData?.soNum, items]);
+
+    // Initial sync & Auto-Portal Sync
+    useEffect(() => {
+        if (!isOpen) {
+            setPrevOrderId(null);
+            return;
         }
 
-        // 6. Assignment
-        setOpmcPatStatus(orderData.opmcPatStatus || 'PENDING');
-        setSltsPatStatus(orderData.sltsPatStatus || 'PENDING');
-        setHoPatStatus(orderData.hoPatStatus || 'PENDING');
+        if (!orderData) return;
 
-        if (orderData.directTeam) {
-            setAssignmentType('DIRECT_TEAM');
-            setDirectTeamName(orderData.directTeam);
-            setSelectedContractorId("");
-            setSelectedTeamId("");
-        } else if (orderData.contractorId) {
-            setAssignmentType('CONTRACTOR');
-            setSelectedContractorId(orderData.contractorId);
-            setSelectedTeamId(orderData.teamId || "");
-        } else {
-            setAssignmentType('CONTRACTOR');
-            setSelectedContractorId("");
-            setSelectedTeamId("");
+        const materialUsageHash = JSON.stringify(orderData.materialUsage || []);
+
+        if (orderData.id !== prevOrderId || materialUsageHash !== prevMaterialHash) {
+            setPrevOrderId(orderData.id);
+            setPrevMaterialHash(materialUsageHash);
+
+            // 1. Reset/Pre-fill Item Filter
+            const pkg_p = (orderData.package || "").toUpperCase();
+            const sType_p = (orderData.serviceType || "").toUpperCase();
+            let targetFilter = "ALL";
+            if (pkg_p.includes("FIBER") || pkg_p.includes("FTTH") || sType_p.includes("FTTH")) {
+                targetFilter = "FTTH";
+            } else if (pkg_p.includes("PEO") || sType_p.includes("IPTV")) {
+                targetFilter = "FTTH";
+            } else if (pkg_p.includes("MEGALINE") || pkg_p.includes("VOICE") || sType_p.includes("PSTN")) {
+                targetFilter = "PSTN";
+            }
+            setItemFilter(targetFilter);
+
+            // 2. Pre-fill Date
+            if (orderData.completedDate) {
+                setDate(new Date(orderData.completedDate));
+            } else {
+                setDate(undefined);
+            }
+
+            // 3. Reset simple strings
+            setComment("");
+            setReason("");
+            setCustomReason("");
+            setOntType('NEW');
+
+            // 4. Pre-fill Serials
+            setOntSerialNumber(orderData.ontSerialNumber || "");
+
+            const iptvSerialsData = orderData.iptvSerialNumbers
+                ? (Array.isArray(orderData.iptvSerialNumbers) ? orderData.iptvSerialNumbers : [orderData.iptvSerialNumbers])
+                : [];
+
+            const iptvCount_val = orderData.iptv ? parseInt(orderData.iptv) : 0;
+            const isComplete_local = title?.toUpperCase().includes("COMPLETE");
+            const isReturn_local = title?.toUpperCase().includes("RETURN");
+            const useExtended_local = showExtendedFields || (isComplete_local && !isReturn_local);
+
+            if (useExtended_local && iptvCount_val > 0 && iptvSerialsData.length === 0) {
+                setIptvSerials(Array(iptvCount_val).fill(''));
+            } else {
+                setIptvSerials(iptvSerialsData);
+            }
+
+            setDpDetails(orderData.dp || "");
+
+            // 5. Pre-fill Material Usage
+            if (orderData.materialUsage && orderData.materialUsage.length > 0) {
+                interface MaterialRow {
+                    itemId: string;
+                    usedQty: string;
+                    wastageQty: string;
+                    f1Qty: string;
+                    g1Qty: string;
+                    wastageReason: string;
+                    serialNumber: string;
+                }
+                const rows: MaterialRow[] = [];
+                orderData.materialUsage.forEach(m => {
+                    const qtyStr = String(m.quantity);
+                    const serial = m.serialNumber || "";
+
+                    if (m.usageType === 'PORTAL_SYNC' || m.usageType === 'USED' || m.usageType === 'USED_F1' || m.usageType === 'USED_G1') {
+                        rows.push({
+                            itemId: m.itemId,
+                            usedQty: (m.usageType === 'USED' || m.usageType === 'PORTAL_SYNC') ? qtyStr : '',
+                            f1Qty: m.usageType === 'USED_F1' ? qtyStr : '',
+                            g1Qty: m.usageType === 'USED_G1' ? qtyStr : '',
+                            wastageQty: '',
+                            wastageReason: '',
+                            serialNumber: serial
+                        });
+                    } else if (m.usageType === 'WASTAGE') {
+                        const existingRow = rows.find(r => r.itemId === m.itemId && !r.wastageQty);
+                        if (existingRow) {
+                            existingRow.wastageQty = qtyStr;
+                            existingRow.wastageReason = m.comment || '';
+                        } else {
+                            rows.push({
+                                itemId: m.itemId,
+                                usedQty: '', f1Qty: '', g1Qty: '',
+                                wastageQty: qtyStr,
+                                wastageReason: m.comment || '',
+                                serialNumber: ''
+                            });
+                        }
+                    }
+                });
+
+                setExtendedMaterialRows(rows);
+                setMaterialUsage(orderData.materialUsage.map(m => ({
+                    itemId: m.itemId,
+                    quantity: String(m.quantity),
+                    usageType: (m.usageType === 'WASTAGE' ? 'WASTAGE' : 'USED') as 'USED' | 'WASTAGE',
+                    serialNumber: m.serialNumber || undefined,
+                    comment: m.comment || ''
+                })));
+                setMaterialStatus(orderData.comments?.includes('[MATERIAL_COMPLETED]') ? 'COMPLETED' : 'PENDING');
+            } else {
+                setExtendedMaterialRows([]);
+                setMaterialUsage([]);
+                setMaterialStatus('PENDING');
+            }
+
+            // 6. Assignment
+            setOpmcPatStatus(orderData.opmcPatStatus || 'PENDING');
+            setSltsPatStatus(orderData.sltsPatStatus || 'PENDING');
+            setHoPatStatus(orderData.hoPatStatus || 'PENDING');
+
+            if (orderData.directTeam) {
+                setAssignmentType('DIRECT_TEAM');
+                setDirectTeamName(orderData.directTeam);
+                setSelectedContractorId("");
+                setSelectedTeamId("");
+            } else if (orderData.contractorId) {
+                setAssignmentType('CONTRACTOR');
+                setSelectedContractorId(orderData.contractorId);
+                setSelectedTeamId(orderData.teamId || "");
+            } else {
+                setAssignmentType('CONTRACTOR');
+                setSelectedContractorId("");
+                setSelectedTeamId("");
+            }
+
+            // 7. Mode
+            setCompletionMode(orderData.completionMode as 'ONLINE' | 'OFFLINE' | null || (orderData.orderType?.toUpperCase().includes('MODIFY-LOCATION') ? 'OFFLINE' : 'ONLINE'));
+
+            // AUTO-SYNC TRIGGER: If we are completing/updating and haven't auto-synced for this order yet
+            if (isComplete && orderData.id !== lastAutoSyncId) {
+                setLastAutoSyncId(orderData.id);
+                console.log("[ACTION-MODAL] Triggering Auto-Sync for SO:", orderData.soNum);
+                handlePortalImport();
+            }
         }
-
-        // 7. Mode
-        setCompletionMode(orderData.completionMode as 'ONLINE' | 'OFFLINE' | null || (orderData.orderType?.toUpperCase().includes('MODIFY-LOCATION') ? 'OFFLINE' : 'ONLINE'));
-    }
+    }, [isOpen, orderData, prevOrderId, prevMaterialHash, isComplete, title, showExtendedFields, lastAutoSyncId, handlePortalImport]);
 
     // Filter Items Logic
     const getFilteredItems = () => {
@@ -435,6 +521,7 @@ export default function OrderActionModal({
         setExtendedMaterialRows(newRows);
         (toast as unknown as { info: (m: string) => void })?.info(`${type === 'STANDARD' ? 'Standard' : 'Fresh'} materials applied`);
     };
+
 
 
     const addExtendedRow = () => {
@@ -981,6 +1068,17 @@ export default function OrderActionModal({
                                                     >
                                                         <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
                                                         RESET ALL
+                                                    </Button>
+
+                                                    <div className="w-[1px] h-4 bg-slate-200 mx-1" />
+
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-8 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                                                        onClick={handlePortalImport}
+                                                    >
+                                                        <Activity className="w-3.5 h-3.5 mr-1.5" />
+                                                        IMPORT FROM PORTAL
                                                     </Button>
                                                 </div>
                                                 <div className="hidden md:flex items-center gap-1 text-[10px] text-slate-400 italic">
