@@ -12,14 +12,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ServiceOrder, AuditItem } from "@/types/service-order";
 import {
     Activity,
+    AlertTriangle,
     Box,
     Camera,
     CheckCircle2,
     CheckCheck,
     Clock,
+    Database,
     FileJson,
     History,
     Info,
+    Layers,
     Package,
     RefreshCw,
     ShieldCheck,
@@ -28,11 +31,14 @@ import {
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 // Define the shape of the extended ServiceOrder
 export type DetailedServiceOrder = ServiceOrder & {
     woroSeit?: string | null;
     ftthInstSeit?: string | null;
+    team?: { name: string } | null;
+    directTeam?: string | null;
     forensicAudit?: {
         auditData: AuditItem[];
         voiceTestStatus: string | null;
@@ -46,16 +52,17 @@ export interface BridgeData {
     updatedAt?: string;
     url?: string;
     scrapedData?: {
-        teamDetails?: { name?: string };
+        teamDetails?: Record<string, string | number | boolean | null | undefined>;
         selectedTeam?: string;
-        masterData?: Record<string, string>;
-        materialDetails?: Array<{
+        masterData?: Record<string, string | number | boolean | null | undefined>;
+        materialDetails?: {
+            ITEM?: string;
             NAME?: string;
             TYPE?: string;
             CODE?: string;
-            QTY?: string;
-            QUANTITY?: string;
-        }>;
+            QTY?: string | number;
+            QUANTITY?: string | number;
+        }[];
     };
 }
 
@@ -340,76 +347,73 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="inspector" className="p-6 m-0 outline-none relative min-h-[400px]">
-                            <div className="space-y-6">
-                                {/* Header Info mimics Data Inspector */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <InspectorCard
-                                        label="ONT Serial"
-                                        value={coreOrder?.ontSerialNumber || bridgeData?.scrapedData?.masterData?.['ONT_ROUTER_SERIAL_NUMBER'] || bridgeData?.scrapedData?.masterData?.['ONT_ROUTER_SERIAL_NUMBER_'] || "PENDING"}
-                                        icon={<ShieldCheck className="w-4 h-4" />}
-                                        color="emerald"
-                                        isMono
-                                    />
-                                    <InspectorCard
-                                        label="Pole Serials"
-                                        value={(() => {
-                                            const forensicPoles = coreOrder?.forensicAudit?.auditData?.filter(a => a.name?.toLowerCase().includes('pole') && a.uuid) || [];
-                                            const scrapedPoles = bridgeData?.scrapedData?.masterData ? Object.entries(bridgeData.scrapedData.masterData)
-                                                .filter(([key, val]) => (key.toLowerCase().includes('serial') && key.toLowerCase().includes('pole')) || (key.toLowerCase().startsWith('serial number') && val && val.length > 5))
-                                                .map(([, val]) => val) : [];
+                        <TabsContent value="inspector" className="p-0 m-0 outline-none min-h-[500px] bg-slate-50/50">
+                            <div className="p-6 space-y-8 animate-in fade-in duration-300">
 
-                                            const allPoles = Array.from(new Set([...forensicPoles.map(p => p.uuid), ...scrapedPoles].filter(Boolean)));
-                                            return allPoles.length > 0 ? allPoles.join(', ') : "N/A";
-                                        })()}
-                                        icon={<Box className="w-4 h-4" />}
-                                        color="indigo"
-                                        isMono
-                                    />
-                                    <InspectorCard
-                                        label="Voice Test"
-                                        value={coreOrder?.forensicAudit?.voiceTestStatus || "NOT TESTED"}
-                                        icon={<Smartphone className="w-4 h-4" />}
-                                        color={coreOrder?.forensicAudit?.voiceTestStatus?.includes('PASS') ? 'emerald' : 'amber'}
-                                    />
-                                    <InspectorCard
-                                        label="Portal S-Val"
-                                        value={bridgeData?.scrapedData?.masterData?.['STATUS VALUE'] || bridgeData?.scrapedData?.masterData?.['SVAL_HIDDEN'] || "101000"}
-                                        icon={<FileJson className="w-4 h-4" />}
-                                        color="slate"
-                                    />
+                                {/* Core Information Grid (Mimics Smart View) */}
+                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                        <span className="text-[10px] uppercase font-black text-slate-400 mb-1">SO Number</span>
+                                        <span className="text-xs font-black text-blue-600 tracking-tight">{coreOrder?.soNum || "N/A"}</span>
+                                    </div>
+                                    <div className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                        <span className="text-[10px] uppercase font-black text-slate-400 mb-1">Portal User</span>
+                                        <span className="text-xs font-bold text-slate-800">{bridgeData?.sltUser || "N/A"}</span>
+                                    </div>
+                                    <div className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                        <span className="text-[10px] uppercase font-black text-slate-400 mb-1">Active Tab</span>
+                                        <span className="text-xs font-bold text-slate-800 uppercase">{bridgeData?.activeTab || "N/A"}</span>
+                                    </div>
+                                    <div className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                        <span className="text-[10px] uppercase font-black text-slate-400 mb-1">Selected Team</span>
+                                        <span className="text-xs font-bold text-blue-600">{bridgeData?.scrapedData?.teamDetails?.['SELECTED TEAM'] || coreOrder?.team?.name || coreOrder?.directTeam || "NOT SELECTED"}</span>
+                                    </div>
+                                    <div className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                        <span className="text-[10px] uppercase font-black text-slate-400 mb-1">ONT Serial</span>
+                                        <span className="text-xs font-bold text-purple-600 font-mono tracking-tighter">
+                                            {coreOrder?.ontSerialNumber || bridgeData?.scrapedData?.masterData?.['ONT_ROUTER_SERIAL_NUMBER'] || bridgeData?.scrapedData?.masterData?.['ONT_ROUTER_SERIAL_NUMBER_'] || "PENDING"}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                        <span className="text-[10px] uppercase font-black text-slate-400 mb-1">Portal S-VAL</span>
+                                        <span className="text-xs font-bold text-slate-700 font-mono">
+                                            {bridgeData?.scrapedData?.masterData?.['STATUS VALUE'] || bridgeData?.scrapedData?.masterData?.['SVAL_HIDDEN'] || "101000"}
+                                        </span>
+                                    </div>
 
-                                    {/* New Forensic Cards */}
-                                    {bridgeData?.scrapedData?.masterData?.['SALES_PERSON'] && (
-                                        <InspectorCard
-                                            label="Sales Agent"
-                                            value={bridgeData.scrapedData.masterData['SALES_PERSON'].split('DP LOOP')[0]?.trim()}
-                                            icon={<User className="w-4 h-4" />}
-                                            color="blue"
-                                        />
-                                    )}
-                                    {(bridgeData?.scrapedData?.masterData?.['IPTV1_HIDDEN'] || bridgeData?.scrapedData?.masterData?.['IPTV_SO']) && (
-                                        <InspectorCard
-                                            label="Linked IPTV"
-                                            value={bridgeData.scrapedData.masterData['IPTV1_HIDDEN'] || bridgeData.scrapedData.masterData['IPTV_SO'] || ""}
-                                            icon={<Activity className="w-4 h-4" />}
-                                            color="emerald"
-                                            isMono
-                                        />
-                                    )}
-                                    {(coreOrder?.sltsStatus === 'RETURN' || bridgeData?.scrapedData?.masterData?.['CHKSODRTN_HIDDEN'] === 'on') && (
-                                        <div className="lg:col-span-2">
-                                            <InspectorCard
-                                                label="Return Context"
-                                                value={`${bridgeData?.scrapedData?.masterData?.['RTRESONALL_HIDDEN'] || bridgeData?.scrapedData?.masterData?.['SOD RETURN'] || "Reason N/A"} | ${bridgeData?.scrapedData?.masterData?.['RTCMTALL_HIDDEN'] || bridgeData?.scrapedData?.masterData?.['RETURN COMMENT'] || "No Comment"}`}
-                                                icon={<History className="w-4 h-4" />}
-                                                color="rose"
-                                            />
-                                        </div>
-                                    )}
+                                    {/* IPTV Extractions (Dynamic) */}
+                                    {(() => {
+                                        const master = bridgeData?.scrapedData?.masterData || {};
+                                        const iptvKeys = Object.keys(master).filter(k => k.toLowerCase().includes('iptv_cpe_serial_number') || k.toLowerCase().includes('stb_serial'));
+
+                                        if (iptvKeys.length > 0) {
+                                            return iptvKeys.map((k, i) => (
+                                                <div key={i} className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                                    <span className="text-[10px] uppercase font-black text-slate-400 mb-1">{k.replace(/_HIDDEN/g, '').replace(/_/g, ' ')}</span>
+                                                    <span className="text-xs font-bold text-purple-600 font-mono tracking-tighter">{String(master[k])}</span>
+                                                </div>
+                                            ));
+                                        }
+
+                                        // Fallback to core order if no bridge data
+                                        const coreIptv = coreOrder?.iptvSerialNumbers ? (Array.isArray(coreOrder.iptvSerialNumbers) ? coreOrder.iptvSerialNumbers : [coreOrder.iptvSerialNumbers]) : [];
+                                        return coreIptv.map((s, i) => (
+                                            <div key={i} className="flex flex-col p-3 rounded-lg border border-slate-200 bg-white shadow-sm">
+                                                <span className="text-[10px] uppercase font-black text-slate-400 mb-1">IPTV CPE Serial {i + 1}</span>
+                                                <span className="text-xs font-bold text-purple-600 font-mono tracking-tighter">{s}</span>
+                                            </div>
+                                        ));
+                                    })()}
+
+                                    <div className="flex flex-col p-3 rounded-lg border border-emerald-100 bg-emerald-50/50 shadow-sm">
+                                        <span className="text-[10px] uppercase font-black text-emerald-600/60 mb-1">Voice Test Audit</span>
+                                        <span className="text-[10px] font-black text-emerald-600 bg-white px-2 py-0.5 rounded border border-emerald-100 w-fit">
+                                            {coreOrder?.forensicAudit?.voiceTestStatus === 'PASS' ? '✅ TEST PASSED' : '⌛ NOT TESTED'}
+                                        </span>
+                                    </div>
                                 </div>
 
-                                {/* Forensic Warnings Section */}
+                                {/* High-Priority Forensic Warnings */}
                                 {(() => {
                                     const warnings: string[] = [];
                                     const master = bridgeData?.scrapedData?.masterData || {};
@@ -425,92 +429,90 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     if (warnings.length === 0) return null;
 
                                     return (
-                                        <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl space-y-2">
-                                            <div className="flex items-center gap-2 text-rose-600 font-black text-[10px] uppercase tracking-widest mb-1">
-                                                <Activity className="w-4 h-4" /> High-Priority Forensic Warnings
+                                        <div className="space-y-3">
+                                            <span className="text-[10px] uppercase font-black text-rose-500 flex items-center gap-2">
+                                                <AlertTriangle className="w-3.5 h-3.5" /> High-Priority Issues ({warnings.length})
+                                            </span>
+                                            <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl space-y-2">
+                                                {warnings.map((w, i) => (
+                                                    <div key={i} className="flex items-start gap-2 text-[11px] font-bold text-rose-700">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1 flex-shrink-0" />
+                                                        {w}
+                                                    </div>
+                                                ))}
                                             </div>
-                                            {warnings.map((w, i) => (
-                                                <div key={i} className="flex items-start gap-2 text-[11px] font-bold text-rose-700">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500 mt-1 flex-shrink-0" />
-                                                    {w}
-                                                </div>
-                                            ))}
                                         </div>
                                     );
                                 })()}
 
-                                {/* Materials Intelligence Section */}
-                                <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-xl overflow-hidden">
-                                    <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
-                                        <Box className="w-4 h-4 text-emerald-400" />
-                                        <h3 className="text-sm font-black text-white uppercase tracking-wider">Materials Intelligence</h3>
-                                        <span className="ml-auto text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">SMART VIEW</span>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {bridgeData?.scrapedData?.materialDetails ? (
-                                            bridgeData.scrapedData.materialDetails.map((mat, i) => (
-                                                <div key={i} className="flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50">
-                                                    <span className="text-[11px] font-bold text-slate-300">{mat.NAME || mat.TYPE}</span>
-                                                    <div className="flex gap-3 items-center">
-                                                        <span className="text-[10px] text-slate-500 font-mono">{mat.CODE || i.toString().padStart(3, '0')}</span>
-                                                        <span className="text-xs font-black text-emerald-400">{mat.QTY || mat.QUANTITY}</span>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-center py-4">
-                                                <p className="text-xs text-slate-500 italic">No materials scraped for this order yet.</p>
-                                            </div>
-                                        )}
+                                {/* Materials Intelligence Section (Amber Theme) */}
+                                <div className="space-y-3">
+                                    <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2 font-mono">
+                                        <Database className="w-3.5 h-3.5 text-amber-500" /> Materials Intelligence
+                                    </span>
+                                    <div className="bg-amber-50/20 border border-amber-100 rounded-xl overflow-hidden shadow-sm">
+                                        <div className="bg-white/50 overflow-x-auto">
+                                            <table className="w-full text-[11px]">
+                                                <tbody className="divide-y divide-amber-100/50">
+                                                    {bridgeData?.scrapedData?.materialDetails && bridgeData.scrapedData.materialDetails.length > 0 ? (
+                                                        bridgeData.scrapedData.materialDetails.map((mat, i) => (
+                                                            <tr key={i} className="hover:bg-white transition-colors">
+                                                                <td className="px-5 py-2.5 font-bold text-slate-700">{mat.ITEM || mat.TYPE || mat.NAME}</td>
+                                                                <td className="px-5 py-2.5 text-slate-400 font-medium">{mat.CODE || i.toString().padStart(3, '0')}</td>
+                                                                <td className="px-5 py-2.5 text-right">
+                                                                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 text-[10px] font-black rounded-full px-2.5">
+                                                                        {mat.QTY || mat.QUANTITY}
+                                                                    </Badge>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    ) : (
+                                                        <tr>
+                                                            <td colSpan={3} className="px-5 py-6 text-center text-slate-400 italic font-medium">No materials intelligence captured for this stream.</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Forensic Photo Audit View */}
-                                <div className="bg-slate-900 text-white p-5 rounded-xl border border-slate-800 shadow-xl overflow-hidden relative">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                                        <Camera className="w-20 h-20" />
-                                    </div>
+                                {/* Forensic Photo Audit View (Purple/Slate Theme) */}
+                                <div className="space-y-4">
+                                    <span className="text-[10px] uppercase font-black text-slate-400 flex items-center gap-2 font-mono">
+                                        <Layers className="w-3.5 h-3.5 text-purple-500" /> Forensic Photo Audit
+                                    </span>
 
-                                    <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                                            <h3 className="text-sm font-black tracking-wider uppercase text-blue-400">Forensic Photo Audit</h3>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-1 gap-2">
                                         {coreOrder?.forensicAudit?.auditData && coreOrder.forensicAudit.auditData.length > 0 ? (
                                             coreOrder.forensicAudit.auditData.map((item, idx) => {
-                                                const isOptional = item.name?.toLowerCase().includes('feedback') || item.name?.toLowerCase().includes('additional');
                                                 const isMissing = item.status === 'MISSING';
 
                                                 return (
-                                                    <div key={idx} className={`flex flex-col p-2.5 rounded-lg border transition-all duration-200 ${isMissing ? (isOptional ? 'bg-slate-800/40 border-slate-700' : 'bg-red-500/5 border-red-500/20') : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                                                        <div className="flex items-start justify-between gap-2">
-                                                            <span className={`text-[11px] font-bold leading-tight ${isMissing ? (isOptional ? 'text-slate-400' : 'text-red-300') : 'text-emerald-300'}`}>
+                                                    <div key={idx} className="flex items-center justify-between p-3.5 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-slate-300 transition-all group">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[11px] font-extrabold text-slate-700 leading-tight">
                                                                 {item.name}
                                                             </span>
-                                                            {!isMissing && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />}
+                                                            {!isMissing && item.uuid && (
+                                                                <span className="text-[9px] font-mono text-slate-400">UUID: {item.uuid}</span>
+                                                            )}
                                                         </div>
-                                                        {!isMissing && item.uuid && (
-                                                            <span className="text-[9px] font-mono text-slate-500 mt-1">UUID: {item.uuid}</span>
-                                                        )}
-                                                        {!isMissing && (
-                                                            <span className="text-[9px] font-bold text-emerald-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
-                                                                <CheckCircle2 className="w-2 h-2" /> Uploaded
-                                                            </span>
-                                                        )}
-                                                        {isMissing && (
-                                                            <span className="text-[9px] font-bold text-red-500/70 mt-1 uppercase tracking-tighter flex items-center gap-1">
-                                                                Missing
-                                                            </span>
-                                                        )}
+                                                        <Badge
+                                                            variant={isMissing ? 'destructive' : 'default'}
+                                                            className={cn(
+                                                                "text-[9px] font-black uppercase rounded-lg px-2 py-0.5 tracking-tighter",
+                                                                !isMissing && "bg-emerald-500 hover:bg-emerald-600"
+                                                            )}
+                                                        >
+                                                            {isMissing ? '❌ Missing' : '✅ Uploaded'}
+                                                        </Badge>
                                                     </div>
                                                 );
                                             })
                                         ) : (
-                                            <div className="col-span-3 text-center py-8">
-                                                <p className="text-xs text-slate-500 italic">No forensic data found.</p>
+                                            <div className="flex flex-col items-center justify-center py-10 bg-white rounded-xl border border-dashed border-slate-200">
+                                                <p className="text-xs text-slate-400 font-medium italic">No forensic audit data available.</p>
                                             </div>
                                         )}
                                     </div>
@@ -538,10 +540,10 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                 <SummaryItem label="Service Order Number" value={coreOrder?.soNum} isBold />
                                                 <SummaryItem label="Installation Type" value={coreOrder?.serviceType} />
                                                 <SummaryItem label="Status" value={coreOrder?.sltsStatus || coreOrder?.status} color="emerald" />
-                                                <SummaryItem label="Mobile Team" value={bridgeData?.scrapedData?.teamDetails?.name || bridgeData?.scrapedData?.selectedTeam || "N/A"} />
+                                                <SummaryItem label="Mobile Team" value={String(bridgeData?.scrapedData?.teamDetails?.name || bridgeData?.scrapedData?.selectedTeam || "N/A")} />
                                                 <SummaryItem label="Drop Wire Length" value={bridgeData?.scrapedData?.masterData?.['Drop Wire Length'] ? `${bridgeData.scrapedData.masterData['Drop Wire Length']} meters` : "N/A"} />
-                                                <SummaryItem label="Drop Wire Type" value={bridgeData?.scrapedData?.masterData?.['Drop Wire Type'] || "N/A"} />
-                                                <SummaryItem label="Number of Poles" value={bridgeData?.scrapedData?.masterData?.['Number of Poles'] || "0"} />
+                                                <SummaryItem label="Drop Wire Type" value={String(bridgeData?.scrapedData?.masterData?.['Drop Wire Type'] || "N/A")} />
+                                                <SummaryItem label="Number of Poles" value={String(bridgeData?.scrapedData?.masterData?.['Number of Poles'] || "0")} />
                                             </div>
 
                                             {/* Pole Types Sub-list */}
@@ -821,29 +823,6 @@ function AuditCategory({ id, title, items, filter, isLast = false }: { id: strin
                     <p className="text-[10px] text-slate-300 italic">No matching images uploaded for this category.</p>
                 )}
             </div>
-        </div>
-    );
-}
-
-function InspectorCard({ label, value, icon, color, isMono = false }: { label: string, value: string, icon: React.ReactNode, color: string, isMono?: boolean }) {
-    const colorMap: Record<string, string> = {
-        blue: 'bg-blue-50 text-blue-600 border-blue-100',
-        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-        amber: 'bg-amber-50 text-amber-600 border-amber-100',
-        slate: 'bg-slate-50 text-slate-600 border-slate-100',
-        rose: 'bg-rose-50 text-rose-600 border-rose-100',
-    };
-
-    return (
-        <div className={`p-3 rounded-xl border ${colorMap[color] || colorMap.slate} flex flex-col gap-1 shadow-sm`}>
-            <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider opacity-70">{label}</span>
-                {icon}
-            </div>
-            <p className={`text-xs font-black truncate mt-1 ${isMono ? 'font-mono' : ''}`}>
-                {value}
-            </p>
         </div>
     );
 }
