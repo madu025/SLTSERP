@@ -44,7 +44,7 @@ interface ContractorTeam {
     storeIds?: string[];
     primaryStoreId?: string | null;
     sltCode?: string | null;
-    status: 'ACTIVE' | 'INACTIVE';
+    status: string; // Match Prisma string
     members: TeamMember[];
 }
 
@@ -58,7 +58,7 @@ interface Contractor {
     brNumber?: string | null;
     agreementDuration?: number | null;
     brCertUrl?: string | null;
-    status: 'ACTIVE' | 'INACTIVE' | 'PENDING';
+    status: 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'ARM_PENDING' | 'OSP_PENDING' | 'REJECTED';
     registrationFeePaid: boolean;
     agreementSigned: boolean;
     agreementDate?: string | null;
@@ -92,7 +92,7 @@ const contractorSchema = z.object({
     contactNumber: z.string().optional(),
     nic: z.string().optional(),
     brNumber: z.string().optional(),
-    status: z.enum(['ACTIVE', 'INACTIVE', 'PENDING']),
+    status: z.enum(['ACTIVE', 'INACTIVE', 'PENDING', 'ARM_PENDING', 'OSP_PENDING', 'REJECTED']),
     documentStatus: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
     registrationFeePaid: z.boolean(),
     agreementSigned: z.boolean(),
@@ -255,14 +255,14 @@ export default function ContractorsPage() {
         if (['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'].includes(userRole)) return opmcs;
 
         // For others, use their assigned RTOMs
-        const userOpmcIds = (user.accessibleOpmcs || []).map((o: any) => o.id);
+        const userOpmcIds = (user.accessibleOpmcs || []).map((o: { id: string }) => o.id);
 
         // Fallback for old sessions: If they are site staff but have NO assigned RTOMs in localStorage,
         // we might allow them to see all for now OR better, we tell them to re-login.
         // For now, let's allow all if the list is empty to prevent blockers, but warn them.
         if (isSiteStaff && userOpmcIds.length === 0) return opmcs;
 
-        return opmcs.filter((o: any) => userOpmcIds.includes(o.id));
+        return opmcs.filter((o: { id: string }) => userOpmcIds.includes(o.id));
     }, [opmcs, user.accessibleOpmcs, userRole, isSiteStaff]);
 
     const isOpmcsLoading = isLoadingOpmcs || !opmcs.length && !inviteModalOpen;
@@ -271,9 +271,9 @@ export default function ContractorsPage() {
     const mutation = useMutation({
         mutationFn: async (values: ContractorFormValues & { teams: ContractorTeam[], id?: string }) => {
             if (values.id) {
-                return await updateContractor(values.id, values);
+                return await updateContractor(values.id, values as unknown as Parameters<typeof updateContractor>[1]);
             } else {
-                return await createContractor({ ...values, siteOfficeStaffId: user.id });
+                return await createContractor({ ...values, siteOfficeStaffId: user.id } as unknown as Parameters<typeof createContractor>[0]);
             }
         },
         onSuccess: (result) => {
@@ -300,7 +300,7 @@ export default function ContractorsPage() {
                 toast.error(result.error || "Failed to delete contractor");
             }
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
             toast.error(error.message || "Failed to delete contractor");
         }
     });
@@ -316,8 +316,9 @@ export default function ContractorsPage() {
             setShareLink(data.registrationLink);
             setShareModalOpen(true);
             toast.success("Registration link retrieved!", { id: toastId });
-        } catch (err: any) {
-            toast.error(err.message || "Failed to resend link", { id: toastId });
+        } catch (err: unknown) {
+            const error = err as Error;
+            toast.error(error.message || "Failed to resend link", { id: toastId });
         }
     };
 
@@ -398,18 +399,18 @@ export default function ContractorsPage() {
             status: t.status,
             sltCode: t.sltCode,
             opmcId: t.opmcId || null,
-            storeIds: (t as any).storeAssignments?.map((sa: any) => sa.storeId) || [],
-            primaryStoreId: (t as any).storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || null,
+            storeIds: ((t as any).storeAssignments)?.map((sa: any) => sa.storeId) || [],
+            primaryStoreId: ((t as any).storeAssignments)?.find((sa: any) => sa.isPrimary)?.storeId || null,
             members: t.members.map((m: any) => ({
-                id: m.id,
-                name: m.name,
-                idCopyNumber: m.idCopyNumber || m.nic || '',
-                contractorIdCopyNumber: m.contractorIdCopyNumber || '',
-                photoUrl: m.photoUrl || '',
-                passportPhotoUrl: m.passportPhotoUrl || m.photoUrl || '',
-                nicUrl: m.nicUrl || ''
+                id: m.id as string | undefined,
+                name: m.name as string,
+                idCopyNumber: (m.idCopyNumber || m.nic || '') as string,
+                contractorIdCopyNumber: (m.contractorIdCopyNumber || '') as string,
+                photoUrl: (m.photoUrl || '') as string,
+                passportPhotoUrl: (m.passportPhotoUrl || m.photoUrl || '') as string,
+                nicUrl: (m.nicUrl || '') as string
             }))
-        })));
+        } as ContractorTeam)));
 
         form.reset({
             name: c.name,
@@ -433,7 +434,7 @@ export default function ContractorsPage() {
             nicBackUrl: c.nicBackUrl || '',
             policeReportUrl: c.policeReportUrl || '',
             gramaCertUrl: c.gramaCertUrl || '',
-            opmcId: (c as any).opmcId || ''
+            opmcId: (c as unknown as { opmcId?: string }).opmcId || ''
         });
         setShowModal(true);
     };
@@ -448,7 +449,7 @@ export default function ContractorsPage() {
         setTeams([...teams, { name: 'New Team', status: 'ACTIVE', members: [] }]);
     };
 
-    const updateTeam = (idx: number, field: keyof ContractorTeam, val: any) => {
+    const updateTeam = (idx: number, field: keyof ContractorTeam, val: unknown) => {
         setTeams(prev => {
             const newTeams = [...prev];
             newTeams[idx] = { ...newTeams[idx], [field]: val };
@@ -631,9 +632,9 @@ export default function ContractorsPage() {
                                                 </div>
                                                 <p className="text-xs text-slate-500 mt-1">{contractor.registrationNumber}</p>
                                                 <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-[10px] sm:text-xs text-slate-600">
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Users className="w-3 h-3 text-slate-400" /> {(contractor as any)._count?.teams || 0} Teams</div>
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Building2 className="w-3 h-3 text-slate-400" /> {(contractor as any).opmc?.name || 'No Office'}</div>
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><UserPlus className="w-3 h-3 text-slate-400" /> {(contractor as any).siteOfficeStaff?.name || 'Manual'}</div>
+                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Users className="w-3 h-3 text-slate-400" /> {(contractor as unknown as { _count?: { teams: number } })._count?.teams || 0} Teams</div>
+                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Building2 className="w-3 h-3 text-slate-400" /> {(contractor as unknown as { opmc?: { name: string } }).opmc?.name || 'No Office'}</div>
+                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><UserPlus className="w-3 h-3 text-slate-400" /> {(contractor as unknown as { siteOfficeStaff?: { name: string } }).siteOfficeStaff?.name || 'Manual'}</div>
                                                 </div>
                                             </div>
                                             <div className="flex gap-1.5 sm:gap-2 self-end sm:self-start">
@@ -771,7 +772,7 @@ export default function ContractorsPage() {
                                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                         <FormControl><SelectTrigger><SelectValue placeholder="Select Office" /></SelectTrigger></FormControl>
                                                         <SelectContent>
-                                                            {opmcs.map((o: any) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
+                                                            {opmcs.map((o: { id: string; name: string }) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
                                                         </SelectContent>
                                                     </Select>
                                                 </FormItem>
@@ -793,13 +794,13 @@ export default function ContractorsPage() {
                                                     <FormLabel>Bank Name</FormLabel>
                                                     {!manualBank ? (
                                                         <Select
-                                                            value={banks.find((b: any) => b.name === field.value)?.id}
+                                                            value={banks.find((b: { id: string; name: string }) => b.name === field.value)?.id}
                                                             onValueChange={(val) => {
                                                                 if (val === "OTHER") { setManualBank(true); field.onChange(""); }
-                                                                else { const bank = banks.find((b: any) => b.id === val); field.onChange(bank?.name || ""); }
+                                                                else { const bank = banks.find((b: { id: string; name: string }) => b.id === val); field.onChange(bank?.name || ""); }
                                                             }}>
                                                             <FormControl><SelectTrigger><SelectValue placeholder="Select Bank" /></SelectTrigger></FormControl>
-                                                            <SelectContent>{banks.map((b: any) => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}<SelectItem value="OTHER">+ Other (Type manually)</SelectItem></SelectContent>
+                                                            <SelectContent>{banks.map((b: { id: string; name: string }) => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}<SelectItem value="OTHER">+ Other (Type manually)</SelectItem></SelectContent>
                                                         </Select>
                                                     ) : (<div className="flex gap-2"><Input {...field} /><Button variant="ghost" onClick={() => setManualBank(false)}>List</Button></div>)}
                                                 </FormItem>
@@ -822,10 +823,10 @@ export default function ContractorsPage() {
                                                             {showBranchList && (
                                                                 <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-60 overflow-y-auto no-scrollbar">
                                                                     {branches
-                                                                        .filter((b: any) => b.name.toLowerCase().startsWith(branchSearch.toLowerCase()))
-                                                                        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+                                                                        .filter((b: { name: string }) => b.name.toLowerCase().startsWith(branchSearch.toLowerCase()))
+                                                                        .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
                                                                         .slice(0, 50)
-                                                                        .map((br: any, i: number) => (
+                                                                        .map((br: { name: string }, i: number) => (
                                                                             <div
                                                                                 key={i}
                                                                                 className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
@@ -902,7 +903,7 @@ export default function ContractorsPage() {
                                                 { label: "Police Report", field: "policeReportUrl" },
                                                 { label: "Grama Cert", field: "gramaCertUrl" }
                                             ].map((doc) => (
-                                                <FormField key={doc.field} control={form.control} name={doc.field as any} render={({ field }) => (
+                                                <FormField key={doc.field} control={form.control} name={doc.field as keyof ContractorFormValues} render={({ field }) => (
                                                     <FormItem className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                                                         <FormLabel className="text-xs font-bold uppercase">{doc.label}</FormLabel>
                                                         <div className="flex flex-col gap-2 mt-2">
@@ -964,7 +965,7 @@ export default function ContractorsPage() {
                                                                 <Label className="text-xs">Primary Store</Label>
                                                                 <Select value={team.primaryStoreId || ""} onValueChange={(val) => updateTeam(tIdx, 'primaryStoreId', val)}>
                                                                     <SelectTrigger className="h-9"><SelectValue placeholder="Select Store" /></SelectTrigger>
-                                                                    <SelectContent>{stores.map((s: any) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}</SelectContent>
+                                                                    <SelectContent>{stores.map((s: { id: string; name: string }) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}</SelectContent>
                                                                 </Select>
                                                             </div>
                                                             <div className="flex flex-col justify-end">
@@ -1008,7 +1009,7 @@ export default function ContractorsPage() {
                                                 <span>Documents:</span>
                                                 <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
                                                     {['photoUrl', 'nicFrontUrl', 'nicBackUrl', 'brCertUrl', 'bankPassbookUrl'].map(f => (
-                                                        form.getValues(f as any) ? (
+                                                        form.getValues(f as keyof ContractorFormValues) ? (
                                                             <div key={f} className="w-6 h-6 rounded bg-green-100 flex items-center justify-center" title={f}>
                                                                 <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
                                                             </div>
@@ -1108,7 +1109,7 @@ export default function ContractorsPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Contractor Type</Label>
-                                <Select value={inviteData.type} onValueChange={(v: any) => setInviteData({ ...inviteData, type: v })}>
+                                <Select value={inviteData.type} onValueChange={(v: "SOD" | "OSP") => setInviteData({ ...inviteData, type: v })}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="SOD">Service Order (SOD)</SelectItem>

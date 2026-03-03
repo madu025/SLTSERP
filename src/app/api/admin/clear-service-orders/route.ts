@@ -10,7 +10,7 @@ import { cookies } from 'next/headers';
 export async function POST() {
     try {
         // Get token from cookies
-        const cookieStore = cookies();
+        const cookieStore = await cookies();
         const token = cookieStore.get('token')?.value;
 
         if (!token) {

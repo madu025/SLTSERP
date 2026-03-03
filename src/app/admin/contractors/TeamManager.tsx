@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useState, useEffect, useCallback } from 'react';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,10 +10,57 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { Users, Plus, Trash, CheckCircle, ShieldAlert, FileText, MapPin, ExternalLink, Shirt, Footprints, LayoutGrid } from "lucide-react";
+import { Users, Plus, Trash, CheckCircle, ShieldAlert, FileText, MapPin, ExternalLink, LayoutGrid } from "lucide-react";
 import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+
+interface TeamMember {
+    id: string;
+    name: string;
+    nic: string;
+    idCopyNumber: string;
+    contactNumber: string;
+    address: string;
+    shoeSize: string;
+    tshirtSize: string;
+    photoUrl: string;
+    nicUrl: string;
+    policeReportUrl: string;
+    gramaCertUrl: string;
+    passportPhotoUrl: string;
+    [key: string]: string;
+}
+
+interface StoreAssignment {
+    storeId: string;
+    isPrimary: boolean;
+}
+
+interface Team {
+    id: string;
+    name: string;
+    status: string;
+    sltCode?: string;
+    members: TeamMember[];
+    storeAssignments: StoreAssignment[];
+}
+
+interface Store {
+    id: string;
+    name: string;
+}
+
+interface ContractorDetails {
+    name?: string;
+    nic?: string;
+    contactNumber?: string;
+    address?: string;
+    photoUrl?: string;
+    nicFrontUrl?: string;
+    policeReportUrl?: string;
+    gramaCertUrl?: string;
+}
 
 interface TeamManagerProps {
     isOpen: boolean;
@@ -23,25 +70,18 @@ interface TeamManagerProps {
 }
 
 export default function TeamManager({ isOpen, onClose, contractorId, contractorName }: TeamManagerProps) {
-    const [teams, setTeams] = useState<any[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(false);
-    const [stores, setStores] = useState<any[]>([]);
+    const [stores, setStores] = useState<Store[]>([]);
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
     // Selection State for Master-Detail View
     const [selectedTeamIndex, setSelectedTeamIndex] = useState<number | null>(null);
 
-    const [contractorDetails, setContractorDetails] = useState<any>(null);
+    const [contractorDetails, setContractorDetails] = useState<ContractorDetails | null>(null);
     const [useContractorDetails, setUseContractorDetails] = useState(false);
 
-    // Initial Load
-    useEffect(() => {
-        if (isOpen && contractorId) {
-            loadData();
-        }
-    }, [isOpen, contractorId]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             const [data, storesData] = await Promise.all([
@@ -68,7 +108,14 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         } finally {
             setLoading(false);
         }
-    };
+    }, [contractorId]);
+
+    // Initial Load
+    useEffect(() => {
+        if (isOpen && contractorId) {
+            loadData();
+        }
+    }, [isOpen, contractorId, loadData]);
 
     // --- ACTIONS ---
 
@@ -89,9 +136,10 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
 
             toast.success("All changes saved.");
             onClose();
-        } catch (err: any) {
+        } catch (err) {
             console.error(err);
-            toast.error(err.message || "Failed to save changes");
+            const message = err instanceof Error ? err.message : "Failed to save changes";
+            toast.error(message);
         } finally {
             setLoading(false);
         }
@@ -120,7 +168,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         else if (selectedTeamIndex && idx < selectedTeamIndex) setSelectedTeamIndex(selectedTeamIndex - 1);
     };
 
-    const updateCurrentTeam = (field: string, value: any) => {
+    const updateCurrentTeam = (field: string, value: string | StoreAssignment[]) => {
         if (selectedTeamIndex === null) return;
         const newTeams = [...teams];
         newTeams[selectedTeamIndex] = { ...newTeams[selectedTeamIndex], [field]: value };
@@ -133,11 +181,11 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         if (selectedTeamIndex === null) return;
         const team = teams[selectedTeamIndex];
         const currentAssignments = team.storeAssignments || [];
-        const exists = currentAssignments.find((a: any) => a.storeId === storeId);
+        const exists = currentAssignments.find((a: StoreAssignment) => a.storeId === storeId);
 
-        let newAssignments;
+        let newAssignments: StoreAssignment[];
         if (exists) {
-            newAssignments = currentAssignments.filter((a: any) => a.storeId !== storeId);
+            newAssignments = currentAssignments.filter((a: StoreAssignment) => a.storeId !== storeId);
         } else {
             newAssignments = [...currentAssignments, { storeId, isPrimary: currentAssignments.length === 0 }];
         }
@@ -147,7 +195,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
     const setPrimaryStore = (storeId: string) => {
         if (selectedTeamIndex === null) return;
         const team = teams[selectedTeamIndex];
-        const newAssignments = (team.storeAssignments || []).map((a: any) => ({
+        const newAssignments = (team.storeAssignments || []).map((a: StoreAssignment) => ({
             ...a,
             isPrimary: a.storeId === storeId
         }));
@@ -197,7 +245,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
         setTeams(newTeams);
     };
 
-    const updateMember = (memberIdx: number, field: string, value: any) => {
+    const updateMember = (memberIdx: number, field: string, value: string) => {
         if (selectedTeamIndex === null) return;
         setTeams(prev => {
             const newTeams = [...prev];
@@ -286,7 +334,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
             const data = await res.json();
             await navigator.clipboard.writeText(data.link);
             toast.success("Link copied!");
-        } catch (err) {
+        } catch {
             toast.error("Failed to generate link");
         }
     };
@@ -395,7 +443,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                             <Label className="text-[10px] uppercase font-bold text-slate-400">Assigned Stores</Label>
                                             <div className="flex flex-wrap gap-2">
                                                 {stores.map(store => {
-                                                    const assignment = (currentTeam.storeAssignments || []).find((a: any) => a.storeId === store.id);
+                                                    const assignment = (currentTeam.storeAssignments || []).find((a: StoreAssignment) => a.storeId === store.id);
                                                     const isSelected = !!assignment;
                                                     const isPrimary = assignment?.isPrimary;
                                                     return (
@@ -457,7 +505,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-1 gap-3">
-                                                {currentTeam.members.map((member: any, mIdx: number) => (
+                                                {currentTeam.members.map((member: TeamMember, mIdx: number) => (
                                                     <div key={mIdx} className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 relative group hover:border-blue-300">
                                                         <div className="flex justify-between items-start mb-3">
                                                             <div className="flex items-center gap-2">

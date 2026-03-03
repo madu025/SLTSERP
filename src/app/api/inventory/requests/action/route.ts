@@ -16,9 +16,8 @@ export async function POST(req: NextRequest) {
         const result = await InventoryService.processStockRequestAction({
             requestId,
             action,
-            approvedById,
-            remarks,
-            allocation
+            userId: approvedById,
+            remarks
         });
 
         return NextResponse.json(result);

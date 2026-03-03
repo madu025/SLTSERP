@@ -3,10 +3,11 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
     request: Request,
-    { params }: { params: { soNum: string } }
+    { params }: { params: Promise<{ soNum: string }> }
 ) {
     try {
-        const { soNum } = params;
+        const { soNum } = await params;
+
 
         const serviceOrder = await prisma.serviceOrder.findUnique({
             where: { soNum },

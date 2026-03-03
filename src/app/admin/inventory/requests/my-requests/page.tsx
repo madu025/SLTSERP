@@ -1,40 +1,60 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit, RefreshCw } from "lucide-react";
+import { Eye, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface RequestItemData {
+    id: string;
+    requestedQty: number;
+    make?: string;
+    model?: string;
+    suggestedVendor?: string;
+    item?: {
+        name: string;
+        unit: string;
+    };
+}
+
+interface MaterialRequestData {
+    id: string;
+    requestNr: string;
+    createdAt: string;
+    sourceType?: string;
+    status: string;
+    workflowStage: string;
+    remarks?: string;
+    requestedById: string;
+    priority?: string;
+    items?: RequestItemData[];
+}
 
 export default function MyRequestsPage() {
     const router = useRouter();
-    const queryClient = useQueryClient();
-    const [user, setUser] = useState<any>(null);
-    const [selectedRequest, setSelectedRequest] = useState<any>(null);
+    const [selectedRequest, setSelectedRequest] = useState<MaterialRequestData | null>(null);
     const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-
-    useEffect(() => {
-        const stored = localStorage.getItem('user');
-        if (stored) setUser(JSON.parse(stored));
-    }, []);
 
     // Fetch user's own requests
     const { data: requests = [], isLoading } = useQuery({
-        queryKey: ['my-requests', user?.id],
+        queryKey: ['my-requests'],
         queryFn: async () => {
-            if (!user?.id) return [];
+            const stored = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+            const currentUser = stored ? JSON.parse(stored) : null;
+            if (!currentUser?.id) return [];
+
             const res = await fetch(`/api/inventory/requests`);
             const data = await res.json();
-            const allRequests = Array.isArray(data) ? data : (data.requests || []);
+            const allRequests: MaterialRequestData[] = Array.isArray(data) ? data : (data.requests || []);
             // Filter to show only this user's requests
-            return allRequests.filter((r: any) => r.requestedById === user.id);
-        },
-        enabled: !!user?.id
+            return allRequests.filter((r) => r.requestedById === currentUser.id);
+        }
     });
 
     const getStatusBadge = (status: string, workflowStage: string) => {
@@ -56,7 +76,7 @@ export default function MyRequestsPage() {
         return <Badge variant="outline">{status}</Badge>;
     };
 
-    const handleEdit = (request: any) => {
+    const handleEdit = (request: MaterialRequestData) => {
         // Navigate to edit page with request ID
         router.push(`/admin/inventory/requests/edit/${request.id}`);
     };
@@ -106,7 +126,7 @@ export default function MyRequestsPage() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y">
-                                                {requests.map((req: any) => (
+                                                {requests.map((req: MaterialRequestData) => (
                                                     <tr key={req.id} className="hover:bg-slate-50">
                                                         <td className="px-4 py-3 font-medium">{req.requestNr}</td>
                                                         <td className="px-4 py-3 text-slate-500">
@@ -192,7 +212,7 @@ export default function MyRequestsPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {selectedRequest.items?.map((item: any) => (
+                                    {selectedRequest.items?.map((item: RequestItemData) => (
                                         <tr key={item.id}>
                                             <td className="p-2 border">{item.item?.name}</td>
                                             <td className="p-2 border">{item.requestedQty} {item.item?.unit}</td>

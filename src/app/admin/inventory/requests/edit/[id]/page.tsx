@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import Sidebar from '@/components/Sidebar';
@@ -21,17 +21,17 @@ interface RequestItem {
     remarks: string;
 }
 
-export default function EditRequestPage() {
-    const router = useRouter();
-    const params = useParams();
-    const queryClient = useQueryClient();
-    const requestId = params.id as string;
+interface ItemOption {
+    id: string;
+    name: string;
+    code: string;
+    type?: string;
+}
 
-    const [sourceType, setSourceType] = useState("SLT");
-    const [priority, setPriority] = useState("MEDIUM");
-    const [irNumber, setIrNumber] = useState("");
-    const [purpose, setPurpose] = useState("");
-    const [requestItems, setRequestItems] = useState<RequestItem[]>([]);
+export default function EditRequestPage() {
+    const params = useParams();
+    const requestId = params.id as string;
+    const router = useRouter();
 
     // Fetch existing request
     const { data: request, isLoading } = useQuery({
@@ -44,36 +44,109 @@ export default function EditRequestPage() {
     });
 
     // Fetch items for dropdown
-    const { data: items = [] } = useQuery({
+    const { data: items = [] } = useQuery<ItemOption[]>({
         queryKey: ["items"],
         queryFn: async () => (await fetch("/api/inventory/items")).json()
     });
 
-    // Load request data when fetched
-    useEffect(() => {
-        if (request) {
-            setSourceType(request.sourceType || 'SLT');
-            setPriority(request.priority || 'MEDIUM');
-            setIrNumber(request.irNumber || '');
-            setPurpose(request.purpose || '');
+    if (isLoading) {
+        return (
+            <div className="flex h-screen bg-slate-50">
+                <Sidebar />
+                <main className="flex-1 flex items-center justify-center">
+                    <div className="text-slate-500">Loading...</div>
+                </main>
+            </div>
+        );
+    }
 
-            // Load items
-            if (request.items && request.items.length > 0) {
-                setRequestItems(request.items.map((item: any) => ({
-                    itemId: item.itemId,
-                    requestedQty: item.requestedQty.toString(),
-                    make: item.make || '',
-                    model: item.model || '',
-                    suggestedVendor: item.suggestedVendor || '',
-                    remarks: item.remarks || ''
-                })));
-            }
+    if (!request || request.status !== 'REJECTED') {
+        return (
+            <div className="flex h-screen bg-slate-50">
+                <Sidebar />
+                <main className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                        <h2 className="text-xl font-bold text-slate-900">Request Not Found or Not Rejected</h2>
+                        <Button className="mt-4" onClick={() => router.back()}>Go Back</Button>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    return <EditRequestForm request={request} items={items} requestId={requestId} />;
+}
+
+// -------------------------------------------------------------
+// Form Component
+// -------------------------------------------------------------
+interface EditedRequestItem {
+    itemId: string;
+    requestedQty: string | number;
+    make?: string;
+    model?: string;
+    suggestedVendor?: string;
+    remarks?: string;
+}
+
+interface EditedRequest {
+    requestNr?: string;
+    sourceType?: string;
+    priority?: string;
+    irNumber?: string;
+    purpose?: string;
+    remarks?: string;
+    items?: EditedRequestItem[];
+}
+
+interface EditRequestFormProps {
+    request: EditedRequest;
+    items: ItemOption[];
+    requestId: string;
+}
+
+interface UpdatePayload {
+    requestId: string;
+    action: string;
+    sourceType: string;
+    priority: string;
+    irNumber: string | null;
+    purpose: string;
+    items: {
+        itemId: string;
+        requestedQty: number;
+        make: string;
+        model: string;
+        suggestedVendor: string;
+        remarks: string;
+    }[];
+}
+
+function EditRequestForm({ request, items, requestId }: EditRequestFormProps) {
+    const queryClient = useQueryClient();
+    const router = useRouter();
+
+    const [sourceType, setSourceType] = useState<string>(request.sourceType || 'SLT');
+    const [priority, setPriority] = useState<string>(request.priority || 'MEDIUM');
+    const [irNumber, setIrNumber] = useState<string>(request.irNumber || '');
+    const [purpose, setPurpose] = useState<string>(request.purpose || '');
+    const [requestItems, setRequestItems] = useState<RequestItem[]>(() => {
+        if (request.items && request.items.length > 0) {
+            return request.items.map((item: EditedRequestItem) => ({
+                itemId: item.itemId,
+                requestedQty: item.requestedQty.toString(),
+                make: item.make || '',
+                model: item.model || '',
+                suggestedVendor: item.suggestedVendor || '',
+                remarks: item.remarks || ''
+            }));
         }
-    }, [request]);
+        return [];
+    });
 
     // Update mutation
     const updateMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: UpdatePayload) => {
             const res = await fetch('/api/inventory/requests', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -96,7 +169,7 @@ export default function EditRequestPage() {
             return;
         }
 
-        const payload = {
+        const payload: UpdatePayload = {
             requestId,
             action: 'RESUBMIT',
             sourceType,
@@ -136,31 +209,6 @@ export default function EditRequestPage() {
         updated[index] = { ...updated[index], [field]: value };
         setRequestItems(updated);
     };
-
-    if (isLoading) {
-        return (
-            <div className="flex h-screen bg-slate-50">
-                <Sidebar />
-                <main className="flex-1 flex items-center justify-center">
-                    <div className="text-slate-500">Loading...</div>
-                </main>
-            </div>
-        );
-    }
-
-    if (!request || request.status !== 'REJECTED') {
-        return (
-            <div className="flex h-screen bg-slate-50">
-                <Sidebar />
-                <main className="flex-1 flex items-center justify-center">
-                    <div className="text-center">
-                        <h2 className="text-xl font-bold text-slate-900">Request Not Found or Not Rejected</h2>
-                        <Button className="mt-4" onClick={() => router.back()}>Go Back</Button>
-                    </div>
-                </main>
-            </div>
-        );
-    }
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -269,7 +317,7 @@ export default function EditRequestPage() {
                                                             onChange={e => updateItem(idx, 'itemId', e.target.value)}
                                                         >
                                                             <option value="">Select Item...</option>
-                                                            {items.map((i: any) => (
+                                                            {items.map((i: ItemOption) => (
                                                                 <option key={i.id} value={i.id}>
                                                                     {i.name} ({i.code})
                                                                 </option>

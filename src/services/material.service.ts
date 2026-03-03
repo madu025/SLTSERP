@@ -177,6 +177,7 @@ export class MaterialService {
                 const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, data.storeId, item.itemId, item.quantity);
 
                 for (const picked of pickedBatches) {
+                    if (!picked.batchId) continue;
                     // Reduce from Store Batch Stock
                     await tx.inventoryBatchStock.update({
                         where: { storeId_batchId: { storeId: data.storeId, batchId: picked.batchId } },

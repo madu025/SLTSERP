@@ -65,6 +65,7 @@ export class IssueService {
                 const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);
 
                 for (const picked of pickedBatches) {
+                    if (!picked.batchId) continue; // Safety check
                     // Reduce from Store Batch Stock
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     await (tx as any).inventoryBatchStock.update({
@@ -196,6 +197,7 @@ export class IssueService {
                 const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);
 
                 for (const picked of pickedBatches) {
+                    if (!picked.batchId) continue; // Safety check
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     await (tx as any).contractorBatchStock.update({
                         where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },

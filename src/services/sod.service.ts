@@ -645,15 +645,17 @@ export class ServiceOrderService {
                     for (const m of otherData.materialUsage!) {
                         const qty = parseFloat(m.quantity);
                         if (['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType)) {
-                            // A. Pick batches FIFO from Contractor
-                            const pickedBatches = await InventoryService.pickContractorBatchesFIFO(tx, targetContractorId, m.itemId, qty);
+                            // A. Pick batches FIFO from Contractor (allow shortages)
+                            const pickedBatches = await InventoryService.pickContractorBatchesFIFO(tx, targetContractorId, m.itemId, qty, true);
 
                             for (const picked of pickedBatches) {
                                 // B. Reduce from Contractor Batch Stock
-                                await tx.contractorBatchStock.update({
-                                    where: { contractorId_batchId: { contractorId: targetContractorId, batchId: picked.batchId } },
-                                    data: { quantity: { decrement: picked.quantity } }
-                                });
+                                if (picked.batchId) {
+                                    await tx.contractorBatchStock.update({
+                                        where: { contractorId_batchId: { contractorId: targetContractorId, batchId: picked.batchId } },
+                                        data: { quantity: { decrement: picked.quantity } }
+                                    });
+                                }
 
                                 // C. Create Usage Record for this Batch
                                 finalUsageRecords.push({
@@ -706,15 +708,17 @@ export class ServiceOrderService {
                         for (const m of otherData.materialUsage!) {
                             const qty = parseFloat(m.quantity);
                             if (['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType)) {
-                                // A. Pick batches FIFO from Store
-                                const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, opmc.storeId, m.itemId, qty);
+                                // A. Pick batches FIFO from Store (allow shortages)
+                                const pickedBatches = await InventoryService.pickStoreBatchesFIFO(tx, opmc.storeId, m.itemId, qty, true);
 
                                 for (const picked of pickedBatches) {
                                     // B. Reduce from Store Batch Stock
-                                    await tx.inventoryBatchStock.update({
-                                        where: { storeId_batchId: { storeId: opmc.storeId!, batchId: picked.batchId } },
-                                        data: { quantity: { decrement: picked.quantity } }
-                                    });
+                                    if (picked.batchId) {
+                                        await tx.inventoryBatchStock.update({
+                                            where: { storeId_batchId: { storeId: opmc.storeId!, batchId: picked.batchId } },
+                                            data: { quantity: { decrement: picked.quantity } }
+                                        });
+                                    }
 
                                     // C. Create Usage Record for this Batch
                                     finalUsageRecords.push({
@@ -733,9 +737,10 @@ export class ServiceOrderService {
                                 }
 
                                 // D. Update Global Store Stock (Legacy)
-                                await tx.inventoryStock.update({
+                                await tx.inventoryStock.upsert({
                                     where: { storeId_itemId: { storeId: opmc.storeId!, itemId: m.itemId } },
-                                    data: { quantity: { decrement: qty } }
+                                    create: { storeId: opmc.storeId!, itemId: m.itemId, quantity: -qty },
+                                    update: { quantity: { decrement: qty } }
                                 });
                             } else {
                                 const meta = itemMetadata.find(i => i.id === m.itemId);

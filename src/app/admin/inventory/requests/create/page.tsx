@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,38 @@ interface RequestItem {
     suggestedVendor: string;
 }
 
+interface StoreOption {
+    id: string;
+    name: string;
+    type: string;
+}
+
+interface StockItem {
+    itemId: string;
+    quantity: number;
+}
+
+interface CreateRequestPayload {
+    fromStoreId: string;
+    toStoreId: string | null;
+    requestedById: string;
+    priority: string;
+    requiredDate: string;
+    sourceType: string;
+    projectTypes: string[];
+    maintenanceMonths: string;
+    irNumber: string | null;
+    purpose: string;
+    items: {
+        itemId: string;
+        requestedQty: number;
+        remarks: string;
+        make: string;
+        model: string;
+        suggestedVendor: string;
+    }[];
+}
+
 export default function MaterialRequestPage() {
     const queryClient = useQueryClient();
 
@@ -35,7 +67,11 @@ export default function MaterialRequestPage() {
     const [selectedStore, setSelectedStore] = useState<string>("");
     const [sourceType, setSourceType] = useState<string>("SLT");
     const [priority, setPriority] = useState<string>("MEDIUM");
-    const [requiredDate, setRequiredDate] = useState<string>("");
+    const [requiredDate, setRequiredDate] = useState<string>(() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow.toISOString().split('T')[0];
+    });
 
     // Reason / Project State
     const [projectTypes, setProjectTypes] = useState<string[]>([]);
@@ -76,13 +112,13 @@ export default function MaterialRequestPage() {
     });
 
     const getCurrentStock = (itemId: string) => {
-        const stock = currentStocks.find((s: any) => s.itemId === itemId);
+        const stock = currentStocks.find((s: StockItem) => s.itemId === itemId);
         return stock ? stock.quantity : 0;
     };
 
     // --- MUTATION ---
     const createRequestMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: CreateRequestPayload) => {
             const res = await fetch("/api/inventory/requests", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -165,24 +201,6 @@ export default function MaterialRequestPage() {
         createRequestMutation.mutate(payload);
     };
 
-    useEffect(() => {
-        if (selectedStore) {
-            const store = stores.find((s: any) => s.id === selectedStore);
-            if (store) {
-                if (store.type === 'SUB' && sourceType === 'SLT') {
-                    setSourceType('MAIN_STORE');
-                } else if (store.type === 'MAIN' && sourceType === 'MAIN_STORE') {
-                    setSourceType('SLT');
-                }
-            }
-        }
-    }, [selectedStore, stores, sourceType]);
-
-    useEffect(() => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        setRequiredDate(tomorrow.toISOString().split('T')[0]);
-    }, []);
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -210,9 +228,20 @@ export default function MaterialRequestPage() {
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Requesting Store</label>
-                                        <select className="flex h-8 w-full rounded border-slate-300 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={selectedStore} onChange={e => setSelectedStore(e.target.value)}>
+                                        <select className="flex h-8 w-full rounded border-slate-300 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={selectedStore} onChange={e => {
+                                            const newStoreId = e.target.value;
+                                            setSelectedStore(newStoreId);
+                                            const store = stores.find((s: StoreOption) => s.id === newStoreId);
+                                            if (store) {
+                                                if (store.type === 'SUB' && sourceType === 'SLT') {
+                                                    setSourceType('MAIN_STORE');
+                                                } else if (store.type === 'MAIN' && sourceType === 'MAIN_STORE') {
+                                                    setSourceType('SLT');
+                                                }
+                                            }
+                                        }}>
                                             <option value="">Select Store...</option>
-                                            {stores.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                            {stores.map((s: StoreOption) => <option key={s.id} value={s.id}>{s.name}</option>)}
                                         </select>
                                     </div>
                                     <div className="space-y-1">
@@ -222,10 +251,10 @@ export default function MaterialRequestPage() {
                                                 - Main Stores: Can see SLT and LOCAL_PURCHASE.
                                                 - Sub Stores: Can see MAIN_STORE (Internal) and LOCAL_PURCHASE.
                                             */}
-                                            {stores.find((s: any) => s.id === selectedStore)?.type === 'MAIN' && (
+                                            {stores.find((s: StoreOption) => s.id === selectedStore)?.type === 'MAIN' && (
                                                 <option value="SLT">SLT (Head Office)</option>
                                             )}
-                                            {stores.find((s: any) => s.id === selectedStore)?.type === 'SUB' && (
+                                            {stores.find((s: StoreOption) => s.id === selectedStore)?.type === 'SUB' && (
                                                 <option value="MAIN_STORE">Main Store (Internal Request)</option>
                                             )}
                                             <option value="LOCAL_PURCHASE">Local Purchase</option>

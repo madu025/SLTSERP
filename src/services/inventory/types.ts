@@ -95,7 +95,7 @@ export interface StockRequestActionData {
 }
 
 export interface PickedBatch {
-    batchId: string;
+    batchId: string | null;
     quantity: number;
-    batch: InventoryBatch;
+    batch: Partial<InventoryBatch>;
 }

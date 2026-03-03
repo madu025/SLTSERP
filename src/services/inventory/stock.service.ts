@@ -59,7 +59,7 @@ export class StockService {
     /**
      * Pick batches from a store based on FIFO
      */
-    static async pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number): Promise<PickedBatch[]> {
+    static async pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
 
         // LOCKING: Prevent concurrent modifications to the same item's batches in this store
@@ -89,7 +89,15 @@ export class StockService {
         }
 
         if (this.round(remainingToPick) > 0) {
-            throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+            if (allowShortage) {
+                pickedBatches.push({
+                    batchId: null,
+                    quantity: this.round(remainingToPick),
+                    batch: { unitPrice: 0, costPrice: 0 }
+                });
+            } else {
+                throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+            }
         }
 
         return pickedBatches;
@@ -98,7 +106,7 @@ export class StockService {
     /**
      * Pick batches from a contractor based on FIFO with locking
      */
-    static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number): Promise<PickedBatch[]> {
+    static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
 
         // LOCKING: Prevent concurrent modifications to the same contractor item stock
@@ -128,7 +136,15 @@ export class StockService {
         }
 
         if (this.round(remainingToPick) > 0) {
-            throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+            if (allowShortage) {
+                pickedBatches.push({
+                    batchId: null,
+                    quantity: this.round(remainingToPick),
+                    batch: { unitPrice: 0, costPrice: 0 }
+                });
+            } else {
+                throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+            }
         }
 
         return pickedBatches;
