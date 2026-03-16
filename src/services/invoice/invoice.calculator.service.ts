@@ -5,13 +5,16 @@ export class InvoiceCalculatorService {
     private static PART_B_PERCENTAGE = 0.10;
 
     /**
-     * Calculate 90/10 split for an invoice amount
+     * Calculate 90/10 split for an invoice amount with 2 decimal precision
      */
     static calculateSplit(total: number): InvoiceCalculationResult {
+        const amountA = Math.round(total * this.PART_A_PERCENTAGE * 100) / 100;
+        const amountB = Math.round((total - amountA) * 100) / 100; // Remaining ensures no floating point loss
+        
         return {
             totalAmount: total,
-            amountA: total * this.PART_A_PERCENTAGE,
-            amountB: total * this.PART_B_PERCENTAGE
+            amountA,
+            amountB
         };
     }
 

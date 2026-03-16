@@ -13,25 +13,25 @@ export class InvoiceRetentionService {
             where: {
                 statusB: 'HOLD',
                 createdAt: { lte: sixMonthsAgo }
-            } as any,
+            },
             include: {
                 sods: { select: { hoPatStatus: true, soNum: true } }
-            } as any
+            }
         });
 
         const results: RetentionReleaseResult[] = [];
 
         for (const invoice of holdInvoices) {
-            const sods = (invoice as any).sods || [];
+            const sods = invoice.sods || [];
             if (sods.length === 0) continue;
 
-            const allPassed = sods.every((s: any) => s.hoPatStatus === 'PASS');
-            const anyRejected = sods.some((s: any) => s.hoPatStatus === 'REJECTED');
+            const allPassed = sods.every((s) => s.hoPatStatus === 'PASS');
+            const anyRejected = sods.some((s) => s.hoPatStatus === 'REJECTED');
 
             if (allPassed) {
                 await prisma.invoice.update({
                     where: { id: invoice.id },
-                    data: { statusB: 'ELIGIBLE' } as any
+                    data: { statusB: 'ELIGIBLE' }
                 });
                 results.push({ invoiceNumber: invoice.invoiceNumber, status: 'RELEASED' });
             } else {

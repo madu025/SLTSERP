@@ -9,7 +9,7 @@ export class InvoiceService {
     /**
      * Generate Monthly Invoice for a Contractor
      */
-    static async generateMonthlyInvoice(contractorId: string, month: number, year: number, userId: string) {
+    static async generateMonthlyInvoice(contractorId: string, month: number, year: number) {
         // 1. Fetch eligible SODs
         const eligibleSods = await InvoiceQueryService.getEligibleSods(contractorId, month, year);
         if (eligibleSods.length === 0) {
@@ -24,8 +24,6 @@ export class InvoiceService {
 
         // 3. Prepare common variables
         const prefix = InvoiceCalculatorService.getContractorPrefix(contractor.name);
-        const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' }).toUpperCase();
-        const yearShort = year.toString().slice(-2);
 
         // 4. Group by Region and Generate
         const regions = InvoiceQueryService.groupByRegion(eligibleSods);
@@ -36,9 +34,9 @@ export class InvoiceService {
             const regionName = (groupSods[0].opmc.name.replace(/OPMC/i, '').trim() || 'REGION').toUpperCase();
 
             try {
-                // Generate unique number
+                // Generate unique number: INV/[PREFIX]/[REG]/[YY]/[MM]-[SEQ]
                 const invoiceNumber = await InvoiceGeneratorService.generateUniqueNumber(
-                    prefix, regionName, yearShort, monthName, contractor.name
+                    prefix, regionName, year, month
                 );
 
                 // Calculate and Create

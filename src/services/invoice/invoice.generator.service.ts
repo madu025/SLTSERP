@@ -4,34 +4,39 @@ import { InvoiceCalculatorService } from './invoice.calculator.service';
 export class InvoiceGeneratorService {
     
     /**
-     * Generate a unique invoice number with collision protection
+     * Generate a unique invoice number using sequential logic
+     * Format: INV/[PREFIX]/[REGION]/[YY]/[MM]-[SEQ]
+     * Example: INV/COL/24/03-001
      */
     static async generateUniqueNumber(
-        basePrefix: string, 
-        regionName: string, 
-        yearShort: string, 
-        monthName: string, 
-        contractorName: string
+        contractorPrefix: string,
+        regionName: string,
+        year: number,
+        month: number
     ): Promise<string> {
-        const sequence = '001';
-        const nameClean = contractorName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        let currentPrefix = basePrefix;
-        let checks = 0;
+        const yearShort = year.toString().slice(-2);
+        const monthPad = month.toString().padStart(2, '0');
+        const regClean = regionName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        
+        const pattern = `INV/${contractorPrefix}/${regClean}/${yearShort}/${monthPad}-`;
+        
+        // Find the latest invoice number with this pattern to increment sequence
+        const latestInvoice = await prisma.invoice.findFirst({
+            where: { invoiceNumber: { startsWith: pattern } },
+            orderBy: { invoiceNumber: 'desc' },
+            select: { invoiceNumber: true }
+        });
 
-        while (checks < 10) {
-            // Format: [Prefix]/[Region]/NC/[YY]/[MONTH]/-[SEQ]A
-            const invoiceNumber = `${currentPrefix}/${regionName}/NC/${yearShort}/${monthName}/-${sequence}A`;
-            
-            const existing = await prisma.invoice.count({ where: { invoiceNumber } });
-            if (existing === 0) return invoiceNumber;
-
-            // Collision: Append characters from name
-            const nextChar = nameClean[checks] || String.fromCharCode(65 + checks);
-            currentPrefix = basePrefix + nextChar;
-            checks++;
+        let nextSeq = 1;
+        if (latestInvoice) {
+            const parts = latestInvoice.invoiceNumber.split('-');
+            const lastSeq = parseInt(parts[parts.length - 1]);
+            if (!isNaN(lastSeq)) {
+                nextSeq = lastSeq + 1;
+            }
         }
 
-        throw new Error(`COULD_NOT_GENERATE_UNIQUE_INVOICE_NUMBER_FOR_${regionName}`);
+        return `${pattern}${nextSeq.toString().padStart(3, '0')}`;
     }
 
     /**
@@ -65,7 +70,7 @@ export class InvoiceGeneratorService {
                     status: 'PENDING',
                     description: `Monthly Invoice for ${other.regionName} - ${other.month}/${other.year}`,
                     sods: { connect: other.sodIds.map(id => ({ id })) }
-                } as any
+                }
             });
 
             await tx.serviceOrder.updateMany({

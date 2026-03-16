@@ -1,3 +1,7 @@
+import { ServiceOrder, OPMC } from '@prisma/client';
+
+export type SODWithOPMC = ServiceOrder & { opmc: OPMC };
+
 export interface InvoiceCalculationResult {
     totalAmount: number;
     amountA: number;
@@ -23,4 +27,8 @@ export interface RetentionReleaseResult {
     invoiceNumber: string;
     status: 'RELEASED' | 'STILL_HOLD';
     reason?: string;
+}
+
+export interface RegionalInvoiceGroup {
+    [opmcId: string]: SODWithOPMC[];
 }

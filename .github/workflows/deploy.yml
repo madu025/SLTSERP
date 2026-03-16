@@ -14,11 +14,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'  # Updated to Node 22 to avoid deprecation warnings
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci || npm install # Fallback if package-lock is missing
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -37,8 +37,13 @@ jobs:
           # Next.js standalone folder optimization
           cp -r public .next/standalone/
           cp -r .next/static .next/standalone/.next/
-          # Create compressed archive containing everything needed
-          tar -czf full_deploy.tar.gz -C .next/standalone . prisma package.json
+          
+          # Copy prisma and package files into standalone to ensure they are available in extract
+          cp -r prisma .next/standalone/
+          cp package.json .next/standalone/
+          
+          # Create compressed archive from INSIDE the standalone folder
+          tar -czf full_deploy.tar.gz -C .next/standalone .
 
       - name: Transfer Artifacts to Server
         uses: appleboy/scp-action@master
@@ -60,8 +65,8 @@ jobs:
             # Extract and update
             tar -xzf /tmp/full_deploy.tar.gz -C ~/slts-erp
             cd ~/slts-erp
-            # Only production dependencies (much faster)
-            npm install --production
+            # Install production dependencies only (much faster)
+            npm install --production --no-package-lock
             npx prisma migrate deploy
             # Use standalone server entry point
             sudo pm2 restart slts-erp || sudo pm2 start server.js --name "slts-erp" -- --port 80
