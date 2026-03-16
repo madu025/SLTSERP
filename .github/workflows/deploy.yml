@@ -7,6 +7,8 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Suggested by GH to avoid deprecation warnings
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -14,11 +16,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'  # Updated to Node 22 to avoid deprecation warnings
+          node-version: '20' # Back to 20 for project compatibility
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci || npm install # Fallback if package-lock is missing
+        run: npm install # Using install instead of ci for better cross-platform compatibility
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -29,21 +31,27 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
 
       - name: Prepare Deployment Artifacts
         run: |
-          # Next.js standalone folder optimization
+          echo "Checking build output..."
+          if [ ! -d ".next/standalone" ]; then
+            echo "Error: .next/standalone not found. Ensure output: 'standalone' is set in next.config.ts"
+            exit 1
+          fi
+          
+          # Copy public and static files into the standalone folder
           cp -r public .next/standalone/
           cp -r .next/static .next/standalone/.next/
           
-          # Copy prisma and package files into standalone to ensure they are available in extract
+          # Copy prisma for migrations
           cp -r prisma .next/standalone/
           cp package.json .next/standalone/
           
-          # Create compressed archive from INSIDE the standalone folder
+          # Create compressed archive
           tar -czf full_deploy.tar.gz -C .next/standalone .
+          echo "Archive created successfully."
 
       - name: Transfer Artifacts to Server
         uses: appleboy/scp-action@master
@@ -61,14 +69,15 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e # Stop on any error
             mkdir -p ~/slts-erp
-            # Extract and update
+            # Extract new version
             tar -xzf /tmp/full_deploy.tar.gz -C ~/slts-erp
             cd ~/slts-erp
-            # Install production dependencies only (much faster)
+            # Install production dependencies only
             npm install --production --no-package-lock
             npx prisma migrate deploy
-            # Use standalone server entry point
+            # Restart or Start
             sudo pm2 restart slts-erp || sudo pm2 start server.js --name "slts-erp" -- --port 80
             # Cleanup
             rm /tmp/full_deploy.tar.gz
