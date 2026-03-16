@@ -18,7 +18,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -29,26 +29,16 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
 
       - name: Prepare Deployment Artifacts
         run: |
-          mkdir -p deploy
-          cp -r .next deploy/
-          cp -r public deploy/
-          cp package.json deploy/
-          cp next.config.ts deploy/
-          cp -r prisma deploy/
-
-      - name: Clear Target Directory
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            rm -rf ~/slts-erp/public/slt-erp-extension
-            rm -rf ~/slts-erp/.next/standalone/public/slt-erp-extension
+          # Next.js standalone folder optimization
+          cp -r public .next/standalone/
+          cp -r .next/static .next/standalone/.next/
+          # Create compressed archive containing everything needed
+          tar -czf full_deploy.tar.gz -C .next/standalone . prisma package.json
 
       - name: Transfer Artifacts to Server
         uses: appleboy/scp-action@master
@@ -56,9 +46,8 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deploy/*"
-          target: "~/slts-erp"
-          strip_components: 1
+          source: "full_deploy.tar.gz"
+          target: "/tmp"
 
       - name: Finalize Deployment on Server
         uses: appleboy/ssh-action@master
@@ -67,9 +56,14 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            mkdir -p ~/slts-erp
+            # Extract and update
+            tar -xzf /tmp/full_deploy.tar.gz -C ~/slts-erp
             cd ~/slts-erp
-            # No build on server! Just install and restart.
+            # Only production dependencies (much faster)
             npm install --production
-            npx prisma generate
             npx prisma migrate deploy
-            sudo pm2 restart slts-erp || sudo pm2 start npm --name "slts-erp" -- start -- --port 80
+            # Use standalone server entry point
+            sudo pm2 restart slts-erp || sudo pm2 start server.js --name "slts-erp" -- --port 80
+            # Cleanup
+            rm /tmp/full_deploy.tar.gz
