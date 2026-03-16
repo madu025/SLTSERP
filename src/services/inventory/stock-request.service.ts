@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { StockRequest, Prisma } from '@prisma/client';
-import { NotificationService } from '../notification.service';
+import { NotificationPolicyService } from '../notification/notification-policy.service';
 import { emitSystemEvent } from '@/lib/events';
 import { StockService } from './stock.service';
 import { StockRequestActionData, TransactionClient } from './types';
@@ -80,29 +80,13 @@ export class StockRequestService {
         });
 
         try {
-            if (fromStore.type === 'SUB') {
-                await NotificationService.notifyByRole({
-                    roles: ['AREA_MANAGER', 'OFFICE_ADMIN'],
-                    title: 'New Material Request',
-                    message: `New material request ${req.requestNr} from ${fromStore.name} requires your ARM approval.`,
-                    type: 'INVENTORY',
-                    priority: 'MEDIUM',
-                    link: '/admin/inventory/approvals',
-                    opmcId: fromStore.opmcs?.[0]?.id,
-                    metadata: { requestId: req.id, type: req.sourceType }
-                });
-            } else {
-                await NotificationService.notifyByRole({
-                    roles: ['OSP_MANAGER', 'ADMIN'],
-                    title: 'New Material Request',
-                    message: `New material request ${req.requestNr} from ${fromStore.name} requires your OSP Manager approval.`,
-                    type: 'INVENTORY',
-                    priority: 'MEDIUM',
-                    link: '/admin/inventory/approvals',
-                    opmcId: fromStore.opmcs?.[0]?.id,
-                    metadata: { requestId: req.id, type: req.sourceType }
-                });
-            }
+            await NotificationPolicyService.notifyStockRequestCreated({
+                id: req.id,
+                requestNr: req.requestNr,
+                fromStoreName: fromStore.name,
+                opmcId: fromStore.opmcs?.[0]?.id,
+                type: req.sourceType
+            }, initialWorkflowStage);
         } catch (nErr) {
             console.error("Failed to send stock request notification:", nErr);
         }
@@ -164,14 +148,11 @@ export class StockRequestService {
             });
 
             try {
-                await NotificationService.notifyByRole({
-                    roles: ['STORES_MANAGER'],
-                    title: 'Request Approved by ARM',
-                    message: `Material request ${updated.requestNr} approved by ARM, requires Stores Manager approval.`,
-                    type: 'INVENTORY',
-                    priority: 'HIGH',
-                    link: '/admin/inventory/approvals'
-                });
+                await NotificationPolicyService.notifyStockRequestStageChange(
+                    { id: updated.id, requestNr: updated.requestNr },
+                    'STORES_MANAGER_APPROVAL',
+                    ['STORES_MANAGER']
+                );
             } catch (nErr) {
                 console.error("Failed to notify Stores Manager:", nErr);
             }
@@ -193,14 +174,11 @@ export class StockRequestService {
             });
 
             try {
-                await NotificationService.send({
-                    userId: updated.requestedById,
-                    title: 'Material Request Returned',
-                    message: `Your request ${updated.requestNr} has been returned by ARM. Reason: ${remarks}`,
-                    type: 'INVENTORY',
-                    priority: 'HIGH',
-                    link: '/admin/inventory/requests'
-                });
+                await NotificationPolicyService.notifyStockRequestFinalAction(
+                    { id: updated.id, requestNr: updated.requestNr, requestedById: updated.requestedById },
+                    'RETURNED',
+                    remarks
+                );
             } catch (nErr) {
                 console.error("Failed to notify requester:", nErr);
             }
@@ -221,14 +199,11 @@ export class StockRequestService {
             });
 
             try {
-                await NotificationService.notifyByRole({
-                    roles: ['OSP_MANAGER'],
-                    title: 'Request Approved by Store Manager',
-                    message: `Material request ${updated.requestNr} approved by Store Manager, requires OSP Manager final approval.`,
-                    type: 'INVENTORY',
-                    priority: 'HIGH',
-                    link: '/admin/inventory/approvals'
-                });
+                await NotificationPolicyService.notifyStockRequestStageChange(
+                    { id: updated.id, requestNr: updated.requestNr },
+                    'OSP_MANAGER_APPROVAL',
+                    ['OSP_MANAGER']
+                );
             } catch (nErr) {
                 console.error("Failed to notify OSP Manager:", nErr);
             }
@@ -247,14 +222,10 @@ export class StockRequestService {
             });
 
             try {
-                await NotificationService.send({
-                    userId: updated.requestedById,
-                    title: 'Material Request Rejected',
-                    message: `Your material request ${updated.requestNr} has been rejected.`,
-                    type: 'INVENTORY',
-                    priority: 'CRITICAL',
-                    link: '/admin/inventory/requests'
-                });
+                await NotificationPolicyService.notifyStockRequestFinalAction(
+                    { id: updated.id, requestNr: updated.requestNr, requestedById: updated.requestedById },
+                    'REJECTED'
+                );
             } catch (nErr) {
                 console.error("Failed to notify rejection:", nErr);
             }
@@ -285,18 +256,11 @@ export class StockRequestService {
                 let nextWorkflowStage = 'PROCUREMENT';
                 const nextStatus = 'APPROVED';
                 let rolesToNotify = ['STORES_MANAGER'];
-                let title = 'Local Purchase Approved';
-                let message = `Material request ${stockReq.requestNr} approved for Local Purchase, requires PO creation.`;
-
                 if (stockReq.sourceType === 'MAIN_STORE' && stockReq.toStoreId) {
                     nextWorkflowStage = 'MAIN_STORE_RELEASE';
                     rolesToNotify = ['STORES_ASSISTANT'];
-                    title = 'Material Release Required';
-                    message = `Request ${stockReq.requestNr} approved, ready for release from Main Store to ${stockReq.fromStore?.name}.`;
                 } else if (stockReq.sourceType === 'SLT') {
                     nextWorkflowStage = 'GRN_PENDING';
-                    title = 'SLT Request Approved';
-                    message = `Request ${stockReq.requestNr} approved by OSP Manager. Waiting for shipment from SLT.`;
                 }
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -313,14 +277,11 @@ export class StockRequestService {
                 });
 
                 try {
-                    await NotificationService.notifyByRole({
-                        roles: rolesToNotify,
-                        title,
-                        message,
-                        type: 'INVENTORY',
-                        priority: 'HIGH',
-                        link: '/admin/inventory/approvals'
-                    });
+                    await NotificationPolicyService.notifyStockRequestStageChange(
+                        { id: updated.id, requestNr: updated.requestNr },
+                        nextWorkflowStage,
+                        rolesToNotify
+                    );
                 } catch (nErr) {
                     console.error("Failed to notify next step:", nErr);
                 }
@@ -342,14 +303,10 @@ export class StockRequestService {
             });
 
             try {
-                await NotificationService.send({
-                    userId: updated.requestedById,
-                    title: 'Procurement Completed',
-                    message: `Procurement for request ${updated.requestNr} is complete. Waiting for GRN.`,
-                    type: 'INVENTORY',
-                    priority: 'MEDIUM',
-                    link: '/admin/inventory/requests'
-                });
+                await NotificationPolicyService.notifyStockRequestFinalAction(
+                    { id: updated.id, requestNr: updated.requestNr, requestedById: updated.requestedById },
+                    'PROCUREMENT_COMPLETE'
+                );
             } catch (nErr) {
                 console.error("Failed to notify procurement complete:", nErr);
             }
@@ -430,14 +387,10 @@ export class StockRequestService {
                 });
 
                 try {
-                    await NotificationService.send({
-                        userId: updated.requestedById,
-                        title: 'Materials Released',
-                        message: `Materials for request ${updated.requestNr} have been released. Please confirm receipt.`,
-                        type: 'INVENTORY',
-                        priority: 'HIGH',
-                        link: '/admin/inventory/approvals'
-                    });
+                    await NotificationPolicyService.notifyStockRequestFinalAction(
+                        { id: updated.id, requestNr: updated.requestNr, requestedById: updated.requestedById },
+                        'RELEASED'
+                    );
                 } catch (nErr) {
                     console.error("Failed to notify materials release:", nErr);
                 }

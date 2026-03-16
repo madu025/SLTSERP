@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { InventoryStore, Prisma } from '@prisma/client';
-import { NotificationService } from '../notification.service';
+import { NotificationPolicyService } from '../notification/notification-policy.service';
 import { StoreWithDetails } from './types';
 
 export class StoreService {
@@ -135,17 +135,12 @@ export class StoreService {
             if (!stock || !stock.item || !stock.store) return;
 
             if (stock.quantity <= stock.minLevel) {
-                // Determine recipients: Store Manager and potentially Area Managers
-                const roles = ['STORE_KEEPER', 'OFFICE_ADMIN', 'AREA_MANAGER', 'OSP_MANAGER'];
-
-                await NotificationService.notifyByRole({
-                    roles,
-                    title: 'Low Stock Alert',
-                    message: `Item ${stock.item.code} (${stock.item.name}) is low at ${stock.store.name}. Current: ${stock.quantity}, Min Level: ${stock.minLevel}`,
-                    type: 'INVENTORY',
-                    priority: 'HIGH',
-                    link: '/admin/inventory/stock'
-                });
+                await NotificationPolicyService.notifyLowStock(
+                    stock.store.name,
+                    stock.item.name || stock.item.code,
+                    stock.quantity,
+                    stock.minLevel
+                );
             }
         } catch (error) {
             console.error('Failed to check low stock:', error);
