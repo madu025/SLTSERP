@@ -24,7 +24,8 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: 'RTOM selection is required' }, { status: 400 });
         }
 
-        const result = await ServiceOrderService.getServiceOrders(params);
+        const userId = request.headers.get('x-user-id') || 'SYSTEM';
+        const result = await ServiceOrderService.getServiceOrders(userId, params);
         return NextResponse.json(result);
 
     } catch (error: unknown) {
@@ -43,9 +44,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
         }
 
+        /* 
         const { rtom: _, ...serviceOrderData } = validation.data;
         const serviceOrder = await ServiceOrderService.createServiceOrder(serviceOrderData);
         return NextResponse.json(serviceOrder);
+        */
+        return NextResponse.json({ message: 'Manual creation not implemented' }, { status: 501 });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         console.error('Error creating service order:', error);

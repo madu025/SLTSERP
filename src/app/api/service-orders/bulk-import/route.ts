@@ -4,13 +4,13 @@ import { ServiceOrderService } from '@/services/sod.service';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { rows } = body;
+        const { rows, rtom, opmcId } = body;
 
-        if (!rows || !Array.isArray(rows)) {
-            return NextResponse.json({ message: 'Invalid data format' }, { status: 400 });
+        if (!rows || !Array.isArray(rows) || !rtom || !opmcId) {
+            return NextResponse.json({ message: 'Missing required fields (rows, rtom, or opmcId)' }, { status: 400 });
         }
 
-        const result = await ServiceOrderService.bulkImportServiceOrders(rows);
+        const result = await ServiceOrderService.bulkImportServiceOrders(rtom, rows, opmcId);
         return NextResponse.json({
             message: `Import completed: ${result.created} succeeded, ${result.failed} failed`,
             ...result

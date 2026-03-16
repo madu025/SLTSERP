@@ -19,7 +19,7 @@ export const sodSyncWorker = new Worker(
         try {
             if (type === 'PAT_REJECTION') {
                 console.log(`[SOD-SYNC-WORKER] Starting PAT/Rejection sync for RTOM: ${rtom} (Job ID: ${job.id})`);
-                const result = await ServiceOrderService.syncPatResults(opmcId, rtom, hoRejected || []);
+                const result = await ServiceOrderService.syncPatResults(opmcId, rtom);
                 await ServiceOrderService.updateGlobalSyncStats({ updated: result.updated });
                 await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
                 console.log(`[SOD-SYNC-WORKER] Completed PAT sync for RTOM: ${rtom}. Updated: ${result.updated}`);

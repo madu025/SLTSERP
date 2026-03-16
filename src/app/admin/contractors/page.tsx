@@ -903,17 +903,21 @@ export default function ContractorsPage() {
                                                 { label: "Police Report", field: "policeReportUrl" },
                                                 { label: "Grama Cert", field: "gramaCertUrl" }
                                             ].map((doc) => (
-                                                <FormField key={doc.field} control={form.control} name={doc.field as keyof ContractorFormValues} render={({ field }) => (
-                                                    <FormItem className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                                                        <FormLabel className="text-xs font-bold uppercase">{doc.label}</FormLabel>
-                                                        <div className="flex flex-col gap-2 mt-2">
-                                                            {field.value ? (
-                                                                <div className="relative group w-full h-24">
-                                                                    <img src={field.value} alt="Doc" className="w-full h-full object-cover rounded border" />
-                                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
-                                                                        <Button type="button" size="sm" variant="destructive" onClick={() => field.onChange("")}>Remove</Button>
+                                                <FormField 
+                                                    key={doc.field} 
+                                                    control={form.control} 
+                                                    name={doc.field as any} 
+                                                    render={({ field }) => (
+                                                        <FormItem className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                                            <FormLabel className="text-xs font-bold uppercase">{doc.label}</FormLabel>
+                                                            <div className="flex flex-col gap-2 mt-2">
+                                                                {field.value ? (
+                                                                    <div className="relative group w-full h-24">
+                                                                        <img src={field.value as string} alt="Doc" className="w-full h-full object-cover rounded border" />
+                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
+                                                                            <Button type="button" size="sm" variant="destructive" onClick={() => field.onChange("")}>Remove</Button>
+                                                                        </div>
                                                                     </div>
-                                                                </div>
                                                             ) : (
                                                                 <div className="w-full h-24 border-2 border-dashed rounded flex flex-col items-center justify-center bg-white cursor-pointer hover:border-blue-400 transition-colors relative">
                                                                     <Upload className="w-6 h-6 text-slate-300" />

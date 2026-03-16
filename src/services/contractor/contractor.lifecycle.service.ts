@@ -24,9 +24,9 @@ export class ContractorLifecycleService {
 
         const contractor = await prisma.contractor.create({
             data: {
-                name: contractorData.name,
-                address: contractorData.address,
-                registrationNumber: contractorData.registrationNumber,
+                name: data.name!,
+                address: contractorData.address || '',
+                registrationNumber: data.registrationNumber!,
                 brNumber: contractorData.brNumber,
                 status: (contractorData.status as ContractorStatus) || 'PENDING',
                 type: (contractorData.type as ContractorType) || 'SOD',

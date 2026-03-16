@@ -47,14 +47,14 @@ export async function initializeBackgroundWorkers() {
     // 3. Global PAT Sync (1-hour intervals) - Processes Rejection portal
     try {
         // Trigger immediately
-        ServiceOrderService.syncAllPatResults()
+        ServiceOrderService.syncHoApprovedResults()
             .then(() => console.log('[WORKERS] Initial global PAT sync completed'))
             .catch(e => console.error('[WORKERS] Initial global PAT sync failed:', e));
 
         // Then every 1 hour
         setInterval(() => {
             console.log('[WORKERS] Starting global PAT sync (rejections/approvals)...');
-            ServiceOrderService.syncAllPatResults().catch(e => console.error('[WORKERS] Periodic global PAT sync failed:', e));
+            ServiceOrderService.syncHoApprovedResults().catch(e => console.error('[WORKERS] Periodic global PAT sync failed:', e));
         }, 60 * 60 * 1000);
         console.log('[WORKERS] ✅ Global PAT Sync (1-hour) started');
     } catch (err) {

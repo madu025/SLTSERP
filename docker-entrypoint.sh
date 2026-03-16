@@ -2,7 +2,11 @@
 
 # Wait for database to be ready (optional but recommended)
 echo "Running database migrations..."
-npx prisma migrate deploy
+if [ -f "./node_modules/.bin/prisma" ]; then
+  ./node_modules/.bin/prisma migrate deploy
+else
+  npx prisma migrate deploy
+fi
 
 # Start the application
 echo "Starting application..."

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, message: 'Permission Denied: Role not authorized to generate invoices.' }, { status: 403 });
         }
 
-        const result = await InvoiceService.generateMonthlyInvoice(contractorId, parseInt(month), parseInt(year), userId);
+        const result = await InvoiceService.generateMonthlyInvoice(contractorId, parseInt(month), parseInt(year));
 
         if (!result.success) {
             return NextResponse.json(result, { status: 400 });

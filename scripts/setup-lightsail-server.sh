@@ -1,93 +1,70 @@
 #!/bin/bash
 
 # ==========================================================================
-# SLTSERP - AWS Lightsail Ubuntu Setup Script
-# This script sets up a fresh Ubuntu server for the SLTSERP application.
+# SLTSERP - Full One-Click Setup & Run (Remote Server)
 # ==========================================================================
 
 # Exit on any error
 set -e
 
-echo "🚀 Starting SLTSERP Server Setup..."
+REPO_URL="https://github.com/madu025/SLTSERP.git"
+PROJECT_DIR=~/slts-erp
+TEMP_DIR=~/slts-erp-temp
 
-# 1. Update System
-echo "--- Updating system packages ---"
+echo "🚀 Starting Full SLTSERP Setup..."
+
+# 1. Update System & Add Swap (CRITICAL for 2GB RAM build)
+echo "--- Updating system & Adding 4GB Swap ---"
 sudo apt-get update -y
+if [ ! -f /swapfile ]; then
+    sudo fallocate -l 4G /swapfile
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+fi
 sudo apt-get upgrade -y
-
-# 2. Install Essential Tools
-echo "--- Installing essential tools ---"
-sudo apt-get install -y curl git tar build-essential nginx
-
-# 3. Install Node.js (Version 20.x)
-echo "--- Installing Node.js 20 ---"
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# 4. Install PM2 Globally
-echo "--- Installing PM2 ---"
-sudo npm install -g pm2
-
-# 5. Setup Project Directory
-echo "--- Creating project directory ---"
-mkdir -p ~/slts-erp
-sudo chown ubuntu:ubuntu ~/slts-erp
-
-# 6. Install Docker (Required for Local Postgres/Docker-Compose)
-echo "--- Installing Docker & Docker Compose ---"
-sudo apt-get install -y ca-certificates gnupg lsb-release
+# Install Docker & Prerequisites
+sudo apt-get install -y curl git tar build-essential ca-certificates gnupg lsb-release
 sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
 echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
   $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt-get update -y
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# 7. Configure Nginx as Reverse Proxy
-echo "--- Configuring Nginx ---"
-cat <<EOF | sudo tee /etc/nginx/sites-available/slts-erp
-server {
-    listen 80;
-    server_name _;
+# 2. Handle Project Code
+echo "--- Handling Project Code ---"
+if [ ! -d "$PROJECT_DIR/.git" ]; then
+    echo "Cloning repository..."
+    # If the directory exists but is not a git repo (like from our previous scp), move contents
+    if [ -d "$PROJECT_DIR" ]; then
+        mv "$PROJECT_DIR" "$TEMP_DIR"
+    fi
+    git clone "$REPO_URL" "$PROJECT_DIR"
+    # Copy back the config files we uploaded earlier
+    if [ -d "$TEMP_DIR" ]; then
+        cp "$TEMP_DIR/.env" "$PROJECT_DIR/" 2>/dev/null || true
+        cp "$TEMP_DIR/docker-compose.prod.yml" "$PROJECT_DIR/" 2>/dev/null || true
+        cp -r "$TEMP_DIR/nginx" "$PROJECT_DIR/" 2>/dev/null || true
+        rm -rf "$TEMP_DIR"
+    fi
+else
+    echo "Project already exists, pulling latest..."
+    cd "$PROJECT_DIR"
+    git fetch origin main
+    git reset --hard origin/main
+fi
 
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    }
+# 3. Start Application
+echo "--- Starting Application with Docker ---"
+cd "$PROJECT_DIR"
+# Ensure we use the production compose
+sudo docker compose -f docker-compose.prod.yml up --build -d
 
-    # Optional: Increase client body size for file uploads
-    client_max_body_size 20M;
-}
-EOF
-
-sudo ln -sf /etc/nginx/sites-available/slts-erp /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
-
-# 8. Setup Firewall (UFW)
-echo "--- Configuring Firewall ---"
-sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
-echo "y" | sudo ufw enable
-
-# 9. Final Instructions
 echo ""
 echo "=========================================================================="
-echo "✅ SERVER SETUP COMPLETE!"
-echo "=========================================================================="
-echo "Next Steps:"
-echo "1. Put your DATABASE_URL in ~/slts-erp/.env"
-echo "2. Add your server's IP and SSH Key to GitHub Actions Secrets:"
-echo "   - SERVER_IP"
-echo "   - SSH_PRIVATE_KEY"
-echo "3. Push your code to GitHub (main branch) to trigger auto-deployment."
-echo "4. After first deploy, PM2 will start the app automatically."
+echo "✅ SERVER SETUP & DEPLOYMENT COMPLETE!"
+echo "Your ERP is now running on http://$(curl -s ifconfig.me)"
 echo "=========================================================================="

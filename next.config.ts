@@ -6,20 +6,12 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   compiler: {
-    removeConsole: false, // Keep logs for debugging background workers in production
+    removeConsole: false,
   },
   experimental: {
-    instrumentationHook: true,
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts']
   },
-  // Build Performance Optimizations
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   productionBrowserSourceMaps: false,
-} as any;
+};
 
 export default nextConfig;

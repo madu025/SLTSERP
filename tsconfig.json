@@ -38,6 +38,10 @@
   ],
   "exclude": [
     "node_modules",
-    "scripts"
+    "scripts",
+    "check_bridge.ts",
+    "check_order.ts",
+    "check_bridge.mts",
+    "check_order.mts"
   ]
 }

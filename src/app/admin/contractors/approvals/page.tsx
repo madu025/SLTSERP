@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { updateContractor } from "@/actions/contractor-actions";
 import { CheckCircle, XCircle, Loader2, Building2, Users, FileText, Banknote, Calendar, ShieldCheck, Pencil, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { ContractorUpdateData } from "@/services/contractor.service";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
@@ -59,7 +60,7 @@ export default function ContractorApprovalsPage() {
 
     const approveMutation = useMutation({
         mutationFn: async ({ id, status, approverId, teams }: any) => {
-            const data = {
+            const data: ContractorUpdateData = {
                 status,
                 teams,
                 ...(userRole === 'AREA_MANAGER' ? { armApprovedById: approverId, armApprovedAt: new Date() } : {}),
@@ -80,7 +81,7 @@ export default function ContractorApprovalsPage() {
 
     const rejectMutation = useMutation({
         mutationFn: async ({ id, reason, userId }: any) => {
-            const data = {
+            const data: ContractorUpdateData = {
                 status: 'REJECTED',
                 rejectionReason: reason,
                 rejectionById: userId,

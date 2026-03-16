@@ -17,9 +17,9 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build Next.js
+# Build Next.js with limited memory
 ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
+RUN NODE_OPTIONS='--max-old-space-size=1536' npm run build
 
 # Stage 3: Production runner
 FROM node:22-alpine AS runner
