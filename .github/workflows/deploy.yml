@@ -34,8 +34,11 @@ jobs:
           cp -r prisma staging/
           cp docker-entrypoint.sh staging/
           cp Dockerfile.prod staging/
-          # Ensure node_modules exists in standalone, if not it might be flat
-          # cp -r node_modules staging/ # Usually already in standalone
+          
+          # Fix absolute paths from GitHub runner to Docker /app path
+          find staging -type f -name "server.js" -exec sed -i "s|$GITHUB_WORKSPACE|/app|g" {} +
+          find staging -type f -name "required-server-files.json" -exec sed -i "s|$GITHUB_WORKSPACE|/app|g" {} +
+          
           cd staging && zip -r ../deploy.zip .
 
       - name: Create .env file
