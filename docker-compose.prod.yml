@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sltserp-app
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NODE_ENV=production
+      - TZ=Asia/Colombo
+    ports:
+      - "3000:3000"
+    networks:
+      - sltserp-network
+    depends_on:
+      redis:
+        condition: service_started
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
+  # Redis for Queues
+  redis:
+    image: redis:7-alpine
+    container_name: sltserp-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - sltserp-network
+
+  # Nginx Reverse Proxy (Handles Port 80 and SSL)
+  nginx:
+    image: nginx:alpine
+    container_name: sltserp-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - app
+    networks:
+      - sltserp-network
+
+volumes:
+  redis_data:
+
+networks:
+  sltserp-network:
+    driver: bridge
