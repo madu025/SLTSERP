@@ -2,6 +2,37 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+interface TeamMemberInput {
+    id: string;
+    name: string;
+    nic?: string;
+    idCopyNumber?: string;
+    contactNumber?: string;
+    address?: string;
+    photoUrl?: string;
+    nicUrl?: string;
+    policeReportUrl?: string;
+    gramaCertUrl?: string;
+    shoeSize?: string;
+    tshirtSize?: string;
+    passportPhotoUrl?: string;
+}
+
+interface StoreAssignmentInput {
+    storeId: string;
+    isPrimary?: boolean;
+}
+
+interface TeamInput {
+    id: string;
+    name: string;
+    status: string;
+    sltCode?: string;
+    opmcId?: string | null;
+    members: TeamMemberInput[];
+    storeAssignments: StoreAssignmentInput[];
+}
+
 export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     try {
@@ -57,7 +88,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
         });
 
         const existingIds = existingTeams.map(t => t.id);
-        const incomingIds = teams.filter((t: any) => t.id && !t.id.startsWith('temp')).map((t: any) => t.id);
+        const incomingIds = teams.filter((t: TeamInput) => t.id && !t.id.startsWith('temp')).map((t: TeamInput) => t.id);
 
         const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
 
@@ -76,20 +107,20 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                     status: team.status,
                     contractorId: contractorId,
                     sltCode: team.sltCode || null,
-                    opmcId: team.opmcId || contractor?.opmcId || null
+                    opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (contractor?.opmcId || null)
                 };
 
                 let teamId = team.id;
 
                 if (!team.id || team.id.startsWith('temp')) {
                     // Create New Team
-                    const newTeam = await (tx.contractorTeam.create as any)({
+                    const newTeam = await tx.contractorTeam.create({
                         data: teamData
                     });
                     teamId = newTeam.id;
                 } else {
                     // Update Existing Team
-                    await (tx.contractorTeam.update as any)({
+                    await tx.contractorTeam.update({
                         where: { id: team.id },
                         data: teamData
                     });
@@ -100,7 +131,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
                 if (team.storeAssignments && team.storeAssignments.length > 0) {
                     await tx.teamStoreAssignment.createMany({
-                        data: team.storeAssignments.map((sa: any) => ({
+                        data: team.storeAssignments.map((sa: StoreAssignmentInput) => ({
                             teamId,
                             storeId: sa.storeId,
                             isPrimary: sa.isPrimary || false
@@ -114,9 +145,9 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
                     select: { id: true }
                 });
                 const curMemIds = currentMembers.map(m => m.id);
-                const incMemIds = team.members
-                    .filter((m: any) => !m.id.startsWith('mem'))
-                    .map((m: any) => m.id);
+                const incMemIds = (team.members || [])
+                    .filter((m: TeamMemberInput) => !m.id.startsWith('mem'))
+                    .map((m: TeamMemberInput) => m.id);
 
                 const memsToDelete = curMemIds.filter(id => !incMemIds.includes(id));
                 if (memsToDelete.length > 0) {

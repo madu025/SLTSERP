@@ -42,6 +42,7 @@ interface Team {
     name: string;
     status: string;
     sltCode?: string;
+    opmcId?: string | null;
     members: TeamMember[];
     storeAssignments: StoreAssignment[];
 }
@@ -73,6 +74,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(false);
     const [stores, setStores] = useState<Store[]>([]);
+    const [opmcs, setOpmcs] = useState<{ id: string, name: string }[]>([]);
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
 
     // Selection State for Master-Detail View
@@ -84,9 +86,10 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [data, storesData] = await Promise.all([
+            const [data, storesData, opmcsData] = await Promise.all([
                 fetch(`/api/contractors/${contractorId}/teams`).then(res => res.json()),
-                fetch('/api/inventory/stores').then(res => res.json())
+                fetch('/api/inventory/stores').then(res => res.json()),
+                fetch('/api/opmcs').then(res => res.json())
             ]);
 
             // Handle new response structure { teams, contractor }
@@ -97,6 +100,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
             }
 
             setStores(Array.isArray(storesData) ? storesData : []);
+            setOpmcs(Array.isArray(opmcsData) ? opmcsData : []);
 
             // Auto-select first team if available
             if (loadedTeams.length > 0) setSelectedTeamIndex(0);
@@ -426,6 +430,16 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                                                     className="h-8 text-sm font-bold border-blue-200 focus:border-blue-500"
                                                     placeholder="e.g. OSP-TEAM-01"
                                                 />
+                                            </div>
+                                            <div className="w-full sm:w-48">
+                                                <Label className="text-xs text-slate-500">Originating Office (RTOM)</Label>
+                                                <Select value={currentTeam.opmcId || ""} onValueChange={(v) => updateCurrentTeam('opmcId', v)}>
+                                                    <SelectTrigger className="h-8"><SelectValue placeholder="Inherit from Contractor" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="inherit">Inherit from Contractor</SelectItem>
+                                                        {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                             <div className="w-full sm:w-32">
                                                 <Label className="text-xs text-slate-500">Status</Label>

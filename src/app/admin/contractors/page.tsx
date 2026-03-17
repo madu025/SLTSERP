@@ -494,7 +494,12 @@ export default function ContractorsPage() {
 
     // Team Management Helpers
     const addTeam = () => {
-        setTeams([...teams, { name: 'New Team', status: 'ACTIVE', members: [] }]);
+        setTeams([...teams, { 
+            name: `Team ${teams.length + 1}`, 
+            status: 'ACTIVE', 
+            members: [],
+            opmcId: form.getValues('opmcId') || null
+        }]);
     };
 
     const updateTeam = (idx: number, field: keyof ContractorTeam, val: unknown) => {
@@ -1038,16 +1043,23 @@ export default function ContractorsPage() {
                                                             <Input value={team.name} onChange={(e) => updateTeam(tIdx, 'name', e.target.value)} placeholder="Team Name" className="flex-1" />
                                                             <Button type="button" variant="ghost" size="sm" onClick={() => removeTeam(tIdx)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-4">
+                                                        <div className="grid grid-cols-3 gap-4">
                                                             <div>
-                                                                <Label className="text-xs">Primary Store</Label>
+                                                                <Label className="text-[10px] uppercase font-bold text-slate-400">RTOM Office</Label>
+                                                                <Select value={team.opmcId || ""} onValueChange={(val) => updateTeam(tIdx, 'opmcId', val)}>
+                                                                    <SelectTrigger className="h-9"><SelectValue placeholder="RTOM" /></SelectTrigger>
+                                                                    <SelectContent>{filteredOpmcs.map((o: { id: string; name: string }) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}</SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-[10px] uppercase font-bold text-slate-400">Primary Store</Label>
                                                                 <Select value={team.primaryStoreId || ""} onValueChange={(val) => updateTeam(tIdx, 'primaryStoreId', val)}>
-                                                                    <SelectTrigger className="h-9"><SelectValue placeholder="Select Store" /></SelectTrigger>
+                                                                    <SelectTrigger className="h-9"><SelectValue placeholder="Store" /></SelectTrigger>
                                                                     <SelectContent>{stores.map((s: { id: string; name: string }) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}</SelectContent>
                                                                 </Select>
                                                             </div>
                                                             <div className="flex flex-col justify-end">
-                                                                <Button type="button" variant="outline" size="sm" onClick={() => addMember(tIdx)} className="h-9"><UserPlus className="w-3 h-3 mr-2" /> Add Member</Button>
+                                                                <Button type="button" variant="outline" size="sm" onClick={() => addMember(tIdx)} className="h-9"><UserPlus className="w-3 h-3 mr-2" /> Member</Button>
                                                             </div>
                                                         </div>
                                                         <div className="space-y-2 mt-4">
@@ -1102,6 +1114,7 @@ export default function ContractorsPage() {
                                             {form.getValues('type') === 'SOD' && (
                                                 <div className="flex justify-between"><span>Teams:</span> <span className="font-bold">{teams.length} Team(s)</span></div>
                                             )}
+```
                                         </div>
                                         <div className="flex justify-between border-t pt-6 mt-10">
                                             <Button type="button" variant="outline" onClick={() => setStep(form.watch('type') === 'SOD' ? 4 : 3)}>Back</Button>

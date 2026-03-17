@@ -58,7 +58,7 @@ export class ContractorLifecycleService {
                     await ContractorRepository.createTeam({
                         name: team.name,
                         contractorId: contractor.id,
-                        opmcId: team.opmcId || null,
+                        opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (contractor.opmcId || null),
                         sltCode: team.sltCode,
                         storeAssignments: team.storeIds && team.storeIds.length > 0 ? {
                             create: team.storeIds.map((storeId: string) => ({
@@ -185,7 +185,7 @@ export class ContractorLifecycleService {
             if (team.id && existingTeamIds.includes(team.id)) {
                 await ContractorRepository.updateTeam(team.id, {
                     name: team.name,
-                    opmcId: team.opmcId || defaultOpmcId,
+                    opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (defaultOpmcId || null),
                     sltCode: team.sltCode,
                     storeAssignments: {
                         deleteMany: {},
@@ -221,7 +221,7 @@ export class ContractorLifecycleService {
                 await ContractorRepository.createTeam({
                     name: team.name,
                     contractorId,
-                    opmcId: team.opmcId || defaultOpmcId,
+                    opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (defaultOpmcId || null),
                     sltCode: team.sltCode,
                     storeAssignments: {
                         create: team.storeIds?.map((storeId: string) => ({
