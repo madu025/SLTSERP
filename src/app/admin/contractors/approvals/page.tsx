@@ -1,5 +1,7 @@
 "use client";
 
+import { ContractorStatus } from "@prisma/client";
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -18,10 +20,56 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import TeamManager from "../TeamManager";
+import Image from "next/image";
+
+interface TeamMember {
+    id: string;
+    name: string;
+    designation: string;
+}
+
+interface Team {
+    id: string;
+    name: string;
+    sltCode?: string;
+    members: TeamMember[];
+}
+
+interface Contractor {
+    id: string;
+    name: string;
+    email?: string;
+    status: ContractorStatus;
+    type: string;
+    nic?: string;
+    registrationNumber?: string;
+    contactNumber?: string;
+    address?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankBranch?: string;
+    photoUrl?: string;
+    nicFrontUrl?: string;
+    nicBackUrl?: string;
+    brCertUrl?: string;
+    bankPassbookUrl?: string;
+    registrationFeeSlipUrl?: string;
+    policeReportUrl?: string;
+    gramaCertUrl?: string;
+    teams?: Team[];
+    createdAt?: string;
+    updatedAt?: string;
+    armApprovedAt?: string;
+    ospApprovedAt?: string;
+    opmcId?: string;
+    registrationFeePaid?: boolean;
+    agreementDate?: string;
+    agreementDuration?: number;
+}
 
 export default function ContractorApprovalsPage() {
     const queryClient = useQueryClient();
-    const [selectedContractor, setSelectedContractor] = useState<any>(null);
+    const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
 
     // Get current user from localStorage
     const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
@@ -33,7 +81,7 @@ export default function ContractorApprovalsPage() {
     const [teamCodes, setTeamCodes] = useState<Record<string, string>>({});
     const [teamManagerOpen, setTeamManagerOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editData, setEditData] = useState<any>({});
+    const [editData, setEditData] = useState<Partial<Contractor>>({});
     const [previewDoc, setPreviewDoc] = useState<{ label: string, url: string } | null>(null);
 
     // Fetch contractors pending approval
@@ -45,7 +93,7 @@ export default function ContractorApprovalsPage() {
             const data = await res.json();
             const contractorsList = Array.isArray(data.contractors) ? data.contractors : [];
             // Filter only those pending ARM or OSP approval
-            return contractorsList.filter((c: any) => c.status === 'ARM_PENDING' || c.status === 'OSP_PENDING');
+            return contractorsList.filter((c: Contractor) => c.status === 'ARM_PENDING' || c.status === 'OSP_PENDING');
         }
     });
 
@@ -59,9 +107,9 @@ export default function ContractorApprovalsPage() {
     });
 
     const approveMutation = useMutation({
-        mutationFn: async ({ id, status, approverId, teams }: any) => {
+        mutationFn: async ({ id, status, approverId, teams }: { id: string; status: string; approverId: string; teams?: Team[] }) => {
             const data: ContractorUpdateData = {
-                status,
+                status: status as ContractorStatus,
                 teams,
                 ...(userRole === 'AREA_MANAGER' ? { armApprovedById: approverId, armApprovedAt: new Date() } : {}),
                 ...(userRole === 'OSP_MANAGER' ? { ospApprovedById: approverId, ospApprovedAt: new Date() } : {})
@@ -80,7 +128,7 @@ export default function ContractorApprovalsPage() {
     });
 
     const rejectMutation = useMutation({
-        mutationFn: async ({ id, reason, userId }: any) => {
+        mutationFn: async ({ id, reason, userId }: { id: string; reason: string; userId: string }) => {
             const data: ContractorUpdateData = {
                 status: 'REJECTED',
                 rejectionReason: reason,
@@ -102,7 +150,7 @@ export default function ContractorApprovalsPage() {
         }
     });
 
-    const handleApprove = (contractor: any) => {
+    const handleApprove = (contractor: Contractor) => {
         let nextStatus = '';
         const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(userRole);
 
@@ -119,7 +167,7 @@ export default function ContractorApprovalsPage() {
 
         if (nextStatus === 'ACTIVE') {
             const initialCodes: Record<string, string> = {};
-            (contractor.teams || []).forEach((t: any) => {
+            (contractor.teams || []).forEach((t: Team) => {
                 initialCodes[t.id] = t.sltCode || '';
             });
             setTeamCodes(initialCodes);
@@ -130,14 +178,15 @@ export default function ContractorApprovalsPage() {
     };
 
     const confirmFinalApproval = () => {
-        const teamsToUpdate = selectedContractor.teams.map((t: any) => ({
+        if (!selectedContractor) return;
+        const teamsToUpdate = (selectedContractor.teams || []).map((t: Team) => ({
             ...t,
             sltCode: teamCodes[t.id]
         }));
 
         // Validation: If SOD, all teams must have a code?
         if (selectedContractor.type === 'SOD') {
-            const missingCode = teamsToUpdate.some((t: any) => !t.sltCode);
+            const missingCode = teamsToUpdate.some((t: Team) => !t.sltCode);
             if (missingCode) {
                 toast.error("All teams must have an SLT Identification Code before activation.");
                 return;
@@ -154,6 +203,7 @@ export default function ContractorApprovalsPage() {
     };
 
     const handleReject = () => {
+        if (!selectedContractor) return;
         if (!rejectionReason.trim()) {
             toast.error("Please provide a reason for rejection");
             return;
@@ -206,7 +256,7 @@ export default function ContractorApprovalsPage() {
                                         <p className="text-slate-400 text-sm">No pending approvals</p>
                                     </div>
                                 ) : (
-                                    contractors.map((c: any) => (
+                                    contractors.map((c: Contractor) => (
                                         <Card
                                             key={c.id}
                                             className={cn(
@@ -343,6 +393,7 @@ export default function ContractorApprovalsPage() {
                                                                 { label: 'NIC Back', url: selectedContractor.nicBackUrl },
                                                                 { label: 'BR Cert', url: selectedContractor.brCertUrl },
                                                                 { label: 'Passbook', url: selectedContractor.bankPassbookUrl },
+                                                                { label: 'Registration Fee', url: selectedContractor.registrationFeeSlipUrl },
                                                                 { label: 'Police Report', url: selectedContractor.policeReportUrl },
                                                                 { label: 'Grama Cert', url: selectedContractor.gramaCertUrl },
                                                             ].map((doc, idx) => (
@@ -373,7 +424,7 @@ export default function ContractorApprovalsPage() {
                                                         </h5>
                                                         <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
                                                             {(selectedContractor.teams || []).length > 0 ? (
-                                                                selectedContractor.teams.map((team: any, tIdx: number) => (
+                                                                (selectedContractor.teams || []).map((team: Team, tIdx: number) => (
                                                                     <div key={tIdx} className="space-y-2">
                                                                         <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
                                                                             <span className="text-xs font-bold text-slate-700">{team.name}</span>
@@ -384,7 +435,7 @@ export default function ContractorApprovalsPage() {
                                                                             )}
                                                                         </div>
                                                                         <div className="pl-4 space-y-1">
-                                                                            {(team.members || []).map((m: any, mIdx: number) => (
+                                                                            {(team.members || []).map((m: TeamMember, mIdx: number) => (
                                                                                 <div key={mIdx} className="flex items-center gap-2 text-[10px] text-slate-500">
                                                                                     <div className="w-1 h-1 rounded-full bg-slate-300" />
                                                                                     <span>{m.name} ({m.designation})</span>
@@ -460,7 +511,7 @@ export default function ContractorApprovalsPage() {
                     </DialogHeader>
 
                     <div className="space-y-6 my-4">
-                        {selectedContractor?.teams?.map((team: any) => (
+                        {(selectedContractor?.teams || []).map((team: Team) => (
                             <div key={team.id} className="space-y-2">
                                 <Label htmlFor={`code-${team.id}`} className="text-sm font-bold">{team.name}</Label>
                                 <Input
@@ -587,7 +638,7 @@ export default function ContractorApprovalsPage() {
                             <Select value={editData.opmcId || ''} onValueChange={(v) => setEditData({ ...editData, opmcId: v })}>
                                 <SelectTrigger className="bg-white"><SelectValue placeholder="Select RTOM" /></SelectTrigger>
                                 <SelectContent>
-                                    {opmcs.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                                    {opmcs.map((o: { id: string; name: string }) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -612,9 +663,11 @@ export default function ContractorApprovalsPage() {
                                 if (!res.ok) throw new Error("Update failed");
                                 toast.success("Details updated");
                                 queryClient.invalidateQueries({ queryKey: ['contractor-approvals'] });
-                                setSelectedContractor({ ...selectedContractor, ...editData });
+                                if (selectedContractor) {
+                                    setSelectedContractor({ ...selectedContractor, ...editData } as Contractor);
+                                }
                                 setIsEditModalOpen(false);
-                            } catch (err) {
+                            } catch {
                                 toast.error("Failed to update");
                             }
                         }}>Save Changes</Button>
@@ -643,11 +696,19 @@ export default function ContractorApprovalsPage() {
                             <span>Document Preview: {previewDoc?.label}</span>
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="flex-1 overflow-auto p-4 bg-slate-900/5 flex items-center justify-center min-h-[400px]">
+                    <div className="flex-1 overflow-auto p-4 bg-slate-900/5 flex items-center justify-center min-h-[400px] relative">
                         {previewDoc?.url.endsWith('.pdf') ? (
                             <iframe src={previewDoc.url} className="w-full h-full min-h-[600px] rounded border bg-white" />
                         ) : (
-                            <img src={previewDoc?.url} alt={previewDoc?.label} className="max-w-full h-auto shadow-2xl rounded" />
+                            <div className="relative w-full h-full min-h-[500px]">
+                                <Image 
+                                    src={previewDoc?.url || ''} 
+                                    alt={previewDoc?.label || 'Preview'} 
+                                    fill 
+                                    unoptimized
+                                    className="object-contain" 
+                                />
+                            </div>
                         )}
                     </div>
                 </DialogContent>

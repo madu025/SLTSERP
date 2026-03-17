@@ -231,7 +231,7 @@ export default function PublicContractorRegistrationPage() {
                     const data = await res.json();
                     setBanks(data);
                 }
-            } catch (err) { console.error("Bank fetch error:", err); }
+            } catch (err: unknown) { console.error("Bank fetch error:", err); }
         };
 
         const fetchAllBranches = async () => {
@@ -241,7 +241,7 @@ export default function PublicContractorRegistrationPage() {
                     const data = await res.json();
                     setBranches(data);
                 }
-            } catch (err) { console.error("Branch fetch error:", err); }
+            } catch (err: unknown) { console.error("Branch fetch error:", err); }
         };
 
         const fetchStores = async () => {
@@ -251,7 +251,7 @@ export default function PublicContractorRegistrationPage() {
                     const data = await res.json();
                     setStores(data);
                 }
-            } catch (err) { console.error("Store fetch error:", err); }
+            } catch (err: unknown) { console.error("Store fetch error:", err); }
         };
         const fetchOpmcs = async () => {
             try {
@@ -260,7 +260,7 @@ export default function PublicContractorRegistrationPage() {
                     const data = await res.json();
                     setOpmcs(data);
                 }
-            } catch (err) { console.error("OPMC fetch error:", err); }
+            } catch (err: unknown) { console.error("OPMC fetch error:", err); }
         };
 
         if (token) {
@@ -407,7 +407,7 @@ export default function PublicContractorRegistrationPage() {
                 console.log("[OCR] No NIC pattern found in text");
                 toast.info("OCR scanning complete. No clear NIC number detected. Please enter manually.");
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error("[OCR] OCR failed:", err);
             toast.error("Auto data extraction (OCR) failed. Please enter details manually.");
         } finally {

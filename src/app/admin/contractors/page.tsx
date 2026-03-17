@@ -82,6 +82,7 @@ interface Contractor {
     armApprovedAt?: string | null;
     ospApprovedAt?: string | null;
     registrationToken?: string | null;
+    registrationFeeSlipUrl?: string | null;
     createdAt: string;
 }
 
@@ -484,6 +485,7 @@ export default function ContractorsPage() {
             nicBackUrl: c.nicBackUrl || '',
             policeReportUrl: c.policeReportUrl || '',
             gramaCertUrl: c.gramaCertUrl || '',
+            registrationFeeSlipUrl: c.registrationFeeSlipUrl || '',
             opmcId: (c as unknown as { opmcId?: string }).opmcId || ''
         });
         setShowModal(true);

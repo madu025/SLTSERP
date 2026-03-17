@@ -6,8 +6,8 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Plus, Trash, Pencil, Shield, User } from "lucide-react";
 import { useForm } from 'react-hook-form';
@@ -36,6 +36,7 @@ interface OPMC {
     id: string;
     name: string;
     rtom: string;
+    storeId?: string | null;
 }
 
 interface Store {
@@ -58,9 +59,6 @@ const userSchema = z.object({
 });
 
 type UserFormValues = z.infer<typeof userSchema>
-
-// Roles that strictly require OPMC selection
-const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT', 'SITE_OFFICE_STAFF'];
 
 const roleCategories = {
     'System Admin': ['SUPER_ADMIN', 'ADMIN'],
@@ -199,7 +197,7 @@ export default function UserRegistrationPage() {
         if (user) {
             setSelectedUser(user);
             // Identify section from role
-            const section = Object.entries(roleCategories).find(([_, roles]) => roles.includes(user.role))?.[0] || null;
+            const section = Object.entries(roleCategories).find(([, roles]) => roles.includes(user.role))?.[0] || null;
             setSelectedSection(section);
 
             form.reset({
@@ -211,7 +209,7 @@ export default function UserRegistrationPage() {
                 employeeId: user.employeeId || '',
                 opmcIds: user.accessibleOpmcs?.map(o => o.id) || [],
                 supervisorId: user.supervisor?.id || '',
-                assignedStoreId: (user as any).assignedStoreId || 'none'
+                assignedStoreId: user.assignedStoreId || 'none'
             });
         } else {
             setSelectedUser(null);
@@ -266,8 +264,8 @@ export default function UserRegistrationPage() {
 
         // Find stores linked to selected OPMCs
         const linkedStoreIds = opmcs
-            .filter((o: any) => selectedOpmcIds.includes(o.id) && (o as any).storeId)
-            .map((o: any) => (o as any).storeId);
+            .filter((o) => selectedOpmcIds.includes(o.id) && o.storeId)
+            .map((o) => o.storeId as string);
 
         if (linkedStoreIds.length === 0) return stores;
         return stores.filter(s => linkedStoreIds.includes(s.id));
