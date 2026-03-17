@@ -14,49 +14,44 @@ export class StockService {
     static async getStock(storeId: string) {
         if (!storeId) throw new Error('STORE_ID_REQUIRED');
 
-        return await prisma.inventoryStock.findMany({
-            where: { storeId },
-            include: {
-                item: true
-            },
-            orderBy: { item: { code: 'asc' } }
-        });
+        return await InventoryRepository.findManyStocks(
+            { storeId },
+            { item: true }
+        );
     }
 
     static async getStoreBatches(storeId: string, itemId?: string): Promise<InventoryBatchStock[]> {
-        return await (prisma as TransactionClient).inventoryBatchStock.findMany({
-            where: {
+        return await InventoryRepository.getStoreBatches(
+            {
                 storeId,
                 ...(itemId ? { itemId } : {})
             },
-            include: {
+            {
                 batch: {
                     include: {
                         grn: { select: { grnNumber: true, createdAt: true } }
                     }
                 },
                 item: true
-            },
-            orderBy: { batch: { createdAt: 'desc' } }
-        });
+            }
+        ) as InventoryBatchStock[];
     }
 
     static async getContractorBatches(contractorId: string, itemId?: string): Promise<ContractorBatchStock[]> {
-        return await (prisma as TransactionClient).contractorBatchStock.findMany({
-            where: {
+        return await InventoryRepository.getContractorBatches(
+            {
                 contractorId,
                 ...(itemId ? { itemId } : {})
             },
-            include: {
+            {
                 batch: {
                     include: {
                         grn: { select: { grnNumber: true, createdAt: true } }
                     }
                 },
                 item: true
-            },
-            orderBy: { batch: { createdAt: 'desc' } }
-        });
+            }
+        ) as ContractorBatchStock[];
     }
 
     /**
@@ -86,7 +81,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    batch: { unitPrice: 0, costPrice: 0 }
+                    batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
                 throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
@@ -123,7 +118,7 @@ export class StockService {
                 pickedBatches.push({
                     batchId: null,
                     quantity: this.round(remainingToPick),
-                    batch: { unitPrice: 0, costPrice: 0 }
+                    batch: { unitPrice: 0, costPrice: 0 } as any
                 });
             } else {
                 throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
@@ -146,12 +141,7 @@ export class StockService {
                 const newQty = this.round(parseFloat(item.quantity.toString()));
                 if (isNaN(newQty)) continue;
 
-                // Get current stock
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const currentStock = await (tx as any).inventoryStock.findUnique({
-                    where: { storeId_itemId: { storeId, itemId: item.itemId } }
-                });
-
+                const currentStock = await InventoryRepository.findStock(storeId, item.itemId, tx);
                 const oldQty = currentStock ? this.round(currentStock.quantity) : 0;
                 const diff = this.round(newQty - oldQty);
 
@@ -159,51 +149,33 @@ export class StockService {
 
                 // A. BATCH HANDLING
                 if (diff > 0) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const itemData = await (tx as any).inventoryItem.findUnique({
-                        where: { id: item.itemId },
-                        select: { costPrice: true, unitPrice: true }
-                    });
+                    const itemData = await InventoryRepository.findItemById(item.itemId, tx);
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const batch = await (tx as any).inventoryBatch.create({
-                        data: {
-                            batchNumber: `ADJ-${Date.now()}`,
-                            itemId: item.itemId,
-                            initialQty: diff,
-                            costPrice: itemData?.costPrice || 0,
-                            unitPrice: itemData?.unitPrice || 0
-                        }
-                    });
+                    const batch = await InventoryRepository.createBatch({
+                        batchNumber: `ADJ-${Date.now()}`,
+                        itemId: item.itemId,
+                        initialQty: diff,
+                        costPrice: itemData?.costPrice || 0,
+                        unitPrice: itemData?.unitPrice || 0
+                    }, tx);
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    await (tx as any).inventoryBatchStock.create({
-                        data: {
-                            storeId,
-                            batchId: batch.id,
-                            itemId: item.itemId,
-                            quantity: diff
-                        }
-                    });
+                    await InventoryRepository.createBatchStock({
+                        storeId,
+                        batchId: batch.id,
+                        itemId: item.itemId,
+                        quantity: diff
+                    }, tx);
                 } else {
                     const reduceQty = Math.abs(diff);
                     const pickedBatches = await this.pickStoreBatchesFIFO(tx, storeId, item.itemId, reduceQty);
 
                     for (const picked of pickedBatches) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        await (tx as any).inventoryBatchStock.update({
-                            where: { storeId_batchId: { storeId, batchId: picked.batchId } },
-                            data: { quantity: { decrement: picked.quantity } }
-                        });
+                        await InventoryRepository.updateBatchStock(storeId, picked.batchId!, -picked.quantity, tx);
                     }
                 }
 
                 // B. UPDATE GLOBAL STOCK
-                await (tx as any).inventoryStock.upsert({
-                    where: { storeId_itemId: { storeId, itemId: item.itemId } },
-                    update: { quantity: newQty },
-                    create: { storeId, itemId: item.itemId, quantity: newQty }
-                });
+                await InventoryRepository.upsertStock(storeId, item.itemId, diff, tx);
 
                 transactionItems.push({
                     itemId: item.itemId,
@@ -214,21 +186,19 @@ export class StockService {
             }
 
             if (transactionItems.length > 0) {
-                await (tx as any).inventoryTransaction.create({
-                    data: {
-                        type: 'ADJUSTMENT',
-                        storeId,
-                        userId: userId || 'SYSTEM',
-                        referenceId: `INIT-STOCK-${Date.now()}`,
-                        notes: reason || 'Initial Stock Setup',
-                        items: {
-                            create: transactionItems.map((ti: any) => ({
-                                itemId: ti.itemId,
-                                quantity: ti.quantity
-                            }))
-                        }
+                await InventoryRepository.createTransaction({
+                    type: 'ADJUSTMENT',
+                    storeId,
+                    userId: userId || 'SYSTEM',
+                    referenceId: `INIT-STOCK-${Date.now()}`,
+                    notes: reason || 'Initial Stock Setup',
+                    items: {
+                        create: transactionItems.map((ti: any) => ({
+                            itemId: ti.itemId,
+                            quantity: ti.quantity
+                        }))
                     }
-                });
+                }, tx);
             }
 
             return transactionItems.length;
@@ -258,66 +228,47 @@ export class StockService {
             for (const item of items) {
                 const quantity = parseFloat(item.quantity.toString());
 
-                const existingStock = await (tx as any).inventoryStock.findUnique({
-                    where: {
-                        storeId_itemId: { storeId, itemId: item.itemId }
-                    }
-                });
+                const existingStock = await InventoryRepository.findStock(storeId, item.itemId, tx);
 
                 if (!existingStock || existingStock.quantity < quantity) {
                     throw new Error(`INSUFFICIENT_STOCK: ${item.itemId}`);
                 }
 
-                await (tx as any).inventoryStock.update({
-                    where: {
-                        storeId_itemId: { storeId, itemId: item.itemId }
-                    },
-                    data: { quantity: { decrement: quantity } }
-                });
+                await InventoryRepository.updateStock(storeId, item.itemId, { quantity: { decrement: quantity } }, tx);
 
-                const invTx = await (tx as any).inventoryTransaction.create({
-                    data: {
-                        type: 'TRANSFER_OUT',
-                        storeId,
-                        userId: issuedById,
-                        referenceId: issueNumber,
-                        notes: `Issued to ${recipientName} - ${issueType}`
-                    }
-                });
+                const invTx = await InventoryRepository.createTransaction({
+                    type: 'TRANSFER_OUT',
+                    storeId,
+                    userId: issuedById,
+                    referenceId: issueNumber,
+                    notes: `Issued to ${recipientName} - ${issueType}`
+                }, tx);
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await (tx as any).inventoryTransactionItem.create({
-                    data: {
-                        transactionId: invTx.id,
-                        itemId: item.itemId,
-                        quantity: -quantity
-                    }
-                });
+                await InventoryRepository.createTransactionItem({
+                    transactionId: invTx.id,
+                    itemId: item.itemId,
+                    quantity: -quantity
+                }, tx);
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const issue = await (tx as any).stockIssue.create({
-                data: {
-                    issueNumber,
-                    storeId,
-                    issuedById,
-                    issueType,
-                    projectId: projectId || null,
-                    contractorId: contractorId || null,
-                    teamId: teamId || null,
-                    recipientName,
-                    remarks: remarks || null,
-                    items: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        create: items.map((item: any) => ({
-                            itemId: item.itemId,
-                            quantity: parseFloat(item.quantity.toString()),
-                            remarks: item.remarks || null
-                        }))
-                    }
-                },
-                include: { items: true }
-            });
+            const issue = await InventoryRepository.createStockIssue({
+                issueNumber,
+                storeId,
+                issuedById,
+                issueType,
+                projectId: projectId || null,
+                contractorId: contractorId || null,
+                teamId: teamId || null,
+                recipientName,
+                remarks: remarks || null,
+                items: {
+                    create: items.map((item: any) => ({
+                        itemId: item.itemId,
+                        quantity: parseFloat(item.quantity.toString()),
+                        remarks: item.remarks || null
+                    }))
+                }
+            }, tx);
 
             return issue;
         });
@@ -331,7 +282,7 @@ export class StockService {
         if (filters.storeId && filters.storeId !== 'unassigned') where.storeId = filters.storeId;
         if (filters.issueType) where.issueType = filters.issueType;
 
-        return await prisma.stockIssue.findMany({
+        return await InventoryRepository.findManyStockIssues({
             where,
             include: {
                 items: { include: { item: true } },
@@ -340,6 +291,6 @@ export class StockService {
                 contractor: { select: { id: true, name: true } }
             },
             orderBy: { createdAt: 'desc' }
-        });
+        }) as StockIssue[];
     }
 }

@@ -90,4 +90,14 @@ export class ServiceOrderRepository {
         const db = tx || prisma;
         return db.serviceOrder.count(args);
     }
+
+    /**
+     * Create Status History Record
+     */
+    static async createStatusHistory(data: Prisma.ServiceOrderStatusHistoryUncheckedCreateInput, tx?: any) {
+        const db = tx || prisma;
+        return db.serviceOrderStatusHistory.create({
+            data
+        });
+    }
 }

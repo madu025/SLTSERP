@@ -1,11 +1,11 @@
-import { prisma } from '@/lib/prisma';
+import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
 import { NotificationPolicyService } from '../notification/notification-policy.service';
 import { StoreWithDetails } from './types';
 
 export class StoreService {
     static async getStores(where: Prisma.InventoryStoreWhereInput = {}): Promise<StoreWithDetails[]> {
-        return await prisma.inventoryStore.findMany({
+        return await InventoryRepository.findStores({
             where,
             include: {
                 manager: {
@@ -16,7 +16,7 @@ export class StoreService {
                 }
             },
             orderBy: { name: 'asc' }
-        });
+        }) as StoreWithDetails[];
     }
 
     static async createStore(data: {
@@ -28,20 +28,18 @@ export class StoreService {
     }): Promise<InventoryStore> {
         const { opmcIds, ...storeData } = data;
 
-        const store = await prisma.inventoryStore.create({
-            data: {
-                name: storeData.name,
-                type: storeData.type,
-                location: storeData.location,
-                managerId: storeData.managerId === 'none' ? null : storeData.managerId
-            }
+        const store = await InventoryRepository.createStore({
+            name: storeData.name,
+            type: storeData.type,
+            location: storeData.location,
+            managerId: storeData.managerId === 'none' ? null : storeData.managerId
         });
 
         if (opmcIds && Array.isArray(opmcIds) && opmcIds.length > 0) {
-            await prisma.oPMC.updateMany({
-                where: { id: { in: opmcIds } },
-                data: { storeId: store.id }
-            });
+            await InventoryRepository.updateManyOpmcs(
+                { id: { in: opmcIds } },
+                { storeId: store.id }
+            );
         }
 
         return store;
@@ -58,30 +56,27 @@ export class StoreService {
 
         const { opmcIds, ...storeData } = data;
 
-        const store = await prisma.inventoryStore.update({
-            where: { id },
-            data: {
-                name: storeData.name,
-                type: storeData.type,
-                location: storeData.location,
-                managerId: storeData.managerId === 'none' ? null : storeData.managerId
-            }
+        const store = await InventoryRepository.updateStore(id, {
+            name: storeData.name,
+            type: storeData.type,
+            location: storeData.location,
+            managerId: storeData.managerId === 'none' ? null : storeData.managerId
         });
 
         // Update OPMC assignments
         if (opmcIds !== undefined) {
             // First, remove all current assignments
-            await prisma.oPMC.updateMany({
-                where: { storeId: id },
-                data: { storeId: null }
-            });
+            await InventoryRepository.updateManyOpmcs(
+                { storeId: id },
+                { storeId: null }
+            );
 
             // Then assign new OPMCs
             if (Array.isArray(opmcIds) && opmcIds.length > 0) {
-                await prisma.oPMC.updateMany({
-                    where: { id: { in: opmcIds } },
-                    data: { storeId: id }
-                });
+                await InventoryRepository.updateManyOpmcs(
+                    { id: { in: opmcIds } },
+                    { storeId: id }
+                );
             }
         }
 
@@ -89,30 +84,28 @@ export class StoreService {
     }
 
     static async getStore(id: string): Promise<StoreWithDetails | null> {
-        return await prisma.inventoryStore.findUnique({
-            where: { id },
-            include: {
-                opmcs: true,
-                manager: true
-            }
-        });
+        return await InventoryRepository.findStoreWithDetails(id, {
+            opmcs: true,
+            manager: true
+        }) as StoreWithDetails | null;
     }
 
     static async deleteStore(id: string): Promise<void> {
         if (!id) throw new Error('ID_REQUIRED');
 
-        const hasStock = await prisma.inventoryStock.findFirst({
-            where: { storeId: id, quantity: { gt: 0 } }
+        const hasStock = await InventoryRepository.findFirstStock({
+            storeId: id,
+            quantity: { gt: 0 }
         });
         if (hasStock) throw new Error('STORE_HAS_STOCK');
 
         // Remove OPMC assignments first
-        await prisma.oPMC.updateMany({
-            where: { storeId: id },
-            data: { storeId: null }
-        });
+        await InventoryRepository.updateManyOpmcs(
+            { storeId: id },
+            { storeId: null }
+        );
 
-        await prisma.inventoryStore.delete({ where: { id: id } });
+        await InventoryRepository.deleteStore(id);
     }
 
     /**
@@ -120,9 +113,9 @@ export class StoreService {
      */
     static async checkLowStock(storeId: string, itemId: string): Promise<void> {
         try {
-            const stock = await prisma.inventoryStock.findUnique({
-                where: { storeId_itemId: { storeId, itemId } },
-                include: {
+            const stocks = await InventoryRepository.findManyStocks(
+                { storeId, itemId },
+                {
                     item: true,
                     store: {
                         include: {
@@ -130,8 +123,8 @@ export class StoreService {
                         }
                     }
                 }
-            });
-
+            );
+            const stock = stocks[0];
             if (!stock || !stock.item || !stock.store) return;
 
             if (stock.quantity <= stock.minLevel) {

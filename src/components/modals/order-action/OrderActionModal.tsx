@@ -31,6 +31,7 @@ interface OrderActionModalProps {
     items?: InventoryItem[];
     showExtendedFields?: boolean;
     materialSource?: string;
+    itemSortOrder?: string[];
 }
 
 export default function OrderActionModal({
@@ -44,7 +45,8 @@ export default function OrderActionModal({
     contractors = [],
     items = [],
     showExtendedFields = false,
-    materialSource = 'SLT'
+    materialSource = 'SLT',
+    itemSortOrder: _itemSortOrder = []
 }: OrderActionModalProps) {
     const { state, controls } = useOrderAction(isOpen, orderData, items || [], materialSource, onConfirm);
 

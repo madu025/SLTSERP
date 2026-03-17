@@ -118,15 +118,13 @@ export class SODLifecycleService {
     ) {
         // Track status history if status changed
         if (serviceOrder.status && serviceOrder.status !== oldOrder.status) {
-            await prisma.serviceOrderStatusHistory.create({
-                data: {
-                    serviceOrderId: serviceOrder.id,
-                    status: serviceOrder.status,
-                    statusDate: updateData.statusDate 
-                        ? new Date(updateData.statusDate as string | Date) 
-                        : (oldOrder.statusDate || new Date())
-                }
-            });
+            await ServiceOrderRepository.createStatusHistory({
+                serviceOrderId: serviceOrder.id,
+                status: serviceOrder.status,
+                statusDate: updateData.statusDate 
+                    ? new Date(updateData.statusDate as string | Date) 
+                    : (oldOrder.statusDate || new Date())
+            }, prisma);
         }
 
         // Incremental Stats Update & Notifications

@@ -135,4 +135,24 @@ export class ContractorRepository {
         const client = tx || prisma;
         return client.teamMember.createMany({ data });
     }
+
+    static async findTeamsByContractorId(contractorId: string, tx?: any) {
+        const client = tx || prisma;
+        return client.contractorTeam.findMany({
+            where: { contractorId },
+            select: { id: true }
+        });
+    }
+
+    static async findContractorWithCounts(id: string, tx?: any) {
+        const client = tx || prisma;
+        return client.contractor.findUnique({
+            where: { id },
+            select: {
+                _count: {
+                    select: { serviceOrders: true, projects: true, stock: true }
+                }
+            }
+        });
+    }
 }
