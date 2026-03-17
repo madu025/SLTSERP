@@ -9,6 +9,13 @@ const getSubscriber = () => {
         subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
             maxRetriesPerRequest: null,
         });
+
+        subscriber.on('error', (err) => {
+            // Log but don't crash
+            if (process.env.NODE_ENV === 'production' && !err.message.includes('ECONNREFUSED')) {
+                console.error('Redis Subscriber Error:', err);
+            }
+        });
     }
     return subscriber;
 };

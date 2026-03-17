@@ -46,7 +46,7 @@ export default function OrderActionModal({
     items = [],
     showExtendedFields = false,
     materialSource = 'SLT',
-    itemSortOrder: _itemSortOrder = []
+    itemSortOrder = []
 }: OrderActionModalProps) {
     const { state, controls } = useOrderAction(isOpen, orderData, items || [], materialSource, onConfirm);
 
@@ -54,8 +54,23 @@ export default function OrderActionModal({
     const iptvCount = orderData?.iptv ? parseInt(orderData.iptv) : 0;
     const requiresIPTV = useExtendedView && iptvCount > 0;
 
-    // Filter Items Logic (Simplified for the modal view)
-    const filteredItems = useMemo(() => items || [], [items]);
+    // Filter & Sort Items Logic
+    const filteredItems = useMemo(() => {
+        if (!items) return [];
+        const result = [...items];
+        
+        if (itemSortOrder && itemSortOrder.length > 0) {
+            result.sort((a, b) => {
+                const indexA = itemSortOrder.indexOf(a.id);
+                const indexB = itemSortOrder.indexOf(b.id);
+                if (indexA === -1 && indexB === -1) return 0;
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+        }
+        return result;
+    }, [items, itemSortOrder]);
 
     // Quick Items logic extracted from original
     const quickItems = useMemo(() => {
