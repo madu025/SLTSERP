@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma';
 import { Prisma, InventoryBatchStock, ContractorBatchStock, StockIssue } from '@prisma/client';
 import { TransactionClient, PickedBatch } from './types';
+import { InventoryRepository } from '@/repositories/inventory.repository';
+import { ContractorRepository } from '@/repositories/contractor.repository';
 
 export class StockService {
     // Round to 4 decimal places to prevent floating point issues
@@ -61,17 +64,7 @@ export class StockService {
      */
     static async pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
-
-        // LOCKING: Prevent concurrent modifications to the same item's batches in this store
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (tx as any).$executeRaw`SELECT * FROM "InventoryBatchStock" WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} FOR UPDATE`;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const batches = await (tx as any).inventoryBatchStock.findMany({
-            where: { storeId, itemId, quantity: { gt: 0 } },
-            include: { batch: true },
-            orderBy: { batch: { createdAt: 'asc' } }
-        });
+        const batches = await InventoryRepository.findAvailableBatches(storeId, itemId, tx as any);
 
         const pickedBatches: PickedBatch[] = [];
         let remainingToPick = qtyToPick;
@@ -108,17 +101,7 @@ export class StockService {
      */
     static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
         const qtyToPick = this.round(requiredQty);
-
-        // LOCKING: Prevent concurrent modifications to the same contractor item stock
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (tx as any).$executeRaw`SELECT * FROM "ContractorBatchStock" WHERE "contractorId" = ${contractorId} AND "itemId" = ${itemId} FOR UPDATE`;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const batches = await (tx as any).contractorBatchStock.findMany({
-            where: { contractorId, itemId, quantity: { gt: 0 } },
-            include: { batch: true },
-            orderBy: { batch: { createdAt: 'asc' } }
-        });
+        const batches = await ContractorRepository.findAvailableBatches(contractorId, itemId, tx as any);
 
         const pickedBatches: PickedBatch[] = [];
         let remainingToPick = qtyToPick;
@@ -216,7 +199,6 @@ export class StockService {
                 }
 
                 // B. UPDATE GLOBAL STOCK
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await (tx as any).inventoryStock.upsert({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     update: { quantity: newQty },
@@ -232,7 +214,6 @@ export class StockService {
             }
 
             if (transactionItems.length > 0) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await (tx as any).inventoryTransaction.create({
                     data: {
                         type: 'ADJUSTMENT',
@@ -241,7 +222,6 @@ export class StockService {
                         referenceId: `INIT-STOCK-${Date.now()}`,
                         notes: reason || 'Initial Stock Setup',
                         items: {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             create: transactionItems.map((ti: any) => ({
                                 itemId: ti.itemId,
                                 quantity: ti.quantity
@@ -278,7 +258,6 @@ export class StockService {
             for (const item of items) {
                 const quantity = parseFloat(item.quantity.toString());
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const existingStock = await (tx as any).inventoryStock.findUnique({
                     where: {
                         storeId_itemId: { storeId, itemId: item.itemId }
@@ -289,7 +268,6 @@ export class StockService {
                     throw new Error(`INSUFFICIENT_STOCK: ${item.itemId}`);
                 }
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await (tx as any).inventoryStock.update({
                     where: {
                         storeId_itemId: { storeId, itemId: item.itemId }
@@ -297,7 +275,6 @@ export class StockService {
                     data: { quantity: { decrement: quantity } }
                 });
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const invTx = await (tx as any).inventoryTransaction.create({
                     data: {
                         type: 'TRANSFER_OUT',

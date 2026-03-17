@@ -1,65 +1,37 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
+import { materialIssueSchema } from '@/lib/validations/inventory.schema';
 
 // POST: Issue materials to a contractor
-export async function POST(request: Request) {
-    try {
-        const role = request.headers.get('x-user-role');
-        const userEmail = request.headers.get('x-user-id');
+export const POST = apiHandler(async (req, _params, body) => {
+    const userRole = req.headers.get('x-user-role');
+    const userEmail = req.headers.get('x-user-id');
 
-        if (!role || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(role)) {
-            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-        }
-
-        const body = await request.json();
-        const { materialIssueSchema } = await import('@/lib/validations');
-
-        try {
-            const validatedData = materialIssueSchema.parse(body);
-            const issue = await InventoryService.issueMaterial({
-                ...validatedData,
-                items: validatedData.items.map(i => ({ ...i, quantity: i.quantity.toString() })), // Keep service compatibility
-                userId: userEmail || undefined
-            });
-
-            return NextResponse.json({ message: 'Materials issued successfully and inventory updated', issueId: issue.id });
-        } catch (validationErr: any) {
-            return NextResponse.json({ message: validationErr.errors?.[0]?.message || 'Invalid data', errors: validationErr.errors }, { status: 400 });
-        }
-
-    } catch (error: any) {
-        if (error.message === 'MISSING_FIELDS') {
-            return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
-        }
-        if (error.message.startsWith('ITEM_NOT_FOUND')) {
-            return NextResponse.json({ message: error.message }, { status: 404 });
-        }
-        if (error.message.startsWith('INSUFFICIENT_STOCK')) {
-            return NextResponse.json({ message: error.message }, { status: 400 });
-        }
-
-        console.error('Material Issue Error:', error);
-        return NextResponse.json({
-            message: error.message || 'Internal Server Error'
-        }, { status: 500 });
+    if (!userRole || !['STORES_MANAGER', 'STORES_ASSISTANT', 'SUPER_ADMIN', 'ADMIN'].includes(userRole)) {
+        throw new Error('Unauthorized');
     }
-}
 
-// GET: Fetch Data (e.g., previous issues for a month/contractor)
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const contractorId = searchParams.get('contractorId');
-        const month = searchParams.get('month');
+    const issue = await InventoryService.issueMaterial({
+        ...body,
+        items: body.items.map((i: any) => ({ ...i, quantity: i.quantity.toString() })),
+        userId: userEmail || undefined
+    });
 
-        if (!contractorId) {
-            return NextResponse.json({ message: 'Contractor ID required' }, { status: 400 });
-        }
+    return { 
+        message: 'Materials issued successfully and inventory updated', 
+        issueId: issue.id 
+    };
+}, { schema: materialIssueSchema });
 
-        const issues = await InventoryService.getMaterialIssues(contractorId, month || undefined);
-        return NextResponse.json(issues);
-    } catch (error) {
-        console.error('Fetch Issue Error:', error);
-        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+// GET: Fetch Data
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const contractorId = searchParams.get('contractorId');
+    const month = searchParams.get('month');
+
+    if (!contractorId) {
+        throw new Error('Contractor ID required');
     }
-}
+
+    return await InventoryService.getMaterialIssues(contractorId, month || undefined);
+});

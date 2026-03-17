@@ -1,33 +1,31 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
-import { createGRN } from '@/actions/inventory-actions';
+import { grnSchema } from '@/lib/validations/inventory.schema';
 
-// Create a new GRN (Goods Received Note)
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const result = await createGRN(body);
+// POST: Create a new GRN
+export const POST = apiHandler(async (req, _params, body) => {
+    // Current user identification from headers
+    const userId = req.headers.get('x-user-id');
+    const userRole = req.headers.get('x-user-role');
 
-        if (result.success) {
-            return NextResponse.json(result.data);
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error: any) {
-        console.error("GRN Error", error);
-        return NextResponse.json({ error: 'Failed to create GRN' }, { status: 500 });
+    if (!userRole || !['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN'].includes(userRole)) {
+        throw new Error('Unauthorized');
     }
-}
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const storeId = searchParams.get('storeId') || undefined;
-
-        const grns = await InventoryService.getGRNs(storeId);
-        return NextResponse.json(grns);
-    } catch (error) {
-        console.error("GRN Fetch Error", error);
-        return NextResponse.json({ error: 'Failed to fetch GRNs' }, { status: 500 });
+    if (!userId) {
+        throw new Error('User ID is required in headers');
     }
-}
+
+    return await InventoryService.createGRN({
+        ...body,
+        receivedById: userId
+    });
+}, { schema: grnSchema });
+
+// GET: Fetch GRNs
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const storeId = searchParams.get('storeId') || undefined;
+
+    return await InventoryService.getGRNs(storeId);
+});

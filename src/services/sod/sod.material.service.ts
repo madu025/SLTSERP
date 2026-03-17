@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Prisma } from '@prisma/client';
-import { TransactionClient, PickedBatch } from '../inventory/types';
+import { InventoryRepository } from '@/repositories/inventory.repository';
+import { ContractorRepository } from '@/repositories/contractor.repository';
+import { MaterialRepository } from '@/repositories/material.repository';
 import { MaterialUsageInput } from './sod-types';
 
 export class SODMaterialService {
@@ -7,40 +10,26 @@ export class SODMaterialService {
      * Process and deduct material usage for an SOD
      */
     static async processMaterialUsage(
-        tx: TransactionClient, 
+        tx: any, 
         serviceOrderId: string,
         opmcId: string,
         contractorId: string | null,
         materialUsage: MaterialUsageInput[],
-        inventoryService: { 
-            pickContractorBatchesFIFO: (tx: TransactionClient, contractorId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<PickedBatch[]>;
-            pickStoreBatchesFIFO: (tx: TransactionClient, storeId: string, itemId: string, qty: number, allowShortage: boolean) => Promise<PickedBatch[]>;
-        },
+        inventoryService: any,
         userId: string = 'SYSTEM'
     ) {
-        // 0. Rollback existing usage to ensure stock integrity on update
+        // ... (existing logic calling rollback)
         await this.rollbackMaterialUsage(tx, serviceOrderId, userId);
+// ...
 
-        // 1. Fetch material metadata to snapshot prices
-        const itemIds = materialUsage.map((m) => m.itemId);
-        const itemMetadata = await tx.inventoryItem.findMany({
-            where: { id: { in: itemIds } },
-            select: { id: true, unitPrice: true, costPrice: true }
-        });
-
+        // 1. Fetch material metadata
         const finalUsageRecords: Prisma.SODMaterialUsageUncheckedCreateWithoutServiceOrderInput[] = [];
         const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
 
-        // 2. Identify Source (Store or Contractor)
-        let storeId: string | null = null;
-        if (!contractorId) {
-            const opmc = await tx.oPMC.findUnique({
-                where: { id: opmcId },
-                select: { storeId: true }
-            });
-            storeId = opmc?.storeId || null;
-            if (!storeId) throw new Error('STORE_NOT_FOUND_FOR_OPMC');
-        }
+        // 2. Identify Source Store
+        const opmc = await ContractorRepository.findOpmcWithStore(opmcId, tx);
+        const storeId = opmc?.storeId;
+        if (!contractorId && !storeId) throw new Error('STORE_NOT_FOUND_FOR_OPMC');
 
         // 3. Process each material
         for (const m of materialUsage) {
@@ -53,164 +42,93 @@ export class SODMaterialService {
                     : await inventoryService.pickStoreBatchesFIFO(tx, storeId!, m.itemId, qty, true);
 
                 for (const picked of pickedBatches) {
-                    // Reduce Stock
                     if (picked.batchId) {
                         if (contractorId) {
-                            await tx.contractorBatchStock.update({
-                                where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
-                                data: { quantity: { decrement: picked.quantity } }
-                            });
+                            await ContractorRepository.updateBatchStock(contractorId, picked.batchId, -picked.quantity, tx);
                         } else {
-                            await tx.inventoryBatchStock.update({
-                                where: { storeId_batchId: { storeId: storeId!, batchId: picked.batchId } },
-                                data: { quantity: { decrement: picked.quantity } }
-                            });
+                            await InventoryRepository.updateBatchStock(storeId!, picked.batchId, -picked.quantity, tx);
                         }
                     }
-
-                    // Prepare Usage Record
                     finalUsageRecords.push(this.mapToUsageRecord(m, picked.quantity, picked.batchId, picked.batch));
                 }
 
-                // Update Legacy Stock
+                // Update Legacy/Summary Stock
                 if (contractorId) {
-                    await tx.contractorStock.upsert({
-                        where: { contractorId_itemId: { contractorId, itemId: m.itemId } },
-                        create: { contractorId, itemId: m.itemId, quantity: -qty },
-                        update: { quantity: { decrement: qty } }
-                    });
+                    await ContractorRepository.upsertStock(contractorId, m.itemId, -qty, tx);
                 } else {
-                    await tx.inventoryStock.upsert({
-                        where: { storeId_itemId: { storeId: storeId!, itemId: m.itemId } },
-                        create: { storeId: storeId!, itemId: m.itemId, quantity: -qty },
-                        update: { quantity: { decrement: qty } }
-                    });
+                    await InventoryRepository.upsertStock(storeId!, m.itemId, -qty, tx);
                 }
 
-                // Collect for transaction log
                 for (const picked of pickedBatches) {
                     if (picked.batchId) {
                         transactionItems.push({ itemId: m.itemId, batchId: picked.batchId, quantity: -picked.quantity });
                     }
                 }
             } else {
-                // Non-decrementing usage (e.g. RECORD ONLY) or fallback
-                const meta = itemMetadata.find(i => i.id === m.itemId);
-                finalUsageRecords.push(this.mapToUsageRecord(m, qty, null, meta));
+                const itemMeta = await InventoryRepository.findItemById(m.itemId, tx);
+                finalUsageRecords.push(this.mapToUsageRecord(m, qty, null, itemMeta));
             }
         }
 
-        // 4. Log Transaction for Transparency
+        // 4. Log Transaction
         if (transactionItems.length > 0) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (tx as any).inventoryTransaction.create({
-                data: {
-                    type: 'TRANSFER_OUT',
-                    storeId: storeId || undefined,
-                    userId,
-                    referenceId: serviceOrderId,
-                    notes: `SOD Material Usage Update`,
-                    items: {
-                        create: transactionItems
-                    }
-                }
-            });
+            await InventoryRepository.createTransaction({
+                type: 'TRANSFER_OUT',
+                storeId: storeId || undefined,
+                userId,
+                referenceId: serviceOrderId,
+                notes: `SOD Material Usage Update`,
+                items: { create: transactionItems }
+            }, tx);
         }
 
-        // 5. Update Database
-        return {
-            create: finalUsageRecords
-        };
+        return { create: finalUsageRecords };
     }
 
     /**
-     * Rollback material usage for an SOD (e.g. on Cancel/Return)
-     * Reinstates stock to original batches and records transparency log.
+     * Rollback material usage for an SOD
      */
-    static async rollbackMaterialUsage(tx: TransactionClient, serviceOrderId: string, userId: string = 'SYSTEM') {
-        const usage = await tx.sODMaterialUsage.findMany({
-            where: { serviceOrderId },
-            include: {
-                serviceOrder: {
-                    select: {
-                        soNum: true,
-                        contractorId: true,
-                        opmc: { select: { storeId: true } }
-                    }
-                }
-            }
-        });
+    static async rollbackMaterialUsage(tx: any, serviceOrderId: string, userId: string = 'SYSTEM') {
+        const usage = await MaterialRepository.findByServiceOrderId(serviceOrderId, tx);
 
         if (usage.length === 0) return;
 
         const { soNum, contractorId, opmc } = usage[0].serviceOrder;
         const storeId = opmc?.storeId;
-
         const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
 
         for (const m of usage) {
-            const qty = m.quantity;
-            
-            // A. Update Batch Stock (If applicable)
             if (m.batchId) {
                 if (contractorId) {
-                    await tx.contractorBatchStock.upsert({
-                        where: { contractorId_batchId: { contractorId, batchId: m.batchId } },
-                        update: { quantity: { increment: qty } },
-                        create: { contractorId, batchId: m.batchId, itemId: m.itemId, quantity: qty }
-                    });
+                    await ContractorRepository.updateBatchStock(contractorId, m.batchId, m.quantity, tx);
+                    await ContractorRepository.upsertStock(contractorId, m.itemId, m.quantity, tx);
                 } else if (storeId) {
-                    await tx.inventoryBatchStock.upsert({
-                        where: { storeId_batchId: { storeId, batchId: m.batchId } },
-                        update: { quantity: { increment: qty } },
-                        create: { storeId, batchId: m.batchId, itemId: m.itemId, quantity: qty }
-                    });
+                    await InventoryRepository.updateBatchStock(storeId, m.batchId, m.quantity, tx);
+                    await InventoryRepository.upsertStock(storeId, m.itemId, m.quantity, tx);
                 }
-                transactionItems.push({ itemId: m.itemId, batchId: m.batchId, quantity: qty });
-            }
-
-            // B. Update Global Stock
-            if (contractorId) {
-                await tx.contractorStock.upsert({
-                    where: { contractorId_itemId: { contractorId, itemId: m.itemId } },
-                    update: { quantity: { increment: qty } },
-                    create: { contractorId, itemId: m.itemId, quantity: qty }
-                });
-            } else if (storeId) {
-                await tx.inventoryStock.upsert({
-                    where: { storeId_itemId: { storeId, itemId: m.itemId } },
-                    update: { quantity: { increment: qty } },
-                    create: { storeId, itemId: m.itemId, quantity: qty }
-                });
+                transactionItems.push({ itemId: m.itemId, batchId: m.batchId, quantity: m.quantity });
             }
         }
 
-        // 2. Log Transaction for Transparency
         if (transactionItems.length > 0) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (tx as any).inventoryTransaction.create({
-                data: {
-                    type: 'TRANSFER_IN',
-                    storeId: storeId || undefined,
-                    userId,
-                    referenceId: serviceOrderId,
-                    notes: `SOD Material Rollback: ${soNum}`,
-                    items: {
-                        create: transactionItems
-                    }
-                }
-            });
+            await InventoryRepository.createTransaction({
+                type: 'TRANSFER_IN',
+                storeId: storeId || undefined,
+                userId,
+                referenceId: serviceOrderId,
+                notes: `SOD Material Rollback: ${soNum}`,
+                items: { create: transactionItems }
+            }, tx);
         }
 
-        // 3. Clear usage records
-        await tx.sODMaterialUsage.deleteMany({ where: { serviceOrderId } });
+        await MaterialRepository.deleteByServiceOrderId(serviceOrderId, tx);
     }
 
     private static mapToUsageRecord(
         input: MaterialUsageInput, 
         quantity: number, 
         batchId: string | null, 
-        metadata: { unitPrice?: number | null; costPrice?: number | null } | null | undefined
+        metadata: any
     ): Prisma.SODMaterialUsageUncheckedCreateWithoutServiceOrderInput {
         return {
             itemId: input.itemId,
