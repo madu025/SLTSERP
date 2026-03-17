@@ -31,28 +31,53 @@ const MyHeavyModal = dynamic(() => import('@/components/modals/MyHeavyModal'), {
 - **Centralized Config**: ALWAYS use `src/config/sidebar-menu.ts` to manage sidebar items. NEVER hardcode links in the Sidebar component.
 - **Role-Based Visibility**: Use the predefined `ROLE_GROUPS` in the config to control who sees what.
 
-## 2. Forms & Data Validation (NEW STANDARD)
+## 2. Forms & Data Validation (MANDATORY STANDARD)
 
-### A. React Hook Form & Zod
-- **Forms**: ALL forms (Login, Registration, Data Entry) MUST use **React Hook Form** for state management and submission handling.
-- **Validation**: Use **Zod** schemas for EVERY API input and form. Define schemas in `src/lib/validations/`.
-- **Integration**: Use `@hookform/resolvers/zod` for forms and `src/lib/api-utils.ts` for API validation.
-- **UI Components**: Use the standard `Form`, `FormControl`, `FormField`, `FormItem`, `FormLabel`, `FormMessage` components from Shadcn/UI to render form fields.
+### A. API Route Wrapper (apiHandler)
+- **Standard**: EVERY API route MUST be wrapped with `apiHandler`. This centralizes:
+    - **Validation**: Automatically validates the request body using Zod.
+    - **RBAC**: Checks user roles before execution.
+    - **Audit Logging**: Automatically logs mutations if configured.
+    - **Error Handling**: Converts all errors to a standardized JSON response.
 
-### B. Server-Side Pagination & Filtering (CRITICAL)
-- **Standard**: For tables with more than 100 records, DO NOT fetch all data.
-- **Implementation**:
-    1.  Execute Pagination (Take/Skip) on the **Database level**.
-    2.  Perform Search and Filtering on the **Database level** (Prisma `where` and `contains`).
-    3.  Frontend must pass `page`, `limit`, and `search` params to the API.
-- **Goal**: Ensure "Lightning Speed" page loads regardless of database size.
+```typescript
+// Example Implementation
+export const POST = apiHandler(async (_req, _params, body) => {
+    return await MyService.process(body);
+}, { 
+    schema: mySchema, 
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'CREATE', entity: 'MyEntity' }
+});
+```
 
-```tsx
-// Example
-const form = useForm<z.infer<typeof formSchema>>({
-  resolver: zodResolver(formSchema),
-  defaultValues: { ... },
-})
+### B. React Hook Form & Zod (Frontend)
+- **Forms**: ALL forms MUST use **React Hook Form**.
+- **Validation**: Use **Zod** schemas defined in `src/lib/validations/`.
+- **UI Components**: Use Shadcn/UI Form components.
+
+### C. Server-Side Pagination & Filtering (CRITICAL)
+- **Standard**: For tables > 100 records, never fetch all data.
+- **Implementation**: Handle pagination and filtering on the **Database level**.
+
+## 3. Service-Repository Pattern (MANDATORY ARCHITECTURE)
+
+### A. Repository Layer (Data Access)
+- **Standard**: All direct database calls (Prisma) MUST reside in a Repository class.
+- **Location**: `src/repositories/`
+- **Rule**: Repositories should not contain business logic; they only handle CRUD and complex queries.
+
+### B. Service Layer (Business Logic)
+- **Standard**: Services coordinate between multiple Repositories and handle business rules.
+- **Location**: `src/services/`
+- **Rule**: Controllers (API Routes) should only call Services, never Repositories directly.
+
+```mermaid
+graph LR
+    API[API Route] --> Handler[apiHandler]
+    Handler --> Service[Service Layer]
+    Service --> Repo[Repository Layer]
+    Repo --> DB[(Database)]
 ```
 
 ## 3. Security & Access Control (RBAC)

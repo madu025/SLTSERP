@@ -4,6 +4,8 @@ import { ServiceOrderUpdateData } from './sod-types';
 import { NotificationPolicyService } from '../notification/notification-policy.service';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { SODMaterialService } from './sod.material.service';
+import { ServiceOrderRepository } from '@/repositories/service-order.repository';
+import { TransactionClient } from '../inventory/types';
 
 export class SODLifecycleService {
     /**
@@ -11,7 +13,7 @@ export class SODLifecycleService {
      */
     static async validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string) {
         if (newStatus && newStatus !== oldStatus) {
-            const collision = await prisma.serviceOrder.findFirst({
+            const collision = await ServiceOrderRepository.findFirst({
                 where: { soNum, status: newStatus },
                 select: { id: true }
             });
@@ -134,9 +136,8 @@ export class SODLifecycleService {
                 await StatsService.handleStatusChange(serviceOrder.opmcId, oldOrder.sltsStatus || 'PENDING', serviceOrder.sltsStatus);
 
                 if (serviceOrder.sltsStatus === 'RETURN') {
-                    await prisma.$transaction(async (tx) => {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        await SODMaterialService.rollbackMaterialUsage(tx as any, serviceOrder.id, userId);
+                    await prisma.$transaction(async (tx: TransactionClient) => {
+                        await SODMaterialService.rollbackMaterialUsage(tx, serviceOrder.id, userId);
                     });
 
                     await NotificationPolicyService.notifySODReturn({

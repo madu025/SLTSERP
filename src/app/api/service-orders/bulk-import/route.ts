@@ -11,4 +11,8 @@ export const POST = apiHandler(async (_req, _params, body) => {
         message: `Import completed: ${result.created} succeeded, ${result.failed} failed`,
         ...result
     };
-}, { schema: bulkImportSchema });
+}, { 
+    schema: bulkImportSchema,
+    roles: ['ADMIN', 'SUPER_ADMIN', 'AREA_MANAGER', 'ENGINEER'],
+    audit: { action: 'BULK_IMPORT', entity: 'ServiceOrder' }
+});

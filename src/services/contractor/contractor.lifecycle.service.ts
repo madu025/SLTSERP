@@ -1,9 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma';
 import { ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
 import { ContractorUpdateData } from './contractor-types';
 import { ContractorQueryService } from './contractor.query.service';
 import { NotificationPolicyService } from '../notification/notification-policy.service';
+import { ContractorRepository } from '@/repositories/contractor.repository';
+import { TransactionClient } from '../inventory/types';
 
 export class ContractorLifecycleService {
     /**
@@ -22,8 +25,8 @@ export class ContractorLifecycleService {
 
         const { teams = [], ...contractorData } = data;
 
-        const contractor = await prisma.contractor.create({
-            data: {
+        return await prisma.$transaction(async (tx: TransactionClient) => {
+            const contractor = await ContractorRepository.create({
                 name: data.name!,
                 address: contractorData.address || '',
                 registrationNumber: data.registrationNumber!,
@@ -48,16 +51,15 @@ export class ContractorLifecycleService {
                 gramaCertUrl: contractorData.gramaCertUrl,
                 opmcId: contractorData.opmcId || null,
                 siteOfficeStaffId: contractorData.siteOfficeStaffId,
-            }
-        });
+            }, tx);
 
-        if (teams.length > 0) {
-            for (const team of teams) {
-                await prisma.contractorTeam.create({
-                    data: {
+            if (teams.length > 0) {
+                for (const team of teams) {
+                    await ContractorRepository.createTeam({
                         name: team.name,
                         contractorId: contractor.id,
                         opmcId: team.opmcId || null,
+                        sltCode: team.sltCode,
                         storeAssignments: team.storeIds && team.storeIds.length > 0 ? {
                             create: team.storeIds.map((storeId: string) => ({
                                 storeId,
@@ -65,7 +67,7 @@ export class ContractorLifecycleService {
                             }))
                         } : undefined,
                         members: {
-                            create: team.members.map((m) => ({
+                            create: team.members.map((m: any) => ({
                                 name: m.name,
                                 nic: m.nic || m.idCopyNumber || '',
                                 idCopyNumber: m.idCopyNumber || '',
@@ -83,13 +85,13 @@ export class ContractorLifecycleService {
                                 contractorId: contractor.id
                             }))
                         }
-                    }
-                });
+                    }, tx);
+                }
             }
-        }
 
-        emitSystemEvent('CONTRACTOR_UPDATE');
-        return contractor;
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return contractor;
+        });
     }
 
     /**
@@ -107,9 +109,8 @@ export class ContractorLifecycleService {
         const { teams, id: _removeId, ...contractorData } = data;
         void _removeId;
 
-        const updated = await prisma.contractor.update({
-            where: { id },
-            data: {
+        return await prisma.$transaction(async (tx: TransactionClient) => {
+            const updated = await ContractorRepository.update(id, {
                 name: contractorData.name,
                 address: contractorData.address,
                 registrationNumber: contractorData.registrationNumber,
@@ -134,19 +135,19 @@ export class ContractorLifecycleService {
                 rejectionReason: contractorData.rejectionReason,
                 rejectionById: contractorData.rejectionById,
                 rejectedAt: contractorData.rejectedAt
+            }, tx);
+
+            if (contractorData.status) {
+                await this.handleStatusChangeNotifications(updated, contractorData);
             }
+
+            if (teams) {
+                await this.syncTeams(id, teams, updated.opmcId, tx);
+            }
+
+            emitSystemEvent('CONTRACTOR_UPDATE');
+            return updated;
         });
-
-        if (contractorData.status) {
-            await this.handleStatusChangeNotifications(updated, contractorData);
-        }
-
-        if (teams) {
-            await this.syncTeams(id, teams, updated.opmcId);
-        }
-
-        emitSystemEvent('CONTRACTOR_UPDATE');
-        return updated;
     }
 
     /**
@@ -167,7 +168,7 @@ export class ContractorLifecycleService {
     /**
      * Sync Teams and Members
      */
-    private static async syncTeams(contractorId: string, teams: any[], defaultOpmcId: string | null) {
+    private static async syncTeams(contractorId: string, teams: any[], defaultOpmcId: string | null, tx: TransactionClient) {
         const existingTeams = await prisma.contractorTeam.findMany({
             where: { contractorId },
             select: { id: true }
@@ -177,30 +178,59 @@ export class ContractorLifecycleService {
 
         const teamsToDelete = existingTeamIds.filter(tid => !incomingTeamIds.includes(tid));
         if (teamsToDelete.length > 0) {
-            await prisma.contractorTeam.deleteMany({ where: { id: { in: teamsToDelete } } });
+            await ContractorRepository.deleteTeams({ id: { in: teamsToDelete } }, tx);
         }
 
         for (const team of teams) {
             if (team.id && existingTeamIds.includes(team.id)) {
-                await prisma.contractorTeam.update({
-                    where: { id: team.id },
-                    data: {
-                        name: team.name,
-                        opmcId: team.opmcId || defaultOpmcId,
-                        sltCode: team.sltCode,
-                        storeAssignments: {
-                            deleteMany: {},
-                            create: team.storeIds?.map((storeId: string) => ({
-                                storeId,
-                                isPrimary: storeId === team.primaryStoreId
-                            }))
-                        }
+                await ContractorRepository.updateTeam(team.id, {
+                    name: team.name,
+                    opmcId: team.opmcId || defaultOpmcId,
+                    sltCode: team.sltCode,
+                    storeAssignments: {
+                        deleteMany: {},
+                        create: team.storeIds?.map((storeId: string) => ({
+                            storeId,
+                            isPrimary: storeId === team.primaryStoreId
+                        }))
                     }
-                });
-                await prisma.teamMember.deleteMany({ where: { teamId: team.id } });
+                }, tx);
+                
+                await ContractorRepository.deleteTeamMembers(team.id, tx);
+                
                 if (team.members && team.members.length > 0) {
-                    await prisma.teamMember.createMany({
-                        data: team.members.map((m: any) => ({
+                    await ContractorRepository.createTeamMembers(team.members.map((m: any) => ({
+                        name: m.name,
+                        nic: m.nic || m.idCopyNumber || '',
+                        designation: m.designation || '',
+                        contactNumber: m.contactNumber || '',
+                        address: m.address || '',
+                        photoUrl: m.photoUrl || '',
+                        passportPhotoUrl: m.passportPhotoUrl || '',
+                        nicUrl: m.nicUrl || '',
+                        policeReportUrl: m.policeReportUrl || '',
+                        gramaCertUrl: m.gramaCertUrl || '',
+                        shoeSize: m.shoeSize || '',
+                        tshirtSize: m.tshirtSize || '',
+                        idCopyNumber: m.idCopyNumber || m.nic || '',
+                        contractorId,
+                        teamId: team.id
+                    })), tx);
+                }
+            } else {
+                await ContractorRepository.createTeam({
+                    name: team.name,
+                    contractorId,
+                    opmcId: team.opmcId || defaultOpmcId,
+                    sltCode: team.sltCode,
+                    storeAssignments: {
+                        create: team.storeIds?.map((storeId: string) => ({
+                            storeId,
+                            isPrimary: storeId === team.primaryStoreId
+                        }))
+                    },
+                    members: {
+                        create: team.members.map((m: any) => ({
                             name: m.name,
                             nic: m.nic || m.idCopyNumber || '',
                             designation: m.designation || '',
@@ -214,44 +244,10 @@ export class ContractorLifecycleService {
                             shoeSize: m.shoeSize || '',
                             tshirtSize: m.tshirtSize || '',
                             idCopyNumber: m.idCopyNumber || m.nic || '',
-                            contractorId,
-                            teamId: team.id
+                            contractorId
                         }))
-                    });
-                }
-            } else {
-                await prisma.contractorTeam.create({
-                    data: {
-                        name: team.name,
-                        contractorId,
-                        opmcId: team.opmcId || defaultOpmcId,
-                        sltCode: team.sltCode,
-                        storeAssignments: {
-                            create: team.storeIds?.map((storeId: string) => ({
-                                storeId,
-                                isPrimary: storeId === team.primaryStoreId
-                            }))
-                        },
-                        members: {
-                            create: team.members.map((m: any) => ({
-                                name: m.name,
-                                nic: m.nic || m.idCopyNumber || '',
-                                designation: m.designation || '',
-                                contactNumber: m.contactNumber || '',
-                                address: m.address || '',
-                                photoUrl: m.photoUrl || '',
-                                passportPhotoUrl: m.passportPhotoUrl || '',
-                                nicUrl: m.nicUrl || '',
-                                policeReportUrl: m.policeReportUrl || '',
-                                gramaCertUrl: m.gramaCertUrl || '',
-                                shoeSize: m.shoeSize || '',
-                                tshirtSize: m.tshirtSize || '',
-                                idCopyNumber: m.idCopyNumber || m.nic || '',
-                                contractorId
-                            }))
-                        }
                     }
-                });
+                }, tx);
             }
         }
     }
@@ -274,7 +270,7 @@ export class ContractorLifecycleService {
             throw new Error('HAS_RELATED_DATA');
         }
 
-        const result = await prisma.contractor.deleteMany({ where: { id } });
+        const result = await ContractorRepository.delete(id);
         emitSystemEvent('CONTRACTOR_UPDATE');
         return result;
     }

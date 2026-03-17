@@ -23,21 +23,29 @@ export class MaterialRepository {
     }
 
     /**
-     * Delete all usage records for a Service Order
+     * Delete many records
      */
-    static async deleteByServiceOrderId(serviceOrderId: string, tx: any) {
-        return (tx as any).sODMaterialUsage.deleteMany({
-            where: { serviceOrderId }
+    static async deleteMany(where: Prisma.SODMaterialUsageWhereInput, tx?: any) {
+        const client = tx || prisma;
+        return client.sODMaterialUsage.deleteMany({ where });
+    }
+
+    /**
+     * Find by ID
+     */
+    static async findById(id: string, tx?: any) {
+        const client = tx || prisma;
+        return client.sODMaterialUsage.findUnique({
+            where: { id }
         });
     }
 
     /**
      * Create multiple usage records
      */
-    static async createMany(data: Prisma.SODMaterialUsageUncheckedCreateWithoutServiceOrderInput[], tx: any) {
-        // createMany is not always available on all tx objects depending on version/extensions
-        // but for standard Prisma it is.
-        return (tx as any).sODMaterialUsage.createMany({
+    static async createMany(data: Prisma.SODMaterialUsageUncheckedCreateWithoutServiceOrderInput[], tx?: any) {
+        const client = tx || prisma;
+        return client.sODMaterialUsage.createMany({
             data
         });
     }

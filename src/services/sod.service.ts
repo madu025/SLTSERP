@@ -1,31 +1,26 @@
-import { prisma } from '@/lib/prisma';
 import { ServiceOrder } from '@prisma/client';
 import { TransactionClient } from './inventory/types';
-import { SODQueryService } from './sod/sod.query.service';
 import { SODInvoicingService } from './sod/sod.invoicing.service';
 import { SODMaterialService } from './sod/sod.material.service';
 import { SODLifecycleService } from './sod/sod.lifecycle.service';
 import { SODSyncService } from './sod/sod.sync.service';
+import { SODQueryService } from './sod/sod.query.service';
 import { SODImportService } from './sod/sod.import.service';
 import { GetServiceOrdersParams, ServiceOrderUpdateData } from './sod/sod-types';
+import { ServiceOrderRepository } from '@/repositories/service-order.repository';
+import { prisma } from '@/lib/prisma';
 
 /**
  * ServiceOrderService (Facade)
  * ----------------------------
- * This class now acts as a facade, delegating specific SOD logic to specialized sub-services:
- * - SODQueryService: Data fetching, filtering, and pagination.
- * - SODMaterialService: Material usage deductions and inventory management.
- * - SODInvoicingService: Billing, payments, and revenue calculations.
- * - SODLifecycleService: Status transitions, history, and notifications.
- * - SODSyncService: External SLT API synchronization.
- * - SODImportService: Bulk imports from Excel.
+ * This class acts as a facade, delegating specific SOD logic to specialized sub-services.
  */
 export class ServiceOrderService {
 
     /**
      * Get all service orders with filtering and sorting
      */
-    static async getServiceOrders(userId: string, params: GetServiceOrdersParams) {
+    static async getServiceOrders(_userId: string, params: GetServiceOrdersParams) {
         return SODQueryService.getServiceOrders(params);
     }
 
@@ -42,13 +37,10 @@ export class ServiceOrderService {
     static async patchServiceOrder(id: string, data: ServiceOrderUpdateData, userId?: string): Promise<ServiceOrder> {
         if (!id) throw new Error('ID_REQUIRED');
 
-        const oldOrder = await prisma.serviceOrder.findUnique({
-            where: { id },
-            include: { materialUsage: true }
-        });
+        const oldOrder = await ServiceOrderRepository.findById(id, { materialUsage: true });
         if (!oldOrder) throw new Error('ORDER_NOT_FOUND');
 
-        // 1. UNIQUE CONSTRAINT PROTECTION (Moved to Lifecycle)
+        // 1. UNIQUE CONSTRAINT PROTECTION
         const collisionId = await SODLifecycleService.validateStatusTransition(id, oldOrder.soNum, data.status, oldOrder.status);
         if (collisionId) {
             console.warn(`[PATCH] Status collision detected for ${oldOrder.soNum}. Redirecting update.`);
@@ -58,7 +50,7 @@ export class ServiceOrderService {
         // 2. Prepare Update Data
         const updateData = await SODLifecycleService.prepareStatusTransition(oldOrder, data);
 
-        // 3. Financial calculations (Delegated to Invoicing Service)
+        // 3. Financial calculations
         const isCompleting = updateData.sltsStatus === 'COMPLETED' || (oldOrder.sltsStatus !== 'COMPLETED' && data.sltsStatus === 'COMPLETED');
         if (isCompleting) {
             const distance = (updateData.dropWireDistance as number) ?? oldOrder.dropWireDistance ?? 0;
@@ -68,8 +60,8 @@ export class ServiceOrderService {
         }
 
         // 4. TRANSACTIONAL DATABASE UPDATE
-        const result = await prisma.$transaction(async (tx: TransactionClient) => {
-            // Row lock for potential concurrent material updates
+        await prisma.$transaction(async (tx: TransactionClient) => {
+            // Row lock
             await tx.$executeRaw`SELECT id FROM "ServiceOrder" WHERE id = ${id} FOR UPDATE`;
 
             // Material usage processing
@@ -83,26 +75,23 @@ export class ServiceOrderService {
                 updateData.materialUsage = materialUpdate;
             }
 
-            // Database update
-            const serviceOrder = await tx.serviceOrder.update({
-                where: { id },
-                data: updateData
-            });
+            // Database update via Repository
+            const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
 
             // Post-update actions
-            await SODLifecycleService.handlePostUpdate(oldOrder, serviceOrder, updateData, userId);
+            await SODLifecycleService.handlePostUpdate(oldOrder, updatedOrder, updateData, userId);
 
-            return serviceOrder;
+            return updatedOrder;
         }, {
             timeout: 10000 
         });
 
-        const serviceOrder = result;
-
-        // 7. Snapshots and Audit
+        // 5. System specific manual updates (Snapshots)
         const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
         const currentSource = configs[0]?.value || 'SLT';
-        await prisma.$executeRaw`UPDATE "ServiceOrder" SET "materialSource" = ${currentSource} WHERE "id" = ${id}`;
+        
+        // Final update via Repository
+        const finalOrder = await ServiceOrderRepository.update(id, { materialSource: currentSource });
 
         if (userId) {
             try {
@@ -113,18 +102,17 @@ export class ServiceOrderService {
                     entity: 'ServiceOrder',
                     entityId: id,
                     oldValue: oldOrder,
-                    newValue: { ...serviceOrder, materialSource: currentSource }
+                    newValue: { ...finalOrder, materialSource: currentSource }
                 });
             } catch (e) {
                 console.error('Audit logging failed:', e);
             }
         }
 
-        return serviceOrder;
+        return finalOrder;
     }
 
-    // --- SYNC METHODS (Delegated to SODSyncService) ---
-
+    // --- SYNC METHODS delegated to SODSyncService ---
     static async syncPatResults(opmcId: string, rtom: string) {
         return SODSyncService.syncPatResults(opmcId, rtom);
     }

@@ -212,8 +212,10 @@ export const POST = apiHandler(async (_req, _params, payload: any) => {
     };
 
     // Dates
-    const safeParseDate = (dateStr: string | undefined | null) => {
-        if (!dateStr || dateStr.trim() === "") return undefined;
+    const safeParseDate = (dateStr: string | Date | undefined | null) => {
+        if (!dateStr) return undefined;
+        if (dateStr instanceof Date) return dateStr;
+        if (typeof dateStr === 'string' && dateStr.trim() === "") return undefined;
         const d = new Date(dateStr);
         return isNaN(d.getTime()) ? undefined : d;
     };
@@ -226,10 +228,10 @@ export const POST = apiHandler(async (_req, _params, payload: any) => {
 
     // Automations
     if (mapping.status === 'COMPLETED' || mapping.status === 'INSTALL_CLOSED' || mapping.status === 'PROV_CLOSED') {
-        if (!mapping.sltsStatus) dataToUpdate.sltsStatus = 'COMPLETED';
+        if (!mapping.sltsStatus) (dataToUpdate as any).sltsStatus = 'COMPLETED';
         const d = safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
         if (d) (dataToUpdate as any).completedDate = d;
-        if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = 'COMPLETED';
+        if (dataToUpdate.completedDate) (dataToUpdate as any).sltsStatus = 'COMPLETED';
     }
 
     // Match Team
@@ -373,5 +375,8 @@ export const POST = apiHandler(async (_req, _params, payload: any) => {
         soNum: syncedOrder?.soNum,
         message: 'Bridge sync successful.'
     };
-}, { schema: bridgeSyncSchema });
+}, { 
+    schema: bridgeSyncSchema,
+    audit: { action: 'BRIDGE_SYNC', entity: 'ServiceOrder' }
+});
 
