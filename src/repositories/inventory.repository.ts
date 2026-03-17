@@ -6,11 +6,29 @@ export type TransactionClient = Prisma.TransactionClient;
 
 export class InventoryRepository {
     /**
+     * Get all items with optional filters
+     */
+    static async findManyItems(where: Prisma.InventoryItemWhereInput = {}, tx?: any) {
+        const client = tx || prisma;
+        return (client as any).inventoryItem.findMany({ where, orderBy: { name: 'asc' } });
+    }
+
+    /**
      * Get basic Item details
      */
     static async findItemById(id: string, tx?: any) {
         const client = tx || prisma;
         return (client as any).inventoryItem.findUnique({
+            where: { id }
+        });
+    }
+
+    /**
+     * Find store by ID
+     */
+    static async findStoreById(id: string, tx?: any) {
+        const client = tx || prisma;
+        return (client as any).inventoryStore.findUnique({
             where: { id }
         });
     }
@@ -63,7 +81,7 @@ export class InventoryRepository {
     /**
      * Record a transaction
      */
-    static async createTransaction(data: any, tx: any) {
+    static async createTransaction(data: Prisma.InventoryTransactionUncheckedCreateInput, tx: any) {
         return (tx as any).inventoryTransaction.create({
             data
         });
