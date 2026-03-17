@@ -28,38 +28,15 @@ jobs:
       - name: Prepare bundle
         run: |
           mkdir staging
-          # Copy standalone build as the base
           cp -r .next/standalone/* staging/
-          # Ensure public and static assets are included correctly for standalone
           mkdir -p staging/public
           cp -r public/* staging/public/ || true
           mkdir -p staging/.next/static
           cp -r .next/static/* staging/.next/static/ || true
-          # Include prisma for migrations
           cp -r prisma staging/
           cp docker-entrypoint.sh staging/
           cp Dockerfile.prod staging/
-          
-          # Fix absolute paths from GitHub runner to Docker /app path using a robust Python script
-          python3 -c "
-          import os
-          ws = os.environ['GITHUB_WORKSPACE']
-          target = '/app'
-          files = ['staging/server.js', 'staging/.next/required-server-files.json']
-          for f_path in files:
-              if os.path.exists(f_path):
-                  with open(f_path, 'r') as f:
-                      content = f.read()
-                  # Replace all variants of the workspace path
-                  fixed = content.replace(ws, target)
-                  # Also handle escaped versions that Next.js might generate
-                  ws_escaped = ws.replace('/', '\\\\')
-                  fixed = fixed.replace(ws_escaped, target)
-                  with open(f_path, 'w') as f:
-                      f.write(fixed)
-                  print(f'Fixed paths in: {f_path}')
-          "
-          
+          # No more path fixing here! Our custom server.js handles it.
           cd staging && zip -r ../deploy.zip .
 
       - name: Create .env file
@@ -88,24 +65,11 @@ jobs:
           script: |
             mkdir -p ~/slts-erp
             cd ~/slts-erp
-            
-            # 1. Stop existing containers
             sudo docker compose -f docker-compose.prod.yml down || true
-            
-            # 2. WIPE everything to ensure no corruption (except .env backup)
-            [ -f .env ] && cp .env /tmp/.env.old
-            cd ..
             sudo rm -rf ~/slts-erp/*
-            
-            # 3. Move new files back
             mv /tmp/deploy.zip ~/slts-erp/
             mv /tmp/docker-compose.prod.yml ~/slts-erp/
-            if [ -f /tmp/.env ]; then mv /tmp/.env ~/slts-erp/; else mv /tmp/.env.old ~/slts-erp/.env; fi
-            
-            # 4. Extract
-            cd ~/slts-erp
+            mv /tmp/.env ~/slts-erp/
             sudo apt-get install -y unzip
             unzip -o deploy.zip -d .
-            
-            # 5. Build and Start
             sudo docker compose -f docker-compose.prod.yml up -d --build
