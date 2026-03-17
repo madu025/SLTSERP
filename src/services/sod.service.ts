@@ -67,27 +67,37 @@ export class ServiceOrderService {
             updateData.contractorAmount = contractorAmount;
         }
 
-        // 4. Material usage processing (Transactional)
-        if (data.materialUsage && Array.isArray(data.materialUsage)) {
-            const { InventoryService } = await import('./inventory.service');
-            const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
-            
-            await prisma.$transaction(async (tx: TransactionClient) => {
+        // 4. TRANSACTIONAL DATABASE UPDATE
+        const result = await prisma.$transaction(async (tx: TransactionClient) => {
+            // Row lock for potential concurrent material updates
+            await tx.$executeRaw`SELECT id FROM "ServiceOrder" WHERE id = ${id} FOR UPDATE`;
+
+            // Material usage processing
+            if (data.materialUsage && Array.isArray(data.materialUsage)) {
+                const { InventoryService } = await import('./inventory.service');
+                const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
+                
                 const materialUpdate = await SODMaterialService.processMaterialUsage(
                     tx, id, oldOrder.opmcId, contractorId, data.materialUsage!, InventoryService, userId
                 );
                 updateData.materialUsage = materialUpdate;
-            });
-        }
+            }
 
-        // 5. Database update
-        const serviceOrder = await prisma.serviceOrder.update({
-            where: { id },
-            data: updateData
+            // Database update
+            const serviceOrder = await tx.serviceOrder.update({
+                where: { id },
+                data: updateData
+            });
+
+            // Post-update actions
+            await SODLifecycleService.handlePostUpdate(oldOrder, serviceOrder, updateData, userId);
+
+            return serviceOrder;
+        }, {
+            timeout: 10000 
         });
 
-        // 6. Post-update actions
-        await SODLifecycleService.handlePostUpdate(oldOrder, serviceOrder, updateData, userId);
+        const serviceOrder = result;
 
         // 7. Snapshots and Audit
         const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;

@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sltserp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sltserp_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Slts2026Pass}
+      POSTGRES_DB: sltserp_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sltserp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sltserp_user -d sltserp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: sltserp-app
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://sltserp_user:${POSTGRES_PASSWORD:-Slts2026Pass}@postgres:5432/sltserp_db
+      - DIRECT_URL=postgresql://sltserp_user:${POSTGRES_PASSWORD:-Slts2026Pass}@postgres:5432/sltserp_db
+      - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NODE_ENV=production
+      - TZ=Asia/Colombo
+    ports:
+      - "3000:3000"
+    networks:
+      - sltserp-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
+  redis:
+    image: redis:7-alpine
+    container_name: sltserp-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - sltserp-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: sltserp-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - app
+    networks:
+      - sltserp-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  sltserp-network:
+    driver: bridge

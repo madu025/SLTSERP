@@ -7,6 +7,7 @@ export const QUEUE_NAMES = {
     NOTIFICATIONS: 'notifications-queue',
     STATS_UPDATE: 'stats-update-queue',
     SOD_SYNC: 'sod-sync-queue',
+    SYSTEM: 'system-queue',
 } as const;
 
 // Helper to create a queue
@@ -31,6 +32,7 @@ export const sodImportQueue = createQueue(QUEUE_NAMES.SOD_IMPORT);
 export const notificationsQueue = createQueue(QUEUE_NAMES.NOTIFICATIONS);
 export const statsUpdateQueue = createQueue(QUEUE_NAMES.STATS_UPDATE);
 export const sodSyncQueue = createQueue(QUEUE_NAMES.SOD_SYNC);
+export const systemQueue = createQueue(QUEUE_NAMES.SYSTEM);
 
 // Utility to add jobs to queues
 export async function addJob(queue: Queue, name: string, data: unknown, opts?: JobsOptions) {

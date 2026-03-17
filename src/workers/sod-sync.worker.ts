@@ -24,6 +24,22 @@ export const sodSyncWorker = new Worker(
                 await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
                 console.log(`[SOD-SYNC-WORKER] Completed PAT sync for RTOM: ${rtom}. Updated: ${result.updated}`);
                 return result;
+            } else if (type as any === 'PERIODIC_GLOBAL_SYNC') {
+                console.log(`[SOD-SYNC-WORKER] Starting Periodic Global PAT Sync (Job ID: ${job.id})`);
+                const result = await ServiceOrderService.syncHoApprovedResults();
+                console.log(`[SOD-SYNC-WORKER] Completed Periodic Global PAT Sync.`);
+                return result;
+            } else if (type as any === 'PERIODIC_PENDING_SYNC') {
+                console.log(`[SOD-SYNC-WORKER] Starting Periodic Pending SOD Sync (Job ID: ${job.id})`);
+                const result = await ServiceOrderService.syncAllOpmcs();
+                console.log(`[SOD-SYNC-WORKER] Completed Periodic Pending SOD Sync.`);
+                return result;
+            } else if (type as any === 'PERIODIC_COMPLETED_SYNC') {
+                console.log(`[SOD-SYNC-WORKER] Starting Periodic Completed SOD Sync (Job ID: ${job.id})`);
+                const { CompletedSODSyncService } = await import('../services/completed-sod-sync.service');
+                const result = await CompletedSODSyncService.syncCompletedSODs();
+                console.log(`[SOD-SYNC-WORKER] Completed Periodic Completed SOD Sync.`);
+                return result;
             } else {
                 console.log(`[SOD-SYNC-WORKER] Starting Pending SOD sync for RTOM: ${rtom} (Job ID: ${job.id})`);
                 const result = await ServiceOrderService.syncServiceOrders(opmcId, rtom);

@@ -1,7 +1,3 @@
-import { CompletedSODSyncService } from '@/services/completed-sod-sync.service';
-import { ServiceOrderService } from '@/services/sod.service';
-import { AutomationService } from '@/services/automation.service';
-
 /**
  * Background Worker Initialization
  * 
@@ -12,84 +8,64 @@ export async function initializeBackgroundWorkers() {
     console.log('==================================================');
     console.log('[WORKERS] 🔄 BACKGROUND WORKER INIT STARTING... ');
     console.log('==================================================');
-    console.log(`[WORKERS] Runtime: ${process.env.NEXT_RUNTIME}, Node: ${process.version}`);
-    console.log(`[WORKERS] Redis URL: ${process.env.REDIS_URL || 'NOT SET (using default localhost:6379)'}`);
+    console.log(`[WORKERS] Runtime: ${process.env.NEXT_RUNTIME}`);
+    console.log(`[WORKERS] Redis URL: ${process.env.REDIS_URL || 'NOT SET'}`);
 
-    // 1. Completed SOD Sync (10-minute intervals) - Processes PAT Success portal
-    if (process.env.ENABLE_COMPLETED_SOD_SYNC !== 'false') {
-        try {
-            CompletedSODSyncService.startPeriodicSync();
-            console.log('[WORKERS] ✅ Completed SOD Sync (10-min) started');
-        } catch (err) {
-            console.error('[WORKERS] ❌ Failed to start Completed SOD Sync:', err);
-        }
-    }
+    const { sodSyncQueue, systemQueue } = await import('../lib/queue');
 
-    // 2. Full Automated Sync (20-minute intervals) - Processes Pending portal
-    if (process.env.ENABLE_SOD_AUTO_SYNC !== 'false') {
-        try {
-            // Trigger immediately
-            ServiceOrderService.syncAllOpmcs()
-                .then(() => console.log('[WORKERS] Initial background pending sync completed'))
-                .catch(e => console.error('[WORKERS] Initial pending sync failed:', e));
-
-            // Then every 20 minutes
-            setInterval(() => {
-                console.log('[WORKERS] Starting background pending sync...');
-                ServiceOrderService.syncAllOpmcs().catch(e => console.error('[WORKERS] Periodic pending sync failed:', e));
-            }, 20 * 60 * 1000);
-            console.log('[WORKERS] ✅ Full Automated Sync (20-min) started');
-        } catch (err) {
-            console.error('[WORKERS] ❌ Failed to start Full Automated Sync:', err);
-        }
-    }
-
-    // 3. Global PAT Sync (1-hour intervals) - Processes Rejection portal
-    try {
-        // Trigger immediately
-        ServiceOrderService.syncHoApprovedResults()
-            .then(() => console.log('[WORKERS] Initial global PAT sync completed'))
-            .catch(e => console.error('[WORKERS] Initial global PAT sync failed:', e));
-
-        // Then every 1 hour
-        setInterval(() => {
-            console.log('[WORKERS] Starting global PAT sync (rejections/approvals)...');
-            ServiceOrderService.syncHoApprovedResults().catch(e => console.error('[WORKERS] Periodic global PAT sync failed:', e));
-        }, 60 * 60 * 1000);
-        console.log('[WORKERS] ✅ Global PAT Sync (1-hour) started');
-    } catch (err) {
-        console.error('[WORKERS] ❌ Failed to start Global PAT Sync:', err);
-    }
-
-    // 4. Daily Automation Tasks (24-hour intervals)
-    try {
-        // Run every 24 hours
-        setInterval(() => {
-            console.log('[WORKERS] Running daily automation tasks...');
-            AutomationService.runAllDailyTasks().catch(e => console.error('[WORKERS] Daily tasks failed:', e));
-        }, 24 * 60 * 60 * 1000);
-        console.log('[WORKERS] ✅ Daily Automation Tasks scheduled');
-    } catch (err) {
-        console.error('[WORKERS] ❌ Failed to schedule Daily Automation Tasks:', err);
-    }
-
-    // 4. BullMQ Workers
+    // 🚀 INITIALIZE BULLMQ WORKERS
     try {
         await import('./import.worker');
         await import('./sod-sync.worker');
-        await import('./stats-update.worker'); // New Worker
-        console.log('[WORKERS] ✅ SOD Import, Sync & Stats Workers (BullMQ) initialized');
+        await import('./stats-update.worker');
+        await import('./system.worker');
+        console.log('[WORKERS] ✅ All BullMQ Workers (Import, Sync, Stats, System) initialized');
     } catch (err) {
-        console.error('[WORKERS] ❌ Failed to initialize BullMQ Workers:', err);
+        console.error('[WORKERS] ❌ Worker initialization failed:', err);
     }
 
-    console.log('[WORKERS] All background workers initialized successfully');
+    // 🕊️ REGISTER REPEATABLE JOBS (The "One Truth" Scheduler)
+    // BullMQ handles redundancy automatically across multiple server instances.
+    try {
+        // 1. Completed SOD Sync (Every 15 minutes)
+        await sodSyncQueue.add(
+            'periodic-completed-sync',
+            { type: 'PERIODIC_COMPLETED_SYNC' },
+            { repeat: { every: 15 * 60 * 1000 }, jobId: 'repeat-completed-sync' }
+        );
+
+        // 2. Pending SOD Sync (Every 20 minutes)
+        await sodSyncQueue.add(
+            'periodic-pending-sync',
+            { type: 'PERIODIC_PENDING_SYNC' },
+            { repeat: { every: 20 * 60 * 1000 }, jobId: 'repeat-pending-sync' }
+        );
+
+        // 3. Global PAT Sync / Rejections (Every 1 hour)
+        await sodSyncQueue.add(
+            'periodic-global-sync',
+            { type: 'PERIODIC_GLOBAL_SYNC' },
+            { repeat: { every: 60 * 60 * 1000 }, jobId: 'repeat-global-sync' }
+        );
+
+        // 4. Daily Automation (Every 24 hours)
+        await systemQueue.add(
+            'daily-automation',
+            { type: 'DAILY_AUTOMATION' },
+            { repeat: { pattern: '0 1 * * *' }, jobId: 'repeat-daily-auto' } // Every day at 1:00 AM
+        );
+
+        console.log('[WORKERS] ✅ All Periodic Tasks successfully scheduled in BullMQ');
+    } catch (err) {
+        console.error('[WORKERS] ❌ Scheduling repeatable jobs failed:', err);
+    }
+
+    console.log('[WORKERS] Background system initialization complete');
 }
 
 export function shutdownBackgroundWorkers() {
-    console.log('[WORKERS] Shutting down background workers...');
-    CompletedSODSyncService.stopPeriodicSync();
-    console.log('[WORKERS] All background workers stopped');
+    console.log('[WORKERS] Shutting down background processes...');
+    // Workers will close automatically when the process exits
 }
 
 // Handle graceful shutdown

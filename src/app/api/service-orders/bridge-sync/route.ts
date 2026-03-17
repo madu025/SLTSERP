@@ -266,19 +266,28 @@ export async function POST(request: Request) {
 
         const dataToUpdate: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             ...mapping,
+            rtom: (mapping.rtom as string) || serviceOrder?.rtom || 'UNKNOWN',
             opmcId,
             updatedAt: new Date(),
         };
 
         // Process Dates
+        const safeParseDate = (dateStr: string | undefined | null) => {
+            if (!dateStr || dateStr.trim() === "") return undefined;
+            const d = new Date(dateStr);
+            return isNaN(d.getTime()) ? undefined : d;
+        };
+
         const receivedDateStr = masterData['RECEIVED DATE'] || deepData['RECEIVED DATE'];
         if (receivedDateStr) {
-            try { dataToUpdate.receivedDate = new Date(receivedDateStr); } catch { /* ignore */ }
+            const d = safeParseDate(receivedDateStr);
+            if (d) dataToUpdate.receivedDate = d;
         }
 
         const statusDateStr = masterData['STATUS DATE'] || deepData['STATUS DATE'];
         if (statusDateStr) {
-            try { dataToUpdate.statusDate = new Date(statusDateStr); } catch { /* ignore */ }
+            const d = safeParseDate(statusDateStr);
+            if (d) dataToUpdate.statusDate = d;
         }
 
         // Handle Completed Status Automations
@@ -290,9 +299,8 @@ export async function POST(request: Request) {
 
             // Extract Completed Date
             const compDateStr = masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || statusDateStr;
-            if (compDateStr) {
-                try { dataToUpdate.completedDate = new Date(compDateStr); } catch { /* ignore */ }
-            }
+            const d = safeParseDate(compDateStr);
+            if (d) dataToUpdate.completedDate = d;
 
             // Auto-Promote to COMPLETED if it's already closed on portal
             if (dataToUpdate.completedDate && (dataToUpdate.sltsStatus as string) !== 'COMPLETED') {
