@@ -36,8 +36,9 @@ jobs:
           cp Dockerfile.prod staging/
           
           # Fix absolute paths from GitHub runner to Docker /app path
-          find staging -type f -name "server.js" -exec sed -i "s|$GITHUB_WORKSPACE|/app|g" {} +
-          find staging -type f -name "required-server-files.json" -exec sed -i "s|$GITHUB_WORKSPACE|/app|g" {} +
+          # We use a placeholder and then sed to avoid escape issues
+          find staging -type f \( -name "server.js" -o -name "required-server-files.json" \) -exec sed -i "s|$GITHUB_WORKSPACE|/app|g" {} +
+          # Also handle potential escaped backslashes if any (though unlikely on Linux runner)
           
           cd staging && zip -r ../deploy.zip .
 
@@ -66,6 +67,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/slts-erp
+            # Clean up old node_modules to avoid permission issues during unzip
+            sudo rm -rf node_modules
             sudo apt-get install -y unzip
             unzip -o deploy.zip -d .
             sudo docker compose -f docker-compose.prod.yml up -d --build
