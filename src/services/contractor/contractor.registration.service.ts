@@ -174,6 +174,7 @@ export class ContractorRegistrationService {
                 registrationToken: token,
                 registrationTokenExpiry: expiry,
                 registrationStartedAt: null,
+                status: 'PENDING', // Reset status to allow the public form to proceed
                 registrationDraft: draft as Prisma.InputJsonValue
             }
         });
@@ -212,14 +213,22 @@ export class ContractorRegistrationService {
 
         if (!contractor.registrationStartedAt && contractor.status === 'PENDING') {
             const now = new Date();
-            const expiry = new Date();
-            expiry.setDate(now.getDate() + 3);
+            // Only set a shorter expiry if the current one is missing or already expired/very soon
+            // Renewals typically have 30 days, we don't want to overwrite that to 3 days.
+            const currentExpiry = contractor.registrationTokenExpiry ? new Date(contractor.registrationTokenExpiry) : null;
+            const threeDaysFromNow = new Date();
+            threeDaysFromNow.setDate(now.getDate() + 3);
+
+            let newExpiry = contractor.registrationTokenExpiry;
+            if (!currentExpiry || currentExpiry < threeDaysFromNow) {
+                newExpiry = threeDaysFromNow;
+            }
 
             return await prisma.contractor.update({
                 where: { id: contractor.id },
                 data: {
                     registrationStartedAt: now,
-                    registrationTokenExpiry: expiry
+                    registrationTokenExpiry: newExpiry
                 },
                 include: {
                     teams: {

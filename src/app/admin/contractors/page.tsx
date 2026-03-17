@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -9,22 +10,20 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Trash, Plus, Pencil, Search, Users, ShieldAlert, ShieldCheck, Building2, Upload, FileText, Image as ImageIcon, Copy, ExternalLink, MessageCircle, CheckCircle, UserPlus, Share2, Banknote, CheckCircle2, Trash2, Loader2 } from "lucide-react";
+import { Trash, Plus, Pencil, Search, Users, Building2, Upload, FileText, Image as ImageIcon, Copy, ExternalLink, MessageCircle, UserPlus, Share2, Banknote, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import TeamManager from './TeamManager';
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
 import { createContractor, updateContractor, deleteContractor } from '@/actions/contractor-actions';
 import { Progress } from "@/components/ui/progress";
+import { createWorker } from "tesseract.js";
 
 // Types
 interface TeamMember {
@@ -35,6 +34,7 @@ interface TeamMember {
     photoUrl?: string;
     nicUrl?: string;
     passportPhotoUrl?: string;
+    nic?: string;
 }
 
 interface ContractorTeam {
@@ -46,6 +46,7 @@ interface ContractorTeam {
     sltCode?: string | null;
     status: string; // Match Prisma string
     members: TeamMember[];
+    storeAssignments?: { storeId: string; isPrimary: boolean }[];
 }
 
 interface Contractor {
@@ -122,6 +123,8 @@ export default function ContractorsPage() {
     const [showModal, setShowModal] = useState(false);
     const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+    const [isScanning, setIsScanning] = useState(false);
+    const [scanResults, setScanResults] = useState<{ field: string; value: string } | null>(null);
 
     // Dynamic Team Management State
     const [teams, setTeams] = useState<ContractorTeam[]>([]);
@@ -165,7 +168,6 @@ export default function ContractorsPage() {
     const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
     const userRole = user.role || '';
     const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(userRole);
-    const isOspManager = userRole === 'OSP_MANAGER';
     const isSiteStaff = userRole === 'SITE_OFFICE_STAFF';
 
     const form = useForm<ContractorFormValues>({
@@ -178,7 +180,7 @@ export default function ContractorsPage() {
     });
 
     // --- QUERIES ---
-    const { data: contractorsData, isLoading } = useQuery({
+    const { data: contractorsData } = useQuery({
         queryKey: ["contractors"],
         queryFn: async () => {
             const res = await fetch(`/api/contractors?page=1&limit=1000&t=${Date.now()}`);
@@ -210,7 +212,7 @@ export default function ContractorsPage() {
         gcTime: 30 * 60 * 1000
     });
 
-    const { data: opmcs = [], isLoading: isLoadingOpmcs } = useQuery({
+    const { data: opmcs = [] } = useQuery({
         queryKey: ['opmcs'],
         queryFn: async () => {
             const res = await fetch('/api/opmcs');
@@ -248,24 +250,12 @@ export default function ContractorsPage() {
 
     // Filter RTOMs based on user access
     const filteredOpmcs = React.useMemo(() => {
-        // If data hasn't loaded yet, return empty
         if (!opmcs || opmcs.length === 0) return [];
-
-        // If it's a Super Admin or OSP Manager, show everything
         if (['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'].includes(userRole)) return opmcs;
-
-        // For others, use their assigned RTOMs
         const userOpmcIds = (user.accessibleOpmcs || []).map((o: { id: string }) => o.id);
-
-        // Fallback for old sessions: If they are site staff but have NO assigned RTOMs in localStorage,
-        // we might allow them to see all for now OR better, we tell them to re-login.
-        // For now, let's allow all if the list is empty to prevent blockers, but warn them.
         if (isSiteStaff && userOpmcIds.length === 0) return opmcs;
-
         return opmcs.filter((o: { id: string }) => userOpmcIds.includes(o.id));
     }, [opmcs, user.accessibleOpmcs, userRole, isSiteStaff]);
-
-    const isOpmcsLoading = isLoadingOpmcs || !opmcs.length && !inviteModalOpen;
 
     // --- MUTATIONS ---
     const mutation = useMutation({
@@ -392,6 +382,45 @@ export default function ContractorsPage() {
         });
     };
 
+    const performOCR = async (imageUrl: string) => {
+        setIsScanning(true);
+        try {
+            console.log("[OCR] Starting OCR for image:", imageUrl);
+            const worker = await createWorker('eng');
+            const { data: { text } } = await worker.recognize(imageUrl);
+            await worker.terminate();
+
+            console.log("[OCR] Raw text extracted:", text);
+
+            const oldNicMatch = text.match(/\b\d{9}[VvXx]\b/);
+            const newNicMatch = text.match(/\b\d{12}\b/);
+            const foundNic = newNicMatch?.[0] || oldNicMatch?.[0];
+
+            if (foundNic) {
+                console.log("[OCR] Potential NIC found:", foundNic);
+                setScanResults({ field: 'nic', value: foundNic });
+                toast.success(`OCR: Potential NIC detected: ${foundNic}`, {
+                    duration: 5000,
+                    action: {
+                        label: "Apply",
+                        onClick: () => {
+                            form.setValue('nic', foundNic);
+                            setScanResults(null);
+                        }
+                    }
+                });
+            } else {
+                console.log("[OCR] No NIC pattern found in text");
+                toast.info("OCR scanning complete. No clear NIC number detected.");
+            }
+        } catch (err) {
+            console.error("[OCR] OCR failed:", err);
+            toast.error("Auto data extraction (OCR) failed.");
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
     // --- HANDLERS ---
     const handleAdd = () => {
         setSelectedContractor(null);
@@ -418,9 +447,9 @@ export default function ContractorsPage() {
             status: t.status,
             sltCode: t.sltCode,
             opmcId: t.opmcId || null,
-            storeIds: ((t as any).storeAssignments)?.map((sa: any) => sa.storeId) || [],
-            primaryStoreId: ((t as any).storeAssignments)?.find((sa: any) => sa.isPrimary)?.storeId || null,
-            members: t.members.map((m: any) => ({
+            storeIds: t.storeAssignments?.map(sa => sa.storeId) || [],
+            primaryStoreId: t.storeAssignments?.find(sa => sa.isPrimary)?.storeId || null,
+            members: t.members.map(m => ({
                 id: m.id as string | undefined,
                 name: m.name as string,
                 idCopyNumber: (m.idCopyNumber || m.nic || '') as string,
@@ -476,23 +505,6 @@ export default function ContractorsPage() {
         });
     };
 
-    const toggleStore = (teamIdx: number, storeId: string) => {
-        const currentStores = teams[teamIdx].storeIds || [];
-        let newStores;
-        if (currentStores.includes(storeId)) {
-            newStores = currentStores.filter(id => id !== storeId);
-            if (teams[teamIdx].primaryStoreId === storeId) {
-                updateTeam(teamIdx, 'primaryStoreId', null);
-            }
-        } else {
-            newStores = [...currentStores, storeId];
-            if (newStores.length === 1) {
-                updateTeam(teamIdx, 'primaryStoreId', storeId);
-            }
-        }
-        updateTeam(teamIdx, 'storeIds', newStores);
-    };
-
     const removeTeam = (idx: number) => {
         setTeams(prev => prev.filter((_, i) => i !== idx));
     };
@@ -530,15 +542,6 @@ export default function ContractorsPage() {
         newTeams[teamIdx].members = newTeams[teamIdx].members.filter((_, i) => i !== memberIdx);
         setTeams(newTeams);
     };
-
-    const handleMemberUpload = async (teamIdx: number, memberIdx: number, field: 'photoUrl' | 'nicUrl', e: React.ChangeEvent<HTMLInputElement>) => {
-        const fieldName = `member-${teamIdx}-${memberIdx}-${field}`;
-        const url = await uploadFile(e, fieldName);
-        if (url) {
-            updateMember(teamIdx, memberIdx, field, url);
-        }
-    };
-
 
     const [viewMode, setViewMode] = useState<'ALL' | 'PENDING_DOCS' | 'PENDING_AUTH'>('ALL');
 
@@ -797,7 +800,7 @@ export default function ContractorsPage() {
                                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                         <FormControl><SelectTrigger><SelectValue placeholder="Select Office" /></SelectTrigger></FormControl>
                                                         <SelectContent>
-                                                            {opmcs.map((o: { id: string; name: string }) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
+                                                            {filteredOpmcs.map((o: { id: string; name: string }) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
                                                         </SelectContent>
                                                     </Select>
                                                 </FormItem>
@@ -893,7 +896,17 @@ export default function ContractorsPage() {
                                                 <FormItem className="col-span-2">
                                                     <FormLabel>Bank Passbook Header</FormLabel>
                                                     <div className="flex flex-col gap-2 mt-1">
-                                                        {field.value && <img src={field.value} alt="Preview" className="h-20 w-32 object-cover rounded border" />}
+                                                        {field.value && (
+                                                            <div className="relative h-20 w-32">
+                                                                <Image 
+                                                                    src={field.value} 
+                                                                    alt="Preview" 
+                                                                    fill
+                                                                    unoptimized
+                                                                    className="object-cover rounded border" 
+                                                                />
+                                                            </div>
+                                                        )}
                                                         <div className="relative">
                                                             <Input type="file" accept="image/*,.pdf" onChange={async (e) => {
                                                                 const url = await uploadFile(e, 'bankPassbookUrl');
@@ -931,15 +944,22 @@ export default function ContractorsPage() {
                                                 <FormField 
                                                     key={doc.field} 
                                                     control={form.control} 
-                                                    name={doc.field as any} 
+                                                    name={doc.field as keyof ContractorFormValues} 
                                                     render={({ field }) => (
                                                         <FormItem className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                                                             <FormLabel className="text-xs font-bold uppercase">{doc.label}</FormLabel>
                                                             <div className="flex flex-col gap-2 mt-2">
                                                                 {field.value ? (
                                                                     <div className="relative group w-full h-24">
-                                                                        <img src={field.value as string} alt="Doc" className="w-full h-full object-cover rounded border" />
-                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
+                                                                        <Image 
+                                                                            key={field.value as string} 
+                                                                            src={field.value as string} 
+                                                                            alt="Doc" 
+                                                                            fill
+                                                                            unoptimized
+                                                                            className="object-cover rounded border" 
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded z-10">
                                                                             <Button type="button" size="sm" variant="destructive" onClick={() => field.onChange("")}>Remove</Button>
                                                                         </div>
                                                                     </div>
@@ -949,13 +969,42 @@ export default function ContractorsPage() {
                                                                     <span className="text-[10px] text-slate-400 mt-1">Click to upload</span>
                                                                     <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer h-full" onChange={async (e) => {
                                                                         const url = await uploadFile(e, doc.field);
-                                                                        if (url) field.onChange(url);
+                                                                        if (url) {
+                                                                            field.onChange(url);
+                                                                            if (doc.field === 'nicFrontUrl') {
+                                                                                performOCR(url);
+                                                                            }
+                                                                        }
                                                                     }} />
                                                                     {uploadProgress[doc.field] !== undefined && (
                                                                         <div className="absolute bottom-0 left-0 right-0 px-1 pb-1">
                                                                             <Progress value={uploadProgress[doc.field]} className="h-1" />
                                                                         </div>
                                                                     )}
+                                                                </div>
+                                                            )}
+                                                            {isScanning && doc.field === 'nicFrontUrl' && (
+                                                                <div className="mt-2 flex items-center gap-2 text-[10px] text-blue-600 animate-pulse font-bold">
+                                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                                    SCANNING...
+                                                                </div>
+                                                            )}
+                                                            {scanResults && doc.field === 'nicFrontUrl' && (
+                                                                <div className="mt-2 flex items-center justify-between p-2 bg-emerald-50 border border-emerald-100 rounded">
+                                                                    <span className="text-[10px] font-bold text-emerald-700">NIC: {scanResults.value}</span>
+                                                                    <Button 
+                                                                        type="button" 
+                                                                        size="sm" 
+                                                                        className="h-5 px-2 bg-emerald-600 text-[8px]"
+                                                                        onClick={() => {
+                                                                            form.setValue('nic', scanResults.value);
+                                                                            setScanResults(null);
+                                                                            setStep(1); // Go to step 1 to show results
+                                                                            toast.success("Applied to Basic Info");
+                                                                        }}
+                                                                    >
+                                                                        Apply
+                                                                    </Button>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1191,7 +1240,7 @@ export default function ContractorsPage() {
                                     try {
                                         await navigator.clipboard.writeText(data.registrationLink);
                                         toast.success("Link generated & copied to clipboard!", { id: toastId });
-                                    } catch (copyErr) {
+                                    } catch {
                                         toast.success("Link generated!", { id: toastId });
                                     }
 
@@ -1200,9 +1249,10 @@ export default function ContractorsPage() {
 
                                     // Refresh contractor list
                                     queryClient.invalidateQueries({ queryKey: ['contractors'] });
-                                } catch (err: any) {
+                                } catch (err: unknown) {
                                     console.error("[FRONTEND] Full error:", err);
-                                    toast.error(err.message || "Generation failed", { id: toastId });
+                                    const errMsg = err instanceof Error ? err.message : "Generation failed";
+                                    toast.error(errMsg, { id: toastId });
                                 }
                             }}>Generate & Copy Link</Button>
                         </DialogFooter>
