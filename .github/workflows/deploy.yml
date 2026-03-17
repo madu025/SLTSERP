@@ -73,6 +73,7 @@ jobs:
           cp -r .next/static/. staging/.next/static/ || true
           
           # Add config and scripts
+          cp -r nginx staging/
           cp -r prisma staging/
           cp docker-entrypoint.sh staging/
           cp Dockerfile.prod staging/
