@@ -5,7 +5,8 @@ echo "Running database migrations..."
 if [ -f "./node_modules/.bin/prisma" ]; then
   ./node_modules/.bin/prisma migrate deploy
 else
-  npx prisma migrate deploy
+  # Pin version to match package.json
+  npx prisma@6.19.1 migrate deploy
 fi
 
 # Start the application
