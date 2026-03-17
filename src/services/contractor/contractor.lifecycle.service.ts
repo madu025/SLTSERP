@@ -49,6 +49,7 @@ export class ContractorLifecycleService {
                 nicBackUrl: contractorData.nicBackUrl,
                 policeReportUrl: contractorData.policeReportUrl,
                 gramaCertUrl: contractorData.gramaCertUrl,
+                registrationFeeSlipUrl: contractorData.registrationFeeSlipUrl,
                 opmcId: contractorData.opmcId || null,
                 siteOfficeStaffId: contractorData.siteOfficeStaffId,
             }, tx);
@@ -128,6 +129,7 @@ export class ContractorLifecycleService {
                 bankPassbookUrl: contractorData.bankPassbookUrl,
                 opmcId: contractorData.opmcId,
                 documentStatus: contractorData.documentStatus,
+                registrationFeeSlipUrl: contractorData.registrationFeeSlipUrl,
                 armApprovedAt: contractorData.armApprovedAt,
                 armApprovedById: contractorData.armApprovedById,
                 ospApprovedAt: contractorData.ospApprovedAt,

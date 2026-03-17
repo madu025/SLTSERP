@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import Image from "next/image";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { toast } from "sonner";
 import {
     Loader2, Trash2, CheckCircle2, Building2, Users, Banknote, UserPlus,
     Image as ImageIcon, FileText, Upload, CheckCircle, Plus, XCircle,
-    ShieldCheck, AlertCircle, User, Info, UserCircle, MapPin
+    ShieldCheck, AlertCircle, UserCircle, MapPin
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -19,16 +20,112 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { createWorker } from "tesseract.js";
 
+interface TeamMember {
+    name: string;
+    nic: string;
+    contactNumber: string;
+    address: string;
+    designation: string;
+    passportPhotoUrl: string;
+    photoUrl: string;
+    nicUrl: string;
+    policeReportUrl: string;
+    gramaCertUrl: string;
+    shoeSize: string;
+    tshirtSize: string;
+    [key: string]: string | undefined;
+}
+
+interface Team {
+    name: string;
+    primaryStoreId: string;
+    opmcId?: string;
+    members: TeamMember[];
+}
+interface ApiStoreAssignment {
+    isPrimary: boolean;
+    storeId: string;
+}
+interface ApiTeam extends Team {
+    storeAssignments?: ApiStoreAssignment[];
+}
+
+interface RegistrationFormData {
+    nic: string;
+    address: string;
+    contactNumber: string;
+    brNumber: string;
+    bankName: string;
+    bankBranch: string;
+    bankAccountNumber: string;
+    bankPassbookUrl: string;
+    teams: Team[];
+    photoUrl: string;
+    nicFrontUrl: string;
+    nicBackUrl: string;
+    policeReportUrl: string;
+    gramaCertUrl: string;
+    brCertUrl: string;
+    registrationFeeSlipUrl: string;
+}
+
+interface Bank {
+    id: string;
+    name: string;
+}
+
+interface Branch {
+    id: string;
+    name: string;
+}
+
+interface Store {
+    id: string;
+    name: string;
+}
+
+interface Opmc {
+    id: string;
+    name: string;
+}
+
+interface Contractor {
+    id: string;
+    name: string;
+    type: "SOD" | "OSP";
+    email?: string;
+    opmcId?: string;
+    nic?: string;
+    address?: string;
+    contactNumber?: string;
+    brNumber?: string;
+    bankName?: string;
+    bankBranch?: string;
+    bankAccountNumber?: string;
+    bankPassbookUrl?: string;
+    photoUrl?: string;
+    nicFrontUrl?: string;
+    nicBackUrl?: string;
+    policeReportUrl?: string;
+    gramaCertUrl?: string;
+    brCertUrl?: string;
+    registrationFeeSlipUrl?: string;
+    registrationTokenExpiry?: string;
+    status?: string;
+    rejectionReason?: string;
+    teams?: Team[];
+    registrationDraft?: Partial<RegistrationFormData>;
+    registrationStartedAt?: string;
+}
+
 export default function PublicContractorRegistrationPage() {
     const { token } = useParams();
-    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [contractor, setContractor] = useState<any>(null);
+    const [contractor, setContractor] = useState<Contractor | null>(null);
     const [step, setStep] = useState(1);
-    const [banks, setBanks] = useState<any[]>([]);
-    const [branches, setBranches] = useState<any[]>([]);
-    const [loadingBranches, setLoadingBranches] = useState(false);
+    const [banks, setBanks] = useState<Bank[]>([]);
+    const [branches, setBranches] = useState<Branch[]>([]);
     const [manualBank, setManualBank] = useState(false);
     const [manualBranch, setManualBranch] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -39,7 +136,7 @@ export default function PublicContractorRegistrationPage() {
     const [scanResults, setScanResults] = useState<{ field: string; value: string } | null>(null);
 
     // Form State
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<RegistrationFormData>({
         nic: "",
         address: "",
         contactNumber: "",
@@ -48,15 +145,17 @@ export default function PublicContractorRegistrationPage() {
         bankBranch: "",
         bankAccountNumber: "",
         bankPassbookUrl: "",
-        teams: [{ name: "Default Team", primaryStoreId: "", members: [] }] as any[],
+        teams: [{ name: "Default Team", primaryStoreId: "", members: [] }],
         photoUrl: "",
         nicFrontUrl: "",
         nicBackUrl: "",
         policeReportUrl: "",
         gramaCertUrl: "",
-        brCertUrl: ""
+        brCertUrl: "",
+        registrationFeeSlipUrl: ""
     });
-    const [stores, setStores] = useState<any[]>([]);
+    const [stores, setStores] = useState<Store[]>([]);
+    const [opmcs, setOpmcs] = useState<Opmc[]>([]);
     const formDataRef = React.useRef(formData);
     const submittingRef = React.useRef(false);
 
@@ -73,7 +172,7 @@ export default function PublicContractorRegistrationPage() {
                     const errData = await res.json();
                     if (errData.error === 'ALREADY_SUBMITTED') {
                         setSubmitted(true);
-                        setContractor({ name: "Contractor" }); // Dummy data to prevent "Invalid Link" UI
+                        setContractor({ id: "submitted", name: "Contractor", type: "SOD" }); // Dummy data to prevent "Invalid Link" UI
                         setLoading(false);
                         return;
                     }
@@ -86,9 +185,9 @@ export default function PublicContractorRegistrationPage() {
                 // Smart fill: Combine draft data and existing record data
                 setFormData(prev => {
                     const draft = data.registrationDraft || {};
-                    const existingTeams = data.teams && data.teams.length > 0 ? data.teams.map((t: any) => ({
+                    const existingTeams = data.teams && data.teams.length > 0 ? data.teams.map((t: ApiTeam) => ({
                         ...t,
-                        primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || ""
+                        primaryStoreId: t.storeAssignments?.find((sa: ApiStoreAssignment) => sa.isPrimary)?.storeId || ""
                     })) : null;
 
                     return {
@@ -108,6 +207,7 @@ export default function PublicContractorRegistrationPage() {
                         nicBackUrl: draft.nicBackUrl || data.nicBackUrl || prev.nicBackUrl,
                         policeReportUrl: draft.policeReportUrl || data.policeReportUrl || prev.policeReportUrl,
                         gramaCertUrl: draft.gramaCertUrl || data.gramaCertUrl || prev.gramaCertUrl,
+                        registrationFeeSlipUrl: draft.registrationFeeSlipUrl || data.registrationFeeSlipUrl || prev.registrationFeeSlipUrl,
                         brCertUrl: draft.brCertUrl || data.brCertUrl || prev.brCertUrl,
                         teams: (draft.teams && draft.teams.length > 0) ? draft.teams : (existingTeams || prev.teams)
                     };
@@ -116,8 +216,9 @@ export default function PublicContractorRegistrationPage() {
                 if (data.registrationDraft) {
                     setTimeout(() => toast.info("Your previous progress has been restored."), 500);
                 }
-            } catch (error: any) {
-                toast.error(error.message);
+            } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+                toast.error(errorMessage);
             } finally {
                 setLoading(false);
             }
@@ -134,7 +235,6 @@ export default function PublicContractorRegistrationPage() {
         };
 
         const fetchAllBranches = async () => {
-            setLoadingBranches(true);
             try {
                 const res = await fetch('/api/branches');
                 if (res.ok) {
@@ -142,7 +242,6 @@ export default function PublicContractorRegistrationPage() {
                     setBranches(data);
                 }
             } catch (err) { console.error("Branch fetch error:", err); }
-            finally { setLoadingBranches(false); }
         };
 
         const fetchStores = async () => {
@@ -154,12 +253,22 @@ export default function PublicContractorRegistrationPage() {
                 }
             } catch (err) { console.error("Store fetch error:", err); }
         };
+        const fetchOpmcs = async () => {
+            try {
+                const res = await fetch('/api/opmcs');
+                if (res.ok) {
+                    const data = await res.json();
+                    setOpmcs(data);
+                }
+            } catch (err) { console.error("OPMC fetch error:", err); }
+        };
 
         if (token) {
             fetchInitialData();
             fetchBanks();
             fetchAllBranches();
             fetchStores();
+            fetchOpmcs();
         }
     }, [token]);
 
@@ -233,8 +342,8 @@ export default function PublicContractorRegistrationPage() {
                         const errorData = JSON.parse(xhr.responseText);
                         errorMsg = errorData.details || errorData.error || errorMsg;
                         console.error(`[UPLOAD-FRONTEND] Error details:`, errorData);
-                    } catch (e) {
-                        console.error(`[UPLOAD-FRONTEND] Could not parse error response`);
+                    } catch (parseError) {
+                        console.error(`[UPLOAD-FRONTEND] Could not parse error response`, parseError);
                     }
 
                     toast.error(errorMsg);
@@ -320,15 +429,15 @@ export default function PublicContractorRegistrationPage() {
         }));
     };
 
-    const handleTeamChange = (tIdx: number, field: string, value: any) => {
+    const handleTeamChange = (tIdx: number, field: keyof Team, value: string | TeamMember[] | undefined) => {
         setFormData(prev => {
             const updated = [...prev.teams];
-            updated[tIdx] = { ...updated[tIdx], [field]: value };
+            updated[tIdx] = { ...updated[tIdx], [field]: value } as Team;
             return { ...prev, teams: updated };
         });
     };
 
-    const saveDraft = async (dataToSave: any = formDataRef.current) => {
+    const saveDraft = async (dataToSave: Partial<RegistrationFormData> = formDataRef.current) => {
         // Don't save drafts while submitting to prevent transaction conflicts
         if (submittingRef.current) {
             console.log("[DRAFT] Skipping draft save - submission in progress");
@@ -380,13 +489,13 @@ export default function PublicContractorRegistrationPage() {
             const updated = [...prev.teams];
             updated[tIdx] = {
                 ...updated[tIdx],
-                members: updated[tIdx].members.filter((_: any, i: number) => i !== mIdx)
+                members: updated[tIdx].members.filter((_, i) => i !== mIdx)
             };
             return { ...prev, teams: updated };
         });
     };
 
-    const handleMemberChange = (tIdx: number, mIdx: number, field: string, value: string) => {
+    const handleMemberChange = (tIdx: number, mIdx: number, field: keyof TeamMember, value: string) => {
         setFormData(prev => {
             const updated = [...prev.teams];
             const members = [...updated[tIdx].members];
@@ -415,7 +524,7 @@ export default function PublicContractorRegistrationPage() {
             return;
         }
 
-        if (!formData.nicFrontUrl || !formData.nicBackUrl || !formData.photoUrl) {
+        if (!formData.nicFrontUrl || !formData.nicBackUrl || !formData.photoUrl || !formData.registrationFeeSlipUrl) {
             toast.error("Please upload all required Documents (Step 3)");
             setStep(3);
             return;
@@ -455,9 +564,10 @@ export default function PublicContractorRegistrationPage() {
 
             toast.success("Registration submitted successfully!");
             setSubmitted(true);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Submission error:", error);
-            toast.error(error.message || "Something went wrong during submission");
+            const errorMessage = error instanceof Error ? error.message : "Something went wrong during submission";
+            toast.error(errorMessage);
         } finally {
             setSubmitting(false);
             submittingRef.current = false; // Re-enable draft saves
@@ -496,7 +606,7 @@ export default function PublicContractorRegistrationPage() {
                     <div className="text-center mb-8">
                         <div className="flex justify-center mb-6">
                             <div className="bg-white p-3 rounded-2xl shadow-xl shadow-blue-200/50 border border-blue-50 animate-in zoom-in duration-700">
-                                <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" />
+                                <Image src="/logo.png" alt="SLTS ERP Logo" width={64} height={64} className="object-contain" />
                             </div>
                         </div>
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Contractor Registration</h1>
@@ -524,7 +634,7 @@ export default function PublicContractorRegistrationPage() {
                                 <p className="text-xs text-red-700 leading-relaxed text-left">
                                     Your previous submission was reviewed and rejected for the following reason:<br />
                                     <span className="mt-2 block p-2 bg-white rounded border border-red-200 font-bold italic">
-                                        "{contractor.rejectionReason || "No specific reason provided. Please verify all documents and retry."}"
+                                        &quot;{contractor.rejectionReason || "No specific reason provided. Please verify all documents and retry."}&quot;
                                     </span>
                                 </p>
                             </div>
@@ -758,19 +868,29 @@ export default function PublicContractorRegistrationPage() {
                                         { label: "NIC Back Copy", field: "nicBackUrl" },
                                         { label: "Police Report (Skip for now)", field: "policeReportUrl" },
                                         { label: "Grama Niladhari Cert (Skip for now)", field: "gramaCertUrl" },
+                                        { label: "Registration Fee Slip", field: "registrationFeeSlipUrl" },
                                         { label: "BR Certificate (Skip for now)", field: "brCertUrl" }
                                     ].map((doc) => (
                                         <div key={doc.field} className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200 transition-all hover:bg-white hover:shadow-sm">
                                             <Label className="text-xs font-bold text-slate-700 uppercase tracking-wider">{doc.label}</Label>
                                             <div className="flex flex-col gap-3">
-                                                {(formData as any)[doc.field] ? (
+                                                {formData[doc.field as keyof RegistrationFormData] ? (
                                                     <div className="relative w-full h-32 bg-emerald-50 rounded-lg border border-emerald-100 overflow-hidden group">
-                                                        <img
-                                                            key={(formData as any)[doc.field]}
-                                                            src={(formData as any)[doc.field]}
-                                                            alt="Preview"
-                                                            className="w-full h-full object-cover"
-                                                        />
+                                                                 {typeof formData[doc.field as keyof RegistrationFormData] === 'string' && (formData[doc.field as keyof RegistrationFormData] as string).toLowerCase().endsWith('.pdf') ? (
+                                                                     <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
+                                                                         <FileText className="w-10 h-10 mb-1" />
+                                                                         <span className="text-[10px] font-bold uppercase">PDF Document</span>
+                                                                     </div>
+                                                                 ) : (
+                                                                     <Image
+                                                                         key={formData[doc.field as keyof RegistrationFormData] as string}
+                                                                         src={formData[doc.field as keyof RegistrationFormData] as string}
+                                                                         alt="Preview"
+                                                                         fill
+                                                                         className="object-cover"
+                                                                         unoptimized
+                                                                     />
+                                                                 )}
                                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                                             <Button
                                                                 size="sm"
@@ -892,6 +1012,16 @@ export default function PublicContractorRegistrationPage() {
                                                     <Input placeholder="e.g. OSP Team A" value={team.name} onChange={e => handleTeamChange(tIdx, 'name', e.target.value)} className="bg-white" />
                                                 </div>
                                                 <div className="space-y-2">
+                                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">RTOM Office</Label>
+                                                    <Select value={team.opmcId || 'inherit'} onValueChange={(v) => handleTeamChange(tIdx, 'opmcId', v)}>
+                                                        <SelectTrigger className="bg-white"><SelectValue placeholder="RTOM Office" /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="inherit">Inherit from Contractor ({opmcs.find(o => o.id === contractor?.opmcId)?.name || 'Default'})</SelectItem>
+                                                            {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
                                                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Assigned Store</Label>
                                                     <Select value={team.primaryStoreId} onValueChange={(v) => handleTeamChange(tIdx, 'primaryStoreId', v)}>
                                                         <SelectTrigger className="bg-white"><SelectValue placeholder="Select Store" /></SelectTrigger>
@@ -913,7 +1043,7 @@ export default function PublicContractorRegistrationPage() {
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-6">
-                                                    {team.members.map((member: any, mIdx: number) => (
+                                                    {team.members.map((member: TeamMember, mIdx: number) => (
                                                         <div key={mIdx} className="p-6 bg-white rounded-2xl border border-slate-200 relative animate-in zoom-in-95 group/member">
                                                             <div className="flex items-center justify-between mb-4">
                                                                 <div className="flex items-center gap-2">
@@ -1011,7 +1141,7 @@ export default function PublicContractorRegistrationPage() {
                                                                                         onChange={async (e) => {
                                                                                             const url = await uploadFile(e, `member-${tIdx}-${mIdx}-${doc.id}`);
                                                                                             if (url) {
-                                                                                                handleMemberChange(tIdx, mIdx, doc.id, url);
+                                                                                                handleMemberChange(tIdx, mIdx, doc.id as keyof TeamMember, url);
                                                                                                 saveDraft();
                                                                                             }
                                                                                         }}
@@ -1045,7 +1175,7 @@ export default function PublicContractorRegistrationPage() {
                                     <Button
                                         onClick={() => { setStep(5); saveDraft(); }}
                                         className="bg-blue-600 px-10 shadow-lg shadow-blue-200"
-                                        disabled={formData.teams.some((t: any) => t.members.length === 0 || !t.primaryStoreId || !t.name)}
+                                        disabled={formData.teams.some((t: Team) => t.members.length === 0 || !t.primaryStoreId || !t.name)}
                                     >
                                         Review Registration
                                     </Button>
@@ -1113,8 +1243,8 @@ export default function PublicContractorRegistrationPage() {
                                         </div>
                                         <div className="mt-6 p-3 bg-slate-50 rounded-xl border border-dashed flex items-center gap-4">
                                             {formData.bankPassbookUrl && (
-                                                <div className="w-12 h-12 rounded bg-white border overflow-hidden">
-                                                    <img src={formData.bankPassbookUrl} className="w-full h-full object-cover" />
+                                                <div className="w-12 h-12 rounded bg-white border overflow-hidden relative">
+                                                    <Image src={formData.bankPassbookUrl} alt="Bank Passbook Preview" fill className="object-cover" unoptimized />
                                                 </div>
                                             )}
                                             <span className="text-xs text-slate-500 font-medium italic">Bank Passbook / Statement Copy Uploaded</span>
@@ -1134,11 +1264,19 @@ export default function PublicContractorRegistrationPage() {
                                                 { label: "NIC Back", url: formData.nicBackUrl },
                                                 { label: "Police Report", url: formData.policeReportUrl },
                                                 { label: "Grama Niladbari", url: formData.gramaCertUrl },
+                                                { label: "Registration Fee Slip", url: formData.registrationFeeSlipUrl },
                                                 { label: "BR Certificate", url: formData.brCertUrl }
                                             ].filter(doc => doc.url).map((doc, idx) => (
                                                 <div key={idx} className="space-y-2">
                                                     <div className="aspect-square rounded-lg border bg-slate-50 overflow-hidden relative group">
-                                                        <img src={doc.url} className="w-full h-full object-cover" />
+                                                        {doc.url?.toLowerCase().endsWith('.pdf') ? (
+                                                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
+                                                                <FileText className="w-8 h-8 mb-1" />
+                                                                <span className="text-[8px] font-bold uppercase">PDF</span>
+                                                            </div>
+                                                        ) : (
+                                                            <Image src={doc.url} alt={doc.label} fill className="object-cover" unoptimized />
+                                                        )}
                                                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                                             <a href={doc.url} target="_blank" className="text-[10px] text-white underline">View Large</a>
                                                         </div>
@@ -1160,17 +1298,21 @@ export default function PublicContractorRegistrationPage() {
                                                     <div className="bg-slate-50 px-5 py-4 border-b flex justify-between items-center">
                                                         <div className="flex flex-col">
                                                             <span className="text-sm font-bold text-slate-800">{team.name}</span>
-                                                            <span className="text-[10px] text-slate-500">Assigned Store: {stores.find(s => s.id === team.primaryStoreId)?.name || 'Pending'}</span>
+                                                            <div className="flex gap-2 text-[10px]">
+                                                                <span className="text-blue-600 font-bold">RTOM: {opmcs.find(o => o.id === (team.opmcId && team.opmcId !== 'inherit' ? team.opmcId : contractor?.opmcId))?.name || 'Default'}</span>
+                                                                <span className="text-slate-400">|</span>
+                                                                <span className="text-slate-500">Store: {stores.find(s => s.id === team.primaryStoreId)?.name || 'Pending'}</span>
+                                                            </div>
                                                         </div>
                                                         <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-none px-3">
                                                             {team.members.length} Members
                                                         </Badge>
                                                     </div>
                                                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                        {team.members.map((m: any, mIdx: number) => (
+                                                        {team.members.map((m: TeamMember, mIdx: number) => (
                                                             <div key={mIdx} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50/50 border border-slate-100">
-                                                                <div className="w-10 h-10 rounded-full bg-white border overflow-hidden shrink-0">
-                                                                    <img src={m.passportPhotoUrl || m.photoUrl} className="w-full h-full object-cover" />
+                                                                <div className="w-10 h-10 rounded-full bg-white border overflow-hidden shrink-0 relative">
+                                                                    <Image src={m.passportPhotoUrl || m.photoUrl} alt={m.name} fill className="object-cover" unoptimized />
                                                                 </div>
                                                                 <div className="flex flex-col min-w-0">
                                                                     <span className="text-xs font-bold text-slate-700 truncate">{m.name}</span>

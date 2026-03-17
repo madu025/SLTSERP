@@ -137,6 +137,7 @@ export class ContractorRegistrationService {
             bankBranch: contractor.bankBranch,
             bankAccountNumber: contractor.bankAccountNumber,
             bankPassbookUrl: contractor.bankPassbookUrl,
+            registrationFeeSlipUrl: contractor.registrationFeeSlipUrl,
             photoUrl: contractor.photoUrl,
             nicFrontUrl: contractor.nicFrontUrl,
             nicBackUrl: contractor.nicBackUrl,
@@ -146,6 +147,7 @@ export class ContractorRegistrationService {
             teams: contractor.teams.map(t => ({
                 id: t.id,
                 name: t.name,
+                opmcId: t.opmcId || "",
                 primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || "",
                 members: t.members.map(m => ({
                     name: m.name,
@@ -305,6 +307,7 @@ export class ContractorRegistrationService {
                     policeReportUrl: restData.policeReportUrl,
                     gramaCertUrl: restData.gramaCertUrl,
                     brCertUrl: restData.brCertUrl,
+                    registrationFeeSlipUrl: restData.registrationFeeSlipUrl,
                     status: 'ARM_PENDING' as ContractorStatus,
                     registrationDraft: Prisma.JsonNull,
                     registrationStartedAt: null,
@@ -322,7 +325,7 @@ export class ContractorRegistrationService {
                         data: {
                             name: team.name,
                             contractorId: contractor.id,
-                            opmcId: updated.opmcId,
+                            opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (updated.opmcId || null),
                             storeAssignments: team.primaryStoreId ? {
                                 create: {
                                     storeId: team.primaryStoreId,

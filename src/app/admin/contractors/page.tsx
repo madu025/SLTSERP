@@ -110,6 +110,7 @@ const contractorSchema = z.object({
     policeReportUrl: z.string().optional(),
     gramaCertUrl: z.string().optional(),
     opmcId: z.string().optional(),
+    registrationFeeSlipUrl: z.string().optional(),
     type: z.enum(['SOD', 'OSP']),
 });
 
@@ -432,6 +433,7 @@ export default function ContractorsPage() {
             registrationFeePaid: false, agreementSigned: false, agreementDate: '',
             bankName: '', bankAccountNumber: '', bankBranch: '',
             opmcId: '',
+            registrationFeeSlipUrl: '',
             type: 'SOD'
         });
         setShowModal(true);
@@ -944,7 +946,8 @@ export default function ContractorsPage() {
                                                 { label: "NIC Front", field: "nicFrontUrl" },
                                                 { label: "NIC Back", field: "nicBackUrl" },
                                                 { label: "Police Report", field: "policeReportUrl" },
-                                                { label: "Grama Cert", field: "gramaCertUrl" }
+                                                { label: "Grama Cert", field: "gramaCertUrl" },
+                                                { label: "Registration Fee Slip", field: "registrationFeeSlipUrl" }
                                             ].map((doc) => (
                                                 <FormField 
                                                     key={doc.field} 
@@ -1098,7 +1101,7 @@ export default function ContractorsPage() {
                                             <div className="flex justify-between border-t pt-2 mt-2">
                                                 <span>Documents:</span>
                                                 <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
-                                                    {['photoUrl', 'nicFrontUrl', 'nicBackUrl', 'brCertUrl', 'bankPassbookUrl'].map(f => (
+                                                    {['photoUrl', 'nicFrontUrl', 'nicBackUrl', 'brCertUrl', 'bankPassbookUrl', 'registrationFeeSlipUrl'].map(f => (
                                                         form.getValues(f as keyof ContractorFormValues) ? (
                                                             <div key={f} className="w-6 h-6 rounded bg-green-100 flex items-center justify-center" title={f}>
                                                                 <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />

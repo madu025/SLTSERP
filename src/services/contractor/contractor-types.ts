@@ -37,6 +37,7 @@ export interface ContractorUpdateData {
     status?: ContractorStatus;
     documentStatus?: string;
     registrationFeePaid?: boolean;
+    registrationFeeSlipUrl?: string;
     agreementSigned?: boolean;
     agreementDate?: string | Date | null;
     agreementDuration?: string | number;
