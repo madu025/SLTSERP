@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { createWorker } from "tesseract.js";
 
 export default function PublicContractorRegistrationPage() {
     const { token } = useParams();
@@ -34,6 +35,8 @@ export default function PublicContractorRegistrationPage() {
     const [branchSearch, setBranchSearch] = useState("");
     const [showBranchList, setShowBranchList] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+    const [isScanning, setIsScanning] = useState(false);
+    const [scanResults, setScanResults] = useState<{ field: string; value: string } | null>(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -258,6 +261,49 @@ export default function PublicContractorRegistrationPage() {
             console.log(`[UPLOAD-FRONTEND] Sending XHR request for ${fieldName}`);
             xhr.send(formDataUpload);
         });
+    };
+
+    const performOCR = async (imageUrl: string) => {
+        setIsScanning(true);
+        try {
+            console.log("[OCR] Starting OCR for image:", imageUrl);
+            const worker = await createWorker('eng');
+            const { data: { text } } = await worker.recognize(imageUrl);
+            await worker.terminate();
+
+            console.log("[OCR] Raw text extracted:", text);
+
+            // Simple NIC Extraction Logic (Sri Lankan NICs)
+            // Old: 9 digits + V/X
+            // New: 12 digits
+            const oldNicMatch = text.match(/\b\d{9}[VvXx]\b/);
+            const newNicMatch = text.match(/\b\d{12}\b/);
+
+            const foundNic = newNicMatch?.[0] || oldNicMatch?.[0];
+
+            if (foundNic) {
+                console.log("[OCR] Potential NIC found:", foundNic);
+                setScanResults({ field: 'nic', value: foundNic });
+                toast.success(`OCR: Potential NIC detected: ${foundNic}`, {
+                    duration: 5000,
+                    action: {
+                        label: "Apply",
+                        onClick: () => {
+                            setFormData(prev => ({ ...prev, nic: foundNic }));
+                            setScanResults(null);
+                        }
+                    }
+                });
+            } else {
+                console.log("[OCR] No NIC pattern found in text");
+                toast.info("OCR scanning complete. No clear NIC number detected. Please enter manually.");
+            }
+        } catch (err) {
+            console.error("[OCR] OCR failed:", err);
+            toast.error("Auto data extraction (OCR) failed. Please enter details manually.");
+        } finally {
+            setIsScanning(false);
+        }
     };
 
     const handleAddTeam = () => {
@@ -752,14 +798,15 @@ export default function PublicContractorRegistrationPage() {
                                                                 const url = await uploadFile(e, doc.field);
                                                                 if (url) {
                                                                     console.log(`[UPLOAD] Success for ${doc.field}:`, url);
-                                                                    setFormData(prev => {
-                                                                        const updated = { ...prev, [doc.field]: url };
-                                                                        console.log(`[STATE] Updated ${doc.field} in form state`);
-                                                                        return updated;
-                                                                    });
-                                                                    // Immediate save with just this field
-                                                                    const saveResult = await saveDraft({ [doc.field]: url });
-                                                                    console.log(`[SAVE] Draft saved for ${doc.field}:`, saveResult);
+                                                                    setFormData(prev => ({ ...prev, [doc.field]: url }));
+                                                                    
+                                                                    // Trigger OCR for NIC Front
+                                                                    if (doc.field === 'nicFrontUrl') {
+                                                                        performOCR(url);
+                                                                    }
+
+                                                                    // Immediate save
+                                                                    await saveDraft({ [doc.field]: url });
                                                                 } else {
                                                                     console.error(`[UPLOAD] Failed for ${doc.field}`);
                                                                 }
@@ -774,6 +821,31 @@ export default function PublicContractorRegistrationPage() {
                                                             <span>{uploadProgress[doc.field]}%</span>
                                                         </div>
                                                         <Progress value={uploadProgress[doc.field]} className="h-1.5" />
+                                                    </div>
+                                                )}
+                                                {isScanning && doc.field === 'nicFrontUrl' && (
+                                                    <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-100 flex items-center gap-2 animate-pulse">
+                                                        <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
+                                                        <span className="text-[10px] font-bold text-blue-700 uppercase tracking-tighter">Scanning for NIC...</span>
+                                                    </div>
+                                                )}
+                                                {scanResults && doc.field === 'nicFrontUrl' && (
+                                                    <div className="mt-2 p-2 bg-emerald-50 rounded border border-emerald-100 flex flex-col gap-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[10px] font-bold text-emerald-700">Detected NIC: {scanResults.value}</span>
+                                                            <Button 
+                                                                size="sm" 
+                                                                className="h-6 px-3 bg-emerald-600 text-[9px]"
+                                                                onClick={() => {
+                                                                    setFormData(prev => ({ ...prev, nic: scanResults.value }));
+                                                                    setScanResults(null);
+                                                                    setStep(1); // Move to step 1 to show the result
+                                                                    toast.success("NIC applied to basic information.");
+                                                                }}
+                                                            >
+                                                                Apply
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

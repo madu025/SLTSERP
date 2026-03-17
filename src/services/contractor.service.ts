@@ -51,6 +51,10 @@ export class ContractorService {
         return ContractorRegistrationService.resendRegistrationLink(id, origin);
     }
 
+    static async generateRenewalLink(id: string, origin: string) {
+        return ContractorRegistrationService.generateRenewalLink(id, origin);
+    }
+
     static async getContractorByToken(token: string) {
         return ContractorRegistrationService.getContractorByToken(token);
     }

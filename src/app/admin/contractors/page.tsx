@@ -322,6 +322,25 @@ export default function ContractorsPage() {
         }
     };
 
+    const handleRenewLink = async (id: string) => {
+        const toastId = toast.loading("Generating renewal link...");
+        try {
+            const res = await fetch(`/api/contractors/renew-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            if (!res.ok) throw new Error("Failed to generate renewal link");
+            const data = await res.json();
+            setShareLink(data.registrationLink);
+            setShareModalOpen(true);
+            toast.success("Renewal link generated!", { id: toastId });
+        } catch (err: unknown) {
+            const error = err as Error;
+            toast.error(error.message || "Failed to generate renewal link", { id: toastId });
+        }
+    };
+
     const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
         if (!e.target.files || e.target.files.length === 0) return null;
         const file = e.target.files[0];
@@ -653,6 +672,12 @@ export default function ContractorsPage() {
                                                     <Button variant="ghost" size="sm" onClick={() => handleResendLink(contractor.id)} className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50">
                                                         <Share2 className="w-4 h-4 sm:mr-2" />
                                                         <span className="hidden sm:inline">Reshare</span>
+                                                    </Button>
+                                                )}
+                                                {(contractor.status === 'ACTIVE' || contractor.status === 'INACTIVE') && (
+                                                    <Button variant="ghost" size="sm" onClick={() => handleRenewLink(contractor.id)} title="Renew Registration" className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-purple-600 hover:bg-purple-50">
+                                                        <Share2 className="w-4 h-4 sm:mr-2" />
+                                                        <span className="hidden sm:inline">Renew</span>
                                                     </Button>
                                                 )}
                                                 {isAdmin && (

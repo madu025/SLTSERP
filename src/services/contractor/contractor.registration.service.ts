@@ -107,6 +107,84 @@ export class ContractorRegistrationService {
     }
 
     /**
+     * Generate a renewal link for an active contractor
+     * This copies existing data into a registration draft for easy review
+     */
+    static async generateRenewalLink(id: string, origin: string) {
+        const contractor = await prisma.contractor.findUnique({
+            where: { id },
+            include: {
+                teams: {
+                    include: {
+                        members: true,
+                        storeAssignments: true
+                    }
+                }
+            }
+        });
+
+        if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
+
+        // Copy current data into draft
+        const draft: any = {
+            name: contractor.name,
+            email: contractor.email,
+            nic: contractor.nic,
+            address: contractor.address,
+            contactNumber: contractor.contactNumber,
+            brNumber: contractor.brNumber,
+            bankName: contractor.bankName,
+            bankBranch: contractor.bankBranch,
+            bankAccountNumber: contractor.bankAccountNumber,
+            bankPassbookUrl: contractor.bankPassbookUrl,
+            photoUrl: contractor.photoUrl,
+            nicFrontUrl: contractor.nicFrontUrl,
+            nicBackUrl: contractor.nicBackUrl,
+            policeReportUrl: contractor.policeReportUrl,
+            gramaCertUrl: contractor.gramaCertUrl,
+            brCertUrl: contractor.brCertUrl,
+            teams: contractor.teams.map(t => ({
+                id: t.id,
+                name: t.name,
+                primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || "",
+                members: t.members.map(m => ({
+                    name: m.name,
+                    nic: m.nic,
+                    contactNumber: m.contactNumber,
+                    address: m.address,
+                    designation: m.designation,
+                    photoUrl: m.photoUrl,
+                    passportPhotoUrl: m.passportPhotoUrl,
+                    nicUrl: m.nicUrl,
+                    policeReportUrl: m.policeReportUrl,
+                    gramaCertUrl: m.gramaCertUrl,
+                    shoeSize: m.shoeSize,
+                    tshirtSize: m.tshirtSize
+                }))
+            }))
+        };
+
+        const token = Math.random().toString(36).substring(2, 12).toUpperCase();
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 30); // Renewals have a longer lead time
+
+        const updated = await prisma.contractor.update({
+            where: { id },
+            data: {
+                registrationToken: token,
+                registrationTokenExpiry: expiry,
+                registrationStartedAt: null,
+                registrationDraft: draft as Prisma.InputJsonValue
+            }
+        });
+
+        return {
+            contractor: updated,
+            registrationLink: `${origin}/contractor-registration/${token}`
+        };
+    }
+
+    /**
      * Get contractor by registration token
      */
     static async getContractorByToken(token: string) {
