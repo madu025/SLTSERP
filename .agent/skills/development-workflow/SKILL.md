@@ -3,9 +3,9 @@ name: SLTSERP Development Workflow
 description: Comprehensive development workflow for SLTSERP project including type safety, testing, and deployment procedures
 ---
 
-# SLTSERP Development Workflow
+# SLTSERP Development Workflow (Antigravity Standard)
 
-This skill provides a systematic approach to developing features, fixing bugs, and maintaining code quality in the SLTSERP project.
+This skill provides a systematic, "agentic-first" approach to developing features, fixing bugs, and maintaining elite code quality in the SLTSERP project. It follows the **Antigravity Development Standard**—a high-performance, modular, and aesthetically premium architecture.
 
 ## Project Overview
 
@@ -211,7 +211,7 @@ The inventory system follows a **Service-Repository pattern** with the following
 - JSON fields for flexible data storage
 - Audit trails with timestamps
 
-## Development Standards
+## Antigravity Development Standards (ADS)
 
 ### 1. Type Safety
 
@@ -320,27 +320,34 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-### 5. Frontend Architecture & Performance
+### 5. Frontend Orchestrator Architecture
 
-#### A. Component Modularization
-- **Component Library**: ALWAYS use **Shadcn/UI** components from `src/components/ui/`
-- **Modals & Dialogs**: Use Shadcn Dialog component, extract into `src/components/modals/`
-- **Complex UI Sections**: Break down into smaller, reusable components
+To ensure maximum maintainability and performance, all new modules must follow the **Orchestrator-Component-Hook** pattern.
 
-#### B. Dynamic Imports (Code Splitting)
-```tsx
-import dynamic from 'next/dynamic';
+#### A. Orchestrator Page (`page.tsx`)
+- **Thin Layer**: The main page should only serve as an orchestrator.
+- **Composition**: It should import reusable components and pass necessary data/handlers.
+- **Layout**: Use standard `Sidebar` and `Header` wrappers.
 
-// Load heavy components only when needed
-const MyHeavyModal = dynamic(
-    () => import('@/components/modals/MyHeavyModal'), 
-    { ssr: false }
-);
-```
+#### B. Functional Hooks (`hooks/use[Entity]Operations.ts`)
+- **Action Centralization**: Encapsulate all mutations (create, update, delete, merge) in a custom hook.
+- **TanStack Query**: Use `useMutation` for side effects, ensuring strict `onSuccess` query invalidation and `onError` feedback.
+- **Feedback**: Use `sonner` for high-fidelity situational feedback.
 
-#### C. Navigation & Menu Management
-- **Centralized Config**: Use `src/config/sidebar-menu.ts` for sidebar items
-- **Role-Based Visibility**: Use predefined `ROLE_GROUPS` to control access
+#### C. Component Categorization
+- **Registry Tables** (`components/[Entity]Table.tsx`): Advanced data tables with built-in filtering, search, and bulk selection.
+- **Form Dialogs** (`components/[Entity]FormDialog.tsx`): High-fidelity modals using **React Hook Form** and **Zod**.
+- **Utility Modals**: Separate modals for complex operations like "Merging Entities" or "Bulk Status Updates".
+
+### 6. High-Fidelity Aesthetic Mandate
+
+The SLTSERP system must maintain a **Premium/Enterprise+** visual identity. Every new interface must "wow" the user.
+
+- **Glassmorphism**: Use `backdrop-blur-lg` and `bg-white/80` for elevated surfaces (modals, cards).
+- **Depth & Shadows**: Implement multi-layered shadows (`shadow-2xl shadow-slate-200/50`) to create a sense of hierarchy.
+- **Typography & Weights**: Use high-contrast font weights (Black/900 for titles, Bold/700 for labels) and strictly uppercase tracking for metadata.
+- **Micro-Animations**: Add subtle transitions (`transition-all duration-300`) and hover states (e.g., `-translate-y-1` on interactive cards).
+- **Vibrant Status Indicators**: Use curated HSL color palettes for status badges (Emerald for Active, Rose for Critical, Amber for Pending).
 
 ### 6. Forms & Data Validation
 

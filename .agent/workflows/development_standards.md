@@ -8,10 +8,17 @@ Use this document as the "Gold Standard" when implementing new features or refac
 
 ## 1. Frontend Architecture & Performance
 
-### A. Component Modularization
-- **Component Library**: ALWAYS use **Shadcn/UI** components from `src/components/ui/` for basic elements (Buttons, Inputs, Cards, etc.). Do not use raw Tailwind utility classes for these elements unless creating a completely custom component not available in Shadcn.
-- **Modals & Dialogs**: Use **Shadcn Dialog** component. Extract them into strict components in `src/components/modals/`.
-- **Complex UI Sections**: Break down complex pages into smaller, reusable components.
+### A. The Antigravity Orchestrator Pattern
+To maintain absolute clarity and performance, every new UI module MUST follow this hierarchy:
+1.  **Orchestrator Page** (`page.tsx`): A stateless entry point that coordinates data fetching and component composition.
+2.  **Functional Hook** (`hooks/use[Entity]Operations.ts`): Centralizes all business logic, mutations (via TanStack Query), and situational feedback (sonner).
+3.  **High-Fidelity Components** (`components/*.tsx`): Modular parts like `[Entity]Table` and `[Entity]FormDialog` that focus purely on presentation and localized UX.
+
+### B. Aesthetic Standard (High-Fidelity UI)
+- **Glassmorphism**: Use `backdrop-blur-lg` and `bg-white/80` for elevated surfaces.
+- **Micro-Animations**: Add `transition-all duration-300` and `hover:-translate-y-1` to interactive cards.
+- **Deep Shadows**: Implement `shadow-2xl shadow-slate-200/50` for depth.
+- **Status Badges**: Use curated HSL color palettes for distinct operational states.
 
 ### B. Dynamic Imports (Code Splitting)
 - Use `next/dynamic` to load heavy components (especially Modals, Charts, and heavy Shadcn components) only when they are needed.
