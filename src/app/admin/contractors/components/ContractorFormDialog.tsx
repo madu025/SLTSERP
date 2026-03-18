@@ -129,11 +129,11 @@ export function ContractorFormDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-full no-scrollbar rounded-3xl">
                 <DialogHeader className="px-2">
-                    <DialogTitle className="text-2xl font-black text-slate-900">
-                        {initialData ? 'Update Profile' : 'Digital Onboarding'}
+                    <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
+                        {initialData ? 'Edit Profile' : 'Add New Contractor'}
                     </DialogTitle>
-                    <DialogDescription className="text-xs font-medium text-slate-500">
-                        {initialData ? 'Modify active contractor credentials and logistics.' : 'Establish a new contractor entity within the ERP registry.'}
+                    <DialogDescription className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                        {initialData ? 'Update existing contractor credentials.' : 'Follow the steps to register a new contractor entity.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -163,13 +163,13 @@ export function ContractorFormDialog({
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 px-2 pb-6">
                         {step === 1 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <FormField control={form.control} name="type" render={({ field }) => (
                                     <FormItem className="col-span-2">
-                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Jurisdiction Type</FormLabel>
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Industry Category</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value || "SOD"}>
-                                            <FormControl><SelectTrigger className="h-11 bg-slate-50 border-none"><SelectValue placeholder="Select Sector" /></SelectTrigger></FormControl>
-                                            <SelectContent>
+                                            <FormControl><SelectTrigger className="h-12 bg-slate-50 border-none rounded-xl focus:ring-blue-100"><SelectValue placeholder="Identify Sector" /></SelectTrigger></FormControl>
+                                            <SelectContent className="rounded-xl border-slate-100">
                                                 <SelectItem value="SOD">Service Orders (Operations)</SelectItem>
                                                 <SelectItem value="OSP">Network Projects (OSP)</SelectItem>
                                             </SelectContent>
@@ -178,35 +178,37 @@ export function ContractorFormDialog({
                                 )} />
                                 
                                 <FormField control={form.control} name="name" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Entity Name</FormLabel><FormControl><Input {...field} className="h-11" placeholder="Legal / Trade Name" /></FormControl></FormItem>
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contractor Name</FormLabel><FormControl><Input {...field} className="h-12 border-slate-100 rounded-xl focus:shadow-sm transition-all" placeholder="Legal / Trade Name" /></FormControl></FormItem>
                                 )} />
                                 <FormField control={form.control} name="registrationNumber" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registry Sequence</FormLabel>
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reg Number (Auto)</FormLabel>
                                         <FormControl>
-                                            <div className="relative">
+                                            <div className="relative group">
                                                 <Input 
                                                     {...field} 
                                                     value={field.value || ""} 
-                                                    className={cn("h-11 font-bold", !initialData?.id && "bg-slate-50 text-slate-400 italic cursor-not-allowed")} 
-                                                    placeholder={!initialData?.id ? "Assigned on Approval" : "ERP-XXX-XXXX"} 
+                                                    className={cn("h-12 font-bold border-slate-100 rounded-xl", !initialData?.id ? "bg-slate-50 text-slate-400 italic cursor-not-allowed border-dashed" : "bg-white")} 
+                                                    placeholder={!initialData?.id ? "Assigned by System" : "ERP-XXX-XXXX"} 
                                                     readOnly={!initialData?.id}
                                                 />
                                                 {!initialData?.id && (
-                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-blue-500 uppercase tracking-tighter bg-blue-50 px-1.5 py-0.5 rounded">Auto</span>
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                                        <span className="text-[8px] font-black text-blue-600 uppercase tracking-tighter bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">Secure Auto</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </FormControl>
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control} name="address" render={({ field }) => (
-                                    <FormItem className="col-span-2"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Operational Base Address</FormLabel><FormControl><Textarea {...field} value={field.value || ""} className="resize-none border-slate-100 focus:ring-blue-100" rows={2} /></FormControl></FormItem>
+                                    <FormItem className="col-span-2"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Office Address</FormLabel><FormControl><Textarea {...field} value={field.value || ""} className="resize-none border-slate-100 rounded-xl focus:ring-blue-100 min-h-[80px]" placeholder="Principal place of business..." /></FormControl></FormItem>
                                 )} />
                                 <FormField control={form.control} name="nic" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Primary ID (NIC)</FormLabel><FormControl><Input {...field} className="h-11" /></FormControl></FormItem>
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">NIC Number</FormLabel><FormControl><Input {...field} className="h-12 border-slate-100 rounded-xl" placeholder="9XXXXXXXXV / 20XXXXXXXXXX" /></FormControl></FormItem>
                                 )} />
                                 <FormField control={form.control} name="contactNumber" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hotline / Contact</FormLabel><FormControl><Input {...field} className="h-11" /></FormControl></FormItem>
+                                    <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Phone Number</FormLabel><FormControl><Input {...field} className="h-12 border-slate-100 rounded-xl" placeholder="07XXXXXXXX" /></FormControl></FormItem>
                                 )} />
                             </div>
                         )}
@@ -345,20 +347,41 @@ export function ContractorFormDialog({
                             </div>
                         )}
 
-                        <div className="flex justify-between items-center pt-8 border-t border-slate-50">
+                        <div className="flex justify-between items-center pt-10 border-t border-slate-100">
                             {step > 1 ? (
-                                <Button type="button" variant="ghost" onClick={() => setStep(prev => prev - 1)} className="font-bold text-slate-400 h-11 px-6">
-                                    <ChevronLeft className="w-4 h-4 mr-2" /> Previous
+                                <Button type="button" variant="ghost" onClick={() => setStep(prev => prev - 1)} className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-colors h-12 px-8">
+                                    <ChevronLeft className="w-4 h-4 mr-2" /> Back
                                 </Button>
                             ) : <div />}
 
                             {step < 5 ? (
-                                <Button type="button" className="bg-slate-900 h-11 px-10 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200" onClick={() => setStep(prev => prev + 1)}>
-                                    Next Phase <ChevronRight className="w-4 h-4 ml-2" />
+                                <Button 
+                                    type="button" 
+                                    className="bg-slate-900 hover:bg-black h-12 px-12 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-slate-200 transition-all hover:-translate-y-0.5" 
+                                    onClick={async () => {
+                                        // Step validation before moving next
+                                        let fields: (keyof ContractorSchema)[] = [];
+                                        if (step === 1) fields = ['name', 'nic', 'contactNumber', 'type'];
+                                        if (step === 2) fields = ['bankAccountNumber'];
+                                        if (step === 3) fields = ['nicFrontUrl', 'nicBackUrl', 'photoUrl', 'registrationFeeSlipUrl'];
+                                        
+                                        const isValid = fields.length > 0 ? await form.trigger(fields) : true;
+                                        if (isValid) {
+                                            if (step === 3 && watchedValues.type !== 'SOD') {
+                                                setStep(5);
+                                            } else {
+                                                setStep(prev => prev + 1);
+                                            }
+                                        } else {
+                                            toast.error("Please fill all required details for this step.");
+                                        }
+                                    }}
+                                >
+                                    Continue <ChevronRight className="w-4 h-4 ml-2" />
                                 </Button>
                             ) : (
-                                <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 h-11 px-10 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-200">
-                                    {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Transmitting...</> : 'Save Data Entry'}
+                                <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 h-12 px-12 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-blue-200 transition-all hover:scale-[1.02]">
+                                    {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Finalizing...</> : 'Confirm & Save'}
                                 </Button>
                             )}
                         </div>
