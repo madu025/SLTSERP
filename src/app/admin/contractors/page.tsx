@@ -118,14 +118,15 @@ export default function ContractorsPage() {
 
     const handleInviteSubmit = async () => {
         try {
-            const res = await fetch('/api/contractors/invite', {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const res = await fetch('/api/contractors/generate-link', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(inviteData)
+                body: JSON.stringify({ ...inviteData, siteOfficeStaffId: user.id })
             });
             const data = await res.json();
             if (data.success) {
-                setShareLink(data.link);
+                setShareLink(data.registrationLink);
                 setShareModalOpen(true);
                 setInviteModalOpen(false);
                 toast.success("Invitation generated");
@@ -139,14 +140,14 @@ export default function ContractorsPage() {
 
     const handleResendLink = async (id: string) => {
         try {
-            const res = await fetch('/api/contractors/resend-invite', {
+            const res = await fetch(`/api/contractors/${id}/resend-link`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, origin: window.location.origin })
+                body: JSON.stringify({ origin: window.location.origin })
             });
             const data = await res.json();
             if (data.success) {
-                setShareLink(data.link);
+                setShareLink(data.registrationLink);
                 setShareModalOpen(true);
                 toast.success("Link refreshed");
             }
@@ -402,7 +403,7 @@ export default function ContractorsPage() {
                             <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-emerald-600 shadow-sm shadow-emerald-200"><Mail className="w-6 h-6" /></div>
                             <div className="space-y-1">
                                 <p className="text-xs font-bold text-emerald-800 truncate max-w-[300px]">{shareLink}</p>
-                                <p className="text-[10px] text-emerald-500">Token expires in 72 hours</p>
+                                <p className="text-[10px] text-emerald-500">Token expires in 7 days</p>
                             </div>
                             <div className="flex gap-2 w-full">
                                 <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-10 rounded-xl font-bold" onClick={() => {

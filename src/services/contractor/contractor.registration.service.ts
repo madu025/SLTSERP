@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma, ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
-import { RegistrationLinkParams, ContractorUpdateData } from './contractor-types';
+import { RegistrationLinkParams, ContractorUpdateData, TeamMemberInput } from './contractor-types';
 import { ContractorQueryService } from './contractor.query.service';
 import { NotificationPolicyService } from '../notification/notification-policy.service';
 
@@ -10,7 +10,7 @@ export class ContractorRegistrationService {
      * Generate a unique registration link
      */
     static async generateRegistrationLink(data: RegistrationLinkParams) {
-        const { name, contactNumber, email, siteOfficeStaffId, origin } = data;
+        const { name, contactNumber, email, siteOfficeStaffId, origin, opmcId } = data;
         let { type } = data;
 
         if (!type) type = 'SOD';
@@ -34,7 +34,7 @@ export class ContractorRegistrationService {
                         registrationTokenExpiry: expiry,
                         registrationStartedAt: null,
                         siteOfficeStaffId,
-                        opmcId: null
+                        opmcId: opmcId || null
                     }
                 });
                 return {
@@ -56,7 +56,7 @@ export class ContractorRegistrationService {
                     registrationToken: token,
                     registrationTokenExpiry: expiry,
                     siteOfficeStaffId,
-                    opmcId: null
+                    opmcId: opmcId || null
                 }
             });
 
@@ -126,43 +126,43 @@ export class ContractorRegistrationService {
         if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
 
         // Copy current data into draft
-        const draft: any = {
+        const draft: Partial<ContractorUpdateData> = {
             name: contractor.name,
-            email: contractor.email,
-            nic: contractor.nic,
-            address: contractor.address,
-            contactNumber: contractor.contactNumber,
-            brNumber: contractor.brNumber,
-            bankName: contractor.bankName,
-            bankBranch: contractor.bankBranch,
-            bankAccountNumber: contractor.bankAccountNumber,
-            bankPassbookUrl: contractor.bankPassbookUrl,
-            registrationFeeSlipUrl: contractor.registrationFeeSlipUrl,
-            photoUrl: contractor.photoUrl,
-            nicFrontUrl: contractor.nicFrontUrl,
-            nicBackUrl: contractor.nicBackUrl,
-            policeReportUrl: contractor.policeReportUrl,
-            gramaCertUrl: contractor.gramaCertUrl,
-            brCertUrl: contractor.brCertUrl,
+            email: contractor.email || undefined,
+            nic: contractor.nic || undefined,
+            address: contractor.address || undefined,
+            contactNumber: contractor.contactNumber || undefined,
+            brNumber: contractor.brNumber || undefined,
+            bankName: contractor.bankName || undefined,
+            bankBranch: contractor.bankBranch || undefined,
+            bankAccountNumber: contractor.bankAccountNumber || undefined,
+            bankPassbookUrl: contractor.bankPassbookUrl || undefined,
+            registrationFeeSlipUrl: contractor.registrationFeeSlipUrl || undefined,
+            photoUrl: contractor.photoUrl || undefined,
+            nicFrontUrl: contractor.nicFrontUrl || undefined,
+            nicBackUrl: contractor.nicBackUrl || undefined,
+            policeReportUrl: contractor.policeReportUrl || undefined,
+            gramaCertUrl: contractor.gramaCertUrl || undefined,
+            brCertUrl: contractor.brCertUrl || undefined,
             teams: contractor.teams.map(t => ({
                 id: t.id,
                 name: t.name,
                 opmcId: t.opmcId || "",
-                primaryStoreId: t.storeAssignments?.find((sa: any) => sa.isPrimary)?.storeId || "",
+                primaryStoreId: t.storeAssignments?.find((sa) => sa.isPrimary)?.storeId || "",
                 members: t.members.map(m => ({
                     name: m.name,
-                    nic: m.nic,
-                    contactNumber: m.contactNumber,
-                    address: m.address,
-                    designation: m.designation,
-                    photoUrl: m.photoUrl,
-                    passportPhotoUrl: m.passportPhotoUrl,
-                    nicUrl: m.nicUrl,
-                    policeReportUrl: m.policeReportUrl,
-                    gramaCertUrl: m.gramaCertUrl,
-                    shoeSize: m.shoeSize,
-                    tshirtSize: m.tshirtSize
-                }))
+                    nic: m.nic || undefined,
+                    contactNumber: m.contactNumber || undefined,
+                    address: m.address || undefined,
+                    designation: m.designation || undefined,
+                    photoUrl: m.photoUrl || undefined,
+                    passportPhotoUrl: m.passportPhotoUrl || undefined,
+                    nicUrl: m.nicUrl || undefined,
+                    policeReportUrl: m.policeReportUrl || undefined,
+                    gramaCertUrl: m.gramaCertUrl || undefined,
+                    shoeSize: m.shoeSize || undefined,
+                    tshirtSize: m.tshirtSize || undefined
+                } as TeamMemberInput))
             }))
         };
 
@@ -333,7 +333,7 @@ export class ContractorRegistrationService {
                                 }
                             } : undefined,
                             members: {
-                                create: (team.members || []).map((m: any) => ({
+                                create: (team.members || []).map((m: TeamMemberInput) => ({
                                     name: m.name,
                                     nic: m.nic || '',
                                     contactNumber: m.contactNumber || '',

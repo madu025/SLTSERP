@@ -13,14 +13,14 @@ export class ContractorLifecycleService {
      * Create a new contractor (Admin Flow)
      */
     static async createContractor(data: ContractorUpdateData) {
-        if (!data.name || !data.registrationNumber) {
-            throw new Error('NAME_AND_REGISTRATION_REQUIRED');
+        if (!data.name) {
+            throw new Error('NAME_REQUIRED');
         }
 
         await ContractorQueryService.validateUnique({
             nic: data.nic,
             contactNumber: data.contactNumber,
-            registrationNumber: data.registrationNumber
+            registrationNumber: data.registrationNumber || undefined
         });
 
         const { teams = [], ...contractorData } = data;
@@ -111,10 +111,30 @@ export class ContractorLifecycleService {
         void _removeId;
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
+            const current = await tx.contractor.findUnique({ where: { id } });
+            if (!current) throw new Error('CONTRACTOR_NOT_FOUND');
+
+            let registrationNumber = contractorData.registrationNumber;
+
+            // AUTO-GENERATE SEQUENCE ON ACTIVATION
+            if (contractorData.status === 'ACTIVE' && !current.registrationNumber && !registrationNumber) {
+                const year = new Date().getFullYear().toString().slice(-2);
+                const type = (contractorData.type || current.type || 'SOD').toUpperCase();
+                
+                // Count existing active contractors of same type across all SLTS to get next sequence
+                const count = await tx.contractor.count({
+                    where: { 
+                        registrationNumber: { startsWith: `SLTS/${type}/${year}/` }
+                    }
+                });
+                
+                registrationNumber = `SLTS/${type}/${year}/${(count + 1).toString().padStart(3, '0')}`;
+            }
+
             const updated = await ContractorRepository.update(id, {
                 name: contractorData.name,
                 address: contractorData.address,
-                registrationNumber: contractorData.registrationNumber,
+                registrationNumber: registrationNumber,
                 brNumber: contractorData.brNumber,
                 status: (contractorData.status as ContractorStatus) || undefined,
                 registrationFeePaid: contractorData.registrationFeePaid,

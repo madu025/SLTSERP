@@ -77,6 +77,7 @@ export interface RegistrationLinkParams {
     type?: string;
     siteOfficeStaffId: string;
     origin: string;
+    opmcId?: string;
 }
 
 export interface ContractorQueryParams {
