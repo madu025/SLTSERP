@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package, RotateCcw, ChevronRight, Target } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package, RotateCcw, Target } from "lucide-react";
 import { InventoryItem } from "@/types/inventory";
 
 interface ItemTableProps {

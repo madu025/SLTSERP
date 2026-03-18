@@ -59,11 +59,13 @@ export default function GRNPage() {
     const [receivedItems, setReceivedItems] = useState<GRNItem[]>([]);
     const [grnRemarks, setGRNRemarks] = useState('');
 
-    // Generate GRN Number when dialog opens
+    // Auto-generate GRN Number when dialog opens
     useEffect(() => {
         if (showGRNDialog && !grnNumber) {
-            const timestamp = Date.now();
-            setTimeout(() => setGRNNumber(`GRN-${timestamp}`), 0);
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+            const seq = Math.floor(Math.random() * 900) + 100;
+            setTimeout(() => setGRNNumber(`GRN-${dateStr}-${seq}`), 0);
         }
     }, [showGRNDialog, grnNumber]);
 
@@ -205,7 +207,7 @@ export default function GRNPage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>
-                                    {activeTab === 'READY' ? 'Pending GRN' : 'Completed GRNs'}
+                                    {activeTab === 'READY' ? 'Awaiting GRN' : 'Completed GRNs'}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -283,7 +285,7 @@ export default function GRNPage() {
             <Dialog open={showGRNDialog} onOpenChange={setShowGRNDialog}>
                 <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
                     <DialogHeader className="px-6 py-4 border-b">
-                        <DialogTitle>Create Goods Receipt Note</DialogTitle>
+                        <DialogTitle>Record Goods Receipt</DialogTitle>
                     </DialogHeader>
                     <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 no-scrollbar">
                         {selectedRequest && (
@@ -307,11 +309,11 @@ export default function GRNPage() {
                                 {/* GRN Form */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-slate-600 uppercase">GRN Number</label>
+                                        <label className="text-xs font-bold text-slate-600 uppercase">GRN Reference No. (Auto)</label>
                                         <Input
-                                            className="mt-1"
+                                            className="mt-1 bg-slate-50 text-slate-500 font-mono cursor-not-allowed border-dashed"
                                             value={grnNumber}
-                                            onChange={e => setGRNNumber(e.target.value)}
+                                            readOnly
                                         />
                                     </div>
                                     <div>
@@ -335,7 +337,7 @@ export default function GRNPage() {
                                                     <th className="px-3 py-2 text-left">Item</th>
                                                     <th className="px-3 py-2 text-center">Ordered Qty</th>
                                                     <th className="px-3 py-2 text-center">Received Qty</th>
-                                                    <th className="px-3 py-2 text-left">Batch/Remarks</th>
+                                                    <th className="px-3 py-2 text-left">Batch / Notes</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y">
@@ -354,7 +356,7 @@ export default function GRNPage() {
                                                         <td className="px-3 py-2 flex flex-col gap-1">
                                                             <Input
                                                                 className="h-8 text-xs font-mono"
-                                                                placeholder="Manual Batch ID (Optional)"
+                                                                placeholder="Batch ID (optional)"
                                                                 value={item.remarks}
                                                                 onChange={e => updateItemRemarks(idx, e.target.value)}
                                                             />
@@ -368,7 +370,7 @@ export default function GRNPage() {
 
                                 {/* GRN Remarks */}
                                 <div>
-                                    <label className="text-xs font-bold text-slate-600 uppercase">GRN Remarks</label>
+                                    <label className="text-xs font-bold text-slate-600 uppercase">Additional Notes</label>
                                     <Textarea
                                         className="mt-1"
                                         rows={3}
@@ -388,7 +390,7 @@ export default function GRNPage() {
                             className="bg-green-600 hover:bg-green-700"
                         >
                             <CheckCircle className="w-4 h-4 mr-2" />
-                            {createGRNMutation.isPending ? 'Creating...' : 'Create GRN & Update Stock'}
+                            {createGRNMutation.isPending ? 'Saving...' : 'Confirm & Update Stock'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

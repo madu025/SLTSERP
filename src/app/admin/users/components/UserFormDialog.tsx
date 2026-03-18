@@ -328,8 +328,8 @@ export function UserFormDialog({
                                                 </FormControl>
                                                 <SelectContent>
                                                     <SelectItem value="none">No Supervisor (Independent)</SelectItem>
-                                                    {potentialSupervisors.map(u => (
-                                                        <SelectItem key={u.id} value={u.id}>
+                                                    {potentialSupervisors.filter(u => !!u.id).map(u => (
+                                                        <SelectItem key={u.id} value={u.id ?? ''}>
                                                             {u.name || u.username} ({u.role.replace(/_/g, ' ')})
                                                         </SelectItem>
                                                     ))}

@@ -131,9 +131,9 @@ export default function RequestsPage() {
 
                         <div className="flex justify-between items-center flex-none">
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Request Management</h1>
+                                <h1 className="text-2xl font-bold text-slate-900">Stock Requests</h1>
                                 <p className="text-sm text-slate-500">
-                                    Manage Internal Transfers & External Purchases
+                                    Manage Internal Transfers &amp; External Purchases
                                 </p>
                             </div>
                         </div>
@@ -185,7 +185,7 @@ export default function RequestsPage() {
                                                         </Badge>
                                                     </td>
                                                     <td className="px-4 py-3 text-xs font-medium text-slate-600">
-                                                        {r.toStoreId ? 'Internal Transfer' : 'SLT Purchase'}
+                                                        {r.toStoreId ? 'Internal Transfer' : 'External Purchase'}
                                                     </td>
                                                     <td className="px-4 py-3 font-semibold text-slate-800">
                                                         {r.fromStore.name}
@@ -272,7 +272,7 @@ export default function RequestsPage() {
                                             <div className="mt-1 text-slate-700">
                                                 From: <strong>{selectedRequest.fromStore.name}</strong>
                                                 <br />
-                                                Type: {selectedRequest.toStoreId ? 'Internal Transfer' : 'External Purchase (SLT)'}
+                                                Type: {selectedRequest.toStoreId ? 'Internal Transfer' : 'External Purchase'}
                                             </div>
                                         </div>
                                     </div>
@@ -328,9 +328,9 @@ export default function RequestsPage() {
                                     {/* Approver Section */}
                                     {approvalMode && (
                                         <div className="space-y-2 bg-yellow-50 p-4 rounded-lg border border-yellow-100">
-                                            <label className="text-sm font-semibold text-slate-700">Approver Remarks / Notes</label>
+                                            <label className="text-sm font-semibold text-slate-700">Approval Notes</label>
                                             <Textarea
-                                                placeholder="Enter approval notes or rejection reason..."
+                                                placeholder="Add notes about this approval or rejection reason..."
                                                 className="bg-white"
                                                 value={approverRemarks}
                                                 onChange={(e) => setApproverRemarks(e.target.value)}
@@ -377,7 +377,7 @@ export default function RequestsPage() {
                                         onClick={() => approvalMutation.mutate({ action: 'APPROVE' })}
                                         disabled={approvalMutation.isPending}
                                     >
-                                        {approvalMutation.isPending ? 'Processing...' : 'Approve & Create Order'}
+                                        {approvalMutation.isPending ? 'Processing...' : 'Approve & Issue'}
                                     </Button>
                                 </>
                             )}

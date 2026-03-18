@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, Info, Package, Target } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 
 const itemSchema = z.object({
     code: z.string().min(2, "Item code is required"),
@@ -75,13 +75,15 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                     unitPrice: (initialData.unitPrice || "0").toString(),
                     costPrice: (initialData.costPrice || "0").toString(),
                 });
-                setAliasInput(initialData.importAliases?.join(", ") || "");
+                setTimeout(() => setAliasInput(initialData.importAliases?.join(", ") || ""), 0);
             } else {
                 form.reset();
-                setAliasInput("");
+                setTimeout(() => setAliasInput(""), 0);
             }
         }
     }, [open, initialData, form]);
+
+    const isWastageAllowed = useWatch({ control: form.control, name: "isWastageAllowed" });
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -169,7 +171,7 @@ export function ItemFormDialog({ open, onOpenChange, initialData, onSubmit, isSu
                                             <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} className="data-[state=checked]:bg-slate-900" /></FormControl>
                                         </FormItem>
                                     )} />
-                                    {form.watch("isWastageAllowed") && (
+                                    {isWastageAllowed && (
                                         <FormField control={form.control} name="maxWastagePercentage" render={({ field }) => (
                                             <FormItem>
                                                 <div className="relative">
