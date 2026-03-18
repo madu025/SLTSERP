@@ -10,9 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, ArrowUpDown, FileText, Activity, Layers, Filter, Search, MoreHorizontal, FileSpreadsheet, Info, Calendar, MessageSquare, ChevronDown, CheckCircle2 } from "lucide-react";
+import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, MessageSquare, ChevronDown, CheckCircle2, FileSpreadsheet, Info } from "lucide-react";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
+import { OrderActionData } from "@/components/modals/order-action/types";
+
+interface OPMC {
+    id: string;
+    rtom: string;
+    name?: string;
+}
 
 import { useSODOperations } from "./hooks/useSODOperations";
 import { useSODTable } from "./hooks/useSODTable";
@@ -25,21 +32,21 @@ const DetailModal = dynamic(() => import("@/components/modals/DetailModal"), { s
 const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionModal"), { ssr: false });
 const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportModal"), { ssr: false });
 
-interface OPMC { id: string; rtom: string; name: string; }
 
 export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'completed' | 'return'; pageTitle?: string; }) {
     const queryClient = useQueryClient();
     const { isColumnVisible } = useTableColumnSettings("pending_sod");
+    const hasSetDefault = React.useRef(false);
 
     // Filter State
     const [selectedRtomId, setSelectedRtomId] = useState<string>("");
     const [selectedRtom, setSelectedRtom] = useState<string>("");
-    const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
-    const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+    const [selectedMonth] = useState<string>(String(new Date().getMonth() + 1));
+    const [selectedYear] = useState<string>(String(new Date().getFullYear()));
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
-    const [patFilter, setPatFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
-    const [matFilter, setMatFilter] = useState("ALL");
+    const [patFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
+    const [matFilter] = useState("ALL");
     const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceOrder; direction: "asc" | "desc" } | null>({
         key: filterType === 'completed' ? 'completedDate' : (filterType === 'return' ? 'statusDate' : 'createdAt'),
         direction: "desc"
@@ -63,20 +70,23 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         queryFn: async () => {
              const storedUser = localStorage.getItem('user');
              if (!storedUser) return [];
-             const user = JSON.parse(storedUser);
+             const user = JSON.parse(storedUser) as { role: string; username: string };
              const isAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-             if (isAdmin) return (await fetch("/api/opmcs")).json();
+             if (isAdmin) {
+                 const res = await fetch("/api/opmcs");
+                 return (await res.json()) as OPMC[];
+             }
              const res = await fetch("/api/users?page=1&limit=1000");
-             const data = await res.json();
-             const currentUser = (data.users || []).find((u: any) => u.username === user.username);
-             return currentUser?.accessibleOpmcs?.map((o: any) => ({ id: o.id, rtom: o.rtom, name: o.name || '' })) || [];
+             const data = (await res.json()) as { users: { username: string; accessibleOpmcs: OPMC[] }[] };
+             const currentUser = data.users.find((u) => u.username === user.username);
+             return currentUser?.accessibleOpmcs?.map((o) => ({ id: o.id, rtom: o.rtom, name: o.name || '' })) || [];
         }
     });
 
-    const { data: qData, isLoading: isLoadingOrders } = useQuery({
+    const { data: qData, isLoading: isLoadingOrders } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> } }>({
         queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, searchTerm, statusFilter, patFilter, matFilter, sortConfig],
         queryFn: async () => {
-            if (!selectedRtomId) return null;
+            if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
             const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
             const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
@@ -85,19 +95,25 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
 
             const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}`);
-            return res.json();
+            return (await res.json()) as { items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> } };
         },
         enabled: !!selectedRtomId
     });
 
-    const serviceOrders = qData?.items || [];
+    const serviceOrders: ServiceOrder[] = qData?.items || [];
     const summary = qData?.summary || { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} };
-    const { selectedIds, toggleSelect, toggleAll, isAllSelected, isSomeSelected } = useSODTable(serviceOrders);
+    const { selectedIds, toggleSelect, toggleAll, isAllSelected } = useSODTable(serviceOrders);
 
     useEffect(() => {
-        if (opmcs.length > 0 && !selectedRtomId) {
-            setSelectedRtomId(opmcs[0].id);
-            setSelectedRtom(opmcs[0].rtom);
+        // Only set default if one isn't already set and we have OPMCs
+        if (opmcs.length > 0 && !selectedRtomId && !hasSetDefault.current) {
+            const firstOpmc = opmcs[0];
+            hasSetDefault.current = true;
+            // Use setTimeout to avoid synchronous setState warning and cascading renders
+            setTimeout(() => {
+                setSelectedRtomId(firstOpmc.id);
+                setSelectedRtom(firstOpmc.rtom);
+            }, 0);
         }
     }, [opmcs, selectedRtomId]);
 
@@ -152,7 +168,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                             </div>
                         </div>
 
-                        <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: any) => o.comments?.includes('[MISSING FROM SYNC')).length} />
+                        <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
 
                         <div className="bg-white p-2 rounded-xl border shadow-sm flex flex-wrap gap-2 items-center">
                              <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100">
@@ -219,7 +235,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {serviceOrders.map((order: any) => (
+                                        {serviceOrders.map((order: ServiceOrder) => (
                                             <tr key={order.id} className={`group hover:bg-[#f8faff] transition-colors ${selectedIds.has(order.id) ? 'bg-blue-50/50' : ''}`}>
                                                 <td className="px-4 py-3 text-center">
                                                     <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-slate-200 transition-transform group-hover:scale-110" />
@@ -258,11 +274,11 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 </div>
 
                 <ManualEntryModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} onSubmit={(data) => addOrderMutation.mutate(data)} />
-                <ScheduleModal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} onSubmit={(data) => scheduleMutation.mutate({ orderId: selectedOrder?.id!, data })} initialData={selectedOrder || {}} />
-                <CommentModal isOpen={showCommentModal} onClose={() => setShowCommentModal(false)} onSubmit={(comment) => commentMutation.mutate({ orderId: selectedOrder?.id!, comment })} initialData={selectedOrder || {}} />
-                <DetailModal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} order={selectedOrder || {}} />
-                <OrderActionModal isOpen={showActionModal} onClose={() => setShowActionModal(false)} order={selectedOrder!} onSubmit={(data) => { updateStatusMutation.mutate({ ...data, id: selectedOrder?.id }); setShowActionModal(false); }} status={'COMPLETED'} />
-                <ExcelImportModal isOpen={showExcelModal} onClose={() => setShowExcelModal(false)} rtomId={selectedRtomId} rtom={selectedRtom} onComplete={() => queryClient.invalidateQueries({ queryKey: ["service-orders"] })} />
+                <ScheduleModal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} onSubmit={(data) => scheduleMutation.mutate({ orderId: selectedOrder?.id as string, data })} selectedOrder={selectedOrder} />
+                <CommentModal isOpen={showCommentModal} onClose={() => setShowCommentModal(false)} onSubmit={(comment) => commentMutation.mutate({ orderId: selectedOrder?.id as string, comment })} selectedOrder={selectedOrder} />
+                <DetailModal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} selectedOrder={selectedOrder} />
+                <OrderActionModal isOpen={showActionModal} onClose={() => setShowActionModal(false)} orderData={selectedOrder as unknown as OrderActionData} onConfirm={(data: { date: Date; reason?: string; comment?: string }) => { updateStatusMutation.mutate({ ...data, id: selectedOrder?.id }); setShowActionModal(false); }} title={'COMPLETE ORDER'} isComplete />
+                <ExcelImportModal isOpen={showExcelModal} onClose={() => setShowExcelModal(false)} onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ["service-orders"] })} />
             </main>
         </div>
     );

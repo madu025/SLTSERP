@@ -4,7 +4,8 @@ import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, RotateCcw, Check, ChevronRight, Layers, Tag, Target } from "lucide-react";
+import { AlertTriangle, RotateCcw, Check, ChevronRight, Layers } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface Item {
     id: string;
@@ -120,7 +121,7 @@ export function BulkOperationsModals({
                             {isBulkSubmitting ? "Processing..." : "Commit Batch Changes"}
                         </Button>
                     </DialogFooter>
-                </Dialog>
+                </DialogContent>
             </Dialog>
 
             {/* MERGE MODAL */}

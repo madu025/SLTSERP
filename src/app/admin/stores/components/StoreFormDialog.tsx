@@ -35,7 +35,8 @@ interface StoreFormDialogProps {
 
 export function StoreFormDialog({ open, onOpenChange, initialData, onSubmit, isSubmitting, users, opmcs }: StoreFormDialogProps) {
     const form = useForm<StoreFormValues>({
-        resolver: zodResolver(storeSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(storeSchema) as any,
         defaultValues: {
             name: "",
             type: "SUB",

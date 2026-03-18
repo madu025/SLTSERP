@@ -3,13 +3,13 @@
 import React, { useState, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash, Building2, MapPin, User, Search, Map as MapIcon, Layers, ChevronRight, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash, MapPin, User, Search, Map as MapIcon, Layers, AlertTriangle, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 // High-Fidelity Refactored Components
@@ -198,7 +198,12 @@ export default function StoresManagementPage() {
                 <StoreFormDialog 
                     open={showFormModal}
                     onOpenChange={setShowFormModal}
-                    initialData={activeStore}
+                    initialData={activeStore ? {
+                        ...activeStore,
+                        opmcIds: activeStore.opmcs.map(o => o.id),
+                        type: activeStore.type as 'MAIN' | 'SUB',
+                        managerId: activeStore.manager?.id
+                    } : null}
                     onSubmit={onFormSubmit}
                     isSubmitting={upsertMutation.isPending}
                     users={users}
@@ -240,6 +245,3 @@ export default function StoresManagementPage() {
         </div>
     );
 }
-
-// Fixed missing import
-import { useQueryClient } from "@tanstack/react-query";
