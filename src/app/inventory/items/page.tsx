@@ -100,13 +100,14 @@ export default function ItemMasterPage() {
     const onBulkSubmit = async () => {
         const updates = Array.from(selectedIds).map(id => {
             const item = items.find(i => i.id === id);
+            if (!item) return null;
             return {
                 id,
                 category: bulkEditType === 'CATEGORY' ? bulkCategory : item.category,
                 type: bulkEditType === 'TYPE' ? bulkType : item.type,
                 commonFor: bulkEditType === 'JOB_TYPE' ? bulkCommonFor : (item.commonFor || [])
             };
-        });
+        }).filter((u): u is NonNullable<typeof u> => u !== null);
 
         await bulkUpdateMutation.mutateAsync(updates);
         setShowBulkEditModal(false);
@@ -161,7 +162,20 @@ export default function ItemMasterPage() {
                 <ItemFormDialog 
                     open={showFormModal}
                     onOpenChange={setShowFormModal}
-                    initialData={activeItem}
+                    initialData={activeItem ? {
+                        ...activeItem,
+                        commonName: activeItem.commonName || '',
+                        sltCode: activeItem.sltCode || '',
+                        description: activeItem.description || '',
+                        minLevel: (activeItem.minLevel ?? 0).toString(),
+                        maxWastagePercentage: (activeItem.maxWastagePercentage ?? 0).toString(),
+                        unitPrice: (activeItem.unitPrice ?? 0).toString(),
+                        costPrice: (activeItem.costPrice ?? 0).toString(),
+                        commonFor: activeItem.commonFor || [],
+                        importAliases: activeItem.importAliases || [],
+                        unit: activeItem.unit as ItemFormValues['unit'],
+                        type: activeItem.type as ItemFormValues['type'],
+                    } : null}
                     onSubmit={onFormSubmit}
                     isSubmitting={upsertMutation.isPending}
                 />

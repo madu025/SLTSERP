@@ -11,7 +11,7 @@ interface Item {
     id: string;
     code: string;
     name: string;
-    commonName?: string;
+    commonName?: string | null;
     category: string;
     type: string;
 }

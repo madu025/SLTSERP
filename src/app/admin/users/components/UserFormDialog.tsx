@@ -31,7 +31,7 @@ export type UserFormValues = z.infer<typeof userSchema>;
 
 interface UserProp {
     id?: string;
-    name?: string;
+    name?: string | null;
     username?: string;
     role: string;
     accessibleOpmcs?: { id: string }[];
@@ -41,7 +41,7 @@ interface OpmcProp {
     id: string;
     name: string;
     rtom?: string;
-    storeId?: string;
+    storeId?: string | null;
 }
 
 interface StoreProp {
