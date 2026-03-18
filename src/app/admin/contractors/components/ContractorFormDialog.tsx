@@ -181,7 +181,23 @@ export function ContractorFormDialog({
                                     <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Entity Name</FormLabel><FormControl><Input {...field} className="h-11" placeholder="Legal / Trade Name" /></FormControl></FormItem>
                                 )} />
                                 <FormField control={form.control} name="registrationNumber" render={({ field }) => (
-                                    <FormItem><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registry Sequence</FormLabel><FormControl><Input {...field} value={field.value || ""} className="h-11" placeholder="ERP-XXX-XXXX" /></FormControl></FormItem>
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Registry Sequence</FormLabel>
+                                        <FormControl>
+                                            <div className="relative">
+                                                <Input 
+                                                    {...field} 
+                                                    value={field.value || ""} 
+                                                    className={cn("h-11 font-bold", !initialData?.id && "bg-slate-50 text-slate-400 italic cursor-not-allowed")} 
+                                                    placeholder={!initialData?.id ? "Assigned on Approval" : "ERP-XXX-XXXX"} 
+                                                    readOnly={!initialData?.id}
+                                                />
+                                                {!initialData?.id && (
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-blue-500 uppercase tracking-tighter bg-blue-50 px-1.5 py-0.5 rounded">Auto</span>
+                                                )}
+                                            </div>
+                                        </FormControl>
+                                    </FormItem>
                                 )} />
                                 <FormField control={form.control} name="address" render={({ field }) => (
                                     <FormItem className="col-span-2"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Operational Base Address</FormLabel><FormControl><Textarea {...field} value={field.value || ""} className="resize-none border-slate-100 focus:ring-blue-100" rows={2} /></FormControl></FormItem>
