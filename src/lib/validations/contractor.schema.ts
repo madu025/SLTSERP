@@ -8,6 +8,7 @@ export const contractorMemberSchema = z.object({
     address: z.string().optional(),
     photoUrl: z.string().optional(),
     nicUrl: z.string().optional(),
+    passportPhotoUrl: z.string().optional(),
     policeReportUrl: z.string().optional(),
     gramaCertUrl: z.string().optional(),
     shoeSize: z.string().optional(),
@@ -27,20 +28,57 @@ export const contractorTeamSchema = z.object({
 export const contractorSchema = z.object({
     id: z.string().optional(),
     name: z.string().min(1, "Name is required"),
-    registrationNumber: z.string().min(1, "Registration Number is required"),
-    address: z.string().optional(),
+    registrationNumber: z.string().optional().nullable(),
+    address: z.string().optional().nullable(),
     brNumber: z.string().optional().nullable(),
     status: z.string().optional(),
     type: z.string().optional(),
-    contactNumber: z.string().optional().nullable(),
-    nic: z.string().optional().nullable(),
+    contactNumber: z.string().min(10, "Valid contact number is required"),
+    nic: z.string().min(10, "Valid NIC is required"),
+    email: z.string().email("Invalid email").optional().nullable(),
+    
+    // Bank Details
     bankName: z.string().optional().nullable(),
     bankBranch: z.string().optional().nullable(),
     bankAccountNumber: z.string().optional().nullable(),
+    bankPassbookUrl: z.string().optional().nullable(),
+    
+    // Internal assignment
     opmcId: z.string().optional().nullable(),
+    
+    // Status/Agreements
     registrationFeePaid: z.boolean().optional(),
     agreementSigned: z.boolean().optional(),
     agreementDate: z.string().optional().nullable(),
     agreementDuration: z.union([z.number(), z.string()]).optional().nullable(),
-    teams: z.array(contractorTeamSchema).optional(),
+    
+    // Document URLs
+    photoUrl: z.string().optional().nullable(),
+    nicFrontUrl: z.string().optional().nullable(),
+    nicBackUrl: z.string().optional().nullable(),
+    policeReportUrl: z.string().optional().nullable(),
+    gramaCertUrl: z.string().optional().nullable(),
+    brCertUrl: z.string().optional().nullable(),
+    registrationFeeSlipUrl: z.string().optional().nullable(),
+    
+    // Teams
+    teams: z.array(contractorTeamSchema).optional().default([]),
 });
+
+// For public registration specifically
+export const publicRegistrationSchema = contractorSchema.extend({
+    nic: z.string().min(10, "NIC is strictly required for registration"),
+    address: z.string().min(5, "Full address is required"),
+    contactNumber: z.string().min(10, "Contact number is required"),
+    bankName: z.string().min(2, "Bank name is required"),
+    bankAccountNumber: z.string().min(5, "Account number is required"),
+    // URLs are required on final submission
+    nicFrontUrl: z.string().min(5, "NIC Front is required"),
+    nicBackUrl: z.string().min(5, "NIC Back is required"),
+    registrationFeeSlipUrl: z.string().min(5, "Registration Fee Slip is required"),
+});
+
+export type ContractorSchema = z.infer<typeof contractorSchema>;
+export type PublicRegistrationSchema = z.infer<typeof publicRegistrationSchema>;
+export type ContractorTeamSchema = z.infer<typeof contractorTeamSchema>;
+export type ContractorMemberSchema = z.infer<typeof contractorMemberSchema>;

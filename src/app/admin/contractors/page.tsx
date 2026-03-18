@@ -1,579 +1,177 @@
 "use client";
 
-import React, { useState } from 'react';
-import Image from 'next/image';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Trash, Plus, Pencil, Search, Users, Building2, Upload, FileText, Image as ImageIcon, Copy, ExternalLink, MessageCircle, UserPlus, Share2, Banknote, CheckCircle2, Trash2, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import TeamManager from './TeamManager';
 import { Badge } from "@/components/ui/badge";
+import { Search, Plus, Pencil, Users, UserPlus, Share2, Trash, Mail, Building2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { createContractor, updateContractor, deleteContractor } from '@/actions/contractor-actions';
-import { Progress } from "@/components/ui/progress";
-import { createWorker } from "tesseract.js";
+import TeamManager from './TeamManager';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { ContractorFormDialog } from './components/ContractorFormDialog';
+import { useContractorOperations } from './hooks/useContractorOperations';
+import { ContractorSchema } from "@/lib/validations/contractor.schema";
 
-// Types
-interface TeamMember {
-    id?: string;
-    name: string;
-    idCopyNumber: string;
-    contractorIdCopyNumber: string;
-    photoUrl?: string;
-    nicUrl?: string;
-    passportPhotoUrl?: string;
-    nic?: string;
-}
-
-interface ContractorTeam {
-    id?: string;
-    name: string;
-    opmcId?: string | null;
-    storeIds?: string[];
-    primaryStoreId?: string | null;
-    sltCode?: string | null;
-    status: string; // Match Prisma string
-    members: TeamMember[];
-    storeAssignments?: { storeId: string; isPrimary: boolean }[];
-}
-
-interface Contractor {
+interface Contractor extends ContractorSchema {
     id: string;
-    name: string;
-    address: string;
-    registrationNumber: string;
-    contactNumber?: string | null;
-    nic?: string | null;
-    brNumber?: string | null;
-    agreementDuration?: number | null;
-    brCertUrl?: string | null;
-    status: 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'ARM_PENDING' | 'OSP_PENDING' | 'REJECTED';
-    registrationFeePaid: boolean;
-    agreementSigned: boolean;
-    agreementDate?: string | null;
-    bankName?: string | null;
-    bankAccountNumber?: string | null;
-    bankBranch?: string | null;
-    bankPassbookUrl?: string | null;
+    status: 'ACTIVE' | 'PENDING' | 'REJECTED';
     documentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
-    uploadToken?: string | null;
-    teams: ContractorTeam[];
-
-    // Documents
-    photoUrl?: string;
-    nicFrontUrl?: string;
-    nicBackUrl?: string;
-    policeReportUrl?: string;
-    gramaCertUrl?: string;
-
-    type: 'SOD' | 'OSP';
-    armApprovedAt?: string | null;
-    ospApprovedAt?: string | null;
-    registrationToken?: string | null;
-    registrationFeeSlipUrl?: string | null;
-    createdAt: string;
+    opmc?: { name: string };
+    _count?: { teams: number };
 }
-
-// Zod Schema
-const contractorSchema = z.object({
-    name: z.string().min(2, "Name is required"),
-    address: z.string().min(5, "Address is required"),
-    registrationNumber: z.string().min(2, "Reg Num is required"),
-    contactNumber: z.string().optional(),
-    nic: z.string().optional(),
-    brNumber: z.string().optional(),
-    status: z.enum(['ACTIVE', 'INACTIVE', 'PENDING', 'ARM_PENDING', 'OSP_PENDING', 'REJECTED']),
-    documentStatus: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),
-    registrationFeePaid: z.boolean(),
-    agreementSigned: z.boolean(),
-    agreementDuration: z.string().optional(), // We'll handle conversion
-    brCertUrl: z.string().optional(),
-    agreementDate: z.string().optional(),
-    bankName: z.string().optional(),
-    bankAccountNumber: z.string().optional(),
-    bankBranch: z.string().optional(),
-    bankPassbookUrl: z.string().optional(),
-    photoUrl: z.string().optional(),
-    nicFrontUrl: z.string().optional(),
-    nicBackUrl: z.string().optional(),
-    policeReportUrl: z.string().optional(),
-    gramaCertUrl: z.string().optional(),
-    opmcId: z.string().optional(),
-    registrationFeeSlipUrl: z.string().optional(),
-    type: z.enum(['SOD', 'OSP']),
-});
-
-type ContractorFormValues = z.infer<typeof contractorSchema>
 
 export default function ContractorsPage() {
-    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
-
-    // Modal State
-    const [showModal, setShowModal] = useState(false);
+    const [viewMode, setViewMode] = useState<'ALL' | 'PENDING_DOCS' | 'PENDING_AUTH'>('ALL');
+    
+    // Modal States
+    const [formOpen, setFormOpen] = useState(false);
     const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
-    const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-    const [isScanning, setIsScanning] = useState(false);
-    const [scanResults, setScanResults] = useState<{ field: string; value: string } | null>(null);
-
-    // Dynamic Team Management State
-    const [teams, setTeams] = useState<ContractorTeam[]>([]);
-
-    // Share Modal State
+    const [teamManagerOpen, setTeamManagerOpen] = useState(false);
+    const [selectedContractorForTeams, setSelectedContractorForTeams] = useState<{ id: string, name: string } | null>(null);
+    const [inviteModalOpen, setInviteModalOpen] = useState(false);
     const [shareModalOpen, setShareModalOpen] = useState(false);
     const [shareLink, setShareLink] = useState("");
 
-    // Team Manager State
-    const [teamManagerOpen, setTeamManagerOpen] = useState(false);
-    const [selectedContractorForTeams, setSelectedContractorForTeams] = useState<{ id: string, name: string } | null>(null);
-
-    // Invite Modal State
-    const [inviteModalOpen, setInviteModalOpen] = useState(false);
-    const [inviteData, setInviteData] = useState<{
-        name: string;
-        contactNumber: string;
-        type: 'SOD' | 'OSP';
-    }>({
+    const [inviteData, setInviteData] = useState({
         name: '',
         contactNumber: '',
-        type: 'SOD'
+        type: 'SOD' as 'SOD' | 'OSP',
+        opmcId: ''
     });
 
-    const handleInviteOpen = () => {
-        setInviteData({
-            name: '',
-            contactNumber: '',
-            type: 'SOD'
-        });
-        setInviteModalOpen(true);
-    };
+    const { 
+        createMutation, 
+        updateMutation, 
+        deleteMutation, 
+        approveMutation, 
+        rejectMutation 
+    } = useContractorOperations();
 
-    const [step, setStep] = useState(1);
-    const [manualBank, setManualBank] = useState(false);
-    const [manualBranch, setManualBranch] = useState(false);
-    const [branchSearch, setBranchSearch] = useState("");
-    const [showBranchList, setShowBranchList] = useState(false);
-
-    // Get current user from localStorage
-    const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
-    const userRole = user.role || '';
+    // Role detection
+    const userString = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    const userRole = userString ? JSON.parse(userString).role : '';
     const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(userRole);
-    const isSiteStaff = userRole === 'SITE_OFFICE_STAFF';
 
-    const form = useForm<ContractorFormValues>({
-        resolver: zodResolver(contractorSchema),
-        defaultValues: {
-            name: '', address: '', registrationNumber: '', brNumber: '', status: 'PENDING',
-            registrationFeePaid: false, agreementSigned: false, agreementDate: '',
-            bankAccountNumber: '', bankBranch: '', type: 'SOD'
-        }
-    });
-
-    // --- QUERIES ---
-    const { data: contractorsData } = useQuery({
+    // --- DATA FETCHING ---
+    const { data: contractorsData, isLoading: loadingContractors } = useQuery({
         queryKey: ["contractors"],
         queryFn: async () => {
             const res = await fetch(`/api/contractors?page=1&limit=1000&t=${Date.now()}`);
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.message || "Failed to fetch contractors");
-            }
+            if (!res.ok) throw new Error("Failed to fetch contractors");
             return res.json();
-        },
-        staleTime: 30000, // 30 seconds
-        gcTime: 5 * 60 * 1000, // 5 minutes
-        refetchOnWindowFocus: true,
-        refetchOnMount: true
+        }
     });
 
-    // Extract contractors array from paginated response
-    const contractors = Array.isArray(contractorsData?.contractors)
-        ? contractorsData.contractors
-        : [];
+    const contractors = useMemo(() => {
+        return Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+    }, [contractorsData]);
 
-    const { data: stores = [] } = useQuery({
+    const { data: stores = [] } = useQuery<{ id: string; name: string }[]>({
         queryKey: ['stores'],
-        queryFn: async () => {
-            const res = await fetch('/api/stores');
-            if (!res.ok) throw new Error("Failed to fetch stores");
-            return res.json();
-        },
-        staleTime: 10 * 60 * 1000,
-        gcTime: 30 * 60 * 1000
+        queryFn: () => fetch('/api/stores').then(res => res.json())
     });
 
-    const { data: opmcs = [] } = useQuery({
+    const { data: opmcs = [] } = useQuery<{ id: string; name: string }[]>({
         queryKey: ['opmcs'],
-        queryFn: async () => {
-            const res = await fetch('/api/opmcs');
-            if (!res.ok) throw new Error("Failed to fetch RTOMs");
-            return res.json();
-        },
-        staleTime: 10 * 60 * 1000,
-        gcTime: 30 * 60 * 1000
+        queryFn: () => fetch('/api/opmcs').then(res => res.json())
     });
 
-    const { data: banks = [] } = useQuery({
+    const { data: banks = [] } = useQuery<{ id: string; name: string }[]>({
         queryKey: ['banks'],
-        queryFn: async () => {
-            const res = await fetch('/api/banks');
-            if (res.ok) return res.json();
-            return [];
-        }
+        queryFn: () => fetch('/api/banks').then(res => res.json())
     });
 
-    const { data: branches = [] } = useQuery({
+    const { data: branches = [] } = useQuery<{ id: string; name: string }[]>({
         queryKey: ['branches'],
-        queryFn: async () => {
-            const res = await fetch('/api/branches');
-            if (res.ok) return res.json();
-            return [];
-        }
+        queryFn: () => fetch('/api/branches').then(res => res.json())
     });
-
-    // Auto-select RTOM for site staff if they have only one
-    React.useEffect(() => {
-        if (inviteModalOpen && isSiteStaff && user.accessibleOpmcs?.length === 1) {
-            setInviteData(prev => ({ ...prev, opmcId: user.accessibleOpmcs[0].id }));
-        }
-    }, [inviteModalOpen, isSiteStaff, user.accessibleOpmcs, opmcs]);
-
-    // Filter RTOMs based on user access
-    const filteredOpmcs = React.useMemo(() => {
-        if (!opmcs || opmcs.length === 0) return [];
-        if (['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'].includes(userRole)) return opmcs;
-        const userOpmcIds = (user.accessibleOpmcs || []).map((o: { id: string }) => o.id);
-        if (isSiteStaff && userOpmcIds.length === 0) return opmcs;
-        return opmcs.filter((o: { id: string }) => userOpmcIds.includes(o.id));
-    }, [opmcs, user.accessibleOpmcs, userRole, isSiteStaff]);
-
-    // --- MUTATIONS ---
-    const mutation = useMutation({
-        mutationFn: async (values: ContractorFormValues & { teams: ContractorTeam[], id?: string }) => {
-            if (values.id) {
-                return await updateContractor(values.id, values as unknown as Parameters<typeof updateContractor>[1]);
-            } else {
-                return await createContractor({ ...values, siteOfficeStaffId: user.id } as unknown as Parameters<typeof createContractor>[0]);
-            }
-        },
-        onSuccess: (result) => {
-            if (result.success) {
-                queryClient.invalidateQueries({ queryKey: ["contractors"] });
-                setShowModal(false);
-                toast.success("Contractor saved successfully");
-            } else {
-                toast.error(result.error || "Failed to save contractor");
-            }
-        },
-        onError: () => toast.error("Failed to save contractor")
-    });
-
-    const deleteMutation = useMutation({
-        mutationFn: async (id: string) => {
-            return await deleteContractor(id);
-        },
-        onSuccess: (result) => {
-            if (result.success) {
-                queryClient.invalidateQueries({ queryKey: ["contractors"] });
-                toast.success("Contractor deleted");
-            } else {
-                toast.error(result.error || "Failed to delete contractor");
-            }
-        },
-        onError: (error: Error) => {
-            toast.error(error.message || "Failed to delete contractor");
-        }
-    });
-
-    const handleResendLink = async (id: string) => {
-        const toastId = toast.loading("Retrieving link...");
-        try {
-            const res = await fetch(`/api/contractors/${id}/resend-link`, {
-                method: 'POST',
-            });
-            if (!res.ok) throw new Error("Failed to retrieve link");
-            const data = await res.json();
-            setShareLink(data.registrationLink);
-            setShareModalOpen(true);
-            toast.success("Registration link retrieved!", { id: toastId });
-        } catch (err: unknown) {
-            const error = err as Error;
-            toast.error(error.message || "Failed to resend link", { id: toastId });
-        }
-    };
-
-    const handleRenewLink = async (id: string) => {
-        const toastId = toast.loading("Generating renewal link...");
-        try {
-            const res = await fetch(`/api/contractors/renew-link`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            });
-            if (!res.ok) throw new Error("Failed to generate renewal link");
-            const data = await res.json();
-            setShareLink(data.registrationLink);
-            setShareModalOpen(true);
-            toast.success("Renewal link generated!", { id: toastId });
-        } catch (err: unknown) {
-            const error = err as Error;
-            toast.error(error.message || "Failed to generate renewal link", { id: toastId });
-        }
-    };
-
-    const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-        if (!e.target.files || e.target.files.length === 0) return null;
-        const file = e.target.files[0];
-        const formData = new FormData();
-        formData.append('file', file);
-
-        return new Promise<string | null>((resolve) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/upload', true);
-
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const percentComplete = Math.round((event.loaded / event.total) * 100);
-                    setUploadProgress(prev => ({ ...prev, [fieldName]: percentComplete }));
-                }
-            };
-
-            xhr.onload = () => {
-                if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    setUploadProgress(prev => {
-                        const next = { ...prev };
-                        delete next[fieldName];
-                        return next;
-                    });
-                    resolve(response.url);
-                } else {
-                    toast.error("Upload failed");
-                    setUploadProgress(prev => {
-                        const next = { ...prev };
-                        delete next[fieldName];
-                        return next;
-                    });
-                    resolve(null);
-                }
-            };
-
-            xhr.onerror = () => {
-                toast.error("Network error");
-                setUploadProgress(prev => {
-                    const next = { ...prev };
-                    delete next[fieldName];
-                    return next;
-                });
-                resolve(null);
-            };
-
-            xhr.send(formData);
-        });
-    };
-
-    const performOCR = async (imageUrl: string) => {
-        setIsScanning(true);
-        try {
-            console.log("[OCR] Starting OCR for image:", imageUrl);
-            const worker = await createWorker('eng');
-            const { data: { text } } = await worker.recognize(imageUrl);
-            await worker.terminate();
-
-            console.log("[OCR] Raw text extracted:", text);
-
-            const oldNicMatch = text.match(/\b\d{9}[VvXx]\b/);
-            const newNicMatch = text.match(/\b\d{12}\b/);
-            const foundNic = newNicMatch?.[0] || oldNicMatch?.[0];
-
-            if (foundNic) {
-                console.log("[OCR] Potential NIC found:", foundNic);
-                setScanResults({ field: 'nic', value: foundNic });
-                toast.success(`OCR: Potential NIC detected: ${foundNic}`, {
-                    duration: 5000,
-                    action: {
-                        label: "Apply",
-                        onClick: () => {
-                            form.setValue('nic', foundNic);
-                            setScanResults(null);
-                        }
-                    }
-                });
-            } else {
-                console.log("[OCR] No NIC pattern found in text");
-                toast.info("OCR scanning complete. No clear NIC number detected.");
-            }
-        } catch (err) {
-            console.error("[OCR] OCR failed:", err);
-            toast.error("Auto data extraction (OCR) failed.");
-        } finally {
-            setIsScanning(false);
-        }
-    };
 
     // --- HANDLERS ---
     const handleAdd = () => {
         setSelectedContractor(null);
-        setTeams([]);
-        setStep(1);
-        form.reset({
-            name: '', address: '', registrationNumber: '', brNumber: '', status: 'PENDING',
-            contactNumber: '', agreementDuration: '1', brCertUrl: '', nic: '',
-            registrationFeePaid: false, agreementSigned: false, agreementDate: '',
-            bankName: '', bankAccountNumber: '', bankBranch: '',
-            opmcId: '',
-            registrationFeeSlipUrl: '',
-            type: 'SOD'
-        });
-        setShowModal(true);
+        setFormOpen(true);
     };
 
-    const handleEdit = (c: Contractor) => {
-        setSelectedContractor(c);
-        setStep(1);
-        // Load teams with full details
-        setTeams(c.teams.map(t => ({
-            id: t.id,
-            name: t.name,
-            status: t.status,
-            sltCode: t.sltCode,
-            opmcId: t.opmcId || null,
-            storeIds: t.storeAssignments?.map(sa => sa.storeId) || [],
-            primaryStoreId: t.storeAssignments?.find(sa => sa.isPrimary)?.storeId || null,
-            members: t.members.map(m => ({
-                id: m.id as string | undefined,
-                name: m.name as string,
-                idCopyNumber: (m.idCopyNumber || m.nic || '') as string,
-                contractorIdCopyNumber: (m.contractorIdCopyNumber || '') as string,
-                photoUrl: (m.photoUrl || '') as string,
-                passportPhotoUrl: (m.passportPhotoUrl || m.photoUrl || '') as string,
-                nicUrl: (m.nicUrl || '') as string
-            }))
-        } as ContractorTeam)));
-
-        form.reset({
-            name: c.name,
-            address: c.address || '',
-            registrationNumber: c.registrationNumber || '',
-            contactNumber: c.contactNumber || '',
-            nic: c.nic || '',
-            brNumber: c.brNumber || '',
-            agreementDuration: c.agreementDuration ? c.agreementDuration.toString() : '1',
-            brCertUrl: c.brCertUrl || '',
-            status: c.status,
-            registrationFeePaid: c.registrationFeePaid,
-            agreementSigned: c.agreementSigned,
-            agreementDate: c.agreementDate ? new Date(c.agreementDate).toISOString().split('T')[0] : '',
-            bankName: c.bankName || '',
-            bankAccountNumber: c.bankAccountNumber || '',
-            bankBranch: c.bankBranch || '',
-            bankPassbookUrl: c.bankPassbookUrl || '',
-            photoUrl: c.photoUrl || '',
-            nicFrontUrl: c.nicFrontUrl || '',
-            nicBackUrl: c.nicBackUrl || '',
-            policeReportUrl: c.policeReportUrl || '',
-            gramaCertUrl: c.gramaCertUrl || '',
-            registrationFeeSlipUrl: c.registrationFeeSlipUrl || '',
-            opmcId: (c as unknown as { opmcId?: string }).opmcId || ''
-        });
-        setShowModal(true);
+    const handleEdit = (contractor: Contractor) => {
+        setSelectedContractor(contractor);
+        setFormOpen(true);
     };
 
-    const handleSubmit = (values: ContractorFormValues) => {
-        // Include teams in the submission
-        mutation.mutate({ ...values, teams, id: selectedContractor?.id });
-    };
-
-    // Team Management Helpers
-    const addTeam = () => {
-        setTeams([...teams, { 
-            name: `Team ${teams.length + 1}`, 
-            status: 'ACTIVE', 
-            members: [],
-            opmcId: form.getValues('opmcId') || null
-        }]);
-    };
-
-    const updateTeam = (idx: number, field: keyof ContractorTeam, val: unknown) => {
-        setTeams(prev => {
-            const newTeams = [...prev];
-            newTeams[idx] = { ...newTeams[idx], [field]: val };
-            return newTeams;
-        });
-    };
-
-    const removeTeam = (idx: number) => {
-        setTeams(prev => prev.filter((_, i) => i !== idx));
-    };
-
-    const addMember = (teamIdx: number) => {
-        setTeams(prev => {
-            const newTeams = [...prev];
-            const team = { ...newTeams[teamIdx] };
-            team.members = [...team.members, { name: '', idCopyNumber: '', contractorIdCopyNumber: '', photoUrl: '', passportPhotoUrl: '' }];
-            newTeams[teamIdx] = team;
-            return newTeams;
-        });
-    };
-
-    const updateMember = (teamIdx: number, memberIdx: number, field: string, val: string) => {
-        setTeams(prev => {
-            const newTeams = [...prev];
-            const team = { ...newTeams[teamIdx] };
-            const members = [...team.members];
-            const member = { ...members[memberIdx], [field]: val };
-
-            // Sync photo fields
-            if (field === 'passportPhotoUrl') member.photoUrl = val;
-            else if (field === 'photoUrl') member.passportPhotoUrl = val;
-
-            members[memberIdx] = member;
-            team.members = members;
-            newTeams[teamIdx] = team;
-            return newTeams;
-        });
-    };
-
-    const removeMember = (teamIdx: number, memberIdx: number) => {
-        const newTeams = [...teams];
-        newTeams[teamIdx].members = newTeams[teamIdx].members.filter((_, i) => i !== memberIdx);
-        setTeams(newTeams);
-    };
-
-    const [viewMode, setViewMode] = useState<'ALL' | 'PENDING_DOCS' | 'PENDING_AUTH'>('ALL');
-
-    // Defensive check to ensure contractors is an array
-    const contractorsList = Array.isArray(contractors) ? contractors : [];
-
-    const filteredContractors = contractorsList.filter(c => {
-        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.registrationNumber?.includes(searchTerm);
-
-        if (!matchesSearch) return false;
-
-        if (viewMode === 'PENDING_DOCS') {
-            // Show only if PENDING and Document Status is NOT Approved
-            return c.status === 'PENDING' && (c.documentStatus === 'PENDING' || c.documentStatus === 'REJECTED' || !c.documentStatus);
+    const handleFormSubmit = async (data: ContractorSchema) => {
+        if (selectedContractor) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await updateMutation.mutateAsync({ id: selectedContractor.id, data: data as any });
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await createMutation.mutateAsync(data as any);
         }
-        if (viewMode === 'PENDING_AUTH') {
-            // Show only if Status is PENDING but Documents are APPROVED (Ready for OSP)
-            return c.status === 'PENDING' && c.documentStatus === 'APPROVED';
-        }
+        setFormOpen(false);
+    };
 
-        return true;
-    });
+    const handleInviteSubmit = async () => {
+        try {
+            const res = await fetch('/api/contractors/invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(inviteData)
+            });
+            const data = await res.json();
+            if (data.success) {
+                setShareLink(data.link);
+                setShareModalOpen(true);
+                setInviteModalOpen(false);
+                toast.success("Invitation generated");
+            } else {
+                toast.error(data.error || "Invite failed");
+            }
+        } catch {
+            toast.error("Network error");
+        }
+    };
+
+    const handleResendLink = async (id: string) => {
+        try {
+            const res = await fetch('/api/contractors/resend-invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, origin: window.location.origin })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setShareLink(data.link);
+                setShareModalOpen(true);
+                toast.success("Link refreshed");
+            }
+        } catch {
+            toast.error("Failed to resend");
+        }
+    };
+
+    const filteredContractors = useMemo(() => {
+        return (contractors as Contractor[]).filter((c) => {
+            const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.registrationNumber?.includes(searchTerm);
+
+            if (!matchesSearch) return false;
+
+            if (viewMode === 'PENDING_DOCS') {
+                return c.status === 'PENDING' && (c.documentStatus === 'PENDING' || !c.documentStatus);
+            }
+            if (viewMode === 'PENDING_AUTH') {
+                return c.status === 'PENDING' && c.documentStatus === 'APPROVED';
+            }
+
+            return true;
+        });
+    }, [contractors, searchTerm, viewMode]);
 
     return (
         <div className="h-screen flex bg-slate-50 overflow-hidden">
@@ -581,127 +179,147 @@ export default function ContractorsPage() {
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
                 <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto space-y-6">
-
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Contractor Management</h1>
-                                <p className="text-sm text-slate-500">Register and manage contractors, teams, and assignments.</p>
+                    <div className="max-w-7xl mx-auto space-y-8">
+                        
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                            <div className="space-y-1">
+                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Contractor Registry</h1>
+                                <p className="text-sm font-medium text-slate-500">Manage digital identities, jurisdictional groups, and payroll logistics.</p>
                             </div>
-                            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                                <Button onClick={handleInviteOpen} variant="outline" className="flex-1 sm:flex-none border-blue-200 text-blue-700 hover:bg-blue-50 text-xs sm:text-sm h-9">
-                                    <UserPlus className="w-4 h-4 mr-2" /> Invite
+                            <div className="flex gap-3 w-full sm:w-auto">
+                                <Button onClick={() => setInviteModalOpen(true)} variant="outline" className="flex-1 sm:flex-none h-11 px-6 border-slate-200 text-slate-600 hover:bg-white hover:text-blue-600 hover:border-blue-200 rounded-xl font-bold transition-all">
+                                    <UserPlus className="w-4 h-4 mr-2" /> Quick Invite
                                 </Button>
-                                <Button onClick={handleAdd} className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm h-9">
-                                    <Plus className="w-4 h-4 mr-2" /> Register
+                                <Button onClick={handleAdd} className="flex-1 sm:flex-none h-11 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 transition-all">
+                                    <Plus className="w-4 h-4 mr-2" /> New Registration
                                 </Button>
                             </div>
                         </div>
 
-                        {/* Filter Tabs */}
-                        <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-full sm:w-fit overflow-x-auto no-scrollbar shrink-0">
-                            <button
-                                onClick={() => setViewMode('ALL')}
-                                className={cn(
-                                    "px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs md:text-sm font-medium rounded-md transition-all whitespace-nowrap",
-                                    viewMode === 'ALL' ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                                )}
-                            >
-                                All Contractors
-                            </button>
-                            <button
-                                onClick={() => setViewMode('PENDING_DOCS')}
-                                className={cn(
-                                    "px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs md:text-sm font-medium rounded-md transition-all flex items-center gap-2 whitespace-nowrap",
-                                    viewMode === 'PENDING_DOCS' ? "bg-white text-amber-700 shadow-sm" : "text-slate-500 hover:text-amber-600"
-                                )}
-                            >
-                                Needs Review
-                                {contractorsList.filter(c => c.status === 'PENDING' && (c.documentStatus === 'PENDING' || !c.documentStatus)).length > 0 && (
-                                    <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                        {contractorsList.filter(c => c.status === 'PENDING' && (c.documentStatus === 'PENDING' || !c.documentStatus)).length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setViewMode('PENDING_AUTH')}
-                                className={cn(
-                                    "px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs md:text-sm font-medium rounded-md transition-all flex items-center gap-2 whitespace-nowrap",
-                                    viewMode === 'PENDING_AUTH' ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-blue-600"
-                                )}
-                            >
-                                Needs Authorization
-                                {contractorsList.filter(c => c.status === 'PENDING' && c.documentStatus === 'APPROVED').length > 0 && (
-                                    <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                                        {contractorsList.filter(c => c.status === 'PENDING' && c.documentStatus === 'APPROVED').length}
-                                    </span>
-                                )}
-                            </button>
+                        {/* Top Control Bar */}
+                        <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto">
+                                {[
+                                    { id: 'ALL', label: 'All Entities' },
+                                    { id: 'PENDING_DOCS', label: 'Review Required' },
+                                    { id: 'PENDING_AUTH', label: 'Auth Required' }
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setViewMode(tab.id as 'ALL' | 'PENDING_DOCS' | 'PENDING_AUTH')}
+                                        className={cn(
+                                            "flex-1 px-4 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all",
+                                            viewMode === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                                        )}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="relative w-full md:w-96 group">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                <Input
+                                    placeholder="Scan by identity or reg sequence..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="h-11 pl-11 bg-slate-50 border-none focus-visible:ring-2 focus-visible:ring-blue-100 rounded-xl font-medium"
+                                />
+                            </div>
                         </div>
 
-                        <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border">
-                            <Search className="w-4 h-4 text-slate-400" />
-                            <Input
-                                placeholder="Search contractors..."
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="border-none focus-visible:ring-0 shadow-none h-8"
-                            />
-                        </div>
-
+                        {/* Grid List */}
                         <div className="grid grid-cols-1 gap-4">
-                            {filteredContractors.map(contractor => (
-                                <Card key={contractor.id} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-6">
-                                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="text-lg font-bold text-slate-800 truncate">{contractor.name}</h3>
-                                                    <Badge variant="outline" className={contractor.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}>
-                                                        {contractor.status}
-                                                    </Badge>
+                            {loadingContractors ? (
+                                <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-4">
+                                    <div className="h-10 w-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+                                    <p className="text-xs font-black uppercase tracking-widest animate-pulse">Synchronizing Registry...</p>
+                                </div>
+                            ) : filteredContractors.length === 0 ? (
+                                <div className="py-20 flex flex-col items-center justify-center bg-white rounded-3xl border border-dashed text-slate-400 border-slate-200">
+                                    <Building2 className="w-12 h-12 opacity-10 mb-4" />
+                                    <p className="text-sm font-bold">No matching contractors found in the current buffer.</p>
+                                </div>
+                            ) : filteredContractors.map((contractor: Contractor) => (
+                                <Card key={contractor.id} className="group border-none shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 rounded-3xl overflow-hidden bg-white">
+                                    <CardContent className="p-0">
+                                        <div className="flex flex-col lg:flex-row">
+                                            <div className="flex-1 p-6 lg:p-8">
+                                                <div className="flex items-center gap-3 mb-4">
+                                                    <div className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                                                        <Building2 className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-3 flex-wrap">
+                                                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{contractor.name}</h3>
+                                                            <Badge className={cn(
+                                                                "h-6 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border-none",
+                                                                contractor.status === 'ACTIVE' ? "bg-emerald-100 text-emerald-700" :
+                                                                contractor.status === 'PENDING' ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
+                                                            )}>
+                                                                {contractor.status}
+                                                            </Badge>
+                                                        </div>
+                                                        <p className="text-xs font-mono text-slate-400 mt-1">{contractor.registrationNumber || 'NO-SEQUENCE'}</p>
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs text-slate-500 mt-1">{contractor.registrationNumber}</p>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-[10px] sm:text-xs text-slate-600">
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Users className="w-3 h-3 text-slate-400" /> {(contractor as unknown as { _count?: { teams: number } })._count?.teams || 0} Teams</div>
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><Building2 className="w-3 h-3 text-slate-400" /> {(contractor as unknown as { opmc?: { name: string } }).opmc?.name || 'No Office'}</div>
-                                                    <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded border border-slate-100"><UserPlus className="w-3 h-3 text-slate-400" /> {(contractor as unknown as { siteOfficeStaff?: { name: string } }).siteOfficeStaff?.name || 'Manual'}</div>
+
+                                                <div className="flex flex-wrap gap-4 mt-6">
+                                                    <div className="flex items-center gap-2 group/meta">
+                                                        <div className="h-7 w-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100"><Users className="w-3.5 h-3.5" /></div>
+                                                        <div>
+                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">Technician clusters</p>
+                                                            <p className="text-xs font-bold text-slate-700">{contractor._count?.teams || 0} Functional Groups</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 group/meta">
+                                                        <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100"><Building2 className="w-3.5 h-3.5" /></div>
+                                                        <div>
+                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">RTOM Jurisdiction</p>
+                                                            <p className="text-xs font-bold text-slate-700">{contractor.opmc?.name || 'Central Office'}</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="flex gap-1.5 sm:gap-2 self-end sm:self-start">
-                                                <Button variant="ghost" size="sm" onClick={() => handleEdit(contractor)} className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-blue-600 hover:bg-blue-50">
-                                                    <Pencil className="w-4 h-4 sm:mr-2" />
-                                                    <span className="hidden sm:inline">Edit</span>
+
+                                            <div className="lg:w-72 bg-slate-50/50 p-6 flex flex-col justify-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-100">
+                                                <Button size="sm" onClick={() => handleEdit(contractor)} className="w-full bg-white hover:bg-blue-600 hover:text-white text-slate-600 border border-slate-100 shadow-sm rounded-xl h-10 font-bold transition-all">
+                                                    <Pencil className="w-4 h-4 mr-2" /> Edit Records
                                                 </Button>
-                                                <Button variant="ghost" size="sm" onClick={() => {
+                                                <Button size="sm" onClick={() => {
                                                     setSelectedContractorForTeams({ id: contractor.id, name: contractor.name });
                                                     setTeamManagerOpen(true);
-                                                }} className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50">
-                                                    <Users className="w-4 h-4 sm:mr-2" />
-                                                    <span className="hidden sm:inline">Teams</span>
+                                                }} className="w-full bg-white hover:bg-slate-900 hover:text-white text-slate-600 border border-slate-100 shadow-sm rounded-xl h-10 font-bold transition-all">
+                                                    <Users className="w-4 h-4 mr-2" /> Logistics
                                                 </Button>
-                                                {contractor.status === 'PENDING' && (
-                                                    <Button variant="ghost" size="sm" onClick={() => handleResendLink(contractor.id)} className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50">
-                                                        <Share2 className="w-4 h-4 sm:mr-2" />
-                                                        <span className="hidden sm:inline">Reshare</span>
-                                                    </Button>
-                                                )}
-                                                {(contractor.status === 'ACTIVE' || contractor.status === 'INACTIVE') && (
-                                                    <Button variant="ghost" size="sm" onClick={() => handleRenewLink(contractor.id)} title="Renew Registration" className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-purple-600 hover:bg-purple-50">
-                                                        <Share2 className="w-4 h-4 sm:mr-2" />
-                                                        <span className="hidden sm:inline">Renew</span>
-                                                    </Button>
-                                                )}
-                                                {isAdmin && (
-                                                    <Button variant="ghost" size="sm" onClick={() => {
-                                                        if (confirm("Are you sure you want to delete this contractor?")) {
-                                                            console.log("[DELETE] Attempting to delete contractor:", contractor.id, contractor.name);
-                                                            deleteMutation.mutate(contractor.id);
-                                                        }
-                                                    }} className="h-8 w-8 p-0 sm:w-auto sm:px-3 text-slate-500 hover:text-red-600 hover:bg-red-50">
-                                                        <Trash className="w-4 h-4" />
-                                                    </Button>
-                                                )}
+                                                <div className="flex gap-2">
+                                                    {contractor.status === 'PENDING' && (
+                                                        <>
+                                                            {isAdmin && contractor.documentStatus === 'APPROVED' ? (
+                                                                <Button size="sm" onClick={() => approveMutation.mutate(contractor.id)} className="flex-1 bg-white hover:bg-emerald-600 hover:text-white text-emerald-600 border border-emerald-100 rounded-xl h-10 font-bold transition-all">
+                                                                    Approve
+                                                                </Button>
+                                                            ) : (
+                                                                <Button size="sm" onClick={() => handleResendLink(contractor.id)} className="flex-1 bg-white hover:bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl h-10 font-bold transition-all">
+                                                                    <Share2 className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            )}
+                                                            {isAdmin && (
+                                                                <Button size="sm" onClick={() => rejectMutation.mutate(contractor.id)} className="flex-1 bg-white hover:bg-red-50 text-red-600 border border-red-100 rounded-xl h-10 font-bold transition-all">
+                                                                    Reject
+                                                                </Button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                    {isAdmin && (
+                                                        <Button size="sm" variant="ghost" onClick={() => {
+                                                            if (confirm("Permanently purge this entity from the registry?")) {
+                                                                deleteMutation.mutate(contractor.id);
+                                                            }
+                                                        }} className="flex-1 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-xl h-10 transition-all">
+                                                            <Trash className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -711,581 +329,92 @@ export default function ContractorsPage() {
                     </div>
                 </div>
 
-                {/* Modal */}
-                <Dialog open={showModal} onOpenChange={setShowModal}>
-                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-full no-scrollbar">
-                        <DialogHeader>
-                            <DialogTitle>{selectedContractor ? 'Edit Contractor' : 'Register New Contractor'}</DialogTitle>
-                            <DialogDescription>
-                                {selectedContractor ? 'Update the details for this contractor.' : 'Enter the details to register a new contractor.'}
-                            </DialogDescription>
-                        </DialogHeader>
+                {/* --- MODALS --- */}
+                
+                <ContractorFormDialog 
+                    open={formOpen} 
+                    onOpenChange={setFormOpen}
+                    initialData={selectedContractor || undefined}
+                    onSubmit={handleFormSubmit}
+                    isSubmitting={createMutation.isPending || updateMutation.isPending}
+                    banks={banks}
+                    branches={branches}
+                    stores={stores}
+                />
 
-                        <div className="flex items-center justify-center mb-10 overflow-x-auto pb-4 gap-4 no-scrollbar">
-                            {[
-                                { id: 1, label: "Info", icon: Building2 },
-                                { id: 2, label: "Finc", icon: Banknote },
-                                { id: 3, label: "Docs", icon: FileText },
-                                ...(form.watch('type') === 'SOD' ? [{ id: 4, label: "Team", icon: Users }] : []),
-                                { id: 5, label: "Save", icon: CheckCircle2 }
-                            ].map((s, idx, arr) => (
-                                <React.Fragment key={s.id}>
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm",
-                                            step === s.id ? "bg-blue-600 text-white ring-4 ring-blue-100" :
-                                                step > s.id ? "bg-green-500 text-white" : "bg-white text-slate-400 border border-slate-200"
-                                        )}>
-                                            <s.icon className="w-5 h-5" />
-                                        </div>
-                                        <span className={cn(
-                                            "text-[10px] font-bold uppercase tracking-wider text-center",
-                                            step >= s.id ? "text-slate-900" : "text-slate-400"
-                                        )}>{s.label}</span>
-                                    </div>
-                                    {idx < arr.length - 1 && (
-                                        <div className={cn("h-[2px] w-12 transition-colors", step > s.id ? "bg-green-500" : "bg-slate-200")} />
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </div>
+                <TeamManager 
+                    isOpen={teamManagerOpen} 
+                    onClose={() => setTeamManagerOpen(false)}
+                    contractorId={selectedContractorForTeams?.id || ""}
+                    contractorName={selectedContractorForTeams?.name || ""}
+                />
 
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-
-                                {/* Step 1: Basic Details */}
-                                {step === 1 && (
-                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField control={form.control} name="type" render={({ field }) => (
-                                                <FormItem className="col-span-2">
-                                                    <FormLabel>Contractor Type</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger></FormControl>
-                                                        <SelectContent>
-                                                            <SelectItem value="SOD">Service Order (SOD)</SelectItem>
-                                                            <SelectItem value="OSP">OSP Project</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="name" render={({ field }) => (
-                                                <FormItem><FormLabel>Contractor Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="registrationNumber" render={({ field }) => (
-                                                <FormItem><FormLabel>Registration No</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-                                            <FormField control={form.control} name="address" render={({ field }) => (
-                                                <FormItem className="col-span-2"><FormLabel>Address</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="nic" render={({ field }) => (
-                                                <FormItem><FormLabel>NIC Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="contactNumber" render={({ field }) => (
-                                                <FormItem><FormLabel>Contact Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="agreementDuration" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Agreement Duration</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select Duration" /></SelectTrigger></FormControl>
-                                                        <SelectContent>
-                                                            <SelectItem value="1">1 Year</SelectItem>
-                                                            <SelectItem value="2">2 Years</SelectItem>
-                                                            <SelectItem value="3">3 Years</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="opmcId" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Originating Office (RTOM)</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select Office" /></SelectTrigger></FormControl>
-                                                        <SelectContent>
-                                                            {filteredOpmcs.map((o: { id: string; name: string }) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </FormItem>
-                                            )} />
-                                        </div>
-                                        <div className="flex justify-end gap-2 border-t pt-4">
-                                            <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(2)}>Continue</Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Step 2: Bank Details */}
-                                {step === 2 && (
-                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                            <FormField control={form.control} name="bankName" render={({ field }) => (
-                                                <FormItem className="col-span-2">
-                                                    <FormLabel>Bank Name</FormLabel>
-                                                    {!manualBank ? (
-                                                        <Select
-                                                            value={banks.find((b: { id: string; name: string }) => b.name === field.value)?.id}
-                                                            onValueChange={(val) => {
-                                                                if (val === "OTHER") { setManualBank(true); field.onChange(""); }
-                                                                else { const bank = banks.find((b: { id: string; name: string }) => b.id === val); field.onChange(bank?.name || ""); }
-                                                            }}>
-                                                            <FormControl><SelectTrigger><SelectValue placeholder="Select Bank" /></SelectTrigger></FormControl>
-                                                            <SelectContent>{banks.map((b: { id: string; name: string }) => (<SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>))}<SelectItem value="OTHER">+ Other (Type manually)</SelectItem></SelectContent>
-                                                        </Select>
-                                                    ) : (<div className="flex gap-2"><Input {...field} /><Button variant="ghost" onClick={() => setManualBank(false)}>List</Button></div>)}
-                                                </FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="bankBranch" render={({ field }) => (
-                                                <FormItem className="col-span-2">
-                                                    <FormLabel>Branch</FormLabel>
-                                                    {!manualBranch ? (
-                                                        <div className="relative">
-                                                            <Input
-                                                                placeholder="Type to search branch..."
-                                                                value={field.value || branchSearch}
-                                                                onFocus={() => setShowBranchList(true)}
-                                                                onChange={(e) => {
-                                                                    setBranchSearch(e.target.value);
-                                                                    setShowBranchList(true);
-                                                                }}
-                                                            />
-                                                            {showBranchList && (
-                                                                <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-60 overflow-y-auto no-scrollbar">
-                                                                    {branches
-                                                                        .filter((b: { name: string }) => b.name.toLowerCase().startsWith(branchSearch.toLowerCase()))
-                                                                        .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
-                                                                        .slice(0, 50)
-                                                                        .map((br: { name: string }, i: number) => (
-                                                                            <div
-                                                                                key={i}
-                                                                                className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                                                                                onClick={() => {
-                                                                                    field.onChange(br.name);
-                                                                                    setBranchSearch(br.name);
-                                                                                    setShowBranchList(false);
-                                                                                }}
-                                                                            >
-                                                                                {br.name}
-                                                                            </div>
-                                                                        ))
-                                                                    }
-                                                                    <div
-                                                                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm font-bold text-blue-600 border-t sticky bottom-0 bg-white"
-                                                                        onClick={() => {
-                                                                            setManualBranch(true);
-                                                                            field.onChange("");
-                                                                            setShowBranchList(false);
-                                                                        }}
-                                                                    >
-                                                                        + Other (Type manually)
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (<div className="flex gap-2"><Input {...field} /><Button variant="ghost" onClick={() => setManualBranch(false)}>List</Button></div>)}
-                                                </FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="bankAccountNumber" render={({ field }) => (
-                                                <FormItem className="col-span-2">
-                                                    <FormLabel>Account Number</FormLabel>
-                                                    <FormControl><Input {...field} /></FormControl>
-                                                </FormItem>
-                                            )} />
-
-                                            <FormField control={form.control} name="bankPassbookUrl" render={({ field }) => (
-                                                <FormItem className="col-span-2">
-                                                    <FormLabel>Bank Passbook Header</FormLabel>
-                                                    <div className="flex flex-col gap-2 mt-1">
-                                                        {field.value && (
-                                                            <div className="relative h-20 w-32">
-                                                                <Image 
-                                                                    src={field.value} 
-                                                                    alt="Preview" 
-                                                                    fill
-                                                                    unoptimized
-                                                                    className="object-cover rounded border" 
-                                                                />
-                                                            </div>
-                                                        )}
-                                                        <div className="relative">
-                                                            <Input type="file" accept="image/*,.pdf" onChange={async (e) => {
-                                                                const url = await uploadFile(e, 'bankPassbookUrl');
-                                                                if (url) field.onChange(url);
-                                                            }} />
-                                                            {uploadProgress['bankPassbookUrl'] !== undefined && (
-                                                                <div className="absolute -bottom-1 left-0 right-0 px-1">
-                                                                    <Progress value={uploadProgress['bankPassbookUrl']} className="h-1" />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </FormItem>
-                                            )} />
-                                        </div>
-                                        <div className="flex justify-between border-t pt-4">
-                                            <Button type="button" variant="outline" onClick={() => setStep(1)}>Back</Button>
-                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(3)}>Continue</Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Step 3: Documents */}
-                                {step === 3 && (
-                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            {[
-                                                { label: "Contractor Photo", field: "photoUrl" },
-                                                { label: "BR Certificate", field: "brCertUrl" },
-                                                { label: "NIC Front", field: "nicFrontUrl" },
-                                                { label: "NIC Back", field: "nicBackUrl" },
-                                                { label: "Police Report", field: "policeReportUrl" },
-                                                { label: "Grama Cert", field: "gramaCertUrl" },
-                                                { label: "Registration Fee Slip", field: "registrationFeeSlipUrl" }
-                                            ].map((doc) => (
-                                                <FormField 
-                                                    key={doc.field} 
-                                                    control={form.control} 
-                                                    name={doc.field as keyof ContractorFormValues} 
-                                                    render={({ field }) => (
-                                                        <FormItem className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                                                            <FormLabel className="text-xs font-bold uppercase">{doc.label}</FormLabel>
-                                                            <div className="flex flex-col gap-2 mt-2">
-                                                                {field.value ? (
-                                                                    <div className="relative group w-full h-24">
-                                                                        <Image 
-                                                                            key={field.value as string} 
-                                                                            src={field.value as string} 
-                                                                            alt="Doc" 
-                                                                            fill
-                                                                            unoptimized
-                                                                            className="object-cover rounded border" 
-                                                                        />
-                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded z-10">
-                                                                            <Button type="button" size="sm" variant="destructive" onClick={() => field.onChange("")}>Remove</Button>
-                                                                        </div>
-                                                                    </div>
-                                                            ) : (
-                                                                <div className="w-full h-24 border-2 border-dashed rounded flex flex-col items-center justify-center bg-white cursor-pointer hover:border-blue-400 transition-colors relative">
-                                                                    <Upload className="w-6 h-6 text-slate-300" />
-                                                                    <span className="text-[10px] text-slate-400 mt-1">Click to upload</span>
-                                                                    <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer h-full" onChange={async (e) => {
-                                                                        const url = await uploadFile(e, doc.field);
-                                                                        if (url) {
-                                                                            field.onChange(url);
-                                                                            if (doc.field === 'nicFrontUrl') {
-                                                                                performOCR(url);
-                                                                            }
-                                                                        }
-                                                                    }} />
-                                                                    {uploadProgress[doc.field] !== undefined && (
-                                                                        <div className="absolute bottom-0 left-0 right-0 px-1 pb-1">
-                                                                            <Progress value={uploadProgress[doc.field]} className="h-1" />
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                            {isScanning && doc.field === 'nicFrontUrl' && (
-                                                                <div className="mt-2 flex items-center gap-2 text-[10px] text-blue-600 animate-pulse font-bold">
-                                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                                    SCANNING...
-                                                                </div>
-                                                            )}
-                                                            {scanResults && doc.field === 'nicFrontUrl' && (
-                                                                <div className="mt-2 flex items-center justify-between p-2 bg-emerald-50 border border-emerald-100 rounded">
-                                                                    <span className="text-[10px] font-bold text-emerald-700">NIC: {scanResults.value}</span>
-                                                                    <Button 
-                                                                        type="button" 
-                                                                        size="sm" 
-                                                                        className="h-5 px-2 bg-emerald-600 text-[8px]"
-                                                                        onClick={() => {
-                                                                            form.setValue('nic', scanResults.value);
-                                                                            setScanResults(null);
-                                                                            setStep(1); // Go to step 1 to show results
-                                                                            toast.success("Applied to Basic Info");
-                                                                        }}
-                                                                    >
-                                                                        Apply
-                                                                    </Button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </FormItem>
-                                                )} />
-                                            ))}
-                                        </div>
-                                        <div className="flex justify-between border-t pt-4">
-                                            <Button type="button" variant="outline" onClick={() => setStep(2)}>Back</Button>
-                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(form.watch('type') === 'SOD' ? 4 : 5)}>Continue</Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Step 4: Teams (SOD Only) */}
-                                {step === 4 && form.watch('type') === 'SOD' && (
-                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-                                        <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border">
-                                            <div>
-                                                <h4 className="font-bold text-slate-800">Team Management</h4>
-                                                <p className="text-xs text-slate-500">Add operational teams and assign members.</p>
-                                            </div>
-                                            <Button type="button" size="sm" variant="outline" onClick={addTeam}><Plus className="w-3 h-3 mr-1" /> Add Team</Button>
-                                        </div>
-
-                                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
-                                            {teams.map((team, tIdx) => (
-                                                <Card key={tIdx} className="border-slate-200">
-                                                    <CardContent className="p-4 space-y-4">
-                                                        <div className="flex justify-between gap-4">
-                                                            <Input value={team.name} onChange={(e) => updateTeam(tIdx, 'name', e.target.value)} placeholder="Team Name" className="flex-1" />
-                                                            <Button type="button" variant="ghost" size="sm" onClick={() => removeTeam(tIdx)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
-                                                        </div>
-                                                        <div className="grid grid-cols-3 gap-4">
-                                                            <div>
-                                                                <Label className="text-[10px] uppercase font-bold text-slate-400">RTOM Office</Label>
-                                                                <Select value={team.opmcId || ""} onValueChange={(val) => updateTeam(tIdx, 'opmcId', val)}>
-                                                                    <SelectTrigger className="h-9"><SelectValue placeholder="RTOM" /></SelectTrigger>
-                                                                    <SelectContent>{filteredOpmcs.map((o: { id: string; name: string }) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}</SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                            <div>
-                                                                <Label className="text-[10px] uppercase font-bold text-slate-400">Primary Store</Label>
-                                                                <Select value={team.primaryStoreId || ""} onValueChange={(val) => updateTeam(tIdx, 'primaryStoreId', val)}>
-                                                                    <SelectTrigger className="h-9"><SelectValue placeholder="Store" /></SelectTrigger>
-                                                                    <SelectContent>{stores.map((s: { id: string; name: string }) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}</SelectContent>
-                                                                </Select>
-                                                            </div>
-                                                            <div className="flex flex-col justify-end">
-                                                                <Button type="button" variant="outline" size="sm" onClick={() => addMember(tIdx)} className="h-9"><UserPlus className="w-3 h-3 mr-2" /> Member</Button>
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-2 mt-4">
-                                                            {team.members.map((m, mIdx) => (
-                                                                <div key={mIdx} className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-100">
-                                                                    <Input value={m.name} onChange={(e) => updateMember(tIdx, mIdx, 'name', e.target.value)} placeholder="Member Name" className="h-8 text-xs flex-1" />
-                                                                    <Input value={m.idCopyNumber} onChange={(e) => updateMember(tIdx, mIdx, 'idCopyNumber', e.target.value)} placeholder="NIC" className="h-8 text-xs w-24" />
-                                                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeMember(tIdx, mIdx)} className="h-8 w-8 text-red-400 p-0"><Trash2 className="w-3 h-3" /></Button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </div>
-                                        <div className="flex justify-between border-t pt-4">
-                                            <Button type="button" variant="outline" onClick={() => setStep(3)}>Back</Button>
-                                            <Button type="button" className="bg-blue-600 px-8" onClick={() => setStep(5)}>Continue</Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Step 5: Final Review & Save */}
-                                {step === 5 && (
-                                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-center py-8">
-                                        <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-blue-100">
-                                            <CheckCircle2 className="w-10 h-10 text-blue-600" />
-                                        </div>
-                                        <h3 className="text-xl font-bold text-slate-900">Ready to Save?</h3>
-                                        <p className="text-slate-500 max-w-sm mx-auto">
-                                            Please review the information provided. Once saved, the contractor will be registered in the system.
-                                        </p>
-                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left space-y-2 text-sm">
-                                            <div className="flex justify-between"><span>Name:</span> <span className="font-bold">{form.getValues('name')}</span></div>
-                                            <div className="flex justify-between"><span>Type:</span> <span className="font-bold">{form.getValues('type')}</span></div>
-                                            <div className="flex justify-between border-t pt-2 mt-2">
-                                                <span>Documents:</span>
-                                                <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
-                                                    {['photoUrl', 'nicFrontUrl', 'nicBackUrl', 'brCertUrl', 'bankPassbookUrl', 'registrationFeeSlipUrl'].map(f => (
-                                                        form.getValues(f as keyof ContractorFormValues) ? (
-                                                            <div key={f} className="w-6 h-6 rounded bg-green-100 flex items-center justify-center" title={f}>
-                                                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                                                            </div>
-                                                        ) : (
-                                                            <div key={f} className="w-6 h-6 rounded bg-slate-200 flex items-center justify-center opacity-40" title={f}>
-                                                                <ImageIcon className="w-3 h-3 text-slate-400" />
-                                                            </div>
-                                                        )
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            {form.getValues('type') === 'SOD' && (
-                                                <div className="flex justify-between"><span>Teams:</span> <span className="font-bold">{teams.length} Team(s)</span></div>
-                                            )}
-```
-                                        </div>
-                                        <div className="flex justify-between border-t pt-6 mt-10">
-                                            <Button type="button" variant="outline" onClick={() => setStep(form.watch('type') === 'SOD' ? 4 : 3)}>Back</Button>
-                                            <Button type="submit" disabled={mutation.isPending} className="bg-blue-600 px-12">
-                                                {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                                Save Contractor
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </form>
-                        </Form>
-                    </DialogContent>
-                </Dialog>
-
-                {/* Share Modal */}
-                <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
-                    <DialogContent className="max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>Share Upload Link</DialogTitle>
-                            <DialogDescription>
-                                Share this secure link with the contractor. They can use it to upload documents without logging in.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center gap-2">
-                                <Input value={shareLink} readOnly className="bg-slate-50 text-xs font-mono" />
-                                <Button size="icon" variant="outline" onClick={() => {
-                                    navigator.clipboard.writeText(shareLink);
-                                    toast.success("Copied to clipboard");
-                                }}>
-                                    <Copy className="w-4 h-4" />
-                                </Button>
-                            </div>
-
-                            <div className="flex gap-2 justify-center">
-                                <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => {
-                                    const text = `Please upload your documents using this secure link: ${shareLink}`;
-                                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                                }}>
-                                    <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
-                                </Button>
-                                <Button variant="outline" className="flex-1" onClick={() => {
-                                    const subject = "Contractor Document Upload";
-                                    const body = `Please upload your required documents using this secure link:\n\n${shareLink}\n\nThis link will expire in 7 days.`;
-                                    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-                                }}>
-                                    <ExternalLink className="w-4 h-4 mr-2" /> Email
-                                </Button>
-                            </div>
-                            <p className="text-[10px] text-slate-500 text-center">
-                                This link expires in 7 days. You can generate a new one if needed.
-                            </p>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-
-                {/* Invite Modal */}
+                {/* Invitation Dialog */}
                 <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
-                    <DialogContent>
+                    <DialogContent className="max-w-md rounded-3xl">
                         <DialogHeader>
-                            <DialogTitle>Invite New Contractor</DialogTitle>
-                            <DialogDescription>Generate a public registration link for a new contractor.</DialogDescription>
+                            <DialogTitle className="text-xl font-black text-slate-900">Provision Invite</DialogTitle>
+                            <DialogDescription className="text-xs font-medium text-slate-500">Generate a unique onboarding token for an external entity.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Contractor Name</Label>
-                                <Input
-                                    placeholder="Company name or Individual"
-                                    value={inviteData.name}
-                                    onChange={e => setInviteData({ ...inviteData, name: e.target.value })}
-                                    autoComplete="off"
-                                />
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Legal Entity Name</Label>
+                                <Input value={inviteData.name} onChange={e => setInviteData({...inviteData, name: e.target.value})} className="h-11 rounded-xl bg-slate-50 border-none" />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Phone Number (Mobile)</Label>
-                                <Input
-                                    placeholder="07XXXXXXXX"
-                                    value={inviteData.contactNumber}
-                                    onChange={e => setInviteData({ ...inviteData, contactNumber: e.target.value })}
-                                    autoComplete="off"
-                                />
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mobile / Primary Contact</Label>
+                                <Input value={inviteData.contactNumber} onChange={e => setInviteData({...inviteData, contactNumber: e.target.value})} className="h-11 rounded-xl bg-slate-50 border-none" />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Contractor Type</Label>
-                                <Select value={inviteData.type} onValueChange={(v: "SOD" | "OSP") => setInviteData({ ...inviteData, type: v })}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Onboarding Route</Label>
+                                <Select value={inviteData.type} onValueChange={(v: 'SOD' | 'OSP') => setInviteData({...inviteData, type: v})}>
+                                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-none"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="SOD">Service Order (SOD)</SelectItem>
-                                        <SelectItem value="OSP">OSP Project</SelectItem>
+                                        <SelectItem value="SOD">Service Orders (Operations)</SelectItem>
+                                        <SelectItem value="OSP">Network Projects (OSP)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                <p className="text-xs text-blue-800">
-                                    <strong>Note:</strong> RTOM and Store assignments will be configured through Teams after registration is completed.
-                                </p>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">RTOM Office</Label>
+                                <Select value={inviteData.opmcId} onValueChange={(v) => setInviteData({...inviteData, opmcId: v})}>
+                                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-none"><SelectValue placeholder="Assign HQ/RTOM" /></SelectTrigger>
+                                    <SelectContent>
+                                        {opmcs.map((o: { id: string; name: string }) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setInviteModalOpen(false)}>Cancel</Button>
-                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={async () => {
-                                console.log("[FRONTEND] Generate Link clicked");
-                                console.log("[FRONTEND] Invite data:", inviteData);
-
-                                if (!inviteData.name || !inviteData.contactNumber) {
-                                    toast.error("Please fill in basic details");
-                                    return;
-                                }
-
-                                const toastId = toast.loading("Generating link...");
-                                try {
-                                    const payload = {
-                                        ...inviteData,
-                                        siteOfficeStaffId: user.id
-                                    };
-                                    console.log("[FRONTEND] Sending payload:", payload);
-
-                                    const res = await fetch('/api/contractors/generate-link', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(payload)
-                                    });
-
-                                    if (!res.ok) {
-                                        const errorData = await res.json();
-                                        console.error("[FRONTEND] API Error:", errorData);
-                                        throw new Error(errorData.error || errorData.message || "Failed to generate link");
-                                    }
-
-                                    const data = await res.json();
-                                    console.log("[FRONTEND] Success! Received:", data);
-                                    setShareLink(data.registrationLink);
-
-                                    // Try to copy to clipboard immediately
-                                    try {
-                                        await navigator.clipboard.writeText(data.registrationLink);
-                                        toast.success("Link generated & copied to clipboard!", { id: toastId });
-                                    } catch {
-                                        toast.success("Link generated!", { id: toastId });
-                                    }
-
-                                    setInviteModalOpen(false);
-                                    setShareModalOpen(true);
-
-                                    // Refresh contractor list
-                                    queryClient.invalidateQueries({ queryKey: ['contractors'] });
-                                } catch (err: unknown) {
-                                    console.error("[FRONTEND] Full error:", err);
-                                    const errMsg = err instanceof Error ? err.message : "Generation failed";
-                                    toast.error(errMsg, { id: toastId });
-                                }
-                            }}>Generate & Copy Link</Button>
+                            <Button onClick={handleInviteSubmit} className="w-full bg-slate-900 hover:bg-slate-800 text-white h-12 rounded-xl font-black uppercase text-xs tracking-widest">Generate Onboarding Link</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
 
-                {/* Team Manager Modal */}
-                {selectedContractorForTeams && (
-                    <TeamManager
-                        isOpen={teamManagerOpen}
-                        onClose={() => setTeamManagerOpen(false)}
-                        contractorId={selectedContractorForTeams.id}
-                        contractorName={selectedContractorForTeams.name}
-                    />
-                )}
+                {/* Share Dialog */}
+                <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+                    <DialogContent className="max-w-md rounded-3xl">
+                        <DialogHeader>
+                            <DialogTitle className="text-xl font-black text-emerald-900">Invite Ready</DialogTitle>
+                            <DialogDescription className="text-xs font-medium text-emerald-600">Secure onboarding token has been generated.</DialogDescription>
+                        </DialogHeader>
+                        <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col items-center gap-4 text-center">
+                            <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-emerald-600 shadow-sm shadow-emerald-200"><Mail className="w-6 h-6" /></div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-bold text-emerald-800 truncate max-w-[300px]">{shareLink}</p>
+                                <p className="text-[10px] text-emerald-500">Token expires in 72 hours</p>
+                            </div>
+                            <div className="flex gap-2 w-full">
+                                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-10 rounded-xl font-bold" onClick={() => {
+                                    navigator.clipboard.writeText(shareLink);
+                                    toast.success("Link copied to clipboard");
+                                }}>Copy Link</Button>
+                                <Button variant="outline" className="flex-1 border-emerald-200 text-emerald-600 hover:bg-white h-10 rounded-xl font-bold" onClick={() => window.open(`https://wa.me/${inviteData.contactNumber}?text=${encodeURIComponent(`Register for SLTS ERP: ${shareLink}`)}`)}>WhatsApp</Button>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
             </main>
         </div>
     );
