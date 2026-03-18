@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { InventoryItem, ItemFormValues } from "@/types/inventory";
 
 // High-Fidelity Refactored Components
 import { useItemOperations } from "./hooks/useItemOperations";
@@ -27,7 +27,7 @@ export default function ItemMasterPage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
     // Active Data
-    const [activeItem, setActiveItem] = useState<any>(null);
+    const [activeItem, setActiveItem] = useState<InventoryItem | null>(null);
     const [bulkEditType, setBulkEditType] = useState<'CATEGORY' | 'JOB_TYPE' | 'TYPE' | null>(null);
     const [mergeTargetId, setMergeTargetId] = useState<string | null>(null);
 
@@ -39,9 +39,13 @@ export default function ItemMasterPage() {
     // --- HOOKS & OPERATIONS ---
     const { upsertMutation, removeMutation, bulkUpdateMutation, mergeMutation } = useItemOperations();
 
-    const { data: items = [], isLoading } = useQuery<any[]>({
+    const { data: items = [], isLoading } = useQuery<InventoryItem[]>({
         queryKey: ["items"],
-        queryFn: async () => (await fetch("/api/inventory/items")).json()
+        queryFn: async () => {
+            const res = await fetch("/api/inventory/items");
+            if (!res.ok) throw new Error("Failed to fetch inventory items");
+            return res.json();
+        }
     });
 
     // --- SELECTION LOGIC ---
@@ -70,7 +74,7 @@ export default function ItemMasterPage() {
         setShowFormModal(true);
     };
 
-    const handleEdit = (item: any) => {
+    const handleEdit = (item: InventoryItem) => {
         setActiveItem(item);
         setShowFormModal(true);
     };
@@ -88,7 +92,7 @@ export default function ItemMasterPage() {
         setShowMergeModal(true);
     };
 
-    const onFormSubmit = async (values: any) => {
+    const onFormSubmit = async (values: ItemFormValues) => {
         await upsertMutation.mutateAsync({ id: activeItem?.id, data: values });
         setShowFormModal(false);
     };
@@ -192,23 +196,23 @@ export default function ItemMasterPage() {
                                     <TrashIcon className="w-5 h-5 text-rose-600" />
                                 </div>
                                 <div>
-                                    <DialogTitle className="text-xl font-black text-rose-900">Purge Entity</DialogTitle>
-                                    <DialogDescription className="text-[10px] font-black uppercase text-rose-400 tracking-widest opacity-80">Execution of irreversible registry deletion.</DialogDescription>
+                                    <DialogTitle className="text-xl font-black text-rose-900">Delete Material</DialogTitle>
+                                    <DialogDescription className="text-[10px] font-black uppercase text-rose-400 tracking-widest opacity-80">Permanent removal from the inventory.</DialogDescription>
                                 </div>
                             </div>
                         </DialogHeader>
                         <div className="px-8 py-8 space-y-4">
                             <p className="text-xs font-bold text-slate-600 leading-relaxed">
-                                Are you strictly authorized to purge this entity from the global index? This action will permanently remove all primary metadata.
+                                Are you sure you want to delete this material? This action will permanently remove its record from the system.
                             </p>
                             <div className="p-3 bg-rose-100/30 rounded-xl border border-rose-100 text-[9px] font-black text-rose-600 uppercase tracking-widest flex items-center gap-2">
-                                <AlertTriangleIcon className="w-4 h-4" /> Safety Violation: Stock history may be compromised.
+                                <AlertTriangleIcon className="w-4 h-4" /> Warning: Historical records and stock data will be lost.
                             </div>
                         </div>
                         <DialogFooter className="px-8 py-6 bg-slate-50 border-t flex justify-between items-center">
-                            <Button variant="ghost" onClick={() => setShowDeleteConfirm(null)} className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Abandon Threat</Button>
+                            <Button variant="ghost" onClick={() => setShowDeleteConfirm(null)} className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Cancel</Button>
                             <Button variant="destructive" onClick={confirmDelete} disabled={removeMutation.isPending} className="h-12 px-10 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-rose-200">
-                                {removeMutation.isPending ? "Executing Purge..." : "Confirm Purge"}
+                                {removeMutation.isPending ? "Deleting..." : "Confirm Delete"}
                             </Button>
                         </DialogFooter>
                     </DialogContent>

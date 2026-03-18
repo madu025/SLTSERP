@@ -6,23 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus, Edit2, Trash2, AlertTriangle, CheckSquare, Layers, Tag, Package, RotateCcw, ChevronRight, Target } from "lucide-react";
-
-interface Item {
-    id: string;
-    code: string;
-    sltCode?: string;
-    name: string;
-    commonName?: string;
-    unit: string;
-    type: 'SLT' | 'SLTS';
-    category: string;
-    minLevel?: string | number;
-    unitPrice?: number;
-    costPrice?: number;
-}
+import { InventoryItem } from "@/types/inventory";
 
 interface ItemTableProps {
-    items: Item[];
+    items: InventoryItem[];
     isLoading: boolean;
     searchTerm: string;
     onSearchChange: (val: string) => void;
@@ -31,7 +18,7 @@ interface ItemTableProps {
     selectedIds: Set<string>;
     onToggleSelect: (id: string) => void;
     onToggleSelectAll: () => void;
-    onEdit: (item: Item) => void;
+    onEdit: (item: InventoryItem) => void;
     onDelete: (id: string) => void;
     onAdd: () => void;
     onBulkEdit: (type: 'CATEGORY' | 'JOB_TYPE' | 'TYPE') => void;
@@ -55,13 +42,13 @@ export function ItemTable({
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Material Registry</h1>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Item Master List</h1>
                     <p className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest opacity-80">
-                        <Package className="w-3.5 h-3.5" /> High-Fidelity Global Catalog
+                        <Package className="w-3.5 h-3.5" /> Manage all inventory materials and parts.
                     </p>
                 </div>
                 <Button size="sm" onClick={onAdd} className="h-11 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 transition-all hover:-translate-y-1">
-                    <Plus className="w-4 h-4 mr-2" /> Register New Entity
+                    <Plus className="w-4 h-4 mr-2" /> Add New Item
                 </Button>
             </div>
 
@@ -73,17 +60,17 @@ export function ItemTable({
                             <div className="relative">
                                 <span className="text-sm font-black text-blue-700 flex items-center gap-3">
                                     <CheckSquare className="w-5 h-5" />
-                                    {selectedIds.size} ENTITIES TARGETED
+                                    {selectedIds.size} ITEMS SELECTED
                                 </span>
                                 <div className="absolute -bottom-1 left-8 w-1/2 h-0.5 bg-blue-400 rounded-full animate-pulse" />
                             </div>
                             
                             <div className="flex gap-3">
                                 <Button onClick={() => onBulkEdit('TYPE')} variant="outline" className="h-10 bg-white border-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all hover:scale-105 active:scale-95">
-                                    <Target className="w-3.5 h-3.5 mr-2" /> Sync Type
+                                    <Target className="w-3.5 h-3.5 mr-2" /> Change Type
                                 </Button>
                                 <Button onClick={() => onBulkEdit('CATEGORY')} variant="outline" className="h-10 bg-white border-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-sm transition-all hover:scale-105 active:scale-95">
-                                    <Tag className="w-3.5 h-3.5 mr-2" /> Recalibrate Cluster
+                                    <Tag className="w-3.5 h-3.5 mr-2" /> Change Category
                                 </Button>
 
                                 {selectedIds.size === 2 && (
@@ -94,7 +81,7 @@ export function ItemTable({
                             </div>
                         </div>
                         <Button variant="ghost" onClick={onToggleSelectAll} className="h-10 px-6 rounded-xl text-blue-600 font-black text-xs uppercase hover:bg-white border-none">
-                            Relinquish target(s)
+                            Deselect All
                         </Button>
                     </div>
                 ) : (
@@ -103,7 +90,7 @@ export function ItemTable({
                             <div className="relative flex-1 w-full max-w-md group">
                                 <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3.5 transition-colors group-focus-within:text-blue-500" />
                                 <Input
-                                    placeholder="Execute search by codename, serial or label..."
+                                    placeholder="Search by name or code..."
                                     value={searchTerm}
                                     onChange={e => onSearchChange(e.target.value)}
                                     className="pl-12 h-11 bg-white border-slate-100 rounded-2xl text-xs font-bold transition-all focus:ring-4 focus:ring-blue-100/50 shadow-sm"
@@ -111,10 +98,10 @@ export function ItemTable({
                             </div>
                             <Select value={categoryFilter} onValueChange={onCategoryFilterChange}>
                                 <SelectTrigger className="h-11 w-full md:w-[240px] bg-white border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                    <SelectValue placeholder="Cluster Selection" />
+                                    <SelectValue placeholder="Filter by Category" />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-2xl border-none shadow-2xl">
-                                    <SelectItem value="ALL" className="text-xs font-bold">ALL CLUSTERS</SelectItem>
+                                    <SelectItem value="ALL" className="text-xs font-bold">All Categories</SelectItem>
                                     {['CABLES', 'POLES', 'FIBER_ACCESSORIES', 'COPPER_ACCESSORIES', 'HARDWARE', 'EQUIPMENT', 'OTHERS'].map(c => (
                                         <SelectItem key={c} value={c} className="text-xs font-bold">{c.replace('_', ' ')}</SelectItem>
                                     ))}
@@ -123,8 +110,8 @@ export function ItemTable({
                         </div>
                         <div className="flex items-center gap-4 bg-slate-100/50 px-5 py-2.5 rounded-2xl border border-slate-100">
                              <div className="text-right">
-                                <p className="text-[10px] font-black uppercase text-slate-400 opacity-60">Sequence Index</p>
-                                <p className="text-xs font-black text-slate-900">{filteredItems.length} Entities</p>
+                                <p className="text-[10px] font-black uppercase text-slate-400 opacity-60">Total Items</p>
+                                <p className="text-xs font-black text-slate-900">{filteredItems.length} Items</p>
                              </div>
                              <div className="h-8 w-[1px] bg-slate-200" />
                              <Layers className="w-5 h-5 text-slate-400" />
@@ -147,11 +134,11 @@ export function ItemTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="px-6 py-6 min-w-[150px]">Sequence Code</th>
-                                <th className="px-6 py-6 min-w-[280px]">Product Identity</th>
-                                <th className="px-6 py-6">Unit / Specs</th>
-                                <th className="px-6 py-6">Audit Status</th>
-                                <th className="px-6 py-6 text-right">Settlement Rate</th>
+                                <th className="px-6 py-6 min-w-[150px]">Item Code</th>
+                                <th className="px-6 py-6 min-w-[280px]">Item Name / Description</th>
+                                <th className="px-6 py-6">Unit of Measure</th>
+                                <th className="px-6 py-6">Item Type</th>
+                                <th className="px-6 py-6 text-right">Unit Price</th>
                                 <th className="px-10 py-6 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -169,7 +156,7 @@ export function ItemTable({
                                     <td colSpan={7} className="px-10 py-32 text-center text-slate-400">
                                         <div className="flex flex-col items-center justify-center gap-4 opacity-30">
                                             <Package className="w-16 h-16 stroke-[1]" />
-                                            <p className="text-sm font-black uppercase tracking-widest">No matching entities found in the local index.</p>
+                                            <p className="text-sm font-black uppercase tracking-widest">No items found matching your search.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -196,14 +183,14 @@ export function ItemTable({
                                             <div className="space-y-0.5">
                                                 <p className="text-[13px] font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{item.name}</p>
                                                 <p className="text-[10px] font-semibold text-slate-500 flex items-center gap-1.5 line-clamp-1 opacity-70 italic uppercase">
-                                                    {item.commonName || 'Unspecified Classification'}
+                                                    {item.commonName || 'No common name provided'}
                                                 </p>
                                             </div>
                                         </td>
                                         <td className="px-6 py-5">
                                             <div className="flex flex-col gap-1">
                                                 <Badge variant="outline" className="w-fit text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-slate-200 text-slate-500 bg-white shadow-sm">
-                                                    {item.unit} Scaling
+                                                    {item.unit}
                                                 </Badge>
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">{categoryLabel(item.category)}</span>
                                             </div>
@@ -212,9 +199,9 @@ export function ItemTable({
                                             <div className="flex flex-col gap-1.5">
                                                 <div className="flex items-center gap-2">
                                                     {item.type === 'SLT' ? (
-                                                        <div className="h-5 px-3 rounded-full bg-blue-100 border border-blue-200 text-blue-600 text-[9px] font-bold flex items-center justify-center uppercase tracking-widest">Global Asset</div>
+                                                        <div className="h-5 px-3 rounded-full bg-blue-100 border border-blue-200 text-blue-600 text-[9px] font-bold flex items-center justify-center uppercase tracking-widest">SLT Item</div>
                                                     ) : (
-                                                        <div className="h-5 px-3 rounded-full bg-purple-100 border border-purple-200 text-purple-600 text-[9px] font-bold flex items-center justify-center uppercase tracking-widest">Internal Resource</div>
+                                                        <div className="h-5 px-3 rounded-full bg-purple-100 border border-purple-200 text-purple-600 text-[9px] font-bold flex items-center justify-center uppercase tracking-widest">SLTS Item</div>
                                                     )}
                                                 </div>
                                                 {item.minLevel ? (
@@ -250,10 +237,10 @@ export function ItemTable({
                 <div className="px-10 py-6 border-t bg-slate-50/30 flex items-center justify-between">
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                        Live Registry Interface Active
+                        Connected to Inventory Database
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest opacity-60 italic">
-                         Registry sequence synchronized at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         Last updated at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                 </div>
             </div>

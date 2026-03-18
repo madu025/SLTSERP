@@ -184,15 +184,15 @@ export default function ContractorsPage() {
                         
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                             <div className="space-y-1">
-                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Contractor Registry</h1>
-                                <p className="text-sm font-medium text-slate-500">Manage digital identities, jurisdictional groups, and payroll logistics.</p>
+                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Contractor Directory</h1>
+                                <p className="text-sm font-medium text-slate-500">Manage all registered contractors and their teams.</p>
                             </div>
                             <div className="flex gap-3 w-full sm:w-auto">
                                 <Button onClick={() => setInviteModalOpen(true)} variant="outline" className="flex-1 sm:flex-none h-11 px-6 border-slate-200 text-slate-600 hover:bg-white hover:text-blue-600 hover:border-blue-200 rounded-xl font-bold transition-all">
                                     <UserPlus className="w-4 h-4 mr-2" /> Quick Invite
                                 </Button>
                                 <Button onClick={handleAdd} className="flex-1 sm:flex-none h-11 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 transition-all">
-                                    <Plus className="w-4 h-4 mr-2" /> New Registration
+                                    <Plus className="w-4 h-4 mr-2" /> Add New Contractor
                                 </Button>
                             </div>
                         </div>
@@ -201,7 +201,7 @@ export default function ContractorsPage() {
                         <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto">
                                 {[
-                                    { id: 'ALL', label: 'All Entities' },
+                                    { id: 'ALL', label: 'Show All' },
                                     { id: 'PENDING_DOCS', label: 'Review Required' },
                                     { id: 'PENDING_AUTH', label: 'Auth Required' }
                                 ].map((tab) => (
@@ -220,7 +220,7 @@ export default function ContractorsPage() {
                             <div className="relative w-full md:w-96 group">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                 <Input
-                                    placeholder="Scan by identity or reg sequence..."
+                                    placeholder="Search by name or code..."
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                     className="h-11 pl-11 bg-slate-50 border-none focus-visible:ring-2 focus-visible:ring-blue-100 rounded-xl font-medium"
@@ -233,12 +233,12 @@ export default function ContractorsPage() {
                             {loadingContractors ? (
                                 <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-4">
                                     <div className="h-10 w-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-                                    <p className="text-xs font-black uppercase tracking-widest animate-pulse">Synchronizing Registry...</p>
+                                    <p className="text-xs font-black uppercase tracking-widest animate-pulse">Loading Contractors...</p>
                                 </div>
                             ) : filteredContractors.length === 0 ? (
                                 <div className="py-20 flex flex-col items-center justify-center bg-white rounded-3xl border border-dashed text-slate-400 border-slate-200">
                                     <Building2 className="w-12 h-12 opacity-10 mb-4" />
-                                    <p className="text-sm font-bold">No matching contractors found in the current buffer.</p>
+                                    <p className="text-sm font-bold">No contractors found matching your search.</p>
                                 </div>
                             ) : filteredContractors.map((contractor: Contractor) => (
                                 <Card key={contractor.id} className="group border-none shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 rounded-3xl overflow-hidden bg-white">
@@ -260,7 +260,7 @@ export default function ContractorsPage() {
                                                                 {contractor.status}
                                                             </Badge>
                                                         </div>
-                                                        <p className="text-xs font-mono text-slate-400 mt-1">{contractor.registrationNumber || 'NO-SEQUENCE'}</p>
+                                                        <p className="text-xs font-mono text-slate-400 mt-1">{contractor.registrationNumber || 'NO CODE'}</p>
                                                     </div>
                                                 </div>
 
@@ -268,14 +268,14 @@ export default function ContractorsPage() {
                                                     <div className="flex items-center gap-2 group/meta">
                                                         <div className="h-7 w-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100"><Users className="w-3.5 h-3.5" /></div>
                                                         <div>
-                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">Technician clusters</p>
-                                                            <p className="text-xs font-bold text-slate-700">{contractor._count?.teams || 0} Functional Groups</p>
+                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">Technician Teams</p>
+                                                            <p className="text-xs font-bold text-slate-700">{contractor._count?.teams || 0} Active Teams</p>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 group/meta">
                                                         <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100"><Building2 className="w-3.5 h-3.5" /></div>
                                                         <div>
-                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">RTOM Jurisdiction</p>
+                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">RTOM Region</p>
                                                             <p className="text-xs font-bold text-slate-700">{contractor.opmc?.name || 'Central Office'}</p>
                                                         </div>
                                                     </div>
@@ -284,13 +284,13 @@ export default function ContractorsPage() {
 
                                             <div className="lg:w-72 bg-slate-50/50 p-6 flex flex-col justify-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-100">
                                                 <Button size="sm" onClick={() => handleEdit(contractor)} className="w-full bg-white hover:bg-blue-600 hover:text-white text-slate-600 border border-slate-100 shadow-sm rounded-xl h-10 font-bold transition-all">
-                                                    <Pencil className="w-4 h-4 mr-2" /> Edit Records
+                                                    <Pencil className="w-4 h-4 mr-2" /> Edit Details
                                                 </Button>
                                                 <Button size="sm" onClick={() => {
                                                     setSelectedContractorForTeams({ id: contractor.id, name: contractor.name });
                                                     setTeamManagerOpen(true);
                                                 }} className="w-full bg-white hover:bg-slate-900 hover:text-white text-slate-600 border border-slate-100 shadow-sm rounded-xl h-10 font-bold transition-all">
-                                                    <Users className="w-4 h-4 mr-2" /> Logistics
+                                                    <Users className="w-4 h-4 mr-2" /> Manage Teams
                                                 </Button>
                                                 <div className="flex gap-2">
                                                     {contractor.status === 'PENDING' && (
@@ -313,7 +313,7 @@ export default function ContractorsPage() {
                                                     )}
                                                     {isAdmin && (
                                                         <Button size="sm" variant="ghost" onClick={() => {
-                                                            if (confirm("Permanently purge this entity from the registry?")) {
+                                                            if (confirm("Permanently delete this contractor?")) {
                                                                 deleteMutation.mutate(contractor.id);
                                                             }
                                                         }} className="flex-1 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-xl h-10 transition-all">
@@ -354,20 +354,20 @@ export default function ContractorsPage() {
                 <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
                     <DialogContent className="max-w-md rounded-3xl">
                         <DialogHeader>
-                            <DialogTitle className="text-xl font-black text-slate-900">Provision Invite</DialogTitle>
-                            <DialogDescription className="text-xs font-medium text-slate-500">Generate a unique onboarding token for an external entity.</DialogDescription>
+                            <DialogTitle className="text-xl font-black text-slate-900">Send Registration Invite</DialogTitle>
+                            <DialogDescription className="text-xs font-medium text-slate-500">Generate an invite link for a new contractor.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Legal Entity Name</Label>
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contractor / Company Name</Label>
                                 <Input value={inviteData.name} onChange={e => setInviteData({...inviteData, name: e.target.value})} className="h-11 rounded-xl bg-slate-50 border-none" />
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mobile / Primary Contact</Label>
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mobile Number</Label>
                                 <Input value={inviteData.contactNumber} onChange={e => setInviteData({...inviteData, contactNumber: e.target.value})} className="h-11 rounded-xl bg-slate-50 border-none" />
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Onboarding Route</Label>
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Work Category</Label>
                                 <Select value={inviteData.type} onValueChange={(v: 'SOD' | 'OSP') => setInviteData({...inviteData, type: v})}>
                                     <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-none"><SelectValue /></SelectTrigger>
                                     <SelectContent>
@@ -377,9 +377,9 @@ export default function ContractorsPage() {
                                 </Select>
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">RTOM Office</Label>
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Regional RTOM Office</Label>
                                 <Select value={inviteData.opmcId} onValueChange={(v) => setInviteData({...inviteData, opmcId: v})}>
-                                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-none"><SelectValue placeholder="Assign HQ/RTOM" /></SelectTrigger>
+                                    <SelectTrigger className="h-11 rounded-xl bg-slate-50 border-none"><SelectValue placeholder="Select RTOM" /></SelectTrigger>
                                     <SelectContent>
                                         {opmcs.map((o: { id: string; name: string }) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
                                     </SelectContent>
@@ -387,7 +387,7 @@ export default function ContractorsPage() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button onClick={handleInviteSubmit} className="w-full bg-slate-900 hover:bg-slate-800 text-white h-12 rounded-xl font-black uppercase text-xs tracking-widest">Generate Onboarding Link</Button>
+                            <Button onClick={handleInviteSubmit} className="w-full bg-slate-900 hover:bg-slate-800 text-white h-12 rounded-xl font-black uppercase text-xs tracking-widest">Generate Invite Link</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
@@ -396,14 +396,14 @@ export default function ContractorsPage() {
                 <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
                     <DialogContent className="max-w-md rounded-3xl">
                         <DialogHeader>
-                            <DialogTitle className="text-xl font-black text-emerald-900">Invite Ready</DialogTitle>
-                            <DialogDescription className="text-xs font-medium text-emerald-600">Secure onboarding token has been generated.</DialogDescription>
+                            <DialogTitle className="text-xl font-black text-emerald-900">Invite Link Ready</DialogTitle>
+                            <DialogDescription className="text-xs font-medium text-emerald-600">The registration link has been created.</DialogDescription>
                         </DialogHeader>
                         <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex flex-col items-center gap-4 text-center">
                             <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-emerald-600 shadow-sm shadow-emerald-200"><Mail className="w-6 h-6" /></div>
                             <div className="space-y-1">
                                 <p className="text-xs font-bold text-emerald-800 truncate max-w-[300px]">{shareLink}</p>
-                                <p className="text-[10px] text-emerald-500">Token expires in 7 days</p>
+                                <p className="text-[10px] text-emerald-500">Link expires in 7 days</p>
                             </div>
                             <div className="flex gap-2 w-full">
                                 <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-10 rounded-xl font-bold" onClick={() => {

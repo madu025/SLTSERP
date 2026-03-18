@@ -66,6 +66,7 @@ export function ContractorFormDialog({
     });
 
     useEffect(() => {
+        if (!open) return; // Only run when dialog opens
         if (initialData) {
             form.reset({
                 ...initialData,
@@ -83,9 +84,10 @@ export function ContractorFormDialog({
             });
         } else {
             form.reset();
-            if (step !== 1) setTimeout(() => setStep(1), 0);
+            setStep(1);
         }
-    }, [initialData, form, open, step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     useEffect(() => {
         if (initialData?.bankBranch && branchSearch !== initialData.bankBranch) {
@@ -257,7 +259,7 @@ export function ContractorFormDialog({
                                     )} />
 
                                     <FormField control={form.control} name="bankAccountNumber" render={({ field }) => (
-                                        <FormItem className="col-span-2"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Account sequence</FormLabel><FormControl><Input {...field} value={field.value || ""} className="h-11 font-mono tracking-widest" /></FormControl></FormItem>
+                                        <FormItem className="col-span-2"><FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bank Account Number</FormLabel><FormControl><Input {...field} value={field.value || ""} className="h-11 font-mono tracking-widest" /></FormControl></FormItem>
                                     )} />
                                 </div>
                             </div>
@@ -280,8 +282,8 @@ export function ContractorFormDialog({
                                     <div className="flex items-center gap-3">
                                         <Users className="w-5 h-5 text-blue-400" />
                                         <div>
-                                            <p className="text-xs font-black uppercase tracking-widest">Technician Clusters</p>
-                                            <p className="text-[10px] text-slate-400">Assigned teams: {watchedValues.teams?.length || 0}</p>
+                                            <p className="text-xs font-black uppercase tracking-widest">Technician Teams</p>
+                                            <p className="text-[10px] text-slate-400">Teams registered: {watchedValues.teams?.length || 0}</p>
                                         </div>
                                     </div>
                                     <Button type="button" size="sm" className="bg-blue-600 hover:bg-blue-700 h-8" onClick={() => {
@@ -329,19 +331,19 @@ export function ContractorFormDialog({
                                     <CheckCircle2 className="w-8 h-8" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Review & Authenticate</h3>
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Review & Confirm</h3>
                                     <p className="text-xs text-slate-500 mt-2 max-w-sm mx-auto leading-relaxed">
-                                        Verify all credentials and jurisdictional assignments. Finalizing this will trigger state synchronization across the production environment.
+                                        Please review the details below. Click &quot;Confirm &amp; Save&quot; to complete the registration.
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 px-10">
                                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Legal Identity</p>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Contractor Name</p>
                                         <p className="text-sm font-bold text-slate-800 mt-1 truncate">{watchedValues.name}</p>
                                     </div>
                                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Jurisdiction</p>
-                                        <p className="text-sm font-bold text-slate-800 mt-1">{watchedValues.type}</p>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Work Category</p>
+                                        <p className="text-sm font-bold text-slate-800 mt-1">{watchedValues.type === 'SOD' ? 'Service Orders' : 'Network Projects (OSP)'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -362,8 +364,7 @@ export function ContractorFormDialog({
                                         // Step validation before moving next
                                         let fields: (keyof ContractorSchema)[] = [];
                                         if (step === 1) fields = ['name', 'nic', 'contactNumber', 'type'];
-                                        if (step === 2) fields = ['bankAccountNumber'];
-                                        if (step === 3) fields = ['nicFrontUrl', 'nicBackUrl', 'photoUrl', 'registrationFeeSlipUrl'];
+                                        // Steps 2 & 3 are optional — allow free navigation
                                         
                                         const isValid = fields.length > 0 ? await form.trigger(fields) : true;
                                         if (isValid) {
@@ -373,7 +374,7 @@ export function ContractorFormDialog({
                                                 setStep(prev => prev + 1);
                                             }
                                         } else {
-                                            toast.error("Please fill all required details for this step.");
+                                            toast.error("Please complete all required fields before continuing.");
                                         }
                                     }}
                                 >

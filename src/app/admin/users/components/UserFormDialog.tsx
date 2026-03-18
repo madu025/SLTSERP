@@ -29,15 +29,35 @@ const userSchema = z.object({
 
 export type UserFormValues = z.infer<typeof userSchema>;
 
+interface UserProp {
+    id?: string;
+    name?: string;
+    username?: string;
+    role: string;
+    accessibleOpmcs?: { id: string }[];
+}
+
+interface OpmcProp {
+    id: string;
+    name: string;
+    rtom?: string;
+    storeId?: string;
+}
+
+interface StoreProp {
+    id: string;
+    name: string;
+}
+
 interface UserFormDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSubmit: (values: UserFormValues) => void;
     initialData?: UserFormValues & { id?: string };
     isSubmitting: boolean;
-    users: any[];
-    opmcs: any[];
-    stores: any[];
+    users: UserProp[];
+    opmcs: OpmcProp[];
+    stores: StoreProp[];
 }
 
 export function UserFormDialog({
@@ -64,22 +84,21 @@ export function UserFormDialog({
     const watchedOpmcIds = useWatch({ control: form.control, name: 'opmcIds' });
     const watchedRole = useWatch({ control: form.control, name: 'role' });
 
-    // Sync section from role when initialData changes
+    // Sync form and section when dialog opens/closes
     useEffect(() => {
-        if (open) {
-            if (initialData) {
-                form.reset(initialData);
-                const section = Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
-                setSelectedSection(section);
-            } else {
-                form.reset({
-                    username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
-                });
-                setSelectedSection(null);
-            }
-            setStep(1);
+        if (!open) return;
+        if (initialData) {
+            form.reset(initialData);
+            const section = Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
+            setTimeout(() => setSelectedSection(section), 0);
+        } else {
+            form.reset({
+                username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
+            });
+            setTimeout(() => { setSelectedSection(null); setStep(1); }, 0);
         }
-    }, [open, initialData, form]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     // --- AUTO-SUPERVISOR LOGIC ---
     useEffect(() => {
@@ -157,9 +176,9 @@ export function UserFormDialog({
                         <User className="w-32 h-32" />
                     </div>
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold">{initialData?.id ? 'Update Profile' : 'Assign New User'}</DialogTitle>
+                        <DialogTitle className="text-xl font-bold">{initialData?.id ? 'Edit User Details' : 'Add New User'}</DialogTitle>
                         <DialogDescription className="text-slate-400 text-xs">
-                            Step {step} of 3: {step === 1 ? 'Personal Identity' : step === 2 ? 'Professional Access' : 'Supervision & Stocks'}
+                            Step {step} of 3: {step === 1 ? 'Personal Details' : step === 2 ? 'Account Role' : 'Assignments'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -194,8 +213,8 @@ export function UserFormDialog({
                                         )} />
                                         <FormField control={form.control} name="employeeId" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Staff ID</FormLabel>
-                                                <FormControl><Input placeholder="E12345" className="h-10 text-sm" {...field} /></FormControl>
+                                                <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Employee ID (Staff ID)</FormLabel>
+                                                <FormControl><Input placeholder="e.g. 12345" className="h-10 text-sm" {...field} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
@@ -203,15 +222,15 @@ export function UserFormDialog({
 
                                     <FormField control={form.control} name="email" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Corporate Email</FormLabel>
-                                            <FormControl><Input type="email" placeholder="prasad@slt.lk" className="h-10 text-sm" {...field} /></FormControl>
+                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Email Address</FormLabel>
+                                            <FormControl><Input type="email" placeholder="e.g. name@slt.lk" className="h-10 text-sm" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
 
                                     <FormField control={form.control} name="password" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Access Password {initialData?.id && '(Leave blank to skip)'}</FormLabel>
+                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Password {initialData?.id && '(Leave blank to keep current)'}</FormLabel>
                                             <FormControl><Input type="password" placeholder="••••••••" className="h-10 text-sm" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -222,7 +241,7 @@ export function UserFormDialog({
                             {step === 2 && (
                                 <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
                                     <div className="space-y-2">
-                                        <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Department / Section</FormLabel>
+                                        <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Department</FormLabel>
                                         <Select onValueChange={(val) => {
                                             setSelectedSection(val);
                                             form.setValue('role', ''); 
@@ -242,7 +261,7 @@ export function UserFormDialog({
 
                                     <FormField control={form.control} name="role" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Specific Role</FormLabel>
+                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">System Role</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSection}>
                                                 <FormControl>
                                                     <SelectTrigger className="h-10 text-sm">
@@ -262,7 +281,7 @@ export function UserFormDialog({
                                     <FormField control={form.control} name="opmcIds" render={({ field }) => (
                                         <FormItem>
                                             <div className="flex justify-between items-center mb-1">
-                                                <FormLabel className="text-[11px] font-bold uppercase text-slate-500">RTOM Jurisdictions</FormLabel>
+                                                <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Assigned Regions (RTOM)</FormLabel>
                                                 <Button type="button" variant="link" className="h-auto p-0 text-[10px]" onClick={() => {
                                                     if (field.value.length === opmcs.length) field.onChange([]);
                                                     else field.onChange(opmcs.map(o => o.id));
@@ -300,7 +319,7 @@ export function UserFormDialog({
                                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                                     <FormField control={form.control} name="supervisorId" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Operations Supervisor</FormLabel>
+                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Direct Supervisor</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value || 'none'}>
                                                 <FormControl>
                                                     <SelectTrigger className="h-10 text-sm">
@@ -323,7 +342,7 @@ export function UserFormDialog({
 
                                     <FormField control={form.control} name="assignedStoreId" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Primary Inventory Store</FormLabel>
+                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Primary Store</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value || 'none'}>
                                                 <FormControl>
                                                     <SelectTrigger className="h-10 text-sm">
@@ -362,11 +381,11 @@ export function UserFormDialog({
 
                                 {step < 3 ? (
                                     <Button type="button" onClick={handleNext} className="bg-blue-600 px-10 shadow-lg shadow-blue-100">
-                                        Next Step <ChevronRight className="w-4 h-4 ml-1" />
+                                        Continue <ChevronRight className="w-4 h-4 ml-1" />
                                     </Button>
                                 ) : (
                                     <Button type="submit" disabled={isSubmitting} className="bg-green-600 px-10 shadow-lg shadow-green-100">
-                                        {isSubmitting ? 'Processing...' : initialData?.id ? 'Update Profile' : 'Confirm Registration'}
+                                        {isSubmitting ? 'Saving...' : initialData?.id ? 'Save Details' : 'Create User'}
                                     </Button>
                                 )}
                             </div>

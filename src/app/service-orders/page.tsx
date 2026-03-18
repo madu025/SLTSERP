@@ -150,7 +150,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     <Layers className="w-5 h-5 text-blue-600" />
                                     <h1 className="text-xl font-bold text-slate-900 tracking-tight">{pageTitle}</h1>
                                 </div>
-                                <p className="text-[10px] uppercase tracking-widest font-black text-slate-400 mt-0.5">SLTS Operational Control Center</p>
+                                <p className="text-[10px] uppercase tracking-widest font-black text-slate-400 mt-0.5">Service Order Management</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button
@@ -161,7 +161,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     disabled={!selectedRtomId || syncMutation.isPending}
                                 >
                                     <RefreshCw className={`w-3.5 h-3.5 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                                    Portal Sync
+                                    Update from Portal
                                 </Button>
                                 {filterType === 'pending' && <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 shadow-sm" onClick={() => setShowManualModal(true)} disabled={!selectedRtomId}><Plus className="w-3.5 h-3.5 mr-2" /> Manual Entry</Button>}
                                 {filterType === 'pending' && <Button variant="outline" size="sm" className="h-8 border-emerald-200 text-emerald-700 hover:bg-emerald-50 shadow-sm" onClick={() => setShowExcelModal(true)}><FileSpreadsheet className="w-3.5 h-3.5 mr-2" /> Excel Import</Button>}
@@ -188,10 +188,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                  <Select value={statusFilter} onValueChange={setStatusFilter}>
                                      <SelectTrigger className="h-10 w-[160px] border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                                      <SelectContent>
-                                         <SelectItem value="DEFAULT">Smart Filtering</SelectItem>
-                                         <SelectItem value="ALL">Total View</SelectItem>
+                                         <SelectItem value="DEFAULT">Filter by Status</SelectItem>
+                                         <SelectItem value="ALL">Show All</SelectItem>
                                          <SelectItem value="INPROGRESS">In Progress</SelectItem>
-                                         <SelectItem value="RETURN" className="text-rose-600">Problematic</SelectItem>
+                                         <SelectItem value="RETURN" className="text-rose-600">Returned/Issues</SelectItem>
                                      </SelectContent>
                                  </Select>
                              </div>
@@ -202,9 +202,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                         {/* Bulk Action Overlay */}
                         {selectedIds.size > 0 && (
                             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
-                                <span className="text-xs font-bold border-r border-slate-700 pr-4">{selectedIds.size} Orders Selected</span>
+                                <span className="text-xs font-bold border-r border-slate-700 pr-4">{selectedIds.size} Items Selected</span>
                                 <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase hover:bg-slate-800 text-white" onClick={() => handleBulkAction('ASSIGN')}>Assign Contractor</Button>
+                                    <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase hover:bg-slate-800 text-white" onClick={() => handleBulkAction('ASSIGN')}>Assign Team</Button>
                                     <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase hover:bg-slate-800 text-emerald-400" onClick={() => handleBulkAction('COMPLETE')}>Bulk Complete</Button>
                                     <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase hover:bg-slate-800 text-rose-400" onClick={() => handleBulkAction('DELETE')}>Remove</Button>
                                     <button onClick={() => toggleAll()} className="ml-2 p-1 hover:bg-slate-800 rounded"><Activity className="w-4 h-4" /></button>
@@ -217,7 +217,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 <div className="flex items-center justify-center h-full p-20 text-slate-400">
                                     <div className="text-center">
                                         <RefreshCw className="w-10 h-10 animate-spin mx-auto mb-4 opacity-20 text-blue-600" />
-                                        <p className="font-bold text-xs uppercase tracking-widest animate-pulse">Refining Workcenter Data...</p>
+                                        <p className="font-bold text-xs uppercase tracking-widest animate-pulse">Loading Service Orders...</p>
                                     </div>
                                 </div>
                             ) : (
@@ -228,10 +228,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                 <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-slate-300 data-[state=checked]:bg-blue-600" />
                                             </th>
                                             {isColumnVisible('soNum') && <th className="px-3 py-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => requestSort('soNum')}>
-                                                <div className="flex items-center gap-1.5">SO Identity <ChevronDown className="w-3 h-3 text-slate-300" /></div>
+                                                <div className="flex items-center gap-1.5">Service Order No. <ChevronDown className="w-3 h-3 text-slate-300" /></div>
                                             </th>}
-                                            {isColumnVisible('status') && <th className="px-3 py-4">State</th>}
-                                            <th className="px-3 py-4 text-right pr-6">Management</th>
+                                            {isColumnVisible('status') && <th className="px-3 py-4">Status</th>}
+                                            <th className="px-3 py-4 text-right pr-6">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -252,7 +252,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                         <SelectContent>
                                                             <SelectItem value="PENDING">Pending</SelectItem>
                                                             <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                                                            <SelectItem value="INPROGRESS">Processing</SelectItem>
+                                                            <SelectItem value="INPROGRESS">In Progress</SelectItem>
                                                             <SelectItem value="COMPLETED" className="text-emerald-600">Completed</SelectItem>
                                                         </SelectContent>
                                                     </Select>
