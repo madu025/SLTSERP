@@ -285,7 +285,7 @@ export function FileUploadField({
                                 autoPlay 
                                 playsInline 
                                 muted
-                                className="absolute w-full h-full object-cover scale-x-[-1]"
+                                className="absolute w-full h-full object-cover"
                             />
                             
                             {/* Scanning Overlay */}
