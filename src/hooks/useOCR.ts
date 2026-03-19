@@ -15,19 +15,34 @@ export function useOCR() {
       const worker = await createWorker("eng");
       const { data: { text } } = await worker.recognize(imageUrl);
       
-      console.log(`[OCR-SCAN] Result for ${fieldName}:`, text);
+      // Clean text from common OCR noise and normalize
+      const cleanText = text.replace(/[|[\](){}]/g, '').replace(/\s+/g, ' ');
+      console.log(`[OCR-CLEAN] Result for ${fieldName}:`, cleanText);
       
-      // Basic extraction pattern for NIC or specific fields
       let extractedValue = "";
       
-      if (fieldName.toLowerCase().includes('nic')) {
+      if (fieldName.toLowerCase().includes('nic') || fieldName.toLowerCase().includes('identity')) {
+        // For NICs, handle common character misreads (I/l/| -> 1, O -> 0)
+        const nicFriendlyText = cleanText
+          .replace(/\|/g, '1')
+          .replace(/[Il]/g, '1')
+          .replace(/[O]/g, '0');
+
         // Match Sri Lankan NIC patterns (old: 9 digits + V/X, new: 12 digits)
-        const oldNicMatch = text.match(/\b\d{9}[vVxX]\b/);
-        const newNicMatch = text.match(/\b\d{12}\b/);
-        extractedValue = oldNicMatch ? oldNicMatch[0] : (newNicMatch ? newNicMatch[0].toUpperCase() : "");
+        const oldNicMatch = nicFriendlyText.match(/(\d{9})\s*([vVxX])(?!\d)/);
+        
+        // New Strategy: Aggressive digit extraction for 12-digit format
+        const onlyDigits = nicFriendlyText.replace(/\D/g, '');
+        const newNicMatch = onlyDigits.match(/\d{12}/);
+        
+        if (oldNicMatch) {
+          extractedValue = (oldNicMatch[1] + oldNicMatch[2]).toUpperCase();
+        } else if (newNicMatch) {
+          extractedValue = newNicMatch[0];
+        }
       } else if (fieldName.toLowerCase().includes('account') || fieldName.toLowerCase().includes('bank')) {
         // Match standard bank account number patterns (8-16 digits)
-        const accMatch = text.match(/\b\d{8,16}\b/);
+        const accMatch = cleanText.match(/\b\d{8,16}\b/);
         extractedValue = accMatch ? accMatch[0] : "";
       }
       

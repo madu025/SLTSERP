@@ -4,9 +4,12 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { ImageIcon, FileText, Upload, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { ImageIcon, FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface FileUploadFieldProps {
     label: string;
@@ -34,13 +37,66 @@ export function FileUploadField({
     required = false
 }: FileUploadFieldProps) {
     const inputId = `file-${fieldName}`;
+    const [isCameraOpen, setIsCameraOpen] = React.useState(false);
+    const [cameraStream, setCameraStream] = React.useState<MediaStream | null>(null);
+    const videoRef = React.useRef<HTMLVideoElement>(null);
+    const [isCapturing, setIsCapturing] = React.useState(false);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            const uploadedUrl = await onUpload(e.target.files[0], fieldName);
-            if (uploadedUrl && onScan) {
-                await onScan(uploadedUrl);
-            }
+            await uploadFile(e.target.files[0]);
+        }
+    };
+
+    const uploadFile = async (file: File) => {
+        const uploadedUrl = await onUpload(file, fieldName);
+        if (uploadedUrl && onScan) {
+            await onScan(uploadedUrl);
+        }
+    };
+
+    const startCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } 
+            });
+            setCameraStream(stream);
+            setIsCameraOpen(true);
+            if (videoRef.current) videoRef.current.srcObject = stream;
+        } catch (err) {
+            console.error("Camera error:", err);
+            toast.error("Could not access camera. Please check permissions.");
+        }
+    };
+
+    const stopCamera = () => {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+            setCameraStream(null);
+        }
+        setIsCameraOpen(false);
+    };
+
+    const capturePhoto = async () => {
+        if (!videoRef.current) return;
+        setIsCapturing(true);
+
+        const video = videoRef.current;
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            ctx.drawImage(video, 0, 0);
+            canvas.toBlob(async (blob) => {
+                if (blob) {
+                    const file = new File([blob], `capture-${fieldName}.jpg`, { type: "image/jpeg" });
+                    await uploadFile(file);
+                    stopCamera();
+                }
+                setIsCapturing(false);
+            }, "image/jpeg", 0.9);
         }
     };
 
@@ -54,12 +110,23 @@ export function FileUploadField({
                     {description && <p className="text-xs text-slate-500">{description}</p>}
                 </div>
                 
-                {value && (
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 animate-in fade-in zoom-in duration-300">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Verified</span>
-                    </div>
-                )}
+                <div className="flex items-center gap-2">
+                    {!value && (
+                        <button 
+                            type="button" 
+                            onClick={startCamera} 
+                            className="p-1 px-2.5 bg-slate-100 hover:bg-blue-100 hover:text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-all flex items-center gap-1.5"
+                        >
+                            <Camera className="w-3 h-3" /> Live Capture
+                        </button>
+                    )}
+                    {value && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 animate-in fade-in zoom-in duration-300">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Verified</span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="relative group">
@@ -126,6 +193,84 @@ export function FileUploadField({
                     )}
                 </Label>
             </div>
+
+            <Dialog open={isCameraOpen} onOpenChange={(open) => !open && stopCamera()}>
+                <DialogContent className="max-w-2xl p-0 overflow-hidden bg-black rounded-3xl border-none shadow-2xl">
+                    <div className="relative aspect-[4/3] w-full bg-slate-900 group">
+                        <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            className="w-full h-full object-cover"
+                        />
+                        
+                        {/* Binance style Overlay */}
+                        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                            <div className="w-[85%] h-[60%] border-2 border-white/50 rounded-2xl relative">
+                                {/* Corners */}
+                                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg" />
+                                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg" />
+                                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 -mb-1 -ml-1 rounded-bl-lg" />
+                                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 -mb-1 -mr-1 rounded-br-lg" />
+                                
+                                <div className="absolute inset-0 bg-blue-500/5 animate-pulse flex items-center justify-center">
+                                    <ShieldCheck className="w-12 h-12 text-white/20" />
+                                </div>
+                            </div>
+                            <div className="mt-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                                <p className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    Align Document within Frame
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Camera Controls */}
+                        <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-6">
+                            <div className="flex items-center gap-6">
+                                <Button 
+                                    onClick={stopCamera} 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20"
+                                >
+                                    <X className="w-6 h-6" />
+                                </Button>
+                                
+                                <button 
+                                    onClick={capturePhoto}
+                                    disabled={isCapturing}
+                                    className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center group active:scale-95 transition-all bg-white/10"
+                                >
+                                    <div className={cn(
+                                        "w-16 h-16 rounded-full bg-white transition-all group-hover:scale-110",
+                                        isCapturing ? "animate-ping" : ""
+                                    )} />
+                                </button>
+
+                                <Button 
+                                    onClick={startCamera} 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20"
+                                >
+                                    <RefreshCw className="w-6 h-6" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="absolute top-4 right-4">
+                            <DialogClose className="p-2 bg-white/10 text-white rounded-full hover:bg-white/20">
+                                <X className="w-5 h-5" />
+                            </DialogClose>
+                        </div>
+                    </div>
+                    
+                    <div className="p-4 bg-slate-950 text-center border-t border-white/10">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Secure Artificial Intelligence Capture</p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
