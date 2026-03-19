@@ -25,7 +25,6 @@ interface ContractorFormDialogProps {
     isSubmitting: boolean;
     banks: { id: string; name: string }[];
     branches: { id: string; name: string }[];
-    stores: { id: string; name: string }[];
 }
 
 export function ContractorFormDialog({
@@ -35,8 +34,7 @@ export function ContractorFormDialog({
     onSubmit,
     isSubmitting,
     banks,
-    branches,
-    stores
+    branches
 }: ContractorFormDialogProps) {
     const [step, setStep] = useState(1);
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
@@ -164,14 +162,14 @@ export function ContractorFormDialog({
                         )}
 
                         {step === 2 && (
-                             <Step3BankInfo banks={banks} branches={branches} onUpload={handleUpload} uploadProgress={uploadProgress} />
+                             <Step3BankInfo staticData={{ banks, branches }} handleUpload={handleUpload} uploadProgress={uploadProgress} />
                         )}
 
                         {step === 3 && (
-                            <Step2IdentityDocs onUpload={handleUpload} uploadProgress={uploadProgress} />
+                            <Step2IdentityDocs handleUpload={handleUpload} uploadProgress={uploadProgress} />
                         )}
 
-                        {step === 4 && <Step4TeamSelection stores={stores} opmcs={[]} />}
+                        {step === 4 && <Step4TeamSelection staticData={{ opmcs: [] }} />}
 
                         {step === 5 && (
                             <div className="space-y-8 animate-in fade-in zoom-in duration-500 text-center py-6">

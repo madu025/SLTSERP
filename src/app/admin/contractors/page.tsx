@@ -74,10 +74,7 @@ export default function ContractorsPage() {
         return Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
     }, [contractorsData]);
 
-    const { data: stores = [] } = useQuery<{ id: string; name: string }[]>({
-        queryKey: ['stores'],
-        queryFn: () => fetch('/api/stores').then(res => res.json())
-    });
+
 
     const { data: opmcs = [] } = useQuery<{ id: string; name: string }[]>({
         queryKey: ['opmcs'],
@@ -357,7 +354,6 @@ export default function ContractorsPage() {
                     isSubmitting={createMutation.isPending || updateMutation.isPending}
                     banks={banks}
                     branches={branches}
-                    stores={stores}
                 />
 
                 <TeamManager 
