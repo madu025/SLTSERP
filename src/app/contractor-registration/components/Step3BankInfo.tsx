@@ -134,6 +134,7 @@ export function Step3BankInfo({ banks, branches, onUpload, uploadProgress }: Ste
                         onUpload={onUpload}
                         progress={uploadProgress.registrationFeeSlipUrl}
                         required
+                        allowCamera={false}
                     />
                 </div>
 

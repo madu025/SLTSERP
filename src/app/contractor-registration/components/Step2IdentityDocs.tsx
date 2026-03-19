@@ -87,6 +87,7 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                     onUpload={onUpload}
                     progress={uploadProgress.photoUrl}
                     required
+                    allowCamera={false}
                 />
 
                 <FileUploadField
@@ -96,6 +97,7 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                     value={watch("brCertUrl")}
                     onUpload={onUpload}
                     progress={uploadProgress.brCertUrl}
+                    allowCamera={false}
                 />
             </div>
 
@@ -108,6 +110,7 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                     onUpload={onUpload}
                     progress={uploadProgress.policeReportUrl}
                     required
+                    allowCamera={false}
                 />
 
                 <FileUploadField
@@ -118,6 +121,7 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                     onUpload={onUpload}
                     progress={uploadProgress.gramaCertUrl}
                     required
+                    allowCamera={false}
                 />
             </div>
 

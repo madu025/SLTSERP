@@ -22,6 +22,7 @@ interface FileUploadFieldProps {
     isScanning?: boolean;
     onScan?: (url: string) => Promise<void>;
     required?: boolean;
+    allowCamera?: boolean;
 }
 
 export function FileUploadField({
@@ -34,7 +35,8 @@ export function FileUploadField({
     accept = "image/*,application/pdf",
     isScanning,
     onScan,
-    required = false
+    required = false,
+    allowCamera = true
 }: FileUploadFieldProps) {
     const inputId = `file-${fieldName}`;
     const [isCameraOpen, setIsCameraOpen] = React.useState(false);
@@ -138,24 +140,70 @@ export function FileUploadField({
         if (!videoRef.current) return;
         setIsCapturing(true);
 
-        const video = videoRef.current;
-        const canvas = document.createElement("canvas");
-        
-        // Use full resolution of video stream
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-            ctx.drawImage(video, 0, 0);
-            canvas.toBlob(async (blob) => {
-                if (blob) {
-                    const file = new File([blob], `capture-${fieldName}-${Date.now()}.jpg`, { type: "image/jpeg" });
-                    const success = await uploadCapturedPhoto(file);
-                    if (success) stopCamera();
-                }
-                setIsCapturing(false);
-            }, "image/jpeg", 0.95);
+        try {
+            const video = videoRef.current;
+            const canvas = document.createElement("canvas");
+            
+            // Native Dimensions
+            const vWidth = video.videoWidth;
+            const vHeight = video.videoHeight;
+            
+            // UI Overlay Frame Logic (CROP)
+            const frameAspect = isVertical ? (1 / 1.5) : (1.58 / 1);
+            
+            const streamAspect = vWidth / vHeight;
+            const containerAspect = video.clientWidth / video.clientHeight;
+            
+            let visibleWidth = vWidth;
+            let visibleHeight = vHeight;
+            let startX = 0;
+            let startY = 0;
+
+            if (streamAspect > containerAspect) {
+                visibleWidth = vHeight * containerAspect;
+                startX = (vWidth - visibleWidth) / 2;
+            } else {
+                visibleHeight = vWidth / containerAspect;
+                startY = (vHeight - visibleHeight) / 2;
+            }
+
+            // Calculations based on the 85-95% UI Frame width
+            const cropScale = 0.8; // Approximate frame size in view
+            const cropWidth = visibleWidth * cropScale;
+            const cropHeight = cropWidth / frameAspect;
+            const cropX = startX + (visibleWidth - cropWidth) / 2;
+            const cropY = startY + (visibleHeight - cropHeight) / 2;
+
+            // Output Target (Hi-Res)
+            canvas.width = 1200;
+            canvas.height = canvas.width / frameAspect;
+            
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(
+                    video, 
+                    cropX, cropY, cropWidth, cropHeight, // SOURCE
+                    0, 0, canvas.width, canvas.height    // TARGET
+                );
+                
+                canvas.toBlob(async (blob) => {
+                    if (blob) {
+                        const file = new File([blob], `capture-${fieldName}-${Date.now()}.jpg`, { type: "image/jpeg" });
+                        const success = await uploadCapturedPhoto(file);
+                        if (success) {
+                            stopCamera();
+                            setIsCameraOpen(false);
+                        }
+                    }
+                    setIsCapturing(false);
+                }, "image/jpeg", 0.95);
+            }
+        } catch (err) {
+            console.error("Capture error:", err);
+            toast.error("Failed to capture photo");
+            setIsCapturing(false);
         }
     };
 
@@ -170,7 +218,7 @@ export function FileUploadField({
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    {!isScanning && (
+                    {allowCamera && !isScanning && (
                         <button 
                             type="button" 
                             onClick={startCamera} 
