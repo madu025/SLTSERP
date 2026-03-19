@@ -170,7 +170,7 @@ export function FileUploadField({
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    {!value && (
+                    {!value && !isScanning && (
                         <button 
                             type="button" 
                             onClick={startCamera} 
@@ -180,9 +180,19 @@ export function FileUploadField({
                         </button>
                     )}
                     {value && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 animate-in fade-in zoom-in duration-300">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Verified</span>
+                        <div className="flex items-center gap-2">
+                            <a 
+                                href={value} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-bold text-blue-600 hover:underline uppercase bg-blue-50 px-2 py-1 rounded"
+                            >
+                                View File
+                            </a>
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 animate-in fade-in zoom-in duration-300">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Ready</span>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -207,21 +217,23 @@ export function FileUploadField({
                     )}
                 >
                     {value ? (
-                        <div className="relative w-full h-full flex flex-col items-center justify-center p-2 min-h-[140px]">
-                            {value.includes('data:image') || value.match(/\.(jpg|jpeg|png|webp|gif|svg)/i) || !value.includes('.pdf') ? (
-                                <div className="relative w-full h-[120px] rounded-lg overflow-hidden border shadow-sm group-hover:opacity-50 transition-opacity bg-slate-100">
+                        <div className="relative w-full min-h-[160px] flex flex-col items-center justify-center p-3 bg-slate-100/50 rounded-xl overflow-hidden border-2 border-green-200">
+                            {/* Broad image matching including CloudFront URLs and Base64 */}
+                            {value.match(/\.(jpg|jpeg|png|webp|gif|svg|avif)/i) || value.includes('amazonaws.com') || value.includes('cloudfront.net') || value.includes('data:image') ? (
+                                <div className="relative w-full h-[140px] rounded-lg overflow-hidden border border-white/50 shadow-md group-hover:opacity-40 transition-opacity bg-white">
                                     <Image 
                                         src={value} 
                                         alt={label} 
                                         fill 
-                                        className="object-contain p-1" 
+                                        className="object-contain" 
                                         unoptimized 
+                                        priority
                                     />
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center gap-2 py-6 text-blue-600">
-                                    <FileText className="w-10 h-10" />
-                                    <span className="text-xs font-semibold">Document Attached</span>
+                                <div className="flex flex-col items-center gap-2 py-8 text-blue-600">
+                                    <FileText className="w-12 h-12 opacity-80" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest bg-blue-100 px-3 py-1 rounded-full">PDF Attached</span>
                                 </div>
                             )}
                             
