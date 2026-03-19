@@ -29,19 +29,24 @@ export async function POST(request: NextRequest) {
         const ext = path.extname(file.name) || '.jpg';
         const filename = `${timestamp}-${randomString}${ext}`;
 
-        // Resolve absolute path to public/uploads/contractors
-        const publicDir = path.join(process.cwd(), "public");
-        const uploadDir = path.join(publicDir, "uploads", "contractors");
+        // Resolve path to public/uploads/contractors
+        // In some environments process.cwd() might differ, we try to find the project root
+        const rootDir = process.cwd();
+        const uploadDir = path.join(rootDir, "public", "uploads", "contractors");
 
         console.log("[UPLOAD-API] Target directory:", uploadDir);
 
-        // Ensure directory exists
-        if (!existsSync(uploadDir)) {
-            console.log("[UPLOAD-API] Directory does not exist, creating...");
-            await mkdir(uploadDir, { recursive: true });
-            console.log("[UPLOAD-API] Directory created successfully");
-        } else {
-            console.log("[UPLOAD-API] Directory already exists");
+        // Ensure directory exists with better error handling
+        try {
+            if (!existsSync(uploadDir)) {
+                console.log("[UPLOAD-API] Directory does not exist, attempting creation...");
+                await mkdir(uploadDir, { recursive: true });
+                console.log("[UPLOAD-API] Directory structure created successfully");
+            }
+        } catch (dirError: any) {
+            console.error("[UPLOAD-API] Failed to create directory:", dirError.message);
+            // We don't throw here, we'll try to write anyway in case it was a race condition 
+            // where folder exists but existsSync failed
         }
 
         // Convert file to buffer and save
