@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,18 +36,34 @@ jobs:
       - name: Prepare bundle
         run: |
           mkdir -p deploy
-          # Copy essential files for production
-          cp -r .next deploy/
-          cp -r public deploy/ || true
+
+          # ✅ Next.js standalone output (contains server.js)
+          cp -r .next/standalone/. deploy/
+
+          # ✅ Static assets MUST be inside deploy/.next/static
+          mkdir -p deploy/.next/static
+          cp -r .next/static/. deploy/.next/static/
+
+          # ✅ Public folder for static files
+          cp -r public deploy/
+
+          # ✅ Prisma schema for DB sync inside container
           cp -r prisma deploy/
-          cp package.json deploy/
-          cp package-lock.json deploy/
-          cp next.config.js deploy/ || true
-          cp docker-compose.prod.yml deploy/ || true
+
+          # ✅ DB sync script
+          mkdir -p deploy/scripts
+          cp -r scripts/. deploy/scripts/
+
+          # ✅ Docker production files
+          cp Dockerfile.prod deploy/
+          cp docker-compose.prod.yml deploy/
+          cp docker-entrypoint.sh deploy/
           cp .env deploy/
-          cp -r scripts deploy/ || true
-          # CRITICAL: nginx folder is required by docker-compose.prod.yml
+
+          # ✅ CRITICAL: nginx folder required by docker-compose.prod.yml
           cp -r nginx deploy/
+
+          # Create zip
           cd deploy && zip -r ../deploy.zip .
 
       - name: Copy to Server
@@ -56,7 +72,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deploy.zip,docker-compose.prod.yml,.env"
+          source: "deploy.zip"
           target: "/tmp"
 
       - name: Deploy on Server
@@ -71,14 +87,12 @@ jobs:
             sudo docker compose -f docker-compose.prod.yml down || true
             sudo rm -rf ~/slts-erp/*
             mv /tmp/deploy.zip ~/slts-erp/
-            mv /tmp/docker-compose.prod.yml ~/slts-erp/
-            mv /tmp/.env ~/slts-erp/
-            sudo apt-get install -y unzip
+            sudo apt-get install -y unzip -y
             unzip -o deploy.zip -d .
-            # Start containers first (app container has Node.js + can reach postgres internally)
+            # Start all containers (nginx, app, postgres, redis)
             sudo docker compose -f docker-compose.prod.yml up -d --build
-            # Wait for app container to be healthy then run DB sync inside container
-            echo "⏳ Waiting for app container to start..."
-            sleep 15
-            echo "🔄 Running database sync inside app container..."
-            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || echo "⚠️ DB sync warning"
+            # Wait for app to be ready, then run DB sync inside container
+            echo "⏳ Waiting for app container..."
+            sleep 20
+            echo "🔄 Running DB sync inside app container..."
+            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || echo "⚠️ DB sync skipped"
