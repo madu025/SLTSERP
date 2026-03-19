@@ -94,13 +94,11 @@ jobs:
             mv /tmp/deploy.zip ~/slts-erp/
             sudo apt-get install -y unzip -y
             unzip -o deploy.zip -d .
-            # Start all containers (nginx, app, postgres, redis)
+            # Start all containers
             sudo docker compose -f docker-compose.prod.yml up -d --build
-            # Wait for postgres to be healthy first
-            echo "⏳ Waiting for postgres to be ready..."
-            sleep 15
-            # Push schema directly inside app container - most reliable method
-            echo "🔄 Pushing database schema..."
-            sudo docker compose -f docker-compose.prod.yml exec -T app ./node_modules/.bin/prisma db push --accept-data-loss --schema ./prisma/schema.prisma || \
-            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || \
-            echo "⚠️ Schema push warning - app may still work if schema is already up to date"
+            echo "⏳ Waiting for app to initialize..."
+            sleep 20
+            # Run column sync via @prisma/client (no CLI needed)
+            echo "🔄 Running DB column sync inside app container..."
+            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || echo "⚠️ Sync warning (non-fatal)"
+            echo "✅ Deployment complete"

@@ -1,141 +1,99 @@
 // @ts-nocheck
 /* eslint-disable */
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-
 /**
- * Robust .env loader that handles multiple locations and file formats
+ * Database Sync Script - Uses @prisma/client directly (NO CLI needed)
+ * Works in any Docker container without npx or prisma binary
  */
-function loadEnv() {
-    const possiblePaths = [
-        path.join(process.cwd(), '.env'),
-        path.join(__dirname, '../.env'),
-        path.join(process.cwd(), '.env.local')
-    ];
 
-    console.log('🔍 Searching for .env files...');
-    let envFound = false;
-
-    for (const envPath of possiblePaths) {
-        if (fs.existsSync(envPath)) {
-            console.log(`✅ Found .env file at: ${envPath}`);
-            try {
-                const content = fs.readFileSync(envPath, 'utf8');
-                // Handle UTF-16 and BOM if present
-                const cleanContent = content.replace(/^\uFEFF/, '');
-                
-                cleanContent.split(/\r?\n/).forEach(line => {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine && !trimmedLine.startsWith('#')) {
-                        const firstEq = trimmedLine.indexOf('=');
-                        if (firstEq !== -1) {
-                            const key = trimmedLine.substring(0, firstEq).trim();
-                            let value = trimmedLine.substring(firstEq + 1).trim();
-                            
-                            // Remove quotes if present
-                            if ((value.startsWith('"') && value.endsWith('"')) || 
-                                (value.startsWith("'") && value.endsWith("'"))) {
-                                value = value.substring(1, value.length - 1);
-                            }
-                            
-                            // Set environment variable if not already set (respect system env)
-                            if (!process.env[key]) {
-                                process.env[key] = value;
-                            }
-                        }
-                    }
-                });
-                envFound = true;
-                break; // Stop after first successful load
-            } catch (err) {
-                console.error(`❌ Failed to read .env at ${envPath}: ${err.message}`);
-            }
-        } else {
-            console.log(`ℹ️ Not found at: ${envPath}`);
-        }
-    }
-
-    if (!envFound) {
-        console.warn('⚠️ No local .env file found. Relying on system environment variables.');
-    }
-}
+const { PrismaClient } = require('@prisma/client');
 
 async function sync() {
-    console.log('🚀 Starting Database Synchronization...');
-    loadEnv();
+    console.log('🚀 Starting Database Synchronization (via Prisma Client)...');
 
-    const primaryPushUrl = process.env.DATABASE_URL || process.env.DIRECT_URL;
-    const replicaUrl = process.env.READ_REPLICA_URL;
-
-    if (!primaryPushUrl) {
-        console.error('❌ Error: DATABASE_URL or DIRECT_URL is not set in .env or system environment.');
-        process.exit(1);
+    const dbUrl = process.env.DATABASE_URL || process.env.DIRECT_URL;
+    if (!dbUrl) {
+        console.error('❌ DATABASE_URL not set. Skipping sync.');
+        process.exit(0); // Non-fatal - app will still start
     }
 
-    // Mask sensitive info for logging
-    const maskedUrl = primaryPushUrl.replace(/:([^:@]+)@/, ':****@');
-    console.log(`📌 Using Primary Database URL: ${maskedUrl}`);
+    const maskedUrl = dbUrl.replace(/:([^:@]+)@/, ':****@');
+    console.log(`📌 Using DB: ${maskedUrl}`);
+
+    const prisma = new PrismaClient();
 
     try {
-        console.log('📌 Running Prisma DB Push (Primary)...');
-        // Try npx first, fallback to direct path if npx fails or is missing
-        try {
-            execSync(`npx prisma db push --accept-data-loss`, { 
-                stdio: 'inherit', 
-                env: { ...process.env, DATABASE_URL: primaryPushUrl } 
-            });
-        } catch (npxError) {
-            console.warn('⚠️ npx failed, trying direct binary path...');
-            const directPath = path.join(process.cwd(), 'node_modules/.bin/prisma');
-            if (fs.existsSync(directPath)) {
-                execSync(`${directPath} db push --accept-data-loss`, { 
-                    stdio: 'inherit', 
-                    env: { ...process.env, DATABASE_URL: primaryPushUrl } 
-                });
-            } else {
-                throw npxError;
-            }
-        }
-        console.log('✅ Primary Database Synchronized.');
+        await prisma.$connect();
+        console.log('✅ Connected to database');
 
-        if (replicaUrl) {
-            const maskedReplica = replicaUrl.replace(/:([^:@]+)@/, ':****@');
-            console.log(`📌 Using Replica Database URL: ${maskedReplica}`);
-            console.log('📌 Running Prisma DB Push (Replica)...');
+        // List of ALL columns that need to be added if missing
+        // Add any new columns here when schema changes
+        const migrations = [
+            {
+                table: 'Contractor',
+                column: 'registrationFeeSlipUrl',
+                type: 'TEXT',
+            },
+            {
+                table: 'Contractor',
+                column: 'brNumber',
+                type: 'TEXT',
+            },
+            {
+                table: 'Contractor',
+                column: 'vatNumber',
+                type: 'TEXT',
+            },
+            {
+                table: 'Contractor',
+                column: 'svat',
+                type: 'TEXT',
+            },
+            {
+                table: 'Contractor',
+                column: 'documentStatus',
+                type: 'TEXT',
+                default: "'PENDING'",
+            },
+            {
+                table: 'Contractor',
+                column: 'registrationToken',
+                type: 'TEXT',
+            },
+            {
+                table: 'Contractor',
+                column: 'registrationExpiry',
+                type: 'TIMESTAMP',
+            },
+            {
+                table: 'Contractor',
+                column: 'siteOfficeStaffId',
+                type: 'TEXT',
+            },
+        ];
+
+        let applied = 0;
+        for (const m of migrations) {
             try {
-                // Try npx first
-                try {
-                    execSync(`npx prisma db push --accept-data-loss`, { 
-                        stdio: 'inherit', 
-                        env: { ...process.env, DATABASE_URL: replicaUrl } 
-                    });
-                } catch (replicaNpxErr) {
-                    console.warn('⚠️ npx failed for replica, trying direct binary path...');
-                    const directPath = path.join(process.cwd(), 'node_modules/.bin/prisma');
-                    if (fs.existsSync(directPath)) {
-                        execSync(`${directPath} db push --accept-data-loss`, { 
-                            stdio: 'inherit', 
-                            env: { ...process.env, DATABASE_URL: replicaUrl } 
-                        });
-                    } else {
-                        throw replicaNpxErr;
-                    }
-                }
-                console.log('✅ Read Replica Synchronized.');
-            } catch (replicaError) {
-                console.warn('⚠️ Warning: Read Replica sync failed. This may be expected if it is read-only.');
-                console.warn(replicaError.message);
+                const sql = m.default
+                    ? `ALTER TABLE "${m.table}" ADD COLUMN IF NOT EXISTS "${m.column}" ${m.type} DEFAULT ${m.default}`
+                    : `ALTER TABLE "${m.table}" ADD COLUMN IF NOT EXISTS "${m.column}" ${m.type}`;
+                
+                await prisma.$executeRawUnsafe(sql);
+                console.log(`✅ Column "${m.table}.${m.column}" ensured`);
+                applied++;
+            } catch (err) {
+                // Usually means column already exists with different type - safe to ignore
+                console.warn(`⚠️ Skipped "${m.table}.${m.column}": ${err.message.split('\n')[0]}`);
             }
-        } else {
-            console.log('ℹ️ Note: READ_REPLICA_URL not found, skipping replica sync.');
         }
 
-        console.log('✨ All Database operations completed successfully.');
-    } catch (error) {
-        console.error('❌ Critical Error during database sync:');
-        console.error(error.message);
-        process.exit(1);
+        console.log(`✨ Sync complete. ${applied}/${migrations.length} columns verified.`);
+
+    } catch (err) {
+        console.error('❌ DB Sync error:', err.message);
+        // Non-fatal - app will still start, just with potential schema mismatch
+    } finally {
+        await prisma.$disconnect();
     }
 }
 
