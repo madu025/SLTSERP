@@ -4,7 +4,7 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck } from "lucide-react";
+import { FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck, Zap, Scan, ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -89,19 +89,18 @@ export function FileUploadField({
             const uploadedUrl = await onUpload(file, fieldName);
             if (uploadedUrl) {
                 if (onScan) await onScan(uploadedUrl);
-                toast.success("Snapshot captured and uploaded");
+                toast.success("Identity snapshot uploaded successfully");
                 return uploadedUrl;
             }
         } catch (err) {
             console.error("Capture upload error:", err);
-            toast.error("Failed to upload captured photo");
+            toast.error("Failed to synchronize captured specimen");
         }
         return null;
     };
 
     const startCamera = async () => {
         try {
-            // Stop any existing stream before starting a new one
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
             }
@@ -120,8 +119,8 @@ export function FileUploadField({
             setIsCameraOpen(true);
         } catch (err) {
             console.error("Camera access error:", err);
-            const msg = err instanceof Error ? err.message : "Unknown error";
-            toast.error(`Camera error: ${msg}. If on iPhone, please ensure you use Safari or Chrome and allow permissions.`);
+            const msg = err instanceof Error ? err.message : "Portal error";
+            toast.error(`Capture Error: ${msg}. Grant camera permissions for identity synchronization.`);
         }
     };
 
@@ -143,26 +142,15 @@ export function FileUploadField({
         try {
             const video = videoRef.current;
             const canvas = document.createElement("canvas");
-            
-            // 1. Native Stream Dimensions
             const vWidth = video.videoWidth;
             const vHeight = video.videoHeight;
-            
-            // 2. Visual Container Dimensions
             const cWidth = video.clientWidth;
             const cHeight = video.clientHeight;
-
-            // 3. Document Frame Geometry
             const frameAspect = isVertical ? (1 / 1.5) : (1.58 / 1);
-            
-            // Account for p-6 (24px) or sm:p-12 (48px) padding in the UI overlay
-            const padding = window.innerWidth < 640 ? 48 : 96; // 24*2 or 48*2
+            const padding = window.innerWidth < 640 ? 48 : 96;
             const availableWidth = cWidth - padding;
-            
             const frameWidth = isVertical ? (availableWidth * 0.75) : availableWidth;
             const frameHeight = frameWidth / frameAspect;
-
-            // 4. Transform Visual Coordinates to Stream Coordinates (taking object-cover into account)
             const streamAspect = vWidth / vHeight;
             const containerAspect = cWidth / cHeight;
             
@@ -179,16 +167,13 @@ export function FileUploadField({
                 offsetY = (vHeight - drawHeight) / 2;
             }
 
-            // Ratio of frame to container
             const scaleX = drawWidth / cWidth;
             const scaleY = drawHeight / cHeight;
-
             const cropWidth = frameWidth * scaleX;
             const cropHeight = frameHeight * scaleY;
             const cropX = offsetX + (cWidth - frameWidth) / 2 * scaleX;
             const cropY = offsetY + (cHeight - frameHeight) / 2 * scaleY;
 
-            // 5. Output Configuration (Hi-Res)
             canvas.width = 1200;
             canvas.height = canvas.width / frameAspect;
             
@@ -196,20 +181,13 @@ export function FileUploadField({
             if (ctx) {
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(
-                    video, 
-                    cropX, cropY, cropWidth, cropHeight, // SOURCE (Stream)
-                    0, 0, canvas.width, canvas.height    // TARGET (Canvas)
-                );
+                ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
                 
-                // --- INSTANT ACTION ---
-                // Stop the camera and close the UI immediately after "taking" the shot
                 const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
                 stopCamera();
                 setIsCameraOpen(false);
                 setIsCapturing(false);
 
-                // Now upload the captured "Data" in the background
                 const response = await fetch(dataUrl);
                 const blob = await response.blob();
                 const file = new File([blob], `capture-${fieldName}-${Date.now()}.jpg`, { type: "image/jpeg" });
@@ -217,51 +195,35 @@ export function FileUploadField({
             }
         } catch (err) {
             console.error("Capture failure:", err);
-            toast.error("Failed to capture and crop photo");
+            toast.error("Failed to synchronize visual specimen");
             setIsCapturing(false);
         }
     };
 
     return (
-        <div className="space-y-4 p-4 rounded-xl border border-slate-100 bg-slate-50/30 transition-all hover:border-blue-100 hover:bg-slate-50/50">
-            <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                    <Label htmlFor={inputId} className="text-sm font-semibold text-slate-700">
-                        {label} {required && <span className="text-red-500">*</span>}
+        <div className="space-y-6 p-8 rounded-[40px] border border-white/5 bg-white/[0.02] backdrop-blur-3xl transition-all hover:bg-white/[0.05] hover:border-blue-500/20 shadow-2xl ring-1 ring-white/5 group/main">
+            <div className="flex justify-between items-start gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor={inputId} className="text-sm font-black text-white uppercase tracking-[0.2em] ml-1">
+                        {label} {required && <span className="text-emerald-500">*</span>}
                     </Label>
-                    {description && <p className="text-xs text-slate-500">{description}</p>}
+                    {description && <p className="text-[11px] text-slate-400 font-bold leading-relaxed ml-1 opacity-70 group-hover/main:opacity-100 transition-opacity">{description}</p>}
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {allowCamera && !isScanning && (
                         <button 
                             type="button" 
                             onClick={startCamera} 
                             className={cn(
-                                "p-1 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5",
+                                "h-10 px-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 shadow-xl border",
                                 value 
-                                    ? "bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100" 
-                                    : "bg-slate-100 hover:bg-blue-100 hover:text-blue-600 text-slate-500"
+                                    ? "bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30" 
+                                    : "bg-slate-900 text-slate-500 border-white/5 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/20"
                             )}
                         >
-                            <Camera className="w-3 h-3" /> {value ? "Retake Photo" : "Live Capture"}
+                            <Camera className="w-3.5 h-3.5" /> {value ? "RESYNC SPECIMEN" : "LIVE CAPTURE"}
                         </button>
-                    )}
-                    {value && (
-                        <div className="flex items-center gap-2">
-                            <a 
-                                href={value} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-[10px] font-bold text-blue-600 hover:underline uppercase bg-blue-50 px-2 py-1 rounded"
-                            >
-                                View File
-                            </a>
-                            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 animate-in fade-in zoom-in duration-300">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">Ready</span>
-                            </div>
-                        </div>
                     )}
                 </div>
             </div>
@@ -278,17 +240,16 @@ export function FileUploadField({
                 <Label
                     htmlFor={inputId}
                     className={cn(
-                        "relative flex flex-col items-center justify-center w-full min-h-[140px] rounded-xl border-2 border-dashed transition-all cursor-pointer overflow-hidden",
+                        "relative flex flex-col items-center justify-center w-full min-h-[180px] rounded-[32px] border-2 border-dashed transition-all cursor-pointer overflow-hidden isolate shadow-2xl",
                         value 
-                            ? "border-green-200 bg-green-50/10" 
-                            : "border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/30"
+                            ? "border-emerald-500/30 bg-slate-950/20" 
+                            : "border-white/10 bg-slate-950/40 hover:border-blue-500/50 hover:bg-slate-950/60"
                     )}
                 >
                     {value ? (
-                        <div className="relative w-full min-h-[160px] flex flex-col items-center justify-center p-3 bg-slate-100/50 rounded-xl overflow-hidden border-2 border-green-200">
-                            {/* Broad image matching including CloudFront URLs and Base64 */}
+                        <div className="relative w-full min-h-[200px] flex flex-col items-center justify-center p-4 bg-transparent rounded-[28px] overflow-hidden group/thumb">
                             {value.match(/\.(jpg|jpeg|png|webp|gif|svg|avif)/i) || value.includes('amazonaws.com') || value.includes('cloudfront.net') || value.includes('data:image') ? (
-                                <div className="relative w-full h-[140px] rounded-lg overflow-hidden border border-white/50 shadow-md group-hover:opacity-40 transition-opacity bg-white">
+                                <div className="relative w-full h-[180px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl group-hover/thumb:opacity-20 transition-opacity bg-slate-900">
                                     <Image 
                                         src={value} 
                                         alt={label} 
@@ -299,153 +260,61 @@ export function FileUploadField({
                                     />
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center gap-2 py-8 text-blue-600">
-                                    <FileText className="w-12 h-12 opacity-80" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest bg-blue-100 px-3 py-1 rounded-full">PDF Attached</span>
+                                <div className="flex flex-col items-center gap-4 py-10 text-blue-400">
+                                    <div className="p-4 bg-blue-600/10 rounded-2xl border border-blue-500/20">
+                                        <FileText className="w-10 h-10" />
+                                    </div>
+                                    <span className="text-[11px] font-black uppercase tracking-[0.4em] bg-blue-500/20 px-5 py-1.5 rounded-full border border-blue-500/30 ring-1 ring-white/10 shadow-2xl">Verified PDF Specimen</span>
                                 </div>
                             )}
                             
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
-                                <div className="flex items-center gap-2 text-white text-xs font-bold">
-                                    <Upload className="w-4 h-4" /> Change File
+                            <div className="absolute inset-0 bg-blue-600/10 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-all">
+                                <div className="flex items-center gap-3 text-white text-[11px] font-black uppercase tracking-widest bg-blue-600 px-6 py-3 rounded-2xl shadow-2xl border border-white/20">
+                                    <Upload className="w-4 h-4" /> Change Registry File
                                 </div>
+                            </div>
+
+                            {/* Verified Badge */}
+                            <div className="absolute top-6 right-6 flex items-center gap-2 px-4 py-1.5 bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30 shadow-2xl backdrop-blur-xl ring-1 ring-white/10 z-10 animate-in zoom-in duration-500">
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">READY</span>
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-3 py-6 text-slate-500 group-hover:text-blue-600 transition-colors">
-                            <div className="p-3 bg-slate-100 rounded-full group-hover:bg-blue-100/50 transition-colors">
-                                <Upload className="w-6 h-6" />
+                        <div className="flex flex-col items-center gap-5 py-10 text-slate-600 group-hover:text-blue-500 transition-all">
+                            <div className="relative">
+                                <div className="p-6 bg-white/5 rounded-[24px] group-hover:bg-blue-600/20 group-hover:text-blue-400 transition-all border border-white/10 shadow-2xl relative z-10">
+                                    <Upload className="w-8 h-8" />
+                                </div>
+                                <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            <div className="text-center">
-                                <span className="text-xs font-bold block text-slate-700">Click to Upload</span>
-                                <span className="text-[10px] block font-bold text-slate-500">PDF or JPG/PNG (Max 5MB)</span>
+                            <div className="text-center space-y-2">
+                                <span className="text-sm font-black block text-white tracking-tight italic">TRANSMIT FILE</span>
+                                <span className="text-[10px] block font-black text-slate-600 uppercase tracking-[0.3em]">Registry Format: PDF / JPG / PNG • MAX 5MB</span>
                             </div>
                         </div>
                     )}
 
                     {isScanning && (
-                        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-10 animate-in fade-in">
-                            <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                            <span className="text-xs font-bold text-blue-600 animate-pulse">Scanning with AI...</span>
+                        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md flex flex-col items-center justify-center gap-4 z-20 animate-in fade-in">
+                            <div className="relative">
+                                <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+                                <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full animate-pulse" />
+                            </div>
+                            <span className="text-[11px] font-black text-blue-400 uppercase tracking-[0.5em] animate-pulse">Advanced AI Synchronizing...</span>
                         </div>
                     )}
 
                     {!value && progress !== undefined && progress > 0 && progress < 100 && (
-                        <div className="absolute inset-x-4 bottom-4 space-y-2">
-                            <Progress value={progress} className="h-1.5" />
-                            <p className="text-[10px] text-center font-bold text-blue-600">{progress}% Uploading...</p>
+                        <div className="absolute inset-x-8 bottom-8 space-y-4">
+                            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                <div className="h-full bg-blue-600 w-full animate-pulse" style={{ width: `${progress}%` }} />
+                            </div>
+                            <p className="text-[10px] text-center font-black text-blue-400 uppercase tracking-[0.4em]">{progress}% UPLOADING</p>
                         </div>
                     )}
                 </Label>
             </div>
-
-            <Dialog open={isCameraOpen} onOpenChange={(open) => !open && stopCamera()}>
-                <DialogContent className="w-[95vw] sm:max-w-2xl p-0 overflow-hidden bg-black rounded-3xl border-none shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-                    <div className="relative h-[80vh] sm:h-[600px] w-full bg-slate-900 overflow-hidden group">
-                        {/* 1. Full-Screen Video Background */}
-                        <video 
-                            ref={videoRef} 
-                            autoPlay 
-                            playsInline 
-                            muted
-                            className="absolute inset-0 w-full h-full object-cover"
-                        />
-                        
-                        {/* 2. Professional Scanning Mask Overlay */}
-                        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 sm:p-12">
-                            {/* Standardized Box Frame */}
-                            <div className={cn(
-                                "relative transition-all duration-700 ease-in-out shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]",
-                                isVertical ? "w-[75%] aspect-[1/1.5]" : "w-full aspect-[1.58/1]"
-                            )}>
-                                {/* Corner Accents (High-End Style) */}
-                                <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl -mt-1 -ml-1" />
-                                <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl -mt-1 -mr-1" />
-                                <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl -mb-1 -ml-1" />
-                                <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-blue-500 rounded-br-2xl -mb-1 -mr-1" />
-                                
-                                <div className="absolute inset-0 bg-blue-500/10 animate-pulse border border-white/20 rounded-2xl" />
-                            </div>
-
-                            <div className="mt-8 flex flex-col items-center gap-2">
-                                <div className="bg-blue-600/20 backdrop-blur-xl px-6 py-2 rounded-full border border-blue-400/30 shadow-2xl animate-in zoom-in duration-500">
-                                    <p className="text-[10px] font-black text-white uppercase tracking-[0.3em] flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
-                                        Align {label.includes("NIC") ? "Card" : "Document"} properly
-                                    </p>
-                                </div>
-                                <p className="text-[9px] font-bold text-white/50 uppercase tracking-widest">{isVertical ? 'Vertical' : 'Horizontal'} Detection Active</p>
-                            </div>
-                        </div>
-
-                        {/* 3. Floating Floating Header Controls */}
-                        <div className="absolute top-6 inset-x-6 flex items-center justify-between z-20">
-                            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
-                                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                                <span className="text-[9px] font-black text-white uppercase tracking-widest">Secure Guard</span>
-                            </div>
-
-                            <Button 
-                                onClick={stopCamera} 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-10 w-10 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-xl border border-white/10 shadow-lg"
-                            >
-                                <X className="w-5 h-5" />
-                            </Button>
-                        </div>
-
-                        {/* 4. Main Floating Capture Controls (Center Bottom) */}
-                        <div className="absolute bottom-10 inset-x-0 flex flex-col items-center gap-8 z-20 animate-in slide-in-from-bottom-10 duration-700">
-                            <div className="flex items-center justify-center gap-8 w-full px-6">
-                                {/* Orientation Toggle */}
-                                <Button 
-                                    onClick={() => setIsVertical(!isVertical)} 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="w-14 h-14 rounded-full bg-white/10 text-white hover:bg-white/20 backdrop-blur-2xl border border-white/10 transition-all active:scale-90"
-                                    title="Orientation"
-                                >
-                                    <RefreshCw className={cn("w-6 h-6 transition-transform duration-700 ease-out", isVertical ? "rotate-90" : "rotate-0")} />
-                                </Button>
-                                
-                                {/* Main Capture Button */}
-                                <button 
-                                    onClick={capturePhoto}
-                                    disabled={isCapturing}
-                                    className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white/30 flex items-center justify-center group active:scale-95 transition-all p-1"
-                                >
-                                    <div className="absolute inset-0 rounded-full bg-white/10 backdrop-blur-md animate-pulse" />
-                                    <div className={cn(
-                                        "w-full h-full rounded-full bg-white shadow-[0_0_50px_rgba(255,255,255,0.4)] transition-all group-hover:scale-105 flex items-center justify-center",
-                                        isCapturing ? "opacity-50" : "opacity-100"
-                                    )}>
-                                        <div className="w-[85%] h-[85%] rounded-full border border-slate-200" />
-                                    </div>
-                                </button>
-
-                                {/* Future Logic / Spacer */}
-                                <div className="w-14 h-14" />
-                            </div>
-                            
-                            <div className="flex items-center gap-4">
-                                <div className="h-[1px] w-6 bg-white/20" />
-                                <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <div className="w-1 h-1 bg-white rounded-full animate-bounce" />
-                                    <p className="text-[8px] font-black uppercase tracking-[0.5em] text-white">Advanced AI Scanning</p>
-                                    <div className="w-1 h-1 bg-white rounded-full animate-bounce delay-100" />
-                                </div>
-                                <div className="h-[1px] w-6 bg-white/20" />
-                            </div>
-                        </div>
-
-                        {/* Scan Line Animation (Premium Effect) */}
-                        <div className="absolute inset-0 pointer-events-none overflow-hidden h-full w-full">
-                            <div className="w-full h-[2px] bg-blue-400 shadow-[0_0_15px_#60a5fa] absolute top-0 left-0 animate-[scan_3s_linear_infinite]" />
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

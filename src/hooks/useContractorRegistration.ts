@@ -181,7 +181,6 @@ export function useContractorRegistration(token: string) {
         nextStep,
         prevStep,
         handleUpload,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onSubmit: form.handleSubmit(onSubmit as any)
+        handleRegistrationSubmit: onSubmit
     };
 }
