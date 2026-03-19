@@ -33,7 +33,7 @@ export const contractorSchema = z.object({
     brNumber: z.string().optional().nullable(),
     status: z.string().optional(),
     type: z.string().optional(),
-    contactNumber: z.string().min(10, "Valid contact number is required"),
+    contactNumber: z.string().trim().min(9, "Valid contact number is required (min 9-10 digits)"),
     nic: z.string().min(10, "Valid NIC is required"),
     email: z.string().email("Invalid email").optional().nullable(),
     
@@ -69,7 +69,7 @@ export const contractorSchema = z.object({
 export const publicRegistrationSchema = contractorSchema.extend({
     nic: z.string().min(10, "NIC is strictly required for registration"),
     address: z.string().min(5, "Full address is required"),
-    contactNumber: z.string().min(10, "Contact number is required"),
+    contactNumber: z.string().trim().min(9, "Contact number is required (min 9-10 digits)"),
     bankName: z.string().min(2, "Bank name is required"),
     bankAccountNumber: z.string().min(5, "Account number is required"),
     // URLs are required on final submission
@@ -80,7 +80,7 @@ export const publicRegistrationSchema = contractorSchema.extend({
 
 export const registrationInviteSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    contactNumber: z.string().min(10, "Valid contact number is required"),
+    contactNumber: z.string().trim().min(9, "Valid contact number is required (min 9-10 digits)"),
     type: z.enum(['SOD', 'OSP']).default('SOD'),
     opmcId: z.string().min(1, "Regional Office is required"),
     siteOfficeStaffId: z.string().optional(),
