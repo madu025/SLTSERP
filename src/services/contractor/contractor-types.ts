@@ -73,9 +73,9 @@ export interface ContractorUpdateData {
 export interface RegistrationLinkParams {
     name: string;
     contactNumber: string;
-    email?: string;
+    email?: string | null;
     type?: string;
-    siteOfficeStaffId: string;
+    siteOfficeStaffId?: string;
     origin: string;
     opmcId?: string;
 }

@@ -78,7 +78,17 @@ export const publicRegistrationSchema = contractorSchema.extend({
     registrationFeeSlipUrl: z.string().min(5, "Registration Fee Slip is required"),
 });
 
+export const registrationInviteSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    contactNumber: z.string().min(10, "Valid contact number is required"),
+    type: z.enum(['SOD', 'OSP']).default('SOD'),
+    opmcId: z.string().min(1, "Regional Office is required"),
+    siteOfficeStaffId: z.string().optional(),
+    email: z.string().email().optional().nullable(),
+});
+
 export type ContractorSchema = z.infer<typeof contractorSchema>;
 export type PublicRegistrationSchema = z.infer<typeof publicRegistrationSchema>;
 export type ContractorTeamSchema = z.infer<typeof contractorTeamSchema>;
 export type ContractorMemberSchema = z.infer<typeof contractorMemberSchema>;
+export type RegistrationInviteSchema = z.infer<typeof registrationInviteSchema>;
