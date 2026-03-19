@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -277,84 +277,88 @@ export function FileUploadField({
             </div>
 
             <Dialog open={isCameraOpen} onOpenChange={(open) => !open && stopCamera()}>
-                <DialogContent className="max-w-2xl p-0 overflow-hidden bg-black rounded-3xl border-none shadow-2xl">
-                    <div className="relative aspect-[4/3] w-full bg-slate-900 group">
-                        <video 
-                            ref={videoRef} 
-                            autoPlay 
-                            playsInline 
-                            muted
-                            className="w-full h-full object-cover"
-                        />
-                        
-                        {/* Binance style Overlay */}
-                        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                            <div className={cn(
-                                "border-2 border-white/50 rounded-2xl relative transition-all duration-500",
-                                isVertical ? "w-[60%] h-[80%]" : "w-[85%] h-[60%]"
-                            )}>
-                                {/* Corners */}
-                                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg" />
-                                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg" />
-                                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 -mb-1 -ml-1 rounded-bl-lg" />
-                                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 -mb-1 -mr-1 rounded-br-lg" />
-                                
-                                <div className="absolute inset-0 bg-blue-500/5 animate-pulse flex items-center justify-center">
-                                    <ShieldCheck className="w-12 h-12 text-white/20" />
+                <DialogContent className="w-[95vw] max-w-2xl p-0 overflow-hidden bg-black rounded-3xl border-none shadow-2xl">
+                    <div className="relative h-[75vh] sm:h-auto sm:aspect-[4/3] w-full bg-slate-900 overflow-hidden flex flex-col group">
+                        <div className="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden">
+                            <video 
+                                ref={videoRef} 
+                                autoPlay 
+                                playsInline 
+                                muted
+                                className="absolute w-full h-full object-cover scale-x-[-1]"
+                            />
+                            
+                            {/* Scanning Overlay */}
+                            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6">
+                                <div className={cn(
+                                    "border-2 border-white/50 rounded-2xl relative transition-all duration-500 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]",
+                                    isVertical ? "w-[75%] aspect-[1/1.5]" : "w-full aspect-[1.58/1]"
+                                )}>
+                                    {/* Corners */}
+                                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg" />
+                                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg" />
+                                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 -mb-1 -ml-1 rounded-bl-lg" />
+                                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 -mb-1 -mr-1 rounded-br-lg" />
+                                    
+                                    <div className="absolute inset-0 bg-blue-500/5 animate-pulse flex items-center justify-center">
+                                        <ShieldCheck className="w-12 h-12 text-white/20" />
+                                    </div>
+                                </div>
+                                <div className="mt-8 bg-black/80 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/10 shadow-2xl z-10">
+                                    <p className="text-[10px] font-black text-white uppercase tracking-[0.25em] flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                        Align {isVertical ? 'Vertical' : 'Horizontal'} Document
+                                    </p>
                                 </div>
                             </div>
-                            <div className="mt-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                                <p className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                    Align {isVertical ? 'Vertical' : 'Horizontal'} Document
-                                </p>
+
+                            {/* Close/Back Button (Top Left for Mobile) */}
+                            <div className="absolute top-4 right-4 z-20">
+                                <Button 
+                                    onClick={stopCamera} 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-10 w-10 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md border border-white/10"
+                                >
+                                    <X className="w-5 h-5" />
+                                </Button>
                             </div>
                         </div>
 
-                        {/* Camera Controls */}
-                        <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-6">
-                            <div className="flex items-center gap-6">
+                        {/* Camera Controls - Bottom Navigation Style */}
+                        <div className="p-8 sm:p-10 bg-slate-950/90 backdrop-blur-3xl border-t border-white/10 flex flex-col items-center gap-6">
+                            <div className="flex items-center justify-center gap-10 sm:gap-14 w-full">
                                 <Button 
                                     onClick={() => setIsVertical(!isVertical)} 
                                     variant="ghost" 
                                     size="icon" 
-                                    className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20"
+                                    className="w-12 h-12 rounded-full bg-white/5 text-white hover:bg-white/10 border border-white/5 transition-colors"
                                     title="Switch Orientation"
                                 >
-                                    <RefreshCw className={cn("w-6 h-6 transition-transform duration-500", isVertical ? "rotate-90" : "rotate-0")} />
+                                    <RefreshCw className={cn("w-6 h-6 transition-transform duration-700", isVertical ? "rotate-90" : "rotate-0")} />
                                 </Button>
                                 
                                 <button 
                                     onClick={capturePhoto}
                                     disabled={isCapturing}
-                                    className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center group active:scale-95 transition-all bg-white/10"
+                                    className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white/20 flex items-center justify-center group active:scale-90 transition-all"
                                 >
+                                    <div className="absolute inset-2 rounded-full border border-white/10" />
                                     <div className={cn(
-                                        "w-16 h-16 rounded-full bg-white transition-all group-hover:scale-110",
-                                        isCapturing ? "animate-ping" : ""
+                                        "w-18 h-18 sm:w-22 sm:h-22 rounded-full bg-white shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all group-hover:scale-105",
+                                        isCapturing ? "animate-pulse" : ""
                                     )} />
                                 </button>
 
-                                <Button 
-                                    onClick={stopCamera} 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20"
-                                >
-                                    <X className="w-6 h-6" />
-                                </Button>
+                                <div className="w-12 h-12" /> {/* Spacer for balance */}
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                                <div className="h-[1px] w-8 bg-blue-500/20" />
+                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500">Secure AI Processing</p>
+                                <div className="h-[1px] w-8 bg-blue-500/20" />
                             </div>
                         </div>
-
-                        <div className="absolute top-4 right-4">
-                            <DialogClose className="p-2 bg-white/10 text-white rounded-full hover:bg-white/20">
-                                <X className="w-5 h-5" />
-                            </DialogClose>
-                        </div>
-                    </div>
-                    
-                    <div className="p-4 bg-slate-950 text-center border-t border-white/10">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Secure Artificial Intelligence Capture</p>
                     </div>
                 </DialogContent>
             </Dialog>
