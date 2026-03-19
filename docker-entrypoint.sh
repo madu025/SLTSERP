@@ -1,14 +1,9 @@
 #!/bin/sh
 
-# Wait for database to be ready (optional but recommended)
-echo "Running database migrations..."
-if [ -f "./node_modules/.bin/prisma" ]; then
-  ./node_modules/.bin/prisma migrate deploy
-else
-  # Pin version to match package.json
-  npx prisma@6.19.1 migrate deploy
-fi
+# Run database sync (push schema without crashing container)
+echo "🔄 Synchronizing Database..."
+node scripts/db-sync.js || echo "⚠️ Database sync warning"
 
 # Start the application
-echo "Starting application..."
+echo "🚀 Starting application..."
 exec "$@"
