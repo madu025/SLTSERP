@@ -64,7 +64,7 @@ services:
     networks:
       - sltserp-network
     volumes:
-      - ./public/uploads:/app/public/uploads
+      - uploads_data:/app/public/uploads
 
   # PgAdmin (Optional - Database Management UI)
   pgadmin:
@@ -88,6 +88,7 @@ volumes:
   postgres_data:
   redis_data:
   pgadmin_data:
+  uploads_data:
     driver: local
 
 networks:

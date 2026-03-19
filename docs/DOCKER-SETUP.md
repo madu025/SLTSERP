@@ -197,11 +197,42 @@ docker-compose restart postgres
 - **Total**: ~$15-25/month
 - **Savings**: 40-50%
 
+## 📂 Persistent File Storage (Uploads)
+
+The application uses a dedicated Docker Named Volume for contractor documents (NIC, Photo, etc.) to ensure reliability and correct file permissions.
+
+### 🛡️ Storage Architecture
+- **In-Container Path**: `/app/public/uploads`
+- **Docker Volume Name**: `uploads_data`
+- **Benefit**: Docker automatically manages the ownership for the non-root `nextjs` user, preventing common `EACCES: permission denied` errors during file uploads.
+
+### 🧹 Maintenance Commands
+
+```bash
+# View list of volumes
+docker volume ls
+
+# Inspect upload storage details
+docker volume inspect sltserp_uploads_data
+
+# Backup uploads (experimental)
+docker run --rm -v sltserp_uploads_data:/data -v $(pwd):/backup alpine tar czf /backup/uploads_backup.tar.gz /data
+```
+
+## 🛠️ Security & Permissions
+
+Our production `Dockerfile` is optimized for security:
+1. **Non-Root Execution**: The app runs as a restricted `nextjs` user.
+2. **Read-Only Root (where possible)**: Critical code is immutable.
+3. **Dedicated Writable Space**: Only the `uploads_data` volume is writable for user documents.
+
+---
+
 ## Next Steps
 
 1. ✅ Set up Docker PostgreSQL locally
 2. ✅ Test with development data
 3. ✅ Configure backups
-4. ✅ Deploy to production server
+4. ✅ Deploy to production server (Ensure `uploads_data` volume is defined in `docker-compose.yml`)
 5. ✅ Monitor performance
 6. ✅ Optimize as needed
