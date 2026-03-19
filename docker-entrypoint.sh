@@ -1,14 +1,13 @@
 #!/bin/sh
 
-echo "🔄 Applying database migrations..."
-
-# Run migrations using the bundled prisma binary
+# Applying database migrations on start
+echo "Database synchronization..."
 if [ -f "./node_modules/.bin/prisma" ]; then
-  ./node_modules/.bin/prisma migrate deploy && echo "✅ Migrations applied" || echo "⚠️ Migration warning (non-fatal)"
+  ./node_modules/.bin/prisma migrate deploy
 else
-  echo "⚠️ Prisma binary not found - running raw SQL sync..."
-  node scripts/db-sync.js || echo "⚠️ DB sync warning (non-fatal)"
+  npx prisma@6.19.1 migrate deploy
 fi
 
-echo "🚀 Starting application..."
+# Start the application
+echo "Starting application..."
 exec "$@"

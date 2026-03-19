@@ -40,10 +40,8 @@ jobs:
           # ✅ Next.js standalone output (contains server.js)
           cp -r .next/standalone/. deploy/
 
-          # 🔥 Ensure prisma CLI is present for DB sync inside container
-          mkdir -p deploy/node_modules/.bin
-          cp -r node_modules/prisma deploy/node_modules/ || true
-          cp -r node_modules/.bin/prisma deploy/node_modules/.bin/ || true
+          # 🔥 Next.js standalone output (contains server.js)
+          cp -r .next/standalone/. deploy/
 
           # ✅ Static assets MUST be inside deploy/.next/static
           mkdir -p deploy/.next/static
@@ -54,10 +52,6 @@ jobs:
 
           # ✅ Prisma schema for DB sync inside container
           cp -r prisma deploy/
-
-          # ✅ DB sync script
-          mkdir -p deploy/scripts
-          cp -r scripts/. deploy/scripts/
 
           # ✅ Docker production files
           cp Dockerfile.prod deploy/
@@ -79,6 +73,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "deploy.zip"
           target: "/tmp"
+          timeout: 60s
 
       - name: Deploy on Server
         uses: appleboy/ssh-action@master
@@ -86,19 +81,15 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 60s
           script: |
             mkdir -p ~/slts-erp
             cd ~/slts-erp
             sudo docker compose -f docker-compose.prod.yml down || true
             sudo rm -rf ~/slts-erp/*
             mv /tmp/deploy.zip ~/slts-erp/
-            sudo apt-get install -y unzip -y
+            sudo apt-get install -y unzip
             unzip -o deploy.zip -d .
             # Start all containers
             sudo docker compose -f docker-compose.prod.yml up -d --build
-            echo "⏳ Waiting for app to initialize..."
-            sleep 20
-            # Run column sync via @prisma/client (no CLI needed)
-            echo "🔄 Running DB column sync inside app container..."
-            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || echo "⚠️ Sync warning (non-fatal)"
-            echo "✅ Deployment complete"
+            echo "✅ Deployment successful"
