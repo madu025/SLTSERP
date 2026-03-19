@@ -325,87 +325,108 @@ export function FileUploadField({
             </div>
 
             <Dialog open={isCameraOpen} onOpenChange={(open) => !open && stopCamera()}>
-                <DialogContent className="w-[95vw] max-w-2xl p-0 overflow-hidden bg-black rounded-3xl border-none shadow-2xl">
-                    <div className="relative h-[75vh] sm:h-auto sm:aspect-[4/3] w-full bg-slate-900 overflow-hidden flex flex-col group">
-                        <div className="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden">
-                            <video 
-                                ref={videoRef} 
-                                autoPlay 
-                                playsInline 
-                                muted
-                                className="absolute w-full h-full object-cover"
-                            />
-                            
-                            {/* Scanning Overlay */}
-                            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6">
-                                <div className={cn(
-                                    "border-2 border-white/50 rounded-2xl relative transition-all duration-500 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]",
-                                    isVertical ? "w-[75%] aspect-[1/1.5]" : "w-full aspect-[1.58/1]"
-                                )}>
-                                    {/* Corners */}
-                                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg" />
-                                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg" />
-                                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 -mb-1 -ml-1 rounded-bl-lg" />
-                                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 -mb-1 -mr-1 rounded-br-lg" />
-                                    
-                                    <div className="absolute inset-0 bg-blue-500/5 animate-pulse flex items-center justify-center">
-                                        <ShieldCheck className="w-12 h-12 text-white/20" />
-                                    </div>
-                                </div>
-                                <div className="mt-8 bg-black/80 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/10 shadow-2xl z-10">
-                                    <p className="text-[10px] font-black text-white uppercase tracking-[0.25em] flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                        Align {isVertical ? 'Vertical' : 'Horizontal'} Document
-                                    </p>
-                                </div>
+                <DialogContent className="w-[95vw] sm:max-w-2xl p-0 overflow-hidden bg-black rounded-3xl border-none shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                    <div className="relative h-[80vh] sm:h-[600px] w-full bg-slate-900 overflow-hidden group">
+                        {/* 1. Full-Screen Video Background */}
+                        <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            muted
+                            className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        
+                        {/* 2. Professional Scanning Mask Overlay */}
+                        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 sm:p-12">
+                            {/* Standardized Box Frame */}
+                            <div className={cn(
+                                "relative transition-all duration-700 ease-in-out shadow-[0_0_0_9999px_rgba(0,0,0,0.7)]",
+                                isVertical ? "w-[75%] aspect-[1/1.5]" : "w-full aspect-[1.58/1]"
+                            )}>
+                                {/* Corner Accents (High-End Style) */}
+                                <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl -mt-1 -ml-1" />
+                                <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl -mt-1 -mr-1" />
+                                <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl -mb-1 -ml-1" />
+                                <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-blue-500 rounded-br-2xl -mb-1 -mr-1" />
+                                
+                                <div className="absolute inset-0 bg-blue-500/10 animate-pulse border border-white/20 rounded-2xl" />
                             </div>
 
-                            {/* Close/Back Button (Top Left for Mobile) */}
-                            <div className="absolute top-4 right-4 z-20">
-                                <Button 
-                                    onClick={stopCamera} 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-10 w-10 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md border border-white/10"
-                                >
-                                    <X className="w-5 h-5" />
-                                </Button>
+                            <div className="mt-8 flex flex-col items-center gap-2">
+                                <div className="bg-blue-600/20 backdrop-blur-xl px-6 py-2 rounded-full border border-blue-400/30 shadow-2xl animate-in zoom-in duration-500">
+                                    <p className="text-[10px] font-black text-white uppercase tracking-[0.3em] flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+                                        Align {label.includes("NIC") ? "Card" : "Document"} properly
+                                    </p>
+                                </div>
+                                <p className="text-[9px] font-bold text-white/50 uppercase tracking-widest">{isVertical ? 'Vertical' : 'Horizontal'} Detection Active</p>
                             </div>
                         </div>
 
-                        {/* Camera Controls - Bottom Navigation Style */}
-                        <div className="p-8 sm:p-10 bg-slate-950/90 backdrop-blur-3xl border-t border-white/10 flex flex-col items-center gap-6">
-                            <div className="flex items-center justify-center gap-10 sm:gap-14 w-full">
+                        {/* 3. Floating Floating Header Controls */}
+                        <div className="absolute top-6 inset-x-6 flex items-center justify-between z-20">
+                            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+                                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                <span className="text-[9px] font-black text-white uppercase tracking-widest">Secure Guard</span>
+                            </div>
+
+                            <Button 
+                                onClick={stopCamera} 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-10 w-10 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-xl border border-white/10 shadow-lg"
+                            >
+                                <X className="w-5 h-5" />
+                            </Button>
+                        </div>
+
+                        {/* 4. Main Floating Capture Controls (Center Bottom) */}
+                        <div className="absolute bottom-10 inset-x-0 flex flex-col items-center gap-8 z-20 animate-in slide-in-from-bottom-10 duration-700">
+                            <div className="flex items-center justify-center gap-8 w-full px-6">
+                                {/* Orientation Toggle */}
                                 <Button 
                                     onClick={() => setIsVertical(!isVertical)} 
                                     variant="ghost" 
                                     size="icon" 
-                                    className="w-12 h-12 rounded-full bg-white/5 text-white hover:bg-white/10 border border-white/5 transition-colors"
-                                    title="Switch Orientation"
+                                    className="w-14 h-14 rounded-full bg-white/10 text-white hover:bg-white/20 backdrop-blur-2xl border border-white/10 transition-all active:scale-90"
+                                    title="Orientation"
                                 >
-                                    <RefreshCw className={cn("w-6 h-6 transition-transform duration-700", isVertical ? "rotate-90" : "rotate-0")} />
+                                    <RefreshCw className={cn("w-6 h-6 transition-transform duration-700 ease-out", isVertical ? "rotate-90" : "rotate-0")} />
                                 </Button>
                                 
+                                {/* Main Capture Button */}
                                 <button 
                                     onClick={capturePhoto}
                                     disabled={isCapturing}
-                                    className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white/20 flex items-center justify-center group active:scale-90 transition-all"
+                                    className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white/30 flex items-center justify-center group active:scale-95 transition-all p-1"
                                 >
-                                    <div className="absolute inset-2 rounded-full border border-white/10" />
+                                    <div className="absolute inset-0 rounded-full bg-white/10 backdrop-blur-md animate-pulse" />
                                     <div className={cn(
-                                        "w-18 h-18 sm:w-22 sm:h-22 rounded-full bg-white shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all group-hover:scale-105",
-                                        isCapturing ? "animate-pulse" : ""
-                                    )} />
+                                        "w-full h-full rounded-full bg-white shadow-[0_0_50px_rgba(255,255,255,0.4)] transition-all group-hover:scale-105 flex items-center justify-center",
+                                        isCapturing ? "opacity-50" : "opacity-100"
+                                    )}>
+                                        <div className="w-[85%] h-[85%] rounded-full border border-slate-200" />
+                                    </div>
                                 </button>
 
-                                <div className="w-12 h-12" /> {/* Spacer for balance */}
+                                {/* Future Logic / Spacer */}
+                                <div className="w-14 h-14" />
                             </div>
                             
-                            <div className="flex items-center gap-3">
-                                <div className="h-[1px] w-8 bg-blue-500/20" />
-                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500">Secure AI Processing</p>
-                                <div className="h-[1px] w-8 bg-blue-500/20" />
+                            <div className="flex items-center gap-4">
+                                <div className="h-[1px] w-6 bg-white/20" />
+                                <div className="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    <div className="w-1 h-1 bg-white rounded-full animate-bounce" />
+                                    <p className="text-[8px] font-black uppercase tracking-[0.5em] text-white">Advanced AI Scanning</p>
+                                    <div className="w-1 h-1 bg-white rounded-full animate-bounce delay-100" />
+                                </div>
+                                <div className="h-[1px] w-6 bg-white/20" />
                             </div>
+                        </div>
+
+                        {/* Scan Line Animation (Premium Effect) */}
+                        <div className="absolute inset-0 pointer-events-none overflow-hidden h-full w-full">
+                            <div className="w-full h-[2px] bg-blue-400 shadow-[0_0_15px_#60a5fa] absolute top-0 left-0 animate-[scan_3s_linear_infinite]" />
                         </div>
                     </div>
                 </DialogContent>
