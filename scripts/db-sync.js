@@ -5,23 +5,38 @@ const path = require('path');
 // Load .env file
 const envPath = path.resolve(__dirname, '../.env');
 if (fs.existsSync(envPath)) {
-    const envConfig = fs.readFileSync(envPath, 'utf8');
-    envConfig.split(/\r?\n/).forEach(line => {
-        // Basic parser that handles Key="Value" or Key=Value
-        const match = line.match(/^\s*([\w_]+)\s*=\s*(.*)?\s*$/);
-        if (match) {
-            const key = match[1];
-            let value = match[2] || '';
-            // Remove wrapping quotes if present
-            if (value.length > 0 && value.charAt(0) === '"' && value.charAt(value.length - 1) === '"') {
-                value = value.slice(1, -1);
+    try {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        const lines = envContent.split(/\r?\n/);
+        
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            // Skip comments and empty lines
+            if (!trimmedLine || trimmedLine.startsWith('#')) return;
+
+            // Find first '=' to split key and value
+            const equalSignIndex = trimmedLine.indexOf('=');
+            if (equalSignIndex === -1) return;
+
+            const key = trimmedLine.substring(0, equalSignIndex).trim();
+            let value = trimmedLine.substring(equalSignIndex + 1).trim();
+
+            // Handle quoted values
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.substring(1, value.length - 1);
             }
-            if (value.length > 0 && value.charAt(0) === "'" && value.charAt(value.length - 1) === "'") {
-                value = value.slice(1, -1);
+
+            // Set to process.env if not already set by the system
+            if (!process.env[key]) {
+                process.env[key] = value;
             }
-            process.env[key] = value;
-        }
-    });
+        });
+        console.log('✅ Local .env file loaded successfully.');
+    } catch (err) {
+        console.warn('⚠️ Warning: Error reading .env file:', err.message);
+    }
+} else {
+    console.log('ℹ️ No local .env file found. Using system environment variables.');
 }
 
 const primaryUrl = process.env.DATABASE_URL;
