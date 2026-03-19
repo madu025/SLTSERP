@@ -79,10 +79,24 @@ async function sync() {
 
     try {
         console.log('📌 Running Prisma DB Push (Primary)...');
-        execSync(`npx prisma db push --accept-data-loss`, { 
-            stdio: 'inherit', 
-            env: { ...process.env, DATABASE_URL: primaryPushUrl } 
-        });
+        // Try npx first, fallback to direct path if npx fails or is missing
+        try {
+            execSync(`npx prisma db push --accept-data-loss`, { 
+                stdio: 'inherit', 
+                env: { ...process.env, DATABASE_URL: primaryPushUrl } 
+            });
+        } catch (npxError) {
+            console.warn('⚠️ npx failed, trying direct binary path...');
+            const directPath = path.join(process.cwd(), 'node_modules/.bin/prisma');
+            if (fs.existsSync(directPath)) {
+                execSync(`${directPath} db push --accept-data-loss`, { 
+                    stdio: 'inherit', 
+                    env: { ...process.env, DATABASE_URL: primaryPushUrl } 
+                });
+            } else {
+                throw npxError;
+            }
+        }
         console.log('✅ Primary Database Synchronized.');
 
         if (replicaUrl) {
@@ -90,10 +104,24 @@ async function sync() {
             console.log(`📌 Using Replica Database URL: ${maskedReplica}`);
             console.log('📌 Running Prisma DB Push (Replica)...');
             try {
-                execSync(`npx prisma db push --accept-data-loss`, { 
-                    stdio: 'inherit', 
-                    env: { ...process.env, DATABASE_URL: replicaUrl } 
-                });
+                // Try npx first
+                try {
+                    execSync(`npx prisma db push --accept-data-loss`, { 
+                        stdio: 'inherit', 
+                        env: { ...process.env, DATABASE_URL: replicaUrl } 
+                    });
+                } catch (replicaNpxErr) {
+                    console.warn('⚠️ npx failed for replica, trying direct binary path...');
+                    const directPath = path.join(process.cwd(), 'node_modules/.bin/prisma');
+                    if (fs.existsSync(directPath)) {
+                        execSync(`${directPath} db push --accept-data-loss`, { 
+                            stdio: 'inherit', 
+                            env: { ...process.env, DATABASE_URL: replicaUrl } 
+                        });
+                    } else {
+                        throw replicaNpxErr;
+                    }
+                }
                 console.log('✅ Read Replica Synchronized.');
             } catch (replicaError) {
                 console.warn('⚠️ Warning: Read Replica sync failed. This may be expected if it is read-only.');

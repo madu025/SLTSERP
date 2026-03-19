@@ -40,6 +40,11 @@ jobs:
           # ✅ Next.js standalone output (contains server.js)
           cp -r .next/standalone/. deploy/
 
+          # 🔥 Ensure prisma CLI is present for DB sync inside container
+          mkdir -p deploy/node_modules/.bin
+          cp -r node_modules/prisma deploy/node_modules/ || true
+          cp -r node_modules/.bin/prisma deploy/node_modules/.bin/ || true
+
           # ✅ Static assets MUST be inside deploy/.next/static
           mkdir -p deploy/.next/static
           cp -r .next/static/. deploy/.next/static/
