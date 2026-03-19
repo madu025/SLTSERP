@@ -10,32 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Building2, Search, ShieldCheck } from "lucide-react";
 
-const banks = [
-    { id: "1", name: "Bank of Ceylon" },
-    { id: "2", name: "Commercial Bank of Ceylon PLC" },
-    { id: "3", name: "Hatton National Bank PLC" },
-    { id: "4", name: "Sampath Bank PLC" },
-    { id: "5", name: "Seylan Bank PLC" },
-    { id: "6", name: "People's Bank" },
-];
-
-const branches = [
-    { id: "1", name: "Anuradhapura" },
-    { id: "2", name: "Colombo Fort" },
-    { id: "3", name: "Kandy" },
-    { id: "4", name: "Matara" },
-    { id: "5", name: "Galle" },
-    { id: "6", name: "Jaffna" },
-    { id: "7", name: "Kurunegala" },
-    { id: "8", name: "Ratnapura" },
-];
-
 interface Step3BankInfoProps {
+    banks: { id: string; name: string }[];
+    branches: { id: string; name: string }[];
     onUpload: (file: File, fieldName: string) => Promise<string | null>;
     uploadProgress: Record<string, number>;
 }
 
-export function Step3BankInfo({ onUpload, uploadProgress }: Step3BankInfoProps) {
+export function Step3BankInfo({ banks, branches, onUpload, uploadProgress }: Step3BankInfoProps) {
     const { control, watch, setValue } = useFormContext<PublicRegistrationSchema>();
     const [manualBank, setManualBank] = useState(false);
     const [branchSearch, setBranchSearch] = useState(watch("bankBranch") || "");
