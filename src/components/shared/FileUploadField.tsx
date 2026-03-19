@@ -144,37 +144,51 @@ export function FileUploadField({
             const video = videoRef.current;
             const canvas = document.createElement("canvas");
             
-            // Native Dimensions
+            // 1. Native Stream Dimensions
             const vWidth = video.videoWidth;
             const vHeight = video.videoHeight;
             
-            // UI Overlay Frame Logic (CROP)
+            // 2. Visual Container Dimensions
+            const cWidth = video.clientWidth;
+            const cHeight = video.clientHeight;
+
+            // 3. Document Frame Geometry
             const frameAspect = isVertical ? (1 / 1.5) : (1.58 / 1);
             
-            const streamAspect = vWidth / vHeight;
-            const containerAspect = video.clientWidth / video.clientHeight;
+            // Account for p-6 (24px) or sm:p-12 (48px) padding in the UI overlay
+            const padding = window.innerWidth < 640 ? 48 : 96; // 24*2 or 48*2
+            const availableWidth = cWidth - padding;
             
-            let visibleWidth = vWidth;
-            let visibleHeight = vHeight;
-            let startX = 0;
-            let startY = 0;
+            const frameWidth = isVertical ? (availableWidth * 0.75) : availableWidth;
+            const frameHeight = frameWidth / frameAspect;
+
+            // 4. Transform Visual Coordinates to Stream Coordinates (taking object-cover into account)
+            const streamAspect = vWidth / vHeight;
+            const containerAspect = cWidth / cHeight;
+            
+            let drawWidth = vWidth;
+            let drawHeight = vHeight;
+            let offsetX = 0;
+            let offsetY = 0;
 
             if (streamAspect > containerAspect) {
-                visibleWidth = vHeight * containerAspect;
-                startX = (vWidth - visibleWidth) / 2;
+                drawWidth = vHeight * containerAspect;
+                offsetX = (vWidth - drawWidth) / 2;
             } else {
-                visibleHeight = vWidth / containerAspect;
-                startY = (vHeight - visibleHeight) / 2;
+                drawHeight = vWidth / containerAspect;
+                offsetY = (vHeight - drawHeight) / 2;
             }
 
-            // Calculations based on the 85-95% UI Frame width
-            const cropScale = 0.8; // Approximate frame size in view
-            const cropWidth = visibleWidth * cropScale;
-            const cropHeight = cropWidth / frameAspect;
-            const cropX = startX + (visibleWidth - cropWidth) / 2;
-            const cropY = startY + (visibleHeight - cropHeight) / 2;
+            // Ratio of frame to container
+            const scaleX = drawWidth / cWidth;
+            const scaleY = drawHeight / cHeight;
 
-            // Output Target (Hi-Res)
+            const cropWidth = frameWidth * scaleX;
+            const cropHeight = frameHeight * scaleY;
+            const cropX = offsetX + (cWidth - frameWidth) / 2 * scaleX;
+            const cropY = offsetY + (cHeight - frameHeight) / 2 * scaleY;
+
+            // 5. Output Configuration (Hi-Res)
             canvas.width = 1200;
             canvas.height = canvas.width / frameAspect;
             
@@ -184,25 +198,26 @@ export function FileUploadField({
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(
                     video, 
-                    cropX, cropY, cropWidth, cropHeight, // SOURCE
-                    0, 0, canvas.width, canvas.height    // TARGET
+                    cropX, cropY, cropWidth, cropHeight, // SOURCE (Stream)
+                    0, 0, canvas.width, canvas.height    // TARGET (Canvas)
                 );
                 
-                canvas.toBlob(async (blob) => {
-                    if (blob) {
-                        const file = new File([blob], `capture-${fieldName}-${Date.now()}.jpg`, { type: "image/jpeg" });
-                        const success = await uploadCapturedPhoto(file);
-                        if (success) {
-                            stopCamera();
-                            setIsCameraOpen(false);
-                        }
-                    }
-                    setIsCapturing(false);
-                }, "image/jpeg", 0.95);
+                // --- INSTANT ACTION ---
+                // Stop the camera and close the UI immediately after "taking" the shot
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+                stopCamera();
+                setIsCameraOpen(false);
+                setIsCapturing(false);
+
+                // Now upload the captured "Data" in the background
+                const response = await fetch(dataUrl);
+                const blob = await response.blob();
+                const file = new File([blob], `capture-${fieldName}-${Date.now()}.jpg`, { type: "image/jpeg" });
+                await uploadCapturedPhoto(file);
             }
         } catch (err) {
-            console.error("Capture error:", err);
-            toast.error("Failed to capture photo");
+            console.error("Capture failure:", err);
+            toast.error("Failed to capture and crop photo");
             setIsCapturing(false);
         }
     };
