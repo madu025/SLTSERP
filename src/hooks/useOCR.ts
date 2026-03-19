@@ -28,25 +28,24 @@ export function useOCR() {
           .replace(/[Il]/g, '1')
           .replace(/[O]/g, '0');
 
-        // Match Sri Lankan NIC patterns directly from normalized text with word boundaries
-        // Old: 9 digits + V/X
-        const oldNicMatch = nicFriendlyText.match(/\b\d{9}[vVxX]\b/i);
+        // IMPROVED: Remove all spaces for matching to handle '90 301 391 5V' cases
+        const compactText = nicFriendlyText.replace(/\s/g, '');
+        console.log(`[OCR-COMPACT] Searching in:`, compactText);
+
+        // Pattern for 9 digits followed by V or X
+        const oldNicMatch = compactText.match(/\d{9}[vVxX]/);
         
-        // New: Exactly 12 digits (usually starting with 19 or 20)
-        const all12DigitGroups = nicFriendlyText.match(/\b\d{12}\b/g) || [];
-        
-        // Prefer matches starting with birth year patterns (19/20)
-        const birthYearNic = all12DigitGroups.find(num => num.startsWith('19') || num.startsWith('20'));
-        const newNicValue = birthYearNic || all12DigitGroups[0];
+        // Pattern for 12 digits
+        const newNicMatch = compactText.match(/\d{12}/);
         
         if (oldNicMatch) {
           extractedValue = oldNicMatch[0].toUpperCase();
-        } else if (newNicValue) {
-          extractedValue = newNicValue;
+        } else if (newNicMatch) {
+          extractedValue = newNicMatch[0];
         }
       } else if (fieldName.toLowerCase().includes('account') || fieldName.toLowerCase().includes('bank')) {
         // Match standard bank account number patterns (8-16 digits)
-        const accMatch = cleanText.match(/\b\d{8,16}\b/);
+        const accMatch = cleanText.replace(/\s/g, '').match(/\d{8,16}/);
         extractedValue = accMatch ? accMatch[0] : "";
       }
       
