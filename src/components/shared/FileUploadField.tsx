@@ -42,6 +42,14 @@ export function FileUploadField({
     const videoRef = React.useRef<HTMLVideoElement>(null);
     const [isCapturing, setIsCapturing] = React.useState(false);
 
+    // Ensure camera stream is attached when dialog opens or stream changes
+    React.useLayoutEffect(() => {
+        if (isCameraOpen && cameraStream && videoRef.current) {
+            videoRef.current.srcObject = cameraStream;
+            videoRef.current.play().catch(console.error);
+        }
+    }, [isCameraOpen, cameraStream]);
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             await uploadFile(e.target.files[0]);
@@ -57,15 +65,27 @@ export function FileUploadField({
 
     const startCamera = async () => {
         try {
+            // Stop any existing stream before starting a new one
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } 
+                video: { 
+                    facingMode: "environment", 
+                    width: { ideal: 1920 }, 
+                    height: { ideal: 1080 } 
+                } 
+            }).catch(() => {
+                // Fallback to any available camera (like front cam on laptops)
+                return navigator.mediaDevices.getUserMedia({ video: true });
             });
+
             setCameraStream(stream);
             setIsCameraOpen(true);
-            if (videoRef.current) videoRef.current.srcObject = stream;
         } catch (err) {
             console.error("Camera error:", err);
-            toast.error("Could not access camera. Please check permissions.");
+            toast.error("Could not access camera. Please check permissions and ensure site is served over HTTPS.");
         }
     };
 
@@ -73,6 +93,9 @@ export function FileUploadField({
         if (cameraStream) {
             cameraStream.getTracks().forEach(track => track.stop());
             setCameraStream(null);
+        }
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
         }
         setIsCameraOpen(false);
     };
@@ -201,6 +224,7 @@ export function FileUploadField({
                             ref={videoRef} 
                             autoPlay 
                             playsInline 
+                            muted
                             className="w-full h-full object-cover"
                         />
                         
