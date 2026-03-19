@@ -45,7 +45,7 @@ services:
       redis:
         condition: service_started
     volumes:
-      - ./public/uploads:/app/public/uploads
+      - uploads_data:/app/uploads
 
   # Redis for Queues
   redis:
@@ -76,6 +76,8 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
+    driver: local
 
 networks:
   sltserp-network:
