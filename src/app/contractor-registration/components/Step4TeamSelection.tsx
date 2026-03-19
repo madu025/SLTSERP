@@ -76,7 +76,7 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2 ml-1">
+                                        <label className="text-[11px] font-black uppercase text-slate-700 tracking-[0.2em] flex items-center gap-2 ml-1">
                                             Primary Base Store <Building2 className="w-4 h-4 text-blue-500" />
                                         </label>
                                         <Select 
@@ -84,7 +84,7 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
                                             value={watch(`teams.${tIndex}.primaryStoreId`) || ""}
                                         >
                                             <FormControl>
-                                                <SelectTrigger className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100">
+                                                <SelectTrigger className="h-12 text-sm text-slate-900 font-bold bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100">
                                                     <SelectValue placeholder="Select base store" />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -94,7 +94,7 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
                                         </Select>
                                     </div>
                                     <div className="space-y-2 pt-2">
-                                        <label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] ml-1">RTOM Jurisdiction</label>
+                                        <label className="text-[11px] font-black uppercase text-slate-700 tracking-[0.2em] ml-1">RTOM Jurisdiction</label>
                                         <Select 
                                             onValueChange={(v) => setValue(`teams.${tIndex}.opmcId`, v)} 
                                             value={watch(`teams.${tIndex}.opmcId`) || "inherit"}

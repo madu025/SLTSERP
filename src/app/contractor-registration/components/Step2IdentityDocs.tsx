@@ -45,7 +45,7 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                     render={({ field }) => (
                         <FormItem className="space-y-4">
                             <div className="flex items-center justify-between px-1">
-                                <FormLabel className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
+                                <FormLabel className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-800 flex items-center gap-2">
                                     Official NIC Number <BadgeCheck className="w-4 h-4" />
                                 </FormLabel>
                                 {field.value && (
@@ -58,7 +58,7 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                             <FormControl>
                                 <Input 
                                     {...field} 
-                                    className="h-16 text-2xl font-black tracking-[0.3em] border-blue-200 bg-white shadow-inner focus:ring-blue-100 transition-all rounded-2xl text-slate-800 placeholder:text-slate-200" 
+                                    className="h-16 text-2xl font-black tracking-[0.3em] border-blue-200 bg-white shadow-inner focus:ring-blue-100 transition-all rounded-2xl text-slate-900 placeholder:text-slate-400" 
                                     placeholder="SCAN TO EXTRACT" 
                                 />
                             </FormControl>

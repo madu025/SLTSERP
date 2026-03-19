@@ -27,7 +27,7 @@ export function Step1PersonalInfo() {
             {/* Content Container */}
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-8">
                 <div>
-                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-600 mb-6">Contractor Profile</h4>
+                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-600 mb-6 px-1">Contractor Profile</h4>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <FormField
@@ -35,9 +35,9 @@ export function Step1PersonalInfo() {
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ml-1">Legal Name / Business Name</FormLabel>
+                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-700 ml-1">Legal Name / Business Name</FormLabel>
                                     <FormControl>
-                                        <Input {...field} className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all" placeholder="Enter full name" />
+                                        <Input {...field} className="h-12 text-sm font-bold text-slate-900 bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all placeholder:text-slate-400" placeholder="Enter full name" />
                                     </FormControl>
                                     <FormMessage className="text-[10px]" />
                                 </FormItem>
@@ -49,9 +49,9 @@ export function Step1PersonalInfo() {
                             name="contactNumber"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ml-1">Phone Number</FormLabel>
+                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-700 ml-1">Phone Number</FormLabel>
                                     <FormControl>
-                                        <Input {...field} className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all" placeholder="07XXXXXXXX" />
+                                        <Input {...field} className="h-12 text-sm font-bold text-slate-900 bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all placeholder:text-slate-400" placeholder="07XXXXXXXX" />
                                     </FormControl>
                                     <FormMessage className="text-[10px]" />
                                 </FormItem>
@@ -63,9 +63,9 @@ export function Step1PersonalInfo() {
                             name="brNumber"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ml-1">Business Registration (BR)</FormLabel>
+                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-700 ml-1">Business Registration (BR)</FormLabel>
                                     <FormControl>
-                                        <Input {...field} value={field.value || ""} className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all" placeholder="Enter BR number (If available)" />
+                                        <Input {...field} value={field.value || ""} className="h-12 text-sm font-bold text-slate-900 bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all placeholder:text-slate-400" placeholder="Enter BR number" />
                                     </FormControl>
                                     <FormMessage className="text-[10px]" />
                                 </FormItem>
@@ -79,11 +79,11 @@ export function Step1PersonalInfo() {
                     name="address"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 ml-1">
+                            <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2 ml-1">
                                 Permanent / Business Address <MapPin className="w-4 h-4 text-blue-500" />
                             </FormLabel>
                             <FormControl>
-                                <Textarea {...field} className="min-h-[120px] text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all resize-none shadow-inner" placeholder="House/Street No, City, Province" />
+                                <Textarea {...field} className="min-h-[120px] text-sm font-bold text-slate-900 bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all resize-none shadow-inner placeholder:text-slate-400" placeholder="House/Street No, City, Province" />
                             </FormControl>
                             <FormMessage className="text-[10px]" />
                         </FormItem>
