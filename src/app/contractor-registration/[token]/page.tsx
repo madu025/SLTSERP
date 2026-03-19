@@ -99,20 +99,38 @@ export default function PublicContractorRegistrationPage() {
             <main className="max-w-4xl mx-auto pt-32 pb-24 px-6">
                 <Form {...form}>
                     <form onSubmit={onSubmit} className="space-y-10">
-                        {/* Step Tracking */}
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-end px-1">
-                                <div>
-                                    <h2 className="text-2xl font-black text-slate-900 tracking-tight">Digital Registration</h2>
-                                    <p className="text-xs text-slate-500 font-medium opacity-80 mt-1">Section {step} of 5: {
-                                        step === 1 ? 'Identity' : step === 2 ? 'Credentials' : step === 3 ? 'Settlement' : step === 4 ? 'Jurisdiction' : 'Final Review'
-                                    }</p>
+                        {/* Step Tracking Header */}
+                        <div className="space-y-6">
+                            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-1">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="h-1 w-8 bg-blue-600 rounded-full" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600/80">Onboarding Progress</span>
+                                    </div>
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none italic uppercase">
+                                        {step === 1 ? 'Contractor Identity' : 
+                                         step === 2 ? 'Security Credentials' : 
+                                         step === 3 ? 'Settlement Details' : 
+                                         step === 4 ? 'Jurisdiction Setup' : 
+                                         'Final Verification'}
+                                    </h2>
+                                    <p className="text-xs text-slate-400 font-bold mt-2">Section {step} of 5 • Secure Data Transmission Active</p>
                                 </div>
-                                <div className="text-right">
-                                    <span className="text-4xl font-black text-blue-600/10 italic select-none">STEP 0{step}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="hidden sm:block h-10 w-px bg-slate-100 mx-2" />
+                                    <div className="bg-slate-900 text-white px-5 py-2.5 rounded-2xl shadow-xl shadow-slate-200 flex items-center gap-3 animate-in fade-in zoom-in duration-500">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Step</span>
+                                        <span className="text-xl font-black leading-none">0{step}</span>
+                                        <span className="text-xs font-bold text-slate-500 italic">/ 05</span>
+                                    </div>
                                 </div>
                             </div>
-                            <Progress value={(step / 5) * 100} className="h-2 bg-slate-200" />
+                            <div className="relative">
+                                <Progress value={(step / 5) * 100} className="h-1.5 bg-slate-100" />
+                                <div className="absolute -top-1 left-0 w-full h-full pointer-events-none opacity-20">
+                                    <div className="h-full bg-gradient-to-r from-transparent via-white to-transparent w-20 animate-glow" />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Steps Container */}
