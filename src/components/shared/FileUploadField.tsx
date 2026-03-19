@@ -4,7 +4,7 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck, ImageIcon } from "lucide-react";
+import { FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck, ImageIcon, Scan } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -193,13 +193,13 @@ export function FileUploadField({
     };
 
     return (
-        <div className="space-y-4 p-6 rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:border-slate-300 group/main">
+        <div className="space-y-4 p-6 rounded-2xl border-2 border-slate-200 bg-white shadow-sm transition-all hover:border-blue-200 group/main">
             <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                    <Label htmlFor={inputId} className="text-[10px] font-black uppercase text-slate-900 tracking-widest block ml-0.5">
+                    <Label htmlFor={inputId} className="text-[11px] font-black uppercase text-slate-900 tracking-widest block ml-0.5">
                         {label} {required && <span className="text-red-500 font-black">*</span>}
                     </Label>
-                    {description && <p className="text-[10px] text-slate-400 font-bold leading-tight ml-0.5 opacity-80 group-hover/main:opacity-100 transition-opacity uppercase tracking-tight">{description}</p>}
+                    {description && <p className="text-[10px] text-slate-900 font-bold leading-tight ml-0.5 opacity-90 group-hover/main:opacity-100 transition-opacity uppercase tracking-tight">{description}</p>}
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -208,13 +208,13 @@ export function FileUploadField({
                             type="button" 
                             onClick={startCamera} 
                             className={cn(
-                                "h-9 px-3.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest transition-all flex items-center gap-2 border shadow-sm",
+                                "h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border-2 shadow-sm",
                                 value 
-                                    ? "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white" 
+                                    ? "bg-slate-50 text-slate-900 border-slate-200 hover:bg-white" 
                                     : "bg-blue-600 text-white border-blue-700 hover:bg-blue-700 hover:shadow-md"
                             )}
                         >
-                            <Camera className="w-3.5 h-3.5" /> {value ? "RESYNC SPECIMEN" : "LIVE CAPTURE"}
+                            <Camera className="w-4 h-4" /> {value ? "RESYNC SPECIMEN" : "LIVE CAPTURE"}
                         </button>
                     )}
                 </div>
@@ -232,61 +232,84 @@ export function FileUploadField({
                 <Label
                     htmlFor={inputId}
                     className={cn(
-                        "relative flex flex-col items-center justify-center w-full min-h-[140px] rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden",
+                        "relative flex flex-col items-center justify-center w-full min-h-[160px] rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden",
                         value 
-                            ? "border-emerald-200 bg-emerald-50/10" 
-                            : "border-slate-100 bg-slate-50/50 hover:border-blue-400 hover:bg-white hover:shadow-sm"
+                            ? "border-emerald-500 bg-emerald-50/50" 
+                            : "border-slate-200 bg-slate-50/50 hover:border-blue-500 hover:bg-white hover:shadow-sm"
                     )}
                 >
                     {value ? (
-                        <div className="relative w-full min-h-[160px] flex flex-col items-center justify-center p-3 overflow-hidden group/thumb">
-                            {value.match(/\.(jpg|jpeg|png|webp|gif|svg|avif)/i) || value.includes('amazonaws.com') || value.includes('cloudfront.net') || value.includes('data:image') ? (
-                                <div className="relative w-full h-[140px] rounded-xl overflow-hidden border border-slate-200 shadow-sm group-hover/thumb:opacity-20 transition-opacity bg-white">
-                                    <Image src={value} alt={label} fill className="object-contain" unoptimized priority />
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center gap-2 py-8 text-blue-600">
-                                    <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 shadow-inner">
-                                        <FileText className="w-8 h-8 opacity-80" />
-                                    </div>
-                                    <span className="text-[9px] font-black uppercase tracking-[0.3em]">Document Verified</span>
-                                </div>
-                            )}
-                            
-                            <div className="absolute inset-x-0 bottom-6 opacity-0 group-hover/thumb:opacity-100 transition-all flex justify-center">
-                                <div className="flex items-center gap-2 text-white text-[9px] font-black bg-slate-900 px-4 py-2 rounded-lg shadow-xl uppercase tracking-widest border border-white/20">
-                                    <Upload className="w-3 h-3" /> Update Specimen
+                        <div className="flex flex-col md:flex-row w-full h-full items-stretch p-4 gap-6">
+                            {/* Horizontal Image Section */}
+                            <div className="relative w-full md:w-[240px] h-[140px] rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm transition-transform hover:scale-[1.02] bg-white bg-[url('/grid.svg')]">
+                                <Image src={value} alt={label} fill className="object-contain p-2" unoptimized priority />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent opacity-0 group/img hover:opacity-100 transition-opacity flex items-end justify-center pb-2">
+                                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Digital Specimen</span>
                                 </div>
                             </div>
                             
-                            <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1 bg-white border border-emerald-100 text-emerald-600 rounded-full shadow-sm">
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span className="text-[8px] font-extrabold uppercase tracking-widest">READY</span>
+                            {/* OCR & Status Section (Horizontal Context) */}
+                            <div className="flex-1 flex flex-col justify-center space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-emerald-600">
+                                        <ShieldCheck className="w-5 h-5" />
+                                        <span className="text-[11px] font-black uppercase tracking-widest">OCR Verification Ready</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-900 font-bold uppercase tracking-tight leading-relaxed max-w-sm">
+                                        Visual specimen successfully digitized and synchronized with SLTS national registry security protocols.
+                                    </p>
+                                </div>
+                                
+                                <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white border-2 border-slate-200 text-slate-900 rounded-lg shadow-sm">
+                                        <ImageIcon className="w-3 h-3 text-blue-600" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">8MP Resolution Target</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg shadow-sm">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest italic">SYNCHRONIZED</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2">
+                                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-900 shadow-sm hover:text-blue-600 transition-colors">
+                                    <Upload className="w-4 h-4" />
+                                </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-3 py-6 text-slate-400 group-hover:text-blue-600 transition-all">
-                            <div className="p-3 bg-white border border-slate-100 rounded-xl group-hover:border-blue-200 shadow-sm transition-all">
-                                <Upload className="w-6 h-6" />
+                        <div className="flex flex-col items-center gap-4 py-8 text-slate-400 group-hover:text-blue-600 transition-all">
+                            <div className="p-4 bg-white border-2 border-slate-200 rounded-2xl group-hover:border-blue-500 shadow-sm transition-all rotate-3 group-hover:rotate-0">
+                                <Upload className="w-8 h-8 text-slate-900" />
                             </div>
-                            <div className="text-center">
-                                <span className="text-[10px] font-black block text-slate-700 uppercase tracking-widest">Select Audit Specimen</span>
-                                <span className="text-[9px] block font-black text-slate-400 mt-0.5 uppercase tracking-widest">PDF / JPG / PNG (MAX 5MB)</span>
+                            <div className="text-center space-y-2">
+                                <span className="text-[12px] font-black block text-slate-900 uppercase tracking-[0.2em]">Select Audit Specimen</span>
+                                <div className="flex items-center justify-center gap-2 bg-slate-900 text-white px-4 py-1.5 rounded-full shadow-lg">
+                                    <FileText className="w-3 h-3" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">DRAG & DROP OFFICIAL DOCS</span>
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {isScanning && (
-                        <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-10 animate-in fade-in">
-                            <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-[0.5em] animate-pulse">Running OCR Audit Protocol...</span>
+                        <div className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center gap-4 z-10 animate-in fade-in">
+                            <div className="relative">
+                                <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                                <Scan className="absolute inset-0 m-auto w-5 h-5 text-blue-600 animate-pulse" />
+                            </div>
+                            <div className="text-center space-y-1">
+                                <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] block">OCR Audit Protocol Active</span>
+                                <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest animate-pulse italic">Synchronizing with registry...</span>
+                            </div>
                         </div>
                     )}
 
                     {!value && progress !== undefined && progress > 0 && progress < 100 && (
-                        <div className="absolute inset-x-10 bottom-6 space-y-2">
-                            <Progress value={progress} className="h-1 bg-slate-100" />
-                            <p className="text-[8px] text-center font-black text-blue-600 uppercase tracking-widest">{progress}% Synchronizing</p>
+                        <div className="absolute inset-x-12 bottom-8 space-y-3">
+                            <Progress value={progress} className="h-1.5 bg-slate-100" />
+                            <p className="text-[9px] text-center font-black text-blue-600 uppercase tracking-widest">{progress}% PACKET TRANSMISSION</p>
                         </div>
                     )}
                 </Label>

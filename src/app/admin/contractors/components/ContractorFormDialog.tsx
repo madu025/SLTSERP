@@ -147,7 +147,7 @@ export function ContractorFormDialog({
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <FormField control={form.control} name="type" render={({ field }) => (
                                     <FormItem className="col-span-2">
-                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-bold">Industry Category</FormLabel>
+                                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-900">Industry Category</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value || "SOD"}>
                                             <FormControl><SelectTrigger className="h-12 bg-slate-50 border-none rounded-xl focus:ring-blue-100"><SelectValue placeholder="Identify Sector" /></SelectTrigger></FormControl>
                                             <SelectContent className="rounded-xl border-slate-100">
@@ -166,7 +166,7 @@ export function ContractorFormDialog({
                         )}
 
                         {step === 3 && (
-                            <Step2IdentityDocs handleUpload={handleUpload} uploadProgress={uploadProgress} />
+                            <Step2IdentityDocs handleUpload={handleUpload} />
                         )}
 
                         {step === 4 && <Step4TeamSelection staticData={{ opmcs: [] }} />}

@@ -23,14 +23,14 @@ export function Step4TeamSelection({ staticData }: Step4Props) {
     return (
         <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* Professional Step Header */}
-            <div className="pb-8 border-b border-slate-100 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+            <div className="pb-8 border-b border-slate-200 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
                 <div className="flex-1">
                     <div className="flex items-center gap-3 text-blue-600 mb-2">
                         <Users className="w-5 h-5" />
                         <span className="text-[10px] font-black uppercase tracking-[0.3em]">Module Stage 04 | Human Resource Configuration</span>
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Operational Personnel Roster</h3>
-                    <p className="text-sm text-slate-500 max-w-2xl mt-2 leading-relaxed font-bold opacity-80">
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Operational Personnel Roster</h3>
+                    <p className="text-sm text-slate-900 max-w-2xl mt-2 leading-relaxed font-bold opacity-90">
                         Configure your field operational units. Each team must be assigned to a primary SLT jurisdiction (OPMC/RTOM) and populated with verified personnel metrics.
                     </p>
                 </div>
@@ -52,10 +52,10 @@ export function Step4TeamSelection({ staticData }: Step4Props) {
                                     <HardHat className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest italic">{team.name || `Field Unit ${index + 1}`}</h4>
+                                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">{team.name || `Field Unit ${index + 1}`}</h4>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unit Status: Defined</p>
+                                        <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest opacity-80">Unit Status: Defined</p>
                                     </div>
                                 </div>
                             </div>
@@ -123,17 +123,17 @@ export function Step4TeamSelection({ staticData }: Step4Props) {
                             />
 
                             {/* Personnel Metrics Summary */}
-                            <div className="md:col-span-2 p-6 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
+                            <div className="md:col-span-2 p-6 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm text-slate-400">
+                                    <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm text-slate-900">
                                         <Briefcase className="w-5 h-5" />
                                     </div>
-                                    <p className="text-xs text-slate-500 font-bold max-w-sm">
+                                    <p className="text-xs text-slate-900 font-bold max-w-sm opacity-90">
                                         Note: Individual personnel identification documents for this unit must be physically submitted upon successful portal synchronization.
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Unit Personnel Status</p>
+                                    <p className="text-[9px] font-black text-slate-900 uppercase tracking-widest opacity-70">Unit Personnel Status</p>
                                     <p className="text-sm font-black text-slate-900">PENDING PHYSICAL AUDIT</p>
                                 </div>
                             </div>
@@ -143,9 +143,9 @@ export function Step4TeamSelection({ staticData }: Step4Props) {
 
                 {fields.length === 0 && (
                     <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[32px] bg-slate-50/50">
-                        <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                        <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest">No Operational Units Initialized</h4>
-                        <p className="text-xs font-bold text-slate-400 mt-2 italic">At least one service unit is mandatory for SLTS registry</p>
+                        <Users className="w-12 h-12 text-slate-900 mx-auto mb-4 opacity-30" />
+                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">No Operational Units Initialized</h4>
+                        <p className="text-xs font-bold text-slate-900 mt-2 opacity-70">At least one service unit is mandatory for SLTS registry</p>
                     </div>
                 )}
             </div>

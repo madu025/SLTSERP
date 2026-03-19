@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useFormContext } from "react-hook-form";
-import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from "@/components/ui/form";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
 import { FileUploadField } from "@/components/shared/FileUploadField";
@@ -10,22 +10,21 @@ import { ShieldCheck, Scan, Fingerprint } from "lucide-react";
 
 interface Step2Props {
     handleUpload: (file: File, fieldName: string) => Promise<string | null>;
-    uploadProgress: Record<string, number>;
 }
 
-export function Step2IdentityDocs({ handleUpload, uploadProgress }: Step2Props) {
+export function Step2IdentityDocs({ handleUpload }: Step2Props) {
     const { control } = useFormContext<PublicRegistrationSchema>();
 
     return (
         <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* Professional Step Header */}
-            <div className="pb-8 border-b border-slate-100 mb-8">
+            <div className="pb-8 border-b border-slate-200 mb-8">
                 <div className="flex items-center gap-3 text-blue-600 mb-2">
                     <Fingerprint className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Module Stage 02 | Biometric & Registry Audit</span>
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Legislative Documentation</h3>
-                <p className="text-sm text-slate-500 max-w-2xl mt-2 leading-relaxed font-bold opacity-80">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Legislative Documentation</h3>
+                <p className="text-sm text-slate-900 max-w-2xl mt-2 leading-relaxed font-bold opacity-90">
                     Upload digitized high-resolution specimens of your official identification. These documents are verified against the national database 
                     to ensure legal compliance and eligibility within the SLTS network.
                 </p>
@@ -45,18 +44,18 @@ export function Step2IdentityDocs({ handleUpload, uploadProgress }: Step2Props) 
                                 <div className="group relative transition-all">
                                     <Input 
                                         {...field} 
+                                        value={field.value || ""}
                                         placeholder="Syncing from scanned specimens..." 
-                                        className="h-16 px-8 rounded-2xl border-2 border-slate-100 bg-slate-50/50 shadow-inner transition-all focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-100 font-black text-lg tracking-widest placeholder:text-slate-200 placeholder:italic" 
+                                        className="h-16 px-8 rounded-2xl border-2 border-slate-200 bg-white shadow-inner transition-all focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-100 font-black text-lg tracking-widest placeholder:text-slate-300" 
                                     />
                                     <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center gap-3">
                                         <div className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-lg shadow-sm">
                                             <div className="h-1 w-1 rounded-full bg-blue-500 animate-pulse" />
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Scan</span>
+                                            <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Active Scan</span>
                                         </div>
                                     </div>
                                 </div>
                             </FormControl>
-                            <FormDescription className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 italic">OCR system will automatically populate this during upload</FormDescription>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -64,51 +63,46 @@ export function Step2IdentityDocs({ handleUpload, uploadProgress }: Step2Props) 
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <FileUploadField
-                        label="Identity Specimen (Front)"
-                        description="Clear high-resolution capture of NIC Front surface"
-                        fieldName="nicFrontUrl"
+                        label="NIC Specimen (Alpha/Front)"
+                        description="National Identity Card digitized front specimen."
+                        fieldName="nicFront"
                         onUpload={handleUpload}
-                        progress={uploadProgress.nicFrontUrl}
-                        required
                     />
                     <FileUploadField
-                        label="Identity Specimen (Reverse)"
-                        description="Clear high-resolution capture of NIC Reverse surface"
-                        fieldName="nicBackUrl"
+                        label="NIC Specimen (Beta/Back)"
+                        description="National Identity Card digitized back specimen."
+                        fieldName="nicBack"
                         onUpload={handleUpload}
-                        progress={uploadProgress.nicBackUrl}
-                        required
-                    />
-                    <FileUploadField
-                        label="Official Personnel Portrait"
-                        description="Passport-style photograph with high-clarity facial features"
-                        fieldName="photoUrl"
-                        onUpload={handleUpload}
-                        progress={uploadProgress.photoUrl}
-                        required
-                    />
-                    <FileUploadField
-                        label="Business Registration (BR) Specimen"
-                        description="Authorized corporate registration certificate (Full Image)"
-                        fieldName="brCertUrl"
-                        onUpload={handleUpload}
-                        progress={uploadProgress.brCertUrl}
-                        required
                     />
                 </div>
 
-                {/* Audit Integrity Notice */}
-                <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl flex gap-6 items-center">
-                    <div className="h-12 w-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-blue-600 shadow-sm">
-                        <ShieldCheck className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black uppercase text-slate-900 tracking-widest mb-0.5">Automated Registry Audit</p>
-                        <p className="text-xs text-slate-500 font-bold opacity-70">
-                            Our AI-driven OCR extraction protocol ensures data integrity by cross-referencing visual scans with the SLT national registry. 
-                            Manual overrides are recorded for physical verification.
-                        </p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <FileUploadField
+                        label="Corporate Certification (BRN)"
+                        description="Business Registration document authorizing organizational operation."
+                        fieldName="brnFile"
+                        onUpload={handleUpload}
+                    />
+                    <FileUploadField
+                        label="Executive Authorization Specimen"
+                        description="Form 20/40 or equivalent corporate identity documentation."
+                        fieldName="form20"
+                        onUpload={handleUpload}
+                    />
+                </div>
+            </div>
+
+            {/* Official Notice */}
+            <div className="p-8 rounded-3xl bg-slate-50 border-2 border-slate-200 flex items-start gap-6">
+                <div className="w-14 h-14 rounded-2xl bg-white border-2 border-blue-100 shadow-sm flex items-center justify-center flex-shrink-0 animate-pulse">
+                    <ShieldCheck className="w-7 h-7 text-blue-600" />
+                </div>
+                <div className="space-y-2">
+                    <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">Automated Registry Audit</h4>
+                    <p className="text-sm text-slate-900 leading-relaxed font-bold">
+                        Our integrated OCR (Optical Character Recognition) terminal will automatically parse the uploaded specimens to verify 
+                        institutional authenticity. Ensure all captures are high-resolution and maintain architectural framing.
+                    </p>
                 </div>
             </div>
         </div>

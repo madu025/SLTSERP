@@ -24,13 +24,13 @@ export function Step3BankInfo({ handleUpload, uploadProgress, staticData }: Step
     return (
         <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-500">
             {/* Professional Step Header */}
-            <div className="pb-8 border-b border-slate-100 mb-8">
+            <div className="pb-8 border-b border-slate-200 mb-8">
                 <div className="flex items-center gap-3 text-blue-600 mb-2">
                     <Banknote className="w-5 h-5" />
                     <span className="text-[10px] font-black uppercase tracking-[0.3em]">Module Stage 03 | Financial Trust Synchronization</span>
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase italic">Settlement Data Profile</h3>
-                <p className="text-sm text-slate-500 max-w-2xl mt-2 leading-relaxed font-bold opacity-80">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Settlement Data Profile</h3>
+                <p className="text-sm text-slate-900 max-w-2xl mt-2 leading-relaxed font-bold opacity-90">
                     Provide the official financial settlement details for your enterprise. All settlements will be synchronized with these credentials 
                     following a mandatory registry audit and physical specimen verification.
                 </p>
@@ -86,8 +86,8 @@ export function Step3BankInfo({ handleUpload, uploadProgress, staticData }: Step
                                     </div>
                                 </div>
                             </FormControl>
-                            <FormDescription className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">Verify digits for automated payroll synchronization</FormDescription>
-                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-500 px-1" />
+                            <FormDescription className="text-[9px] font-bold text-slate-900 uppercase tracking-widest px-1 opacity-70">Verify digits for automated payroll synchronization</FormDescription>
+                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600 px-1" />
                         </FormItem>
                     )}
                 />
@@ -121,7 +121,7 @@ export function Step3BankInfo({ handleUpload, uploadProgress, staticData }: Step
                 />
             </div>
 
-            <div className="pt-12 space-y-10 border-t border-slate-100">
+            <div className="pt-12 space-y-10 border-t border-slate-200">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl">
                         <ShieldCheck className="w-5 h-5" />
