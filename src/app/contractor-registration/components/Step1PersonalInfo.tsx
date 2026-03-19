@@ -12,56 +12,78 @@ export function Step1PersonalInfo() {
     const { control } = useFormContext<PublicRegistrationSchema>();
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="flex items-center gap-2 pb-4 border-b border-slate-100">
-                <div className="p-2 bg-blue-100/50 rounded-lg text-blue-600">
-                    <UserCircle className="w-5 h-5" />
+        <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-6 border-b border-slate-100">
+                <div className="p-3 bg-blue-100/50 rounded-2xl text-blue-600 w-fit">
+                    <UserCircle className="w-6 h-6" />
                 </div>
                 <div>
-                    <h3 className="text-lg font-bold text-slate-800">Personal Information</h3>
-                    <p className="text-xs text-slate-500">Provide your official contact and identity details</p>
+                    <h3 className="text-xl font-bold text-slate-800">Primary Contact Identity</h3>
+                    <p className="text-sm text-slate-500">Provide your official contact and registered legal identity details</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                    control={control}
-                    name="name"
-                    render={({ field }) => (
-                        <FormItem className="space-y-1.5 pt-4">
-                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-slate-500">Legal Name / Business Name</FormLabel>
-                            <FormControl>
-                                <Input {...field} className="h-11 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-100 transition-all" placeholder="Enter full name" />
-                            </FormControl>
-                            <FormMessage className="text-[10px]" />
-                        </FormItem>
-                    )}
-                />
+            {/* Content Container */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-8">
+                <div>
+                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-600 mb-6">Contractor Profile</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <FormField
+                            control={control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ml-1">Legal Name / Business Name</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all" placeholder="Enter full name" />
+                                    </FormControl>
+                                    <FormMessage className="text-[10px]" />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={control}
+                            name="contactNumber"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ml-1">Phone Number</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all" placeholder="07XXXXXXXX" />
+                                    </FormControl>
+                                    <FormMessage className="text-[10px]" />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={control}
+                            name="brNumber"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ml-1">Business Registration (BR)</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} value={field.value || ""} className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all" placeholder="Enter BR number (If available)" />
+                                    </FormControl>
+                                    <FormMessage className="text-[10px]" />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
 
                 <FormField
                     control={control}
-                    name="contactNumber"
+                    name="address"
                     render={({ field }) => (
-                        <FormItem className="space-y-1.5 pt-4">
-                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-slate-500">Phone Number</FormLabel>
+                        <FormItem>
+                            <FormLabel className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 ml-1">
+                                Permanent / Business Address <MapPin className="w-4 h-4 text-blue-500" />
+                            </FormLabel>
                             <FormControl>
-                                <Input {...field} className="h-11 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-100 transition-all" placeholder="07XXXXXXXX" />
-                            </FormControl>
-                            <FormMessage className="text-[10px]" />
-                        </FormItem>
-                    )}
-                />
-
-
-
-                <FormField
-                    control={control}
-                    name="brNumber"
-                    render={({ field }) => (
-                        <FormItem className="space-y-1.5 pt-4">
-                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-slate-500">Business Registration (BR)</FormLabel>
-                            <FormControl>
-                                <Input {...field} value={field.value || ""} className="h-11 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-100 transition-all" placeholder="Enter BR number (If available)" />
+                                <Textarea {...field} className="min-h-[120px] text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100 transition-all resize-none shadow-inner" placeholder="House/Street No, City, Province" />
                             </FormControl>
                             <FormMessage className="text-[10px]" />
                         </FormItem>
@@ -69,26 +91,15 @@ export function Step1PersonalInfo() {
                 />
             </div>
 
-            <FormField
-                control={control}
-                name="address"
-                render={({ field }) => (
-                    <FormItem className="space-y-1.5 pt-4">
-                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                            Permanent / Business Address <MapPin className="w-3.5 h-3.5 text-blue-500" />
-                        </FormLabel>
-                        <FormControl>
-                            <Textarea {...field} className="min-h-[100px] text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-100 transition-all resize-none" placeholder="House/Street No, City, Province" />
-                        </FormControl>
-                        <FormMessage className="text-[10px]" />
-                    </FormItem>
-                )}
-            />
-
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3 animate-in slide-in-from-bottom-2 duration-700">
-                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-amber-800 leading-relaxed">
-                    <strong>Notice:</strong> Please ensure your NIC and Full Name match exactly with your official identification documents. Our system uses automated verification to process applications faster.
+            <div className="p-5 bg-blue-600 rounded-2xl text-white shadow-xl shadow-blue-200/50 flex gap-4 animate-in slide-in-from-bottom-2 duration-700">
+                <div className="p-2.5 bg-white/20 rounded-xl h-fit">
+                    <AlertCircle className="w-5 h-5 text-white" />
+                </div>
+                <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-100">Verification Notice</p>
+                    <p className="text-[11px] text-blue-50 leading-relaxed font-medium">
+                        Please ensure your <strong>NIC</strong> and <strong>Full Name</strong> match exactly with your official identification documents for automated processing.
+                    </p>
                 </div>
             </div>
         </div>

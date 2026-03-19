@@ -26,97 +26,103 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
     });
 
     const addTeam = () => {
-        appendTeam({ name: `Team ${teams.length + 1}`, primaryStoreId: "", members: [] });
+        appendTeam({ name: `Field Team ${teams.length + 1}`, primaryStoreId: "", members: [] });
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                    <div className="p-2 bg-blue-100/50 rounded-lg text-blue-600">
-                        <Users className="w-5 h-5" />
+        <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="p-3 bg-blue-100/50 rounded-2xl text-blue-600 w-fit">
+                        <Users className="w-6 h-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">Operational Setup</h3>
-                        <p className="text-xs text-slate-500">Configure your field teams and base locations</p>
+                        <h3 className="text-xl font-bold text-slate-800">Operational Setup</h3>
+                        <p className="text-sm text-slate-500">Configure your field teams and jurisdictional base locations</p>
                     </div>
                 </div>
-                <Button type="button" onClick={addTeam} variant="outline" size="sm" className="h-9 text-xs border-dashed border-blue-500 text-blue-600 hover:bg-blue-50/50">
+                <Button 
+                    type="button" 
+                    onClick={addTeam} 
+                    variant="outline" 
+                    className="h-12 px-6 rounded-2xl border-dashed border-blue-400 text-blue-600 hover:bg-blue-50/50 font-bold text-xs uppercase tracking-widest"
+                >
                     <Plus className="w-4 h-4 mr-2" /> New Team
                 </Button>
             </div>
 
-            <div className="space-y-8 pt-4">
+            <div className="space-y-10 pt-4">
                 {teams.map((team, tIndex) => (
-                    <Card key={team.id} className="border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
-                        <div className="bg-slate-50/50 p-4 border-b flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+                    <Card key={team.id} className="border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group rounded-3xl border-2 hover:border-blue-100/50">
+                        <div className="bg-slate-50/50 p-6 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <span className="h-10 w-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-blue-200">
                                     {tIndex + 1}
                                 </span>
                                 <Input 
                                     {...control.register(`teams.${tIndex}.name` as const)} 
-                                    className="h-9 w-[240px] text-sm font-bold bg-transparent border-0 focus-visible:ring-0 px-0" 
+                                    className="h-10 w-[280px] text-lg font-black bg-transparent border-0 focus-visible:ring-0 px-0 text-slate-800 placeholder:text-slate-300" 
+                                    placeholder="Enter Team Name"
                                 />
                             </div>
                             {teams.length > 1 && (
-                                <Button type="button" onClick={() => removeTeam(tIndex)} variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Trash2 className="w-4 h-4" />
+                                <Button type="button" onClick={() => removeTeam(tIndex)} variant="ghost" size="icon" className="h-10 w-10 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                                    <Trash2 className="w-5 h-5" />
                                 </Button>
                             )}
                         </div>
-                        <CardContent className="p-6 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5">
-                                            Primary Base Store <Building2 className="w-3.5 h-3.5 text-blue-500" />
+                        <CardContent className="p-6 sm:p-10 space-y-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2 ml-1">
+                                            Primary Base Store <Building2 className="w-4 h-4 text-blue-500" />
                                         </label>
                                         <Select 
                                             onValueChange={(v) => setValue(`teams.${tIndex}.primaryStoreId`, v)} 
                                             value={watch(`teams.${tIndex}.primaryStoreId`) || ""}
                                         >
                                             <FormControl>
-                                                <SelectTrigger className="h-10 text-xs">
+                                                <SelectTrigger className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100">
                                                     <SelectValue placeholder="Select base store" />
                                                 </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent>
+                                            <SelectContent className="rounded-xl">
                                                 {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="space-y-1.5 pt-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Base OPMC (RTOM)</label>
+                                    <div className="space-y-2 pt-2">
+                                        <label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] ml-1">RTOM Jurisdiction</label>
                                         <Select 
                                             onValueChange={(v) => setValue(`teams.${tIndex}.opmcId`, v)} 
                                             value={watch(`teams.${tIndex}.opmcId`) || "inherit"}
                                         >
                                             <FormControl>
-                                                <SelectTrigger className="h-10 text-xs">
-                                                    <SelectValue placeholder="Select RTOM Jurisdiction" />
+                                                <SelectTrigger className="h-12 text-sm bg-slate-50 border-slate-200 rounded-xl focus:ring-blue-100">
+                                                    <SelectValue placeholder="Select OPMC Office" />
                                                 </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="inherit">Inherit from Contractor</SelectItem>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="inherit">Inherit from Contractor (Recommended)</SelectItem>
                                                 {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} - {o.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>
                                 </div>
-                                <div className="bg-slate-50/50 rounded-xl p-4 border border-dashed flex flex-col items-center justify-center text-center gap-3">
-                                    <div className="p-2.5 bg-white rounded-full text-slate-400 shadow-sm">
-                                        <UserPlus className="w-5 h-5" />
+                                <div className="bg-slate-50/80 rounded-3xl p-6 border border-dashed border-slate-300 flex flex-col items-center justify-center text-center gap-4 transition-colors hover:bg-blue-50/30">
+                                    <div className="p-3 bg-white rounded-2xl text-slate-400 shadow-sm border border-slate-100">
+                                        <UserPlus className="w-6 h-6 text-blue-400" />
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-[11px] font-bold text-slate-600">Assign Members</p>
-                                        <p className="text-[10px] text-slate-400 leading-tight">Add staff members, technicians, or drivers to this team.</p>
+                                        <p className="text-[13px] font-black text-slate-700">Team Assignments</p>
+                                        <p className="text-[11px] text-slate-400 leading-relaxed px-4">Register technicians, supervisors, or drivers to this field unit.</p>
                                     </div>
                                     <Button 
                                         type="button" 
-                                        size="sm" 
                                         variant="outline" 
-                                        className="h-8 text-[11px] font-bold px-6 shadow-sm bg-white"
+                                        className="h-10 px-8 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-sm bg-white border-slate-200 hover:border-blue-400 hover:text-blue-600 transition-all"
                                         onClick={() => {
                                             const currentMembers = watch(`teams.${tIndex}.members`) || [];
                                             setValue(`teams.${tIndex}.members`, [...currentMembers, {
@@ -134,24 +140,24 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
 
                             {/* Members Matrix */}
                             {(watch(`teams.${tIndex}.members`) || []).length > 0 && (
-                                <div className="mt-8 pt-8 border-t border-slate-100 flex flex-col gap-4">
-                                    <h4 className="text-[11px] font-black uppercase text-slate-800 tracking-widest flex items-center gap-2 mb-2">
-                                        Team Roster <BadgeCheck className="w-4 h-4 text-green-500" />
+                                <div className="mt-10 pt-10 border-t border-slate-100 flex flex-col gap-6 animate-in fade-in duration-500">
+                                    <h4 className="text-[11px] font-black uppercase text-slate-900 tracking-[0.2em] flex items-center gap-2 mb-2 px-1">
+                                        Team Roster Status <BadgeCheck className="w-5 h-5 text-emerald-500" />
                                     </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {(watch(`teams.${tIndex}.members`) || []).map((member, mIndex) => (
-                                            <div key={mIndex} className="p-4 rounded-xl border border-slate-100 bg-white shadow-sm flex items-center justify-between group/member hover:border-blue-200 transition-all">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-9 w-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs border border-blue-100">
+                                            <div key={mIndex} className="p-4 rounded-2xl border border-slate-100 bg-white shadow-sm flex items-center justify-between group/member hover:border-blue-200 hover:shadow-md transition-all">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-black text-[10px] border border-blue-100 shadow-inner">
                                                         {member.name?.[0] || 'M'}
                                                     </div>
                                                     <div>
                                                         <input 
                                                             {...control.register(`teams.${tIndex}.members.${mIndex}.name` as const)}
-                                                            className="text-xs font-bold text-slate-800 block bg-transparent border-0 p-0 focus-visible:ring-0"
+                                                            className="text-sm font-black text-slate-800 block bg-transparent border-0 p-0 focus-visible:ring-0 w-full"
                                                             placeholder="Member Name"
                                                         />
-                                                        <span className="text-[10px] text-slate-400 uppercase font-medium">{member.designation}</span>
+                                                        <span className="text-[9px] text-blue-500 font-black uppercase tracking-widest">{member.designation}</span>
                                                     </div>
                                                 </div>
                                                 <Button 
@@ -162,9 +168,9 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
                                                     }}
                                                     variant="ghost" 
                                                     size="icon" 
-                                                    className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-neutral-100 opacity-0 group-hover/member:opacity-100 transition-opacity"
+                                                    className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-neutral-50 rounded-lg transition-all"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    <Trash2 className="w-4 h-4" />
                                                 </Button>
                                             </div>
                                         ))}
@@ -176,15 +182,15 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
                 ))}
             </div>
 
-            <div className="p-4 bg-blue-50/30 rounded-xl border border-blue-100 flex gap-4 mt-8">
-                <div className="p-3 bg-white rounded-full shadow-sm text-blue-600">
-                    <Users className="w-6 h-6" />
+            {/* Bottom Notice */}
+            <div className="p-5 bg-blue-600 rounded-3xl text-white shadow-xl shadow-blue-200/50 flex gap-4 mt-8 animate-in slide-in-from-bottom-4 duration-1000">
+                <div className="p-2.5 bg-white/20 rounded-2xl h-fit shadow-inner">
+                    <Users className="w-6 h-6 text-white" />
                 </div>
                 <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Operational Logic</p>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Teams are linked to specific Stores and RTOMs for logistics and task assignment. 
-                        <strong> Note:</strong> You can add all staff members now, or add them later after initial approval via the dashboard.
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-100">Operational Notice</p>
+                    <p className="text-[11px] text-blue-50 leading-relaxed font-medium">
+                        Field teams are jurisdictional units linked to RTOMs. You can accurately configure your full roster now, or continue the setup later via your <strong>Contractor Dashboard</strong> after initial approval.
                     </p>
                 </div>
             </div>
