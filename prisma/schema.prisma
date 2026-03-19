@@ -432,7 +432,7 @@ model Contractor {
   policeReportUrl         String?
   gramaCertUrl            String?
   registrationFeePaid     Boolean                          @default(false)
-  registrationFeeSlipUrl  String?
+  registrationFeeSlipUrl  String?                          // Registration Fee Payment Slip URL
   agreementSigned         Boolean                          @default(false)
   agreementDate           DateTime?
   agreementDuration       Int?                             @default(1)

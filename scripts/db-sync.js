@@ -35,8 +35,7 @@ if (!primaryPushUrl) {
 }
 
 if (!replicaUrl) {
-    console.error('❌ Error: READ_REPLICA_URL is not set in .env');
-    process.exit(1);
+    console.warn('⚠️ Warning: READ_REPLICA_URL is not set. Skipping replica sync.');
 }
 
 console.log('🚀 Starting Database Schema Sync...');
@@ -45,29 +44,20 @@ try {
     // 1. Push to Primary Message
     console.log('\n🔵 Syncing to PRIMARY Database...');
     // Force use the Direct URL for primary push
-    execSync(`npx prisma db push`, {
+    execSync(`npx prisma db push --accept-data-loss`, {
         stdio: 'inherit',
         env: { ...process.env, DATABASE_URL: primaryPushUrl }
     });
     console.log('✅ Primary Database Synced!');
 
-    // 2. Push to Replica Message
-    console.log('\n🟣 Syncing to REPLICA Database...');
-    // For replica, we use the replica URL. 
-    // NOTE: If using pgbouncer in replica URL, ensure it supports prepared statements or use direct url if known.
-    // Here we assume READ_REPLICA_URL is sufficient or provided as direct.
-    // To be safe, we can try to replace port 6543->5432 and remove pgbouncer param if it looks like a supabase pooler url, 
-    // but for now we trust the env var or user input.
-
-    // HACK: To fix "prepared statement" errors with poolers during push, 
-    // if the url contains pgbouncer=true, we might want to strip it or use a direct alternative if known.
-    // Using the value as is for now as confirmed by user testing.
-
-    execSync(`npx prisma db push --skip-generate`, {
-        stdio: 'inherit',
-        env: { ...process.env, DATABASE_URL: replicaUrl }
-    });
-    console.log('✅ Replica Database Synced!');
+    if (replicaUrl) {
+        console.log('\n🟣 Syncing to REPLICA Database...');
+        execSync(`npx prisma db push --skip-generate --accept-data-loss`, {
+            stdio: 'inherit',
+            env: { ...process.env, DATABASE_URL: replicaUrl }
+        });
+        console.log('✅ Replica Database Synced!');
+    }
 
     console.log('\n🎉 All Databases are now in Sync with your Schema!');
 
