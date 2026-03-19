@@ -29,12 +29,12 @@ export async function POST(request: NextRequest) {
         const ext = path.extname(file.name) || '.jpg';
         const filename = `${timestamp}-${randomString}${ext}`;
 
-        // Resolve path to public/uploads/contractors
-        // In some environments process.cwd() might differ, we try to find the project root
+        // Resolve path to /app/uploads/contractors (MUCH MORE SECURE)
+        // We move it OUT of the public folder so it's not directly accessible via web URL
         const rootDir = process.cwd();
-        const uploadDir = path.join(rootDir, "public", "uploads", "contractors");
+        const uploadDir = path.join(rootDir, "uploads", "contractors");
 
-        console.log("[UPLOAD-API] Target directory:", uploadDir);
+        console.log("[UPLOAD-API] Secure target directory:", uploadDir);
 
         // Ensure directory exists with better error handling
         try {
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
         await writeFile(filePath, buffer);
         console.log("[UPLOAD-API] File written successfully");
 
-        // Return the public URL path
-        const publicUrl = `/uploads/contractors/${filename}`;
-        console.log("[UPLOAD-API] Success, returning URL:", publicUrl);
+        // Return the secure API URL path
+        const publicUrl = `/api/files/contractors/${filename}`;
+        console.log("[UPLOAD-API] Success, returning secure URL:", publicUrl);
 
         return NextResponse.json({
             url: publicUrl,

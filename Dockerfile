@@ -46,7 +46,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/scripts ./scripts
 
 # Create uploads directory and set permissions
-RUN mkdir -p public/uploads/contractors && chown -R nextjs:nodejs public/uploads scripts && chmod +x docker-entrypoint.sh
+RUN mkdir -p uploads/contractors && chown -R nextjs:nodejs uploads scripts && chmod +x docker-entrypoint.sh
 
 USER nextjs
 
