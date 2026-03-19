@@ -4,7 +4,7 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { ImageIcon, FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck } from "lucide-react";
+import { FileText, Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
@@ -41,8 +41,9 @@ export function FileUploadField({
     const [cameraStream, setCameraStream] = React.useState<MediaStream | null>(null);
     const videoRef = React.useRef<HTMLVideoElement>(null);
     const [isCapturing, setIsCapturing] = React.useState(false);
+    const [isVertical, setIsVertical] = React.useState(false);
 
-    // Robust stream attachment with retries
+    // Ensure camera stream is attached when dialog opens or stream changes
     const attachStream = React.useCallback(() => {
         let attempts = 0;
         const maxAttempts = 10;
@@ -74,19 +75,31 @@ export function FileUploadField({
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            await uploadFile(e.target.files[0]);
+            const uploadedUrl = await onUpload(e.target.files[0], fieldName);
+            if (uploadedUrl && onScan) {
+                await onScan(uploadedUrl);
+            }
         }
     };
 
-    const uploadFile = async (file: File) => {
-        const uploadedUrl = await onUpload(file, fieldName);
-        if (uploadedUrl && onScan) {
-            await onScan(uploadedUrl);
+    const uploadCapturedPhoto = async (file: File) => {
+        try {
+            const uploadedUrl = await onUpload(file, fieldName);
+            if (uploadedUrl) {
+                if (onScan) await onScan(uploadedUrl);
+                toast.success("Snapshot captured and uploaded");
+                return uploadedUrl;
+            }
+        } catch (err) {
+            console.error("Capture upload error:", err);
+            toast.error("Failed to upload captured photo");
         }
+        return null;
     };
 
     const startCamera = async () => {
         try {
+            // Stop any existing stream before starting a new one
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
             }
@@ -94,8 +107,8 @@ export function FileUploadField({
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: { ideal: "environment" },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
                 } 
             }).catch(() => {
                 return navigator.mediaDevices.getUserMedia({ video: true });
@@ -127,6 +140,8 @@ export function FileUploadField({
 
         const video = videoRef.current;
         const canvas = document.createElement("canvas");
+        
+        // Use full resolution of video stream
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         
@@ -135,12 +150,12 @@ export function FileUploadField({
             ctx.drawImage(video, 0, 0);
             canvas.toBlob(async (blob) => {
                 if (blob) {
-                    const file = new File([blob], `capture-${fieldName}.jpg`, { type: "image/jpeg" });
-                    await uploadFile(file);
-                    stopCamera();
+                    const file = new File([blob], `capture-${fieldName}-${Date.now()}.jpg`, { type: "image/jpeg" });
+                    const success = await uploadCapturedPhoto(file);
+                    if (success) stopCamera();
                 }
                 setIsCapturing(false);
-            }, "image/jpeg", 0.9);
+            }, "image/jpeg", 0.95);
         }
     };
 
@@ -192,15 +207,21 @@ export function FileUploadField({
                     )}
                 >
                     {value ? (
-                        <div className="relative w-full h-full flex flex-col items-center justify-center p-2">
-                            {value.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                                <div className="relative w-full h-[120px] rounded-lg overflow-hidden border shadow-sm group-hover:opacity-50 transition-opacity">
-                                    <Image src={value} alt={label} fill className="object-cover" unoptimized />
+                        <div className="relative w-full h-full flex flex-col items-center justify-center p-2 min-h-[140px]">
+                            {value.includes('data:image') || value.match(/\.(jpg|jpeg|png|webp|gif|svg)/i) || !value.includes('.pdf') ? (
+                                <div className="relative w-full h-[120px] rounded-lg overflow-hidden border shadow-sm group-hover:opacity-50 transition-opacity bg-slate-100">
+                                    <Image 
+                                        src={value} 
+                                        alt={label} 
+                                        fill 
+                                        className="object-contain p-1" 
+                                        unoptimized 
+                                    />
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-2 py-6 text-blue-600">
                                     <FileText className="w-10 h-10" />
-                                    <span className="text-xs font-semibold">PDF Document Attached</span>
+                                    <span className="text-xs font-semibold">Document Attached</span>
                                 </div>
                             )}
                             
@@ -251,7 +272,10 @@ export function FileUploadField({
                         
                         {/* Binance style Overlay */}
                         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                            <div className="w-[85%] h-[60%] border-2 border-white/50 rounded-2xl relative">
+                            <div className={cn(
+                                "border-2 border-white/50 rounded-2xl relative transition-all duration-500",
+                                isVertical ? "w-[60%] h-[80%]" : "w-[85%] h-[60%]"
+                            )}>
                                 {/* Corners */}
                                 <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg" />
                                 <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg" />
@@ -265,7 +289,7 @@ export function FileUploadField({
                             <div className="mt-6 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
                                 <p className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
                                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                    Align Document within Frame
+                                    Align {isVertical ? 'Vertical' : 'Horizontal'} Document
                                 </p>
                             </div>
                         </div>
@@ -274,12 +298,13 @@ export function FileUploadField({
                         <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-6">
                             <div className="flex items-center gap-6">
                                 <Button 
-                                    onClick={stopCamera} 
+                                    onClick={() => setIsVertical(!isVertical)} 
                                     variant="ghost" 
                                     size="icon" 
                                     className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20"
+                                    title="Switch Orientation"
                                 >
-                                    <X className="w-6 h-6" />
+                                    <RefreshCw className={cn("w-6 h-6 transition-transform duration-500", isVertical ? "rotate-90" : "rotate-0")} />
                                 </Button>
                                 
                                 <button 
@@ -294,12 +319,12 @@ export function FileUploadField({
                                 </button>
 
                                 <Button 
-                                    onClick={startCamera} 
+                                    onClick={stopCamera} 
                                     variant="ghost" 
                                     size="icon" 
                                     className="w-12 h-12 rounded-full bg-white/10 text-white hover:bg-white/20"
                                 >
-                                    <RefreshCw className="w-6 h-6" />
+                                    <X className="w-6 h-6" />
                                 </Button>
                             </div>
                         </div>
