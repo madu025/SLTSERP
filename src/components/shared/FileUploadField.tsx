@@ -170,13 +170,18 @@ export function FileUploadField({
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    {!value && !isScanning && (
+                    {!isScanning && (
                         <button 
                             type="button" 
                             onClick={startCamera} 
-                            className="p-1 px-2.5 bg-slate-100 hover:bg-blue-100 hover:text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-all flex items-center gap-1.5"
+                            className={cn(
+                                "p-1 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5",
+                                value 
+                                    ? "bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100" 
+                                    : "bg-slate-100 hover:bg-blue-100 hover:text-blue-600 text-slate-500"
+                            )}
                         >
-                            <Camera className="w-3 h-3" /> Live Capture
+                            <Camera className="w-3 h-3" /> {value ? "Retake Photo" : "Live Capture"}
                         </button>
                     )}
                     {value && (
