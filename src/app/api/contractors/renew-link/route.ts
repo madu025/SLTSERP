@@ -10,7 +10,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Contractor ID is required' }, { status: 400 });
         }
 
-        const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+        const protocol = request.headers.get('x-forwarded-proto') || 'http';
+        const host = request.headers.get('host');
+        const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin);
 
         const result = await ContractorService.generateRenewalLink(id, origin);
 
@@ -18,8 +20,8 @@ export async function POST(request: Request) {
             success: true,
             ...result
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error generating renewal link:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
     }
 }

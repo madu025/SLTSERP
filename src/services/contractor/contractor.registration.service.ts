@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import crypto from 'crypto';
 import { Prisma, ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
 import { RegistrationLinkParams, ContractorUpdateData, TeamMemberInput } from './contractor-types';
@@ -20,7 +21,7 @@ export class ContractorRegistrationService {
                 where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] } }
             });
 
-            const token = Math.random().toString(36).substring(2, 12).toUpperCase();
+            const token = crypto.randomBytes(5).toString('hex').toUpperCase(); // 10 chars
             const expiry = new Date();
             expiry.setDate(expiry.getDate() + 7);
 
@@ -87,7 +88,7 @@ export class ContractorRegistrationService {
             });
         }
 
-        const token = Math.random().toString(36).substring(2, 12).toUpperCase();
+        const token = crypto.randomBytes(5).toString('hex').toUpperCase();
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + 7);
 
@@ -166,7 +167,7 @@ export class ContractorRegistrationService {
             }))
         };
 
-        const token = Math.random().toString(36).substring(2, 12).toUpperCase();
+        const token = crypto.randomBytes(5).toString('hex').toUpperCase();
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + 30); // Renewals have a longer lead time
 

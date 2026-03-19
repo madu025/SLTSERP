@@ -7,7 +7,9 @@ export async function POST(
 ) {
     try {
         const { id } = await params;
-        const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+        const protocol = request.headers.get('x-forwarded-proto') || 'http';
+        const host = request.headers.get('host');
+        const origin = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin);
 
         if (!id) {
             return NextResponse.json({ error: 'Contractor ID is required' }, { status: 400 });
@@ -19,8 +21,8 @@ export async function POST(
             success: true,
             ...result
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Error resending link:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
     }
 }

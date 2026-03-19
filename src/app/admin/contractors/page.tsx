@@ -117,8 +117,19 @@ export default function ContractorsPage() {
     };
 
     const handleInviteSubmit = async () => {
+        if (!inviteData.name || !inviteData.contactNumber || !inviteData.opmcId) {
+            toast.error("Please fill all mandatory fields (Name, Contact, RTOM)");
+            return;
+        }
+
         try {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const userString = localStorage.getItem('user');
+            if (!userString) {
+                toast.error("Session expired. Please re-login.");
+                return;
+            }
+            const user = JSON.parse(userString);
+            
             const res = await fetch('/api/contractors/generate-link', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
