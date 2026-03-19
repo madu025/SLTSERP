@@ -74,7 +74,7 @@ jobs:
             mv /tmp/.env ~/slts-erp/
             sudo apt-get install -y unzip
             unzip -o deploy.zip -d .
-            # Optional: If you want to sync DB on server too
-            # npm install --production
-            # node scripts/db-sync.js
+            # Run DB sync on server (server has direct DB access)
+            echo "🔄 Running database sync on server..."
+            node ~/slts-erp/scripts/db-sync.js || echo "⚠️ DB sync warning, continuing..."
             sudo docker compose -f docker-compose.prod.yml up -d --build
