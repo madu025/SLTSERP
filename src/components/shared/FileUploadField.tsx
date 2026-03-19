@@ -42,13 +42,35 @@ export function FileUploadField({
     const videoRef = React.useRef<HTMLVideoElement>(null);
     const [isCapturing, setIsCapturing] = React.useState(false);
 
-    // Ensure camera stream is attached when dialog opens or stream changes
-    React.useLayoutEffect(() => {
-        if (isCameraOpen && cameraStream && videoRef.current) {
-            videoRef.current.srcObject = cameraStream;
-            videoRef.current.play().catch(console.error);
-        }
+    // Robust stream attachment with retries
+    const attachStream = React.useCallback(() => {
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const tryAttach = () => {
+            if (videoRef.current && cameraStream && isCameraOpen) {
+                videoRef.current.srcObject = cameraStream;
+                videoRef.current.play().catch((err) => {
+                    console.warn("[CAMERA-PLAY-RETRY]", err);
+                    if (attempts < maxAttempts) {
+                        attempts++;
+                        setTimeout(tryAttach, 100);
+                    }
+                });
+            } else if (attempts < maxAttempts && isCameraOpen) {
+                attempts++;
+                setTimeout(tryAttach, 100);
+            }
+        };
+        
+        tryAttach();
     }, [isCameraOpen, cameraStream]);
+
+    React.useEffect(() => {
+        if (isCameraOpen && cameraStream) {
+            attachStream();
+        }
+    }, [isCameraOpen, cameraStream, attachStream]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -65,27 +87,26 @@ export function FileUploadField({
 
     const startCamera = async () => {
         try {
-            // Stop any existing stream before starting a new one
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
             }
 
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
-                    facingMode: "environment", 
-                    width: { ideal: 1920 }, 
-                    height: { ideal: 1080 } 
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
                 } 
             }).catch(() => {
-                // Fallback to any available camera (like front cam on laptops)
                 return navigator.mediaDevices.getUserMedia({ video: true });
             });
 
             setCameraStream(stream);
             setIsCameraOpen(true);
         } catch (err) {
-            console.error("Camera error:", err);
-            toast.error("Could not access camera. Please check permissions and ensure site is served over HTTPS.");
+            console.error("Camera access error:", err);
+            const msg = err instanceof Error ? err.message : "Unknown error";
+            toast.error(`Camera error: ${msg}. If on iPhone, please ensure you use Safari or Chrome and allow permissions.`);
         }
     };
 
