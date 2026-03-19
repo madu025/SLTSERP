@@ -123,29 +123,31 @@ export default function ContractorsPage() {
         }
 
         try {
-            const userString = localStorage.getItem('user');
-            if (!userString) {
-                toast.error("Session expired. Please re-login.");
-                return;
-            }
-            const user = JSON.parse(userString);
-            
             const res = await fetch('/api/contractors/generate-link', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...inviteData, siteOfficeStaffId: user.id })
+                body: JSON.stringify({ ...inviteData })
             });
             const data = await res.json();
-            if (data.success) {
-                setShareLink(data.registrationLink);
+
+            if (!res.ok) {
+                // API returned an error (403, 400 etc.)
+                toast.error(data.error?.message || "Invite failed");
+                return;
+            }
+
+            if (data.success && data.data?.registrationLink) {
+                setShareLink(data.data.registrationLink);
                 setShareModalOpen(true);
                 setInviteModalOpen(false);
-                toast.success("Invitation generated");
+                // Reset invite form
+                setInviteData({ name: '', contactNumber: '', type: 'SOD', opmcId: '' });
+                toast.success("Invitation generated successfully");
             } else {
-                toast.error(data.error || "Invite failed");
+                toast.error(data.error?.message || "Invite generation failed");
             }
         } catch {
-            toast.error("Network error");
+            toast.error("Network error. Please try again.");
         }
     };
 
@@ -157,8 +159,12 @@ export default function ContractorsPage() {
                 body: JSON.stringify({ origin: window.location.origin })
             });
             const data = await res.json();
-            if (data.success) {
-                setShareLink(data.registrationLink);
+            if (!res.ok) {
+                toast.error(data.error?.message || "Failed to resend link");
+                return;
+            }
+            if (data.success && data.data?.registrationLink) {
+                setShareLink(data.data.registrationLink);
                 setShareModalOpen(true);
                 toast.success("Link refreshed");
             }
