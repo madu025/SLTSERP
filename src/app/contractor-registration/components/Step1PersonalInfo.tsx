@@ -20,7 +20,7 @@ export function Step1PersonalInfo() {
                 </div>
                 <div>
                     <h3 className="text-xl font-bold text-slate-800">Primary Contact Identity</h3>
-                    <p className="text-sm text-slate-500">Provide your official contact and registered legal identity details</p>
+                    <p className="text-sm text-slate-600 font-medium">Provide your official contact and registered legal identity details</p>
                 </div>
             </div>
 

@@ -39,7 +39,7 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-slate-800">Operational Setup</h3>
-                        <p className="text-sm text-slate-500">Configure your field teams and jurisdictional base locations</p>
+                        <p className="text-sm text-slate-600 font-medium">Configure your field teams and jurisdictional base locations</p>
                     </div>
                 </div>
                 <Button 
@@ -117,7 +117,7 @@ export function Step4TeamSelection({ stores, opmcs }: Step4TeamSelectionProps) {
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[13px] font-black text-slate-700">Team Assignments</p>
-                                        <p className="text-[11px] text-slate-400 leading-relaxed px-4">Register technicians, supervisors, or drivers to this field unit.</p>
+                                        <p className="text-[11px] text-slate-600 font-bold leading-relaxed px-4">Register technicians, supervisors, or drivers to this field unit.</p>
                                     </div>
                                     <Button 
                                         type="button" 

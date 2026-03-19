@@ -312,13 +312,13 @@ export function FileUploadField({
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-3 py-6 text-slate-400 group-hover:text-blue-500 transition-colors">
-                            <div className="p-3 bg-slate-50 rounded-full group-hover:bg-blue-100/50 transition-colors">
+                        <div className="flex flex-col items-center gap-3 py-6 text-slate-500 group-hover:text-blue-600 transition-colors">
+                            <div className="p-3 bg-slate-100 rounded-full group-hover:bg-blue-100/50 transition-colors">
                                 <Upload className="w-6 h-6" />
                             </div>
                             <div className="text-center">
-                                <span className="text-xs font-semibold block">Click to Upload</span>
-                                <span className="text-[10px] block opacity-60">PDF or JPG/PNG (Max 5MB)</span>
+                                <span className="text-xs font-bold block text-slate-700">Click to Upload</span>
+                                <span className="text-[10px] block font-bold text-slate-500">PDF or JPG/PNG (Max 5MB)</span>
                             </div>
                         </div>
                     )}

@@ -36,7 +36,7 @@ export function Step3BankInfo({ banks, branches, onUpload, uploadProgress }: Ste
                 </div>
                 <div>
                     <h3 className="text-xl font-bold text-slate-800">Financial Information</h3>
-                    <p className="text-sm text-slate-500">Register your corporate bank details for payment processing</p>
+                    <p className="text-sm text-slate-600 font-medium">Register your corporate bank details for payment processing</p>
                 </div>
             </div>
 

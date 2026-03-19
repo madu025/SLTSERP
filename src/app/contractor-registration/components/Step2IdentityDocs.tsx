@@ -33,7 +33,7 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                 </div>
                 <div>
                     <h3 className="text-xl font-bold text-slate-800">Identity Verification</h3>
-                    <p className="text-sm text-slate-500">Upload official documents to automatically verify your identity</p>
+                    <p className="text-sm text-slate-600 font-medium">Upload official documents to automatically verify your identity</p>
                 </div>
             </div>
 

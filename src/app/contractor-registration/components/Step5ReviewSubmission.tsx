@@ -27,7 +27,7 @@ const ReviewSection = ({ icon: Icon, title, children }: ReviewSectionProps) => (
 
 const ReviewItem = ({ label, value }: { label: string; value?: string | null }) => (
     <div className="space-y-1.5 group p-4 rounded-2xl bg-slate-50/50 border border-slate-100/50 transition-all hover:bg-white hover:shadow-sm">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block ml-0.5 group-hover:text-blue-600 transition-colors">{label}</span>
+        <span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] block ml-0.5 group-hover:text-blue-600 transition-colors">{label}</span>
         <p className="text-[15px] font-black text-slate-900 truncate leading-none mt-1">{value || "NOT PROVIDED"}</p>
     </div>
 );

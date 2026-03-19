@@ -119,9 +119,9 @@ export default function PublicContractorRegistrationPage() {
                                 <div className="flex items-center gap-3">
                                     <div className="hidden sm:block h-10 w-px bg-slate-100 mx-2" />
                                     <div className="bg-slate-900 text-white px-5 py-2.5 rounded-2xl shadow-xl shadow-slate-200 flex items-center gap-3 animate-in fade-in zoom-in duration-500">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Step</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-200">Step</span>
                                         <span className="text-xl font-black leading-none">0{step}</span>
-                                        <span className="text-xs font-bold text-slate-500 italic">/ 05</span>
+                                        <span className="text-xs font-black text-blue-400/90 italic">/ 05</span>
                                     </div>
                                 </div>
                             </div>
@@ -153,7 +153,7 @@ export default function PublicContractorRegistrationPage() {
                                     ) : <div className="hidden sm:block" />}
 
                                     <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden lg:block">Draft auto-saved {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest hidden lg:block">Draft auto-saved {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                         
                                         {step < 5 ? (
                                             <Button type="button" onClick={nextStep} className="w-full sm:w-auto h-12 px-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xl shadow-blue-200 transition-all hover:translate-x-1">
