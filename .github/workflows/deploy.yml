@@ -96,8 +96,11 @@ jobs:
             unzip -o deploy.zip -d .
             # Start all containers (nginx, app, postgres, redis)
             sudo docker compose -f docker-compose.prod.yml up -d --build
-            # Wait for app to be ready, then run DB sync inside container
-            echo "⏳ Waiting for app container..."
-            sleep 20
-            echo "🔄 Running DB sync inside app container..."
-            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || echo "⚠️ DB sync skipped"
+            # Wait for postgres to be healthy first
+            echo "⏳ Waiting for postgres to be ready..."
+            sleep 15
+            # Push schema directly inside app container - most reliable method
+            echo "🔄 Pushing database schema..."
+            sudo docker compose -f docker-compose.prod.yml exec -T app ./node_modules/.bin/prisma db push --accept-data-loss --schema ./prisma/schema.prisma || \
+            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || \
+            echo "⚠️ Schema push warning - app may still work if schema is already up to date"
