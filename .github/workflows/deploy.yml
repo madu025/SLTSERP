@@ -45,8 +45,9 @@ jobs:
           cp next.config.js deploy/ || true
           cp docker-compose.prod.yml deploy/ || true
           cp .env deploy/
-          # Fix: Include scripts directory if db-sync.js is needed on server
           cp -r scripts deploy/ || true
+          # CRITICAL: nginx folder is required by docker-compose.prod.yml
+          cp -r nginx deploy/
           cd deploy && zip -r ../deploy.zip .
 
       - name: Copy to Server
@@ -74,7 +75,10 @@ jobs:
             mv /tmp/.env ~/slts-erp/
             sudo apt-get install -y unzip
             unzip -o deploy.zip -d .
-            # Run DB sync on server (server has direct DB access)
-            echo "🔄 Running database sync on server..."
-            node ~/slts-erp/scripts/db-sync.js || echo "⚠️ DB sync warning, continuing..."
+            # Start containers first (app container has Node.js + can reach postgres internally)
             sudo docker compose -f docker-compose.prod.yml up -d --build
+            # Wait for app container to be healthy then run DB sync inside container
+            echo "⏳ Waiting for app container to start..."
+            sleep 15
+            echo "🔄 Running database sync inside app container..."
+            sudo docker compose -f docker-compose.prod.yml exec -T app node scripts/db-sync.js || echo "⚠️ DB sync warning"
