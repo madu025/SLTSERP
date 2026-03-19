@@ -19,74 +19,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Build Next.js
-        run: npm run build
-
-      - name: Prepare bundle
-        run: |
-          mkdir staging
-          cp -r .next/standalone/. staging/
-          
-          # Inject robust server.js
-          cat << 'EOF' > staging/server.js
-          const path = require('path')
-          const fs = require('fs')
-          const dir = path.join(__dirname)
-          process.env.NODE_ENV = 'production'
-          process.chdir(__dirname)
-          const currentPort = parseInt(process.env.PORT, 10) || 3000
-          const hostname = process.env.HOSTNAME || '0.0.0.0'
-          const configPath = path.join(dir, '.next/required-server-files.json')
-          const requiredFiles = JSON.parse(fs.readFileSync(configPath, 'utf8'))
-          requiredFiles.config.turbopack = { root: '/app' }
-          requiredFiles.appDir = '/app'
-          const nextConfig = requiredFiles.config
-          process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(nextConfig)
-          require('next')
-          const { startServer } = require('next/dist/server/lib/start-server')
-          let keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT, 10)
-          if (Number.isNaN(keepAliveTimeout) || !Number.isFinite(keepAliveTimeout) || keepAliveTimeout < 0) {
-            keepAliveTimeout = undefined
-          }
-          console.log('🚀 Starting SLTSERP Standalone Server on', hostname, 'port', currentPort)
-          startServer({
-            dir,
-            isDev: false,
-            config: nextConfig,
-            hostname,
-            port: currentPort,
-            allowRetry: false,
-            keepAliveTimeout,
-          }).catch((err) => {
-            console.error(err)
-            process.exit(1)
-          })
-          EOF
-          
-          # Add assets
-          mkdir -p staging/public
-          cp -r public/. staging/public/ || true
-          mkdir -p staging/.next/static
-          cp -r .next/static/. staging/.next/static/ || true
-          
-          # Add config and scripts
-          cp -r nginx staging/
-          cp -r prisma staging/
-          cp docker-entrypoint.sh staging/
-          cp Dockerfile.prod staging/
-          
-          cd staging && zip -r ../deploy.zip .
-
-      - name: Create .env file
+      - name: Create .env file for build
         run: |
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > .env
           echo "DIRECT_URL=${{ secrets.DIRECT_URL }}" >> .env
           echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
           echo "NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}" >> .env
           echo "NODE_ENV=production" >> .env
+
+      - name: Build Next.js
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npm run build
+
+      - name: Prepare bundle
+        run: |
+          mkdir -p deploy
+          # Copy essential files for production
+          cp -r .next deploy/
+          cp -r public deploy/ || true
+          cp -r prisma deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/
+          cp next.config.js deploy/ || true
+          cp docker-compose.prod.yml deploy/ || true
+          cp .env deploy/
+          # Fix: Include scripts directory if db-sync.js is needed on server
+          cp -r scripts deploy/ || true
+          cd deploy && zip -r ../deploy.zip .
 
       - name: Copy to Server
         uses: appleboy/scp-action@master
@@ -113,4 +74,7 @@ jobs:
             mv /tmp/.env ~/slts-erp/
             sudo apt-get install -y unzip
             unzip -o deploy.zip -d .
+            # Optional: If you want to sync DB on server too
+            # npm install --production
+            # node scripts/db-sync.js
             sudo docker compose -f docker-compose.prod.yml up -d --build
