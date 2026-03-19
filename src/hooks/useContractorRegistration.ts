@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { publicRegistrationSchema, PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
 import { ContractorRegistrationApi } from "@/services/api/contractor-registration.api";
 import { toast } from "sonner";
+import { useOCR } from "./useOCR";
 
 export function useContractorRegistration(token: string) {
     const [loading, setLoading] = useState(true);
@@ -21,6 +22,8 @@ export function useContractorRegistration(token: string) {
     });
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
     const [submitted, setSubmitted] = useState(false);
+
+    const { scanImage } = useOCR();
 
     const form = useForm<PublicRegistrationSchema>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,6 +124,20 @@ export function useContractorRegistration(token: string) {
             });
             form.setValue(fieldName as keyof PublicRegistrationSchema, url, { shouldValidate: true });
             toast.success(`${fieldName.replace('Url', '')} uploaded successfully`);
+
+            // Start OCR process using the existing useOCR hook pattern
+            if (fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl' || fieldName === 'bankPassbookUrl') {
+                const result = await scanImage(url, fieldName);
+                
+                if (result) {
+                    if ((fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl') && !form.getValues('nic')) {
+                        form.setValue('nic', result as string, { shouldValidate: true });
+                    } else if (fieldName === 'bankPassbookUrl' && !form.getValues('bankAccountNumber')) {
+                        form.setValue('bankAccountNumber', result as string, { shouldValidate: true });
+                    }
+                }
+            }
+
             return url;
         } catch {
             toast.error(`Upload failed for ${fieldName}`);

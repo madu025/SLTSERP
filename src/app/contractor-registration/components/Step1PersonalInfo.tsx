@@ -2,13 +2,11 @@
 
 import React from "react";
 import { useFormContext } from "react-hook-form";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
-import { Card, CardContent } from "@/components/ui/card";
-import { ShieldCheck, MapPin, AlertCircle, UserCircle } from "lucide-react";
+import { MapPin, AlertCircle, UserCircle } from "lucide-react";
 
 export function Step1PersonalInfo() {
     const { control } = useFormContext<PublicRegistrationSchema>();
@@ -54,21 +52,7 @@ export function Step1PersonalInfo() {
                     )}
                 />
 
-                <FormField
-                    control={control}
-                    name="nic"
-                    render={({ field }) => (
-                        <FormItem className="space-y-1.5 pt-4">
-                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                                NIC Number <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                            </FormLabel>
-                            <FormControl>
-                                <Input {...field} className="h-11 text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-100 transition-all" placeholder="12-digit NIC" />
-                            </FormControl>
-                            <FormMessage className="text-[10px]" />
-                        </FormItem>
-                    )}
-                />
+
 
                 <FormField
                     control={control}

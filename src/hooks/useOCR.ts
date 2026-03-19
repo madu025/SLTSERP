@@ -24,7 +24,11 @@ export function useOCR() {
         // Match Sri Lankan NIC patterns (old: 9 digits + V/X, new: 12 digits)
         const oldNicMatch = text.match(/\b\d{9}[vVxX]\b/);
         const newNicMatch = text.match(/\b\d{12}\b/);
-        extractedValue = oldNicMatch ? oldNicMatch[0] : (newNicMatch ? newNicMatch[0] : "");
+        extractedValue = oldNicMatch ? oldNicMatch[0] : (newNicMatch ? newNicMatch[0].toUpperCase() : "");
+      } else if (fieldName.toLowerCase().includes('account') || fieldName.toLowerCase().includes('bank')) {
+        // Match standard bank account number patterns (8-16 digits)
+        const accMatch = text.match(/\b\d{8,16}\b/);
+        extractedValue = accMatch ? accMatch[0] : "";
       }
       
       await worker.terminate();

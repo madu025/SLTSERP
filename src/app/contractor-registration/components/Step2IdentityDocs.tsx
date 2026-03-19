@@ -7,13 +7,16 @@ import { FileUploadField } from "@/components/shared/FileUploadField";
 import { useOCR } from "@/hooks/useOCR";
 import { ShieldCheck, FileText, ImageIcon, BadgeCheck } from "lucide-react";
 
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+
 interface Step2IdentityDocsProps {
     onUpload: (file: File, fieldName: string) => Promise<string | null>;
     uploadProgress: Record<string, number>;
 }
 
 export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDocsProps) {
-    const { watch, setValue } = useFormContext<PublicRegistrationSchema>();
+    const { watch, setValue, control } = useFormContext<PublicRegistrationSchema>();
     const { scanImage, isScanning } = useOCR();
 
     const handleNICScan = async (url: string) => {
@@ -29,9 +32,29 @@ export function Step2IdentityDocs({ onUpload, uploadProgress }: Step2IdentityDoc
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">Identity Documents</h3>
-                    <p className="text-xs text-slate-500">Upload your identity verification documents</p>
+                    <p className="text-xs text-slate-500">Upload documents and verify your identity details</p>
                 </div>
             </div>
+
+            <FormField
+                control={control}
+                name="nic"
+                render={({ field }) => (
+                    <FormItem className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <FormLabel className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+                                Verified NIC Number <BadgeCheck className="w-4 h-4 text-blue-500" />
+                            </FormLabel>
+                            {field.value && <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 uppercase">Detection Active</span>}
+                        </div>
+                        <FormControl>
+                            <Input {...field} className="h-12 text-lg font-black tracking-widest border-slate-200 bg-white shadow-sm focus:ring-blue-100 transition-all rounded-xl" placeholder="Extraction results appear here..." />
+                        </FormControl>
+                        <p className="text-[10px] text-slate-400 font-medium italic">Upload your NIC images below to automatically extract the number.</p>
+                        <FormMessage className="text-[10px]" />
+                    </FormItem>
+                )}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                 <FileUploadField
