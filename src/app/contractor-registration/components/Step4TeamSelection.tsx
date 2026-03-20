@@ -110,7 +110,7 @@ export function Step4TeamSelection({ staticData }: Step4Props) {
                                             </FormControl>
                                             <SelectContent className="rounded-xl border-slate-200 shadow-2xl h-80 overflow-y-auto">
                                                 <SelectItem value="inherit" className="font-bold py-3 text-blue-600 italic">Default Office</SelectItem>
-                                                {staticData.opmcs.map(opmc => (
+                                                {(staticData?.opmcs || []).map(opmc => (
                                                     <SelectItem key={opmc.id} value={opmc.id} className="font-bold py-3">
                                                         {opmc.rtom} - {opmc.name}
                                                     </SelectItem>

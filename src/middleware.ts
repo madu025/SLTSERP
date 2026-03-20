@@ -21,7 +21,8 @@ const publicPaths = [
     '/api/cron',
     '/api/test/extension-push',
     '/api/service-orders/bridge-sync',
-    '/api/service-orders/bridge-data'
+    '/api/service-orders/bridge-data',
+    '/api/opmcs'
 ];
 
 export async function middleware(request: NextRequest) {
