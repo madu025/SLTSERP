@@ -76,9 +76,9 @@ export default function ContractorsPage() {
 
 
 
-    const { data: opmcs = [] } = useQuery<{ id: string; name: string }[]>({
+    const { data: opmcs = [] } = useQuery<{ id: string; name: string; rtom: string }[]>({
         queryKey: ['opmcs'],
-        queryFn: () => fetch('/api/opmcs').then(res => res.json())
+        queryFn: () => fetch(`/api/opmcs?t=${Date.now()}`).then(res => res.json())
     });
 
     const { data: banks = [] } = useQuery<{ id: string; name: string }[]>({
@@ -354,6 +354,7 @@ export default function ContractorsPage() {
                     isSubmitting={createMutation.isPending || updateMutation.isPending}
                     banks={banks}
                     branches={branches}
+                    opmcs={opmcs}
                 />
 
                 <TeamManager 
