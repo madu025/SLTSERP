@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 export default function ContractorRegistrationPage() {
     const { token } = useParams<{ token: string }>();
     const {
-        form, step, loading, submitting, submitted, staticData,
+        form, step, loading, submitting, submitted, error, staticData,
         uploadProgress, nextStep, prevStep, handleUpload, handleRegistrationSubmit
     } = useContractorRegistration(token);
 
@@ -35,6 +35,27 @@ export default function ContractorRegistrationPage() {
                 <div className="flex flex-col items-center gap-4">
                     <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
                     <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || (token && !loading && !form.getValues().name && error)) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                <div className="max-w-md w-full bg-white border-2 border-slate-200 rounded-3xl shadow-sm p-10 text-center space-y-6">
+                    <div className="inline-flex h-20 w-20 items-center justify-center bg-red-50 rounded-full text-red-600 mb-2 border-2 border-red-100">
+                        <Lock className="w-10 h-10" />
+                    </div>
+                    <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Link Invalid</h2>
+                    <p className="text-slate-900 text-sm font-bold opacity-80 leading-relaxed uppercase">
+                        {error === 'INVALID_TOKEN' ? "This registration link is invalid or has already been used." : "This registration link has expired or is no longer active."}
+                    </p>
+                    <div className="pt-4">
+                        <Button className="w-full bg-slate-900 hover:bg-black text-white rounded-xl h-12 font-black uppercase text-[11px] tracking-widest shadow-lg" onClick={() => window.location.href = '/'}>
+                            Back to Home
+                        </Button>
+                    </div>
                 </div>
             </div>
         );

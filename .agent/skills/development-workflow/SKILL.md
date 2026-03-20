@@ -213,10 +213,14 @@ The inventory system follows a **Service-Repository pattern** with the following
 
 ## Communication Guidelines (MANDATORY)
 
-To ensure maximum efficiency and token conservation, all interactions must follow these rules:
-1. **No Emojis**: Strictly avoid all emojis in technical and conversational responses.
-2. **Extreme Conciseness**: Provide only essential technical answers. Minimize conversational filler and summaries.
-3. **Professional Directness**: Respond like a senior engineer-to-engineer. Do not use decorative formatting or unnecessary greetings.
+To ensure maximum efficiency and token conservation (saving user money), all interactions MUST follow these rules:
+1. **NO EMOJIS**: Strictly avoid all emojis in technical and conversational responses.
+2. **NO FLAGS**: Do not use flag characters or strings of flags (e.g., 🏁, 🚩).
+3. **NO REPEATING CHARACTERS**: Do not repeat characters for decoration (e.g., "=====", "🏁🏁🏁").
+4. **EXTREME CONCISENESS**: Provide only essential technical answers. Minimize conversational filler and summaries.
+5. **PROFESSIONAL DIRECTNESS**: Respond like a senior engineer-to-engineer. Do not use decorative formatting or unnecessary greetings.
+
+**FAILURE TO COMPLY WASTES USER TOKENS AND FUNDS.**
 
 ## Antigravity Development Standards (ADS)
 

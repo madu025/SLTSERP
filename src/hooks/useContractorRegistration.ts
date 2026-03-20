@@ -23,6 +23,8 @@ export function useContractorRegistration(token: string) {
     const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
     const [submitted, setSubmitted] = useState(false);
 
+    const [error, setError] = useState<string | null>(null);
+
     const { scanImage } = useOCR();
 
     const form = useForm<PublicRegistrationSchema>({
@@ -56,7 +58,7 @@ export function useContractorRegistration(token: string) {
     useEffect(() => {
         const timer = setTimeout(async () => {
             const currentDataStr = JSON.stringify(watchAllFields);
-            if (currentDataStr !== lastSavedData.current && !loading && !submitting && !submitted) {
+            if (currentDataStr !== lastSavedData.current && !loading && !submitting && !submitted && !error) {
                 try {
                     await ContractorRegistrationApi.saveDraft(token, watchAllFields as Partial<PublicRegistrationSchema>);
                     lastSavedData.current = currentDataStr;
@@ -68,7 +70,7 @@ export function useContractorRegistration(token: string) {
         }, 5000); // Auto-save after 5 seconds of inactivity
         
         return () => clearTimeout(timer);
-    }, [watchAllFields, token, loading, submitting, submitted]);
+    }, [watchAllFields, token, loading, submitting, submitted, error]);
 
     // Initial load
     useEffect(() => {
@@ -102,12 +104,14 @@ export function useContractorRegistration(token: string) {
                 lastSavedData.current = JSON.stringify(form.getValues());
                 if (contractor.registrationDraft) toast.info("Previous progress restored");
 
-            } catch (err: unknown) {
-                const error = err as { error?: string; message?: string };
-                if (error.error === 'ALREADY_SUBMITTED') setSubmitted(true);
-                else {
-                    const msg = error.message || "Invalid or expired link";
-                    toast.error(msg);
+            } catch (err: any) {
+                console.error("[useContractorRegistration] Init failed:", err);
+                if (err.error === 'ALREADY_SUBMITTED') {
+                    setSubmitted(true);
+                } else if (err.error === 'INVALID_TOKEN' || err.error === 'TOKEN_EXPIRED') {
+                    setError(err.error);
+                } else {
+                    setError('UNKNOWN_ERROR');
                 }
             } finally {
                 setLoading(false);
@@ -164,9 +168,8 @@ export function useContractorRegistration(token: string) {
             await ContractorRegistrationApi.submitRegistration(token, values);
             setSubmitted(true);
             toast.success("Application submitted successfully!");
-        } catch (err: unknown) {
-            const error = err as { message?: string };
-            toast.error(error.message || "Failed to submit application");
+        } catch (err: any) {
+            toast.error(err.message || "Failed to submit application");
         } finally {
             setSubmitting(false);
         }
@@ -178,6 +181,7 @@ export function useContractorRegistration(token: string) {
         loading,
         submitting,
         submitted,
+        error,
         staticData,
         uploadProgress,
         nextStep,
