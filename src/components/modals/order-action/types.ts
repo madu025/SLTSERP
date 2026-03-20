@@ -20,6 +20,7 @@ export interface OrderActionData {
     contractorId?: string | null;
     comments?: string | null;
     teamId?: string | null;
+    sltsStatus?: string | null;
     completedDate?: string | null;
     ontSerialNumber?: string | null;
     directTeam?: string | null;

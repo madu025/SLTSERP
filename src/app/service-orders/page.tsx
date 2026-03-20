@@ -322,9 +322,22 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                     </div>
                                                                     <div className="flex items-center gap-1 text-[9px]">
                                                                         <FileSpreadsheet className="w-2.5 h-2.5 text-slate-400" />
-                                                                        <span className="text-slate-500 font-bold">Materials:</span>
-                                                                        <span className="text-slate-900 font-black">{order.materialUsage?.length || 0} ITEMS</span>
-                                                                    </div>
+                                                                         <span className="text-slate-500 font-bold">Materials:</span>
+                                                                         <div className="flex flex-wrap gap-1">
+                                                                             {order.materialUsage && order.materialUsage.length > 0 ? (
+                                                                                 order.materialUsage.slice(0, 3).map((m, i) => (
+                                                                                     <span key={i} className="text-[9px] bg-emerald-50 text-emerald-700 px-1 rounded border border-emerald-100 font-black">
+                                                                                         {m.item?.name || m.itemId}
+                                                                                     </span>
+                                                                                 ))
+                                                                             ) : (
+                                                                                 <span className="text-slate-400 font-medium italic">NONE</span>
+                                                                             )}
+                                                                             {order.materialUsage && order.materialUsage.length > 3 && (
+                                                                                 <span className="text-[9px] text-slate-400">+{order.materialUsage.length - 3}</span>
+                                                                             )}
+                                                                         </div>
+                                                                     </div>
                                                                 </div>
                                                             </td>
                                                             <td className="px-2 py-2">
@@ -342,12 +355,13 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                 </div>
                                                             </td>
 
-                                                            <td className="px-1 py-2 text-center sticky right-0 bg-white z-20 group-hover:bg-[#f8faff] border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                                                <div className="flex items-center gap-1 justify-center">
-                                                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}><Info className="w-3.5 h-3.5 text-slate-400" /></Button>
-                                                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}><MessageSquare className={`w-3.5 h-3.5 ${order.comments ? 'text-amber-500' : 'text-slate-300'}`} /></Button>
-                                                                </div>
-                                                            </td>
+                                                             <td className="px-1 py-2 text-center sticky right-0 bg-white z-20 group-hover:bg-[#f8faff] border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                                 <div className="flex items-center gap-1 justify-center">
+                                                                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}><Info className="w-3.5 h-3.5 text-slate-400" /></Button>
+                                                                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedOrder(order); setShowActionModal(true); }}><RefreshCw className="w-3.5 h-3.5 text-blue-600" /></Button>
+                                                                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}><MessageSquare className={`w-3.5 h-3.5 ${order.comments ? 'text-amber-500' : 'text-slate-300'}`} /></Button>
+                                                                 </div>
+                                                             </td>
                                                         </tr>
                                                     ) : (
                                                         <>

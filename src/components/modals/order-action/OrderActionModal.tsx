@@ -102,7 +102,9 @@ export default function OrderActionModal({
                 )}
             >
                 <DialogHeader className="px-6 py-4 border-b shrink-0 bg-white">
-                    <DialogTitle className="text-xl font-extrabold text-slate-900 tracking-tight">{title}</DialogTitle>
+                    <DialogTitle className="text-xl font-extrabold text-slate-900 tracking-tight">
+                        {orderData?.sltsStatus === 'COMPLETED' ? `UPDATE COMPLETE ORDER` : title}
+                    </DialogTitle>
                     {useExtendedView && (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
                             {[
@@ -221,7 +223,9 @@ export default function OrderActionModal({
                                 <div className="flex gap-3">
                                     {state.activeTab !== 'details' && <Button variant="outline" onClick={() => controls.setActiveTab(state.activeTab === 'finish' ? 'materials' : 'details')}>Back</Button>}
                                     {state.activeTab === 'finish' ? (
-                                        <Button onClick={controls.confirm} className="bg-emerald-600 hover:bg-emerald-700 px-8">Complete Order</Button>
+                                        <Button onClick={controls.confirm} className="bg-emerald-600 hover:bg-emerald-700 px-8">
+                                            {orderData?.sltsStatus === 'COMPLETED' ? 'Update & Save' : 'Complete Order'}
+                                        </Button>
                                     ) : (
                                         <Button onClick={() => controls.setActiveTab(state.activeTab === 'details' ? 'materials' : 'finish')}>Next</Button>
                                     )}

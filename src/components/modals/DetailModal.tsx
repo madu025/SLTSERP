@@ -643,7 +643,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                                             <tr key={usage.itemId + i} className="hover:bg-slate-50/50 transition-colors">
                                                                 <td className="px-5 py-3">
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-bold text-slate-800">{usage.item?.name || 'Unknown'}</span>
+                                                                        <span className="font-bold text-slate-800">{usage.item?.name || 'Unknown Item'}</span>
                                                                         <span className="text-[9px] font-mono text-slate-400 uppercase">{usage.item?.code || 'NO-CODE'} {usage.serialNumber ? `• SN: ${usage.serialNumber}` : ''}</span>
                                                                     </div>
                                                                 </td>
