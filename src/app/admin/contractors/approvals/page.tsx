@@ -100,7 +100,7 @@ export default function ContractorApprovalsPage() {
     const { data: opmcs = [] } = useQuery({
         queryKey: ['opmcs'],
         queryFn: async () => {
-            const res = await fetch('/api/opmc');
+            const res = await fetch('/api/opmcs');
             if (!res.ok) return [];
             return res.json();
         }
