@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, MessageSquare, CheckCircle2, FileSpreadsheet, Info, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
-import { OrderActionData, Contractor, InventoryItem } from "@/components/modals/order-action/types";
+import { OrderActionData, Contractor, InventoryItem, OrderCompletionData } from "@/components/modals/order-action/types";
 
 interface OPMC {
     id: string;
@@ -107,7 +107,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         queryFn: async () => {
             if (!selectedRtomId) return [];
             const res = await fetch(`/api/contractors?rtomId=${selectedRtomId}`);
-            const data = await res.json();
+            const data = (await res.json()) as { items: Contractor[] };
             return data.items || [];
         },
         enabled: !!selectedRtomId
@@ -117,7 +117,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         queryKey: ["inventory-items"],
         queryFn: async () => {
              const res = await fetch("/api/inventory/items?page=1&limit=1000");
-             const data = await res.json();
+             const data = (await res.json()) as { items: InventoryItem[] };
              return (data.items || []) as InventoryItem[];
         }
     });
@@ -481,7 +481,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                     contractors={contractors}
                     items={inventoryItems}
                     materialSource={systemConfigs['OSP_MATERIAL_SOURCE'] || 'SLT'}
-                    onConfirm={(data: any) => { 
+                    onConfirm={(data: OrderCompletionData) => { 
                         if (selectedOrder?.id) {
                             const mutationData = { ...data, id: selectedOrder.id };
                             updateStatusMutation.mutate(mutationData); 

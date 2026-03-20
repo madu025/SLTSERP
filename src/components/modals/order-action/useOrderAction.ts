@@ -2,14 +2,14 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { OrderActionData, MaterialUsageRow, InventoryItem } from "./types";
+import { OrderActionData, MaterialUsageRow, InventoryItem, OrderCompletionData } from "./types";
 
 export function useOrderAction(
     isOpen: boolean,
     orderData: OrderActionData | undefined,
     items: InventoryItem[],
     materialSource: string,
-    onConfirm: (data: any) => void
+    onConfirm: (data: OrderCompletionData) => void
 ) {
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [comment, setComment] = useState("");

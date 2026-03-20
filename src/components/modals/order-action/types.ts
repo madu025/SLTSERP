@@ -57,3 +57,26 @@ export interface InventoryItem {
     hasSerial?: boolean;
     importAliases?: string[];
 }
+
+export interface OrderCompletionData {
+    id?: string;
+    date?: string;
+    sltsStatus?: string;
+    materialUsage?: Array<{
+        itemId: string;
+        quantity: number;
+        usageType: string;
+        serialNumber?: string;
+        comment?: string;
+    }>;
+    contractorId?: string;
+    teamId?: string;
+    directTeam?: string;
+    ontSerialNumber?: string;
+    iptvSerialNumbers?: string[];
+    dpDetails?: string;
+    completionMode?: string;
+    comment?: string;
+    assignmentType?: string;
+    materialStatus?: string;
+}

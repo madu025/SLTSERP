@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
 
+import { OrderCompletionData } from "@/components/modals/order-action/types";
+
 export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
     const queryClient = useQueryClient();
 
@@ -43,7 +45,7 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
     });
 
     const updateStatusMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: OrderCompletionData & { id: string }) => {
             const userId = localStorage.getItem("erp_user_id") || "";
             const res = await fetch("/api/service-orders", {
                 method: "PATCH",
@@ -64,7 +66,7 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
     });
 
     const scheduleMutation = useMutation({
-        mutationFn: async ({ orderId, data }: { orderId: string, data: any }) => {
+        mutationFn: async ({ orderId, data }: { orderId: string, data: { date: string, time: string, contactNumber?: string } }) => {
             const res = await fetch("/api/service-orders", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
