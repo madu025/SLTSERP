@@ -113,8 +113,8 @@ export function ContractorFormDialog({
                     <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
                         {initialData ? 'Edit Profile' : 'Add New Contractor'}
                     </DialogTitle>
-                    <DialogDescription className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                        {initialData ? 'Update existing contractor credentials.' : 'Follow the steps to register a new contractor entity.'}
+                    <DialogDescription className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mt-1 opacity-70">
+                        {initialData ? 'Update account details.' : 'Fill in the details to register a new contractor.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -177,19 +177,19 @@ export function ContractorFormDialog({
                                     <CheckCircle2 className="w-8 h-8" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Review & Confirm</h3>
-                                    <p className="text-xs text-slate-500 mt-2 max-w-sm mx-auto leading-relaxed">
-                                        Please review the details below. Click &quot;Confirm &amp; Save&quot; to complete the registration.
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Review & Save</h3>
+                                    <p className="text-xs text-slate-900 mt-2 max-w-sm mx-auto font-bold opacity-80 leading-relaxed uppercase">
+                                        Check the information below before saving the profile.
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 px-10">
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Contractor Name</p>
-                                        <p className="text-sm font-bold text-slate-800 mt-1 truncate">{watchedValues.name}</p>
+                                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
+                                        <p className="text-[10px] font-black uppercase text-slate-900 opacity-60">Entity Name</p>
+                                        <p className="text-sm font-bold text-slate-900 mt-1 truncate">{watchedValues.name}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                        <p className="text-[10px] font-black uppercase text-slate-400">Work Category</p>
-                                        <p className="text-sm font-bold text-slate-800 mt-1">{watchedValues.type === 'SOD' ? 'Service Orders' : 'Network Projects (OSP)'}</p>
+                                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
+                                        <p className="text-[10px] font-black uppercase text-slate-900 opacity-60">Category</p>
+                                        <p className="text-sm font-bold text-slate-900 mt-1">{watchedValues.type === 'SOD' ? 'Service Orders' : 'Network Projects'}</p>
                                     </div>
                                 </div>
                             </div>

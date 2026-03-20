@@ -5,149 +5,149 @@ import { useFormContext } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
-import { ShieldCheck, Building2, User, Mail, Phone, MapPin, BadgeInfo } from "lucide-react";
+import { Building2, User, Mail, Phone, MapPin } from "lucide-react";
 
 export function Step1PersonalInfo() {
     const { control } = useFormContext<PublicRegistrationSchema>();
 
     return (
-        <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-500">
-            {/* Professional Step Header */}
-            <div className="pb-8 border-b border-slate-200">
-                <h2 className="text-[10px] font-black uppercase text-blue-600 tracking-[0.3em] flex items-center gap-3 mb-3">
-                    <ShieldCheck className="w-4 h-4" /> Module Stage 01 | Identity Synchronization
+        <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
+            {/* Simple Step Header */}
+            <div className="pb-6 border-b border-slate-200">
+                <h2 className="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-1">
+                    Step 1 of 5
                 </h2>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none uppercase">
-                    Corporate Entity <span className="text-blue-600">Identification</span>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
+                    Personal Information
                 </h1>
-                <p className="text-sm text-slate-900 mt-4 leading-relaxed font-bold opacity-90 max-w-2xl">
-                    Provide the official registration details for your contracting institution as recorded in the national corporate registry. All fields marked with an asterisk (*) are mandatory for verification.
+                <p className="text-sm text-slate-900 mt-2 font-bold opacity-80">
+                    Please provide your basic contact and registration details correctly.
                 </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Entity Name */}
+                {/* Name */}
                 <FormField
                     control={control}
                     name="name"
                     render={({ field }) => (
-                        <FormItem className="space-y-4">
-                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                                <Building2 className="w-4 h-4 text-blue-600" /> Full Registered Entity Name <span className="text-red-500">*</span>
+                        <FormItem className="space-y-2">
+                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-wider">
+                                Full Name / Company Name *
                             </FormLabel>
                             <FormControl>
-                                <div className="relative group">
+                                <div className="relative">
                                     <Input
-                                        placeholder="Legal entity name as per registry"
+                                        placeholder="Enter full name"
+                                        {...field}
                                         value={field.value || ""}
-                                        onChange={field.onChange}
-                                        className="h-16 px-6 rounded-2xl border-2 border-slate-200 bg-white shadow-sm transition-all focus:ring-4 focus:ring-blue-100 font-bold text-lg text-slate-900 group-hover:border-blue-300"
+                                        className="h-14 px-5 rounded-xl border-2 border-slate-200 font-bold text-slate-900 focus:border-blue-600 focus:ring-0 shadow-sm"
                                     />
-                                    <Building2 className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                    <Building2 className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                                 </div>
                             </FormControl>
-                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600 px-1" />
+                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600" />
                         </FormItem>
                     )}
                 />
 
-                {/* Registration Number (NIC/BRN) */}
+                {/* NIC/BRN */}
                 <FormField
                     control={control}
                     name="nic"
                     render={({ field }) => (
-                        <FormItem className="space-y-4">
-                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                                <BadgeInfo className="w-4 h-4 text-blue-600" /> National ID / Registration No. <span className="text-red-500">*</span>
+                        <FormItem className="space-y-2">
+                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-wider">
+                                NIC or BR Number *
                             </FormLabel>
                             <FormControl>
-                                <div className="relative group">
+                                <div className="relative">
                                     <Input
-                                        placeholder="BRN or NIC sequence"
+                                        placeholder="Enter NIC or BRN"
+                                        {...field}
                                         value={field.value || ""}
-                                        onChange={field.onChange}
-                                        className="h-16 px-6 rounded-2xl border-2 border-slate-200 bg-white shadow-sm transition-all focus:ring-4 focus:ring-blue-100 font-bold text-lg text-slate-900 group-hover:border-blue-300"
+                                        className="h-14 px-5 rounded-xl border-2 border-slate-200 font-bold text-slate-900 focus:border-blue-600 focus:ring-0 shadow-sm"
                                     />
-                                    <User className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                    <User className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                                 </div>
                             </FormControl>
-                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600 px-1" />
+                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600" />
                         </FormItem>
                     )}
                 />
 
-                {/* Official Email */}
+                {/* Email */}
                 <FormField
                     control={control}
                     name="email"
                     render={({ field }) => (
-                        <FormItem className="space-y-4">
-                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                                <Mail className="w-4 h-4 text-blue-600" /> Corporate Correspondence Email <span className="text-red-500">*</span>
+                        <FormItem className="space-y-2">
+                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-wider">
+                                Email Address *
                             </FormLabel>
                             <FormControl>
-                                <div className="relative group">
+                                <div className="relative">
                                     <Input
-                                        placeholder="official@company.com"
+                                        placeholder="email@example.com"
+                                        {...field}
                                         value={field.value || ""}
-                                        onChange={field.onChange}
-                                        className="h-16 px-6 rounded-2xl border-2 border-slate-200 bg-white shadow-sm transition-all focus:ring-4 focus:ring-blue-100 font-bold text-lg text-slate-900 group-hover:border-blue-300"
+                                        className="h-14 px-5 rounded-xl border-2 border-slate-200 font-bold text-slate-900 focus:border-blue-600 focus:ring-0 shadow-sm"
                                     />
-                                    <Mail className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                    <Mail className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                                 </div>
                             </FormControl>
-                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600 px-1" />
+                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600" />
                         </FormItem>
                     )}
                 />
 
-                {/* Official Phone Number */}
+                {/* Phone */}
                 <FormField
                     control={control}
                     name="contactNumber"
                     render={({ field }) => (
-                        <FormItem className="space-y-4">
-                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                                <Phone className="w-4 h-4 text-blue-600" /> Operational Contact Terminal <span className="text-red-500">*</span>
+                        <FormItem className="space-y-2">
+                            <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-wider">
+                                Contact Number *
                             </FormLabel>
                             <FormControl>
-                                <div className="relative group">
+                                <div className="relative">
                                     <Input
                                         placeholder="07XXXXXXXX"
+                                        {...field}
                                         value={field.value || ""}
-                                        onChange={field.onChange}
-                                        className="h-16 px-6 rounded-2xl border-2 border-slate-200 bg-white shadow-sm transition-all focus:ring-4 focus:ring-blue-100 font-bold text-lg text-slate-900 group-hover:border-blue-300"
+                                        className="h-14 px-5 rounded-xl border-2 border-slate-200 font-bold text-slate-900 focus:border-blue-600 focus:ring-0 shadow-sm"
                                     />
-                                    <Phone className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                    <Phone className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                                 </div>
                             </FormControl>
-                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600 px-1" />
+                            <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600" />
                         </FormItem>
                     )}
                 />
             </div>
 
-            {/* Permanent Address */}
+            {/* Address */}
             <FormField
                 control={control}
                 name="address"
                 render={({ field }) => (
-                    <FormItem className="space-y-4">
-                        <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-blue-600" /> Registered Physical Address <span className="text-red-500">*</span>
+                    <FormItem className="space-y-2">
+                        <FormLabel className="text-[11px] font-bold uppercase text-slate-900 tracking-wider">
+                            Physical Address *
                         </FormLabel>
                         <FormControl>
-                            <div className="relative group">
+                            <div className="relative">
                                 <Input
-                                    placeholder="Full organizational address as per registry"
+                                    placeholder="Enter full address"
+                                    {...field}
                                     value={field.value || ""}
-                                    onChange={field.onChange}
-                                    className="h-16 px-6 rounded-2xl border-2 border-slate-200 bg-white shadow-sm transition-all focus:ring-4 focus:ring-blue-100 font-bold text-lg text-slate-900 group-hover:border-blue-300"
+                                    className="h-14 px-5 rounded-xl border-2 border-slate-200 font-bold text-slate-900 focus:border-blue-600 focus:ring-0 shadow-sm"
                                 />
-                                <MapPin className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                <MapPin className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                             </div>
                         </FormControl>
-                        <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600 px-1" />
+                        <FormMessage className="text-[10px] uppercase font-black tracking-widest text-red-600" />
                     </FormItem>
                 )}
             />
