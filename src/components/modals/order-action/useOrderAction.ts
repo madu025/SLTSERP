@@ -2,12 +2,12 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { OrderActionData, MaterialUsageRow } from "./types";
+import { OrderActionData, MaterialUsageRow, InventoryItem } from "./types";
 
 export function useOrderAction(
     isOpen: boolean,
     orderData: OrderActionData | undefined,
-    items: any[],
+    items: InventoryItem[],
     materialSource: string,
     onConfirm: (data: any) => void
 ) {
@@ -101,24 +101,73 @@ export function useOrderAction(
     }, [isOpen, orderData, prevOrderId]);
 
     const handlePortalImport = useCallback(async () => {
-        if (!orderData?.soNum) return;
-        const loadingToast = toast.loading("Syncing with Portal...");
+        if (!orderData?.soNum || !items.length) return;
+        const loadingToast = toast.loading("Connecting to Monitoring System...");
         try {
             const res = await fetch(`/api/service-orders/bridge-sync?soNum=${orderData.soNum}`);
             const data = await res.json();
-            if (data.success) {
-                // Logic to update extendedMaterialRows based on portal data
-                // (Simplified for brevity, but would match original logic)
-                toast.success("Portal data synced successfully");
+            
+            if (data.success && data.materialDetails) {
+                const portalMaterials = data.materialDetails as Array<{ CODE?: string; TYPE?: string; NAME?: string; QTY?: string | number; SERIAL?: string }>;
+                const newRows: MaterialUsageRow[] = [];
+
+                portalMaterials.forEach(pm => {
+                    const code = pm.CODE || pm.TYPE;
+                    const name = pm.NAME;
+                    const qty = String(pm.QTY || "0");
+                    const serial = pm.SERIAL || "";
+
+                    const searchKey = (code || name || "").toUpperCase();
+                    // Match item
+                    const matchedItem = items.find(i => {
+                        const iCode = (i.code || "").toUpperCase();
+                        const iName = (i.name || "").toUpperCase();
+                        const aliases = (i.importAliases || []).map(a => a.toUpperCase());
+                        
+                        return iCode === searchKey || 
+                               iName === searchKey || 
+                               aliases.includes(searchKey) ||
+                               searchKey.includes(iCode) ||
+                               (iName.length > 3 && searchKey.includes(iName));
+                    });
+
+                    if (matchedItem) {
+                        const isDropWire = matchedItem.code === 'OSPFTA003';
+                        newRows.push({
+                            itemId: matchedItem.id,
+                            usedQty: isDropWire ? "" : qty,
+                            f1Qty: isDropWire ? qty : "",
+                            g1Qty: "",
+                            wastageQty: "",
+                            serialNumber: serial
+                        });
+                    }
+                });
+
+                if (newRows.length > 0) {
+                    setExtendedMaterialRows(prev => {
+                        const combined = [...prev];
+                        newRows.forEach(nr => {
+                            if (!combined.find(r => r.itemId === nr.itemId)) {
+                                combined.push(nr);
+                            }
+                        });
+                        return combined;
+                    });
+                    toast.success(`Detected ${newRows.length} items from Portal`);
+                } else {
+                    toast.info("No matching items found in Portal records");
+                }
             } else {
-                toast.error(data.message || "Portal sync failed");
+                toast.error(data.message || "Could not retrieve portal sync data");
             }
         } catch (err) {
-            toast.error("Failed to connect to Portal");
+            console.error("Portal sync error:", err);
+            toast.error("Bridge Connection Error");
         } finally {
             toast.dismiss(loadingToast);
         }
-    }, [orderData]);
+    }, [orderData, items]);
 
     const applyPreset = (type: 'STANDARD' | 'CLEAR') => {
         if (type === 'CLEAR') {
@@ -133,14 +182,41 @@ export function useOrderAction(
         // Validation logic
         if (!date) { toast.error("Please select a date"); return; }
         
+        // Transform MaterialUsageRow[] to MaterialUsageUpdateInput[]
+        const materialUsage: Array<{ itemId: string; quantity: number; usageType: string; serialNumber?: string; comment?: string }> = [];
+        extendedMaterialRows.forEach(row => {
+            if (!row.itemId) return;
+
+            // 1. Used Qty
+            if (row.f1Qty && parseFloat(row.f1Qty) > 0) {
+                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.f1Qty), usageType: 'USED_F1', serialNumber: row.serialNumber });
+            }
+            if (row.g1Qty && parseFloat(row.g1Qty) > 0) {
+                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.g1Qty), usageType: 'USED_G1' });
+            }
+            if (row.usedQty && parseFloat(row.usedQty) > 0) {
+                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.usedQty), usageType: 'USED', serialNumber: row.serialNumber });
+            }
+            
+            // 2. Wastage
+            if (row.wastageQty && parseFloat(row.wastageQty) > 0) {
+                materialUsage.push({ itemId: row.itemId, quantity: parseFloat(row.wastageQty), usageType: 'WASTAGE', comment: row.wastageReason });
+            }
+        });
+
         onConfirm({
             date: date.toISOString(),
             comment,
             materialStatus,
             ontSerialNumber,
-            iptvSerialNumbers: iptvSerials,
-            materialUsage: extendedMaterialRows, // Parent will format this
-            // ... other fields
+            iptvSerialNumbers: iptvSerials.filter(s => s.trim() !== ""),
+            materialUsage,
+            assignmentType,
+            contractorId: selectedContractorId,
+            teamId: selectedTeamId,
+            directTeam: directTeamName,
+            dpDetails,
+            completionMode
         });
     };
 

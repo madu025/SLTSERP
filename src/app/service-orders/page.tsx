@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, MessageSquare, CheckCircle2, FileSpreadsheet, Info, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
-import { OrderActionData } from "@/components/modals/order-action/types";
+import { OrderActionData, Contractor, InventoryItem } from "@/components/modals/order-action/types";
 
 interface OPMC {
     id: string;
@@ -100,6 +100,34 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             return (await res.json()) as { items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> } };
         },
         enabled: !!selectedRtomId
+    });
+
+    const { data: contractors = [] } = useQuery<Contractor[]>({
+        queryKey: ["contractors", selectedRtomId],
+        queryFn: async () => {
+            if (!selectedRtomId) return [];
+            const res = await fetch(`/api/contractors?rtomId=${selectedRtomId}`);
+            const data = await res.json();
+            return data.items || [];
+        },
+        enabled: !!selectedRtomId
+    });
+
+    const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
+        queryKey: ["inventory-items"],
+        queryFn: async () => {
+             const res = await fetch("/api/inventory/items?page=1&limit=1000");
+             const data = await res.json();
+             return (data.items || []) as InventoryItem[];
+        }
+    });
+
+    const { data: systemConfigs = {} } = useQuery<Record<string, string>>({
+        queryKey: ["system-configs"],
+        queryFn: async () => {
+            const res = await fetch("/api/system-config");
+            return await res.json() as Record<string, string>;
+        }
     });
 
     const serviceOrders: ServiceOrder[] = Array.isArray(qData?.items) ? qData!.items : [];
@@ -446,7 +474,23 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 <ScheduleModal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} onSubmit={(data) => scheduleMutation.mutate({ orderId: selectedOrder?.id as string, data })} selectedOrder={selectedOrder} />
                 <CommentModal isOpen={showCommentModal} onClose={() => setShowCommentModal(false)} onSubmit={(comment) => commentMutation.mutate({ orderId: selectedOrder?.id as string, comment })} selectedOrder={selectedOrder} />
                 <DetailModal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} selectedOrder={selectedOrder} />
-                <OrderActionModal isOpen={showActionModal} onClose={() => setShowActionModal(false)} orderData={selectedOrder as unknown as OrderActionData} onConfirm={(data: { date: Date; reason?: string; comment?: string }) => { if (selectedOrder?.id) updateStatusMutation.mutate({ ...data, id: selectedOrder.id }); setShowActionModal(false); }} title={'COMPLETE ORDER'} isComplete />
+                <OrderActionModal 
+                    isOpen={showActionModal} 
+                    onClose={() => setShowActionModal(false)} 
+                    orderData={selectedOrder as unknown as OrderActionData} 
+                    contractors={contractors}
+                    items={inventoryItems}
+                    materialSource={systemConfigs['OSP_MATERIAL_SOURCE'] || 'SLT'}
+                    onConfirm={(data: any) => { 
+                        if (selectedOrder?.id) {
+                            const mutationData = { ...data, id: selectedOrder.id };
+                            updateStatusMutation.mutate(mutationData); 
+                        }
+                        setShowActionModal(false); 
+                    }} 
+                    title={'COMPLETE ORDER'} 
+                    isComplete 
+                />
                 <ExcelImportModal isOpen={showExcelModal} onClose={() => setShowExcelModal(false)} onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ["service-orders"] })} />
             </main>
         </div>
