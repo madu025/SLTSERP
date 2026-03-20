@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck } from "lucide-react";
@@ -8,6 +8,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useFormContext } from "react-hook-form";
 
 interface FileUploadFieldProps {
     label: string;
@@ -28,13 +29,23 @@ export function FileUploadField({
     accept = "image/*",
     allowCamera = true
 }: FileUploadFieldProps) {
-    const [value, setValue] = useState<string | null>(null);
+    const { watch } = useFormContext();
+    // Watch parent value to ensure preview is always synced
+    const value = watch(fieldName);
+    
     const [isScanning, setIsScanning] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const inputId = `file-${fieldName}`;
+
+    // Fix: Attach stream to video element when Dialog opens and video element is mounted
+    useEffect(() => {
+        if (isCapturing && videoRef.current && cameraStream) {
+            videoRef.current.srcObject = cameraStream;
+        }
+    }, [isCapturing, cameraStream]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -46,11 +57,7 @@ export function FileUploadField({
     const uploadCapturedPhoto = async (file: File) => {
         try {
             setIsScanning(true);
-            const uploadedUrl = await onUpload(file, fieldName);
-            if (uploadedUrl) {
-                setValue(uploadedUrl);
-                toast.success(`${label} uploaded`);
-            }
+            await onUpload(file, fieldName);
         } catch {
             toast.error(`Failed to upload ${label}`);
         } finally {
@@ -69,9 +76,6 @@ export function FileUploadField({
             });
             setCameraStream(stream);
             setIsCapturing(true);
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
         } catch {
             toast.error("Could not access camera");
         }
@@ -86,7 +90,7 @@ export function FileUploadField({
     }, [cameraStream]);
 
     const capturePhoto = async () => {
-        if (!videoRef.current || !canvasRef.current) return;
+        if (!videoRef.current || !canvasRef.current || !cameraStream) return;
 
         try {
             const video = videoRef.current;
@@ -94,8 +98,8 @@ export function FileUploadField({
             
             const vWidth = video.videoWidth;
             const vHeight = video.videoHeight;
-            const cWidth = video.clientWidth;
-            const cHeight = video.clientHeight;
+            const cWidth = video.clientWidth || 800;
+            const cHeight = video.clientHeight || 450;
 
             const frameWidth = cWidth * 0.85;
             const frameHeight = frameWidth * (63/100);
@@ -132,16 +136,17 @@ export function FileUploadField({
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+                
                 stopCamera();
-                setIsCapturing(false);
 
                 const response = await fetch(dataUrl);
                 const blob = await response.blob();
                 const file = new File([blob], `capture-${fieldName}-${Date.now()}.jpg`, { type: "image/jpeg" });
                 await uploadCapturedPhoto(file);
             }
-        } catch {
+        } catch (err) {
+            console.error(err);
             toast.error("Capture failed");
             setIsCapturing(false);
         }
@@ -165,7 +170,7 @@ export function FileUploadField({
                             "h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border-2",
                             value 
                                 ? "bg-slate-50 text-slate-900 border-slate-200" 
-                                : "bg-blue-600 text-white border-blue-700 font-black"
+                                : "bg-blue-600 text-white border-blue-700"
                         )}
                     >
                         <Camera className="w-4 h-4" /> {value ? "RE-TAKE" : "TAKE PHOTO"}
@@ -206,7 +211,7 @@ export function FileUploadField({
                                         <span className="text-[11px] font-black uppercase tracking-widest">Photo Uploaded</span>
                                     </div>
                                     <p className="text-[10px] text-slate-900 font-bold uppercase opacity-80">
-                                        Your document photo is successfully attached.
+                                        Document successfully attached.
                                     </p>
                                 </div>
                                 
@@ -245,7 +250,13 @@ export function FileUploadField({
             <Dialog open={isCapturing} onOpenChange={(open) => !open && stopCamera()}>
                 <DialogContent className="max-w-4xl p-0 bg-slate-950 border-none rounded-[32px] overflow-hidden">
                     <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
-                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                        <video 
+                            ref={videoRef} 
+                            autoPlay 
+                            playsInline 
+                            muted 
+                            className="w-full h-full object-cover" 
+                        />
                         
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="w-[85%] aspect-[63/100] border-2 border-dashed border-white/50 rounded-2xl relative">
@@ -259,14 +270,14 @@ export function FileUploadField({
                             </div>
                         </div>
 
-                        <div className="absolute bottom-8 inset-x-0 flex items-center justify-center gap-6 px-10">
+                        <div className="absolute bottom-8 inset-x-0 flex items-center justify-center gap-10 px-10">
                             <button onClick={stopCamera} className="h-14 w-14 rounded-full bg-white/10 border-2 border-white/20 text-white flex items-center justify-center backdrop-blur-xl hover:bg-white/20 transition-all">
                                 <X className="w-6 h-6" />
                             </button>
                             <button onClick={capturePhoto} className="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95 group">
                                 <div className="h-16 w-16 rounded-full border-4 border-slate-900 group-hover:border-blue-600 transition-colors" />
                             </button>
-                            <button className="h-14 w-14 rounded-full bg-white/10 border-2 border-white/20 text-white flex items-center justify-center backdrop-blur-xl opacity-40">
+                            <button type="button" className="h-14 w-14 rounded-full bg-white/10 border-2 border-white/20 text-white flex items-center justify-center backdrop-blur-xl opacity-40">
                                 <RefreshCw className="w-6 h-6" />
                             </button>
                         </div>
