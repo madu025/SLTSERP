@@ -125,6 +125,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
 
     const handleSave = async () => {
         try {
+            console.log("[DEBUG] TeamManager handleSave teams:", JSON.stringify(teams, null, 2));
             setLoading(true);
             const res = await fetch(`/api/contractors/${contractorId}/teams`, {
                 method: 'POST',
@@ -157,9 +158,8 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
             members: [],
             storeAssignments: []
         };
-        const updatedTeams = [...teams, newTeam];
-        setTeams(updatedTeams);
-        setSelectedTeamIndex(updatedTeams.length - 1); // Select the new team
+        setTeams(prev => [...prev, newTeam]);
+        setSelectedTeamIndex(teams.length); // Select the new team
     };
 
     const removeTeam = (idx: number) => {
@@ -210,9 +210,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
 
     const addMember = () => {
         if (selectedTeamIndex === null) return;
-        const newTeams = [...teams];
-        if (!newTeams[selectedTeamIndex].members) newTeams[selectedTeamIndex].members = [];
-
+        
         let newMember = {
             id: `mem-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             name: '',
@@ -238,15 +236,20 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
                 contactNumber: contractorDetails.contactNumber || '',
                 address: contractorDetails.address || '',
                 photoUrl: contractorDetails.photoUrl || '',
-                nicUrl: contractorDetails.nicFrontUrl || '', // Using front URL as primary NIC
+                nicUrl: contractorDetails.nicFrontUrl || '',
                 policeReportUrl: contractorDetails.policeReportUrl || '',
                 gramaCertUrl: contractorDetails.gramaCertUrl || ''
             };
             toast.success("Added Member with Contractor Details");
         }
 
-        newTeams[selectedTeamIndex].members.push(newMember);
-        setTeams(newTeams);
+        setTeams(prev => {
+            const next = [...prev];
+            const team = { ...next[selectedTeamIndex] };
+            team.members = [...(team.members || []), newMember];
+            next[selectedTeamIndex] = team;
+            return next;
+        });
     };
 
     const updateMember = (memberIdx: number, field: string, value: string) => {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Pencil, Users, UserPlus, Share2, Trash, Mail, Building2 } from "lucide-react";
+import { Search, Plus, Users, UserPlus, Share2, Trash, Mail, Building2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -21,7 +21,7 @@ import { ContractorSchema } from "@/lib/validations/contractor.schema";
 
 interface Contractor extends ContractorSchema {
     id: string;
-    status: 'ACTIVE' | 'PENDING' | 'REJECTED';
+    status: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'ARM_PENDING' | 'OSP_PENDING';
     documentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
     opmc?: { name: string };
     _count?: { teams: number };
@@ -71,7 +71,10 @@ export default function ContractorsPage() {
     });
 
     const contractors = useMemo(() => {
-        return Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+        // Handle ApiResponse wrapping
+        const data = contractorsData as any;
+        const actualData = data?.success && data?.data ? data.data : data;
+        return Array.isArray(actualData?.contractors) ? (actualData.contractors as Contractor[]) : [];
     }, [contractorsData]);
 
 
@@ -178,10 +181,10 @@ export default function ContractorsPage() {
             if (!matchesSearch) return false;
 
             if (viewMode === 'PENDING_DOCS') {
-                return c.status === 'PENDING' && (c.documentStatus === 'PENDING' || !c.documentStatus);
+                return (c.status === 'PENDING' || c.status === 'ARM_PENDING') && (c.documentStatus === 'PENDING' || !c.documentStatus);
             }
             if (viewMode === 'PENDING_AUTH') {
-                return c.status === 'PENDING' && c.documentStatus === 'APPROVED';
+                return (c.status === 'PENDING' || c.status === 'ARM_PENDING') && c.documentStatus === 'APPROVED';
             }
 
             return true;
@@ -269,6 +272,8 @@ export default function ContractorsPage() {
                                                             <Badge className={cn(
                                                                 "h-6 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border-none",
                                                                 contractor.status === 'ACTIVE' ? "bg-emerald-100 text-emerald-700" :
+                                                                contractor.status === 'ARM_PENDING' ? "bg-blue-100 text-blue-700" :
+                                                                contractor.status === 'OSP_PENDING' ? "bg-purple-100 text-purple-700" :
                                                                 contractor.status === 'PENDING' ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
                                                             )}>
                                                                 {contractor.status}
@@ -297,19 +302,19 @@ export default function ContractorsPage() {
                                             </div>
 
                                             <div className="lg:w-72 bg-slate-50/50 p-6 flex flex-col justify-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-100">
-                                                <Button size="sm" onClick={() => handleEdit(contractor)} className="w-full bg-white hover:bg-blue-600 hover:text-white text-slate-600 border border-slate-100 shadow-sm rounded-xl h-10 font-bold transition-all">
-                                                    <Pencil className="w-4 h-4 mr-2" /> Edit Details
+                                                <Button size="sm" onClick={() => handleEdit(contractor)} className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-100 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest transition-all hover:scale-[1.02] active:scale-95">
+                                                    <ShieldCheck className="w-4 h-4 mr-2" /> Manage Profile
                                                 </Button>
-                                                <Button size="sm" onClick={() => {
+                                                <Button size="sm" variant="outline" onClick={() => {
                                                     setSelectedContractorForTeams({ id: contractor.id, name: contractor.name });
                                                     setTeamManagerOpen(true);
-                                                }} className="w-full bg-white hover:bg-slate-900 hover:text-white text-slate-600 border border-slate-100 shadow-sm rounded-xl h-10 font-bold transition-all">
-                                                    <Users className="w-4 h-4 mr-2" /> Manage Teams
+                                                }} className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 rounded-xl h-10 font-black uppercase text-[9px] tracking-widest transition-all">
+                                                    <Users className="w-3.5 h-3.5 mr-2" /> Manpower Setup
                                                 </Button>
                                                 <div className="flex gap-2">
-                                                    {contractor.status === 'PENDING' && (
+                                                    {(contractor.status === 'PENDING' || contractor.status === 'ARM_PENDING' || contractor.status === 'OSP_PENDING') && (
                                                         <>
-                                                            {isAdmin && contractor.documentStatus === 'APPROVED' ? (
+                                                            {isAdmin && (contractor.status === 'ARM_PENDING' || contractor.status === 'OSP_PENDING' || contractor.documentStatus === 'APPROVED') ? (
                                                                 <Button size="sm" onClick={() => approveMutation.mutate(contractor.id)} className="flex-1 bg-white hover:bg-emerald-600 hover:text-white text-emerald-600 border border-emerald-100 rounded-xl h-10 font-bold transition-all">
                                                                     Approve
                                                                 </Button>

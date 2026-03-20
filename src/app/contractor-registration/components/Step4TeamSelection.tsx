@@ -1,19 +1,113 @@
 "use client";
 
 import React from "react";
-import { useFormContext, useFieldArray } from "react-hook-form";
+import { useFormContext, useFieldArray, Control } from "react-hook-form";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
-import { Plus, Trash2, Users, HardHat } from "lucide-react";
+import { Plus, Trash2, Users, HardHat, UserSquare } from "lucide-react";
+import { FileUploadField } from "@/components/shared/FileUploadField";
 
 interface Step4Props {
+    handleUpload: (file: File, fieldName: string) => Promise<string | null>;
     staticData: { opmcs: { id: string; name: string; rtom: string }[] };
 }
 
-export function Step4TeamSelection({ staticData }: Step4Props) {
+function TeamMemberManager({ teamIndex, control, handleUpload }: { teamIndex: number; control: Control<PublicRegistrationSchema>; handleUpload: (file: File, fieldName: string) => Promise<string | null> }) {
+    const { fields, append, remove } = useFieldArray({
+        control,
+        name: `teams.${teamIndex}.members` as any
+    });
+
+    return (
+        <div className="px-8 pb-8 space-y-6">
+            <div className="flex items-center justify-between border-t border-slate-100 pt-6">
+                <div className="flex items-center gap-2">
+                    <UserSquare className="w-4 h-4 text-blue-600" />
+                    <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-900">Personnel Roster ({fields.length})</h5>
+                </div>
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => append({ name: "", nic: "", passportPhotoUrl: "" })}
+                    className="h-8 px-3 border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg font-black uppercase text-[9px] tracking-widest"
+                >
+                    <Plus className="w-3 h-3 mr-1" /> Add Person
+                </Button>
+            </div>
+
+            <div className="space-y-4">
+                {fields.map((member: any, mIdx: number) => (
+                    <div key={member.id} className="p-5 border-2 border-slate-100 rounded-2xl bg-slate-50/30 flex flex-col md:flex-row gap-6 items-end group/member transition-all hover:bg-white hover:border-blue-100">
+                        <div className="flex-1 space-y-4 w-full">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                    control={control}
+                                    name={`teams.${teamIndex}.members.${mIdx}.name` as any}
+                                    render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                            <FormLabel className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Full Name</FormLabel>
+                                            <FormControl><Input {...field} placeholder="Name" className="h-10 border-none bg-white rounded-lg shadow-sm font-bold text-xs" /></FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={control}
+                                    name={`teams.${teamIndex}.members.${mIdx}.nic` as any}
+                                    render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                            <FormLabel className="text-[9px] font-black uppercase text-slate-400 tracking-widest">NIC Details</FormLabel>
+                                            <FormControl><Input {...field} placeholder="NIC" className="h-10 border-none bg-white rounded-lg shadow-sm font-bold text-xs" /></FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={control}
+                                    name={`teams.${teamIndex}.members.${mIdx}.designation` as any}
+                                    render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                            <FormLabel className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Designation</FormLabel>
+                                            <FormControl><Input {...field} placeholder="e.g. Technician" className="h-10 border-none bg-white rounded-lg shadow-sm font-bold text-xs" /></FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="flex-1">
+                                    <FileUploadField
+                                        label="Identity Photo"
+                                        description="Passport size"
+                                        fieldName={`teams.${teamIndex}.members.${mIdx}.passportPhotoUrl`}
+                                        onUpload={handleUpload}
+                                        value={member.passportPhotoUrl}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <Button 
+                            type="button" 
+                            variant="ghost" 
+                            onClick={() => remove(mIdx)}
+                            className="h-10 w-10 p-0 text-slate-300 hover:text-red-600 transition-colors mb-1"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    </div>
+                ))}
+                {fields.length === 0 && (
+                    <div className="py-8 text-center border-2 border-dashed border-slate-100 rounded-2xl opacity-40">
+                        <p className="text-[10px] font-black uppercase tracking-widest">No members listed in this unit</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export function Step4TeamSelection({ staticData, handleUpload }: Step4Props) {
     const { control } = useFormContext<PublicRegistrationSchema>();
     const { fields, append, remove } = useFieldArray({
         control,
@@ -31,13 +125,14 @@ export function Step4TeamSelection({ staticData }: Step4Props) {
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
                         Service Teams
                     </h1>
-                    <p className="text-sm text-slate-900 mt-2 font-bold opacity-80">
-                        Add your operational teams and their primary working area.
+                    <p className="text-sm text-slate-900 mt-2 font-bold opacity-80 leading-relaxed uppercase tracking-tight">
+                        Register at least one operational unit with active personnel. 
+                        <span className="text-rose-600 block mt-1 text-[10px] font-black tracking-widest leading-none">MANDATORY REGISTRATION REQUIREMENT</span>
                     </p>
                 </div>
                 <Button 
                     type="button" 
-                    onClick={() => append({ name: `Service Team ${fields.length + 1}`, primaryStoreId: "inherit", members: [] })}
+                    onClick={() => append({ name: `Service Team ${fields.length + 1}`, opmcId: "inherit", members: [] })}
                     className="h-12 px-6 bg-slate-900 hover:bg-black text-white rounded-xl shadow-lg transition-all font-black uppercase text-[10px] tracking-widest flex items-center gap-2"
                 >
                     <Plus className="w-4 h-4" /> Add Team
@@ -122,6 +217,8 @@ export function Step4TeamSelection({ staticData }: Step4Props) {
                                 )}
                             />
                         </div>
+
+                        <TeamMemberManager teamIndex={index} control={control} handleUpload={handleUpload} />
                     </div>
                 ))}
 

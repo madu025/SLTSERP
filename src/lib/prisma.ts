@@ -29,10 +29,19 @@ const isWorker = process.env.IS_WORKER === 'true';
 
 // 1. Initialize Primary Connection (Write/Master)
 const primaryUrl = getSafeDatabaseUrl(process.env.DATABASE_URL || '', isWorker);
-const primaryClient = new PrismaClient({
+
+// Use singleton pattern for Next.js to prevent connection exhaustion 
+const globalForPrisma = globalThis as unknown as {
+    primaryClient: PrismaClient | undefined;
+    readClient: PrismaClient | undefined;
+}
+
+const primaryClient = globalForPrisma.primaryClient ?? new PrismaClient({
     datasourceUrl: primaryUrl,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.primaryClient = primaryClient;
 
 // 2. Initialize Read Replica Connection (Optional)
 // In local development, these usually point to the same DB.
@@ -40,10 +49,12 @@ const readReplicaUrl = process.env.READ_REPLICA_URL
     ? getSafeDatabaseUrl(process.env.READ_REPLICA_URL, isWorker)
     : primaryUrl;
 
-const readClient = new PrismaClient({
+const readClient = globalForPrisma.readClient ?? new PrismaClient({
     datasourceUrl: readReplicaUrl,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.readClient = readClient;
 
 /**
  * Enhanced Prisma Client with:

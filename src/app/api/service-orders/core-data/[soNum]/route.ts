@@ -13,11 +13,13 @@ export async function GET(
             where: { soNum },
             include: {
                 contractor: { select: { name: true } },
+                team: { select: { name: true, sltCode: true } },
                 materialUsage: {
                     select: {
                         quantity: true,
                         unitPrice: true,
                         usageType: true,
+                        serialNumber: true,
                         item: { select: { name: true, code: true, unit: true } }
                     }
                 },
@@ -25,6 +27,33 @@ export async function GET(
                     select: {
                         auditData: true,
                         voiceTestStatus: true
+                    }
+                },
+                statusHistory: {
+                    orderBy: { statusDate: 'desc' },
+                    select: {
+                        id: true,
+                        status: true,
+                        statusDate: true,
+                        createdAt: true
+                    }
+                },
+                restoreRequests: {
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        reason: true,
+                        status: true,
+                        createdAt: true
+                    }
+                },
+                commentsHistory: {
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        comment: true,
+                        createdAt: true,
+                        author: { select: { name: true } }
                     }
                 }
             }

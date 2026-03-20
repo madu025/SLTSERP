@@ -24,9 +24,12 @@ import {
     Layers,
     Package,
     RefreshCw,
+    RotateCcw,
     ShieldCheck,
     Smartphone,
-    User
+    User,
+    GitBranch,
+    MessageSquare
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,12 +39,30 @@ import { cn } from "@/lib/utils";
 export type DetailedServiceOrder = ServiceOrder & {
     woroSeit?: string | null;
     ftthInstSeit?: string | null;
-    team?: { name: string } | null;
+    team?: { name: string; sltCode?: string | null } | null;
     directTeam?: string | null;
     forensicAudit?: {
         auditData: AuditItem[];
         voiceTestStatus: string | null;
     };
+    statusHistory?: {
+        id: string;
+        status: string;
+        statusDate: string | Date;
+        createdAt: string | Date;
+    }[];
+    restoreRequests?: {
+        id: string;
+        reason: string;
+        status: string;
+        createdAt: string | Date;
+    }[];
+    commentsHistory?: {
+        id: string;
+        comment: string;
+        createdAt: string | Date;
+        author?: { name: string | null };
+    }[];
 };
 
 // Define the shape of the Bridge Data (Scraped Data)
@@ -181,6 +202,13 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                 <History className="w-3.5 h-3.5 mr-2" />
                                 Standard Details
                             </TabsTrigger>
+                            <TabsTrigger value="history" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-emerald-700">
+                                <GitBranch className="w-3.5 h-3.5 mr-2" />
+                                Work History
+                                {coreOrder?.statusHistory && coreOrder.statusHistory.length > 0 && (
+                                    <span className="ml-2 text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-black">{coreOrder.statusHistory.length}</span>
+                                )}
+                            </TabsTrigger>
                             <TabsTrigger value="inspector" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 rounded-none px-0 h-12 font-bold text-xs uppercase tracking-widest text-slate-500 data-[state=active]:text-indigo-600">
                                 <Activity className="w-3.5 h-3.5 mr-2" />
                                 Smart Inspector
@@ -316,6 +344,165 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </div>
                         </TabsContent>
 
+                        {/* Tab 2: Work History (Status Timeline) */}
+                        <TabsContent value="history" className="p-6 m-0 outline-none">
+                            <div className="space-y-6">
+
+                                {/* Comments history (NEW) */}
+                                {(coreOrder?.commentsHistory && coreOrder.commentsHistory.length > 0) ? (
+                                    <div className="mb-6">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="w-7 h-7 rounded-lg bg-rose-600 flex items-center justify-center text-white">
+                                                <MessageSquare className="w-3.5 h-3.5" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Comments Log</h3>
+                                                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Historical user & system notes</p>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {coreOrder.commentsHistory.map((c) => (
+                                                <div key={c.id} className="p-3 bg-rose-50/30 border border-rose-100/50 rounded-xl relative overflow-hidden group">
+                                                    <div className="absolute top-0 right-0 p-2 opacity-10 mt-1 mr-1">
+                                                        <MessageSquare className="w-8 h-8 text-rose-900" />
+                                                    </div>
+                                                    <div className="flex justify-between items-start mb-1.5 relative z-10">
+                                                         <span className="text-[10px] font-black text-rose-700 bg-rose-100/50 px-2 py-0.5 rounded uppercase tracking-tighter">
+                                                             {c.author?.name || 'System Auto'}
+                                                         </span>
+                                                         <span className="text-[9px] font-mono text-slate-400 font-bold uppercase">
+                                                             {new Date(c.createdAt).toLocaleDateString('en-GB')} {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                         </span>
+                                                     </div>
+                                                     <p className="text-[11px] text-slate-700 font-medium leading-relaxed relative z-10 whitespace-pre-wrap">
+                                                         {c.comment}
+                                                     </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : coreOrder?.comments && (
+                                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3 mb-6">
+                                        <Info className="w-4 h-4 text-amber-500 mt-0.5" />
+                                        <div>
+                                            <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1">Active Comment</h4>
+                                            <p className="text-[11px] text-slate-700 leading-snug">{coreOrder.comments}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Status Timeline */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
+                                            <GitBranch className="w-3.5 h-3.5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Status History</h3>
+                                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Portal-synced status changelog</p>
+                                        </div>
+                                    </div>
+
+                                    {coreOrder?.statusHistory && coreOrder.statusHistory.length > 0 ? (
+                                        <div className="relative">
+                                            {/* Timeline line */}
+                                            <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-200" />
+                                            <div className="space-y-3">
+                                                {coreOrder.statusHistory.map((h, idx) => {
+                                                    const isCurrent = idx === 0;
+                                                    const isCompleted = h.status.includes('COMPLETED');
+                                                    const isReturn = h.status.includes('RETURN');
+                                                    const dotColor = isCompleted ? 'bg-emerald-500' : isReturn ? 'bg-rose-500' : 'bg-amber-400';
+                                                    const labelColor = isCompleted ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : isReturn ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-amber-700 bg-amber-50 border-amber-200';
+                                                    return (
+                                                        <div key={h.id} className="flex items-start gap-4 pl-1">
+                                                            <div className={`mt-1.5 w-[22px] h-[22px] rounded-full border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0 ${dotColor} ${isCurrent ? 'ring-2 ring-offset-1 ring-emerald-300' : ''}`}>
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                                            </div>
+                                                            <div className="flex-1 pb-3">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${labelColor}`}>{h.status}</span>
+                                                                    {isCurrent && <span className="text-[8px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-black uppercase">CURRENT</span>}
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-400 font-mono mt-1">
+                                                                    {new Date(h.statusDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                    {' — '}
+                                                                    {new Date(h.statusDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                            <Clock className="w-6 h-6 text-slate-300 mb-2" />
+                                            <p className="text-xs text-slate-400 font-medium italic">No status history recorded yet.</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Team & Assignment Info */}
+                                {(coreOrder?.team || coreOrder?.contractor || coreOrder?.directTeam) && (
+                                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-3">
+                                        <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                                            <User className="w-3 h-3" /> Assignment Details
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {coreOrder?.contractor?.name && (
+                                                <div>
+                                                    <span className="text-[9px] text-slate-400 uppercase font-black block">Contractor</span>
+                                                    <span className="text-xs font-bold text-slate-800">{coreOrder.contractor.name}</span>
+                                                </div>
+                                            )}
+                                            {coreOrder?.team && (
+                                                <div>
+                                                    <span className="text-[9px] text-slate-400 uppercase font-black block">Team</span>
+                                                    <span className="text-xs font-bold text-slate-800">{coreOrder.team.name}{coreOrder.team.sltCode ? ` (${coreOrder.team.sltCode})` : ''}</span>
+                                                </div>
+                                            )}
+                                            {coreOrder?.scheduledDate && (
+                                                <div>
+                                                    <span className="text-[9px] text-slate-400 uppercase font-black block">Scheduled</span>
+                                                    <span className="text-xs font-bold text-blue-700">{new Date(coreOrder.scheduledDate).toLocaleDateString()} {coreOrder.scheduledTime && `@ ${coreOrder.scheduledTime}`}</span>
+                                                </div>
+                                            )}
+                                            {coreOrder?.completedDate && (
+                                                <div>
+                                                    <span className="text-[9px] text-slate-400 uppercase font-black block">Completed</span>
+                                                    <span className="text-xs font-bold text-emerald-700">{new Date(coreOrder.completedDate).toLocaleDateString()}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Restore Requests */}
+                                {coreOrder?.restoreRequests && coreOrder.restoreRequests.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+                                            <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Restore Requests</h4>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {coreOrder.restoreRequests.map((r) => (
+                                                <div key={r.id} className="flex items-start gap-3 p-3 bg-white border border-rose-100 rounded-lg">
+                                                    <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 ${r.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : r.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[11px] text-slate-700 font-medium leading-snug">{r.reason}</p>
+                                                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">{new Date(r.createdAt).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                            </div>
+                        </TabsContent>
+
+                        {/* Tab 3: Smart Inspector */}
                         <TabsContent value="inspector" className="p-0 m-0 outline-none min-h-[500px] bg-slate-50/50">
                             <div className="p-6 space-y-8 animate-in fade-in duration-300">
 

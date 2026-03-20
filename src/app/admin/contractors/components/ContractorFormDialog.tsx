@@ -64,6 +64,7 @@ export function ContractorFormDialog({
     useEffect(() => {
         if (!open) return; // Only run when dialog opens
         if (initialData) {
+            console.log("[DEBUG] ContractorFormDialog initialData:", JSON.stringify(initialData, null, 2));
             form.reset({
                 ...initialData,
                 registrationNumber: initialData.registrationNumber || "",
@@ -77,6 +78,15 @@ export function ContractorFormDialog({
                 bankAccountNumber: initialData.bankAccountNumber || "",
                 registrationFeePaid: !!initialData.registrationFeePaid,
                 agreementSigned: !!initialData.agreementSigned,
+                // Explicitly set URLs to ensure they load
+                photoUrl: initialData.photoUrl || "",
+                nicFrontUrl: initialData.nicFrontUrl || "",
+                nicBackUrl: initialData.nicBackUrl || "",
+                brCertUrl: initialData.brCertUrl || "",
+                policeReportUrl: initialData.policeReportUrl || "",
+                gramaCertUrl: initialData.gramaCertUrl || "",
+                registrationFeeSlipUrl: initialData.registrationFeeSlipUrl || "",
+                bankPassbookUrl: initialData.bankPassbookUrl || "",
             });
         } else {
             form.reset();
@@ -102,21 +112,22 @@ export function ContractorFormDialog({
 
     const steps = [
         { id: 1, label: "Info", icon: Building2 },
-        { id: 2, label: "Finc", icon: Banknote },
-        { id: 3, label: "Docs", icon: FileText },
+        { id: 2, label: "Docs", icon: FileText },
+        { id: 3, label: "Bank", icon: Banknote },
         ...(watchedValues.type === 'SOD' ? [{ id: 4, label: "Groups", icon: Users }] : []),
         { id: 5, label: "Review", icon: CheckCircle2 }
     ];
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-full no-scrollbar rounded-3xl">
-                <DialogHeader className="px-2">
+            <DialogContent className="lg:max-w-6xl max-w-[95vw] w-full max-h-[95vh] overflow-y-auto no-scrollbar rounded-[32px] p-0 border-none bg-slate-50 shadow-2xl">
+                <div className="p-6 md:p-12">
+                    <DialogHeader className="px-2">
                     <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight">
-                        {initialData ? 'Edit Profile' : 'Add New Contractor'}
+                        {initialData ? 'Audit Profile' : 'Add New Contractor'}
                     </DialogTitle>
                     <DialogDescription className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mt-1 opacity-70">
-                        {initialData ? 'Update account details.' : 'Fill in the details to register a new contractor.'}
+                        {initialData ? 'Verify or refine account details.' : 'Fill in the details to register a new contractor.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -164,14 +175,14 @@ export function ContractorFormDialog({
                         )}
 
                         {step === 2 && (
-                             <Step3BankInfo staticData={{ banks, branches }} handleUpload={handleUpload} uploadProgress={uploadProgress} />
+                             <Step2IdentityDocs handleUpload={handleUpload} />
                         )}
 
                         {step === 3 && (
-                            <Step2IdentityDocs handleUpload={handleUpload} />
+                             <Step3BankInfo staticData={{ banks, branches }} handleUpload={handleUpload} uploadProgress={uploadProgress} />
                         )}
 
-                        {step === 4 && <Step4TeamSelection staticData={{ opmcs }} />}
+                        {step === 4 && <Step4TeamSelection staticData={{ opmcs }} handleUpload={handleUpload} />}
 
                         {step === 5 && (
                             <div className="space-y-8 animate-in fade-in zoom-in duration-500 text-center py-6">
@@ -184,14 +195,82 @@ export function ContractorFormDialog({
                                         Check the information below before saving the profile.
                                     </p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 px-10">
-                                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
-                                        <p className="text-[10px] font-black uppercase text-slate-900 opacity-60">Entity Name</p>
-                                        <p className="text-sm font-bold text-slate-900 mt-1 truncate">{watchedValues.name}</p>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
+                                    <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-200 shadow-sm transition-all hover:border-blue-200">
+                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 font-mono">Entity Name</p>
+                                        <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tight">{watchedValues.name}</p>
                                     </div>
-                                    <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-200">
-                                        <p className="text-[10px] font-black uppercase text-slate-900 opacity-60">Category</p>
-                                        <p className="text-sm font-bold text-slate-900 mt-1">{watchedValues.type === 'SOD' ? 'Service Orders' : 'Network Projects'}</p>
+                                    <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-200 shadow-sm transition-all hover:border-blue-200">
+                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 font-mono">Industry Segment</p>
+                                        <p className="text-sm font-black text-slate-900">{watchedValues.type === 'SOD' ? 'SOD (Operations)' : 'OSP Projectry'}</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-6 rounded-3xl border-2 border-slate-200 shadow-sm transition-all hover:border-blue-200">
+                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 font-mono">Manpower Units</p>
+                                        <p className="text-sm font-black text-slate-900">{(watchedValues.teams || []).length} Professional Teams</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6 px-4 text-left">
+                                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-2 font-mono">Operations Personnel Breakdown</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {(watchedValues.teams || []).map((team: any, tIdx: number) => (
+                                            <div key={tIdx} className="p-5 rounded-2xl border-2 border-slate-100 bg-slate-50/50 space-y-4">
+                                                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                                                    <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{team.name}</span>
+                                                    <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase">{(team.members || []).length} PAX</span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {(team.members || []).map((member: any, mIdx: number) => (
+                                                        <div key={mIdx} className="flex items-center justify-between text-[11px] font-bold text-slate-600 bg-white p-2 rounded-xl border border-slate-100 italic">
+                                                            <div className="flex flex-col">
+                                                                <span>{member.name}</span>
+                                                                <span className="text-[8px] opacity-40 uppercase tracking-tighter">{member.designation || 'Specialist'}</span>
+                                                            </div>
+                                                            <span className="opacity-60">{member.nic}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4 text-left pt-4">
+                                    <div className="space-y-4 p-6 rounded-3xl border-2 border-slate-200 bg-white shadow-sm">
+                                        <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
+                                            <Banknote className="w-5 h-5 text-blue-600" />
+                                            <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Payout Account Details</h4>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 pt-2">
+                                            <div className="space-y-1">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Bank</span>
+                                                <p className="text-xs font-black text-slate-900 truncate tracking-tight">{watchedValues.bankName || 'NOT PROVIDED'}</p>
+                                            </div>
+                                            <div className="space-y-1 text-right">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Account</span>
+                                                <p className="text-xs font-black text-slate-900 font-mono tracking-wider">{watchedValues.bankAccountNumber || 'NOT PROVIDED'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 p-6 rounded-3xl border-2 border-slate-200 bg-white shadow-sm">
+                                        <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
+                                            <FileText className="w-5 h-5 text-blue-600" />
+                                            <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Document Registry</h4>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 pt-2">
+                                            {[
+                                                { label: 'NIC Front', url: watchedValues.nicFrontUrl },
+                                                { label: 'NIC Back', url: watchedValues.nicBackUrl },
+                                                { label: 'Passbook', url: watchedValues.bankPassbookUrl },
+                                                { label: 'BR Cert', url: watchedValues.brCertUrl }
+                                            ].map((doc, dIdx) => (
+                                                <div key={dIdx} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">{doc.label}</span>
+                                                    <div className={cn("h-2 w-2 rounded-full", doc.url ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]")} />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -236,6 +315,7 @@ export function ContractorFormDialog({
                         </div>
                     </form>
                 </Form>
+                </div>
             </DialogContent>
         </Dialog>
     );

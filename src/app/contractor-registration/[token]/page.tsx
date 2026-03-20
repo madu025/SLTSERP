@@ -164,7 +164,7 @@ export default function ContractorRegistrationPage() {
                                 {step === 1 && <Step1PersonalInfo />}
                                 {step === 2 && <Step2IdentityDocs handleUpload={handleUpload} />}
                                 {step === 3 && <Step3BankInfo handleUpload={handleUpload} uploadProgress={uploadProgress} staticData={staticData} />}
-                                {step === 4 && <Step4TeamSelection staticData={staticData} />}
+                                {step === 4 && <Step4TeamSelection staticData={staticData} handleUpload={handleUpload} />}
                                 {step === 5 && <Step5ReviewSubmission />}
                             </div>
 

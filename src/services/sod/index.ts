@@ -64,6 +64,15 @@ export class ServiceOrderService {
             // Row lock
             await tx.$executeRaw`SELECT id FROM "ServiceOrder" WHERE id = ${id} FOR UPDATE`;
 
+            // IF COMMENT IS UPDATED, CREATE A HISTORY RECORD
+            if (data.comments) {
+                await ServiceOrderRepository.createComment({
+                    serviceOrderId: id,
+                    comment: data.comments,
+                    authorId: userId
+                }, tx);
+            }
+
             // Material usage processing
             if (data.materialUsage && Array.isArray(data.materialUsage)) {
                 const { InventoryService } = await import('../inventory');

@@ -20,6 +20,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import { MessageSquare, Info } from "lucide-react";
 
 const commentSchema = z.object({
     comment: z.string().min(1, "Comment cannot be empty"),
@@ -62,17 +63,32 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Add Comment</DialogTitle>
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5 text-rose-600" />
+                        Add Internal Note
+                    </DialogTitle>
                 </DialogHeader>
 
-                <div className="mb-4 space-y-1">
-                    <p className="text-sm text-slate-600">
-                        SO Number: <span className="font-mono font-semibold text-slate-900">{selectedOrder.soNum}</span>
-                    </p>
-                    <p className="text-sm text-slate-600">
-                        Customer: <span className="font-semibold text-slate-900">{selectedOrder.customerName}</span>
-                    </p>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 mb-4">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SO Number</span>
+                        <span className="text-[11px] font-mono font-bold text-slate-900">{selectedOrder.soNum}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</span>
+                        <span className="text-[11px] font-bold text-slate-700 truncate max-w-[200px]">{selectedOrder.customerName}</span>
+                    </div>
                 </div>
+
+                {selectedOrder.comments && (
+                    <div className="mb-6 p-3 bg-amber-50 border border-amber-100 rounded-lg relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-1 opacity-10">
+                            <Info className="w-6 h-6 text-amber-900" />
+                        </div>
+                        <label className="text-[9px] font-black text-amber-700 uppercase block mb-1">Previous/Current Note</label>
+                        <p className="text-[11px] text-slate-600 line-clamp-3 leading-snug">{selectedOrder.comments}</p>
+                    </div>
+                )}
 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">

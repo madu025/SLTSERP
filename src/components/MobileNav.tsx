@@ -16,14 +16,25 @@ interface User {
 export default function MobileNav() {
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
-    const [user, setUser] = useState<User | null>(() => {
-        if (typeof window !== 'undefined') {
-            const storedUser = localStorage.getItem('user');
-            return storedUser ? JSON.parse(storedUser) : null;
-        }
-        return null;
-    });
+    const [user, setUser] = useState<User | null>(null);
+    const [mounted, setMounted] = useState(false);
     const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setMounted(true);
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                try {
+                    const parsedUser = JSON.parse(storedUser) as User;
+                    setUser(parsedUser);
+                } catch (error) {
+                    console.error('Failed to parse user from localStorage', error);
+                }
+            }
+        }, 0);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Auto-expand menu if a child is active or parent matches
     useEffect(() => {
@@ -58,6 +69,8 @@ export default function MobileNav() {
     }, [isOpen]);
 
     const userRole = user?.role || '';
+
+    if (!mounted) return null;
 
     return (
         <>

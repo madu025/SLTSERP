@@ -52,6 +52,9 @@ export interface ServiceOrder {
     isManualEntry?: boolean;
     isLegacyImport?: boolean;
     hasBridgeLog?: boolean;
+    _count?: {
+        commentsHistory: number;
+    };
 }
 
 export interface AuditItem {

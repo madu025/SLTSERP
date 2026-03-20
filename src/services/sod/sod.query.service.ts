@@ -126,6 +126,7 @@ export class SODQueryService {
                     orderType: true,
                     serviceType: true,
                     customerName: true,
+                    lea: true,
                     status: true,
                     statusDate: true,
                     sltsStatus: true,
@@ -151,7 +152,16 @@ export class SODQueryService {
                     contractorAmount: true,
                     dropWireDistance: true,
                     receivedDate: true,
+                    woroTaskName: true,
+                    scheduledDate: true,
+                    techContact: true,
+                    sales: true,
+                    comments: true,
                     createdAt: true,
+                    // @ts-expect-error - Prisma client generation updated but IDE may lag
+                    _count: {
+                        select: { commentsHistory: true }
+                    },
                     materialUsage: {
                         select: {
                             quantity: true,

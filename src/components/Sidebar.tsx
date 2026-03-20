@@ -14,19 +14,17 @@ interface User {
 }
 
 export default function Sidebar() {
-    const [user, setUser] = useState<User | null>(() => {
-        if (typeof window !== 'undefined') {
-            const storedUser = localStorage.getItem('user');
-            return storedUser ? JSON.parse(storedUser) : null;
-        }
-        return null;
-    });
+    const [user, setUser] = useState<User | null>(null);
+    const [mounted, setMounted] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
     const pathname = usePathname();
 
     useEffect(() => {
-        // Fallback for cases where localStorage might change from other tabs
+        setMounted(true);
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) setUser(JSON.parse(storedUser));
+
         const handleStorageChange = () => {
             const storedUser = localStorage.getItem('user');
             if (storedUser) setUser(JSON.parse(storedUser));
@@ -86,13 +84,12 @@ export default function Sidebar() {
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
                 {!isCollapsed && <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">Menu</div>}
 
-                {SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
+                {mounted ? SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
                     const Icon = item.icon;
                     const hasSubmenu = item.submenu && item.submenu.length > 0;
-                    // Check if current path matches item or any submenu
                     const isChildActive = hasSubmenu && item.submenu?.some(sub => pathname === sub.path);
                     const isActive = pathname === item.path || isChildActive;
-                    const isExpanded = expandedMenus.includes(item.title); // Decoupled from isChildActive logic for rendering
+                    const isExpanded = expandedMenus.includes(item.title);
 
                     const handleMenuClick = (e: React.MouseEvent) => {
                         if (hasSubmenu) {
@@ -139,9 +136,15 @@ export default function Sidebar() {
                             )}
                         </div>
                     );
-                })}
+                }) : (
+                    <div className="space-y-4 px-3 py-4 animate-pulse">
+                        <div className="h-8 bg-slate-800 rounded w-full"></div>
+                        <div className="h-8 bg-slate-800 rounded w-3/4"></div>
+                        <div className="h-8 bg-slate-800 rounded w-5/6"></div>
+                    </div>
+                )}
             </nav>
-            {hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN']) && (
+            {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN']) && (
                 <SyncStatus isCollapsed={isCollapsed} />
             )}
             <Link href="/profile" className="p-4 border-t border-slate-800 block hover:bg-slate-800/50 transition-colors">

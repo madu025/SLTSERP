@@ -219,6 +219,7 @@ To ensure maximum efficiency and token conservation (saving user money), all int
 3. **NO REPEATING CHARACTERS**: Do not repeat characters for decoration (e.g., "=====", "🏁🏁🏁").
 4. **EXTREME CONCISENESS**: Provide only essential technical answers. Minimize conversational filler and summaries.
 5. **PROFESSIONAL DIRECTNESS**: Respond like a senior engineer-to-engineer. Do not use decorative formatting or unnecessary greetings.
+6. **NO REPETITIVE STATUS CHECKING**: Do NOT call `command_status` repeatedly with the same ID without significant new output or clear manual request. NEVER start an autonomous "checking loop" that repeats more than 2 times.
 
 **FAILURE TO COMPLY WASTES USER TOKENS AND FUNDS.**
 

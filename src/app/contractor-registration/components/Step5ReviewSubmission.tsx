@@ -91,9 +91,46 @@ export function Step5ReviewSubmission() {
                 </ReviewSection>
 
                 <ReviewSection icon={Users} title="Team Summary">
-                    <ReviewItem label="Total Teams" value={data.teams?.length.toString()} />
-                    <ReviewItem label="Working Office" value={data.teams?.[0]?.opmcId === 'inherit' ? 'Default' : data.teams?.[0]?.opmcId} />
+                    <ReviewItem label="Total Units" value={(data.teams?.length || 0).toString()} />
+                    <ReviewItem label="Personnel Total" value={data.teams?.reduce((acc, t) => acc + (t.members?.length || 0), 0).toString()} />
                 </ReviewSection>
+
+                <div className="space-y-6">
+                    <h4 className="text-[11px] font-black uppercase text-slate-900 tracking-wider pl-1 font-mono">Operations Personnel</h4>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {(data.teams || []).map((team, tIdx) => (
+                            <div key={tIdx} className="p-8 rounded-[32px] border-2 border-slate-200 bg-white/50 space-y-6 transition-all hover:bg-white hover:border-blue-200 hover:shadow-xl hover:scale-[1.01] duration-500">
+                                <div className="flex items-center gap-4 pb-4 border-b-2 border-slate-100">
+                                    <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg">
+                                        <BadgeCheck className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h5 className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-none">{team.name}</h5>
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mt-1 opacity-80">{team.members?.length || 0} Members Registered</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {(team.members || []).map((member, mIdx) => (
+                                        <div key={mIdx} className="flex items-center justify-between p-4 rounded-2xl bg-slate-100/50 border-2 border-slate-200 shadow-sm">
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{member.name}</p>
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{member.nic}</p>
+                                            </div>
+                                            {member.passportPhotoUrl ? (
+                                                <div className="h-2 w-2 rounded-full bg-emerald-500 ring-4 ring-emerald-50" />
+                                            ) : (
+                                                <div className="h-2 w-2 rounded-full bg-rose-500 ring-4 ring-rose-50" />
+                                            )}
+                                        </div>
+                                    ))}
+                                    {(team.members || []).length === 0 && (
+                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center py-4 border-2 border-dashed border-slate-200 rounded-2xl">No personnel listed</p>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
                 <div className="space-y-4">
                     <h4 className="text-[11px] font-black uppercase text-slate-900 tracking-wider pl-1">Uploaded Documents</h4>

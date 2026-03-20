@@ -18,14 +18,31 @@ interface BridgeInfo {
 
 export default function ExtensionStatus() {
     const [status, setStatus] = useState<'checking' | 'installed' | 'missing'>('checking');
+    const [mounted, setMounted] = useState(false);
     const [bridgeInfo, setBridgeInfo] = useState<BridgeInfo>({
         installed: false,
         version: "",
         type: null
     });
     const [lastChecked, setLastChecked] = useState<Date | null>(null);
+    const [userDetail, setUserDetail] = useState<{ role?: string } | null>(null);
     const checkCount = useRef(0);
     const maxChecks = 10;
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setMounted(true);
+            const stored = localStorage.getItem('user');
+            if (stored) {
+                try {
+                    setUserDetail(JSON.parse(stored));
+                } catch (e) {
+                    console.error('Failed to parse user', e);
+                }
+            }
+        }, 0);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Multiple detection methods combined
     const detectExtension = useCallback((): BridgeInfo => {
@@ -112,6 +129,8 @@ export default function ExtensionStatus() {
     }, [detectExtension]);
 
     useEffect(() => {
+        if (!mounted) return;
+
         // Run check after mount to avoid SSR issues and potential sync state update issues
         const timer = setTimeout(() => {
             if (checkExtension()) return;
@@ -150,7 +169,7 @@ export default function ExtensionStatus() {
             window.removeEventListener('SLT_BRIDGE_DETECTED', handleBridgeDetected);
             window.removeEventListener('ISHAMP_BRIDGE_DETECTED', handleBridgeDetected);
         };
-    }, [checkExtension]);
+    }, [checkExtension, mounted]);
 
     const handleRecheck = () => {
         setStatus('checking');
@@ -158,21 +177,16 @@ export default function ExtensionStatus() {
         setTimeout(() => checkExtension(), 500);
     };
 
-    const [userDetail, setUserDetail] = useState<{ role?: string } | null>(() => {
-        if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem('user');
-            if (stored) {
-                try {
-                    return JSON.parse(stored);
-                } catch (e) {
-                    console.error('Failed to parse user', e);
-                }
-            }
-        }
-        return null;
-    });
-
     const isAdmin = userDetail?.role === 'SUPER_ADMIN' || userDetail?.role === 'ADMIN';
+
+    if (!mounted) {
+        return (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 text-slate-400 rounded-full border border-slate-200">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                <span className="text-[10px] uppercase tracking-wider">Loading...</span>
+            </div>
+        );
+    }
 
     if (status === 'checking') {
         return (

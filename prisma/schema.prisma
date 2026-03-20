@@ -93,6 +93,7 @@ model ServiceOrder {
   restoreRequests   RestoreRequest[]
   materialUsage     SODMaterialUsage[]
   statusHistory     ServiceOrderStatusHistory[]
+  commentsHistory   ServiceOrderComment[]
   contractor        Contractor?        @relation(fields: [contractorId], references: [id])
   invoice           Invoice?           @relation(fields: [invoiceId], references: [id])
   opmc              OPMC               @relation(fields: [opmcId], references: [id], onDelete: Cascade)
@@ -158,6 +159,20 @@ model ServiceOrderStatusHistory {
   @@index([status])
 }
 
+model ServiceOrderComment {
+  id              String       @id @default(cuid())
+  serviceOrderId  String
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  comment         String
+  authorId        String?
+  author          User?        @relation("UserComments", fields: [authorId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([createdAt])
+}
+
 model User {
   id                            String                   @id @default(cuid())
   email                         String                   @unique
@@ -197,6 +212,7 @@ model User {
   releasedRequests              StockRequest[]           @relation("ReleasedBy")
   requestedStock                StockRequest[]           @relation("RequestUser")
   storesManagerApprovedRequests StockRequest[]           @relation("StoresManagerApprover")
+  comments                      ServiceOrderComment[]    @relation("UserComments")
   assignedStore                 InventoryStore?          @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
   staff                         Staff?                   @relation(fields: [staffId], references: [id])
   supervisor                    User?                    @relation("UserSupervisor", fields: [supervisorId], references: [id])

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
@@ -14,6 +14,7 @@ interface Step2Props {
 
 export function Step2IdentityDocs({ handleUpload }: Step2Props) {
     const { control } = useFormContext<PublicRegistrationSchema>();
+    const watchedValues = useWatch({ control });
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -59,12 +60,14 @@ export function Step2IdentityDocs({ handleUpload }: Step2Props) {
                         description="Upload the front side of your NIC."
                         fieldName="nicFrontUrl"
                         onUpload={handleUpload}
+                        value={watchedValues.nicFrontUrl}
                     />
                     <FileUploadField
                         label="NIC Back Photo"
                         description="Upload the back side of your NIC."
                         fieldName="nicBackUrl"
                         onUpload={handleUpload}
+                        value={watchedValues.nicBackUrl}
                     />
                 </div>
 
@@ -74,12 +77,14 @@ export function Step2IdentityDocs({ handleUpload }: Step2Props) {
                         description="Upload your BR certificate if applicable."
                         fieldName="brCertUrl"
                         onUpload={handleUpload}
+                        value={watchedValues.brCertUrl}
                     />
                     <FileUploadField
                         label="Form 20/40"
                         description="Upload other corporate documents."
                         fieldName="policeReportUrl"
                         onUpload={handleUpload}
+                        value={watchedValues.policeReportUrl}
                     />
                 </div>
             </div>

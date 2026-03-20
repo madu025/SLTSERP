@@ -17,6 +17,7 @@ interface FileUploadFieldProps {
     onUpload: (file: File, fieldName: string) => Promise<string | null>;
     required?: boolean;
     accept?: string;
+    value?: string | null;
     allowCamera?: boolean;
 }
 
@@ -203,26 +204,38 @@ export function FileUploadField({
                     )}
                 >
                     {value ? (
-                        <div className="flex flex-col md:flex-row w-full h-full items-stretch p-4 gap-6">
-                            <div className="relative w-full md:w-[200px] h-[120px] rounded-xl overflow-hidden border-2 border-slate-200 bg-white">
-                                <Image src={value} alt={label} fill className="object-contain p-1" unoptimized priority />
+                        <div className="flex flex-col w-full h-full items-center p-4 gap-4">
+                            <div className="relative w-full aspect-video md:w-[240px] md:h-[150px] rounded-xl overflow-hidden border-2 border-slate-200 bg-white ring-4 ring-slate-50/50 shadow-inner">
+                                <Image 
+                                    src={
+                                        value.startsWith('http') 
+                                            ? value 
+                                            : (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+                                                ? `https://slt-nexus.com${value}`
+                                                : value
+                                    } 
+                                    alt={label} 
+                                    fill 
+                                    className="object-contain p-2 hover:scale-110 transition-transform duration-500" 
+                                    unoptimized 
+                                    priority 
+                                />
+                                <div className="absolute top-2 right-2 flex gap-1">
+                                     <div className="bg-emerald-500 text-white p-1 rounded-full shadow-lg">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                     </div>
+                                </div>
                             </div>
                             
-                            <div className="flex-1 flex flex-col justify-center space-y-3">
+                            <div className="flex flex-col items-center justify-center space-y-2 text-center">
                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-2 text-emerald-600">
-                                        <ShieldCheck className="w-5 h-5" />
-                                        <span className="text-[11px] font-black uppercase tracking-widest leading-none">Attached</span>
+                                    <div className="flex items-center justify-center gap-2 text-emerald-600">
+                                        <ShieldCheck className="w-4 h-4" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest leading-none">Verified Asset</span>
                                     </div>
-                                    <p className="text-[10px] text-slate-900 font-bold uppercase opacity-80">
-                                        File saved successfully.
+                                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight">
+                                        Storage File ID Captured
                                     </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg">
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                                        <span className="text-[9px] font-black uppercase tracking-widest">OK</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>

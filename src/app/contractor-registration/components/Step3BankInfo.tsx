@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +20,7 @@ interface Step3Props {
 
 export function Step3BankInfo({ handleUpload, staticData }: Step3Props) {
     const { control } = useFormContext<PublicRegistrationSchema>();
+    const watchedValues = useWatch({ control });
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -127,18 +128,21 @@ export function Step3BankInfo({ handleUpload, staticData }: Step3Props) {
                         description="Account details page"
                         fieldName="bankPassbookUrl"
                         onUpload={handleUpload}
+                        value={watchedValues.bankPassbookUrl}
                     />
                     <FileUploadField
                         label="Payment Receipt"
                         description="Onboarding payment slip"
                         fieldName="registrationFeeSlipUrl"
                         onUpload={handleUpload}
+                        value={watchedValues.registrationFeeSlipUrl}
                     />
                     <FileUploadField
                         label="GN Certificate"
                         description="Official GN certificate"
                         fieldName="gramaCertUrl"
                         onUpload={handleUpload}
+                        value={watchedValues.gramaCertUrl}
                     />
                 </div>
             </div>

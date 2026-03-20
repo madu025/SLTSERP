@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, MessageSquare, ChevronDown, CheckCircle2, FileSpreadsheet, Info } from "lucide-react";
+import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, MessageSquare, CheckCircle2, FileSpreadsheet, Info, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
 import { OrderActionData } from "@/components/modals/order-action/types";
@@ -35,7 +35,9 @@ const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportMo
 
 export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'completed' | 'return'; pageTitle?: string; }) {
     const queryClient = useQueryClient();
-    const { isColumnVisible } = useTableColumnSettings("pending_sod");
+    // Choose table settings key based on filterType
+    const tableName = filterType === 'completed' ? 'completed_sod' : (filterType === 'return' ? 'return_sod' : 'pending_sod');
+    const { isColumnVisible } = useTableColumnSettings(tableName);
     const hasSetDefault = React.useRef(false);
 
     // Filter State
@@ -100,14 +102,18 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         enabled: !!selectedRtomId
     });
 
-    const serviceOrders: ServiceOrder[] = qData?.items || [];
+    const serviceOrders: ServiceOrder[] = Array.isArray(qData?.items) ? qData!.items : [];
     const summary = qData?.summary || { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} };
+    
+    // Explicit array cast for safety
+    const safeOpmcs: OPMC[] = React.useMemo(() => Array.isArray(opmcs) ? opmcs : [], [opmcs]);
+
     const { selectedIds, toggleSelect, toggleAll, isAllSelected } = useSODTable(serviceOrders);
 
     useEffect(() => {
         // Only set default if one isn't already set and we have OPMCs
-        if (opmcs.length > 0 && !selectedRtomId && !hasSetDefault.current) {
-            const firstOpmc = opmcs[0];
+        if (safeOpmcs.length > 0 && !selectedRtomId && !hasSetDefault.current) {
+            const firstOpmc = safeOpmcs[0];
             hasSetDefault.current = true;
             // Use setTimeout to avoid synchronous setState warning and cascading renders
             setTimeout(() => {
@@ -115,10 +121,10 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                 setSelectedRtom(firstOpmc.rtom);
             }, 0);
         }
-    }, [opmcs, selectedRtomId]);
+    }, [safeOpmcs, selectedRtomId]);
 
     const handleOpmcChange = (value: string) => {
-        const opmc = opmcs.find(o => o.id === value);
+        const opmc = safeOpmcs.find(o => o.id === value);
         if (opmc) {
             setSelectedRtomId(value);
             setSelectedRtom(opmc.rtom);
@@ -175,7 +181,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                  <Filter className="w-3.5 h-3.5 text-slate-400" />
                                  <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
                                      <SelectTrigger className="h-8 border-none bg-transparent w-[140px] focus:ring-0 shadow-none font-bold text-xs"><SelectValue placeholder="RTOM" /></SelectTrigger>
-                                     <SelectContent>{opmcs.map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom}</SelectItem>)}</SelectContent>
+                                     <SelectContent>
+                                         {safeOpmcs.length > 0 ? safeOpmcs.map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom}</SelectItem>) : <SelectItem value="error" disabled>No RTOMs Available</SelectItem>}
+                                     </SelectContent>
                                  </Select>
                              </div>
 
@@ -221,53 +229,155 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                     </div>
                                 </div>
                             ) : (
-                                <table className="w-full text-xs text-left">
+                                <table className="w-full text-[10px] text-left">
                                     <thead className="bg-[#fcfdff] border-b sticky top-0 z-40 backdrop-blur-md">
-                                        <tr className="text-slate-500 font-bold uppercase tracking-tight text-[10px]">
-                                            <th className="px-4 py-4 w-12 text-center">
+                                        <tr className="text-slate-500 font-bold uppercase tracking-tight text-[9px]">
+                                            <th className="px-2 py-3 w-10 text-center sticky left-0 bg-[#fcfdff] z-50 shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
                                                 <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-slate-300 data-[state=checked]:bg-blue-600" />
                                             </th>
-                                            {isColumnVisible('soNum') && <th className="px-3 py-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => requestSort('soNum')}>
-                                                <div className="flex items-center gap-1.5">Service Order No. <ChevronDown className="w-3 h-3 text-slate-300" /></div>
-                                            </th>}
-                                            {isColumnVisible('status') && <th className="px-3 py-4">Status</th>}
-                                            <th className="px-3 py-4 text-right pr-6">Actions</th>
+                                            {isColumnVisible('soNum') && <th className="px-1.5 py-3 cursor-pointer hover:bg-slate-50 transition-colors sticky left-10 bg-[#fcfdff] z-50 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] w-[110px]" onClick={() => requestSort('soNum')}>SO Number</th>}
+                                            {isColumnVisible('statusDate') && <th className="px-1.5 py-3 sticky left-[150px] bg-[#fcfdff] z-50 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] w-[75px]">Received</th>}
+                                            {isColumnVisible('lea') && <th className="px-1.5 py-3 sticky left-[225px] bg-[#fcfdff] z-50 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] w-[50px]">LEA</th>}
+                                            {isColumnVisible('customerName') && <th className="px-1.5 py-3 sticky left-[275px] bg-[#fcfdff] z-50 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] w-[160px]">Customer</th>}
+                                            {isColumnVisible('voiceNumber') && <th className="px-1.5 py-3 sticky left-[435px] bg-[#fcfdff] z-50 shadow-[1px_0_0_0_rgba(0,0,0,0.05)] w-[90px]">Voice/TP</th>}
+                                            
+                                            {/* Stacked Row Header Indicators */}
+                                            <th className="px-2 py-3 bg-slate-50/50">Primary Details (Order / Package / Task)</th>
+                                            <th className="px-2 py-3 bg-slate-50/50">Logistics &amp; Status</th>
+                                            <th className="px-2 py-3 sticky right-0 bg-[#fcfdff] z-50 shadow-[-1px_0_0_0_rgba(0,0,0,0.05)] w-[60px] text-center"></th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {serviceOrders.map((order: ServiceOrder) => (
-                                            <tr key={order.id} className={`group hover:bg-[#f8faff] transition-colors ${selectedIds.has(order.id) ? 'bg-blue-50/50' : ''}`}>
-                                                <td className="px-4 py-3 text-center">
-                                                    <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-slate-200 transition-transform group-hover:scale-110" />
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-mono font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{order.soNum}</span>
-                                                        <span className="text-[9px] text-slate-500 font-medium truncate max-w-[150px]">{order.customerName || 'No Name'}</span>
+                                    <tbody className="divide-y divide-slate-100 italic-last-update">
+                                        {Array.isArray(serviceOrders) && serviceOrders.length > 0 ? (
+                                            serviceOrders.map((order: ServiceOrder) => (
+                                                <React.Fragment key={order.id}>
+                                                    {/* ROW 1: Order/Package/TechContact + [Info, Calendar] */}
+                                                    <tr className={`group hover:bg-[#f8faff] transition-colors border-t border-slate-200 ${selectedIds.has(order.id) ? 'bg-blue-50/50' : ''}`}>
+                                                        <td rowSpan={2} className="px-1.5 py-0.5 text-center sticky left-0 bg-white z-20 group-hover:bg-[#f8faff] border-r">
+                                                            <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-slate-200 transition-transform group-hover:scale-110" />
+                                                        </td>
+                                                        <td rowSpan={2} className="px-1.5 py-0.5 font-mono font-bold text-slate-900 text-[11.5px] sticky left-10 bg-white z-20 group-hover:bg-[#f8faff] border-r cursor-pointer" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>
+                                                            <div className="group-hover:text-blue-600 transition-colors">{order.soNum}</div>
+                                                            <div className="text-[8.5px] text-slate-400 font-normal flex items-center gap-0.5 mt-0.5">
+                                                                <Activity className="w-2 h-2" />{order.id.slice(-6)}
+                                                            </div>
+                                                        </td>
+                                                        <td rowSpan={2} className="px-1.5 py-0.5 sticky left-[150px] bg-white z-20 group-hover:bg-[#f8faff] border-r">
+                                                            <div className="font-bold text-slate-900 text-[11px]">{order.statusDate ? new Date(order.statusDate).toLocaleDateString() : '-'}</div>
+                                                            <div className="text-[8.5px] uppercase text-slate-400">Rcvd</div>
+                                                        </td>
+                                                        <td rowSpan={2} className="px-1.5 py-0.5 sticky left-[225px] bg-white z-20 group-hover:bg-[#f8faff] border-r text-center">
+                                                            <span className="px-1 py-0.5 bg-slate-100 rounded text-slate-700 text-[11px] font-bold">{order.lea || '-'}</span>
+                                                        </td>
+                                                        <td rowSpan={2} className="px-1.5 py-0.5 font-bold text-slate-900 text-[11px] sticky left-[275px] bg-white z-20 group-hover:bg-[#f8faff] border-r truncate max-w-[160px]" title={order.customerName || ''}>
+                                                            {order.customerName || '-'}
+                                                        </td>
+                                                        <td rowSpan={2} className="px-1.5 py-0.5 font-mono text-slate-600 text-[11px] font-bold sticky left-[435px] bg-white z-20 group-hover:bg-[#f8faff] border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                            {order.voiceNumber || '-'}
+                                                        </td>
+
+                                                        {/* Row 1 details: Order type + Package + Tech */}
+                                                        {/* Col 1: Order Type + Package + Task + DP */}
+                                                        <td className="px-1.5 py-0.5 border-b border-slate-100">
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-black uppercase text-[10px]">{order.orderType || 'N/A'}</span>
+                                                                <span className="text-slate-500 font-bold text-[10px] uppercase">{order.package || '-'}</span>
+                                                                {order.woroTaskName && <span className="text-amber-600 font-bold uppercase text-[10px]">{order.woroTaskName}</span>}
+                                                                {order.dp && <span className="font-mono text-slate-500 text-[10px] font-bold border-l border-slate-200 pl-1.5">{order.dp}</span>}
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Col 2: Address + TechContact */}
+                                                        <td className="px-1.5 py-0.5 border-b border-slate-100">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                {order.address && (
+                                                                    <span className="text-slate-600 text-[10px] truncate max-w-[220px] font-medium" title={order.address}>{order.address}</span>
+                                                                )}
+                                                                {order.techContact && (
+                                                                    <a href={`tel:${order.techContact.replace(/\s+/g, '')}`} className="flex items-center gap-1 text-blue-600 font-mono text-[10px] font-bold w-fit">
+                                                                        <Activity className="w-2.5 h-2.5" />{order.techContact}
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Row 1 actions: Info + Calendar (horizontal) */}
+                                                        <td className="px-1 py-0.5 text-center sticky right-0 bg-white z-20 group-hover:bg-[#f8faff] border-l border-b border-slate-100 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                            <div className="flex items-center gap-0.5 justify-center">
+                                                                <Button size="icon" variant="ghost" className="h-5 w-5 hover:bg-blue-50" title="Details" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}><Info className="w-3.5 h-3.5 text-slate-400" /></Button>
+                                                                <Button size="icon" variant="ghost" className="h-5 w-5 hover:bg-indigo-50" title="Schedule" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}><Calendar className="w-3.5 h-3.5 text-indigo-400" /></Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+
+                                                    {/* ROW 2: PAT + Status + SLTS + [Comment, Complete] */}
+                                                    <tr className={`group hover:bg-[#f8faff] transition-colors ${selectedIds.has(order.id) ? 'bg-blue-50/50' : ''}`}>
+                                                        {/* PAT + Status (DP moved to Row 1) */}
+                                                        <td className="px-1.5 py-0.5">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className={`px-1.5 py-0.5 rounded-full font-black text-[10px] uppercase ${
+                                                                    order.status.includes('COMPLETED') ? 'bg-emerald-100 text-emerald-700' :
+                                                                    order.status.includes('RETURN') ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                                                                }`}>{order.status}</span>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* SLTS Select + Contractor */}
+                                                        <td className="px-1.5 py-0.5">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Select value={order.sltsStatus} onValueChange={(val) => updateStatusMutation.mutate({ id: order.id, sltsStatus: val })}>
+                                                                    <SelectTrigger className="h-5 text-[9px] w-[100px] font-black border-slate-200 bg-white px-1"><SelectValue /></SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="PENDING" className="text-[10px] font-black">PENDING</SelectItem>
+                                                                        <SelectItem value="ASSIGNED" className="text-[10px] font-black">ASSIGNED</SelectItem>
+                                                                        <SelectItem value="INPROGRESS" className="text-[10px] font-black">IN PROGRESS</SelectItem>
+                                                                        <SelectItem value="COMPLETED" className="text-[10px] font-black text-emerald-600">COMPLETED</SelectItem>
+                                                                        <SelectItem value="RETURN" className="text-[10px] font-black text-rose-600">RETURN</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                {order.contractor && <span className="text-blue-700 font-black text-[9.5px]">[{order.contractor.name}]</span>}
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Row 2 actions: Comment + Complete (horizontal) */}
+                                                        <td className="px-1 py-0.5 text-center sticky right-0 bg-white z-20 group-hover:bg-[#f8faff] border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                            <div className="flex items-center gap-0.5 justify-center">
+                                                                {/* Comment button with indicator dot */}
+                                                                <div className="relative">
+                                                                    <Button
+                                                                        size="icon"
+                                                                        variant="ghost"
+                                                                        className={`h-5 w-5 ${order.comments ? 'hover:bg-amber-100 bg-amber-50' : 'hover:bg-amber-50'}`}
+                                                                        title={order.comments ? `📝 ${order.comments.slice(0, 120)}${order.comments.length > 120 ? '…' : ''}` : 'Add Comment'}
+                                                                        onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}
+                                                                    >
+                                                                        <MessageSquare className={`w-3 h-3 ${order.comments ? 'text-amber-600' : 'text-slate-300'}`} />
+                                                                    </Button>
+                                                                    {order.comments && (
+                                                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 ring-1 ring-white pointer-events-none" />
+                                                                    )}
+                                                                </div>
+                                                                <Button size="icon" variant="ghost" className="h-5 w-5 hover:bg-emerald-50" title="Complete / Action" onClick={() => { setSelectedOrder(order); setShowActionModal(true); }}><CheckCircle2 className="w-3 h-3 text-emerald-600" /></Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </React.Fragment>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={20} className="px-3 py-20 text-center text-slate-400">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <AlertCircle className="w-8 h-8 opacity-20" />
+                                                        <p className="font-bold text-xs uppercase tracking-widest">No Service Orders Found</p>
+                                                        <p className="text-[10px] text-slate-400 max-w-[200px] mx-auto italic">Try selecting a different RTOM or checking your connection.</p>
                                                     </div>
                                                 </td>
-                                                <td className="px-3 py-3">
-                                                    <Select value={order.sltsStatus} onValueChange={(val) => updateStatusMutation.mutate({ id: order.id, sltsStatus: val })}>
-                                                        <SelectTrigger className="h-7 text-[10px] w-28 font-bold border-slate-200"><SelectValue /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="PENDING">Pending</SelectItem>
-                                                            <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                                                            <SelectItem value="INPROGRESS">In Progress</SelectItem>
-                                                            <SelectItem value="COMPLETED" className="text-emerald-600">Completed</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </td>
-                                                <td className="px-3 py-3 text-right pr-6 flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-white hover:shadow-sm" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}><Info className="w-3.5 h-3.5 text-slate-400" /></Button>
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-white hover:shadow-sm" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}><Calendar className="w-3.5 h-3.5 text-slate-400" /></Button>
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-white hover:shadow-sm" onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}><MessageSquare className="w-3.5 h-3.5 text-slate-400" /></Button>
-                                                    <div className="w-[1px] h-4 bg-slate-200 mx-1" />
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-emerald-50 hover:text-emerald-700" onClick={() => { setSelectedOrder(order); setShowActionModal(true); }}><CheckCircle2 className="w-3.5 h-3.5" /></Button>
-                                                </td>
                                             </tr>
-                                        ))}
+                                        )}
+
                                     </tbody>
                                 </table>
+
                             )}
                         </div>
                     </div>

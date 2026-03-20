@@ -15,21 +15,24 @@ interface User {
 
 export default function Header() {
     const [user, setUser] = useState<User | null>(null);
+    const [mounted, setMounted] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            try {
-                const parsedUser = JSON.parse(storedUser) as User;
-                // Use a functional update or just set it - functional update can sometimes bypass strict render checks
-                // eslint-disable-next-line react-hooks/set-state-in-effect
-                setUser(parsedUser);
-            } catch (error) {
-                console.error('Failed to parse user from localStorage', error);
+        const timer = setTimeout(() => {
+            setMounted(true);
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                try {
+                    const parsedUser = JSON.parse(storedUser) as User;
+                    setUser(parsedUser);
+                } catch (error) {
+                    console.error('Failed to parse user from localStorage', error);
+                }
             }
-        }
+        }, 0);
+        return () => clearTimeout(timer);
     }, []);
 
     // Close dropdown when clicking outside
@@ -49,6 +52,10 @@ export default function Header() {
         localStorage.removeItem('user');
         router.push('/login');
     };
+
+    if (!mounted) {
+        return <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0" />;
+    }
 
     return (
         <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0">

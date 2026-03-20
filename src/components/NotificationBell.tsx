@@ -28,19 +28,23 @@ interface Notification {
 export default function NotificationBell() {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const [userId] = useState<string | null>(() => {
-        if (typeof window !== 'undefined') {
+    const [userId, setUserId] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setMounted(true);
             const storedUser = localStorage.getItem('user');
             if (storedUser) {
                 try {
-                    return JSON.parse(storedUser).id;
+                    setUserId(JSON.parse(storedUser).id);
                 } catch (e) {
                     console.error("Failed to parse user from localStorage", e);
                 }
             }
-        }
-        return null;
-    });
+        }, 0);
+        return () => clearTimeout(timer);
+    }, []);
 
     // SSE Connection for real-time notifications
     useEffect(() => {
@@ -227,7 +231,7 @@ export default function NotificationBell() {
         return date.toLocaleDateString();
     };
 
-    if (!userId) return null;
+    if (!mounted || !userId) return null;
 
     return (
         <Popover>

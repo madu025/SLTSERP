@@ -100,4 +100,14 @@ export class ServiceOrderRepository {
             data
         });
     }
+
+    /**
+     * Create Comment History Record
+     */
+    static async createComment(data: any, tx?: any) {
+        const db = tx || prisma;
+        return db.serviceOrderComment.create({
+            data
+        });
+    }
 }

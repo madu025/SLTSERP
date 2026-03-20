@@ -2,13 +2,16 @@ import { z } from 'zod';
 
 export const contractorMemberSchema = z.object({
     name: z.string().min(1, "Member name is required"),
-    designation: z.string().optional(),
-    nic: z.string().optional(),
+    designation: z.string().min(1, "Designation is required"),
+    nic: z.string()
+        .min(10, "NIC must be 10 or 12 characters")
+        .max(12, "NIC must be 10 or 12 characters")
+        .regex(/^(?:\d{9}[vVxX]|\d{12})$/, "Invalid NIC format (Old or New)"),
     contactNumber: z.string().optional(),
     address: z.string().optional(),
     photoUrl: z.string().optional(),
     nicUrl: z.string().optional(),
-    passportPhotoUrl: z.string().optional(),
+    passportPhotoUrl: z.string().min(5, "Passport size photo is mandatory"),
     policeReportUrl: z.string().optional(),
     gramaCertUrl: z.string().optional(),
     shoeSize: z.string().optional(),
@@ -18,11 +21,11 @@ export const contractorMemberSchema = z.object({
 export const contractorTeamSchema = z.object({
     id: z.string().optional(),
     name: z.string().min(1, "Team name is required"),
-    opmcId: z.string().optional().nullable(),
+    opmcId: z.string().min(1, "OPMC Assignment is required").nullable(),
     sltCode: z.string().optional().nullable(),
     storeIds: z.array(z.string()).optional(),
     primaryStoreId: z.string().optional().nullable(),
-    members: z.array(contractorMemberSchema).optional().default([]),
+    members: z.array(contractorMemberSchema).min(1, "At least one team member is required"),
 });
 
 export const contractorSchema = z.object({
@@ -78,10 +81,17 @@ export const publicRegistrationSchema = contractorSchema.extend({
         .min(8, "Account number is too short")
         .max(16, "Account number is too long")
         .regex(/^\d+$/, "Account number must contain only digits"),
-    // URLs are required on final submission
-    nicFrontUrl: z.string().min(5, "NIC Front is required"),
-    nicBackUrl: z.string().min(5, "NIC Back is required"),
-    registrationFeeSlipUrl: z.string().min(5, "Registration Fee Slip is required"),
+        
+    // Document URLs are now strictly mandatory
+    nicFrontUrl: z.string().min(5, "NIC Front is mandatory"),
+    nicBackUrl: z.string().min(5, "NIC Back is mandatory"),
+    photoUrl: z.string().min(5, "Executive portrait/photo is mandatory"),
+    bankPassbookUrl: z.string().min(5, "Bank Passbook/Statement photo is mandatory"),
+    registrationFeeSlipUrl: z.string().min(5, "Payment receipt is mandatory"),
+    brCertUrl: z.string().min(5, "Business Registration certificate is mandatory"),
+    
+    // Workforce requirement
+    teams: z.array(contractorTeamSchema).min(1, "At least one operational team must be registered"),
 });
 
 export const registrationInviteSchema = z.object({
