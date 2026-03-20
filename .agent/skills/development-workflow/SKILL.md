@@ -211,6 +211,13 @@ The inventory system follows a **Service-Repository pattern** with the following
 - JSON fields for flexible data storage
 - Audit trails with timestamps
 
+## Communication Guidelines (MANDATORY)
+
+To ensure maximum efficiency and token conservation, all interactions must follow these rules:
+1. **No Emojis**: Strictly avoid all emojis in technical and conversational responses.
+2. **Extreme Conciseness**: Provide only essential technical answers. Minimize conversational filler and summaries.
+3. **Professional Directness**: Respond like a senior engineer-to-engineer. Do not use decorative formatting or unnecessary greetings.
+
 ## Antigravity Development Standards (ADS)
 
 ### 1. Type Safety
