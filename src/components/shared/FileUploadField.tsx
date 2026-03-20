@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Upload, CheckCircle2, Loader2, Camera, RefreshCw, X, ShieldCheck } from "lucide-react";
+import { Upload, CheckCircle2, Loader2, Camera, X, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -31,7 +31,7 @@ export function FileUploadField({
 }: FileUploadFieldProps) {
     const { watch } = useFormContext();
     const value = watch(fieldName);
-
+    
     const [isScanning, setIsScanning] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -39,19 +39,14 @@ export function FileUploadField({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const inputId = `file-${fieldName}`;
 
-    // iOS/Safari Specific: Explicitly play and attach stream
-    useEffect(() => {
-        if (isCapturing && videoRef.current && cameraStream) {
-            const video = videoRef.current;
-            video.srcObject = cameraStream;
-            video.setAttribute("playsinline", "true"); // Mandatory for iOS
-
-            // Standard play promise handling
-            video.play().catch(err => {
-                console.warn("Autoplay was prevented:", err);
-            });
+    // Callback ref to reliably attach stream as soon as video element is mounted in Portal
+    const setVideoRef = useCallback((node: HTMLVideoElement | null) => {
+        if (node && cameraStream) {
+            node.srcObject = cameraStream;
+            node.play().catch(e => console.warn("Video play failed", e));
         }
-    }, [isCapturing, cameraStream]);
+        videoRef.current = node;
+    }, [cameraStream]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -74,12 +69,12 @@ export function FileUploadField({
 
     const startCamera = async () => {
         try {
-            // Simplified constraints for better iOS compatibility
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
+            // Highly compatible constraints for both mobile and desktop
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
                     facingMode: "environment",
-                    width: { min: 640, ideal: 1280, max: 1920 },
-                    height: { min: 480, ideal: 720, max: 1080 }
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
                 },
                 audio: false
             });
@@ -105,27 +100,24 @@ export function FileUploadField({
         try {
             const video = videoRef.current;
             const canvas = canvasRef.current;
-
-            // Get actual dimensions from the video stream metadata
+            
             const vWidth = video.videoWidth;
             const vHeight = video.videoHeight;
             const cWidth = video.clientWidth;
             const cHeight = video.clientHeight;
 
-            // Frame is 85% width of visible area
             const frameWidth = cWidth * 0.85;
-            const frameHeight = frameWidth * (63 / 100); // Standard ID Card aspect ratio
-
+            const frameHeight = frameWidth * (63/100);
+            
             const streamAspect = vWidth / vHeight;
             const containerAspect = cWidth / cHeight;
             const frameAspect = frameWidth / frameHeight;
-
+            
             let drawWidth = vWidth;
             let drawHeight = vHeight;
             let offsetX = 0;
             let offsetY = 0;
 
-            // Mapping video texture coordinate to screen coordinate (object-cover)
             if (streamAspect > containerAspect) {
                 drawWidth = vHeight * containerAspect;
                 offsetX = (vWidth - drawWidth) / 2;
@@ -141,16 +133,15 @@ export function FileUploadField({
             const cropX = offsetX + (cWidth - frameWidth) / 2 * scaleX;
             const cropY = offsetY + (cHeight - frameHeight) / 2 * scaleY;
 
-            // Capture at high resolution (1200px width)
             canvas.width = 1200;
             canvas.height = canvas.width / frameAspect;
-
+            
             const ctx = canvas.getContext("2d");
             if (ctx) {
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
-
+                
                 const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
                 stopCamera();
 
@@ -166,8 +157,6 @@ export function FileUploadField({
         }
     };
 
-
-
     return (
         <div className="space-y-4 p-5 rounded-2xl border-2 border-slate-200 bg-white shadow-sm transition-all hover:border-blue-200">
             <div className="flex justify-between items-start">
@@ -177,15 +166,15 @@ export function FileUploadField({
                     </Label>
                     {description && <p className="text-[10px] text-slate-900 font-bold opacity-70 uppercase">{description}</p>}
                 </div>
-
+                
                 {allowCamera && !isScanning && (
-                    <button
-                        type="button"
-                        onClick={startCamera}
+                    <button 
+                        type="button" 
+                        onClick={startCamera} 
                         className={cn(
                             "h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border-2",
-                            value
-                                ? "bg-slate-50 text-slate-900 border-slate-200"
+                            value 
+                                ? "bg-slate-50 text-slate-900 border-slate-200" 
                                 : "bg-blue-600 text-white border-blue-700 shadow-md active:scale-95"
                         )}
                     >
@@ -195,20 +184,14 @@ export function FileUploadField({
             </div>
 
             <div className="relative group">
-                <Input
-                    id={inputId}
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    accept={accept}
-                />
-
+                <Input id={inputId} type="file" className="hidden" onChange={handleFileChange} accept={accept} />
+                
                 <Label
                     htmlFor={inputId}
                     className={cn(
                         "relative flex flex-col items-center justify-center w-full min-h-[140px] rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden",
-                        value
-                            ? "border-emerald-500 bg-emerald-50/10"
+                        value 
+                            ? "border-emerald-500 bg-emerald-50/10" 
                             : "border-slate-200 bg-slate-50/50 hover:bg-white"
                     )}
                 >
@@ -217,7 +200,7 @@ export function FileUploadField({
                             <div className="relative w-full md:w-[200px] h-[120px] rounded-xl overflow-hidden border-2 border-slate-200 bg-white">
                                 <Image src={value} alt={label} fill className="object-contain p-1" unoptimized priority />
                             </div>
-
+                            
                             <div className="flex-1 flex flex-col justify-center space-y-3">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-emerald-600">
@@ -228,7 +211,6 @@ export function FileUploadField({
                                         File saved successfully.
                                     </p>
                                 </div>
-
                                 <div className="flex items-center gap-2">
                                     <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg">
                                         <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -262,16 +244,16 @@ export function FileUploadField({
             </div>
 
             <Dialog open={isCapturing} onOpenChange={(open) => !open && stopCamera()}>
-                <DialogContent className="sm:max-w-4xl p-0 bg-slate-950 border-none rounded-none sm:rounded-[32px] overflow-hidden max-h-full h-full sm:h-auto">
+                <DialogContent className="sm:max-w-4xl p-0 bg-slate-950 border-none rounded-none sm:rounded-[32px] overflow-hidden max-h-[100dvh] h-[100dvh] sm:h-auto">
                     <div className="relative h-full sm:aspect-video bg-black flex items-center justify-center overflow-hidden">
-                        <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="absolute inset-0 w-full h-full object-cover"
+                        <video 
+                            ref={setVideoRef} 
+                            autoPlay 
+                            playsInline 
+                            muted 
+                            className="absolute inset-0 w-full h-full object-cover" 
                         />
-
+                        
                         {/* Binance KYC Layout Frame */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
                             <div className="w-full max-w-[85%] aspect-[63/100] border-2 border-dashed border-white/40 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]">
@@ -293,7 +275,7 @@ export function FileUploadField({
                             <button onClick={capturePhoto} className="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all hover:scale-110 active:scale-90 group pointer-events-auto">
                                 <div className="h-16 w-16 rounded-full border-4 border-slate-900 group-hover:border-blue-600 transition-colors" />
                             </button>
-                            <div className="w-14 h-14" /> {/* Spacer */}
+                            <div className="w-14 h-14" />
                         </div>
                     </div>
                 </DialogContent>
