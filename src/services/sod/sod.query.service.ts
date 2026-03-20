@@ -158,7 +158,6 @@ export class SODQueryService {
                     sales: true,
                     comments: true,
                     createdAt: true,
-                    // @ts-expect-error - Prisma client generation updated but IDE may lag
                     _count: {
                         select: { commentsHistory: true }
                     },
