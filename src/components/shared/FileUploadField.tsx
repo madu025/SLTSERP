@@ -45,7 +45,6 @@ export function FileUploadField({
             node.srcObject = cameraStream;
             node.play().catch(e => console.warn("Video play failed", e));
         }
-        // @ts-ignore
         videoRef.current = node;
     }, [cameraStream]);
 

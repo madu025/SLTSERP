@@ -67,11 +67,17 @@ export const contractorSchema = z.object({
 
 // For public registration specifically
 export const publicRegistrationSchema = contractorSchema.extend({
-    nic: z.string().min(10, "NIC is strictly required for registration"),
+    nic: z.string()
+        .min(10, "NIC must be 10 or 12 characters")
+        .max(12, "NIC must be 10 or 12 characters")
+        .regex(/^(?:\d{9}[vVxX]|\d{12})$/, "Invalid NIC format (Old or New)"),
     address: z.string().min(5, "Full address is required"),
     contactNumber: z.string().trim().min(9, "Contact number is required (min 9-10 digits)"),
     bankName: z.string().min(2, "Bank name is required"),
-    bankAccountNumber: z.string().min(5, "Account number is required"),
+    bankAccountNumber: z.string()
+        .min(8, "Account number is too short")
+        .max(16, "Account number is too long")
+        .regex(/^\d+$/, "Account number must contain only digits"),
     // URLs are required on final submission
     nicFrontUrl: z.string().min(5, "NIC Front is required"),
     nicBackUrl: z.string().min(5, "NIC Back is required"),
