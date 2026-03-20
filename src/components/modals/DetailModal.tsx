@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ServiceOrder, AuditItem } from "@/types/service-order";
+import { DetailedServiceOrder, AuditItem } from "@/types/service-order";
 import {
     Activity,
     AlertTriangle,
@@ -34,36 +34,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-
-// Define the shape of the extended ServiceOrder
-export type DetailedServiceOrder = ServiceOrder & {
-    woroSeit?: string | null;
-    ftthInstSeit?: string | null;
-    team?: { name: string; sltCode?: string | null } | null;
-    directTeam?: string | null;
-    forensicAudit?: {
-        auditData: AuditItem[];
-        voiceTestStatus: string | null;
-    };
-    statusHistory?: {
-        id: string;
-        status: string;
-        statusDate: string | Date;
-        createdAt: string | Date;
-    }[];
-    restoreRequests?: {
-        id: string;
-        reason: string;
-        status: string;
-        createdAt: string | Date;
-    }[];
-    commentsHistory?: {
-        id: string;
-        comment: string;
-        createdAt: string | Date;
-        author?: { name: string | null };
-    }[];
-};
 
 // Define the shape of the Bridge Data (Scraped Data)
 export interface BridgeData {

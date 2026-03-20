@@ -20,7 +20,8 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { MessageSquare, Info, History } from "lucide-react";
+import { MessageSquare, History } from "lucide-react";
+import { DetailedServiceOrder, ServiceOrderComment } from "@/types/service-order";
 
 const commentSchema = z.object({
     comment: z.string().min(1, "Comment cannot be empty"),
@@ -32,13 +33,13 @@ interface CommentModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (comment: string) => void;
-    selectedOrder: any;
+    selectedOrder: DetailedServiceOrder | null;
     // We can allow passing initial comment if editing
     initialComment?: string;
 }
 
 export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder, initialComment = "" }: CommentModalProps) {
-    const [history, setHistory] = React.useState<any[]>([]);
+    const [history, setHistory] = React.useState<ServiceOrderComment[]>([]);
     const [isLoadingHistory, setIsLoadingHistory] = React.useState(false);
 
     const form = useForm<CommentFormValues>({

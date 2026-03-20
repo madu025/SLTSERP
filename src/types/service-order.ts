@@ -57,6 +57,40 @@ export interface ServiceOrder {
     };
 }
 
+export interface ServiceOrderComment {
+    id: string;
+    comment: string;
+    authorId?: string | null;
+    serviceOrderId: string;
+    createdAt: string | Date;
+    updatedAt: string | Date;
+    author?: { name: string | null };
+}
+
+export interface DetailedServiceOrder extends ServiceOrder {
+    woroSeit?: string | null;
+    ftthInstSeit?: string | null;
+    team?: { name: string; sltCode?: string | null } | null;
+    directTeam?: string | null;
+    forensicAudit?: {
+        auditData: AuditItem[];
+        voiceTestStatus: string | null;
+    } | null;
+    statusHistory?: {
+        id: string;
+        status: string;
+        statusDate: string | Date;
+        createdAt: string | Date;
+    }[];
+    restoreRequests?: {
+        id: string;
+        reason: string;
+        status: string;
+        createdAt: string | Date;
+    }[];
+    commentsHistory?: ServiceOrderComment[];
+}
+
 export interface AuditItem {
     name: string;
     status: string;
