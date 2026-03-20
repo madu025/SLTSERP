@@ -229,9 +229,14 @@ export function FileUploadField({
                     )}
 
                     {isScanning && (
-                        <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-10">
-                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Processing...</span>
+                        <div className="absolute inset-0 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center gap-4 z-10 border-2 border-blue-500 rounded-2xl">
+                            <div className="relative">
+                                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <ShieldCheck className="w-5 h-5 text-blue-600" />
+                                </div>
+                            </div>
+                            <span className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em] animate-pulse">Scanning Data...</span>
                         </div>
                     )}
                 </Label>

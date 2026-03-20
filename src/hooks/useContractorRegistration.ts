@@ -130,10 +130,12 @@ export function useContractorRegistration(token: string) {
                 const result = await scanImage(url, fieldName);
                 
                 if (result) {
-                    if ((fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl') && !form.getValues('nic')) {
+                    if (fieldName === 'nicFrontUrl' || fieldName === 'nicBackUrl') {
                         form.setValue('nic', result as string, { shouldValidate: true });
-                    } else if (fieldName === 'bankPassbookUrl' && !form.getValues('bankAccountNumber')) {
+                        toast.success("NIC details updated from photo");
+                    } else if (fieldName === 'bankPassbookUrl') {
                         form.setValue('bankAccountNumber', result as string, { shouldValidate: true });
+                        toast.success("Account details updated from photo");
                     }
                 }
             }

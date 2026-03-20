@@ -6,7 +6,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/comp
 import { Input } from "@/components/ui/input";
 import { PublicRegistrationSchema } from "@/lib/validations/contractor.schema";
 import { FileUploadField } from "@/components/shared/FileUploadField";
-import { ShieldCheck, Fingerprint } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 interface Step2Props {
     handleUpload: (file: File, fieldName: string) => Promise<string | null>;
@@ -57,13 +57,13 @@ export function Step2IdentityDocs({ handleUpload }: Step2Props) {
                     <FileUploadField
                         label="NIC Front Photo"
                         description="Upload the front side of your NIC."
-                        fieldName="nicFront"
+                        fieldName="nicFrontUrl"
                         onUpload={handleUpload}
                     />
                     <FileUploadField
                         label="NIC Back Photo"
                         description="Upload the back side of your NIC."
-                        fieldName="nicBack"
+                        fieldName="nicBackUrl"
                         onUpload={handleUpload}
                     />
                 </div>
@@ -72,13 +72,13 @@ export function Step2IdentityDocs({ handleUpload }: Step2Props) {
                     <FileUploadField
                         label="Business Registration (BR)"
                         description="Upload your BR certificate if applicable."
-                        fieldName="brnFile"
+                        fieldName="brCertUrl"
                         onUpload={handleUpload}
                     />
                     <FileUploadField
                         label="Form 20/40"
                         description="Upload other corporate documents."
-                        fieldName="form20"
+                        fieldName="policeReportUrl"
                         onUpload={handleUpload}
                     />
                 </div>
