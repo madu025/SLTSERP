@@ -69,19 +69,36 @@ export function MaterialUsageSection({
                     return (
                         <div key={label} className="space-y-1.5">
                             <Label className="text-[11px] uppercase tracking-wider text-slate-500">{label}</Label>
-                            <div className="relative group">
-                                <Input 
-                                    className="h-9 pr-8 bg-white transition-all focus:ring-emerald-500" 
-                                    placeholder="Qty"
-                                    value={val}
-                                    onChange={(e) => {
-                                        const index = rows.findIndex(r => r.itemId === item.id);
-                                        if (index >= 0) {
-                                            onUpdateRow(index, isDropWire ? 'f1Qty' : 'usedQty', e.target.value);
-                                        }
-                                    }}
-                                />
-                                <span className="absolute right-2 top-2 text-[10px] text-slate-400">{item.unit}</span>
+                            <div className="flex gap-1.5 items-center group">
+                                <div className="relative flex-1">
+                                    <Input 
+                                        className="h-9 pr-7 bg-white transition-all focus:ring-emerald-500 text-sm" 
+                                        placeholder="Used"
+                                        value={val}
+                                        onChange={(e) => {
+                                            const index = rows.findIndex(r => r.itemId === item.id);
+                                            if (index >= 0) {
+                                                onUpdateRow(index, isDropWire ? 'f1Qty' : 'usedQty', e.target.value);
+                                            } else {
+                                                // If not in rows, add it first? 
+                                                // Actually the parent should ensure all quick items are in rows or handle this.
+                                            }
+                                        }}
+                                    />
+                                    <span className="absolute right-1.5 top-2.5 text-[9px] font-bold text-slate-400 uppercase">{item.unit}</span>
+                                </div>
+                                <div className="w-16">
+                                    <Input 
+                                        className="h-9 px-2 bg-red-50/30 border-red-100 focus:ring-red-500 text-xs text-center font-bold" 
+                                        placeholder="W" 
+                                        title="Wastage Qty"
+                                        value={existingRow?.wastageQty || ''}
+                                        onChange={(e) => {
+                                            const index = rows.findIndex(r => r.itemId === item.id);
+                                            if (index >= 0) onUpdateRow(index, 'wastageQty', e.target.value);
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
                     );
@@ -95,7 +112,7 @@ export function MaterialUsageSection({
                         <tr>
                             <th className="px-4 py-3 text-left font-medium text-slate-600 w-[280px]">Item</th>
                             <th className="px-2 py-3 text-center font-medium text-slate-600">Usage</th>
-                            <th className="px-2 py-3 text-center font-medium text-slate-600">Wastage</th>
+                            <th className="px-2 py-3 text-center font-medium text-slate-600">Wastage / Reason</th>
                             <th className="px-2 py-3 text-center font-medium text-slate-600">Serial #</th>
                             <th className="px-2 py-3 text-center font-medium text-slate-600 w-[50px]"></th>
                         </tr>
@@ -154,7 +171,13 @@ export function MaterialUsageSection({
                                                 placeholder="Wastage" 
                                                 value={row.wastageQty || ""} 
                                                 onChange={(e) => onUpdateRow(idx, 'wastageQty', e.target.value)}
-                                                className="h-9 text-center"
+                                                className="h-8 text-center text-xs font-bold bg-red-50/20 border-red-50"
+                                            />
+                                            <Input 
+                                                placeholder="Reason" 
+                                                value={row.wastageReason || ""} 
+                                                onChange={(e) => onUpdateRow(idx, 'wastageReason', e.target.value)}
+                                                className="h-7 text-[10px] px-2 italic bg-slate-50 border-none"
                                             />
                                             {currentItem?.maxWastagePercentage !== undefined && (
                                                 <span className="text-[9px] text-slate-400 text-center">Max {currentItem.maxWastagePercentage}%</span>

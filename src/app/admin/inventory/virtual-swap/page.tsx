@@ -19,7 +19,10 @@ import {
     ArrowRightLeft, 
     History,
     Boxes,
-    PackageSearch
+    PackageSearch,
+    Info,
+    LayoutList,
+    AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +36,13 @@ export default function VirtualSwapPage() {
     const [selectedContractor, setSelectedContractor] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Auth Helper
+    const getAuthHeaders = () => {
+        const userId = localStorage.getItem("erp_user_id") || "";
+        const role = localStorage.getItem("erp_user_role") || "";
+        return { 'x-user-id': userId, 'x-user-role': role };
+    };
+
     // 1. Fetch Contractors for filters
     const { data: contractors = [] } = useQuery({
         queryKey: ['contractors-list'],
@@ -43,59 +53,62 @@ export default function VirtualSwapPage() {
         }
     });
 
-    // 2. Fetch Transition Summary (What can be swapped)
+    // 2. Fetch Transition Summary (Aggregate View)
     const { data: summary = [], isLoading, refetch } = useQuery({
         queryKey: ['virtual-swap-summary'],
         queryFn: async () => {
-            const res = await fetch('/api/inventory/virtual-swap');
+            const res = await fetch('/api/inventory/virtual-swap', { headers: getAuthHeaders() });
             if (!res.ok) throw new Error('Failed to fetch summary');
             return res.json();
         }
     });
 
-    // 3. Fetch Detailed In-Hand Stock
+    // 3. Fetch Transition Preview (Detailed Per Contractor)
+    const { data: preview = [], isLoading: isPreviewLoading } = useQuery({
+        queryKey: ['virtual-swap-preview'],
+        queryFn: async () => {
+            const res = await fetch('/api/inventory/virtual-swap/preview', { headers: getAuthHeaders() });
+            if (!res.ok) throw new Error('Failed to fetch preview');
+            return res.json();
+        }
+    });
+
+    // 4. Fetch Detailed In-Hand Stock (Current State)
     const { data: inHandStock = [], isLoading: isInHandLoading } = useQuery({
         queryKey: ['in-hand-stock'],
         queryFn: async () => {
-            const res = await fetch('/api/inventory/in-hand-stock');
+            const res = await fetch('/api/inventory/in-hand-stock', { headers: getAuthHeaders() });
             if (!res.ok) throw new Error('Failed to fetch in-hand stock');
             return res.json();
         }
     });
 
-    // 4. Execute Swap Mutation
+    // 5. Execute Swap Mutation
     const swapMutation = useMutation({
         mutationFn: async () => {
-            const userId = localStorage.getItem("erp_user_id") || "SYSTEM";
             const res = await fetch('/api/inventory/virtual-swap', {
                 method: 'POST',
-                headers: { 'x-user-id': userId }
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
             });
-            if (!res.ok) throw new Error('Swap failed');
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || 'Swap failed');
+            }
             return res.json();
         },
         onSuccess: (data) => {
             toast.success(`Successfully swapped stock for ${data.contractorsProcessed} contractors!`);
             queryClient.invalidateQueries({ queryKey: ['virtual-swap-summary'] });
+            queryClient.invalidateQueries({ queryKey: ['virtual-swap-preview'] });
             queryClient.invalidateQueries({ queryKey: ['in-hand-stock'] });
-            queryClient.invalidateQueries({ queryKey: ['reconciliation'] });
             setIsConfirmed(false);
             refetch();
         },
-        onError: () => toast.error("Stock swap failed. Please check server logs.")
+        onError: (err: any) => toast.error(err.message || "Stock swap failed.")
     });
 
-    // Filtering logic for Analysis tab
-    const filteredInHand = useMemo(() => {
-        return inHandStock.filter((item: any) => {
-            const matchContractor = selectedContractor === 'all' || item.contractorName.toLowerCase().includes(contractors.find((c: any) => c.id === selectedContractor)?.name.toLowerCase() || '');
-            const matchSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              item.itemCode.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchContractor && matchSearch;
-        });
-    }, [inHandStock, selectedContractor, searchTerm, contractors]);
-
-    const totalQty = summary.reduce((acc: number, curr: any) => acc + curr.totalQty, 0);
+    const mappableQty = Array.isArray(summary) ? summary.filter(s => s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
+    const unmappableQty = Array.isArray(summary) ? summary.filter(s => !s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -117,117 +130,138 @@ export default function VirtualSwapPage() {
                         </div>
 
                         <Tabs defaultValue="conversion" className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                            <TabsList className="grid w-full grid-cols-3 max-w-[600px]">
                                 <TabsTrigger value="conversion" className="gap-2">
                                     <ArrowRightLeft className="w-4 h-4" />
                                     Conversion Hub
                                 </TabsTrigger>
+                                <TabsTrigger value="preview" className="gap-2">
+                                    <LayoutList className="w-4 h-4" />
+                                    Transaction Preview
+                                </TabsTrigger>
                                 <TabsTrigger value="analysis" className="gap-2">
                                     <PackageSearch className="w-4 h-4" />
-                                    In-Hand Analysis
+                                    Inventory Analysis
                                 </TabsTrigger>
                             </TabsList>
 
                             {/* --- CONVERSION HUB --- */}
                             <TabsContent value="conversion" className="space-y-6 mt-4">
-                                <Alert className="bg-amber-50 border-amber-200 text-amber-900 shadow-sm">
-                                    <AlertTriangle className="h-4 h-4 !text-amber-600" />
-                                    <AlertTitle className="font-bold">Important Directive Notice</AlertTitle>
-                                    <AlertDescription className="text-xs">
-                                        Use this tool only when a formal direction is received to stop using SLT materials. 
-                                        Executing the swap will virtually transfer all SLT quantities to SLTS for all contractors in the field.
-                                    </AlertDescription>
-                                </Alert>
-
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* Summary Stats */}
-                                    <Card className="lg:col-span-1 border-none shadow-sm">
-                                        <CardHeader className="pb-2">
-                                            <CardTitle className="text-sm font-bold text-slate-500 uppercase">Total Pending Conversion</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <span className="text-4xl font-black text-slate-900">{totalQty.toLocaleString()}</span>
-                                                    <span className="ml-2 text-slate-400 text-xs">Units Total</span>
-                                                </div>
-                                                <div className="pt-4 border-t space-y-2">
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-500">Materials Impacted:</span>
-                                                        <span className="font-bold">{summary.length} Types</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-slate-500">Active Contractors:</span>
-                                                        <span className="font-bold text-emerald-600">{Array.from(new Set(summary.flatMap((s: any) => s.contractorCount))).length} Identified</span>
-                                                    </div>
-                                                </div>
-                                                
-                                                {!isConfirmed ? (
-                                                    <Button 
-                                                        className="w-full bg-slate-900 hover:bg-black mt-4 h-11"
-                                                        onClick={() => setIsConfirmed(true)}
-                                                        disabled={summary.length === 0}
-                                                    >
-                                                        Initialize Bulk Swap
-                                                    </Button>
-                                                ) : (
-                                                    <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-2">
-                                                        <Button 
-                                                            className="w-full bg-red-600 hover:bg-red-700 h-11 transition-all"
-                                                            onClick={() => swapMutation.mutate()}
-                                                            disabled={swapMutation.isPending}
-                                                        >
-                                                            {swapMutation.isPending ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                                            ) : (
-                                                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                                                            )}
-                                                            Confirm Global Re-tagging
-                                                        </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            className="w-full text-slate-500 h-9"
-                                                            onClick={() => setIsConfirmed(false)}
-                                                            disabled={swapMutation.isPending}
-                                                        >
-                                                            Cancel
-                                                        </Button>
-                                                    </div>
-                                                )}
+                                    <div className="lg:col-span-1 space-y-6">
+                                        <Card className="border-none shadow-sm bg-slate-900 text-white overflow-hidden relative">
+                                            <div className="absolute -right-4 -bottom-4 opacity-10">
+                                                <RefreshCw className="w-24 h-24" />
                                             </div>
-                                        </CardContent>
-                                    </Card>
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-widest">Available for Swap</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <span className="text-4xl font-black">{mappableQty.toLocaleString()}</span>
+                                                        <span className="ml-2 text-slate-400 text-xs uppercase">Swap-Ready Units</span>
+                                                    </div>
+                                                    
+                                                    {unmappableQty > 0 && (
+                                                        <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-400">
+                                                            <AlertCircle className="w-4 h-4 shrink-0" />
+                                                            <span className="text-[10px] font-bold uppercase tracking-tight">
+                                                                {unmappableQty.toLocaleString()} units have no SLTS mapping
+                                                            </span>
+                                                        </div>
+                                                    )}
 
-                                    {/* Detailed Item List */}
+                                                    <div className="pt-4 border-t border-slate-800 space-y-2">
+                                                        <div className="flex justify-between text-xs text-slate-400">
+                                                            <span>Ready Mappings:</span>
+                                                            <span className="font-bold text-emerald-400">{summary.filter(s => s.isMappable).length} Items</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-xs text-slate-400">
+                                                            <span>Actionable Contractors:</span>
+                                                            <span className="font-bold text-white">
+                                                                {Array.isArray(summary) ? summary.filter(s => s.isMappable).reduce((acc, curr) => acc + curr.contractorCount, 0) : 0} Affected
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {!isConfirmed ? (
+                                                        <Button 
+                                                            className="w-full bg-emerald-600 hover:bg-emerald-700 mt-4 h-11 border-none shadow-lg shadow-emerald-900/20"
+                                                            onClick={() => setIsConfirmed(true)}
+                                                            disabled={mappableQty === 0}
+                                                        >
+                                                            Initiate Bulk Swap
+                                                        </Button>
+                                                    ) : (
+                                                        <div className="space-y-2 mt-4 animate-in fade-in slide-in-from-top-2">
+                                                            <Button 
+                                                                className="w-full bg-red-600 hover:bg-red-700 h-11 transition-all"
+                                                                onClick={() => swapMutation.mutate()}
+                                                                disabled={swapMutation.isPending}
+                                                            >
+                                                                {swapMutation.isPending ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                                ) : (
+                                                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                                )}
+                                                                Final Confirmation
+                                                            </Button>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                className="w-full text-slate-400 hover:text-white h-9"
+                                                                onClick={() => setIsConfirmed(false)}
+                                                                disabled={swapMutation.isPending}
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        <Alert className="bg-white border-slate-200">
+                                            <Info className="h-4 w-4 text-blue-600" />
+                                            <AlertTitle className="text-xs font-bold uppercase text-slate-500">How it works</AlertTitle>
+                                            <AlertDescription className="text-[10px] leading-relaxed text-slate-400 mt-1">
+                                                The system identifies all SLT materials held by contractors. It automatically looks for an SLTS counterpart sharing the same <strong>Common Name</strong>. 
+                                                When confirmed, quantities are moved to auto-generated Transition Batches for the new materials.
+                                            </AlertDescription>
+                                        </Alert>
+                                    </div>
+
                                     <Card className="lg:col-span-2 border-none shadow-sm overflow-hidden">
                                         <CardHeader className="bg-white border-b py-4">
-                                            <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                            <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2 uppercase tracking-widest">
                                                 <Boxes className="w-4 h-4 text-emerald-600" />
-                                                Target Material Mapping
+                                                Material Mapping Registry
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="p-0">
+                                        <CardContent className="p-0 h-[450px] overflow-y-auto">
                                             <Table>
-                                                <TableHeader className="bg-slate-50">
+                                                <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                                                     <TableRow>
                                                         <TableHead>Common Item Name</TableHead>
-                                                        <TableHead className="text-right">SLT In Hand</TableHead>
+                                                        <TableHead className="text-right">Total In Hand (SLT)</TableHead>
                                                         <TableHead className="text-center">Status</TableHead>
                                                         <TableHead>Target SLTS Item</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {isLoading ? (
-                                                        <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-400">Loading mapping data...</TableCell></TableRow>
-                                                    ) : summary.length === 0 ? (
-                                                        <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-400">No SLT materials currently held by contractors.</TableCell></TableRow>
+                                                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400">Syncing mapping data...</TableCell></TableRow>
+                                                    ) : (!Array.isArray(summary) || summary.length === 0) ? (
+                                                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 italic">No SLT materials detected in contractor stock.</TableCell></TableRow>
                                                     ) : (
                                                         summary.map((item: any, idx: number) => (
-                                                            <TableRow key={idx}>
+                                                            <TableRow key={idx} className={item.isMappable ? "" : "bg-red-50/30"}>
                                                                 <TableCell className="font-medium">{item.commonName}</TableCell>
                                                                 <TableCell className="text-right">
                                                                     <div className="flex flex-col items-end">
-                                                                        <span className="text-amber-600 font-bold">{item.totalQty.toLocaleString()}</span>
+                                                                        <span className={cn("font-bold", item.isMappable ? "text-slate-900" : "text-red-600")}>
+                                                                            {item.totalQty.toLocaleString()}
+                                                                        </span>
                                                                         <span className="text-[10px] text-slate-400 uppercase tracking-tighter">{item.unit}</span>
                                                                     </div>
                                                                 </TableCell>
@@ -235,13 +269,13 @@ export default function VirtualSwapPage() {
                                                                     <ArrowRightLeft className="w-3 h-3 text-slate-300 mx-auto" />
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    {item.sltsItemId ? (
-                                                                        <div className="flex items-center gap-2 text-emerald-600 font-medium text-xs">
+                                                                    {item.isMappable ? (
+                                                                        <div className="flex items-center gap-2 text-emerald-600 font-bold text-[10px] uppercase">
                                                                             <CheckCircle2 className="w-3 h-3" />
-                                                                            Ready for {item.commonName} (SLTS)
+                                                                            Ready: {item.commonName} (SLTS)
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="flex items-center gap-2 text-red-500 font-medium text-xs">
+                                                                        <div className="flex items-center gap-2 text-red-500 font-bold text-[10px] uppercase">
                                                                             <AlertTriangle className="w-3 h-3" />
                                                                             Unmapped (No SLTS match)
                                                                         </div>
@@ -257,19 +291,70 @@ export default function VirtualSwapPage() {
                                 </div>
                             </TabsContent>
 
-                            {/* --- ANALYTICS TAB --- */}
+                            {/* --- PREVIEW HUB --- */}
+                            <TabsContent value="preview" className="mt-4 animate-in slide-in-from-right-2 duration-300">
+                                <Card className="border-none shadow-sm">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-lg font-bold">Transaction Preview Hub</CardTitle>
+                                        <CardDescription>Exploratory view of individual contractor-wise swaps scheduled in the system.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <div className="max-h-[600px] overflow-y-auto">
+                                            <Table>
+                                                <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                                    <TableRow>
+                                                        <TableHead>Contractor / OPMC</TableHead>
+                                                        <TableHead>Current (SLT)</TableHead>
+                                                        <TableHead className="text-center">Action</TableHead>
+                                                        <TableHead>Target (SLTS)</TableHead>
+                                                        <TableHead className="text-right">Quantity</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {isPreviewLoading ? (
+                                                        <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400">Loading scheduled transactions...</TableCell></TableRow>
+                                                    ) : (!Array.isArray(preview) || preview.length === 0) ? (
+                                                        <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400">No mappable transactions found.</TableCell></TableRow>
+                                                    ) : (
+                                                        preview.map((p: any, idx: number) => (
+                                                            <TableRow key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                                <TableCell>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-bold text-slate-900">{p.contractorName}</span>
+                                                                        <span className="text-[10px] text-slate-400 uppercase">{p.opmcName}</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-xs text-amber-700 font-medium">{p.fromItem}</TableCell>
+                                                                <TableCell className="text-center">
+                                                                    <ArrowRightLeft className="w-3 h-3 text-slate-400 mx-auto" />
+                                                                </TableCell>
+                                                                <TableCell className="text-xs text-emerald-700 font-bold">{p.toItem}</TableCell>
+                                                                <TableCell className="text-right">
+                                                                    <div className="flex flex-col items-end">
+                                                                        <span className="font-black text-slate-950">{p.quantity.toLocaleString()}</span>
+                                                                        <span className="text-[9px] text-slate-400 uppercase font-bold">{p.unit}</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
+                            {/* --- ANALYSIS TAB --- */}
                             <TabsContent value="analysis" className="mt-4">
                                 <Card className="border-none shadow-sm mb-6">
                                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                                         <div>
-                                            <CardTitle className="text-lg font-bold">Material Stock in Field (In-Hand)</CardTitle>
-                                            <CardDescription>Consolidated View of all materials currently held by contractors across all OPMCs.</CardDescription>
+                                            <CardTitle className="text-lg font-bold">In-Hand Analysis Console</CardTitle>
+                                            <CardDescription>Search and filter all materials currently held in the field.</CardDescription>
                                         </div>
                                         <div className="flex gap-2">
-                                            <Select 
-                                                value={selectedContractor} 
-                                                onValueChange={(v) => setSelectedContractor(v)}
-                                            >
+                                            <Select value={selectedContractor} onValueChange={(v) => setSelectedContractor(v)}>
                                                 <SelectTrigger className="w-[200px] h-9 bg-white">
                                                     <SelectValue placeholder="All Contractors" />
                                                 </SelectTrigger>
@@ -281,7 +366,7 @@ export default function VirtualSwapPage() {
                                                 </SelectContent>
                                             </Select>
                                             <Input 
-                                                placeholder="Search material..." 
+                                                placeholder="Material name or code..." 
                                                 className="w-[200px] h-9 bg-white"
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -289,22 +374,9 @@ export default function VirtualSwapPage() {
                                         </div>
                                     </CardHeader>
                                     <CardContent>
-                                        <Alert className="bg-slate-900 border-none text-white overflow-hidden relative mb-6">
-                                            <div className="absolute right-0 top-0 opacity-10 filter grayscale brightness-200">
-                                                <History className="w-32 h-32" />
-                                            </div>
-                                            <History className="h-4 w-4 !text-emerald-400" />
-                                            <AlertTitle className="font-bold flex items-center gap-2">
-                                                Historical Reconciliation Hint
-                                            </AlertTitle>
-                                            <AlertDescription className="text-xs text-slate-300">
-                                                This view shows real-time balances. Items are grouped per contractor and material.
-                                            </AlertDescription>
-                                        </Alert>
-                                        
                                         <div className="border rounded-xl overflow-hidden bg-white">
                                             <Table>
-                                                <TableHeader className="bg-slate-50">
+                                                <TableHeader className="bg-slate-50 sticky top-0">
                                                     <TableRow>
                                                         <TableHead>Contractor</TableHead>
                                                         <TableHead>Type</TableHead>
@@ -315,16 +387,20 @@ export default function VirtualSwapPage() {
                                                 </TableHeader>
                                                 <TableBody>
                                                     {isInHandLoading ? (
-                                                        <TableRow><TableCell colSpan={5} className="text-center py-10">Loading balances...</TableCell></TableRow>
-                                                    ) : filteredInHand.length === 0 ? (
-                                                        <TableRow><TableCell colSpan={5} className="text-center py-10 text-slate-400">No stock found for selected criteria.</TableCell></TableRow>
+                                                        <TableRow><TableCell colSpan={5} className="text-center py-10">Syncing balances...</TableCell></TableRow>
+                                                    ) : (inHandStock.length === 0) ? (
+                                                        <TableRow><TableCell colSpan={5} className="text-center py-10 text-slate-400 italic">No stock found matching filters.</TableCell></TableRow>
                                                     ) : (
-                                                        filteredInHand.map((row: any) => (
+                                                        inHandStock.filter((item: any) => {
+                                                            const matchContractor = selectedContractor === 'all' || item.contractorName.toLowerCase().includes(contractors.find((c: any) => c.id === selectedContractor)?.name.toLowerCase() || '');
+                                                            const matchSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || item.itemCode.toLowerCase().includes(searchTerm.toLowerCase());
+                                                            return matchContractor && matchSearch;
+                                                        }).map((row: any) => (
                                                             <TableRow key={row.id} className="hover:bg-slate-50/50">
                                                                 <TableCell>
                                                                     <div className="flex flex-col">
                                                                         <span className="font-medium text-slate-900">{row.contractorName}</span>
-                                                                        <span className="text-[10px] text-slate-400">{row.opmcName}</span>
+                                                                        <span className="text-[10px] text-slate-400 uppercase">{row.opmcName}</span>
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell>
@@ -336,7 +412,7 @@ export default function VirtualSwapPage() {
                                                                     </span>
                                                                 </TableCell>
                                                                 <TableCell className="font-mono text-xs">{row.itemCode}</TableCell>
-                                                                <TableCell className="text-slate-600">{row.itemName}</TableCell>
+                                                                <TableCell className="text-slate-600 text-xs">{row.itemName}</TableCell>
                                                                 <TableCell className="text-right">
                                                                     <div className="flex flex-col items-end">
                                                                         <span className="font-bold text-slate-900">{row.quantity.toLocaleString()}</span>
@@ -358,4 +434,25 @@ export default function VirtualSwapPage() {
             </main>
         </div>
     );
+}
+
+function Boxes(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+            <path d="m3.3 7 8.7 5 8.7-5" />
+            <path d="M12 22V12" />
+        </svg>
+    )
 }

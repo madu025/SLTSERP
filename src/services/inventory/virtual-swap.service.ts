@@ -5,16 +5,77 @@ import { TransactionClient } from './types';
 export class VirtualSwapService {
 
     /**
-     * Get summary of SLT materials currently held by contractors
+     * Get summary of SLT materials currently held by contractors, 
+     * including those that cannot be automatically mapped.
      */
     static async getTransitionSummary() {
-        // 1. Find all items of type SLT that have commonName mapping to SLTS
-        const sltItems = await prisma.inventoryItem.findMany({
-            where: { type: 'SLT', commonName: { not: null } },
-            select: { id: true, name: true, commonName: true, unit: true, code: true }
+        // 1. Fetch all contractor stocks of type SLT
+        const stocks = await prisma.contractorStock.findMany({
+            where: {
+                item: { type: 'SLT' },
+                quantity: { gt: 0 }
+            },
+            include: {
+                item: true,
+                contractor: { select: { name: true } }
+            }
         });
 
-        // 2. Fetch current contractor stocks for these items
+        // 2. Aggregation map
+        const summary: Record<string, { 
+            commonName: string, 
+            unit: string, 
+            totalQty: number, 
+            contractorCount: number,
+            sltsItemId?: string,
+            isMappable: boolean
+        }> = {};
+
+        // 3. Identification of potential SLTS matches
+        const allCommonNames = Array.from(new Set(stocks.map(s => s.item.commonName).filter(Boolean))) as string[];
+        
+        const sltsMatches = await prisma.inventoryItem.findMany({
+            where: { 
+                type: 'SLTS', 
+                commonName: { in: allCommonNames } 
+            },
+            select: { id: true, commonName: true }
+        });
+
+        for (const s of stocks) {
+            const cName = s.item.commonName || s.item.name;
+            if (!summary[cName]) {
+                const match = sltsMatches.find(m => m.commonName === s.item.commonName);
+                summary[cName] = { 
+                    commonName: cName, 
+                    unit: s.item.unit, 
+                    totalQty: 0, 
+                    contractorCount: 0,
+                    sltsItemId: match?.id,
+                    isMappable: !!match
+                };
+            }
+            summary[cName].totalQty += s.quantity;
+            summary[cName].contractorCount += 1;
+        }
+
+        return Object.values(summary);
+    }
+
+    /**
+     * Get detailed preview of exactly what will be swapped
+     */
+    static async getTransitionPreview() {
+        // 1. Fetch all SLT items that have SLTS counterparts
+        const sltItems = await prisma.inventoryItem.findMany({
+            where: { type: 'SLT', commonName: { not: null } }
+        });
+
+        const sltsItems = await prisma.inventoryItem.findMany({
+            where: { type: 'SLTS', commonName: { in: sltItems.map(i => i.commonName!) } }
+        });
+
+        // 2. Fetch all contractor stocks for these mappable items
         const stocks = await prisma.contractorStock.findMany({
             where: {
                 itemId: { in: sltItems.map(i => i.id) },
@@ -22,49 +83,24 @@ export class VirtualSwapService {
             },
             include: {
                 item: true,
-                contractor: true
+                contractor: { select: { name: true, opmc: { select: { name: true } } } }
             }
         });
 
-        // 3. Aggregate by commonName
-        const summary: Record<string, { 
-            commonName: string, 
-            unit: string, 
-            totalQty: number, 
-            contractorCount: number,
-            sltsItemId?: string 
-        }> = {};
-
-        for (const s of stocks) {
-            const cName = s.item.commonName || s.item.name;
-            if (!summary[cName]) {
-                summary[cName] = { 
-                    commonName: cName, 
-                    unit: s.item.unit, 
-                    totalQty: 0, 
-                    contractorCount: 0 
-                };
-            }
-            summary[cName].totalQty += s.quantity;
-            summary[cName].contractorCount += 1;
-        }
-
-        // 4. Find matching SLTS items for these common names
-        const sltsItems = await prisma.inventoryItem.findMany({
-            where: { 
-                type: 'SLTS', 
-                commonName: { in: Object.keys(summary) } 
-            },
-            select: { id: true, commonName: true }
+        return stocks.map(s => {
+            const target = sltsItems.find(i => i.commonName === s.item.commonName);
+            return {
+                contractorName: s.contractor.name,
+                opmcName: s.contractor.opmc?.name || 'N/A',
+                fromItem: s.item.name,
+                fromCode: s.item.code,
+                toItem: target?.name || 'MISSING MAPPING',
+                toCode: target?.code || 'N/A',
+                quantity: s.quantity,
+                unit: s.item.unit,
+                isMappable: !!target
+            };
         });
-
-        sltsItems.forEach(i => {
-            if (i.commonName && summary[i.commonName]) {
-                summary[i.commonName].sltsItemId = i.id;
-            }
-        });
-
-        return Object.values(summary);
     }
 
     /**
@@ -100,18 +136,17 @@ export class VirtualSwapService {
     }
 
     /**
-     * Perform the bulk virtual swap
+     * Perform the bulk virtual swap with batch-level conversion
      */
     static async executeBulkSwap(userId: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            // 1. Get all SLT items with commonName
-            const mappingItems = await prisma.inventoryItem.findMany({
+            // 1. Identification: Map SLT items to SLTS counterparts
+            const sltItems = await tx.inventoryItem.findMany({
                 where: { type: 'SLT', commonName: { not: null } }
             });
 
-            // 2. For each mapping, find the SLTS counterpart
-            const sltsItems = await prisma.inventoryItem.findMany({
-                where: { type: 'SLTS', commonName: { in: mappingItems.map(i => i.commonName!) } }
+            const sltsItems = await tx.inventoryItem.findMany({
+                where: { type: 'SLTS', commonName: { in: sltItems.map(i => i.commonName!) } }
             });
 
             const results = {
@@ -120,68 +155,103 @@ export class VirtualSwapService {
                 totalQtySwapped: 0
             };
 
-            // 3. Process Contractor Stocks
-            const contractorStocks = await tx.contractorStock.findMany({
+            const processedContractors = new Set<string>();
+
+            // 2. Main Logic: Iterate through all contractor batches of type SLT
+            const currentBatches = await tx.contractorBatchStock.findMany({
                 where: {
-                    itemId: { in: mappingItems.map(i => i.id) },
+                    item: { type: 'SLT', commonName: { not: null } },
                     quantity: { gt: 0 }
                 },
                 include: { item: true }
             });
 
-            const processedContractors = new Set<string>();
-
-            for (const stock of contractorStocks) {
-                const targetSltsItem = sltsItems.find(i => i.commonName === stock.item.commonName);
+            for (const cbs of currentBatches) {
+                const targetSltsItem = sltsItems.find(i => i.commonName === cbs.item.commonName);
                 if (!targetSltsItem) continue;
 
-                const qty = stock.quantity;
+                const qty = cbs.quantity;
 
-                // A. Deduct SLT Stock
-                await tx.contractorStock.update({
-                    where: { id: stock.id },
+                const vtBatchNumber = `VT-${targetSltsItem.code}`;
+                let vtBatch = await tx.inventoryBatch.findFirst({
+                    where: { batchNumber: vtBatchNumber, itemId: targetSltsItem.id }
+                });
+
+                if (!vtBatch) {
+                    vtBatch = await tx.inventoryBatch.create({
+                        data: {
+                            batchNumber: vtBatchNumber,
+                            itemId: targetSltsItem.id,
+                            initialQty: 0,
+                            costPrice: cbs.item.costPrice || 0,
+                            unitPrice: cbs.item.unitPrice || 0
+                        }
+                    });
+                }
+
+                await tx.contractorBatchStock.update({
+                    where: { id: cbs.id },
                     data: { quantity: 0 }
                 });
 
-                // B. Add SLTS Stock
+                await tx.contractorBatchStock.upsert({
+                    where: { 
+                        contractorId_batchId: { 
+                            contractorId: cbs.contractorId, 
+                            batchId: vtBatch.id 
+                        } 
+                    },
+                    update: { quantity: { increment: qty } },
+                    create: { 
+                        contractorId: cbs.contractorId, 
+                        batchId: vtBatch.id,
+                        itemId: targetSltsItem.id,
+                        quantity: qty 
+                    }
+                });
+
+                await tx.contractorStock.updateMany({
+                    where: { contractorId: cbs.contractorId, itemId: cbs.item.id },
+                    data: { quantity: { decrement: qty } }
+                });
+
                 await tx.contractorStock.upsert({
                     where: { 
                         contractorId_itemId: { 
-                            contractorId: stock.contractorId, 
+                            contractorId: cbs.contractorId, 
                             itemId: targetSltsItem.id 
                         } 
                     },
                     update: { quantity: { increment: qty } },
                     create: { 
-                        contractorId: stock.contractorId, 
+                        contractorId: cbs.contractorId, 
                         itemId: targetSltsItem.id, 
                         quantity: qty 
                     }
                 });
 
-                // C. Log Transaction for Audit
+                processedContractors.add(cbs.contractorId);
+                results.itemsSwapped += 1;
+                results.totalQtySwapped += qty;
+
                 await tx.inventoryTransaction.create({
                     data: {
                         type: 'VIRTUAL_SWAP',
-                        storeId: 'SYSTEM', // System wide virtual swap
+                        storeId: 'SYSTEM',
                         userId: userId,
-                        notes: `Virtual Swap: ${stock.item.name} (${qty}) -> ${targetSltsItem.name}`,
+                        notes: `Batch Swap: ${cbs.item.name} (${qty}) -> ${targetSltsItem.name}`,
                         items: {
                             create: [
-                                { itemId: stock.item.id, quantity: -qty },
-                                { itemId: targetSltsItem.id, quantity: qty }
+                                { itemId: cbs.item.id, quantity: -qty, batchId: cbs.batchId },
+                                { itemId: targetSltsItem.id, quantity: qty, batchId: vtBatch.id }
                             ]
                         }
                     }
                 });
-
-                processedContractors.add(stock.contractorId);
-                results.itemsSwapped += 1;
-                results.totalQtySwapped += qty;
             }
 
             results.contractorsProcessed = processedContractors.size;
             return results;
-        }, { timeout: 30000 });
+        }, { timeout: 60000 });
     }
 }

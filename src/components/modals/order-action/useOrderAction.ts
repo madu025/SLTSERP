@@ -68,9 +68,8 @@ export function useOrderAction(
         }
 
         // Complex state mapping for materials
+        const rows: MaterialUsageRow[] = [];
         if (orderData.materialUsage) {
-            const rows: MaterialUsageRow[] = [];
-            // Simplified mapping for the hook - logic moved from original file
             orderData.materialUsage.forEach(m => {
                 const qtyStr = String(m.quantity);
                 const existing = rows.find(r => r.itemId === m.itemId);
@@ -90,15 +89,29 @@ export function useOrderAction(
                     });
                 }
             });
-            setExtendedMaterialRows(rows);
-        } else {
-            setExtendedMaterialRows([]);
         }
+
+        // AUTO-ADD OSP_FTTH items for quick access if they are missing
+        items.forEach(item => {
+            if (item.isOspFtth && !rows.find(r => r.itemId === item.id)) {
+                rows.push({
+                    itemId: item.id,
+                    usedQty: "",
+                    f1Qty: "",
+                    g1Qty: "",
+                    wastageQty: "",
+                    wastageReason: "",
+                    serialNumber: ""
+                });
+            }
+        });
+        
+        setExtendedMaterialRows(rows);
 
         const iptvCount = orderData.iptv ? parseInt(orderData.iptv) : 0;
         setIptvSerials(orderData.iptvSerialNumbers || Array(iptvCount).fill(''));
 
-    }, [isOpen, orderData, prevOrderId]);
+    }, [isOpen, orderData, prevOrderId, items]);
 
     const handlePortalImport = useCallback(async () => {
         if (!orderData?.soNum || !items.length) return;

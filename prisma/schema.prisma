@@ -1069,12 +1069,16 @@ model ContractorWastage {
   date         DateTime                @default(now())
   month        String
   description  String?
+  status       String                  @default("APPROVED")
+  approvedById String?
+  approvedAt   DateTime?
   createdAt    DateTime                @default(now())
   contractor   Contractor              @relation(fields: [contractorId], references: [id], onDelete: Cascade)
   store        InventoryStore          @relation(fields: [storeId], references: [id])
   items        ContractorWastageItem[]
 
   @@index([contractorId, storeId, month])
+  @@index([status])
 }
 
 model ContractorWastageItem {

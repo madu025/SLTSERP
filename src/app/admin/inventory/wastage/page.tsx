@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Plus, AlertTriangle, History, FilePlus, Search } from "lucide-react";
+import { Trash, Plus, AlertTriangle, History, FilePlus, Search, CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 export default function WastageReportPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     // Form State
     const [selectedContractor, setSelectedContractor] = useState<string>('');
@@ -34,6 +35,13 @@ export default function WastageReportPage() {
 
     // History Filters
     const [historyMonth, setHistoryMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+
+    // Auth Helper
+    const getAuthHeaders = () => {
+        const userId = localStorage.getItem("erp_user_id") || "";
+        const role = localStorage.getItem("erp_user_role") || "";
+        return { 'x-user-id': userId, 'x-user-role': role };
+    };
 
     // --- FETCH DATA ---
     const { data: contractorsData } = useQuery({
@@ -52,17 +60,30 @@ export default function WastageReportPage() {
         queryFn: async () => (await fetch('/api/inventory/items')).json()
     });
 
-    const { data: history = [], isLoading: isHistoryLoading } = useQuery({
-        queryKey: ['wastage-history', historyMonth],
-        queryFn: async () => (await fetch(`/api/inventory/wastage/history?month=${historyMonth}`)).json()
+    const { data: contractorStock = [] } = useQuery({
+        queryKey: ['contractor-stock-for-wastage', selectedContractor],
+        queryFn: async () => {
+            if (!selectedContractor || selectedContractor === 'none') return [];
+            const res = await fetch(`/api/inventory/in-hand-stock?contractorId=${selectedContractor}`);
+            return res.json();
+        },
+        enabled: !!selectedContractor && selectedContractor !== 'none'
     });
 
-    // --- MUTATION ---
+    const { data: history = [], isLoading: isHistoryLoading } = useQuery({
+        queryKey: ['wastage-history', historyMonth],
+        queryFn: async () => {
+            const res = await fetch(`/api/inventory/wastage/history?month=${historyMonth}`, { headers: getAuthHeaders() });
+            return res.json();
+        }
+    });
+
+    // --- MUTATIONS ---
     const wastageMutation = useMutation({
         mutationFn: async (data: any) => {
             const res = await fetch('/api/inventory/wastage', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             if (!res.ok) {
@@ -71,20 +92,38 @@ export default function WastageReportPage() {
             }
             return res.json();
         },
-        onSuccess: () => {
-            toast.success("Wastage reported successfully!");
+        onSuccess: (data: any) => {
+            if (data.status === 'PENDING') {
+                toast.info("Record saved. High-value materials require manager approval.");
+            } else {
+                toast.success("Wastage reported and stock updated!");
+            }
             setRows([{ itemId: '', quantity: 0, unit: '', name: '' }]);
             setDescription('');
+            queryClient.invalidateQueries({ queryKey: ['wastage-history'] });
         },
-        onError: (err: any) => {
-            toast.error(err.message);
-        }
+        onError: (err: any) => toast.error(err.message)
+    });
+
+    const approveMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetch('/api/inventory/wastage/approve', {
+                method: 'POST',
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            if (!res.ok) throw new Error('Approval failed');
+            return res.json();
+        },
+        onSuccess: () => {
+            toast.success("Wastage approved and stock adjusted.");
+            queryClient.invalidateQueries({ queryKey: ['wastage-history'] });
+        },
+        onError: (err: any) => toast.error(err.message)
     });
 
     // --- HANDLERS ---
-    const handleAddRow = () => {
-        setRows([...rows, { itemId: '', quantity: 0, unit: '', name: '' }]);
-    };
+    const handleAddRow = () => setRows([...rows, { itemId: '', quantity: 0, unit: '', name: '' }]);
 
     const handleRemoveRow = (idx: number) => {
         if (rows.length === 1) return;
@@ -94,12 +133,7 @@ export default function WastageReportPage() {
     const handleItemChange = (idx: number, itemId: string) => {
         const item = items.find((i: any) => i.id === itemId);
         const newRows = [...rows];
-        newRows[idx] = {
-            ...newRows[idx],
-            itemId,
-            name: item?.name || '',
-            unit: item?.unit || 'Nos'
-        };
+        newRows[idx] = { ...newRows[idx], itemId, name: item?.name || '', unit: item?.unit || 'Nos' };
         setRows(newRows);
     };
 
@@ -110,29 +144,20 @@ export default function WastageReportPage() {
     };
 
     const handleSubmit = () => {
-        if (!selectedContractor && !selectedStore) {
-            toast.error("Please select a Store or Contractor");
-            return;
-        }
-
+        if (!selectedContractor && !selectedStore) return toast.error("Select Store or Contractor");
         const validItems = rows.filter(r => r.itemId && r.quantity > 0);
-        if (validItems.length === 0) {
-            toast.error("Please add at least one valid item");
-            return;
-        }
+        if (validItems.length === 0) return toast.error("Add valid items");
 
         wastageMutation.mutate({
-            contractorId: selectedContractor || undefined,
+            contractorId: (selectedContractor && selectedContractor !== 'none') ? selectedContractor : undefined,
             storeId: selectedStore || undefined,
             month,
             description,
-            items: validItems.map(r => ({
-                itemId: r.itemId,
-                quantity: r.quantity,
-                unit: r.unit
-            }))
+            items: validItems.map(r => ({ itemId: r.itemId, quantity: r.quantity, unit: r.unit }))
         });
     };
+
+    const isPrivileged = ['OSP_MANAGER', 'SUPER_ADMIN', 'ADMIN'].includes(localStorage.getItem("erp_user_role") || "");
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -161,7 +186,7 @@ export default function WastageReportPage() {
                             </TabsList>
 
                             {/* --- NEW REPORT TAB --- */}
-                            <TabsContent value="report" className="space-y-6 mt-4 animate-in fade-in-50">
+                            <TabsContent value="report" className="space-y-6 mt-4">
                                 <Card className="border-red-100 bg-red-50/10 shadow-sm">
                                     <CardHeader>
                                         <CardTitle className="text-sm font-bold uppercase text-red-600 flex items-center">
@@ -174,51 +199,31 @@ export default function WastageReportPage() {
                                             <div className="space-y-2">
                                                 <Label className="text-xs font-bold text-slate-500 uppercase">Context (Contractor - Optional)</Label>
                                                 <Select value={selectedContractor} onValueChange={setSelectedContractor}>
-                                                    <SelectTrigger className="bg-white">
-                                                        <SelectValue placeholder="Contractor (If field wastage)" />
-                                                    </SelectTrigger>
+                                                    <SelectTrigger className="bg-white"><SelectValue placeholder="Contractor (If field wastage)" /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="none">Store Only (No Contractor)</SelectItem>
-                                                        {contractors.map((c: any) => (
-                                                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                                        ))}
+                                                        {contractors.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-
                                             <div className="space-y-2">
                                                 <Label className="text-xs font-bold text-slate-500 uppercase">Store / RTOM</Label>
                                                 <Select value={selectedStore} onValueChange={setSelectedStore}>
-                                                    <SelectTrigger className="bg-white">
-                                                        <SelectValue placeholder="Select Store" />
-                                                    </SelectTrigger>
+                                                    <SelectTrigger className="bg-white"><SelectValue placeholder="Select Store" /></SelectTrigger>
                                                     <SelectContent>
-                                                        {stores.map((s: any) => (
-                                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                                                        ))}
+                                                        {stores.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                         </div>
-
                                         <div className="space-y-4">
                                             <div className="space-y-2">
                                                 <Label className="text-xs font-bold text-slate-500 uppercase">Month of Incident</Label>
-                                                <Input
-                                                    type="month"
-                                                    value={month}
-                                                    onChange={(e) => setMonth(e.target.value)}
-                                                    className="bg-white"
-                                                />
+                                                <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="bg-white" />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-xs font-bold text-slate-500 uppercase">Description / Reason</Label>
-                                                <Textarea
-                                                    placeholder="Explain how the wastage/loss occurred..."
-                                                    value={description}
-                                                    onChange={(e) => setDescription(e.target.value)}
-                                                    className="bg-white min-h-[100px]"
-                                                />
+                                                <Textarea placeholder="Explain how the wastage/loss occurred..." value={description} onChange={(e) => setDescription(e.target.value)} className="bg-white min-h-[100px]" />
                                             </div>
                                         </div>
                                     </CardContent>
@@ -240,77 +245,55 @@ export default function WastageReportPage() {
                                                     <TableRow key={idx}>
                                                         <TableCell>
                                                             <Select value={row.itemId} onValueChange={(v) => handleItemChange(idx, v)}>
-                                                                <SelectTrigger className="border-none bg-transparent hover:bg-slate-50 transition-all">
+                                                                <SelectTrigger className="border-none bg-transparent hover:bg-slate-50">
                                                                     <SelectValue placeholder="Select Item" />
                                                                 </SelectTrigger>
                                                                 <SelectContent className="max-h-60">
-                                                                    {items.map((item: any) => (
-                                                                        <SelectItem key={item.id} value={item.id}>
-                                                                            {item.code} - {item.name}
-                                                                        </SelectItem>
-                                                                    ))}
+                                                                    {items.map((item: any) => {
+                                                                        const stock = contractorStock.find((s: any) => s.itemId === item.id);
+                                                                        return (
+                                                                            <SelectItem key={item.id} value={item.id}>
+                                                                                <div className="flex justify-between w-full gap-4">
+                                                                                    <span>{item.code} - {item.name}</span>
+                                                                                    {selectedContractor && selectedContractor !== 'none' && (
+                                                                                        <span className="text-[10px] font-black text-slate-400">Available: {stock?.quantity || 0}</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </SelectItem>
+                                                                        );
+                                                                    })}
                                                                 </SelectContent>
                                                             </Select>
                                                         </TableCell>
-                                                        <TableCell className="text-slate-400 text-xs font-mono uppercase">
-                                                            {row.unit || '---'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                placeholder="0.00"
-                                                                className="text-right font-bold border-none bg-transparent"
-                                                                value={row.quantity || ''}
-                                                                onChange={(e) => handleUpdateRow(idx, 'quantity', parseFloat(e.target.value))}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <Button variant="ghost" size="sm" onClick={() => handleRemoveRow(idx)}>
-                                                                <Trash className="w-4 h-4 text-red-400" />
-                                                            </Button>
-                                                        </TableCell>
+                                                        <TableCell className="text-slate-400 text-xs font-mono uppercase">{row.unit || '---'}</TableCell>
+                                                        <TableCell><Input type="number" min="0" placeholder="0.00" className="text-right font-bold border-none bg-transparent" value={row.quantity || ''} onChange={(e) => handleUpdateRow(idx, 'quantity', parseFloat(e.target.value))} /></TableCell>
+                                                        <TableCell className="text-center"><Button variant="ghost" size="sm" onClick={() => handleRemoveRow(idx)}><Trash className="w-4 h-4 text-red-400" /></Button></TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
                                         </Table>
-
                                         <div className="p-4 bg-slate-50/50 border-t flex justify-center">
-                                            <Button variant="outline" size="sm" onClick={handleAddRow} className="bg-white text-xs h-8">
-                                                <Plus className="w-3 h-3 mr-2" /> Add Material Line
-                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={handleAddRow} className="bg-white text-xs h-8"><Plus className="w-3 h-3 mr-2" /> Add Material Line</Button>
                                         </div>
                                     </CardContent>
                                 </Card>
 
                                 <div className="flex justify-end gap-3 pt-4">
                                     <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
-                                    <Button onClick={handleSubmit} disabled={wastageMutation.isPending} variant="destructive" className="px-8 shadow-lg shadow-red-100">
-                                        {wastageMutation.isPending ? 'Reporting...' : (
-                                            <>
-                                                <CheckCircle2 className="w-4 h-4 mr-2" /> Finalize Wastage Record
-                                            </>
-                                        )}
+                                    <Button onClick={handleSubmit} disabled={wastageMutation.isPending} variant="destructive" className="px-8 flex items-center gap-2">
+                                        {wastageMutation.isPending ? 'Reporting...' : <><CheckCircle2 className="w-4 h-4" /> Finalize Wastage Record</>}
                                     </Button>
                                 </div>
                             </TabsContent>
 
                             {/* --- HISTORY TAB --- */}
-                            <TabsContent value="history" className="mt-4 animate-in fade-in-50">
+                            <TabsContent value="history" className="mt-4">
                                 <Card className="border-none shadow-sm">
                                     <CardHeader className="flex flex-row items-center justify-between">
-                                        <div>
-                                            <CardTitle className="text-lg font-bold">Wastage Logs</CardTitle>
-                                            <CardDescription>Review past material wastage and loss incidents.</CardDescription>
-                                        </div>
+                                        <div><CardTitle className="text-lg font-bold">Wastage Logs</CardTitle><CardDescription>Monitor and approve wastage incidents.</CardDescription></div>
                                         <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border">
                                             <Label className="pl-2 text-[10px] font-bold text-slate-400 uppercase">Period:</Label>
-                                            <Input 
-                                                type="month" 
-                                                className="w-[160px] h-8 border-none bg-transparent" 
-                                                value={historyMonth}
-                                                onChange={(e) => setHistoryMonth(e.target.value)}
-                                            />
+                                            <Input type="month" className="w-[160px] h-8 border-none bg-transparent" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} />
                                         </div>
                                     </CardHeader>
                                     <CardContent>
@@ -318,34 +301,30 @@ export default function WastageReportPage() {
                                             <Table>
                                                 <TableHeader className="bg-slate-50">
                                                     <TableRow>
-                                                        <TableHead>Date / Category</TableHead>
+                                                        <TableHead>Incident Info</TableHead>
                                                         <TableHead>Target Entity</TableHead>
                                                         <TableHead>Materials Impacted</TableHead>
-                                                        <TableHead>Reason</TableHead>
+                                                        <TableHead>Status</TableHead>
+                                                        <TableHead className="text-right">Action</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {isHistoryLoading ? (
-                                                        <TableRow><TableCell colSpan={4} className="text-center py-10">Loading logs...</TableCell></TableRow>
-                                                    ) : history.length === 0 ? (
-                                                        <TableRow><TableCell colSpan={4} className="text-center py-10 text-slate-400">No wastage records found for this period.</TableCell></TableRow>
+                                                        <TableRow><TableCell colSpan={5} className="text-center py-10">Loading logs...</TableCell></TableRow>
+                                                    ) : (history.length === 0) ? (
+                                                        <TableRow><TableCell colSpan={5} className="text-center py-10 text-slate-400">No records found for this period.</TableCell></TableRow>
                                                     ) : (
                                                         history.map((log: any) => (
                                                             <TableRow key={log.id} className="hover:bg-slate-50/50">
                                                                 <TableCell>
                                                                     <div className="flex flex-col">
                                                                         <span className="text-xs font-bold text-slate-800">{new Date(log.date).toLocaleDateString()}</span>
-                                                                        <span className={cn(
-                                                                            "text-[9px] px-1.5 py-0.5 rounded-sm font-bold w-fit mt-1",
-                                                                            log.type === 'CONTRACTOR' ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
-                                                                        )}>
-                                                                            {log.type}
-                                                                        </span>
+                                                                        <span className="text-[10px] text-slate-400 italic truncate max-w-[150px]">{log.description || 'No reason'}</span>
                                                                     </div>
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-medium text-slate-900">{log.entityName}</span>
+                                                                        <span className="font-bold text-slate-900">{log.entityName}</span>
                                                                         <span className="text-[10px] text-slate-400">{log.storeName}</span>
                                                                     </div>
                                                                 </TableCell>
@@ -359,10 +338,27 @@ export default function WastageReportPage() {
                                                                         ))}
                                                                     </div>
                                                                 </TableCell>
-                                                                <TableCell className="max-w-[200px]">
-                                                                    <p className="text-xs text-slate-500 italic truncate" title={log.description}>
-                                                                        {log.description || 'No reason specified'}
-                                                                    </p>
+                                                                <TableCell>
+                                                                    <span className={cn(
+                                                                        "text-[9px] px-2 py-0.5 rounded-full font-black",
+                                                                        log.status === 'APPROVED' ? "bg-emerald-100 text-emerald-800" : 
+                                                                        log.status === 'PENDING' ? "bg-amber-100 text-amber-800 animate-pulse" : 
+                                                                        "bg-red-100 text-red-800"
+                                                                    )}>
+                                                                        {log.status}
+                                                                    </span>
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {log.status === 'PENDING' && isPrivileged && (
+                                                                        <Button 
+                                                                            size="sm" 
+                                                                            className="h-7 px-4 bg-emerald-600 hover:bg-emerald-700 text-[10px] font-bold"
+                                                                            onClick={() => approveMutation.mutate(log.id)}
+                                                                            disabled={approveMutation.isPending}
+                                                                        >
+                                                                            <ShieldCheck className="w-3 h-3 mr-1" /> Approve
+                                                                        </Button>
+                                                                    )}
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))
@@ -379,24 +375,4 @@ export default function WastageReportPage() {
             </main>
         </div>
     );
-}
-
-function CheckCircle2(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-            <polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-    )
 }

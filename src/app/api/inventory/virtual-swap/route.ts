@@ -1,9 +1,15 @@
 
 import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory';
+import { ROLE_GROUPS } from '@/config/roles';
 
 export async function GET(request: Request) {
     try {
+        const role = request.headers.get('x-user-role') || '';
+        if (!ROLE_GROUPS.STORES.includes(role) && !ROLE_GROUPS.ADMINS.includes(role)) {
+            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+        }
+
         const summary = await InventoryService.getTransitionSummary();
         return NextResponse.json(summary);
     } catch (error) {
@@ -14,6 +20,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     try {
+        const role = request.headers.get('x-user-role') || '';
+        if (!ROLE_GROUPS.STORES.includes(role) && !ROLE_GROUPS.ADMINS.includes(role)) {
+            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+        }
+
         const userId = request.headers.get('x-user-id') || 'SYSTEM';
         const result = await InventoryService.executeBulkSwap(userId);
         return NextResponse.json(result);

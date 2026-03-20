@@ -63,6 +63,7 @@ export class InventoryService {
 
     // --- WASTAGE MANAGEMENT ---
     static recordWastage = WastageService.recordWastage;
+    static approveWastage = WastageService.approveWastage;
     static getWastageHistory = WastageService.getWastageHistory;
 
     // --- STOCK REQUEST MANAGEMENT ---
@@ -76,6 +77,7 @@ export class InventoryService {
 
     // --- VIRTUAL SWAP ---
     static getTransitionSummary = VirtualSwapService.getTransitionSummary;
+    static getTransitionPreview = VirtualSwapService.getTransitionPreview;
     static getInHandStock = VirtualSwapService.getInHandStock;
     static executeBulkSwap = VirtualSwapService.executeBulkSwap;
 }
