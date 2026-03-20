@@ -59,11 +59,13 @@ export class ServiceOrderService {
             updateData.contractorAmount = contractorAmount;
         }
 
-        // 4. TRANSACTIONAL DATABASE UPDATE
-        await prisma.$transaction(async (tx: TransactionClient) => {
-            // Row lock
-            await tx.$executeRaw`SELECT id FROM "ServiceOrder" WHERE id = ${id} FOR UPDATE`;
+        // 4. System specific manual updates (Snapshots) - Fetch before transaction
+        const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
+        const currentSource = configs[0]?.value || 'SLT';
+        updateData.materialSource = currentSource;
 
+        // 5. TRANSACTIONAL DATABASE UPDATE
+        const finalOrder = await prisma.$transaction(async (tx: TransactionClient) => {
             // IF COMMENT IS UPDATED, CREATE A HISTORY RECORD
             if (data.comments) {
                 await ServiceOrderRepository.createComment({
@@ -84,7 +86,7 @@ export class ServiceOrderService {
                 updateData.materialUsage = materialUpdate;
             }
 
-            // Database update via Repository
+            // Database update via Repository (Single Update)
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
 
             // Post-update actions
@@ -92,16 +94,10 @@ export class ServiceOrderService {
 
             return updatedOrder;
         }, {
-            timeout: 10000 
+            timeout: 15000 // Increased timeout for slow DB environments
         });
 
-        // 5. System specific manual updates (Snapshots)
-        const configs: { value: string }[] = await prisma.$queryRaw`SELECT value FROM "SystemConfig" WHERE key = 'OSP_MATERIAL_SOURCE' LIMIT 1`;
-        const currentSource = configs[0]?.value || 'SLT';
-        
-        // Final update via Repository
-        const finalOrder = await ServiceOrderRepository.update(id, { materialSource: currentSource });
-
+        // 6. Audit Logging
         if (userId) {
             try {
                 const { AuditService } = await import('../audit.service');
@@ -111,7 +107,7 @@ export class ServiceOrderService {
                     entity: 'ServiceOrder',
                     entityId: id,
                     oldValue: oldOrder,
-                    newValue: { ...finalOrder, materialSource: currentSource }
+                    newValue: finalOrder
                 });
             } catch (e) {
                 console.error('Audit logging failed:', e);

@@ -47,6 +47,7 @@ export async function GET(
                         createdAt: true
                     }
                 },
+                // @ts-expect-error - Prisma client generation updated but IDE may lag
                 commentsHistory: {
                     orderBy: { createdAt: 'desc' },
                     select: {

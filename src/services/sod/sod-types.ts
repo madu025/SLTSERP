@@ -46,6 +46,7 @@ export interface ServiceOrderUpdateData {
     scheduledDate?: string | null;
     scheduledTime?: string | null;
     techContact?: string | null;
+    materialSource?: string | null;
 }
 
 export interface GetServiceOrdersParams {
