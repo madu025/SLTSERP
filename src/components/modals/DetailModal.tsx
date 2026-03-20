@@ -282,13 +282,41 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                                     </div>
                                 )}
 
-                                {coreOrder?.comments && (
-                                    <div className="md:col-span-2 lg:col-span-3 bg-yellow-50/50 p-4 rounded-lg border border-yellow-100">
-                                        <label className="text-xs font-bold text-yellow-700 uppercase block mb-1 flex items-center gap-1">
-                                            <Info className="w-3 h-3" />
-                                            System & User Comments
-                                        </label>
-                                        <p className="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">{coreOrder.comments}</p>
+                                {((coreOrder?.commentsHistory && coreOrder.commentsHistory.length > 0) || coreOrder?.comments) && (
+                                    <div className="md:col-span-2 lg:col-span-3 space-y-3">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                                            <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Comment Logs & History</h3>
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                            {/* Historical Comments */}
+                                            {coreOrder?.commentsHistory?.map((c) => (
+                                                <div key={c.id} className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl relative group">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                         <span className="text-[9px] font-black text-amber-700 bg-amber-100/50 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                                                             {c.author?.name || 'System Auto'}
+                                                         </span>
+                                                         <span className="text-[9px] font-mono text-slate-400 font-bold">
+                                                             {new Date(c.createdAt).toLocaleDateString('en-GB')} {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                         </span>
+                                                     </div>
+                                                     <p className="text-[11px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">
+                                                         {c.comment}
+                                                     </p>
+                                                </div>
+                                            ))}
+
+                                            {/* Fallback/Legacy main comment field (if not redundant) */}
+                                            {coreOrder?.comments && (!coreOrder.commentsHistory || !coreOrder.commentsHistory.some(h => h.comment === coreOrder.comments)) && (
+                                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Legacy/System Note</span>
+                                                     </div>
+                                                     <p className="text-[11px] text-slate-600 font-medium italic">{coreOrder.comments}</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
 
