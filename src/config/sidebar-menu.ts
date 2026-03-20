@@ -226,12 +226,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
-                title: 'Manage Stores',
-                path: '/admin/stores',
-                icon: Building2,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN']
-            },
-            {
                 title: 'Initial Stock',
                 path: '/admin/inventory/initial',
                 icon: Warehouse,
