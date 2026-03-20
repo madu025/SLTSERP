@@ -16,8 +16,9 @@ import {
     Shield,
     FolderKanban,
     Upload,
-    History,
-    Terminal
+    History as HistoryIcon,
+    Terminal,
+    RefreshCw
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -232,6 +233,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
+                title: 'Wastage Reports',
+                path: '/admin/inventory/wastage',
+                icon: PackageMinus,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
+            },
+            {
                 title: 'Contractor Balance Sheet',
                 path: '/contractors/balance-sheet',
                 icon: FileText,
@@ -241,6 +248,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'Material Reconciliation',
                 path: '/admin/inventory/reconciliation',
                 icon: ClipboardCheck,
+                allowedRoles: ROLE_GROUPS.STORES
+            },
+            {
+                title: 'Virtual Transition',
+                path: '/admin/inventory/virtual-swap',
+                icon: RefreshCw,
                 allowedRoles: ROLE_GROUPS.STORES
             }
         ]
@@ -346,7 +359,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 title: 'System Audit Log',
                 path: '/admin/audit-logs',
-                icon: History,
+                icon: HistoryIcon,
                 allowedRoles: ROLE_GROUPS.ADMINS
             },
             {

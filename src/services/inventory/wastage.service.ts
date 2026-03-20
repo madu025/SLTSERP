@@ -137,4 +137,69 @@ export class WastageService {
             return txRecord;
         });
     }
+
+    /**
+     * Get consolidated wastage history for reporting
+     */
+    static async getWastageHistory(filters: { storeId?: string, contractorId?: string, month?: string }) {
+        let dateFilter = {};
+        if (filters.month) {
+            const startOfMonth = new Date(`${filters.month}-01`);
+            const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 1);
+            dateFilter = { gte: startOfMonth, lt: endOfMonth };
+        }
+
+        const contractorWastage = await prisma.contractorWastage.findMany({
+            where: {
+                ...(filters.contractorId ? { contractorId: filters.contractorId } : {}),
+                ...(filters.storeId ? { storeId: filters.storeId } : {}),
+                ...(filters.month ? { createdAt: dateFilter } : {})
+            },
+            include: {
+                contractor: { select: { name: true } },
+                store: { select: { name: true } },
+                items: { include: { item: { select: { name: true, code: true } } } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const storeWastage = await prisma.inventoryTransaction.findMany({
+            where: {
+                type: 'WASTAGE',
+                ...(filters.storeId ? { storeId: filters.storeId } : {}),
+                ...(filters.month ? { date: dateFilter } : {})
+            },
+            include: {
+                store: { select: { name: true } },
+                items: { include: { item: { select: { name: true, code: true } } } }
+            },
+            orderBy: { date: 'desc' }
+        });
+
+        // Map to common format
+        const history = [
+            ...contractorWastage.map(w => ({
+                id: w.id,
+                date: w.createdAt,
+                type: 'CONTRACTOR',
+                entityName: w.contractor.name,
+                storeName: w.store.name,
+                month: w.month,
+                description: w.description,
+                items: w.items.map(i => ({ name: i.item.name, code: i.item.code, quantity: i.quantity }))
+            })),
+            ...storeWastage.map((w: any) => ({
+                id: w.id,
+                date: w.date,
+                type: 'STORE',
+                entityName: 'N/A',
+                storeName: w.store?.name || 'Unknown Store',
+                month: w.date.toISOString().slice(0, 7),
+                description: w.notes,
+                items: w.items.map((i: any) => ({ name: i.item.name, code: i.item.code, quantity: Math.abs(i.quantity) }))
+            }))
+        ];
+
+        return history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
 }

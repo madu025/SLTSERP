@@ -7,6 +7,7 @@ import { MRNService } from './mrn.service';
 import { WastageService } from './wastage.service';
 import { StockRequestService } from './stock-request.service';
 import { TransactionService } from './transaction.service';
+import { VirtualSwapService } from './virtual-swap.service';
 
 /**
  * InventoryService Facade
@@ -62,6 +63,7 @@ export class InventoryService {
 
     // --- WASTAGE MANAGEMENT ---
     static recordWastage = WastageService.recordWastage;
+    static getWastageHistory = WastageService.getWastageHistory;
 
     // --- STOCK REQUEST MANAGEMENT ---
     static createStockRequest = StockRequestService.createStockRequest;
@@ -71,4 +73,9 @@ export class InventoryService {
     // --- TRANSACTION & REPORTING ---
     static getTransactions = TransactionService.getTransactions;
     static saveBalanceSheet = TransactionService.saveBalanceSheet;
+
+    // --- VIRTUAL SWAP ---
+    static getTransitionSummary = VirtualSwapService.getTransitionSummary;
+    static getInHandStock = VirtualSwapService.getInHandStock;
+    static executeBulkSwap = VirtualSwapService.executeBulkSwap;
 }
