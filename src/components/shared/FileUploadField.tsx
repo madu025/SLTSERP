@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Upload, CheckCircle2, Loader2, Camera, X, ShieldCheck } from "lucide-react";
+import { Upload, CheckCircle2, Loader2, Camera, X, ShieldCheck, RotateCcw } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -34,17 +34,18 @@ export function FileUploadField({
     
     const [isScanning, setIsScanning] = useState(false);
     const [isCapturing, setIsCapturing] = useState(false);
+    const [isVertical, setIsVertical] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const inputId = `file-${fieldName}`;
 
-    // Callback ref to reliably attach stream as soon as video element is mounted in Portal
     const setVideoRef = useCallback((node: HTMLVideoElement | null) => {
         if (node && cameraStream) {
             node.srcObject = cameraStream;
             node.play().catch(e => console.warn("Video play failed", e));
         }
+        // @ts-ignore
         videoRef.current = node;
     }, [cameraStream]);
 
@@ -69,7 +70,6 @@ export function FileUploadField({
 
     const startCamera = async () => {
         try {
-            // Highly compatible constraints for both mobile and desktop
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: "environment",
@@ -106,12 +106,20 @@ export function FileUploadField({
             const cWidth = video.clientWidth;
             const cHeight = video.clientHeight;
 
-            const frameWidth = cWidth * 0.85;
-            const frameHeight = frameWidth * (63/100);
+            // Adjust frame aspect ratio based on orientation
+            const frameAspect = isVertical ? (63/100) : (100/63);
+            
+            // Limit frame width to 85% of screen width or 85% of screen height
+            let frameWidth = cWidth * 0.85;
+            let frameHeight = frameWidth / frameAspect;
+
+            if (frameHeight > cHeight * 0.8) {
+                frameHeight = cHeight * 0.8;
+                frameWidth = frameHeight * frameAspect;
+            }
             
             const streamAspect = vWidth / vHeight;
             const containerAspect = cWidth / cHeight;
-            const frameAspect = frameWidth / frameHeight;
             
             let drawWidth = vWidth;
             let drawHeight = vHeight;
@@ -254,11 +262,20 @@ export function FileUploadField({
                             className="absolute inset-0 w-full h-full object-cover" 
                         />
                         
-                        {/* Binance KYC Layout Frame */}
+                        {/* Orientation Adjusted Frame */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
-                            <div className="w-full max-w-[85%] aspect-[63/100] border-2 border-dashed border-white/40 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]">
+                            <div 
+                                className={cn(
+                                    "border-2 border-dashed border-white/40 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] flex items-center justify-center transition-all duration-300",
+                                    isVertical 
+                                        ? "h-[85%] aspect-[63/100]" 
+                                        : "w-[85%] aspect-[100/63]"
+                                )}
+                            >
                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap bg-blue-600 px-4 py-2 rounded-full shadow-xl">
-                                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Align with Frame</span>
+                                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+                                        {isVertical ? "Vertical (Old NIC)" : "Horizontal (New NIC)"}
+                                    </span>
                                 </div>
                                 <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl" />
                                 <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl" />
@@ -269,13 +286,21 @@ export function FileUploadField({
 
                         {/* Camera Controls */}
                         <div className="absolute bottom-10 inset-x-0 flex items-center justify-center gap-12 px-10">
-                            <button onClick={stopCamera} className="h-14 w-14 rounded-full bg-black/40 border-2 border-white/20 text-white flex items-center justify-center backdrop-blur-2xl hover:bg-black/60 transition-all active:scale-90">
-                                <X className="w-6 h-6" />
+                            <button 
+                                onClick={() => setIsVertical(p => !p)} 
+                                className="h-14 w-14 rounded-full bg-slate-900 border-2 border-white/20 text-white flex flex-col items-center justify-center backdrop-blur-2xl hover:bg-slate-800 transition-all active:scale-90"
+                            >
+                                <RotateCcw className="w-5 h-5 mb-1" />
+                                <span className="text-[8px] font-black">ROTATE</span>
                             </button>
+                            
                             <button onClick={capturePhoto} className="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all hover:scale-110 active:scale-90 group pointer-events-auto">
                                 <div className="h-16 w-16 rounded-full border-4 border-slate-900 group-hover:border-blue-600 transition-colors" />
                             </button>
-                            <div className="w-14 h-14" />
+
+                            <button onClick={stopCamera} className="h-14 w-14 rounded-full bg-red-600/20 border-2 border-red-500/40 text-red-500 flex items-center justify-center backdrop-blur-2xl hover:bg-red-600/40 transition-all active:scale-90">
+                                <X className="w-6 h-6" />
+                            </button>
                         </div>
                     </div>
                 </DialogContent>
