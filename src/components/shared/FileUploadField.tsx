@@ -30,7 +30,6 @@ export function FileUploadField({
     allowCamera = true
 }: FileUploadFieldProps) {
     const { watch } = useFormContext();
-    // Watch parent value to ensure preview is always synced
     const value = watch(fieldName);
     
     const [isScanning, setIsScanning] = useState(false);
@@ -40,10 +39,17 @@ export function FileUploadField({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const inputId = `file-${fieldName}`;
 
-    // Fix: Attach stream to video element when Dialog opens and video element is mounted
+    // iOS/Safari Specific: Explicitly play and attach stream
     useEffect(() => {
         if (isCapturing && videoRef.current && cameraStream) {
-            videoRef.current.srcObject = cameraStream;
+            const video = videoRef.current;
+            video.srcObject = cameraStream;
+            video.setAttribute("playsinline", "true"); // Mandatory for iOS
+            
+            // Standard play promise handling
+            video.play().catch(err => {
+                console.warn("Autoplay was prevented:", err);
+            });
         }
     }, [isCapturing, cameraStream]);
 
@@ -55,6 +61,7 @@ export function FileUploadField({
     };
 
     const uploadCapturedPhoto = async (file: File) => {
+        if (isScanning) return;
         try {
             setIsScanning(true);
             await onUpload(file, fieldName);
@@ -67,17 +74,20 @@ export function FileUploadField({
 
     const startCamera = async () => {
         try {
+            // Simplified constraints for better iOS compatibility
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     facingMode: "environment",
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                } 
+                    width: { min: 640, ideal: 1280, max: 1920 },
+                    height: { min: 480, ideal: 720, max: 1080 }
+                },
+                audio: false
             });
             setCameraStream(stream);
             setIsCapturing(true);
-        } catch {
-            toast.error("Could not access camera");
+        } catch (err) {
+            console.error("[CAMERA-ERROR]", err);
+            toast.error("Could not access camera. Check permissions.");
         }
     };
 
@@ -96,13 +106,15 @@ export function FileUploadField({
             const video = videoRef.current;
             const canvas = canvasRef.current;
             
+            // Get actual dimensions from the video stream metadata
             const vWidth = video.videoWidth;
             const vHeight = video.videoHeight;
-            const cWidth = video.clientWidth || 800;
-            const cHeight = video.clientHeight || 450;
+            const cWidth = video.clientWidth;
+            const cHeight = video.clientHeight;
 
+            // Frame is 85% width of visible area
             const frameWidth = cWidth * 0.85;
-            const frameHeight = frameWidth * (63/100);
+            const frameHeight = frameWidth * (63/100); // Standard ID Card aspect ratio
             
             const streamAspect = vWidth / vHeight;
             const containerAspect = cWidth / cHeight;
@@ -113,6 +125,7 @@ export function FileUploadField({
             let offsetX = 0;
             let offsetY = 0;
 
+            // Mapping video texture coordinate to screen coordinate (object-cover)
             if (streamAspect > containerAspect) {
                 drawWidth = vHeight * containerAspect;
                 offsetX = (vWidth - drawWidth) / 2;
@@ -128,6 +141,7 @@ export function FileUploadField({
             const cropX = offsetX + (cWidth - frameWidth) / 2 * scaleX;
             const cropY = offsetY + (cHeight - frameHeight) / 2 * scaleY;
 
+            // Capture at high resolution (1200px width)
             canvas.width = 1200;
             canvas.height = canvas.width / frameAspect;
             
@@ -136,8 +150,8 @@ export function FileUploadField({
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
                 
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
                 stopCamera();
 
                 const response = await fetch(dataUrl);
@@ -146,7 +160,7 @@ export function FileUploadField({
                 await uploadCapturedPhoto(file);
             }
         } catch (err) {
-            console.error(err);
+            console.error("[CAPTURE-ERROR]", err);
             toast.error("Capture failed");
             setIsCapturing(false);
         }
@@ -170,7 +184,7 @@ export function FileUploadField({
                             "h-10 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border-2",
                             value 
                                 ? "bg-slate-50 text-slate-900 border-slate-200" 
-                                : "bg-blue-600 text-white border-blue-700"
+                                : "bg-blue-600 text-white border-blue-700 shadow-md active:scale-95"
                         )}
                     >
                         <Camera className="w-4 h-4" /> {value ? "RE-TAKE" : "TAKE PHOTO"}
@@ -198,20 +212,18 @@ export function FileUploadField({
                 >
                     {value ? (
                         <div className="flex flex-col md:flex-row w-full h-full items-stretch p-4 gap-6">
-                            {/* Horizontal Preview */}
                             <div className="relative w-full md:w-[200px] h-[120px] rounded-xl overflow-hidden border-2 border-slate-200 bg-white">
                                 <Image src={value} alt={label} fill className="object-contain p-1" unoptimized priority />
                             </div>
                             
-                            {/* Status Section */}
                             <div className="flex-1 flex flex-col justify-center space-y-3">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-emerald-600">
                                         <ShieldCheck className="w-5 h-5" />
-                                        <span className="text-[11px] font-black uppercase tracking-widest">Photo Uploaded</span>
+                                        <span className="text-[11px] font-black uppercase tracking-widest leading-none">Attached</span>
                                     </div>
                                     <p className="text-[10px] text-slate-900 font-bold uppercase opacity-80">
-                                        Document successfully attached.
+                                        File saved successfully.
                                     </p>
                                 </div>
                                 
@@ -227,7 +239,7 @@ export function FileUploadField({
                         <div className="flex flex-col items-center gap-3 py-6 text-slate-500">
                             <Upload className="w-8 h-8 text-slate-900 mb-1" />
                             <div className="text-center space-y-1">
-                                <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Click to upload photo</span>
+                                <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Upload Photo</span>
                                 <p className="text-[9px] font-black text-slate-900 uppercase opacity-60">or drag and drop</p>
                             </div>
                         </div>
@@ -248,38 +260,38 @@ export function FileUploadField({
             </div>
 
             <Dialog open={isCapturing} onOpenChange={(open) => !open && stopCamera()}>
-                <DialogContent className="max-w-4xl p-0 bg-slate-950 border-none rounded-[32px] overflow-hidden">
-                    <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
+                <DialogContent className="sm:max-w-4xl p-0 bg-slate-950 border-none rounded-none sm:rounded-[32px] overflow-hidden max-h-full h-full sm:h-auto">
+                    <div className="relative h-full sm:aspect-video bg-black flex items-center justify-center overflow-hidden">
                         <video 
                             ref={videoRef} 
                             autoPlay 
                             playsInline 
                             muted 
-                            className="w-full h-full object-cover" 
+                            className="absolute inset-0 w-full h-full object-cover" 
                         />
                         
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-[85%] aspect-[63/100] border-2 border-dashed border-white/50 rounded-2xl relative">
-                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/60 px-4 py-2 rounded-full backdrop-blur-md">
-                                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Center Specimen</span>
+                        {/* Binance KYC Layout Frame */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
+                            <div className="w-full max-w-[85%] aspect-[63/100] border-2 border-dashed border-white/40 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]">
+                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap bg-blue-600 px-4 py-2 rounded-full shadow-xl">
+                                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Align with Frame</span>
                                 </div>
-                                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl" />
-                                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl" />
-                                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-xl" />
-                                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl" />
+                                <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl" />
+                                <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl" />
+                                <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl" />
+                                <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-blue-500 rounded-br-2xl" />
                             </div>
                         </div>
 
-                        <div className="absolute bottom-8 inset-x-0 flex items-center justify-center gap-10 px-10">
-                            <button onClick={stopCamera} className="h-14 w-14 rounded-full bg-white/10 border-2 border-white/20 text-white flex items-center justify-center backdrop-blur-xl hover:bg-white/20 transition-all">
+                        {/* Camera Controls */}
+                        <div className="absolute bottom-10 inset-x-0 flex items-center justify-center gap-12 px-10">
+                            <button onClick={stopCamera} className="h-14 w-14 rounded-full bg-black/40 border-2 border-white/20 text-white flex items-center justify-center backdrop-blur-2xl hover:bg-black/60 transition-all active:scale-90">
                                 <X className="w-6 h-6" />
                             </button>
-                            <button onClick={capturePhoto} className="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95 group">
+                            <button onClick={capturePhoto} className="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all hover:scale-110 active:scale-90 group pointer-events-auto">
                                 <div className="h-16 w-16 rounded-full border-4 border-slate-900 group-hover:border-blue-600 transition-colors" />
                             </button>
-                            <button type="button" className="h-14 w-14 rounded-full bg-white/10 border-2 border-white/20 text-white flex items-center justify-center backdrop-blur-xl opacity-40">
-                                <RefreshCw className="w-6 h-6" />
-                            </button>
+                            <div className="w-14 h-14" /> {/* Spacer */}
                         </div>
                     </div>
                 </DialogContent>
