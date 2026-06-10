@@ -54,25 +54,25 @@ export default function Sidebar() {
 
     return (
         <aside
-            className={`${isCollapsed ? 'w-20' : 'w-64'} flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 transition-all duration-300 text-sidebar-foreground`}
-            style={{ backgroundColor: 'rgb(var(--color-sidebar))' }}
+            className={`${isCollapsed ? 'w-20' : 'w-64'} flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 transition-all duration-300 border-r border-white/5 backdrop-blur-md`}
+            style={{ backgroundColor: 'rgba(9, 12, 19, 0.92)' }}
         >
             {/* Header with Toggle */}
             <div className="p-6 flex items-center justify-between border-b border-white/5">
                 {!isCollapsed && (
                     <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 flex-shrink-0 animate-in zoom-in duration-500">
-                            <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
+                            <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain filter drop-shadow-[0_0_8px_rgba(0,173,242,0.3)]" />
                         </div>
                         <div className="animate-in fade-in slide-in-from-left duration-500">
                             <h2 className="text-xl font-bold text-white tracking-wider leading-none">SLTS Nexus</h2>
-                            <p className="text-[10px] text-sky-400/80 mt-1 uppercase tracking-[0.2em] font-medium leading-none">Workflow Management</p>
+                            <p className="text-[10px] text-primary mt-1 uppercase tracking-[0.2em] font-medium leading-none">Workflow Management</p>
                         </div>
                     </div>
                 )}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-2 rounded-lg hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
+                    className="p-2 rounded-lg hover:bg-white/5 transition-colors text-slate-400 hover:text-white"
                     title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                 >
                     <svg className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,7 +81,7 @@ export default function Sidebar() {
                 </button>
             </div>
 
-            <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {!isCollapsed && <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">Menu</div>}
 
                 {mounted ? SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
@@ -105,28 +105,32 @@ export default function Sidebar() {
                             <Link
                                 href={hasSubmenu ? '#' : item.path}
                                 onClick={handleMenuClick}
-                                className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isActive && !hasSubmenu ? 'bg-primary text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                className={`flex items-center justify-between px-3 py-2 text-sm font-medium transition-all duration-200 ${isActive && !hasSubmenu 
+                                    ? 'bg-gradient-to-r from-primary/10 to-transparent border-l-4 border-primary text-white rounded-r-lg font-semibold' 
+                                    : 'text-slate-300 hover:bg-white/5 hover:text-white border-l-4 border-transparent rounded-lg'
                                     }`}
                                 title={isCollapsed ? item.title : ''}
                             >
                                 <div className="flex items-center relative">
-                                    <Icon className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
+                                    <Icon className={`w-5 h-5 ${isActive && !hasSubmenu ? 'text-primary' : 'text-slate-400'} ${isCollapsed ? '' : 'mr-3'}`} />
                                     {!isCollapsed && <span>{item.title}</span>}
 
                                 </div>
                                 {!isCollapsed && hasSubmenu && (
-                                    <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                    <svg className={`w-4 h-4 text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                                 )}
                             </Link>
 
                             {/* Submenu */}
                             {!isCollapsed && hasSubmenu && isExpanded && (
-                                <div className="pl-10 space-y-1">
+                                <div className="pl-6 border-l border-white/5 ml-5 mt-1 space-y-1">
                                     {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => (
                                         <Link
                                             key={sub.path}
                                             href={sub.path}
-                                            className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${pathname === sub.path ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                                            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${pathname === sub.path 
+                                                ? 'text-primary bg-primary/5 font-semibold' 
+                                                : 'text-slate-400 hover:text-white hover:bg-white/5'
                                                 }`}
                                         >
                                             {sub.title}

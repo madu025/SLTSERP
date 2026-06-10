@@ -90,11 +90,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
                 border: '226 232 240',
             },
             dark: {
-                background: '11 17 29', // Deep Midnight (Eye-friendly)
-                foreground: '241 245 249', // Slate 100
-                sidebar: '7 11 20', // Solid Darker Sidebar
-                card: '17 25 40', // Refined Card Blue
-                border: '30 41 59', // Subtle Border (Slate 800)
+                background: '11 15 20', // Deep Space Dark (#0B0F14)
+                foreground: '248 250 252', // Off-White (#F8FAFC)
+                sidebar: '9 12 19', // Dark Sidebar (#090C13)
+                card: '17 24 39', // Slate Card (#111827)
+                border: '31 41 55', // Border Dark (#1F2937)
             }
         };
 

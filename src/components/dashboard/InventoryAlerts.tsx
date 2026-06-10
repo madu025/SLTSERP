@@ -58,12 +58,21 @@ export default function InventoryAlerts() {
                     </div>
                 ) : (
                     alerts.map((alert, idx) => (
-                        <Alert key={idx} variant={alert.severity === 'HIGH' ? 'destructive' : 'default'} className={alert.severity === 'MEDIUM' ? 'border-amber-500 bg-amber-50' : ''}>
+                        <Alert 
+                            key={idx} 
+                            className={
+                                alert.severity === 'HIGH'
+                                    ? 'border-rose-500/20 bg-rose-500/10 text-rose-400 [&>svg]:text-rose-400'
+                                    : alert.severity === 'MEDIUM'
+                                    ? 'border-amber-500/20 bg-amber-500/10 text-amber-400 [&>svg]:text-amber-400'
+                                    : 'border-border/40 bg-card/40 text-foreground [&>svg]:text-foreground'
+                            }
+                        >
                             {alert.severity === 'HIGH' ? <AlertTriangle className="h-4 w-4" /> : <Info className="h-4 w-4" />}
                             <AlertTitle className="text-sm font-semibold mb-1">
                                 {alert.type === 'LOW_STOCK' ? 'Low Stock Warning' : 'Action Required'}
                             </AlertTitle>
-                            <AlertDescription className="text-xs">
+                            <AlertDescription className="text-xs opacity-90">
                                 {alert.message}
                             </AlertDescription>
                         </Alert>

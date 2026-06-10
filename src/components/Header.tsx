@@ -54,11 +54,11 @@ export default function Header() {
     };
 
     if (!mounted) {
-        return <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0" />;
+        return <header className="h-14 md:h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0 bg-background/50 backdrop-blur-md" />;
     }
 
     return (
-        <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0">
+        <header className="h-14 md:h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0 bg-background/50 backdrop-blur-md">
             <div className="flex items-center gap-3 flex-1">
                 {/* Mobile Navigation */}
                 <MobileNav />
@@ -71,7 +71,7 @@ export default function Header() {
                         </svg>
                     </span>
                     <input
-                        className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary text-sm transition-all"
+                        className="block w-full pl-10 pr-3 py-2 border border-white/5 rounded-lg leading-5 bg-white/5 placeholder-slate-400 focus:outline-none focus:bg-white/10 focus:ring-1 focus:ring-primary focus:border-primary text-sm transition-all"
                         placeholder="Search..."
                         type="search"
                     />
@@ -85,11 +85,11 @@ export default function Header() {
                 <div className="relative profile-dropdown">
                     <button
                         onClick={() => setShowProfileMenu(!showProfileMenu)}
-                        className="flex items-center space-x-2 md:space-x-3 focus:outline-none"
+                        className="flex items-center space-x-2 md:space-x-3 focus:outline-none cursor-pointer"
                     >
                         <div className="text-right hidden lg:block">
-                            <p className="text-sm font-semibold text-slate-900">{user?.name || 'User'}</p>
-                            <p className="text-xs text-slate-500 capitalize">{user?.role?.toLowerCase().replace('_', ' ') || 'Guest'}</p>
+                            <p className="text-sm font-semibold text-slate-200">{user?.name || 'User'}</p>
+                            <p className="text-xs text-slate-400 capitalize">{user?.role?.toLowerCase().replace('_', ' ') || 'Guest'}</p>
                         </div>
                         <div className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold shadow-md text-sm">
                             {user?.name?.substring(0, 2).toUpperCase() || '??'}
@@ -100,25 +100,25 @@ export default function Header() {
                     </button>
 
                     {showProfileMenu && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="absolute right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-md rounded-xl shadow-lg border border-white/5 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                             <Link
                                 href="/profile"
-                                className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:bg-white/5 transition-colors"
                                 onClick={() => setShowProfileMenu(false)}
                             >
                                 Your Profile
                             </Link>
                             <Link
                                 href="/admin/settings"
-                                className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                                className="block px-4 py-2 text-sm text-slate-200 hover:bg-white/5 transition-colors"
                                 onClick={() => setShowProfileMenu(false)}
                             >
                                 Settings
                             </Link>
-                            <hr className="my-1 border-slate-100" />
+                            <hr className="my-1 border-white/5" />
                             <button
                                 onClick={handleLogout}
-                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                             >
                                 Sign Out
                             </button>
