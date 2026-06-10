@@ -4,7 +4,7 @@ import { Prisma, ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
 import { RegistrationLinkParams, ContractorUpdateData, TeamMemberInput } from './contractor-types';
 import { ContractorQueryService } from './contractor.query.service';
-import { NotificationPolicyService } from '../notification/notification-policy.service';
+import { eventBus } from '@/lib/events/event-bus';
 
 export class ContractorRegistrationService {
     /**
@@ -363,14 +363,17 @@ export class ContractorRegistrationService {
         });
 
         try {
-            await NotificationPolicyService.notifyContractorSubmission({
-                id: result.id,
-                name: result.name,
-                siteOfficeStaffId: result.siteOfficeStaffId,
-                opmcId: result.opmcId
+            await eventBus.publish('contractor.registered', {
+                contractor: {
+                    id: result.id,
+                    name: result.name,
+                    siteOfficeStaffId: result.siteOfficeStaffId,
+                    opmcId: result.opmcId
+                },
+                siteOfficeStaffId: result.siteOfficeStaffId
             });
         } catch (nErr) {
-            console.error("[REG-SERVICE] Notification Failed:", nErr);
+            console.error("[REG-SERVICE] Event Publish Failed:", nErr);
         }
 
         emitSystemEvent('CONTRACTOR_UPDATE');

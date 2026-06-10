@@ -1,12 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from '@/lib/prisma';
 import { ContractorType, ContractorStatus } from '@prisma/client';
 import { emitSystemEvent } from '@/lib/events';
-import { ContractorUpdateData } from './contractor-types';
+import { ContractorUpdateData, TeamInput, TeamMemberInput } from './contractor-types';
 import { ContractorQueryService } from './contractor.query.service';
-import { NotificationPolicyService } from '../notification/notification-policy.service';
 import { ContractorRepository } from '@/repositories/contractor.repository';
 import { TransactionClient } from '../inventory/types';
+import { eventBus } from '@/lib/events/event-bus';
 
 export class ContractorLifecycleService {
     /**
@@ -177,20 +176,20 @@ export class ContractorLifecycleService {
      */
     private static async handleStatusChangeNotifications(contractor: { id: string; name: string; siteOfficeStaffId: string | null; opmcId: string | null }, data: ContractorUpdateData) {
         try {
-            await NotificationPolicyService.notifyContractorStatusChange(
+            await eventBus.publish('contractor.status_changed', {
                 contractor,
-                data.status as string,
-                data.rejectionReason
-            );
+                status: data.status as string,
+                rejectionReason: data.rejectionReason
+            });
         } catch (err) {
-            console.error("[LIFECYCLE] Notification Failed:", err);
+            console.error("[LIFECYCLE] Event Publish Failed:", err);
         }
     }
 
     /**
      * Sync Teams and Members
      */
-    private static async syncTeams(contractorId: string, teams: any[], defaultOpmcId: string | null, tx: TransactionClient) {
+    private static async syncTeams(contractorId: string, teams: TeamInput[], defaultOpmcId: string | null, tx: TransactionClient) {
         const existingTeams = await prisma.contractorTeam.findMany({
             where: { contractorId },
             select: { id: true }
@@ -221,7 +220,7 @@ export class ContractorLifecycleService {
                 await ContractorRepository.deleteTeamMembers(team.id, tx);
                 
                 if (team.members && team.members.length > 0) {
-                    await ContractorRepository.createTeamMembers(team.members.map((m: any) => ({
+                    await ContractorRepository.createTeamMembers(team.members.map((m: TeamMemberInput) => ({
                         name: m.name,
                         nic: m.nic || m.idCopyNumber || '',
                         designation: m.designation || '',
@@ -252,7 +251,7 @@ export class ContractorLifecycleService {
                         }))
                     },
                     members: {
-                        create: team.members.map((m: any) => ({
+                        create: team.members.map((m: TeamMemberInput) => ({
                             name: m.name,
                             nic: m.nic || m.idCopyNumber || '',
                             designation: m.designation || '',

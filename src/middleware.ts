@@ -33,6 +33,10 @@ export async function middleware(request: NextRequest) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-request-id', requestId);
 
+    // Sanitize incoming headers to prevent header spoofing
+    requestHeaders.delete('x-user-id');
+    requestHeaders.delete('x-user-role');
+
     // Check if the path is public
     if (
         publicPaths.some((path) => pathname.startsWith(path)) ||

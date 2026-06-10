@@ -157,7 +157,7 @@ export default function WastageReportPage() {
         });
     };
 
-    const isPrivileged = ['OSP_MANAGER', 'SUPER_ADMIN', 'ADMIN'].includes(localStorage.getItem("erp_user_role") || "");
+    const isPrivileged = typeof window !== 'undefined' ? ['OSP_MANAGER', 'SUPER_ADMIN', 'ADMIN'].includes(localStorage.getItem("erp_user_role") || "") : false;
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">

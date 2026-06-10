@@ -10,11 +10,10 @@ export async function POST(request: Request) {
         // In a real scenario, we should authenticate the user here
         // But for now we rely on the implementation being server-side
 
-        // We trigger the syncAllOpmcs method directly
         // Note: This runs in the API route context (Serverless or ongoing process)
-        // If it takes too long, it might timeout on Vercel (10s limit on free tier)
-        // ensure we handle it or run it in background if possible, 
-        // but since we are self-hosting on Docker/Lightsail, timeouts are configurable (default 300s+)
+        // Since we are deploying on Vercel, this is subject to serverless function timeout limits
+        // (10s limit on Hobby tier, 15-300s+ on Pro tier). For large datasets, this sync should be
+        // triggered asynchronously or optimized to run in smaller chunks.
 
         // Call the static method directly
         const result = await ServiceOrderService.syncAllOpmcs();

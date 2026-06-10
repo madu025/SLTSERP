@@ -39,6 +39,7 @@
   "exclude": [
     "node_modules",
     "scripts",
+    "tmp",
     "check_bridge.ts",
     "check_order.ts",
     "check_bridge.mts",

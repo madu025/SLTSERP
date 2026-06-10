@@ -60,6 +60,25 @@ export class CompletedSODSyncService {
 
                     console.log(`[COMPLETED-SOD-SYNC] [DEBUG] 📡 Found ${uniqueResults.length} unique completed records for ${opmc.rtom}`);
 
+                    // Batch query matching local service orders to resolve N+1 issue
+                    const allSoNums = uniqueResults.map(r => r.SO_NUM);
+                    const localSODsBatch = allSoNums.length > 0 ? await prisma.serviceOrder.findMany({
+                        where: { soNum: { in: allSoNums } },
+                        select: { id: true, soNum: true, sltsStatus: true, status: true, completedDate: true }
+                    }) : [];
+
+                    // Group local service orders by soNum in-memory
+                    const localSODsMap = new Map<string, Array<{ id: string, soNum: string | null, sltsStatus: string, status: string, completedDate: Date | null }>>();
+                    localSODsBatch.forEach(sod => {
+                        const key = sod.soNum;
+                        if (key) {
+                            if (!localSODsMap.has(key)) {
+                                localSODsMap.set(key, []);
+                            }
+                            localSODsMap.get(key)!.push(sod);
+                        }
+                    });
+
                     // Process each unique completed SOD record
                     for (const sltData of uniqueResults) {
                         try {
@@ -68,11 +87,8 @@ export class CompletedSODSyncService {
                                 continue;
                             }
 
-                            // CHECK DB: Look for ANY record with this SO_NUM
-                            const localSODs = await prisma.serviceOrder.findMany({
-                                where: { soNum: sltData.SO_NUM },
-                                select: { id: true, sltsStatus: true, status: true, completedDate: true }
-                            });
+                            // CHECK MAP: Look for ANY record with this SO_NUM
+                            const localSODs = localSODsMap.get(sltData.SO_NUM) || [];
 
                             const completedDate = sltApiService.parseStatusDate(sltData.CON_STATUS_DATE) || new Date();
                             const distanceStr = sltData.FTTH_INST_SIET?.replace(/[^0-9.]/g, '');

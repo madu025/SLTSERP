@@ -1,8 +1,8 @@
 import { StockRequest, Prisma } from '@prisma/client';
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
 import { InventoryRepository } from '@/repositories/inventory.repository';
-import { NotificationPolicyService } from '../notification/notification-policy.service';
 import { emitSystemEvent } from '@/lib/events';
+import { eventBus } from '@/lib/events/event-bus';
 import { StockService } from './stock.service';
 import { StockRequestActionData, TransactionClient } from './types';
 import { prisma } from '@/lib/prisma';
@@ -77,15 +77,18 @@ export class StockRequestService {
         });
 
         try {
-            await NotificationPolicyService.notifyStockRequestCreated({
-                id: req.id,
-                requestNr: req.requestNr,
-                fromStoreName: fromStore.name,
-                opmcId: fromStore.opmcs?.[0]?.id,
-                type: req.sourceType
-            }, initialWorkflowStage);
+            await eventBus.publish('inventory.stock_request_created', {
+                request: {
+                    id: req.id,
+                    requestNr: req.requestNr,
+                    fromStoreName: fromStore.name,
+                    opmcId: fromStore.opmcs?.[0]?.id,
+                    type: req.sourceType
+                },
+                stage: initialWorkflowStage
+            });
         } catch (nErr) {
-            console.error("Failed to send stock request notification:", nErr);
+            console.error("Failed to publish stock request created event:", nErr);
         }
 
         return req;
@@ -387,25 +390,25 @@ export class StockRequestService {
 
     private static async safeNotifyStageChange(req: any, stage: string, roles: string[]) {
         try {
-            await NotificationPolicyService.notifyStockRequestStageChange(
-                { id: req.id, requestNr: req.requestNr },
+            await eventBus.publish('inventory.stock_request_stage_changed', {
+                request: { id: req.id, requestNr: req.requestNr },
                 stage,
                 roles
-            );
+            });
         } catch (nErr) {
-            console.error(`Failed to notify stage change [${stage}]:`, nErr);
+            console.error(`Failed to publish stage change event [${stage}]:`, nErr);
         }
     }
 
     private static async safeNotifyFinalAction(req: any, action: string, remarks?: string) {
         try {
-            await NotificationPolicyService.notifyStockRequestFinalAction(
-                { id: req.id, requestNr: req.requestNr, requestedById: req.requestedById },
+            await eventBus.publish('inventory.stock_request_finalized', {
+                request: { id: req.id, requestNr: req.requestNr, requestedById: req.requestedById },
                 action,
                 remarks
-            );
+            });
         } catch (nErr) {
-            console.error(`Failed to notify final action [${action}]:`, nErr);
+            console.error(`Failed to publish final action event [${action}]:`, nErr);
         }
     }
 }

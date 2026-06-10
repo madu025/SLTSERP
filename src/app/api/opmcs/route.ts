@@ -19,8 +19,17 @@ const OPMC_CACHE_KEY = 'opmcs:all';
 // GET all OPMCs
 export async function GET() {
     try {
-        // const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
-        // if (cached) return NextResponse.json(cached);
+        // Transparent, fail-safe read-through cache
+        try {
+            const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
+            if (cached) {
+                console.log(`[CACHE HIT] OPMCs read from Redis`);
+                return NextResponse.json(cached);
+            }
+        } catch (cacheError) {
+            console.error(`[CACHE ERROR] Failed to read from Redis cache:`, cacheError);
+            // Fallthrough to direct DB query
+        }
 
         const opmcs = await prisma.oPMC.findMany({
             include: {
@@ -39,9 +48,15 @@ export async function GET() {
             orderBy: { rtom: 'asc' }
         });
 
-        // await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
+        try {
+            await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
+        } catch (cacheError) {
+            console.error(`[CACHE ERROR] Failed to write to Redis cache:`, cacheError);
+        }
+
         return NextResponse.json(opmcs);
-    } catch {
+    } catch (error) {
+        console.error('Error fetching OPMCs:', error);
         return NextResponse.json({ message: 'Error fetching OPMCs' }, { status: 500 });
     }
 }
@@ -59,7 +74,11 @@ export async function POST(request: Request) {
             }
         });
 
-        await CacheService.del(OPMC_CACHE_KEY);
+        try {
+            await CacheService.del(OPMC_CACHE_KEY);
+        } catch (cacheError) {
+            console.error(`[CACHE ERROR] Failed to invalidate OPMCs cache:`, cacheError);
+        }
         return NextResponse.json(opmc);
     } catch (error) {
         if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
@@ -85,7 +104,11 @@ export async function PUT(request: Request) {
             }
         });
 
-        await CacheService.del(OPMC_CACHE_KEY);
+        try {
+            await CacheService.del(OPMC_CACHE_KEY);
+        } catch (cacheError) {
+            console.error(`[CACHE ERROR] Failed to invalidate OPMCs cache:`, cacheError);
+        }
         return NextResponse.json(opmc);
     } catch (error) {
         if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
@@ -107,9 +130,14 @@ export async function DELETE(request: Request) {
             where: { id }
         });
 
-        await CacheService.del(OPMC_CACHE_KEY);
+        try {
+            await CacheService.del(OPMC_CACHE_KEY);
+        } catch (cacheError) {
+            console.error(`[CACHE ERROR] Failed to invalidate OPMCs cache:`, cacheError);
+        }
         return NextResponse.json({ message: 'OPMC deleted successfully' });
-    } catch {
+    } catch (error) {
+        console.error('Error deleting OPMC:', error);
         return NextResponse.json({ message: 'Error deleting OPMC' }, { status: 500 });
     }
 }

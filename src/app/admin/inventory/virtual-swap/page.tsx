@@ -107,8 +107,8 @@ export default function VirtualSwapPage() {
         onError: (err: any) => toast.error(err.message || "Stock swap failed.")
     });
 
-    const mappableQty = Array.isArray(summary) ? summary.filter(s => s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
-    const unmappableQty = Array.isArray(summary) ? summary.filter(s => !s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
+    const mappableQty = Array.isArray(summary) ? summary.filter((s: any) => s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
+    const unmappableQty = Array.isArray(summary) ? summary.filter((s: any) => !s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -175,12 +175,12 @@ export default function VirtualSwapPage() {
                                                     <div className="pt-4 border-t border-slate-800 space-y-2">
                                                         <div className="flex justify-between text-xs text-slate-400">
                                                             <span>Ready Mappings:</span>
-                                                            <span className="font-bold text-emerald-400">{summary.filter(s => s.isMappable).length} Items</span>
+                                                            <span className="font-bold text-emerald-400">{summary.filter((s: any) => s.isMappable).length} Items</span>
                                                         </div>
                                                         <div className="flex justify-between text-xs text-slate-400">
                                                             <span>Actionable Contractors:</span>
                                                             <span className="font-bold text-white">
-                                                                {Array.isArray(summary) ? summary.filter(s => s.isMappable).reduce((acc, curr) => acc + curr.contractorCount, 0) : 0} Affected
+                                                                {Array.isArray(summary) ? summary.filter((s: any) => s.isMappable).reduce((acc: number, curr: any) => acc + curr.contractorCount, 0) : 0} Affected
                                                             </span>
                                                         </div>
                                                     </div>
@@ -434,25 +434,4 @@ export default function VirtualSwapPage() {
             </main>
         </div>
     );
-}
-
-function Boxes(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-            <path d="m3.3 7 8.7 5 8.7-5" />
-            <path d="M12 22V12" />
-        </svg>
-    )
 }

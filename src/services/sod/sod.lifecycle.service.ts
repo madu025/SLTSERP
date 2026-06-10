@@ -1,11 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ServiceOrderUpdateData } from './sod-types';
-import { NotificationPolicyService } from '../notification/notification-policy.service';
 import { SODInvoicingService } from './sod.invoicing.service';
-import { SODMaterialService } from './sod.material.service';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
-import { TransactionClient } from '../inventory/types';
+import { eventBus } from '@/lib/events/event-bus';
 
 export class SODLifecycleService {
     /**
@@ -127,27 +125,19 @@ export class SODLifecycleService {
             }, prisma);
         }
 
-        // Incremental Stats Update & Notifications
+        // Emit domain event for status changes
         if (serviceOrder.sltsStatus !== oldOrder.sltsStatus) {
-            try {
-                const { StatsService } = await import('../../lib/stats.service');
-                await StatsService.handleStatusChange(serviceOrder.opmcId, oldOrder.sltsStatus || 'PENDING', serviceOrder.sltsStatus);
-
-                if (serviceOrder.sltsStatus === 'RETURN') {
-                    await prisma.$transaction(async (tx: TransactionClient) => {
-                        await SODMaterialService.rollbackMaterialUsage(tx, serviceOrder.id, userId);
-                    });
-
-                    await NotificationPolicyService.notifySODReturn({
-                        id: serviceOrder.id,
-                        soNum: serviceOrder.soNum,
-                        opmcId: serviceOrder.opmcId,
-                        returnReason: serviceOrder.returnReason
-                    });
-                }
-            } catch (e) {
-                console.error('Failed to update stats or send notifications:', e);
-            }
+            eventBus.publish('sod.status_changed', {
+                serviceOrderId: serviceOrder.id,
+                soNum: serviceOrder.soNum,
+                opmcId: serviceOrder.opmcId,
+                oldStatus: oldOrder.sltsStatus || 'PENDING',
+                newStatus: serviceOrder.sltsStatus,
+                returnReason: serviceOrder.returnReason,
+                userId
+            }).catch(e => {
+                console.error('[LIFECYCLE-EVENT] Failed to publish status change event:', e);
+            });
         }
     }
 }

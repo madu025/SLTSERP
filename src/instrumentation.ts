@@ -16,5 +16,11 @@ export async function register() {
         console.log('[INSTRUMENTATION] 📦 Node.js runtime detected, initializing workers...');
         const { initializeBackgroundWorkers } = await import('./workers/init');
         await initializeBackgroundWorkers();
+
+        console.log('[INSTRUMENTATION] 🔔 Registering event-driven subscribers...');
+        const { registerSODEventHandlers } = await import('./lib/events/sod-handlers');
+        const { registerOtherEventHandlers } = await import('./lib/events/other-handlers');
+        registerSODEventHandlers();
+        registerOtherEventHandlers();
     }
 }

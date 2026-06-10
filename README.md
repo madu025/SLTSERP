@@ -16,10 +16,11 @@ npm run dev
 ```
 
 ### Production Deployment
-The application auto-deploys to AWS Lightsail via GitHub Actions on push to `main` branch.
+The application is deployed to **Vercel** with automatic deployments triggered on git push to the `main` branch.
 
 ## Tech Stack
 - Next.js 15
-- PostgreSQL
+- PostgreSQL (Supabase with Connection Pooling)
 - Prisma ORM
-- Docker & Docker Compose
+- Vercel (Production Hosting)
+- Docker & Docker Compose (Local Development & Testing)

@@ -1,6 +1,6 @@
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
-import { NotificationPolicyService } from '../notification/notification-policy.service';
+import { eventBus } from '@/lib/events/event-bus';
 import { StoreWithDetails } from './types';
 
 export class StoreService {
@@ -128,12 +128,12 @@ export class StoreService {
             if (!stock || !stock.item || !stock.store) return;
 
             if (stock.quantity <= stock.minLevel) {
-                await NotificationPolicyService.notifyLowStock(
-                    stock.store.name,
-                    stock.item.name || stock.item.code,
-                    stock.quantity,
-                    stock.minLevel
-                );
+                await eventBus.publish('inventory.low_stock_detected', {
+                    store: stock.store.name,
+                    item: stock.item.name || stock.item.code,
+                    currentStock: stock.quantity,
+                    minStock: stock.minLevel
+                });
             }
         } catch (error) {
             console.error('Failed to check low stock:', error);
