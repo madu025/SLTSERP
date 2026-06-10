@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, MessageSquare, CheckCircle2, FileSpreadsheet, Info, AlertCircle } from "lucide-react";
+import { RefreshCw, Plus, Activity, Layers, Filter, Search, Calendar, MessageSquare, CheckCircle2, FileSpreadsheet, Info, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { ServiceOrder } from "@/types/service-order";
 import { OrderActionData, Contractor, InventoryItem, OrderCompletionData } from "@/components/modals/order-action/types";
@@ -61,6 +61,13 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [selectedMonth] = useState<string>(String(new Date().getMonth() + 1));
     const [selectedYear] = useState<string>(String(new Date().getFullYear()));
     const [searchTerm, setSearchTerm] = useState("");
+    const [showMetrics, setShowMetrics] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const val = localStorage.getItem('sod_show_metrics');
+            return val !== 'false';
+        }
+        return true;
+    });
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [patFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter] = useState("ALL");
@@ -207,12 +214,25 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <div className="flex-none p-4 space-y-4">
+                    <div className="flex-none px-4 py-2.5 space-y-2.5">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
                                 <div className="flex items-center gap-2">
                                     <Layers className="w-5 h-5 text-primary" />
                                     <h1 className="text-xl font-bold text-foreground tracking-tight">{pageTitle}</h1>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground hover:text-foreground ml-1"
+                                        onClick={() => {
+                                            const newVal = !showMetrics;
+                                            setShowMetrics(newVal);
+                                            localStorage.setItem('sod_show_metrics', String(newVal));
+                                        }}
+                                        title={showMetrics ? "Hide Summary Metrics" : "Show Summary Metrics"}
+                                    >
+                                        {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                    </Button>
                                 </div>
                                 <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground mt-0.5">Service Order Management</p>
                             </div>
@@ -245,7 +265,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                             </div>
                         </div>
 
-                        <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
+                        {showMetrics && (
+                            <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
+                        )}
 
                         <div className="bg-card p-2 rounded-xl border border-border/40 shadow-sm flex flex-wrap gap-2 items-center">
                              <div className="flex items-center gap-2 px-2 py-1 bg-muted rounded-lg border border-border/20">
@@ -259,18 +281,18 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                              </div>
 
                              <div className="flex-1 relative flex items-center min-w-[200px]">
-                                 <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-                                 <Input placeholder="Search orders, customers, numbers..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-10 pl-9 bg-muted/30 border-border/40" />
+                                 <Search className="absolute left-3 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                 <Input placeholder="Search orders, customers, numbers..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-8 pl-9 bg-muted/30 border-border/40 text-xs" />
                              </div>
 
                              <div className="flex items-center gap-2">
                                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                     <SelectTrigger className="h-10 w-[160px] border-border/40 bg-card"><SelectValue /></SelectTrigger>
+                                     <SelectTrigger className="h-8 w-[150px] border-border/40 bg-card text-xs font-semibold"><SelectValue /></SelectTrigger>
                                      <SelectContent>
-                                         <SelectItem value="DEFAULT">Filter by Status</SelectItem>
-                                         <SelectItem value="ALL">Show All</SelectItem>
-                                         <SelectItem value="INPROGRESS">In Progress</SelectItem>
-                                         <SelectItem value="RETURN" className="text-rose-400">Returned/Issues</SelectItem>
+                                         <SelectItem value="DEFAULT" className="text-xs">Filter by Status</SelectItem>
+                                         <SelectItem value="ALL" className="text-xs">Show All</SelectItem>
+                                         <SelectItem value="INPROGRESS" className="text-xs">In Progress</SelectItem>
+                                         <SelectItem value="RETURN" className="text-xs text-rose-500 font-bold dark:text-rose-400">Returned/Issues</SelectItem>
                                      </SelectContent>
                                  </Select>
                              </div>
@@ -325,31 +347,31 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 <table className="w-full text-[10px] text-left">
                                     <thead className="bg-muted border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
                                         <tr className="text-muted-foreground font-bold uppercase tracking-tight text-[9px]">
-                                            <th className="px-2 py-3 w-10 text-center sticky left-0 bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)]">
+                                            <th className="px-2 py-3 w-10 text-center md:sticky md:left-0 bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)]">
                                                 <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-border/40 data-[state=checked]:bg-primary" />
                                             </th>
-                                            {isColumnVisible('soNum') && <th className="px-1.5 py-3 cursor-pointer hover:bg-muted/80 transition-colors sticky left-10 bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[110px]" onClick={() => requestSort('soNum')}>SO Number</th>}
+                                            {isColumnVisible('soNum') && <th className="px-1.5 py-3 cursor-pointer hover:bg-muted/80 transition-colors md:sticky md:left-10 bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[110px]" onClick={() => requestSort('soNum')}>SO Number</th>}
                                             
                                             {filterType === 'completed' ? (
                                                 <>
-                                                    {isColumnVisible('completedDate') && <th className="px-1.5 py-3 sticky left-[150px] bg-emerald-500/10 z-50 shadow-[1px_0_0_0_var(--color-border)] w-[85px] text-emerald-400">Completed</th>}
-                                                    {isColumnVisible('lea') && <th className="px-1.5 py-3 sticky left-[235px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[50px]">LEA</th>}
-                                                    {isColumnVisible('customerName') && <th className="px-1.5 py-3 sticky left-[285px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[160px]">Customer</th>}
+                                                    {isColumnVisible('completedDate') && <th className="px-1.5 py-3 md:sticky md:left-[150px] bg-emerald-500/10 z-50 shadow-[1px_0_0_0_var(--color-border)] w-[85px] text-emerald-450 dark:text-emerald-400">Completed</th>}
+                                                    {isColumnVisible('lea') && <th className="px-1.5 py-3 md:sticky md:left-[235px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[50px]">LEA</th>}
+                                                    {isColumnVisible('customerName') && <th className="px-1.5 py-3 md:sticky md:left-[285px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[160px]">Customer</th>}
                                                     {isColumnVisible('contractor') && <th className="px-2 py-3 bg-muted/40 border-b border-border/40">Team & Material Usage</th>}
                                                     <th className="px-2 py-3 bg-muted/40 border-b border-border/40">Completion Details</th>
                                                 </>
                                             ) : (
                                                 <>
-                                                    {isColumnVisible('statusDate') && <th className="px-1.5 py-3 sticky left-[150px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[75px]">Received</th>}
-                                                    {isColumnVisible('lea') && <th className="px-1.5 py-3 sticky left-[225px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[50px]">LEA</th>}
-                                                    {isColumnVisible('customerName') && <th className="px-1.5 py-3 sticky left-[275px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[160px]">Customer</th>}
-                                                    {isColumnVisible('voiceNumber') && <th className="px-1.5 py-3 sticky left-[435px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[90px]">Voice/TP</th>}
+                                                    {isColumnVisible('statusDate') && <th className="px-1.5 py-3 md:sticky md:left-[150px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[75px]">Received</th>}
+                                                    {isColumnVisible('lea') && <th className="px-1.5 py-3 md:sticky md:left-[225px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[50px]">LEA</th>}
+                                                    {isColumnVisible('customerName') && <th className="px-1.5 py-3 md:sticky md:left-[275px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[160px]">Customer</th>}
+                                                    {isColumnVisible('voiceNumber') && <th className="px-1.5 py-3 md:sticky md:left-[435px] bg-muted z-50 shadow-[1px_0_0_0_var(--color-border)] w-[90px]">Voice/TP</th>}
                                                     <th className="px-2 py-3 bg-muted/40 border-b border-border/40 text-primary">Details (Order/Task/DP)</th>
                                                     <th className="px-2 py-3 bg-muted/40 border-b border-border/40">Status & Assignment</th>
                                                 </>
                                             )}
                                             
-                                            <th className="px-2 py-3 sticky right-0 bg-muted z-50 shadow-[-1px_0_0_0_var(--color-border)] w-[60px] text-center"></th>
+                                            <th className="px-2 py-3 md:sticky md:right-0 bg-muted z-50 shadow-[-1px_0_0_0_var(--color-border)] w-[60px] text-center"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/20 italic-last-update">
@@ -358,20 +380,20 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                 <React.Fragment key={order.id}>
                                                     {filterType === 'completed' ? (
                                                         <tr className={`group hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] transition-colors border-t border-border/10 ${selectedIds.has(order.id) ? 'bg-primary/5' : ''}`}>
-                                                            <td className="px-1.5 py-4 text-center sticky left-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
+                                                            <td className="px-1.5 py-4 text-center md:sticky md:left-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
                                                                 <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-border/40" />
                                                             </td>
-                                                            <td className="px-1.5 py-4 font-mono font-bold text-foreground text-[11px] sticky left-10 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
+                                                            <td className="px-1.5 py-4 font-mono font-bold text-foreground text-[11px] md:sticky md:left-10 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
                                                                 <div className="cursor-pointer hover:text-primary transition-colors" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>{order.soNum}</div>
                                                             </td>
-                                                            <td className="px-1.5 py-4 sticky left-[150px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
+                                                            <td className="px-1.5 py-4 md:sticky md:left-[150px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
                                                                 <div className="font-black text-emerald-500 text-[11.5px]">{order.completedDate ? new Date(order.completedDate).toLocaleDateString('en-GB') : '-'}</div>
                                                                 <div className="text-[9px] text-muted-foreground font-bold uppercase">{order.completedDate ? new Date(order.completedDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'DONE'}</div>
                                                             </td>
-                                                            <td className="px-1.5 py-4 sticky left-[235px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 text-center">
+                                                            <td className="px-1.5 py-4 md:sticky md:left-[235px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 text-center">
                                                                 <span className="px-1 py-0.5 bg-muted rounded text-foreground text-[10px] font-black border border-border/10">{order.lea || '-'}</span>
                                                             </td>
-                                                            <td className="px-1.5 py-4 font-bold text-foreground text-[11px] sticky left-[285px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 truncate max-w-[160px]" title={order.customerName || undefined}>
+                                                            <td className="px-1.5 py-4 font-bold text-foreground text-[11px] md:sticky md:left-[285px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 truncate max-w-[160px]" title={order.customerName || undefined}>
                                                                 {order.customerName || '-'}
                                                             </td>
                                                             
@@ -420,7 +442,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                 </div>
                                                             </td>
 
-                                                             <td className="px-1 py-4 text-center sticky right-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-l border-border/10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                             <td className="px-1 py-4 text-center md:sticky md:right-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-l border-border/10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                                                  <div className="flex items-center gap-1 justify-center">
                                                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}><Info className="w-3.5 h-3.5 text-slate-400" /></Button>
                                                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedOrder(order); setShowActionModal(true); }}><RefreshCw className="w-3.5 h-3.5 text-blue-600" /></Button>
@@ -432,26 +454,26 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                          <>
                                                              {/* PENDING VIEW (Stacked Two-Row Layout) */}
                                                              <tr className={`group hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] transition-colors border-t border-border/10 ${selectedIds.size > 0 && selectedIds.has(order.id) ? 'bg-primary/5' : ''}`}>
-                                                                 <td rowSpan={2} className="px-1.5 py-3 text-center sticky left-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
+                                                                 <td rowSpan={2} className="px-1.5 py-3 text-center md:sticky md:left-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
                                                                      <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-border/40" />
                                                                  </td>
-                                                                 <td rowSpan={2} className="px-1.5 py-3 font-mono font-bold text-foreground text-[11.5px] sticky left-10 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 cursor-pointer" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>
+                                                                 <td rowSpan={2} className="px-1.5 py-3 font-mono font-bold text-foreground text-[11.5px] md:sticky md:left-10 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 cursor-pointer" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}>
                                                                      <div className="group-hover:text-primary transition-colors uppercase">{order.soNum}</div>
                                                                      <div className="text-[8.5px] text-muted-foreground font-normal flex items-center gap-0.5 mt-0.5">
                                                                          <Activity className="w-2.5 h-2.5 opacity-60" />{order.id.slice(-6)}
                                                                      </div>
                                                                  </td>
-                                                                 <td rowSpan={2} className="px-1.5 py-3 sticky left-[150px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
+                                                                 <td rowSpan={2} className="px-1.5 py-3 md:sticky md:left-[150px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10">
                                                                      <div className="font-bold text-foreground text-[11px]">{order.statusDate ? new Date(order.statusDate).toLocaleDateString('en-GB') : '-'}</div>
                                                                      <div className="text-[8.5px] uppercase text-muted-foreground font-bold">Recvd</div>
                                                                  </td>
-                                                                 <td rowSpan={2} className="px-1.5 py-3 sticky left-[225px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 text-center">
+                                                                 <td rowSpan={2} className="px-1.5 py-3 md:sticky md:left-[225px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 text-center">
                                                                      <span className="px-1 py-0.5 bg-muted rounded text-foreground text-[11px] font-black border border-border/10 italic">{order.lea || '-'}</span>
                                                                  </td>
-                                                                 <td rowSpan={2} className="px-1.5 py-3 font-bold text-foreground text-[11px] sticky left-[275px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 truncate max-w-[160px]" title={order.customerName || undefined}>
+                                                                 <td rowSpan={2} className="px-1.5 py-3 md:sticky md:left-[275px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 truncate max-w-[160px]" title={order.customerName || undefined}>
                                                                      {order.customerName || '-'}
                                                                  </td>
-                                                                 <td rowSpan={2} className="px-1.5 py-3 font-mono text-muted-foreground text-[11px] font-bold sticky left-[435px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                                 <td rowSpan={2} className="px-1.5 py-3 md:sticky md:left-[435px] bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-r border-border/10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                                                      {order.voiceNumber || '-'}
                                                                  </td>
                                                                  
@@ -473,7 +495,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                          )}
                                                                      </div>
                                                                  </td>
-                                                                 <td className="px-1 py-2 text-center sticky right-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-l border-b border-border/10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                                 <td className="px-1 py-2 text-center md:sticky md:right-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-l border-b border-border/10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                                                      <div className="flex items-center gap-0.5 justify-center">
                                                                          <Button size="icon" variant="ghost" className="h-5 w-5 hover:bg-blue-500/10" title="Details" onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}><Info className="w-3.5 h-3.5 text-muted-foreground/60" /></Button>
                                                                          <Button size="icon" variant="ghost" className="h-5 w-5 hover:bg-indigo-500/10" title="Schedule" onClick={() => { setSelectedOrder(order); setShowScheduleModal(true); }}><Calendar className="w-3.5 h-3.5 text-indigo-400" /></Button>
@@ -510,7 +532,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                          )}
                                                                      </div>
                                                                  </td>
-                                                                 <td className="px-1 py-2 text-center sticky right-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-l border-b border-border/10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                                                 <td className="px-1 py-2 text-center md:sticky md:right-0 bg-card z-20 group-hover:bg-primary/[0.02] dark:group-hover:bg-primary/[0.04] border-l border-b border-border/10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                                                      <div className="flex items-center gap-1 justify-center">
                                                                          <div className="relative">
                                                                              <Button size="icon" variant="ghost" className={`h-6 w-6 rounded-full ${order.comments ? 'bg-amber-500/10 hover:bg-amber-500/20' : 'hover:bg-muted'}`} onClick={() => { setSelectedOrder(order); setShowCommentModal(true); }}>

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, Activity, Info, Calendar, MessageSquare, CheckCircle2, Loader2, Check } from "lucide-react";
+import { Info, MessageSquare, CheckCircle2, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SODSheetTableProps {
@@ -17,7 +17,7 @@ interface SODSheetTableProps {
     isAllSelected: boolean;
     onSort: (key: keyof ServiceOrder) => void;
     sortConfig: { key: keyof ServiceOrder; direction: "asc" | "desc" } | null;
-    onUpdateField: (id: string, data: any) => Promise<any>;
+    onUpdateField: (id: string, data: Record<string, unknown>) => Promise<unknown>;
     onOpenModal: (order: ServiceOrder, type: "detail" | "schedule" | "comment" | "action") => void;
 }
 
@@ -37,13 +37,13 @@ export function SODSheetTable({
     // Map to keep track of saving states per cell (key: "orderId-fieldName")
     const [savingStates, setSavingStates] = useState<Record<string, "saving" | "saved" | "error" | null>>({});
 
-    const handleSaveField = async (orderId: string, fieldName: string, value: any) => {
+    const handleSaveField = async (orderId: string, fieldName: string, value: unknown) => {
         const cellKey = `${orderId}-${fieldName}`;
         
         // Find existing order to verify if the value actually changed
         const order = orders.find(o => o.id === orderId);
         if (order) {
-            const currentValue = (order as any)[fieldName];
+            const currentValue = order[fieldName as keyof ServiceOrder];
             // Normalize values for comparison
             const normCurrent = currentValue === null || currentValue === undefined ? "" : String(currentValue);
             const normNew = value === null || value === undefined ? "" : String(value);
@@ -53,13 +53,13 @@ export function SODSheetTable({
         setSavingStates(prev => ({ ...prev, [cellKey]: "saving" }));
         
         try {
-            const payload: any = { id: orderId };
+            const payload: Record<string, unknown> = { id: orderId };
             
             // Map specific fields if needed
             if (fieldName === "scheduledDate") {
-                payload.scheduledDate = value ? new Date(value).toISOString() : null;
+                payload.scheduledDate = value ? new Date(value as string).toISOString() : null;
             } else if (fieldName === "completedDate") {
-                payload.completedDate = value ? new Date(value).toISOString() : null;
+                payload.completedDate = value ? new Date(value as string).toISOString() : null;
             } else {
                 payload[fieldName] = value === "" ? null : value;
             }
