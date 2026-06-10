@@ -157,6 +157,7 @@ export class SODQueryService {
                     techContact: true,
                     sales: true,
                     comments: true,
+                    returnReason: true,
                     createdAt: true,
                     _count: {
                         select: { commentsHistory: true }

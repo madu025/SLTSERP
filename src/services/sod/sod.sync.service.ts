@@ -192,6 +192,42 @@ export class SODSyncService {
      */
     static async syncAllOpmcs() {
         const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true }, orderBy: { rtom: 'asc' } });
+        
+        if (process.env.VERCEL === '1') {
+            console.log('[SYNC] Serverless/Vercel environment: running sync synchronously for all OPMCs...');
+            let created = 0;
+            let updated = 0;
+            const results = [];
+            for (const opmc of opmcs) {
+                try {
+                    const res = await this.syncServiceOrders(opmc.id, opmc.rtom);
+                    created += res.created;
+                    updated += res.updated;
+                    results.push({ rtom: opmc.rtom, ...res });
+                } catch (e) {
+                    console.error(`[SYNC] Failed to sync ${opmc.rtom}:`, e);
+                    results.push({ rtom: opmc.rtom, error: String(e) });
+                }
+            }
+
+            const stats = {
+                queuedCount: 0,
+                jobIds: [],
+                lastSyncTriggered: new Date().toISOString(),
+                created,
+                updated,
+                failed: results.filter(r => 'error' in r).length
+            };
+
+            await prisma.systemSetting.upsert({
+                where: { key: 'LAST_SYNC_STATS' },
+                update: { value: stats as unknown as Prisma.InputJsonValue },
+                create: { key: 'LAST_SYNC_STATS', value: stats as unknown as Prisma.InputJsonValue }
+            });
+
+            return { success: true, method: 'synchronous', stats, results };
+        }
+
         const jobs = await Promise.all(
             opmcs.map(opmc =>
                 sodSyncQueue.add(`sync-${opmc.rtom}`, {

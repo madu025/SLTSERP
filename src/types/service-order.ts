@@ -20,6 +20,7 @@ export interface ServiceOrder {
     scheduledDate: string | null;
     scheduledTime: string | null;
     comments: string | null;
+    returnReason?: string | null;
     createdAt: string;
     contractorId?: string | null;
     teamId?: string | null;

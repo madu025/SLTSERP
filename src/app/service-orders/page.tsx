@@ -24,6 +24,7 @@ interface OPMC {
 import { useSODOperations } from "./hooks/useSODOperations";
 import { useSODTable } from "./hooks/useSODTable";
 import { SODSummary } from "./components/SODSummary";
+import { SODSheetTable } from "./components/SODSheetTable";
 
 const ManualEntryModal = dynamic(() => import("@/components/modals/ManualEntryModal"), { ssr: false });
 const ScheduleModal = dynamic(() => import("@/components/modals/ScheduleModal"), { ssr: false });
@@ -62,6 +63,21 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [showActionModal, setShowActionModal] = useState(false);
     const [showExcelModal, setShowExcelModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
+
+    const [isSheetMode, setIsSheetMode] = useState<boolean>(() => {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("sod_sheet_mode") === "true";
+        }
+        return false;
+    });
+
+    const toggleSheetMode = () => {
+        setIsSheetMode(prev => {
+            const next = !prev;
+            localStorage.setItem("sod_sheet_mode", String(next));
+            return next;
+        });
+    };
 
     // --- HOOKS ---
     const { syncMutation, addOrderMutation, updateStatusMutation, scheduleMutation, commentMutation } = useSODOperations(selectedRtomId, selectedRtom);
@@ -188,6 +204,19 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button
+                                    variant={isSheetMode ? "default" : "outline"}
+                                    size="sm"
+                                    className={`h-8 font-bold shadow-sm ${
+                                        isSheetMode 
+                                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+                                            : 'border-border/40 hover:bg-muted text-foreground'
+                                    }`}
+                                    onClick={toggleSheetMode}
+                                >
+                                    <FileSpreadsheet className="w-3.5 h-3.5 mr-2" />
+                                    {isSheetMode ? 'Standard View' : 'Google Sheet Mode'}
+                                </Button>
+                                <Button
                                     variant="outline"
                                     size="sm"
                                     className="h-8 shadow-sm border-border/40 hover:bg-muted"
@@ -248,14 +277,36 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                             </div>
                         )}
 
-                        <div className="flex-1 overflow-auto custom-scrollbar">
+                        <div className="flex-1 overflow-auto custom-scrollbar flex flex-col">
                             {isLoadingOrders ? (
-                                <div className="flex items-center justify-center h-full p-20 text-muted-foreground">
+                                <div className="flex items-center justify-center h-full p-20 text-muted-foreground flex-1">
                                     <div className="text-center">
                                         <RefreshCw className="w-10 h-10 animate-spin mx-auto mb-4 opacity-20 text-primary" />
                                         <p className="font-bold text-xs uppercase tracking-widest animate-pulse">Loading Service Orders...</p>
                                     </div>
                                 </div>
+                            ) : isSheetMode ? (
+                                <SODSheetTable
+                                    orders={serviceOrders}
+                                    filterType={filterType}
+                                    contractors={contractors}
+                                    selectedIds={selectedIds}
+                                    toggleSelect={toggleSelect}
+                                    toggleAll={toggleAll}
+                                    isAllSelected={isAllSelected}
+                                    onSort={requestSort}
+                                    sortConfig={sortConfig}
+                                    onUpdateField={async (id, data) => {
+                                        return updateStatusMutation.mutateAsync({ id, ...data });
+                                    }}
+                                    onOpenModal={(order, type) => {
+                                        setSelectedOrder(order);
+                                        if (type === 'detail') setShowDetailModal(true);
+                                        if (type === 'schedule') setShowScheduleModal(true);
+                                        if (type === 'comment') setShowCommentModal(true);
+                                        if (type === 'action') setShowActionModal(true);
+                                    }}
+                                />
                             ) : (
                                 <table className="w-full text-[10px] text-left">
                                     <thead className="bg-muted border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">

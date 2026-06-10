@@ -68,7 +68,14 @@ export class SODLifecycleService {
                 ? JSON.stringify(otherData.iptvSerialNumbers) 
                 : otherData.iptvSerialNumbers;
         }
-        if (otherData.dpDetails) updateData.dpDetails = otherData.dpDetails;
+        if (otherData.dpDetails !== undefined) updateData.dpDetails = otherData.dpDetails;
+        if (otherData.dp !== undefined) updateData.dp = otherData.dp;
+        if (otherData.voiceNumber !== undefined) updateData.voiceNumber = otherData.voiceNumber;
+        if (otherData.scheduledDate !== undefined) {
+            updateData.scheduledDate = otherData.scheduledDate ? new Date(otherData.scheduledDate as string) : null;
+        }
+        if (otherData.scheduledTime !== undefined) updateData.scheduledTime = otherData.scheduledTime;
+        if (otherData.techContact !== undefined) updateData.techContact = otherData.techContact;
         if (otherData.teamId) updateData.teamId = otherData.teamId || null;
         if (otherData.directTeamName) updateData.directTeam = otherData.directTeamName;
 

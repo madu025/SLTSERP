@@ -34,6 +34,8 @@ export interface ServiceOrderUpdateData {
     ontSerialNumber?: string | null;
     iptvSerialNumbers?: string | string[] | null;
     dpDetails?: string | null;
+    dp?: string | null;
+    voiceNumber?: string | null;
     teamId?: string | null;
     directTeamName?: string | null;
     dropWireDistance?: string | number | null;
