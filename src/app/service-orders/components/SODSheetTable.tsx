@@ -135,10 +135,10 @@ export function SODSheetTable({
             <table className="w-full border-collapse text-left table-fixed">
                 <thead className="bg-muted/80 border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
                     <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px] h-9">
-                        <th className="w-[35px] text-center border-r border-border/20 sticky left-0 bg-muted/90 z-50">
+                        <th className="w-[35px] text-center border-r border-border/20 md:sticky md:left-0 bg-muted/90 z-50">
                             <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-border/40 data-[state=checked]:bg-primary" />
                         </th>
-                        <th className="w-[100px] px-2 border-r border-border/20 sticky left-[35px] bg-muted/90 z-50 cursor-pointer hover:bg-muted/70" onClick={() => onSort("soNum")}>
+                        <th className="w-[100px] px-2 border-r border-border/20 md:sticky md:left-[35px] bg-muted/90 z-50 cursor-pointer hover:bg-muted/70" onClick={() => onSort("soNum")}>
                             SO Number {sortConfig?.key === "soNum" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                         </th>
                         
@@ -179,7 +179,7 @@ export function SODSheetTable({
                                 <th className="w-[160px] px-2 border-r border-border/20">Comments/Notes</th>
                             </>
                         )}
-                        <th className="w-[85px] text-center sticky right-0 bg-muted/90 z-50">Actions</th>
+                        <th className="w-[85px] text-center md:sticky md:right-0 bg-muted/90 z-50">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-border/25">
@@ -192,7 +192,7 @@ export function SODSheetTable({
                                 }`}
                             >
                                 {/* Checkbox column */}
-                                <td className="text-center border-r border-border/15 sticky left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
+                                <td className="text-center border-r border-border/15 md:sticky md:left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
                                     <Checkbox
                                         checked={selectedIds.has(order.id)}
                                         onCheckedChange={() => toggleSelect(order.id)}
@@ -201,7 +201,7 @@ export function SODSheetTable({
                                 </td>
                                 
                                 {/* SO Number (Read-only, clickable details) */}
-                                <td className="px-2 font-mono font-bold text-[10.5px] border-r border-border/15 sticky left-[35px] bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
+                                <td className="px-2 font-mono font-bold text-[10.5px] border-r border-border/15 md:sticky md:left-[35px] bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
                                     <div className="flex items-center gap-1">
                                         <button
                                             type="button"
@@ -556,7 +556,7 @@ export function SODSheetTable({
                                 )}
 
                                 {/* Sticky Actions column */}
-                                <td className="text-center border-l border-border/15 sticky right-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                <td className="text-center border-l border-border/15 md:sticky md:right-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                     <div className="flex items-center gap-1 justify-center py-0.5">
                                         <Button
                                             size="icon"
