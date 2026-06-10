@@ -63,3 +63,5 @@ repair_*.ps1
 # performance and scalability docs (if generated)
 PERFORMANCE_*.md
 SCALABILITY_*.md
+
+.vercel
