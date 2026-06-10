@@ -57,15 +57,13 @@ export default function LoginPage() {
       try {
         const response = await fetch('/api/health');
         const data = await response.json();
-        setDbStatus(data.database === 'connected' ? 'connected' : 'disconnected');
+        setDbStatus(data.services?.database === 'healthy' ? 'connected' : 'disconnected');
       } catch {
         setDbStatus('disconnected');
       }
     };
 
     checkHealth();
-    const interval = setInterval(checkHealth, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
   }, []);
 
   // Cycle through quotes
