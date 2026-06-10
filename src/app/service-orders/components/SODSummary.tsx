@@ -25,14 +25,14 @@ interface SummaryCardProps {
 }
 
 const SummaryCard = ({ title, value, icon: Icon, colorClass }: SummaryCardProps) => (
-    <Card className="shadow-none border h-14">
-        <CardContent className="h-full px-3 flex items-center justify-between">
+    <Card className="shadow-sm border border-border/40 h-20 hover:shadow-md transition-shadow duration-250">
+        <CardContent className="h-full p-3.5 flex flex-col justify-between relative overflow-hidden">
             <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{title}</p>
-                <p className="text-xl font-bold text-slate-900 leading-none mt-0.5">{value}</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-slate-50 font-mono tracking-tight leading-none">{value}</p>
+                <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 leading-none">{title}</p>
             </div>
-            <div className={`p-1.5 rounded-md ${colorClass} bg-opacity-10`}>
-                <Icon className={`w-4 h-4 ${colorClass.replace('bg-', 'text-')}`} />
+            <div className={`absolute right-3.5 bottom-3 p-1.5 rounded-md ${colorClass}`}>
+                <Icon className="w-3.5 h-3.5" />
             </div>
         </CardContent>
     </Card>
@@ -47,37 +47,76 @@ interface SODSummaryProps {
 export function SODSummary({ filterType, summary, missingCount }: SODSummaryProps) {
     return (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-            <SummaryCard title="Total SODs" value={summary.totalSod || 0} icon={FileText} colorClass="bg-blue-100 text-blue-600" />
+            <SummaryCard 
+                title="Total SODs" 
+                value={summary.totalSod || 0} 
+                icon={FileText} 
+                colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+            />
 
             {filterType === 'completed' ? (
                 <>
-                    <SummaryCard title="Pending HO PAT" value={summary.patBreakdown?.ho?.PENDING || 0} icon={ClipboardList} colorClass="bg-indigo-100 text-indigo-600" />
-                    <SummaryCard title="Pending SLT PAT" value={summary.patBreakdown?.slt?.PENDING || 0} icon={Activity} colorClass="bg-amber-100 text-amber-600" />
-                    <SummaryCard title="Rejected" value={(summary.patBreakdown?.opmc?.REJECTED || 0) + (summary.patBreakdown?.ho?.REJECTED || 0) + (summary.patBreakdown?.slt?.REJECTED || 0)} icon={AlertCircle} colorClass="bg-rose-100 text-rose-600" />
+                    <SummaryCard 
+                        title="Pending HO PAT" 
+                        value={summary.patBreakdown?.ho?.PENDING || 0} 
+                        icon={ClipboardList} 
+                        colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                    />
+                    <SummaryCard 
+                        title="Pending SLT PAT" 
+                        value={summary.patBreakdown?.slt?.PENDING || 0} 
+                        icon={Activity} 
+                        colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                    />
+                    <SummaryCard 
+                        title="Rejected" 
+                        value={(summary.patBreakdown?.opmc?.REJECTED || 0) + (summary.patBreakdown?.ho?.REJECTED || 0) + (summary.patBreakdown?.slt?.REJECTED || 0)} 
+                        icon={AlertCircle} 
+                        colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                    />
                 </>
             ) : (
                 <>
-                    <SummaryCard title="Contractors" value={summary.contractorAssigned || 0} icon={UserCheck} colorClass="bg-purple-100 text-purple-600" />
-                    <SummaryCard title="Appointments" value={summary.appointments || 0} icon={CalendarCheck} colorClass="bg-indigo-100 text-indigo-600" />
-                    <Card className="shadow-none border h-14">
-                        <CardContent className="h-full px-3 py-1 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Activity className="w-4 h-4 text-orange-600" />
-                                <span className="text-[10px] font-semibold text-slate-600 uppercase">Missing</span>
-                            </div>
-                            <span className="text-lg font-bold text-orange-600">{missingCount}</span>
-                        </CardContent>
-                    </Card>
+                    <SummaryCard 
+                        title="Contractors" 
+                        value={summary.contractorAssigned || 0} 
+                        icon={UserCheck} 
+                        colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                    />
+                    <SummaryCard 
+                        title="Appointments" 
+                        value={summary.appointments || 0} 
+                        icon={CalendarCheck} 
+                        colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" 
+                    />
+                    <SummaryCard 
+                        title="Missing" 
+                        value={missingCount} 
+                        icon={AlertCircle} 
+                        colorClass="bg-rose-500/10 text-rose-600 dark:text-rose-400" 
+                    />
                 </>
             )}
 
-            <Card className="shadow-none border h-14">
-                <CardContent className="h-full px-3 py-1 flex flex-col justify-center">
-                    <div className="w-full">
-                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">In Progress</span> <span className="font-bold text-slate-700">{summary.statusBreakdown?.INPROGRESS || 0}</span></div>
-                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Inst. Closed</span> <span className="font-bold text-emerald-600">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span></div>
-                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium">Prov. Closed</span> <span className="font-bold text-blue-600">{summary.statusBreakdown?.PROV_CLOSED || 0}</span></div>
-                        <div className="flex justify-between items-center text-[12px] leading-tight"><span className="text-slate-500 font-medium whitespace-nowrap">Returned</span> <span className="font-bold text-rose-600">{summary.totalReturns || 0}</span></div>
+            <Card className="shadow-sm border border-border/40 h-20">
+                <CardContent className="h-full px-3 py-2.5 flex flex-col justify-center">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[9.5px]">
+                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-0.5">
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-tight">In Progress</span> 
+                            <span className="font-extrabold text-amber-500">{summary.statusBreakdown?.INPROGRESS || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-0.5">
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-tight">Inst. Closed</span> 
+                            <span className="font-extrabold text-emerald-500">{summary.statusBreakdown?.INSTALL_CLOSED || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-0.5">
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-tight">Prov. Closed</span> 
+                            <span className="font-extrabold text-blue-500">{summary.statusBreakdown?.PROV_CLOSED || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-0.5">
+                            <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-tight">Returned</span> 
+                            <span className="font-extrabold text-rose-500">{summary.totalReturns || 0}</span>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

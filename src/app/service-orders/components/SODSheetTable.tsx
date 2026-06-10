@@ -116,6 +116,20 @@ export function SODSheetTable({
     // Style helper for inputs in Sheet Mode
     const cellInputClass = "w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-mono text-foreground rounded transition-all placeholder:opacity-35";
 
+    const getStatusColorClass = (status: string | null | undefined) => {
+        const s = status ? status.toUpperCase() : '';
+        if (s.includes('COMPLETED') || s.includes('CLOSED') || s.includes('SUCCESS') || s.includes('PASSED')) {
+            return 'bg-emerald-50 text-emerald-700 border-emerald-200/50 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20';
+        }
+        if (s.includes('RETURN') || s.includes('REJECT') || s.includes('FAIL') || s.includes('ISSUE')) {
+            return 'bg-rose-50 text-rose-700 border-rose-200/50 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20';
+        }
+        if (s.includes('PROGRESS') || s.includes('ASSIGN') || s.includes('CONSTRUCT')) {
+            return 'bg-amber-50 text-amber-700 border-amber-200/50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20';
+        }
+        return 'bg-blue-50 text-blue-700 border-blue-200/50 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20';
+    };
+
     return (
         <div className="w-full h-full overflow-auto border-t border-border/20 custom-scrollbar">
             <table className="w-full border-collapse text-left table-fixed">
@@ -173,12 +187,12 @@ export function SODSheetTable({
                         orders.map((order, index) => (
                             <tr
                                 key={order.id}
-                                className={`h-8 hover:bg-muted/15 border-b border-border/10 transition-colors ${
-                                    selectedIds.has(order.id) ? "bg-primary/5 hover:bg-primary/10" : ""
+                                className={`h-9 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] border-b border-border/10 transition-colors ${
+                                    selectedIds.has(order.id) ? "bg-primary/5" : ""
                                 }`}
                             >
                                 {/* Checkbox column */}
-                                <td className="text-center border-r border-border/15 sticky left-0 bg-card z-20 hover:bg-muted/30">
+                                <td className="text-center border-r border-border/15 sticky left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
                                     <Checkbox
                                         checked={selectedIds.has(order.id)}
                                         onCheckedChange={() => toggleSelect(order.id)}
@@ -187,7 +201,7 @@ export function SODSheetTable({
                                 </td>
                                 
                                 {/* SO Number (Read-only, clickable details) */}
-                                <td className="px-2 font-mono font-bold text-[10.5px] border-r border-border/15 sticky left-[35px] bg-card z-20 hover:bg-muted/30">
+                                <td className="px-2 font-mono font-bold text-[10.5px] border-r border-border/15 sticky left-[35px] bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
                                     <div className="flex items-center gap-1">
                                         <button
                                             type="button"
@@ -279,8 +293,10 @@ export function SODSheetTable({
                                         </td>
 
                                         {/* Status (Read-only portal status) */}
-                                        <td className="px-2 border-r border-border/15 text-[10.5px] truncate font-bold text-muted-foreground uppercase">
-                                            {order.status || "-"}
+                                        <td className="px-2 border-r border-border/15">
+                                            <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase border ${getStatusColorClass(order.status)}`}>
+                                                {order.status || "-"}
+                                            </span>
                                         </td>
 
                                         {/* Comments */}
@@ -540,7 +556,7 @@ export function SODSheetTable({
                                 )}
 
                                 {/* Sticky Actions column */}
-                                <td className="text-center border-l border-border/15 sticky right-0 bg-card z-20 hover:bg-muted/30 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                <td className="text-center border-l border-border/15 sticky right-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                                     <div className="flex items-center gap-1 justify-center py-0.5">
                                         <Button
                                             size="icon"

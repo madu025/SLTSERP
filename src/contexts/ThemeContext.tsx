@@ -35,8 +35,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         // Color themes
         const colorThemes = {
             blue: {
-                primary: '59 130 246',
-                primaryDark: '37 99 235',
+                primary: '37 99 235',
+                primaryDark: '29 78 216',
             },
             green: {
                 primary: '34 197 94',
@@ -85,14 +85,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             light: {
                 background: '248 250 252',
                 foreground: '15 23 42',
-                sidebar: '15 23 42',
+                sidebar: '30 41 59', // Softer Slate (#1E293B)
                 card: '255 255 255',
                 border: '226 232 240',
             },
             dark: {
                 background: '11 15 20', // Deep Space Dark (#0B0F14)
                 foreground: '248 250 252', // Off-White (#F8FAFC)
-                sidebar: '9 12 19', // Dark Sidebar (#090C13)
+                sidebar: '17 24 39', // Softer Slate Card (#111827)
                 card: '17 24 39', // Slate Card (#111827)
                 border: '31 41 55', // Border Dark (#1F2937)
             }

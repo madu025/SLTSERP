@@ -54,11 +54,11 @@ export default function Sidebar() {
 
     return (
         <aside
-            className={`${isCollapsed ? 'w-20' : 'w-64'} flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 transition-all duration-300 border-r border-white/5 backdrop-blur-md`}
-            style={{ backgroundColor: 'rgba(9, 12, 19, 0.92)' }}
+            className={`${isCollapsed ? 'w-20' : 'w-64'} flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 transition-all duration-300 border-r border-border/20 backdrop-blur-md`}
+            style={{ backgroundColor: 'rgb(var(--color-sidebar) / 95%)' }}
         >
             {/* Header with Toggle */}
-            <div className="p-6 flex items-center justify-between border-b border-white/5">
+            <div className="p-6 flex items-center justify-between border-b border-white/10">
                 {!isCollapsed && (
                     <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 flex-shrink-0 animate-in zoom-in duration-500">
@@ -123,7 +123,7 @@ export default function Sidebar() {
 
                             {/* Submenu */}
                             {!isCollapsed && hasSubmenu && isExpanded && (
-                                <div className="pl-6 border-l border-white/5 ml-5 mt-1 space-y-1">
+                                <div className="pl-6 border-l border-white/10 ml-5 mt-1 space-y-1">
                                     {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => (
                                         <Link
                                             key={sub.path}
@@ -151,7 +151,7 @@ export default function Sidebar() {
             {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN']) && (
                 <SyncStatus isCollapsed={isCollapsed} />
             )}
-            <Link href="/profile" className="p-4 border-t border-slate-800 block hover:bg-slate-800/50 transition-colors">
+            <Link href="/profile" className="p-4 border-t border-white/10 block hover:bg-white/5 transition-colors">
                 <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'}`}>
                     <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
                         {user?.name?.substring(0, 2).toUpperCase() || '??'}

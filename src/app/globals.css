@@ -5,8 +5,8 @@
 
 :root {
   color-scheme: dark;
-  --color-primary: 0 173 242; /* #00ADF2 Sky Blue */
-  --color-primary-dark: 2 136 191;
+  --color-primary: 37 99 235; /* #2563EB Enterprise Blue */
+  --color-primary-dark: 29 78 216; /* #1D4ED8 Primary Hover */
   --color-background: 11 15 20; /* #0B0F14 Deep Space Dark */
   --color-foreground: 248 250 252;
   --color-sidebar: 9 12 19; /* #090C13 Sidebar Dark */
