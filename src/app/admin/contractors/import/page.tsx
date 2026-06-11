@@ -213,35 +213,38 @@ export default function ContractorBulkImportPage() {
 
     return (
         <RoleGuard allowedRoles={ROLE_GROUPS.ADMINS}>
-            <div className="h-screen flex bg-slate-50 overflow-hidden">
+            <div className="erp-page-wrapper flex-row overflow-hidden">
                 <Sidebar />
-                <main className="flex-1 flex flex-col min-w-0 h-full">
+                <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                     <Header />
-                    <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                        <div className="max-w-4xl mx-auto space-y-6">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                        <div className="max-w-4xl mx-auto space-y-4">
 
-                            <div className="flex justify-between items-end">
-                                <div>
-                                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Bulk Import <span className="text-blue-600 font-black">Admin</span></h1>
-                                    <p className="text-slate-500 mt-1">Full contractor & operational team bulk registration.</p>
+                            {/* Page Header */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                <div className="space-y-0.5">
+                                    <h1 className="text-xl font-black text-slate-900 tracking-tight">Bulk Import <span className="text-blue-600">Admin</span></h1>
+                                    <p className="text-slate-500 text-xs font-medium">Full contractor & operational team bulk registration.</p>
                                 </div>
-                                <Button variant="outline" onClick={downloadTemplate} className="text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 font-bold">
-                                    <Download className="w-4 h-4 mr-2" /> Download Template
+                                <Button onClick={downloadTemplate} variant="outline" className="h-8 px-4 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all font-bold text-xs">
+                                    <Download className="w-4 h-4 mr-1.5" /> Download Template
                                 </Button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <Card className="md:col-span-2 border-dashed border-2 border-slate-300 bg-white">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                
+                                {/* Drag & Drop Excel Upload */}
+                                <Card className="md:col-span-2 border-dashed border-2 border-slate-200 bg-white shadow-sm rounded-xl">
                                     <CardHeader className="text-center pb-2">
-                                        <div className="mx-auto bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mb-4 border-4 border-blue-100">
-                                            <FileSpreadsheet className="w-10 h-10 text-blue-600" />
+                                        <div className="mx-auto bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mb-2 border-4 border-blue-100/50">
+                                            <FileSpreadsheet className="w-8 h-8 text-blue-600" />
                                         </div>
-                                        <CardTitle className="text-xl">Upload Your Spreadsheet</CardTitle>
-                                        <CardDescription>
+                                        <CardTitle className="text-base font-black text-slate-900">Upload Your Spreadsheet</CardTitle>
+                                        <CardDescription className="text-xs text-slate-400">
                                             Securely import sensitive contractor data.
                                         </CardDescription>
                                     </CardHeader>
-                                    <CardContent className="flex flex-col items-center pb-12">
+                                    <CardContent className="flex flex-col items-center pb-8">
                                         <div className="relative group">
                                             <input
                                                 type="file"
@@ -250,52 +253,52 @@ export default function ContractorBulkImportPage() {
                                                 disabled={isProcessing}
                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                             />
-                                            <Button disabled={isProcessing} className="w-64 h-12 bg-blue-600 hover:bg-blue-700 shadow-lg font-bold">
+                                            <Button disabled={isProcessing} className="w-56 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
                                                 {isProcessing ? 'Importing...' : 'Select Excel File'}
                                             </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card className="bg-white border-red-100">
-                                    <CardHeader>
-                                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-red-500">Secure Access</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="text-[11px] text-slate-600 space-y-4">
-                                        <p>This action is restricted to **Administrators**. All bulk operations are logged for audit purposes.</p>
-                                        <div className="pt-4 border-t">
-                                            <p className="font-bold text-slate-800 italic">Audit Log Entry Created:</p>
-                                            <p className="mt-1 font-mono text-slate-400">IMPRT_{new Date().getTime()}</p>
-                                        </div>
-                                    </CardContent>
+                                {/* System Audit Notice */}
+                                <Card className="bg-white border border-slate-200 shadow-sm rounded-xl flex flex-col justify-between p-4">
+                                    <div className="space-y-2">
+                                        <h4 className="text-[10px] font-black uppercase tracking-wider text-red-500">Secure Access</h4>
+                                        <p className="text-xs font-semibold text-slate-600 leading-normal">This action is restricted to **Administrators**. All bulk operations are logged for audit purposes.</p>
+                                    </div>
+                                    <div className="pt-3 border-t border-slate-100">
+                                        <p className="text-[9px] font-black uppercase text-slate-400">Audit Log Entry</p>
+                                        <p className="font-mono text-[10px] text-slate-600 mt-0.5">IMPRT_{new Date().getTime().toString().slice(-10)}</p>
+                                    </div>
                                 </Card>
                             </div>
 
+                            {/* Processing Output stats */}
                             {stats && (
-                                <div className="space-y-4">
-                                    <Card className="bg-white shadow-2xl border-emerald-100">
-                                        <CardContent className="p-8">
-                                            <h3 className="font-bold text-xl text-slate-800 flex items-center mb-6">
-                                                <CheckCircle2 className="w-6 h-6 mr-2 text-emerald-600" /> Processing Complete
+                                <div className="space-y-3">
+                                    <Card className="bg-white shadow-md border border-slate-200 rounded-xl">
+                                        <CardContent className="p-5">
+                                            <h3 className="font-bold text-sm text-slate-900 flex items-center mb-4 border-b border-slate-100 pb-2">
+                                                <CheckCircle2 className="w-5 h-5 mr-1.5 text-emerald-600" /> Processing Complete
                                             </h3>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 items-center text-center">
-                                                    <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Total</div>
-                                                    <div className="text-3xl font-black text-slate-800">{stats.total}</div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 items-center text-center">
+                                                    <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-0.5">Total</div>
+                                                    <div className="text-xl font-black text-slate-800">{stats.total}</div>
                                                 </div>
-                                                <div className="bg-emerald-500 p-6 rounded-2xl shadow-lg items-center text-center">
-                                                    <div className="text-[10px] text-emerald-100 uppercase font-black tracking-widest mb-1">Success</div>
-                                                    <div className="text-3xl font-black text-white">{stats.success}</div>
+                                                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200 items-center text-center">
+                                                    <div className="text-[9px] text-emerald-700 uppercase font-black tracking-widest mb-0.5">Success</div>
+                                                    <div className="text-xl font-black text-emerald-700">{stats.success}</div>
                                                 </div>
-                                                <div className="bg-red-50 p-6 rounded-2xl border border-red-100 items-center text-center">
-                                                    <div className="text-[10px] text-red-600 uppercase font-black tracking-widest mb-1">Failed</div>
-                                                    <div className="text-3xl font-black text-red-700">{stats.fail}</div>
+                                                <div className="bg-red-50 p-4 rounded-lg border border-red-200 items-center text-center">
+                                                    <div className="text-[9px] text-red-700 uppercase font-black tracking-widest mb-0.5">Failed</div>
+                                                    <div className="text-xl font-black text-red-700">{stats.fail}</div>
                                                 </div>
                                             </div>
                                             {errors.length > 0 && (
-                                                <div className="mt-6 p-4 bg-slate-900 rounded-xl max-h-40 overflow-y-auto">
-                                                    <p className="text-red-400 text-[10px] font-bold uppercase mb-2">Error Details:</p>
-                                                    {errors.map((err, i) => <p key={i} className="text-white text-[10px] font-mono mb-1">{err}</p>)}
+                                                <div className="mt-4 p-3 bg-slate-900 rounded-lg max-h-32 overflow-y-auto">
+                                                    <p className="text-red-400 text-[9px] font-bold uppercase mb-1.5">Error Details:</p>
+                                                    {errors.map((err, i) => <p key={i} className="text-white text-[10px] font-mono mb-0.5">{err}</p>)}
                                                 </div>
                                             )}
                                         </CardContent>

@@ -6,11 +6,13 @@ import Header from '@/components/Header';
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Check, Trash2, Printer } from 'lucide-react';
+import { Plus, Check, Trash2, Printer, Search, Banknote, ShieldCheck, Users, FileText } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
 interface Invoice {
     id: string;
@@ -204,27 +206,23 @@ export default function InvoicesPage() {
         printWindow.document.write('<html><body><h3>Loading Invoice Details...</h3></body></html>');
 
         try {
-            // Fetch Full Details
             const res = await fetch(`/api/invoices/${baseInvoice.id}/details`);
             if (!res.ok) throw new Error('Failed to fetch details');
             const invoice: InvoiceDetailResponse = await res.json();
 
-            // Extract Month/Year
             const invDate = new Date(invoice.date);
             const jobMonth = invDate.toLocaleString('default', { month: 'short', year: '2-digit' }).replace(' ', '-');
             const displayDate = invDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-');
             const fmt = (amt: number) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amt);
 
-            // prepare Materials
             const allMaterials = new Set<string>();
             invoice.sods.forEach((sod: InvoiceSOD) => {
                 sod.materialUsage.forEach((usage: InvoiceMaterialUsage) => {
                     if (usage.item && usage.item.name) allMaterials.add(usage.item.name);
                 });
             });
-            const materialCols = Array.from(allMaterials).sort(); // Alphabetical or define custom order
+            const materialCols = Array.from(allMaterials).sort();
 
-            // Custom Order based on image
             const preferredOrder = ['F-1', 'G-1', 'DW-LH', 'DW-CH', 'DW-RT', 'IW-N', 'CAT 5', 'FAC', 'F ROSSETTE', 'TOP BOLT', 'CONDUITS', 'CASING'];
             const sortedMaterialCols = materialCols.sort((a, b) => {
                 const idxA = preferredOrder.indexOf(a);
@@ -235,14 +233,12 @@ export default function InvoicesPage() {
                 return a.localeCompare(b);
             });
 
-            // Pagination Logic
             const ITEMS_PER_PAGE = 25;
             const pages = [];
             for (let i = 0; i < invoice.sods.length; i += ITEMS_PER_PAGE) {
                 pages.push(invoice.sods.slice(i, i + ITEMS_PER_PAGE));
             }
 
-            // Calculations for Material Totals
             const materialTotals: Record<string, number> = {};
             sortedMaterialCols.forEach(col => materialTotals[col] = 0);
 
@@ -254,7 +250,6 @@ export default function InvoicesPage() {
                     }
                 });
             });
-
 
             const html = `
                 <!DOCTYPE html>
@@ -271,14 +266,12 @@ export default function InvoicesPage() {
                         .landscape-page { page: landscape; break-after: page; width: 280mm; margin: 0 auto; }
                         .landscape-page:last-child { break-after: auto; }
 
-                        /* Common Utilities */
                         .text-center { text-align: center; }
                         .text-right { text-align: right; }
                         .font-bold { font-weight: bold; }
                         .uppercase { text-transform: uppercase; }
 
-                        /* Invoice Summary Styles (Portrait) */
-                         .header { text-align: center; margin-bottom: 20px; }
+                        .header { text-align: center; margin-bottom: 20px; }
                         .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; font-weight: bold; }
                         .header p { margin: 2px 0; font-size: 14px; }
                         .header-line { border-bottom: 1px solid #000; margin-bottom: 15px; }
@@ -290,19 +283,16 @@ export default function InvoicesPage() {
                         .meta-value { text-align: left; width: 150px; font-weight: bold; color: #000; }
                         .meta-value-box { border: 1px solid #000; text-align: center; width: 150px; padding: 2px 0; font-weight: bold; }
                         
-                        /* Standard Table */
-                         table.std-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                        table.std-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                         .std-table th { border: 1px solid #000; padding: 4px; text-align: center; background-color: #fff; font-weight: bold; font-size: 13px; }
                         .std-table td { border: 1px solid #000; padding: 4px 8px; font-size: 13px; vertical-align: top; }
                         
-                        /* Totals */
                         .totals-section { margin-top: 10px; text-align: right; }
                         .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; }
                         .total-label { width: 150px; font-weight: bold; padding-right: 10px; }
                         .total-value { width: 120px; text-align: right; border-bottom: 1px solid #000; font-weight: bold; }
                         .double-border { border-bottom: 3px double #000; }
                         
-                         /* Certification */
                         .cert-section { display: flex; justify-content: space-between; margin-top: 40px; }
                         .cert-left { width: 45%; }
                         .cert-right { width: 45%; text-align: center; }
@@ -318,20 +308,16 @@ export default function InvoicesPage() {
                         .footer-header { font-weight: bold; text-align: center; background-color: #f0f0f0; }
                         .sig-box { height: 60px; }
 
-                        /* Landscape Details Table */
                         table.details-table { width: 100%; border-collapse: collapse; font-size: 11px; }
                         .details-table th { border: 1px solid #ccc; padding: 4px; background-color: #eee; text-align: center; writing-mode: vertical-rl; transform: rotate(180deg); height: 100px; white-space: nowrap; }
                         .details-table th.fixed-header { writing-mode: horizontal-tb; transform: none; height: auto; }
                         .details-table td { border: 1px solid #ccc; padding: 4px; text-align: center; }
                         
                         .page-header { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center; border-bottom: 1px solid #000; padding-bottom: 5px; }
-
                     </style>
                 </head>
                 <body>
-                    <!-- PAGE 1: PORTRAIT SUMMARY -->
                     <div class="portrait-page">
-                         <!-- Header -->
                         <div class="header">
                             <h1>${invoice.contractor.name.toUpperCase()}</h1>
                             <p>${invoice.contractor.address || 'Address Not Provided'}</p>
@@ -339,7 +325,6 @@ export default function InvoicesPage() {
                             <div class="header-line" style="margin-top: 5px;"></div>
                         </div>
 
-                        <!-- Meta Section -->
                         <div class="info-section">
                             <div class="bill-to">
                                 <strong>Bill To:</strong><br>
@@ -386,10 +371,10 @@ export default function InvoicesPage() {
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td class="col-center">1</td>
+                                    <td class="text-center">1</td>
                                     <td>FTTH Services - Total Work Done</td>
-                                    <td class="col-center">-</td>
-                                    <td class="col-center">1</td>
+                                    <td class="text-center">-</td>
+                                    <td class="text-center">1</td>
                                     <td class="text-right">${fmt(invoice.totalAmount)}</td>
                                     <td class="text-right">${fmt(invoice.totalAmount)}</td>
                                 </tr>
@@ -438,8 +423,8 @@ export default function InvoicesPage() {
                             </div>
                         </div>
 
-                         <div style="margin-top: 10px; font-weight: bold; border-top: 1px solid #000; margin-bottom: 5px;">SLTS Use Only:</div>
-                         <table class="footer-grid-table" style="margin-top: 0;">
+                        <div style="margin-top: 10px; font-weight: bold; border-top: 1px solid #000; margin-bottom: 5px;">SLTS Use Only:</div>
+                        <table class="footer-grid-table" style="margin-top: 0;">
                             <tr>
                                 <td style="width: 15%; border: none;"></td>
                                 <td class="footer-header" style="width: 35%;">Regional Signature</td>
@@ -470,7 +455,6 @@ export default function InvoicesPage() {
                         </table>
                     </div>
 
-                    <!-- PAGES 2+: LANDSCAPE DETAILS -->
                     ${pages.map((pageSods, pageIndex) => `
                         <div class="landscape-page">
                             <div class="page-header">
@@ -493,26 +477,24 @@ export default function InvoicesPage() {
                                 </thead>
                                 <tbody>
                                     ${pageSods.map((sod: InvoiceSOD, idx: number) => {
-                // Build material mapping for this row
-                const usageMap: Record<string, number> = {};
-                sod.materialUsage.forEach((u: InvoiceMaterialUsage) => {
-                    if (u.item?.name) usageMap[u.item.name] = u.quantity;
-                });
+                                        const usageMap: Record<string, number> = {};
+                                        sod.materialUsage.forEach((u: InvoiceMaterialUsage) => {
+                                            if (u.item?.name) usageMap[u.item.name] = u.quantity;
+                                        });
 
-                return `
+                                        return `
                                             <tr>
                                                 <td>${pageIndex * ITEMS_PER_PAGE + idx + 1}</td>
                                                 <td>${sod.serviceOrderId || '-'}</td>
-                                                <td>OK</td> <!-- Configs status assumed OK if completed -->
+                                                <td>OK</td>
                                                 <td>${sod.rtom || '-'}</td>
                                                 <td>${sod.completedAt ? new Date(sod.completedAt).toISOString().split('T')[0] : '-'}</td>
                                                 ${sortedMaterialCols.map(col => `<td>${usageMap[col] || ''}</td>`).join('')}
                                                 <td></td>
                                             </tr>
                                         `;
-            }).join('')}
+                                    }).join('')}
                                     ${pageIndex === pages.length - 1 ? `
-                                        <!-- Totals Row on Last Page -->
                                         <tr style="font-weight: bold; background-color: #eee;">
                                             <td colspan="5" class="text-right">Material Totals</td>
                                             ${sortedMaterialCols.map(col => `<td>${materialTotals[col] || 0}</td>`).join('')}
@@ -521,7 +503,7 @@ export default function InvoicesPage() {
                                     ` : ''}
                                 </tbody>
                             </table>
-                             <div style="font-size: 11px; margin-top: 5px; text-align: right;">Page ${pageIndex + 2} of ${pages.length + 1}</div>
+                            <div style="font-size: 11px; margin-top: 5px; text-align: right;">Page ${pageIndex + 2} of ${pages.length + 1}</div>
                         </div>
                     `).join('')}
 
@@ -541,8 +523,6 @@ export default function InvoicesPage() {
             printWindow.document.body.innerHTML = '<h3>Error loading invoice details.</h3>';
         }
     };
-
-
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -565,190 +545,228 @@ export default function InvoicesPage() {
         return sum + pending;
     }, 0);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex bg-slate-50">
-                <Sidebar />
-                <main className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
-                </main>
-            </div>
-        );
-    }
-
     return (
-        <div className="min-h-screen flex bg-white">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-                    <div className="max-w-7xl mx-auto space-y-6">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                            <div>
-                                <h1 className="text-xl md:text-2xl font-bold text-slate-900">Contractor Invoices</h1>
-                                <p className="text-sm text-slate-500 mt-1">Generate and manage 90/10 split invoices.</p>
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
+                        
+                        {/* Page Header */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Contractor Invoices</h1>
+                                <p className="text-xs text-slate-500">Generate and manage 90/10 split invoices.</p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 w-full sm:w-auto">
                                 {userRole !== 'AREA_COORDINATOR' && userRole !== 'QC_OFFICER' && (
-                                    <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-                                        <Plus className="w-4 h-4" />
-                                        Generate Monthly Invoice
+                                    <Button onClick={() => setCreateDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                        <Plus className="w-4 h-4 mr-1.5" /> Generate Monthly Invoice
                                     </Button>
                                 )}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <p className="text-xs font-medium text-slate-500 uppercase">Total Amount</p>
-                                <p className="text-lg md:text-2xl font-bold text-slate-900 mt-1">{formatCurrency(totalAmount)}</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <p className="text-xs font-medium text-slate-500 uppercase">Paid (A+B)</p>
-                                <p className="text-lg md:text-2xl font-bold text-green-600 mt-1">{formatCurrency(paidAmount)}</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <p className="text-xs font-medium text-slate-500 uppercase">Pending (A+B)</p>
-                                <p className="text-lg md:text-2xl font-bold text-yellow-600 mt-1">{formatCurrency(pendingAmount)}</p>
-                            </div>
-                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <p className="text-xs font-medium text-slate-500 uppercase">Total Invoices</p>
-                                <p className="text-lg md:text-2xl font-bold text-slate-900 mt-1">{invoices.length}</p>
-                            </div>
+                        {/* Top Stats Cards */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Total Amount</p>
+                                        <p className="text-base font-black text-slate-900">{formatCurrency(totalAmount)}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                                        <Banknote className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Paid (A+B)</p>
+                                        <p className="text-base font-black text-emerald-600">{formatCurrency(paidAmount)}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                        <ShieldCheck className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Pending (A+B)</p>
+                                        <p className="text-base font-black text-amber-600">{formatCurrency(pendingAmount)}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                                        <Users className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Total Invoices</p>
+                                        <p className="text-base font-black text-slate-900">{invoices.length}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center">
+                                        <FileText className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
 
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <ResponsiveTable>
-                                <table className="min-w-full divide-y divide-slate-200">
-                                    <thead className="bg-slate-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Invoice #</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Contractor</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Total (LKR)</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">90% Payment (A)</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">10% Retention (B)</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200">
-                                        {invoices.map((inv) => (
-                                            <tr key={inv.id} className="hover:bg-slate-50">
-                                                <td className="px-6 py-4 text-sm font-medium text-slate-900">{inv.invoiceNumber}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{inv.contractor?.name}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-900">{formatCurrency(inv.totalAmount)}</td>
-
-                                                {/* Part A Status */}
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-sm font-medium">{formatCurrency(inv.amountA)}</span>
-                                                        <Badge variant="outline" className={inv.statusA === 'PAID' ? 'bg-green-50 text-green-700 w-fit' : 'bg-yellow-50 text-yellow-700 w-fit'}>
-                                                            {inv.statusA}
-                                                        </Badge>
-                                                    </div>
-                                                </td>
-
-                                                {/* Part B Status */}
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-sm font-medium">{formatCurrency(inv.amountB)}</span>
-                                                        <Badge variant="outline" className={
-                                                            inv.statusB === 'PAID' ? 'bg-green-50 text-green-700 w-fit' :
-                                                                inv.statusB === 'ELIGIBLE' ? 'bg-blue-50 text-blue-700 w-fit' :
-                                                                    'bg-red-50 text-red-700 w-fit'
-                                                        }>
-                                                            {inv.statusB}
-                                                        </Badge>
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-6 py-4 text-sm text-slate-500">
-                                                    {new Date(inv.date).toLocaleDateString()}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => handlePrint(inv)}
-                                                            className="gap-1 text-slate-600"
-                                                            title="Print Invoice"
-                                                        >
-                                                            <Printer className="w-3 h-3" />
-                                                        </Button>
-                                                        {inv.status === 'PENDING' && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleStatusChange(inv.id, 'APPROVED')}
-                                                                className="gap-1"
-                                                            >
-                                                                <Check className="w-3 h-3" />
-                                                                Approve
-                                                            </Button>
-                                                        )}
-                                                        {inv.status === 'APPROVED' && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleStatusChange(inv.id, 'PAID')}
-                                                                className="gap-1 text-green-600"
-                                                            >
-                                                                <Check className="w-3 h-3" />
-                                                                Pay
-                                                            </Button>
-                                                        )}
-                                                        {inv.status !== 'PAID' && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleDelete(inv.id)}
-                                                                className="gap-1 text-red-600"
-                                                            >
-                                                                <Trash2 className="w-3 h-3" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </td>
+                        {/* Dense Invoices Table */}
+                        <div className="erp-table-container">
+                            {loading ? (
+                                <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-4">
+                                    <div className="h-8 w-8 border-3 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+                                    <p className="text-[10px] font-black uppercase tracking-wider animate-pulse">Loading Invoices...</p>
+                                </div>
+                            ) : invoices.length === 0 ? (
+                                <div className="py-20 flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-slate-200 text-slate-400">
+                                    <FileText className="w-10 h-10 opacity-20 mb-3" />
+                                    <p className="text-xs font-bold">No invoices generated yet.</p>
+                                </div>
+                            ) : (
+                                <ResponsiveTable>
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr>
+                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Invoice #</th>
+                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Contractor</th>
+                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Total (LKR)</th>
+                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">90% Payment (A)</th>
+                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">10% Retention (B)</th>
+                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Date</th>
+                                                <th className="px-3 py-2 text-right pr-6 w-36">Actions</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </ResponsiveTable>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 bg-white">
+                                            {invoices.map((inv) => (
+                                                <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
+                                                    <td className="text-slate-600 font-medium">{inv.contractor?.name}</td>
+                                                    <td className="font-bold text-slate-900">{formatCurrency(inv.totalAmount)}</td>
+
+                                                    {/* Part A Status */}
+                                                    <td>
+                                                        <div className="flex flex-col gap-0.5 items-start">
+                                                            <span className="font-semibold text-slate-800">{formatCurrency(inv.amountA)}</span>
+                                                            <Badge className={cn(
+                                                                "border-none px-1.5 py-0.2 text-[9px] font-black leading-none",
+                                                                inv.statusA === 'PAID' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                            )}>
+                                                                {inv.statusA}
+                                                            </Badge>
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Part B Status */}
+                                                    <td>
+                                                        <div className="flex flex-col gap-0.5 items-start">
+                                                            <span className="font-semibold text-slate-800">{formatCurrency(inv.amountB)}</span>
+                                                            <Badge className={cn(
+                                                                "border-none px-1.5 py-0.2 text-[9px] font-black leading-none",
+                                                                inv.statusB === 'PAID' ? 'bg-emerald-50 text-emerald-700' :
+                                                                inv.statusB === 'ELIGIBLE' ? 'bg-blue-50 text-blue-700' :
+                                                                'bg-red-50 text-red-700'
+                                                            )}>
+                                                                {inv.statusB}
+                                                            </Badge>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="text-slate-500 font-medium">
+                                                        {new Date(inv.date).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="text-right pr-6">
+                                                        <div className="inline-flex items-center gap-1.5">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => handlePrint(inv)}
+                                                                className="h-7 w-7 p-0 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                                title="Print Invoice"
+                                                            >
+                                                                <Printer className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            {inv.status === 'PENDING' && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleStatusChange(inv.id, 'APPROVED')}
+                                                                    className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                                                                    title="Approve Invoice"
+                                                                >
+                                                                    <Check className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            )}
+                                                            {inv.status === 'APPROVED' && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleStatusChange(inv.id, 'PAID')}
+                                                                    className="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
+                                                                    title="Mark Paid"
+                                                                >
+                                                                    <Check className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            )}
+                                                            {inv.status !== 'PAID' && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleDelete(inv.id)}
+                                                                    className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                                    title="Delete Invoice"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </ResponsiveTable>
+                            )}
                         </div>
                     </div>
                 </div>
             </main>
 
+            {/* Generate Dialog */}
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-                <DialogContent>
+                <DialogContent className="max-w-md rounded-2xl">
                     <DialogHeader>
-                        <DialogTitle>Generate Monthly Invoice</DialogTitle>
-                        <DialogDescription>Select contractor and billing period.</DialogDescription>
+                        <DialogTitle className="text-lg font-black text-slate-900">Generate Monthly Invoice</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">Select contractor and billing period.</DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Contractor</Label>
+                    <div className="space-y-4 py-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contractor</Label>
                             <Select onValueChange={(v) => setGenerateParams({ ...generateParams, contractorId: v })}>
-                                <SelectTrigger><SelectValue placeholder="Select Contractor" /></SelectTrigger>
+                                <SelectTrigger className="h-10 rounded-lg bg-slate-50 border-none"><SelectValue placeholder="Select Contractor" /></SelectTrigger>
                                 <SelectContent>
                                     {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Month</Label>
-                                <Input type="number" min={1} max={12} value={generateParams.month} onChange={(e) => setGenerateParams({ ...generateParams, month: parseInt(e.target.value) })} />
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Month</Label>
+                                <Input type="number" min={1} max={12} value={generateParams.month} onChange={(e) => setGenerateParams({ ...generateParams, month: parseInt(e.target.value) })} className="h-10 rounded-lg bg-slate-50 border-none" />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Year</Label>
-                                <Input type="number" min={2020} max={2030} value={generateParams.year} onChange={(e) => setGenerateParams({ ...generateParams, year: parseInt(e.target.value) })} />
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Year</Label>
+                                <Input type="number" min={2020} max={2030} value={generateParams.year} onChange={(e) => setGenerateParams({ ...generateParams, year: parseInt(e.target.value) })} className="h-10 rounded-lg bg-slate-50 border-none" />
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button onClick={handleGenerate} disabled={loading}>{loading ? 'Generating...' : 'Generate Invoice'}</Button>
+                        <Button onClick={handleGenerate} disabled={loading} className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 rounded-lg font-bold text-xs uppercase tracking-wider">{loading ? 'Generating...' : 'Generate Invoice'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
