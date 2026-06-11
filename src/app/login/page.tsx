@@ -62,7 +62,6 @@ export default function LoginPage() {
         setDbStatus('disconnected');
       }
     };
-
     checkHealth();
   }, []);
 
@@ -76,16 +75,13 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     setError("");
-
     try {
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
-
       const data = await response.json();
-
       if (response.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
         router.push("/dashboard");
@@ -98,262 +94,633 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-background relative overflow-hidden">
-      {/* Dynamic Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-[#0E1420] to-[#141C2C] z-0"></div>
+    <div className="slt-login-root">
+      {/* Animated BG blobs */}
+      <div className="slt-blob slt-blob-1" />
+      <div className="slt-blob slt-blob-2" />
+      <div className="slt-blob slt-blob-3" />
 
-      {/* Abstract Shapes for Premium Feel */}
-      <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] bg-primary/10 rounded-full blur-[120px] animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-sky-500/10 rounded-full blur-[120px] animate-pulse delay-1000"></div>
+      {/* Main 2-column grid */}
+      <div className="slt-card">
 
-      {/* Main Card Container */}
-      <div className="relative z-10 w-full max-w-6xl bg-card/40 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden border border-white/5 flex flex-col md:flex-row min-h-[600px] transition-all duration-300 hover:shadow-primary/5">
+        {/* ── LEFT PANEL ── */}
+        <div className="slt-left-panel">
+          {/* Noise overlay */}
+          <div className="slt-noise" />
 
-        {/* Left Side - Brand & Inspiration */}
-        <div className="hidden md:flex w-full md:w-1/2 bg-gradient-to-br from-primary/20 via-primary-dark/10 to-transparent relative overflow-hidden p-12 flex-col justify-between text-white border-r border-white/5">
-          <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-5"></div>
-
-          {/* Top Branding */}
-          <div className="relative z-10 flex items-center gap-3">
-            <div className="bg-white/5 p-1.5 rounded-xl backdrop-blur-md border border-white/10">
-              <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain filter drop-shadow-[0_0_8px_rgba(0,173,242,0.4)]" />
+          {/* Branding */}
+          <div className="slt-brand">
+            <div className="slt-logo-wrap">
+              <Image src="/logo.png" alt="SLTS Nexus" width={36} height={36} className="slt-logo-img" />
             </div>
-            <span className="text-xl font-bold tracking-wider opacity-95 text-white">SLTS Nexus</span>
+            <span className="slt-brand-name">SLTS Nexus</span>
           </div>
 
-          {/* Center Content */}
-          <div className="relative z-10 space-y-6">
-            <h2 className="text-4xl lg:text-5xl font-bold leading-tight">
-              Manage Your <br />
-              <span className="text-primary">Workflow</span> <br />
-              Optimization
-            </h2>
-            <p className="text-slate-300 max-w-md text-lg leading-relaxed opacity-90">
-              Streamline your OSP management workflows with our next-generation Nexus enterprise solution.
+          {/* Hero text */}
+          <div className="slt-hero">
+            <h1 className="slt-hero-title">
+              Enterprise<br />
+              <span className="slt-hero-accent">Resource</span><br />
+              Management
+            </h1>
+            <p className="slt-hero-sub">
+              Streamline OSP workflows with SLT&apos;s next-generation Nexus enterprise platform.
             </p>
           </div>
 
-          {/* Bottom Quote Carousel */}
-          <div className="relative z-10 mt-12">
-            <div className="h-24 flex items-end">
-              <div key={quoteIndex} className="animate-fadeIn transition-all duration-500">
-                <p className="text-lg italic font-medium text-slate-200">&ldquo;{premiumQuotes[quoteIndex].content}&rdquo;</p>
-                <p className="text-sm text-primary mt-2 font-semibold">&mdash; {premiumQuotes[quoteIndex].author}</p>
+          {/* Feature badges */}
+          <div className="slt-badges">
+            {["Real-time Inventory", "Audit Trails", "Role-based Access"].map((f) => (
+              <div key={f} className="slt-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                {f}
               </div>
+            ))}
+          </div>
+
+          {/* Quote carousel */}
+          <div className="slt-quote-area">
+            <div key={quoteIndex} className="slt-quote-fade">
+              <p className="slt-quote-text">&ldquo;{premiumQuotes[quoteIndex].content}&rdquo;</p>
+              <p className="slt-quote-author">&mdash; {premiumQuotes[quoteIndex].author}</p>
             </div>
-            {/* Indicators */}
-            <div className="flex gap-2 mt-4">
+            <div className="slt-quote-dots">
               {premiumQuotes.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setQuoteIndex(i)}
-                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${i === quoteIndex ? 'w-8 bg-primary' : 'w-2 bg-white/15 hover:bg-white/30'}`}
+                  className={`slt-dot${i === quoteIndex ? " slt-dot-active" : ""}`}
+                  aria-label={`Quote ${i + 1}`}
                 />
               ))}
             </div>
           </div>
-
-          {/* Decorative Circles */}
-          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/2 -left-24 w-48 h-48 bg-sky-500/10 rounded-full blur-2xl"></div>
         </div>
 
-        {/* Right Side - Login Form */}
-        <div className="w-full md:w-1/2 p-8 sm:p-12 lg:p-16 flex flex-col justify-center bg-card/20 backdrop-blur-md">
-          <div className="max-w-md w-full mx-auto space-y-8">
-
-            {/* Mobile Header (Only visible on Mobile) */}
-            <div className="md:hidden text-center mb-8">
-              <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-2xl mb-4">
-                <Image src="/logo.png" alt="Logo" width={48} height={48} priority className="object-contain" />
-              </div>
-              <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-              <p className="text-slate-400 mt-1">Sign in to continue</p>
+        {/* ── RIGHT PANEL (Login form) ── */}
+        <div className="slt-right-panel">
+          {/* Mobile-only top branding */}
+          <div className="slt-mobile-brand">
+            <div className="slt-mobile-logo-wrap">
+              <Image src="/logo.png" alt="Logo" width={44} height={44} priority className="slt-logo-img" />
             </div>
+            <h1 className="slt-mobile-title">SLTS Nexus</h1>
+            <p className="slt-mobile-sub">Sri Lanka Telecom Enterprise System</p>
+          </div>
 
-            <div className="hidden md:block">
-              <h2 className="text-3xl font-bold text-white tracking-tight">Sign In</h2>
-              <p className="text-slate-400 mt-2">Welcome back! Please enter your details.</p>
+          {/* Desktop heading */}
+          <div className="slt-desktop-heading">
+            <h2 className="slt-form-title">Welcome back</h2>
+            <p className="slt-form-sub">Sign in to your SLTS account to continue</p>
+          </div>
+
+          {/* Error alert */}
+          {error && (
+            <div className="slt-error">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>{error}</span>
             </div>
+          )}
 
-            {error && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 animate-shake">
-                <svg className="w-5 h-5 text-red-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm text-red-400 font-medium">{error}</p>
-              </div>
-            )}
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-slate-300 font-semibold">Username</FormLabel>
-                      <FormControl>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <svg className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <Input
-                            placeholder="Enter your username"
-                            className="bg-white/5 border-white/10 text-white placeholder-slate-500 pl-11 py-6 rounded-xl focus-visible:ring-primary/20 focus-visible:border-primary"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-slate-300 font-semibold">Password</FormLabel>
-                        <a href="#" className="text-xs font-semibold text-primary hover:text-primary-dark transition-colors">Forgot password?</a>
+          {/* Form */}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="slt-form">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="slt-label">Username</FormLabel>
+                    <FormControl>
+                      <div className="slt-input-wrap">
+                        <svg className="slt-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                        </svg>
+                        <Input
+                          id="login-username"
+                          placeholder="Enter your username"
+                          className="slt-input"
+                          {...field}
+                        />
                       </div>
-                      <FormControl>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <svg className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                          </div>
-                          <Input
-                            type="password"
-                            placeholder="••••••••"
-                            className="bg-white/5 border-white/10 text-white placeholder-slate-500 pl-11 py-6 rounded-xl focus-visible:ring-primary/20 focus-visible:border-primary"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-6 bg-gradient-to-r from-primary to-primary-dark hover:from-primary hover:to-primary-dark text-white font-bold rounded-xl shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] text-base cursor-pointer"
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="slt-label-row">
+                      <FormLabel className="slt-label">Password</FormLabel>
+                      <Link href="/forgot-password" className="slt-forgot">Forgot password?</Link>
+                    </div>
+                    <FormControl>
+                      <div className="slt-input-wrap">
+                        <svg className="slt-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        <Input
+                          id="login-password"
+                          type="password"
+                          placeholder="••••••••"
+                          className="slt-input"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                id="login-submit-btn"
+                className="slt-submit-btn"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="slt-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    Signing in…
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
+              </Button>
+            </form>
+          </Form>
+
+          {/* Quick Test Login */}
+          <div className="slt-test-section">
+            <div className="slt-test-header">
+              <span className="slt-test-badge">🧪 Quick Test Login</span>
+              <span className="slt-test-note">Development &amp; Testing Phase Only</span>
+            </div>
+            <div className="slt-test-grid">
+              {[
+                { username: 'admin',        role: 'Super Admin',  cls: 'slt-role-violet'  },
+                { username: 'testadmin',    role: 'Admin',        cls: 'slt-role-blue'    },
+                { username: 'ospmanager',   role: 'OSP Manager',  cls: 'slt-role-emerald' },
+                { username: 'areamanager',  role: 'Area Manager', cls: 'slt-role-orange'  },
+                { username: 'storesmanager',role: 'Stores Mgr',   cls: 'slt-role-cyan'    },
+                { username: 'coordinator',  role: 'Coordinator',  cls: 'slt-role-pink'    },
+                { username: 'qcofficer',    role: 'QC Officer',   cls: 'slt-role-indigo'  },
+              ].map((u) => (
+                <button
+                  key={u.username}
+                  type="button"
+                  className={`slt-role-btn ${u.cls}`}
+                  onClick={() => {
+                    form.setValue('username', u.username);
+                    form.setValue('password', 'Admin@123');
+                    setTimeout(() => form.handleSubmit(onSubmit)(), 200);
+                  }}
                 >
-                  {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-              </form>
-            </Form>
-
-            {/* Forgot Password Link */}
-            <div className="mt-4 text-center">
-              <Link href="/forgot-password" className="text-sm text-primary hover:underline transition-colors">
-                Forgot Password?
-              </Link>
+                  {u.role}
+                </button>
+              ))}
             </div>
+            <p className="slt-test-pw">Password: Admin@123 &bull; Click to auto-login</p>
+          </div>
 
-            {/* 🧪 TEST USERS - Enabled for Development/Testing phase */}
-            <div className="mt-6 pt-6 border-t border-white/5">
-              <div className="text-center mb-3">
-                <p className="text-xs font-semibold text-amber-500 uppercase tracking-wide">
-                  🧪 Quick Test Login
-                </p>
-                <p className="text-[10px] text-slate-500 mt-0.5">Development & Testing Phase Only</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { username: 'admin', role: 'Super Admin', color: 'from-violet-600/30 to-purple-700/30 border border-violet-500/20' },
-                  { username: 'testadmin', role: 'Admin', color: 'from-blue-600/30 to-blue-700/30 border border-blue-500/20' },
-                  { username: 'ospmanager', role: 'OSP Manager', color: 'from-emerald-600/30 to-green-700/30 border border-emerald-500/20' },
-                  { username: 'areamanager', role: 'Area Manager', color: 'from-orange-600/30 to-amber-700/30 border border-orange-500/20' },
-                  { username: 'storesmanager', role: 'Stores Mgr', color: 'from-cyan-600/30 to-teal-700/30 border border-cyan-500/20' },
-                  { username: 'coordinator', role: 'Coordinator', color: 'from-pink-600/30 to-rose-700/30 border border-pink-500/20' },
-                  { username: 'qcofficer', role: 'QC Officer', color: 'from-indigo-600/30 to-blue-700/30 border border-indigo-500/20' },
-                ].map((user) => (
-                  <button
-                    key={user.username}
-                    type="button"
-                    onClick={async () => {
-                      form.setValue('username', user.username);
-                      form.setValue('password', 'Admin@123');
-                      // Auto-submit after 200ms
-                      setTimeout(() => {
-                        form.handleSubmit(onSubmit)();
-                      }, 200);
-                    }}
-                    className={`px-3 py-2 rounded-lg bg-gradient-to-r ${user.color} text-slate-200 text-xs font-medium hover:shadow-lg transition-all duration-200 hover:scale-102 active:scale-98 cursor-pointer`}
-                  >
-                    {user.role}
-                  </button>
-                ))}
-              </div>
-
-              <p className="text-[9px] text-slate-500 text-center mt-2 italic">
-                Password: Admin@123 • Click to auto-login
-              </p>
+          {/* Footer status */}
+          <div className="slt-footer">
+            <div className="slt-db-status">
+              <span className={`slt-db-dot ${dbStatus === 'connected' ? 'slt-db-ok' : dbStatus === 'disconnected' ? 'slt-db-err' : 'slt-db-wait'}`} />
+              <span className={`slt-db-label ${dbStatus === 'connected' ? 'slt-db-label-ok' : dbStatus === 'disconnected' ? 'slt-db-label-err' : 'slt-db-label-wait'}`}>
+                {dbStatus === 'connected' ? 'Database Connected' : dbStatus === 'disconnected' ? 'Database Offline' : 'Checking…'}
+              </span>
             </div>
-
-            <div className="pt-4 text-center space-y-3">
-
-              {/* Database Status Indicator */}
-              <div className="flex items-center justify-center gap-2 text-xs">
-                <div className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500 animate-pulse' :
-                  dbStatus === 'disconnected' ? 'bg-red-500 animate-pulse' :
-                    'bg-yellow-500 animate-pulse'
-                  }`} />
-                <span className={`font-medium ${dbStatus === 'connected' ? 'text-green-400' :
-                  dbStatus === 'disconnected' ? 'text-red-400' :
-                    'text-yellow-400'
-                  }`}>
-                  {dbStatus === 'connected' ? 'Database Connected' :
-                    dbStatus === 'disconnected' ? 'Database Offline' :
-                      'Checking Database...'}
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-400">
-                Protected by Enterprise Security. <br />
-                <span className="opacity-70">Unauthorized access is prohibited.</span>
-              </p>
-            </div>
-
+            <p className="slt-footer-note">Protected by Enterprise Security. Unauthorized access is prohibited.</p>
           </div>
         </div>
       </div>
-      {/* Background Shapes */}
+
       <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
+        /* ── SLT Brand Palette ──
+           Primary Blue   : #0072BB  (SLT corporate blue)
+           Dark Blue      : #004A80  (depth / hover)
+           Accent Teal    : #00AEEF  (sky-blue highlight)
+           Background     : #08111F  (very dark navy)
+        */
+
+        .slt-login-root {
+          min-height: 100dvh;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+          background: #08111F;
+          position: relative;
+          overflow: hidden;
+          font-family: 'Inter', 'Segoe UI', sans-serif;
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out forwards;
+
+        /* ── Animated background blobs ── */
+        .slt-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+          pointer-events: none;
+          z-index: 0;
+          animation: blobPulse 8s ease-in-out infinite;
         }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-4px); }
-          75% { transform: translateX(4px); }
+        .slt-blob-1 {
+          width: 55vw; height: 55vw;
+          top: -20%; left: -15%;
+          background: radial-gradient(circle, rgba(0,114,187,0.22) 0%, transparent 70%);
+          animation-delay: 0s;
         }
-        .animate-shake {
-          animation: shake 0.3s ease-in-out;
+        .slt-blob-2 {
+          width: 45vw; height: 45vw;
+          bottom: -20%; right: -10%;
+          background: radial-gradient(circle, rgba(0,174,239,0.15) 0%, transparent 70%);
+          animation-delay: 3s;
         }
+        .slt-blob-3 {
+          width: 30vw; height: 30vw;
+          top: 40%; left: 50%;
+          background: radial-gradient(circle, rgba(0,74,128,0.12) 0%, transparent 70%);
+          animation-delay: 5s;
+        }
+        @keyframes blobPulse {
+          0%, 100% { transform: scale(1) translate(0, 0); }
+          50%       { transform: scale(1.08) translate(2%, 2%); }
+        }
+
+        /* ── Main card ── */
+        .slt-card {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          max-width: 1100px;
+          display: grid;
+          grid-template-columns: 1fr;
+          background: rgba(13, 22, 38, 0.85);
+          backdrop-filter: blur(24px);
+          border-radius: 20px;
+          border: 1px solid rgba(0,114,187,0.18);
+          box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+          overflow: hidden;
+        }
+        @media (min-width: 900px) {
+          .slt-card {
+            grid-template-columns: 1fr 1fr;
+            min-height: 620px;
+          }
+        }
+
+        /* ── LEFT PANEL ── */
+        .slt-left-panel {
+          display: none;
+          position: relative;
+          overflow: hidden;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 2.5rem;
+          background: linear-gradient(145deg, #004A80 0%, #0072BB 45%, #00AEEF 100%);
+        }
+        @media (min-width: 900px) {
+          .slt-left-panel { display: flex; }
+        }
+
+        .slt-noise {
+          position: absolute;
+          inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+          background-size: 200px;
+          pointer-events: none;
+        }
+
+        /* Brand */
+        .slt-brand {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+        }
+        .slt-logo-wrap {
+          background: rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.2);
+          border-radius: 12px;
+          padding: 0.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .slt-logo-img { object-fit: contain; filter: drop-shadow(0 0 8px rgba(255,255,255,0.3)); }
+        .slt-brand-name {
+          font-size: 1.125rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          color: #fff;
+        }
+
+        /* Hero */
+        .slt-hero { position: relative; z-index: 1; }
+        .slt-hero-title {
+          font-size: clamp(2rem, 3.5vw, 2.75rem);
+          font-weight: 800;
+          line-height: 1.15;
+          color: #fff;
+          margin: 0 0 1rem;
+        }
+        .slt-hero-accent {
+          color: rgba(255,255,255,0.75);
+          text-decoration: underline;
+          text-decoration-color: rgba(255,255,255,0.3);
+          text-underline-offset: 5px;
+        }
+        .slt-hero-sub {
+          color: rgba(255,255,255,0.75);
+          font-size: 0.9rem;
+          line-height: 1.6;
+          max-width: 28ch;
+        }
+
+        /* Feature badges */
+        .slt-badges { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+        .slt-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 999px;
+          padding: 0.35rem 0.85rem;
+          color: rgba(255,255,255,0.9);
+          font-size: 0.78rem;
+          font-weight: 500;
+          width: fit-content;
+        }
+
+        /* Quote carousel */
+        .slt-quote-area { position: relative; z-index: 1; }
+        .slt-quote-fade { animation: sltFadeUp 0.5s ease-out; }
+        @keyframes sltFadeUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .slt-quote-text {
+          font-size: 0.9rem;
+          font-style: italic;
+          color: rgba(255,255,255,0.85);
+          line-height: 1.6;
+          margin: 0 0 0.35rem;
+        }
+        .slt-quote-author {
+          font-size: 0.75rem;
+          color: rgba(255,255,255,0.55);
+          font-weight: 600;
+        }
+        .slt-quote-dots { display: flex; gap: 6px; margin-top: 0.75rem; }
+        .slt-dot {
+          height: 4px;
+          width: 8px;
+          border-radius: 9999px;
+          background: rgba(255,255,255,0.25);
+          border: none;
+          cursor: pointer;
+          transition: all 0.3s;
+          padding: 0;
+        }
+        .slt-dot-active { width: 24px; background: rgba(255,255,255,0.85); }
+
+        /* ── RIGHT PANEL ── */
+        .slt-right-panel {
+          padding: 2rem 1.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          justify-content: center;
+        }
+        @media (min-width: 480px) { .slt-right-panel { padding: 2.5rem 2rem; } }
+        @media (min-width: 900px) { .slt-right-panel { padding: 3rem 2.5rem; } }
+
+        /* Mobile brand (hidden on desktop) */
+        .slt-mobile-brand {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          text-align: center;
+        }
+        @media (min-width: 900px) { .slt-mobile-brand { display: none; } }
+        .slt-mobile-logo-wrap {
+          background: linear-gradient(135deg, #004A80, #0072BB);
+          border-radius: 16px;
+          padding: 0.75rem;
+          display: inline-flex;
+          box-shadow: 0 8px 24px rgba(0,114,187,0.35);
+        }
+        .slt-mobile-title {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: #fff;
+          letter-spacing: 0.04em;
+          margin: 0;
+        }
+        .slt-mobile-sub {
+          font-size: 0.75rem;
+          color: rgba(255,255,255,0.45);
+          margin: 0;
+        }
+
+        /* Desktop heading (hidden on mobile) */
+        .slt-desktop-heading { display: none; }
+        @media (min-width: 900px) { .slt-desktop-heading { display: block; } }
+        .slt-form-title {
+          font-size: 1.75rem;
+          font-weight: 800;
+          color: #fff;
+          margin: 0 0 0.375rem;
+        }
+        .slt-form-sub { font-size: 0.85rem; color: rgba(255,255,255,0.45); margin: 0; }
+
+        /* Error */
+        .slt-error {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          border-radius: 10px;
+          background: rgba(239,68,68,0.1);
+          border: 1px solid rgba(239,68,68,0.25);
+          color: #f87171;
+          font-size: 0.82rem;
+          animation: sltShake 0.3s ease-in-out;
+        }
+        @keyframes sltShake {
+          0%,100% { transform: translateX(0); }
+          25%      { transform: translateX(-4px); }
+          75%      { transform: translateX(4px); }
+        }
+
+        /* Form */
+        .slt-form { display: flex; flex-direction: column; gap: 1rem; }
+        .slt-label {
+          font-size: 0.8rem !important;
+          font-weight: 600 !important;
+          color: rgba(255,255,255,0.7) !important;
+          letter-spacing: 0.03em;
+        }
+        .slt-label-row { display: flex; align-items: center; justify-content: space-between; }
+        .slt-forgot { font-size: 0.75rem; color: #00AEEF; font-weight: 500; text-decoration: none; transition: color 0.2s; }
+        .slt-forgot:hover { color: #fff; }
+
+        .slt-input-wrap { position: relative; }
+        .slt-input-icon {
+          position: absolute;
+          left: 0.875rem;
+          top: 50%;
+          transform: translateY(-50%);
+          color: rgba(255,255,255,0.3);
+          pointer-events: none;
+          transition: color 0.2s;
+          z-index: 1;
+        }
+        .slt-input-wrap:focus-within .slt-input-icon { color: #0072BB; }
+
+        /* Override shadcn Input inside slt-input-wrap */
+        .slt-input {
+          background: rgba(255,255,255,0.04) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 10px !important;
+          color: #fff !important;
+          font-size: 0.875rem !important;
+          height: 2.85rem !important;
+          padding-left: 2.75rem !important;
+          transition: border-color 0.2s, box-shadow 0.2s !important;
+        }
+        .slt-input::placeholder { color: rgba(255,255,255,0.25) !important; }
+        .slt-input:focus {
+          border-color: #0072BB !important;
+          box-shadow: 0 0 0 3px rgba(0,114,187,0.2) !important;
+          outline: none !important;
+        }
+
+        /* Submit button */
+        .slt-submit-btn {
+          width: 100% !important;
+          height: 2.85rem !important;
+          border-radius: 10px !important;
+          font-size: 0.9rem !important;
+          font-weight: 700 !important;
+          letter-spacing: 0.02em;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 0.5rem !important;
+          background: linear-gradient(135deg, #0072BB 0%, #00AEEF 100%) !important;
+          color: #fff !important;
+          border: none !important;
+          box-shadow: 0 6px 20px rgba(0,114,187,0.35) !important;
+          transition: transform 0.15s, box-shadow 0.15s !important;
+          cursor: pointer !important;
+        }
+        .slt-submit-btn:hover:not(:disabled) {
+          transform: translateY(-1px) !important;
+          box-shadow: 0 10px 28px rgba(0,114,187,0.45) !important;
+        }
+        .slt-submit-btn:active:not(:disabled) { transform: translateY(0) !important; }
+        .slt-submit-btn:disabled { opacity: 0.6 !important; cursor: not-allowed !important; }
+        .slt-spin { animation: sltSpin 1s linear infinite; }
+        @keyframes sltSpin { to { transform: rotate(360deg); } }
+
+        /* Test login */
+        .slt-test-section {
+          border-top: 1px solid rgba(255,255,255,0.06);
+          padding-top: 1rem;
+        }
+        .slt-test-header {
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+          margin-bottom: 0.625rem;
+          flex-wrap: wrap;
+        }
+        .slt-test-badge {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #f59e0b;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        .slt-test-note { font-size: 0.68rem; color: rgba(255,255,255,0.3); }
+        .slt-test-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.4rem;
+        }
+        @media (min-width: 480px) {
+          .slt-test-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (min-width: 900px) {
+          .slt-test-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (min-width: 1024px) {
+          .slt-test-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        .slt-role-btn {
+          padding: 0.45rem 0.6rem;
+          border-radius: 8px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.15s, box-shadow 0.15s;
+          border: 1px solid;
+          color: rgba(255,255,255,0.85);
+          text-align: center;
+        }
+        .slt-role-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .slt-role-btn:active { transform: translateY(0); }
+        .slt-role-violet  { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.3); }
+        .slt-role-blue    { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.3); }
+        .slt-role-emerald { background: rgba(16,185,129,0.18); border-color: rgba(16,185,129,0.3); }
+        .slt-role-orange  { background: rgba(249,115,22,0.18); border-color: rgba(249,115,22,0.3); }
+        .slt-role-cyan    { background: rgba(6,182,212,0.18);  border-color: rgba(6,182,212,0.3);  }
+        .slt-role-pink    { background: rgba(236,72,153,0.18); border-color: rgba(236,72,153,0.3); }
+        .slt-role-indigo  { background: rgba(99,102,241,0.18); border-color: rgba(99,102,241,0.3); }
+        .slt-test-pw { font-size: 0.68rem; color: rgba(255,255,255,0.25); text-align: center; margin-top: 0.5rem; }
+
+        /* Footer */
+        .slt-footer { text-align: center; display: flex; flex-direction: column; gap: 0.5rem; }
+        .slt-db-status { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+        .slt-db-dot {
+          width: 7px; height: 7px; border-radius: 50%;
+          animation: sltPulse 2s ease-in-out infinite;
+        }
+        .slt-db-ok  { background: #10b981; }
+        .slt-db-err { background: #ef4444; }
+        .slt-db-wait { background: #f59e0b; }
+        @keyframes sltPulse {
+          0%,100% { opacity: 1; }
+          50%      { opacity: 0.4; }
+        }
+        .slt-db-label    { font-size: 0.72rem; font-weight: 600; }
+        .slt-db-label-ok   { color: #34d399; }
+        .slt-db-label-err  { color: #f87171; }
+        .slt-db-label-wait { color: #fbbf24; }
+        .slt-footer-note { font-size: 0.68rem; color: rgba(255,255,255,0.2); line-height: 1.5; }
       `}</style>
     </div>
   );
