@@ -496,9 +496,8 @@ main [class*="SelectTrigger"] {
 
 .erp-page-wrapper {
   background-color: var(--erp-bg);
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
-  flex-direction: column;
 }
 
 .erp-toolbar {
