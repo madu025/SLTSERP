@@ -47,6 +47,7 @@ export interface StoreWithDetails extends InventoryStore {
 export interface GRNItemInput {
     itemId: string;
     quantity: string | number;
+    serials?: string[];
 }
 
 export interface CreateGRNData {
@@ -66,7 +67,7 @@ export interface StockIssueRequest {
     projectId?: string;
     contractorId?: string;
     teamId?: string;
-    items: { itemId: string; quantity: number | string }[];
+    items: { itemId: string; quantity: number | string; serials?: string[] }[];
 }
 
 export interface MrnActionData {

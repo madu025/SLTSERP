@@ -214,7 +214,7 @@ export class StockService {
         teamId?: string;
         recipientName: string;
         remarks?: string;
-        items: { itemId: string; quantity: string | number; remarks?: string }[];
+        items: { itemId: string; quantity: string | number; remarks?: string; serials?: string[] }[];
     }) {
         const { storeId, issuedById, issueType, projectId, contractorId, teamId, recipientName, remarks, items } = data;
 
@@ -249,6 +249,23 @@ export class StockService {
                     itemId: item.itemId,
                     quantity: -quantity
                 }, tx);
+
+                // Update serial status if serials are provided in the payload
+                if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
+                    for (const sn of item.serials) {
+                        const serialNum = sn.trim();
+                        if (!serialNum) continue;
+
+                        await tx.inventoryItemSerial.update({
+                            where: { serialNumber: serialNum },
+                            data: {
+                                status: 'ISSUED',
+                                storeId: null,
+                                contractorId: contractorId || null
+                            }
+                        });
+                    }
+                }
             }
 
             const issue = await InventoryRepository.createStockIssue({

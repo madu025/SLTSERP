@@ -488,6 +488,7 @@ model Contractor {
   teams                   ContractorTeam[]
   wastageReports          ContractorWastage[]
   invoices                Invoice[]
+  serials                 InventoryItemSerial[]
   projects                Project[]
   serviceOrders           ServiceOrder[]
   stockIssues             StockIssue[]                     @relation("ContractorIssues")
@@ -643,6 +644,7 @@ model InventoryStore {
   inRequests      StockRequest[]                   @relation("RequestTarget")
   teamAssignments TeamStoreAssignment[]
   assignedUsers   User[]                           @relation("UserAssignedStore")
+  serials         InventoryItemSerial[]
 
   @@index([type])
   @@index([managerId])
@@ -688,6 +690,7 @@ model InventoryItem {
   sodUsage              SODMaterialUsage[]             @relation("SODUsage")
   stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
   requestItems          StockRequestItem[]
+  serials               InventoryItemSerial[]
 
   @@index([code])
   @@index([type])
@@ -1457,3 +1460,25 @@ enum ContractorType {
   SOD
   OSP
 }
+
+model InventoryItemSerial {
+  id           String          @id @default(cuid())
+  itemId       String
+  serialNumber String          @unique
+  status       String          @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY
+  storeId      String?
+  contractorId String?
+  sodId        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  
+  item         InventoryItem   @relation(fields: [itemId], references: [id])
+  store        InventoryStore? @relation(fields: [storeId], references: [id])
+  contractor   Contractor?     @relation(fields: [contractorId], references: [id])
+
+  @@index([itemId])
+  @@index([storeId])
+  @@index([contractorId])
+  @@index([status])
+}
+

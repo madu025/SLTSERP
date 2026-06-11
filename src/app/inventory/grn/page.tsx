@@ -20,6 +20,8 @@ interface GRNItem {
     requestedQty: number;
     receivedQty: number;
     remarks: string;
+    serials?: string[];
+    hasSerial?: boolean;
 }
 
 interface InventoryRequest {
@@ -37,6 +39,7 @@ interface InventoryRequest {
             name: string;
             code: string;
             unit: string;
+            hasSerial?: boolean;
         };
         requestedQty: number;
         batch?: {
@@ -87,7 +90,7 @@ export default function GRNPage() {
             receivedById: string;
             requestId: string;
             sltReferenceId: string | null;
-            items: Array<{ itemId: string; quantity: number }>;
+            items: Array<{ itemId: string; quantity: number; serials?: string[] }>;
         }) => {
             return await createGRN(data);
         },
@@ -107,13 +110,18 @@ export default function GRNPage() {
         setSelectedRequest(request);
 
         // Initialize received items with requested quantities
-        const items: GRNItem[] = request.items.map((item) => ({
-            itemId: item.itemId,
-            itemName: item.item?.name || 'Unknown Item',
-            requestedQty: item.requestedQty,
-            receivedQty: item.requestedQty, // Default to requested qty
-            remarks: ''
-        }));
+        const items: GRNItem[] = request.items.map((item) => {
+            const reqQty = item.requestedQty || 0;
+            return {
+                itemId: item.itemId,
+                itemName: item.item?.name || 'Unknown Item',
+                requestedQty: reqQty,
+                receivedQty: reqQty, // Default to requested qty
+                remarks: '',
+                hasSerial: item.item?.hasSerial || false,
+                serials: Array(Math.ceil(reqQty)).fill('')
+            };
+        });
         setReceivedItems(items);
         setShowGRNDialog(true);
     };
@@ -146,7 +154,8 @@ export default function GRNPage() {
             sltReferenceId: selectedRequest.irNumber || null,
             items: receivedItems.map(item => ({
                 itemId: item.itemId,
-                quantity: parseFloat(item.receivedQty.toString())
+                quantity: parseFloat(item.receivedQty.toString()),
+                serials: item.hasSerial ? (item.serials || []).filter(s => s && s.trim() !== '') : undefined
             }))
         };
 
@@ -155,7 +164,21 @@ export default function GRNPage() {
 
     const updateReceivedQty = (index: number, value: string) => {
         const updated = [...receivedItems];
-        updated[index].receivedQty = parseFloat(value) || 0;
+        const val = parseFloat(value) || 0;
+        updated[index].receivedQty = val;
+        // Adjust the size of the serial number input slots dynamically if quantity changes
+        if (updated[index].hasSerial) {
+            const currentSize = updated[index].serials?.length || 0;
+            const newSize = Math.ceil(val);
+            if (newSize > currentSize) {
+                updated[index].serials = [
+                    ...(updated[index].serials || []),
+                    ...Array(newSize - currentSize).fill('')
+                ];
+            } else if (newSize < currentSize) {
+                updated[index].serials = (updated[index].serials || []).slice(0, newSize);
+            }
+        }
         setReceivedItems(updated);
     };
 
@@ -360,6 +383,26 @@ export default function GRNPage() {
                                                                 value={item.remarks}
                                                                 onChange={e => updateItemRemarks(idx, e.target.value)}
                                                             />
+                                                            {item.hasSerial && (
+                                                                <div className="mt-2 space-y-1 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Serial Numbers Required:</label>
+                                                                    {Array.from({ length: Math.ceil(item.receivedQty) }).map((_, sIdx) => (
+                                                                        <Input
+                                                                            key={sIdx}
+                                                                            className="h-7 text-[10px] font-mono bg-white"
+                                                                            placeholder={`Serial #${sIdx + 1}`}
+                                                                            value={item.serials?.[sIdx] || ''}
+                                                                            onChange={e => {
+                                                                                const updatedSerials = [...(item.serials || [])];
+                                                                                updatedSerials[sIdx] = e.target.value;
+                                                                                const updatedItems = [...receivedItems];
+                                                                                updatedItems[idx].serials = updatedSerials;
+                                                                                setReceivedItems(updatedItems);
+                                                                            }}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))}

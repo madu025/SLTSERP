@@ -133,6 +133,39 @@ export class GRNService {
                     itemId: item.itemId,
                     quantity: qty
                 });
+
+                // E. If the item is serialized, upsert serial records
+                if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
+                    for (const sn of item.serials) {
+                        const serialNum = sn.trim();
+                        if (!serialNum) continue;
+
+                        const existingSerial = await tx.inventoryItemSerial.findUnique({
+                            where: { serialNumber: serialNum }
+                        });
+
+                        if (existingSerial) {
+                            await tx.inventoryItemSerial.update({
+                                where: { id: existingSerial.id },
+                                data: {
+                                    status: 'IN_STORE',
+                                    storeId,
+                                    contractorId: null,
+                                    sodId: null
+                                }
+                            });
+                        } else {
+                            await tx.inventoryItemSerial.create({
+                                data: {
+                                    itemId: item.itemId,
+                                    serialNumber: serialNum,
+                                    status: 'IN_STORE',
+                                    storeId
+                                }
+                            });
+                        }
+                    }
+                }
             }
 
             // 4. Create Transaction Log

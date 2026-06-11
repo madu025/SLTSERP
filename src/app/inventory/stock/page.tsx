@@ -27,7 +27,7 @@ interface Store {
 interface StockItem {
     id: string;
     itemId: string;
-    item: { name: string; code: string; unit: string; category: string };
+    item: { name: string; code: string; unit: string; category: string; hasSerial?: boolean };
     quantity: number;
     minLevel?: number;
 }
@@ -69,6 +69,23 @@ export default function StockPage() {
             return res.json();
         },
         enabled: !!(selectedStoreId && selectedItemForBatches)
+    });
+
+    // Serial Details Modal
+    const [selectedItemForSerials, setSelectedItemForSerials] = useState<StockItem | null>(null);
+    const { data: itemSerials = [], isLoading: isLoadingSerials } = useQuery<Array<{
+        id: string;
+        serialNumber: string;
+        status: string;
+        createdAt: string;
+    }>>({
+        queryKey: ['item-serials', selectedStoreId, selectedItemForSerials?.itemId],
+        queryFn: async () => {
+            if (!selectedItemForSerials) return [];
+            const res = await fetch(`/api/inventory/serials?storeId=${selectedStoreId}&itemId=${selectedItemForSerials.itemId}`);
+            return res.json();
+        },
+        enabled: !!(selectedStoreId && selectedItemForSerials)
     });
 
 
@@ -181,7 +198,7 @@ export default function StockPage() {
                                             <th className="px-4 py-3">Item Name</th>
                                             <th className="px-4 py-3 text-center">Unit</th>
                                             <th className="px-4 py-3 text-right">Quantity</th>
-                                            <th className="px-4 py-3 text-center">Batches</th>
+                                            <th className="px-4 py-3 text-center">Tracking</th>
                                             <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
@@ -201,12 +218,22 @@ export default function StockPage() {
                                                         {row.quantity <= (row.minLevel || 0) && <AlertTriangle className="w-3 h-3 inline ml-1 text-red-500" />}
                                                     </td>
                                                     <td className="px-4 py-2 text-center">
-                                                        <Button
-                                                            variant="ghost" size="sm" className="h-7 text-[10px] gap-1 hover:bg-blue-50 text-blue-600"
-                                                            onClick={() => setSelectedItemForBatches(row)}
-                                                        >
-                                                            <Layers className="w-3 h-3" /> View
-                                                        </Button>
+                                                        <div className="flex gap-1 justify-center">
+                                                            <Button
+                                                                variant="ghost" size="sm" className="h-7 text-[10px] gap-1 hover:bg-blue-50 text-blue-600"
+                                                                onClick={() => setSelectedItemForBatches(row)}
+                                                            >
+                                                                <Layers className="w-3 h-3" /> Batches
+                                                            </Button>
+                                                            {row.item.hasSerial && (
+                                                                <Button
+                                                                    variant="ghost" size="sm" className="h-7 text-[10px] gap-1 hover:bg-purple-50 text-purple-600"
+                                                                    onClick={() => setSelectedItemForSerials(row)}
+                                                                >
+                                                                    <Layers className="w-3 h-3" /> Serials
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="px-4 py-2 text-right">
                                                         <Button
@@ -348,6 +375,68 @@ export default function StockPage() {
 
                         <DialogFooter className="px-6 py-4 border-t bg-slate-50">
                             <Button variant="outline" onClick={() => setSelectedItemForBatches(null)}>Close</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Serials View Dialog */}
+                <Dialog open={!!selectedItemForSerials} onOpenChange={(o) => { if (!o) setSelectedItemForSerials(null); }}>
+                    <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 overflow-hidden">
+                        <DialogHeader className="px-6 py-4 border-b">
+                            <DialogTitle className="flex items-center gap-2">
+                                <Layers className="w-5 h-5 text-purple-600" />
+                                Serial Numbers: {selectedItemForSerials?.item?.name}
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 no-scrollbar">
+                            <div className="flex justify-between items-end px-1">
+                                <div className="text-xs text-slate-500">
+                                    Product Code: <span className="font-mono font-bold text-slate-700">{selectedItemForSerials?.item?.code}</span>
+                                </div>
+                                <div className="text-sm font-bold text-slate-900 border-b-2 border-purple-500 pb-1">
+                                    In Stock: {selectedItemForSerials?.quantity} {selectedItemForSerials?.item?.unit}
+                                </div>
+                            </div>
+
+                            <div className="border rounded-lg overflow-hidden">
+                                <table className="w-full text-xs">
+                                    <thead className="bg-slate-50 border-b">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left">Serial Number</th>
+                                            <th className="px-4 py-2 text-center">Status</th>
+                                            <th className="px-4 py-2 text-right">Added Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {isLoadingSerials ? (
+                                            <tr><td colSpan={3} className="p-8 text-center text-slate-400">Loading serials...</td></tr>
+                                        ) : itemSerials.length === 0 ? (
+                                            <tr><td colSpan={3} className="p-8 text-center text-slate-400">No active serial numbers in this store.</td></tr>
+                                        ) : (
+                                            itemSerials.map((s) => (
+                                                <tr key={s.id} className="hover:bg-slate-50/50">
+                                                    <td className="px-4 py-2 font-mono font-bold text-slate-700">
+                                                        {s.serialNumber}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center">
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                            {s.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right text-slate-400 font-mono">
+                                                        {safeFormat(s.createdAt, 'yyyy-MM-dd')}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="px-6 py-4 border-t bg-slate-50">
+                            <Button variant="outline" onClick={() => setSelectedItemForSerials(null)}>Close</Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>

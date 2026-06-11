@@ -25,6 +25,9 @@ interface IssueItem {
     itemId: string;
     quantity: string;
     remarks: string;
+    serials?: string[];
+    hasSerial?: boolean;
+    availableSerials?: Array<{ id: string; serialNumber: string }>;
 }
 
 interface StockIssue {
@@ -69,9 +72,9 @@ export default function StockIssuePage() {
     const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
     // Fetch items for dropdown
-    const { data: items = [] } = useQuery<Array<{ id: string; name: string; code: string }>>({
+    const { data: items = [] } = useQuery<Array<{ id: string; name: string; code: string; hasSerial?: boolean }>>({
         queryKey: ["items"],
-        queryFn: async (): Promise<Array<{ id: string; name: string; code: string }>> => {
+        queryFn: async (): Promise<Array<{ id: string; name: string; code: string; hasSerial?: boolean }>> => {
             const res = await fetch("/api/inventory/items");
             return res.json();
         }
@@ -128,7 +131,7 @@ export default function StockIssuePage() {
             teamId: string | null;
             recipientName: string;
             remarks: string;
-            items: Array<{ itemId: string; quantity: number; remarks: string }>;
+            items: Array<{ itemId: string; quantity: number; remarks: string; serials?: string[] }>;
         }) => {
             return await createStockIssue(data);
         },
@@ -148,7 +151,7 @@ export default function StockIssuePage() {
     });
 
     const handleOpenIssueDialog = () => {
-        setIssueItems([{ itemId: '', quantity: '', remarks: '' }]);
+        setIssueItems([{ itemId: '', quantity: '', remarks: '', serials: [], hasSerial: false, availableSerials: [] }]);
         setShowIssueDialog(true);
     };
 
@@ -164,28 +167,81 @@ export default function StockIssuePage() {
     };
 
     const addIssueItem = () => {
-        setIssueItems([...issueItems, { itemId: '', quantity: '', remarks: '' }]);
+        setIssueItems([...issueItems, { itemId: '', quantity: '', remarks: '', serials: [], hasSerial: false, availableSerials: [] }]);
     };
 
     const removeIssueItem = (index: number) => {
         setIssueItems(issueItems.filter((_, i) => i !== index));
     };
 
-    const updateIssueItem = (index: number, field: keyof IssueItem, value: string) => {
+    const updateIssueItem = async (index: number, field: keyof IssueItem, value: string) => {
         const updated = [...issueItems];
-        updated[index] = { ...updated[index], [field]: value };
-        setIssueItems(updated);
+        if (field === 'itemId') {
+            const selectedItem = items.find(i => i.id === value);
+            const hasSerial = selectedItem?.hasSerial || false;
+            updated[index] = {
+                ...updated[index],
+                itemId: value,
+                hasSerial,
+                serials: [],
+                quantity: hasSerial ? '0' : updated[index].quantity,
+                availableSerials: []
+            };
+            setIssueItems(updated);
+
+            if (hasSerial && value && user?.storeId) {
+                try {
+                    const res = await fetch(`/api/inventory/serials?storeId=${user.storeId}&itemId=${value}`);
+                    if (res.ok) {
+                        const serialsData = await res.json();
+                        setIssueItems(prev => {
+                            const newItems = [...prev];
+                            if (newItems[index] && newItems[index].itemId === value) {
+                                newItems[index] = {
+                                    ...newItems[index],
+                                    availableSerials: serialsData
+                                };
+                            }
+                            return newItems;
+                        });
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch serials", err);
+                    toast.error("Failed to load serial numbers for the selected item");
+                }
+            }
+        } else {
+            updated[index] = { ...updated[index], [field]: value };
+            setIssueItems(updated);
+        }
     };
 
     const handleCreateIssue = () => {
-        if (issueItems.length === 0 || issueItems.some(i => !i.itemId || !i.quantity)) {
-            toast.error('Please add at least one item with quantity');
+        if (issueItems.length === 0 || issueItems.some(i => !i.itemId || !i.quantity || parseFloat(i.quantity) <= 0)) {
+            toast.error('Please add at least one item with valid quantity');
             return;
         }
 
         if (!recipientName) {
             toast.error('Please enter recipient name');
             return;
+        }
+
+        // Validate serials count
+        for (const item of issueItems) {
+            if (item.hasSerial) {
+                const selectedCount = item.serials?.length || 0;
+                if (selectedCount === 0) {
+                    const itemName = items.find(i => i.id === item.itemId)?.name || 'Serialized item';
+                    toast.error(`Please select at least one serial number for ${itemName}`);
+                    return;
+                }
+                if (selectedCount !== parseFloat(item.quantity)) {
+                    const itemName = items.find(i => i.id === item.itemId)?.name || 'Serialized item';
+                    toast.error(`Selected serial numbers count does not match the quantity for ${itemName}`);
+                    return;
+                }
+            }
         }
 
         const payload = {
@@ -200,7 +256,8 @@ export default function StockIssuePage() {
             items: issueItems.map(item => ({
                 itemId: item.itemId,
                 quantity: parseFloat(item.quantity),
-                remarks: item.remarks
+                remarks: item.remarks,
+                serials: item.hasSerial ? item.serials : undefined
             }))
         };
 
@@ -413,6 +470,44 @@ export default function StockIssuePage() {
                                                                 </option>
                                                             ))}
                                                         </select>
+                                                        {item.hasSerial && (
+                                                            <div className="mt-2 space-y-1 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Select Serials:</label>
+                                                                {item.availableSerials && item.availableSerials.length > 0 ? (
+                                                                    <div className="max-h-24 overflow-y-auto space-y-1 border border-slate-100 p-1 rounded bg-white">
+                                                                        {item.availableSerials.map((s) => {
+                                                                            const isChecked = item.serials?.includes(s.serialNumber) || false;
+                                                                            return (
+                                                                                <label key={s.id} className="flex items-center gap-2 text-[10px] font-mono cursor-pointer hover:bg-slate-50 p-0.5 rounded">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={isChecked}
+                                                                                        onChange={(e) => {
+                                                                                            const checked = e.target.checked;
+                                                                                            const updatedItems = [...issueItems];
+                                                                                            const currentSerials = updatedItems[idx].serials || [];
+                                                                                            let newSerials = [];
+                                                                                            if (checked) {
+                                                                                                newSerials = [...currentSerials, s.serialNumber];
+                                                                                            } else {
+                                                                                                newSerials = currentSerials.filter(sn => sn !== s.serialNumber);
+                                                                                            }
+                                                                                            updatedItems[idx].serials = newSerials;
+                                                                                            updatedItems[idx].quantity = newSerials.length.toString();
+                                                                                            setIssueItems(updatedItems);
+                                                                                        }}
+                                                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                                                    />
+                                                                                    {s.serialNumber}
+                                                                                </label>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-red-500 font-medium italic">No serials available in store</span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td className="px-3 py-2">
                                                         <Input
@@ -420,6 +515,8 @@ export default function StockIssuePage() {
                                                             className="h-8 text-center"
                                                             value={item.quantity}
                                                             onChange={e => updateIssueItem(idx, 'quantity', e.target.value)}
+                                                            disabled={item.hasSerial}
+                                                            placeholder={item.hasSerial ? "Auto" : ""}
                                                         />
                                                     </td>
                                                     <td className="px-3 py-2">
