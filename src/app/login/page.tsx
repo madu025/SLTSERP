@@ -128,17 +128,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Feature badges */}
-          <div className="slt-badges">
-            {["Real-time Inventory", "Audit Trails", "Role-based Access"].map((f) => (
-              <div key={f} className="slt-badge">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {f}
-              </div>
-            ))}
-          </div>
 
           {/* Quote carousel */}
           <div className="slt-quote-area">
@@ -456,21 +445,6 @@ export default function LoginPage() {
           max-width: 28ch;
         }
 
-        /* Feature badges */
-        .slt-badges { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 0.5rem; }
-        .slt-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          background: rgba(255,255,255,0.1);
-          border: 1px solid rgba(255,255,255,0.15);
-          border-radius: 999px;
-          padding: 0.35rem 0.85rem;
-          color: rgba(255,255,255,0.9);
-          font-size: 0.78rem;
-          font-weight: 500;
-          width: fit-content;
-        }
 
         /* Quote carousel */
         .slt-quote-area { position: relative; z-index: 1; }
