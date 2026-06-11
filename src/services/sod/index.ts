@@ -75,8 +75,15 @@ export class ServiceOrderService {
                 }, tx);
             }
 
-            // Material usage processing
-            if (data.materialUsage && Array.isArray(data.materialUsage)) {
+            // GAP 1 FIX: Rollback material usage INSIDE the transaction when status is RETURN.
+            // This ensures atomic consistency — if rollback fails, the status update is also rolled back.
+            const isTransitioningToReturn = data.sltsStatus === 'RETURN' && oldOrder.sltsStatus !== 'RETURN';
+            if (isTransitioningToReturn) {
+                await SODMaterialService.rollbackMaterialUsage(tx, id, userId || 'SYSTEM');
+            }
+
+            // Material usage processing (only on COMPLETED, not on RETURN)
+            if (data.materialUsage && Array.isArray(data.materialUsage) && !isTransitioningToReturn) {
                 const { InventoryService } = await import('../inventory');
                 const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
                 
@@ -94,7 +101,7 @@ export class ServiceOrderService {
 
             return updatedOrder;
         }, {
-            timeout: 15000 // Increased timeout for slow DB environments
+            timeout: 20000 // Increased timeout — RETURN path includes rollback operations
         });
 
         // 6. Audit Logging

@@ -92,6 +92,7 @@ model ServiceOrder {
   updatedAt         DateTime           @updatedAt
   restoreRequests   RestoreRequest[]
   materialUsage     SODMaterialUsage[]
+  materialReturns   ContractorMaterialReturn[] @relation("SODMaterialReturns")  // GAP 4: physical returns linked to this SOD
   statusHistory     ServiceOrderStatusHistory[]
   commentsHistory   ServiceOrderComment[]
   contractor        Contractor?        @relation(fields: [contractorId], references: [id])
@@ -1033,22 +1034,25 @@ model SODMaterialUsage {
 }
 
 model ContractorMaterialReturn {
-  id           String                         @id @default(cuid())
-  contractorId String
-  storeId      String
-  returnDate   DateTime                       @default(now())
-  month        String
-  reason       String?
-  acceptedBy   String?
-  acceptedAt   DateTime?
-  status       String                         @default("PENDING")
-  createdAt    DateTime                       @default(now())
-  contractor   Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
-  store        InventoryStore                 @relation("MaterialReturns", fields: [storeId], references: [id])
-  items        ContractorMaterialReturnItem[]
+  id             String                         @id @default(cuid())
+  contractorId   String
+  storeId        String
+  serviceOrderId String?                        // GAP 4 FIX: optional link to the SOD that triggered this return
+  returnDate     DateTime                       @default(now())
+  month          String
+  reason         String?
+  acceptedBy     String?
+  acceptedAt     DateTime?
+  status         String                         @default("PENDING")
+  createdAt      DateTime                       @default(now())
+  contractor     Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  store          InventoryStore                 @relation("MaterialReturns", fields: [storeId], references: [id])
+  serviceOrder   ServiceOrder?                  @relation("SODMaterialReturns", fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  items          ContractorMaterialReturnItem[]
 
   @@index([contractorId, storeId, month])
   @@index([status])
+  @@index([serviceOrderId])
 }
 
 model ContractorMaterialReturnItem {

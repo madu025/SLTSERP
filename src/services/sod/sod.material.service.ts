@@ -35,7 +35,7 @@ export class SODMaterialService {
             const qty = parseFloat(m.quantity || '0');
             if (qty <= 0) continue;
 
-            const isDecrementingUsage = ['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType);
+            const isDecrementingUsage = ['USED', 'WASTAGE', 'USED_F1', 'USED_G1', 'PORTAL_SYNC'].includes(m.usageType);
             
             // 2.1 Fetch Item Meta for validation
             const itemMeta = await InventoryRepository.findItemById(m.itemId, tx);
@@ -138,7 +138,7 @@ export class SODMaterialService {
         const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
 
         for (const m of usage) {
-            const isDecrementingUsage = ['USED', 'WASTAGE', 'USED_F1', 'USED_G1'].includes(m.usageType);
+            const isDecrementingUsage = ['USED', 'WASTAGE', 'USED_F1', 'USED_G1', 'PORTAL_SYNC'].includes(m.usageType);
             if (!isDecrementingUsage) continue;
 
             const qty = Number(m.quantity);

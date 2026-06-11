@@ -62,6 +62,7 @@ export interface InventoryItem {
 export interface OrderCompletionData {
     id?: string;
     date?: string;
+    completedDate?: string;  // ISO date string for completedDate field
     sltsStatus?: string;
     materialUsage?: Array<{
         itemId: string;

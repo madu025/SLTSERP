@@ -516,7 +516,15 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                                                  </td>
                                                                  <td className="px-1.5 py-2.5 border-b border-border/10">
                                                                      <div className="flex items-center gap-1.5">
-                                                                         <Select value={order.sltsStatus} onValueChange={(val) => updateStatusMutation.mutate({ id: order.id, sltsStatus: val })}>
+                                                                         <Select value={order.sltsStatus} onValueChange={(val) => {
+                                                                             updateStatusMutation.mutate({
+                                                                                 id: order.id,
+                                                                                 sltsStatus: val,
+                                                                                 ...((val === 'COMPLETED' || val === 'RETURN') && !order.completedDate
+                                                                                     ? { completedDate: new Date().toISOString() }
+                                                                                     : {})
+                                                                             } as OrderCompletionData & { id: string });
+                                                                         }}>
                                                                              <SelectTrigger className="h-5 text-[9px] w-[90px] font-black border-border/40 bg-card px-1 shadow-none transition-all hover:border-primary/40 focus:ring-1 focus:ring-primary/10"><SelectValue /></SelectTrigger>
                                                                              <SelectContent>
                                                                                  <SelectItem value="PENDING" className="text-[10px] font-black">PENDING</SelectItem>

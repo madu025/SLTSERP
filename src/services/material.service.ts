@@ -47,16 +47,24 @@ export class MaterialService {
         });
 
         // 2. Fetch Usage from SODs
-        // We need to link SODs to the contractor and storeId
+        // We need to link SODs to the contractor and storeId.
         // ServiceOrder has contractorId and opmcId. OPMC has a storeId.
+        // GAP 5 FIX: Filter by sltsStatus=COMPLETED so we only count finalized consumption.
+        // RETURN'd SODs have their materialUsage deleted on rollback, so they naturally
+        // won't appear here. This is correct — returned SODs don't consume materials.
+        const monthStart = new Date(`${month}-01`);
+        const monthEnd = new Date(monthStart);
+        monthEnd.setMonth(monthEnd.getMonth() + 1);
+
         const sodUsage = await prisma.sODMaterialUsage.findMany({
             where: {
                 serviceOrder: {
                     contractorId,
                     opmc: { storeId },
+                    sltsStatus: 'COMPLETED',
                     completedDate: {
-                        gte: new Date(`${month}-01`),
-                        lt: new Date(new Date(`${month}-01`).setMonth(new Date(`${month}-01`).getMonth() + 1))
+                        gte: monthStart,
+                        lt: monthEnd
                     }
                 }
             },
