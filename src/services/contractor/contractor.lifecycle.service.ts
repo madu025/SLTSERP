@@ -67,7 +67,7 @@ export class ContractorLifecycleService {
                             }))
                         } : undefined,
                         members: {
-                            create: team.members.map((m: any) => ({
+                            create: team.members.map((m: TeamMemberInput) => ({
                                 name: m.name,
                                 nic: m.nic || m.idCopyNumber || '',
                                 idCopyNumber: m.idCopyNumber || '',
@@ -189,7 +189,7 @@ export class ContractorLifecycleService {
     /**
      * Sync Teams and Members
      */
-    private static async syncTeams(contractorId: string, teams: TeamInput[], defaultOpmcId: string | null, tx: TransactionClient) {
+    public static async syncTeams(contractorId: string, teams: TeamInput[], defaultOpmcId: string | null, tx: TransactionClient) {
         const existingTeams = await prisma.contractorTeam.findMany({
             where: { contractorId },
             select: { id: true }
@@ -197,9 +197,12 @@ export class ContractorLifecycleService {
         const existingTeamIds = existingTeams.map(t => t.id);
         const incomingTeamIds = teams.filter(t => t.id).map(t => t.id);
 
-        const teamsToDelete = existingTeamIds.filter(tid => !incomingTeamIds.includes(tid));
-        if (teamsToDelete.length > 0) {
-            await ContractorRepository.deleteTeams({ id: { in: teamsToDelete } }, tx);
+        const teamsToDisable = existingTeamIds.filter(tid => !incomingTeamIds.includes(tid));
+        if (teamsToDisable.length > 0) {
+            await tx.contractorTeam.updateMany({
+                where: { id: { in: teamsToDisable } },
+                data: { status: 'INACTIVE' }
+            });
         }
 
         for (const team of teams) {
@@ -208,6 +211,7 @@ export class ContractorLifecycleService {
                     name: team.name,
                     opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (defaultOpmcId || null),
                     sltCode: team.sltCode,
+                    status: 'ACTIVE', // Re-enable team if it is sent in incoming list
                     storeAssignments: {
                         deleteMany: {},
                         create: team.storeIds?.map((storeId: string) => ({

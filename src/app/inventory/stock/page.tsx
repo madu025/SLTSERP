@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Search, AlertTriangle, Trash2, Layers, History } from "lucide-react";
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { safeFormat } from '@/lib/utils';
 import { recordWastage } from "@/actions/inventory-actions";
 
 interface User {
@@ -311,17 +311,17 @@ export default function StockPage() {
                                         ) : (
                                             itemBatches.map((b) => (
                                                 <tr key={b.id} className="hover:bg-slate-50/50">
-                                                    <td className="px-3 py-2 font-mono font-bold text-slate-700">
+                                                     <td className="px-3 py-2 font-mono font-bold text-slate-700">
                                                         {b.batch.batchNumber || 'N/A'}
                                                         <div className="text-[10px] font-normal text-slate-400">
-                                                            Created: {format(new Date(b.batch.createdAt), 'yyyy-MM-dd')}
+                                                            Created: {safeFormat(b.batch.createdAt, 'yyyy-MM-dd')}
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-2">
                                                         {b.batch.grn?.grnNumber ? (
                                                             <div className="flex flex-col">
                                                                 <span className="font-medium text-slate-700">{b.batch.grn.grnNumber}</span>
-                                                                <span className="text-[9px] text-slate-400">{format(new Date(b.batch.grn.createdAt), 'MMM dd, yyyy')}</span>
+                                                                <span className="text-[9px] text-slate-400">{safeFormat(b.batch.grn.createdAt, 'MMM dd, yyyy')}</span>
                                                             </div>
                                                         ) : 'Initial/Manual'}
                                                     </td>

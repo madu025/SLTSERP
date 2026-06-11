@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, ArrowLeft } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormat } from "@/lib/utils";
 import { useRouter } from 'next/navigation';
 
 interface Store {
@@ -26,12 +26,14 @@ interface Item {
 
 interface Transaction {
     id: string;
-    createdAt: string;
+    date: string;
+    createdAt?: string;
     type: string;
     items: Array<{ itemId: string; quantity: number; item: { name: string } }>;
     store: { name: string };
     user?: { name: string };
 }
+
 
 export default function CardexReportPage() {
     const router = useRouter();
@@ -179,7 +181,7 @@ export default function CardexReportPage() {
                                             transactions.map((tx) => (
                                                 <TableRow key={tx.id} className="hover:bg-slate-50">
                                                     <TableCell className="text-xs font-mono text-slate-500">
-                                                        {format(new Date(tx.createdAt), 'yyyy-MM-dd HH:mm')}
+                                                        {safeFormat(tx.date || tx.createdAt, 'yyyy-MM-dd HH:mm')}
                                                     </TableCell>
                                                     <TableCell className="text-xs font-bold">
                                                         <span className={`px-2 py-1 rounded-full text-[10px] 

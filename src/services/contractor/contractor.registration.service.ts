@@ -317,44 +317,9 @@ export class ContractorRegistrationService {
                 }
             });
 
-            await tx.teamMember.deleteMany({ where: { contractorId: contractor.id } });
-            await tx.contractorTeam.deleteMany({ where: { contractorId: contractor.id } });
-
-            if (teams && teams.length > 0) {
-                for (const team of teams) {
-                    await tx.contractorTeam.create({
-                        data: {
-                            name: team.name,
-                            contractorId: contractor.id,
-                            opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (updated.opmcId || null),
-                            storeAssignments: team.primaryStoreId ? {
-                                create: {
-                                    storeId: team.primaryStoreId,
-                                    isPrimary: true
-                                }
-                            } : undefined,
-                            members: {
-                                create: (team.members || []).map((m: TeamMemberInput) => ({
-                                    name: m.name,
-                                    nic: m.nic || '',
-                                    contactNumber: m.contactNumber || '',
-                                    address: m.address || '',
-                                    designation: m.designation || '',
-                                    photoUrl: m.photoUrl || '',
-                                    passportPhotoUrl: m.passportPhotoUrl || '',
-                                    nicUrl: m.nicUrl || '',
-                                    policeReportUrl: m.policeReportUrl || '',
-                                    gramaCertUrl: m.gramaCertUrl || '',
-                                    shoeSize: m.shoeSize || '',
-                                    tshirtSize: m.tshirtSize || '',
-                                    idCopyNumber: m.idCopyNumber || m.nic || '',
-                                    contractorId: contractor.id
-                                }))
-                            }
-                        }
-                    });
-                }
-            }
+            // Sync teams instead of deleting blindly (prevents database FK violations on renewal/re-registration)
+            const { ContractorLifecycleService } = await import('./contractor.lifecycle.service');
+            await ContractorLifecycleService.syncTeams(contractor.id, teams || [], updated.opmcId, tx);
 
             return updated;
         }, {

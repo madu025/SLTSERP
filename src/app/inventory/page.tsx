@@ -16,7 +16,7 @@ import {
     Store // For Store identifier
 } from "lucide-react";
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { safeFormat } from '@/lib/utils';
 
 interface User {
     id: string;
@@ -46,11 +46,13 @@ interface Item {
 interface Transaction {
     id: string;
     type: string;
-    createdAt: string;
-    user: { name: string };
+    date: string;
+    createdAt?: string;
+    user?: { name: string };
     store: { name: string };
     items: Array<{ id: string; quantity: number; item: { name: string } }>;
 }
+
 
 export default function InventoryDashboardPage() {
     const [user] = useState<User | null>(() => {
@@ -312,7 +314,7 @@ export default function InventoryDashboardPage() {
                                                                 <td className="px-2 py-3">
                                                                     <div className="font-semibold text-slate-700">{tx.type === 'GRN_IN' ? 'Goods Received' : tx.type === 'ISSUE_OUT' ? 'Stock Issued' : tx.type.replace('_', ' ')}</div>
                                                                     <div className="text-slate-400 text-[10px]">
-                                                                        {format(new Date(tx.createdAt), 'MMM dd, HH:mm')} by {tx.user?.name}
+                                                                        {safeFormat(tx.date || tx.createdAt, 'MMM dd, HH:mm')} by {tx.user?.name || 'System'}
                                                                     </div>
                                                                 </td>
                                                                 <td className="px-2 py-3 text-slate-600">
