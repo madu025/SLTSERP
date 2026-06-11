@@ -77,29 +77,29 @@ export default function BulkImportPage() {
     };
 
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-3xl mx-auto space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-xl mx-auto space-y-4">
 
-                        <div>
-                            <h1 className="text-2xl font-bold text-slate-900">Bulk Item Import</h1>
-                            <p className="text-slate-500">Upload Excel sheet to register multiple items at once.</p>
+                        <div className="space-y-0.5">
+                            <h1 className="text-xl font-black text-slate-900 tracking-tight">Bulk Item Import</h1>
+                            <p className="text-xs text-slate-500">Upload Excel sheet to register multiple items at once</p>
                         </div>
 
-                        <Card className="border-dashed border-2 border-slate-300">
-                            <CardHeader className="text-center">
-                                <div className="mx-auto bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                                    <FileSpreadsheet className="w-8 h-8 text-blue-600" />
+                        <Card className="border-dashed border-2 border-slate-200 bg-white rounded-xl shadow-sm overflow-hidden">
+                            <CardHeader className="text-center pb-2">
+                                <div className="mx-auto bg-blue-50/50 w-12 h-12 rounded-lg flex items-center justify-center mb-2 border border-blue-100">
+                                    <FileSpreadsheet className="w-6 h-6 text-blue-600" />
                                 </div>
-                                <CardTitle>Upload Excel File</CardTitle>
-                                <CardDescription>
-                                    Format: <strong>Code, Name, Unit, Type, Category, MinLevel</strong>
+                                <CardTitle className="text-sm font-bold text-slate-800">Upload Excel File</CardTitle>
+                                <CardDescription className="text-xs text-slate-500">
+                                    Expected columns: <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px] font-mono text-slate-800">Code, Name, Unit, Type, Category, MinLevel</code>
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="flex flex-col items-center pb-10">
+                            <CardContent className="flex flex-col items-center pb-6">
                                 <div className="relative">
                                     <input
                                         type="file"
@@ -108,40 +108,40 @@ export default function BulkImportPage() {
                                         disabled={isProcessing}
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                     />
-                                    <Button disabled={isProcessing} className="w-48">
+                                    <Button disabled={isProcessing} size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-md shadow-sm">
                                         {isProcessing ? 'Processing...' : (
                                             <>
-                                                <Upload className="w-4 h-4 mr-2" /> Select File
+                                                <Upload className="w-3.5 h-3.5 mr-1.5" /> Select File
                                             </>
                                         )}
                                     </Button>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-2">Supported file: .xlsx</p>
+                                <p className="text-[10px] text-slate-400 mt-2 font-medium">Supported formats: .xlsx</p>
                             </CardContent>
                         </Card>
 
                         {stats && (
-                            <Card className="bg-slate-50">
-                                <CardContent className="p-6">
-                                    <h3 className="font-bold text-slate-800 mb-4 flex items-center">
-                                        <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-600" /> Import Summary
+                            <Card className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                                <CardContent className="p-4 space-y-3">
+                                    <h3 className="font-bold text-slate-800 text-xs flex items-center">
+                                        <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> Import Summary
                                     </h3>
-                                    <div className="grid grid-cols-3 gap-4 text-center">
-                                        <div className="bg-white p-3 rounded border">
-                                            <div className="text-xs text-slate-500 uppercase">Total Rows</div>
-                                            <div className="text-xl font-bold text-slate-800">{stats.total}</div>
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                            <div className="text-[9px] text-slate-400 font-semibold uppercase">Total Rows</div>
+                                            <div className="text-sm font-bold text-slate-700">{stats.total}</div>
                                         </div>
-                                        <div className="bg-white p-3 rounded border border-emerald-200 bg-emerald-50">
-                                            <div className="text-xs text-emerald-600 uppercase">Success</div>
-                                            <div className="text-xl font-bold text-emerald-700">{stats.success}</div>
+                                        <div className="bg-emerald-50/40 p-2 rounded-lg border border-emerald-100">
+                                            <div className="text-[9px] text-emerald-600 font-semibold uppercase">Success</div>
+                                            <div className="text-sm font-bold text-emerald-700">{stats.success}</div>
                                         </div>
-                                        <div className="bg-white p-3 rounded border border-red-200 bg-red-50">
-                                            <div className="text-xs text-red-600 uppercase">Failed</div>
-                                            <div className="text-xl font-bold text-red-700">{stats.fail}</div>
+                                        <div className="bg-rose-50/40 p-2 rounded-lg border border-rose-100">
+                                            <div className="text-[9px] text-rose-600 font-semibold uppercase">Failed</div>
+                                            <div className="text-sm font-bold text-rose-700">{stats.fail}</div>
                                         </div>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-4 text-center">
-                                        Note: Duplicates (Item Codes) are automatically skipped.
+                                    <p className="text-[10px] text-slate-400 text-center font-medium">
+                                        Note: Duplicate Item Codes are automatically skipped.
                                     </p>
                                 </CardContent>
                             </Card>

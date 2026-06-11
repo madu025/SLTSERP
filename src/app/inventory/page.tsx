@@ -11,12 +11,14 @@ import {
     ArrowRightLeft,
     AlertTriangle,
     ChevronRight,
-    TrendingUp, // For stock movement
-    Clock, // For pending
-    Store // For Store identifier
+    TrendingUp,
+    Clock,
+    Store,
+    FileText
 } from "lucide-react";
 import Link from 'next/link';
 import { safeFormat } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 interface User {
     id: string;
@@ -24,7 +26,7 @@ interface User {
     role: string;
 }
 
-interface Store {
+interface StoreType {
     id: string;
     name: string;
     managerId?: string;
@@ -53,7 +55,6 @@ interface Transaction {
     items: Array<{ id: string; quantity: number; item: { name: string } }>;
 }
 
-
 export default function InventoryDashboardPage() {
     const [user] = useState<User | null>(() => {
         if (typeof window !== 'undefined') {
@@ -62,10 +63,9 @@ export default function InventoryDashboardPage() {
         }
         return null;
     });
-    const [myStore, setMyStore] = useState<Store | { id: 'unassigned'; name: string } | null>(null);
+    const [myStore, setMyStore] = useState<StoreType | { id: 'unassigned'; name: string } | null>(null);
 
-    // --- 1. DETERMINE SCOPE (Role & Store) ---
-    const { data: stores = [] } = useQuery<Store[]>({
+    const { data: stores = [] } = useQuery<StoreType[]>({
         queryKey: ['stores'],
         queryFn: async () => (await fetch('/api/inventory/stores')).json()
     });
@@ -88,11 +88,8 @@ export default function InventoryDashboardPage() {
     }, [user, stores]);
 
     const isGlobal = !myStore || myStore.id === 'unassigned';
-    const currentStoreId = myStore?.id; // If null, global.
+    const currentStoreId = myStore?.id;
 
-    // --- 2. FETCH DATA BASED ON SCOPE ---
-
-    // Stats: Stock Levels
     const { data: stockData = [] } = useQuery<Stock[]>({
         queryKey: ['stock-levels', currentStoreId],
         queryFn: async () => {
@@ -102,13 +99,11 @@ export default function InventoryDashboardPage() {
         enabled: !!user
     });
 
-    // Items (Global context needed for names etc)
     const { data: items = [] } = useQuery<Item[]>({
         queryKey: ['items'],
         queryFn: async () => (await fetch('/api/inventory/items')).json()
     });
 
-    // Recent Transactions
     const { data: recentTx = [] } = useQuery<Transaction[]>({
         queryKey: ['recent-tx', currentStoreId],
         queryFn: async () => {
@@ -121,7 +116,6 @@ export default function InventoryDashboardPage() {
         enabled: !!user
     });
 
-    // Pending Requests Count
     const { data: requests = [] } = useQuery<Array<{ status: string }>>({
         queryKey: ['requests-count', currentStoreId],
         queryFn: async () => {
@@ -132,9 +126,6 @@ export default function InventoryDashboardPage() {
         },
         enabled: !!user
     });
-
-
-    // --- 3. CALCULATE WIDGET DATA ---
 
     const filteredStock = React.useMemo(() => {
         if (!Array.isArray(stockData)) return [];
@@ -148,7 +139,6 @@ export default function InventoryDashboardPage() {
 
         items.forEach((item) => {
             if (item.minLevel > 0) {
-                // Calculate total qty for this item within the current scope
                 const relevantStock = filteredStock.filter((s) => s.itemId === item.id);
                 const totalQty = relevantStock.reduce((acc: number, curr) => acc + curr.quantity, 0);
 
@@ -167,121 +157,136 @@ export default function InventoryDashboardPage() {
 
     const totalStockCount = filteredStock.reduce((acc: number, curr) => acc + curr.quantity, 0);
 
-    // Filter recent TX to relevant ones if scope is global (API handles store filter)
     const displayTx = recentTx;
 
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-6xl mx-auto space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
 
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Inventory Overview</h1>
-                                <p className="text-slate-500">
+                        {/* Page Header */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Inventory Overview</h1>
+                                <p className="text-xs text-slate-500">
                                     {isGlobal ? 'Full Inventory Summary' : `Current Store: ${myStore?.name || 'Not Assigned'}`}
                                 </p>
                             </div>
                             {!isGlobal && myStore && (
-                                <div className="bg-white px-4 py-2 rounded-lg border shadow-sm flex items-center gap-2">
+                                <div className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5 flex-none">
                                     <Store className="w-4 h-4 text-blue-600" />
-                                    <span className="font-semibold text-sm text-slate-700">{myStore.name}</span>
+                                    <span className="font-bold text-xs text-slate-700">{myStore.name}</span>
                                 </div>
                             )}
                         </div>
 
                         {/* Top Stats Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <Card>
-                                <CardContent className="p-6 flex items-center justify-between">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
                                     <div>
-                                        <p className="text-xs font-medium text-slate-500 uppercase">Material Items</p>
-                                        <h3 className="text-2xl font-bold text-slate-900">{items.length}</h3>
-                                        {/* Shows global item types count, effectively */}
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Material Items</p>
+                                        <p className="text-base font-black text-slate-900">{items.length}</p>
                                     </div>
-                                    <div className="bg-blue-100 p-3 rounded-full"><Package className="w-6 h-6 text-blue-600" /></div>
+                                    <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                                        <Package className="w-4 h-4" />
+                                    </div>
                                 </CardContent>
                             </Card>
-                            <Card>
-                                <CardContent className="p-6 flex items-center justify-between">
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
                                     <div>
-                                        <p className="text-xs font-medium text-slate-500 uppercase">Total Stock on Hand</p>
-                                        <h3 className="text-2xl font-bold text-slate-900">{totalStockCount.toLocaleString()}</h3>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Total Stock on Hand</p>
+                                        <p className="text-base font-black text-slate-900">{totalStockCount.toLocaleString()}</p>
                                     </div>
-                                    <div className="bg-emerald-100 p-3 rounded-full"><TrendingUp className="w-6 h-6 text-emerald-600" /></div>
+                                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                        <TrendingUp className="w-4 h-4" />
+                                    </div>
                                 </CardContent>
                             </Card>
-                            <Card>
-                                <CardContent className="p-6 flex items-center justify-between">
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
                                     <div>
-                                        <p className="text-xs font-medium text-slate-500 uppercase">Awaiting Approval</p>
-                                        <h3 className="text-2xl font-bold text-purple-600">{pendingRequestsCount}</h3>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Awaiting Approval</p>
+                                        <p className="text-base font-black text-purple-600">{pendingRequestsCount}</p>
                                     </div>
-                                    <div className="bg-purple-100 p-3 rounded-full"><Clock className="w-6 h-6 text-purple-600" /></div>
+                                    <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                                        <Clock className="w-4 h-4" />
+                                    </div>
                                 </CardContent>
                             </Card>
-                            <Card>
-                                <CardContent className="p-6 flex items-center justify-between">
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
                                     <div>
-                                        <p className="text-xs font-medium text-slate-500 uppercase">Critical Stock Levels</p>
-                                        <h3 className={`text-2xl font-bold ${lowStockAlerts.length > 0 ? 'text-red-600' : 'text-slate-700'}`}>{lowStockAlerts.length}</h3>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Critical Stock Levels</p>
+                                        <p className={cn(
+                                            "text-base font-black",
+                                            lowStockAlerts.length > 0 ? 'text-red-600' : 'text-slate-900'
+                                        )}>{lowStockAlerts.length}</p>
                                     </div>
-                                    <div className={`${lowStockAlerts.length > 0 ? 'bg-red-100' : 'bg-slate-100'} p-3 rounded-full`}>
-                                        <AlertTriangle className={`w-6 h-6 ${lowStockAlerts.length > 0 ? 'text-red-600' : 'text-slate-400'}`} />
+                                    <div className={cn(
+                                        "h-8 w-8 rounded-lg flex items-center justify-center",
+                                        lowStockAlerts.length > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-400'
+                                    )}>
+                                        <AlertTriangle className="w-4 h-4" />
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
 
-                        {/* Two Columns */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Two Columns Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
                             {/* Left Column (Wide) - Low Stock & Transactions */}
-                            <div className="lg:col-span-2 space-y-6">
+                            <div className="lg:col-span-2 space-y-4">
 
-                                {/* ALERTS WIDGET */}
-                                <Card className={`shadow-sm ${lowStockAlerts.length > 0 ? 'border-red-200' : ''}`}>
-                                    <CardHeader className={`${lowStockAlerts.length > 0 ? 'bg-red-50/50' : ''} border-b pb-3`}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <AlertTriangle className={`w-5 h-5 ${lowStockAlerts.length > 0 ? 'text-red-500' : 'text-slate-400'}`} />
-                                                <CardTitle className="text-base text-slate-800">Reorder Alerts</CardTitle>
-                                            </div>
-                                            <Link href="/inventory/stock" className="text-xs text-blue-600 hover:underline flex items-center">
-                                                View Inventory <ChevronRight className="w-3 h-3 ml-1" />
-                                            </Link>
+                                {/* Reorder Alerts */}
+                                <Card className={cn(
+                                    "rounded-xl border bg-white shadow-sm overflow-hidden",
+                                    lowStockAlerts.length > 0 ? 'border-red-200' : 'border-slate-200'
+                                )}>
+                                    <CardHeader className={cn(
+                                        "py-2.5 px-4 border-b flex flex-row items-center justify-between space-y-0",
+                                        lowStockAlerts.length > 0 ? 'bg-red-50/20' : 'bg-slate-50/20'
+                                    )}>
+                                        <div className="flex items-center gap-1.5">
+                                            <AlertTriangle className={cn("w-4 h-4", lowStockAlerts.length > 0 ? 'text-red-500' : 'text-slate-400')} />
+                                            <CardTitle className="text-xs font-black text-slate-900 uppercase tracking-wide">Reorder Alerts</CardTitle>
                                         </div>
+                                        <Link href="/inventory/stock" className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center">
+                                            View Inventory <ChevronRight className="w-3 h-3 ml-0.5" />
+                                        </Link>
                                     </CardHeader>
                                     <CardContent className="p-0">
-                                        <div className="max-h-[250px] overflow-y-auto">
+                                        <div className="max-h-[200px] overflow-y-auto">
                                             {lowStockAlerts.length === 0 ? (
-                                                <div className="p-8 text-center text-slate-500 text-sm flex flex-col items-center">
-                                                    <CheckCircleIcon className="w-8 h-8 text-emerald-400 mb-2" />
+                                                <div className="p-8 text-center text-slate-500 text-xs flex flex-col items-center">
+                                                    <CheckCircleIcon className="w-6 h-6 text-emerald-500 mb-1.5" />
                                                     All stock levels are within safe limits.
                                                 </div>
                                             ) : (
-                                                <table className="w-full text-sm text-left">
-                                                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase sticky top-0">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
                                                         <tr>
-                                                            <th className="px-4 py-2 font-medium">Item Name</th>
-                                                            <th className="px-4 py-2 font-medium text-center">Min</th>
-                                                            <th className="px-4 py-2 font-medium text-right">Current</th>
-                                                            <th className="px-4 py-2 font-medium text-right">Action</th>
+                                                            <th className="px-3 py-1.5 text-[10px] font-black uppercase text-slate-400 tracking-wider">Item Name</th>
+                                                            <th className="px-3 py-1.5 text-[10px] font-black uppercase text-slate-400 tracking-wider text-center">Min</th>
+                                                            <th className="px-3 py-1.5 text-[10px] font-black uppercase text-slate-400 tracking-wider text-right">Current</th>
+                                                            <th className="px-3 py-1.5 text-[10px] font-black uppercase text-slate-400 tracking-wider text-right pr-4">Action</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y">
+                                                    <tbody className="divide-y divide-slate-100 bg-white">
                                                         {lowStockAlerts.map((item) => (
-                                                            <tr key={item.id} className="hover:bg-red-50/30">
-                                                                <td className="px-4 py-3 font-medium text-slate-700 max-w-[150px] truncate">
+                                                            <tr key={item.id} className="hover:bg-red-50/30 transition-colors">
+                                                                <td className="px-3 py-2 text-xs font-bold text-slate-700 max-w-[180px] truncate">
                                                                     {item.name}
                                                                 </td>
-                                                                <td className="px-4 py-3 text-center text-slate-500 text-xs">{item.minLevel}</td>
-                                                                <td className="px-4 py-3 text-right font-bold text-red-600">{item.currentQty}</td>
-                                                                <td className="px-4 py-3 text-right">
-                                                                    <Link href="/inventory/requests" className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100">
+                                                                <td className="px-3 py-2 text-center text-slate-500 text-xs">{item.minLevel}</td>
+                                                                <td className="px-3 py-2 text-right font-bold text-red-600 text-xs">{item.currentQty}</td>
+                                                                <td className="px-3 py-2 text-right pr-4">
+                                                                    <Link href="/inventory/requests" className="inline-flex items-center text-[9px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded border border-blue-100 hover:bg-blue-100 transition-all">
                                                                         Order
                                                                     </Link>
                                                                 </td>
@@ -294,35 +299,40 @@ export default function InventoryDashboardPage() {
                                     </CardContent>
                                 </Card>
 
-                                {/* RECENT ACTIVITY WIDGET */}
-                                <Card>
-                                    <CardHeader className="border-b pb-3">
-                                        <CardTitle className="text-base text-slate-800">Recent Movements</CardTitle>
+                                {/* Recent Movements */}
+                                <Card className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                                    <CardHeader className="py-2.5 px-4 border-b bg-slate-50/20">
+                                        <CardTitle className="text-xs font-black text-slate-900 uppercase tracking-wide">Recent Movements</CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-0">
-                                        <div className="max-h-[300px] overflow-y-auto">
+                                        <div className="max-h-[220px] overflow-y-auto">
                                             {displayTx.length === 0 ? (
-                                                <div className="p-8 text-center text-slate-500 text-sm">No recent transactions.</div>
+                                                <div className="p-8 text-center text-slate-500 text-xs">No recent transactions.</div>
                                             ) : (
-                                                <table className="w-full text-xs text-left">
-                                                    <tbody className="divide-y">
+                                                <table className="w-full text-left border-collapse">
+                                                    <tbody className="divide-y divide-slate-100">
                                                         {displayTx.map((tx) => (
-                                                            <tr key={tx.id} className="hover:bg-slate-50">
-                                                                <td className="px-4 py-3 w-10">
-                                                                    <div className={`w-2 h-2 rounded-full ${['GRN_IN'].includes(tx.type) ? 'bg-emerald-500' : 'bg-blue-400'}`}></div>
+                                                            <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
+                                                                <td className="px-3 py-2.5 w-6">
+                                                                    <div className={cn(
+                                                                        "w-1.5 h-1.5 rounded-full",
+                                                                        ['GRN_IN'].includes(tx.type) ? 'bg-emerald-500' : 'bg-blue-500'
+                                                                    )}></div>
                                                                 </td>
-                                                                <td className="px-2 py-3">
-                                                                    <div className="font-semibold text-slate-700">{tx.type === 'GRN_IN' ? 'Goods Received' : tx.type === 'ISSUE_OUT' ? 'Stock Issued' : tx.type.replace('_', ' ')}</div>
-                                                                    <div className="text-slate-400 text-[10px]">
+                                                                <td className="px-2 py-2.5">
+                                                                    <div className="font-bold text-slate-800 text-xs">
+                                                                        {tx.type === 'GRN_IN' ? 'Goods Received' : tx.type === 'ISSUE_OUT' ? 'Stock Issued' : tx.type.replace('_', ' ')}
+                                                                    </div>
+                                                                    <div className="text-slate-400 text-[9px]">
                                                                         {safeFormat(tx.date || tx.createdAt, 'MMM dd, HH:mm')} by {tx.user?.name || 'System'}
                                                                     </div>
                                                                 </td>
-                                                                <td className="px-2 py-3 text-slate-600">
-                                                                    {isGlobal && <div className="text-[10px] font-bold text-slate-500">{tx.store.name}</div>}
-                                                                    {tx.items.length} items moved
+                                                                <td className="px-2 py-2.5 text-slate-600 text-xs">
+                                                                    {isGlobal && <div className="text-[9px] font-black text-slate-400 uppercase leading-none">{tx.store.name}</div>}
+                                                                    <div className="mt-0.5">{tx.items.length} items moved</div>
                                                                 </td>
-                                                                <td className="px-4 py-3 text-right">
-                                                                    <Link href="/inventory/reports/cardex" className="text-blue-500 hover:text-blue-700">Details</Link>
+                                                                <td className="px-3 py-2.5 text-right pr-4">
+                                                                    <Link href="/inventory/reports/cardex" className="text-[10px] font-bold text-blue-600 hover:text-blue-700">Details</Link>
                                                                 </td>
                                                             </tr>
                                                         ))}
@@ -334,44 +344,44 @@ export default function InventoryDashboardPage() {
                                 </Card>
                             </div>
 
-                            {/* Right Column - Navigation & Quick Links */}
-                            <div className="space-y-6">
-                                <Card className="bg-gradient-to-br from-blue-600 to-slate-800 text-white border-none">
-                                    <CardContent className="p-6">
-                                        <h3 className="font-bold text-lg mb-1">Inventory Tasks</h3>
-                                        <p className="text-blue-100 text-xs mb-4">Easily manage your daily warehouse operations.</p>
+                            {/* Right Column - Tasks & Status */}
+                            <div className="space-y-4">
+                                <Card className="bg-gradient-to-br from-blue-600 to-slate-800 text-white border-none rounded-xl shadow-sm overflow-hidden">
+                                    <CardContent className="p-4">
+                                        <h3 className="font-bold text-sm mb-0.5">Inventory Tasks</h3>
+                                        <p className="text-blue-100 text-[10px] mb-3">Easily manage your daily warehouse operations.</p>
 
-                                        <div className="space-y-2">
-                                            <Link href="/inventory/requests" className="block bg-white/10 hover:bg-white/20 transition p-2 rounded flex justify-between items-center text-sm font-medium">
+                                        <div className="space-y-1.5">
+                                            <Link href="/inventory/requests" className="flex justify-between items-center bg-white/10 hover:bg-white/20 transition p-2 rounded-lg text-xs font-semibold">
                                                 <span>Create Stock Request</span>
-                                                <ArrowRightLeft className="w-4 h-4 text-blue-200" />
+                                                <ArrowRightLeft className="w-3.5 h-3.5 text-blue-200" />
                                             </Link>
-                                            <Link href="/inventory/grn" className="block bg-white/10 hover:bg-white/20 transition p-2 rounded flex justify-between items-center text-sm font-medium">
+                                            <Link href="/inventory/grn" className="flex justify-between items-center bg-white/10 hover:bg-white/20 transition p-2 rounded-lg text-xs font-semibold">
                                                 <span>Add Received Goods (GRN)</span>
-                                                <Package className="w-4 h-4 text-emerald-200" />
+                                                <Package className="w-3.5 h-3.5 text-emerald-200" />
                                             </Link>
                                             {isGlobal && (
-                                                <Link href="/inventory/items/import" className="block bg-white/10 hover:bg-white/20 transition p-2 rounded flex justify-between items-center text-sm font-medium">
+                                                <Link href="/inventory/items/import" className="flex justify-between items-center bg-white/10 hover:bg-white/20 transition p-2 rounded-lg text-xs font-semibold">
                                                     <span>Import Multiple Items</span>
-                                                    <LayoutDashboard className="w-4 h-4 text-purple-200" />
+                                                    <LayoutDashboard className="w-3.5 h-3.5 text-purple-200" />
                                                 </Link>
                                             )}
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card>
-                                    <CardHeader className="pb-2"><CardTitle className="text-sm">System Status</CardTitle></CardHeader>
-                                    <CardContent className="text-xs space-y-2">
-                                        <div className="flex justify-between py-1 border-b">
+                                <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                                    <CardHeader className="py-2.5 px-4 border-b bg-slate-50/20"><CardTitle className="text-xs font-black text-slate-900 uppercase tracking-wide">System Status</CardTitle></CardHeader>
+                                    <CardContent className="p-3 text-[11px] space-y-2">
+                                        <div className="flex justify-between py-1 border-b border-slate-100">
                                             <span className="text-slate-500">Module Status</span>
                                             <span className="text-emerald-600 font-bold">Active</span>
                                         </div>
-                                        <div className="flex justify-between py-1 border-b">
+                                        <div className="flex justify-between py-1 border-b border-slate-100">
                                             <span className="text-slate-500">Last Sync</span>
                                             <span className="text-slate-700">Just now</span>
                                         </div>
-                                        <div className="flex justify-between py-1 border-b">
+                                        <div className="flex justify-between py-1">
                                             <span className="text-slate-500">Your System Role</span>
                                             <span className="text-blue-600 font-bold uppercase">{user?.role || 'Guest'}</span>
                                         </div>

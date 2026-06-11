@@ -203,32 +203,32 @@ export default function MaterialRequestPage() {
 
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-2 md:p-4 bg-slate-50/50">
-                    <div className="max-w-7xl mx-auto space-y-3">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
 
-                        <div className="flex justify-between items-center bg-white p-3 rounded-md shadow-sm border border-slate-200">
-                            <div>
-                                <h1 className="text-lg font-bold text-slate-800">New Material Requisition</h1>
+                        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">New Material Requisition</h1>
                                 <p className="text-xs text-slate-500">Create new purchase or transfer request for approvals</p>
                             </div>
-                            <Button onClick={handleSubmit} disabled={createRequestMutation.isPending} size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs">
-                                {createRequestMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
+                            <Button onClick={handleSubmit} disabled={createRequestMutation.isPending} size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
+                                {createRequestMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                                 Submit Request
                             </Button>
                         </div>
 
                         {/* COMPACT CONFIGURATION */}
-                        <Card className="border shadow-sm">
+                        <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
                             <CardContent className="p-3 space-y-3">
                                 {/* Top Row Inputs */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Requesting Store</label>
-                                        <select className="flex h-8 w-full rounded border-slate-300 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={selectedStore} onChange={e => {
+                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={selectedStore} onChange={e => {
                                             const newStoreId = e.target.value;
                                             setSelectedStore(newStoreId);
                                             const store = stores.find((s: StoreOption) => s.id === newStoreId);
@@ -246,11 +246,7 @@ export default function MaterialRequestPage() {
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Source</label>
-                                        <select className="flex h-8 w-full rounded border-slate-300 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={sourceType} onChange={e => setSourceType(e.target.value)}>
-                                            {/* Logic: 
-                                                - Main Stores: Can see SLT and LOCAL_PURCHASE.
-                                                - Sub Stores: Can see MAIN_STORE (Internal) and LOCAL_PURCHASE.
-                                            */}
+                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={sourceType} onChange={e => setSourceType(e.target.value)}>
                                             {stores.find((s: StoreOption) => s.id === selectedStore)?.type === 'MAIN' && (
                                                 <option value="SLT">SLT (Head Office)</option>
                                             )}
@@ -265,7 +261,7 @@ export default function MaterialRequestPage() {
                                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">IR Number (Optional)</label>
                                             <Input
                                                 placeholder="IR-2024-001"
-                                                className="h-8 text-xs"
+                                                className="h-8 text-xs border-slate-200 rounded"
                                                 value={irNumber}
                                                 onChange={e => setIrNumber(e.target.value)}
                                             />
@@ -273,11 +269,11 @@ export default function MaterialRequestPage() {
                                     )}
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Required Date</label>
-                                        <Input type="date" className="h-8 text-xs" value={requiredDate} onChange={e => setRequiredDate(e.target.value)} />
+                                        <Input type="date" className="h-8 text-xs border-slate-200 rounded" value={requiredDate} onChange={e => setRequiredDate(e.target.value)} />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Priority</label>
-                                        <select className="flex h-8 w-full rounded border-slate-300 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={priority} onChange={e => setPriority(e.target.value)}>
+                                        <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={priority} onChange={e => setPriority(e.target.value)}>
                                             <option value="MEDIUM">Medium</option>
                                             <option value="HIGH">High</option>
                                             <option value="URGENT">Urgent</option>
@@ -286,9 +282,8 @@ export default function MaterialRequestPage() {
                                 </div>
 
                                 {/* Project / Reason Grid */}
-                                <div className="bg-slate-50/80 p-2 rounded border border-slate-100">
+                                <div className="bg-slate-50/60 p-2 rounded border border-slate-100">
                                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2 text-xs text-slate-700">
-                                        {/* Row 1 */}
                                         <label className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded px-1 -ml-1">
                                             <input type="checkbox" checked={projectTypes.includes('OSP_FTTH')} onChange={() => toggleProject('OSP_FTTH')} className="rounded border-slate-300 text-blue-600 focus:ring-0 w-3 h-3" />
                                             <span>OSP FTTH</span>
@@ -306,8 +301,6 @@ export default function MaterialRequestPage() {
                                             <span>OSP HRB</span>
                                         </label>
 
-                                        {/* Inputs integrated in grid */}
-
                                         <div className="flex items-center gap-1 col-span-3">
                                             <span className="text-slate-500 whitespace-nowrap text-[10px] uppercase font-bold">Stocks Maint:</span>
                                             <div className="flex gap-2">
@@ -322,7 +315,7 @@ export default function MaterialRequestPage() {
 
                                         <div className="flex items-center gap-1 col-span-3">
                                             <span className="text-slate-500 whitespace-nowrap text-[10px] uppercase font-bold">Other:</span>
-                                            <Input placeholder="Specify..." className="h-6 w-full text-xs" value={otherReason} onChange={e => setOtherReason(e.target.value)} />
+                                            <Input placeholder="Specify..." className="h-6 w-full text-xs border-slate-200" value={otherReason} onChange={e => setOtherReason(e.target.value)} />
                                         </div>
                                     </div>
                                 </div>
@@ -330,17 +323,17 @@ export default function MaterialRequestPage() {
                         </Card>
 
                         {/* ITEMS TABLE WITH ADD BUTTON IN FOOTER */}
-                        <Card className="shadow-sm border overflow-hidden">
+                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left">
-                                    <thead className="bg-slate-100 border-b text-slate-600 font-semibold uppercase tracking-tight">
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                                         <tr>
                                             <th className="px-3 py-2 w-8 text-center">#</th>
                                             <th className="px-2 py-2 min-w-[180px]">Item</th>
                                             <th className="px-2 py-2 w-[70px]">Stock</th>
                                             <th className="px-2 py-2 w-[100px]">Make</th>
                                             <th className="px-2 py-2 w-[100px]">Model</th>
-                                            <th className="px-2 py-2 w-[120px] text-right bg-blue-50/50">Qty</th>
+                                            <th className="px-2 py-2 w-[120px] text-right bg-blue-50/30">Qty</th>
                                             <th className="px-2 py-2 w-[120px]">Vendor</th>
                                             <th className="px-2 py-2 w-[150px]">Remarks</th>
                                             <th className="px-2 py-2 w-8"></th>
@@ -349,7 +342,6 @@ export default function MaterialRequestPage() {
                                     <tbody className="divide-y divide-slate-100">
                                         {requestItems.map((item, idx) => {
                                             const stock = item.itemId ? getCurrentStock(item.itemId) : '-';
-                                            // Sort items: SLT items first, then others
                                             const sortedItems = [...items].sort((a, b) => {
                                                 const aIsSLT = a.type === 'SLT';
                                                 const bIsSLT = b.type === 'SLT';
@@ -358,10 +350,10 @@ export default function MaterialRequestPage() {
                                                 return a.name.localeCompare(b.name);
                                             });
                                             return (
-                                                <tr key={idx} className="hover:bg-slate-50 group">
+                                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors duration-150">
                                                     <td className="px-3 py-1 text-center text-slate-400">{idx + 1}</td>
                                                     <td className="px-2 py-1">
-                                                        <select className="w-full h-7 rounded border-transparent bg-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white text-xs px-1 -ml-1" value={item.itemId} onChange={e => updateItem(idx, 'itemId', e.target.value)}>
+                                                        <select className="w-full h-7 rounded border-transparent bg-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white text-xs px-1 -ml-1 focus:outline-none" value={item.itemId} onChange={e => updateItem(idx, 'itemId', e.target.value)}>
                                                             <option value="">Select Item...</option>
                                                             {sortedItems.map(i => (
                                                                 <option
@@ -381,7 +373,7 @@ export default function MaterialRequestPage() {
                                                     <td className="px-2 py-1"><Input className="h-6 text-xs px-2 border-transparent hover:border-slate-200 focus:border-blue-500 bg-transparent focus:bg-white" placeholder="-" value={item.suggestedVendor} onChange={e => updateItem(idx, 'suggestedVendor', e.target.value)} /></td>
                                                     <td className="px-2 py-1"><Input className="h-6 text-xs px-2 border-transparent hover:border-slate-200 focus:border-blue-500 bg-transparent focus:bg-white" placeholder="-" value={item.remarks} onChange={e => updateItem(idx, 'remarks', e.target.value)} /></td>
                                                     <td className="px-2 py-1 text-center">
-                                                        <button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                                        <button onClick={() => removeItem(idx)} className="text-slate-400 hover:text-rose-600 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                                                     </td>
                                                 </tr>
                                             );
@@ -392,16 +384,16 @@ export default function MaterialRequestPage() {
                                                 <Button
                                                     variant="ghost"
                                                     onClick={addNewRow}
-                                                    className="w-full h-8 border-2 border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-500 hover:text-blue-600 text-xs font-medium flex items-center justify-center gap-1"
+                                                    className="w-full h-8 border border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-500 hover:text-blue-600 text-xs font-semibold flex items-center justify-center gap-1 rounded-lg"
                                                 >
-                                                    <Plus className="w-3 h-3" /> Add New Item Line
+                                                    <Plus className="w-3.5 h-3.5" /> Add New Item Line
                                                 </Button>
                                             </td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
-                        </Card>
+                        </div>
                     </div>
                 </div>
             </main>

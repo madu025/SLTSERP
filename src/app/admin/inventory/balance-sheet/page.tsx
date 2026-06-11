@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { Loader2, Save, FileSpreadsheet } from "lucide-react";
 import { toast } from 'sonner';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 
 export default function BalanceSheetPage() {
     const [selectedContractor, setSelectedContractor] = useState<string>('');
@@ -82,114 +84,118 @@ export default function BalanceSheetPage() {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Monthly Balance Sheet</h1>
-                    <p className="text-slate-500">Generate and freeze monthly material balances.</p>
-                </div>
-            </div>
+        <div className="erp-page-wrapper flex-row overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                <Header />
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Monthly Balance Sheet</h1>
+                                <p className="text-xs text-slate-500">Generate and freeze monthly material balances.</p>
+                            </div>
+                        </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-medium uppercase text-slate-500">Report Criteria</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                    <div className="space-y-2">
-                        <Label>Contractor</Label>
-                        <Select value={selectedContractor} onValueChange={setSelectedContractor}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Contractor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {contractors.map((c: any) => (
-                                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <div className="erp-toolbar p-3 bg-white rounded-lg border border-slate-200">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end w-full">
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contractor</Label>
+                                    <Select value={selectedContractor} onValueChange={setSelectedContractor}>
+                                        <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                                            <SelectValue placeholder="Select Contractor" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {contractors.map((c: any) => (
+                                                <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                    <div className="space-y-2">
-                        <Label>Store</Label>
-                        <Select value={selectedStore} onValueChange={setSelectedStore}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Store" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {stores.map((s: any) => (
-                                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store</Label>
+                                    <Select value={selectedStore} onValueChange={setSelectedStore}>
+                                        <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                                            <SelectValue placeholder="Select Store" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {stores.map((s: any) => (
+                                                <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                    <div className="space-y-2">
-                        <Label>Month</Label>
-                        <Input
-                            type="month"
-                            value={month}
-                            onChange={(e) => setMonth(e.target.value)}
-                        />
-                    </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Month</Label>
+                                    <Input
+                                        type="month"
+                                        value={month}
+                                        onChange={(e) => setMonth(e.target.value)}
+                                        className="h-8 text-xs bg-white border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-300"
+                                    />
+                                </div>
 
-                    <Button onClick={handleGenerate} disabled={generateMutation.isPending}>
-                        {generateMutation.isPending ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <FileSpreadsheet className="w-4 h-4 mr-2" />}
-                        Generate Report
-                    </Button>
-                </CardContent>
-            </Card>
+                                <Button onClick={handleGenerate} disabled={generateMutation.isPending} className="bg-blue-600 hover:bg-blue-700 h-8 text-xs w-full md:w-auto px-4 shadow-sm">
+                                    {generateMutation.isPending ? <Loader2 className="animate-spin w-3.5 h-3.5 mr-1.5" /> : <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />}
+                                    Generate Report
+                                </Button>
+                            </div>
+                        </div>
 
-            {reportData && (
-                <div className="space-y-4 animate-in slide-in-from-bottom-5 fade-in duration-500">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle>Report Preview: {month}</CardTitle>
-                            <Button variant="default" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                                <Save className="w-4 h-4 mr-2" />
-                                {saveMutation.isPending ? "Saving..." : "Save & Freeze"}
-                            </Button>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Item Code</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead className="text-right">Opening</TableHead>
-                                        <TableHead className="text-right">Received</TableHead>
-                                        <TableHead className="text-right">Used</TableHead>
-                                        <TableHead className="text-right">Wastage</TableHead>
-                                        <TableHead className="text-right">Returned</TableHead>
-                                        <TableHead className="text-right font-bold bg-slate-50">Closing</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {reportData.items.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={8} className="text-center py-8 text-slate-500">
-                                                No activity found for this month.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        reportData.items.map((item: any) => (
-                                            <TableRow key={item.itemId}>
-                                                <TableCell className="font-mono text-xs">{item.itemCode}</TableCell>
-                                                <TableCell>{item.itemName} <span className="text-xs text-slate-400">({item.unit})</span></TableCell>
-                                                <TableCell className="text-right text-slate-600">{item.opening}</TableCell>
-                                                <TableCell className="text-right text-blue-600 font-medium">+{item.received}</TableCell>
-                                                <TableCell className="text-right text-amber-600">-{item.used}</TableCell>
-                                                <TableCell className="text-right text-orange-600">-{item.wastage}</TableCell>
-                                                <TableCell className="text-right text-green-600">-{item.returned}</TableCell>
-                                                <TableCell className="text-right font-bold bg-slate-50 border-l">{item.closing.toFixed(2)}</TableCell>
+                        {reportData && (
+                            <div className="erp-table-container flex flex-col bg-white overflow-hidden animate-in slide-in-from-bottom-2 duration-300">
+                                <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between">
+                                    <h3 className="text-xs font-black uppercase text-slate-800 tracking-wider">Report Preview: {month}</h3>
+                                    <Button variant="default" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="h-8 text-xs shadow-sm bg-blue-600 hover:bg-blue-700 text-white">
+                                        <Save className="w-3.5 h-3.5 mr-1.5" />
+                                        {saveMutation.isPending ? "Saving..." : "Save & Freeze"}
+                                    </Button>
+                                </div>
+                                <div className="p-0">
+                                    <Table>
+                                        <TableHeader className="bg-slate-50 border-b border-slate-200">
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2">Item Code</TableHead>
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2">Description</TableHead>
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2 text-right">Opening</TableHead>
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2 text-right">Received</TableHead>
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2 text-right">Used</TableHead>
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2 text-right">Wastage</TableHead>
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2 text-right">Returned</TableHead>
+                                                <TableHead className="h-8 text-[10px] font-bold text-slate-500 uppercase tracking-wider py-2 text-right font-bold bg-slate-50/50">Closing</TableHead>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {reportData.items.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-400">
+                                                        No activity found for this month.
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                reportData.items.map((item: any) => (
+                                                    <TableRow key={item.itemId} className="hover:bg-slate-50/30 text-xs">
+                                                        <TableCell className="font-mono text-xs py-1.5">{item.itemCode}</TableCell>
+                                                        <TableCell className="py-1.5">{item.itemName} <span className="text-[10px] text-slate-400">({item.unit})</span></TableCell>
+                                                        <TableCell className="text-right text-slate-600 py-1.5">{item.opening}</TableCell>
+                                                        <TableCell className="text-right text-green-700 font-medium py-1.5">+{item.received}</TableCell>
+                                                        <TableCell className="text-right text-blue-700 font-medium py-1.5">-{item.used}</TableCell>
+                                                        <TableCell className="text-right text-orange-700 py-1.5">-{item.wastage}</TableCell>
+                                                        <TableCell className="text-right text-purple-700 py-1.5">-{item.returned}</TableCell>
+                                                        <TableCell className="text-right font-bold bg-slate-50/50 border-l border-slate-100 py-1.5 text-slate-900">{item.closing.toFixed(2)}</TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            )}
+            </main>
         </div>
     );
 }

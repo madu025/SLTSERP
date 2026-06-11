@@ -148,23 +148,27 @@ export default function StockPage() {
     ) : [];
 
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 md:p-8">
-                    <div className="max-w-6xl mx-auto w-full flex flex-col h-full space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
 
-                        <div className="flex justify-between items-center flex-none">
-                            <div>
-                                <h1 className="text-xl font-bold text-slate-900">Stock Levels</h1>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Stock Levels</h1>
                                 <p className="text-xs text-slate-500">View and manage inventory per store</p>
                             </div>
-                            <div className="flex gap-4 items-center bg-white p-2 rounded-lg border shadow-sm">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold text-slate-500">Store:</span>
+                        </div>
+
+                        {/* Controls Toolbar */}
+                        <div className="erp-toolbar">
+                            <div className="flex flex-col sm:flex-row items-center gap-3 flex-1 w-full">
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider min-w-[50px]">Store:</span>
                                     <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                                        <SelectTrigger className="w-[200px] h-8 text-xs">
+                                        <SelectTrigger className="w-[180px] h-8 text-xs bg-white border-slate-200">
                                             <SelectValue placeholder="Select Store" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -176,58 +180,59 @@ export default function StockPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="w-px h-6 bg-slate-200" />
-                                <div className="relative">
-                                    <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2" />
+                                <div className="h-6 w-[1px] bg-slate-200 hidden sm:block" />
+                                <div className="relative w-full sm:w-64">
+                                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                                     <Input
                                         placeholder="Search items..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="h-8 text-xs pl-9 w-[200px]"
+                                        className="h-8 text-xs pl-9 w-full bg-white border-slate-200"
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col">
-                            <div className="overflow-auto flex-1">
-                                <table className="w-full text-xs text-left">
-                                    <thead className="bg-slate-50 text-slate-600 font-bold border-b sticky top-0">
+                        {/* Stock Table */}
+                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0">
                                         <tr>
-                                            <th className="px-4 py-3">Item Code</th>
-                                            <th className="px-4 py-3">Item Name</th>
-                                            <th className="px-4 py-3 text-center">Unit</th>
-                                            <th className="px-4 py-3 text-right">Quantity</th>
-                                            <th className="px-4 py-3 text-center">Tracking</th>
-                                            <th className="px-4 py-3 text-right">Actions</th>
+                                            <th className="px-4 py-2 font-semibold">Item Code</th>
+                                            <th className="px-3 py-2 font-semibold">Item Name</th>
+                                            <th className="px-3 py-2 font-semibold text-center">Unit</th>
+                                            <th className="px-3 py-2 text-right font-semibold">Quantity</th>
+                                            <th className="px-3 py-2 text-center font-semibold">Tracking</th>
+                                            <th className="px-4 py-2 text-right font-semibold">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y">
+                                    <tbody className="divide-y divide-slate-100">
                                         {isLoading ? (
-                                            <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading stock...</td></tr>
+                                            <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">Loading stock...</td></tr>
                                         ) : filteredStock.length === 0 ? (
-                                            <tr><td colSpan={6} className="p-8 text-center text-slate-400">No stock found for this store.</td></tr>
+                                            <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-semibold">No stock found for this store.</td></tr>
                                         ) : (
                                             filteredStock.map((row: StockItem) => (
-                                                <tr key={row.id} className="hover:bg-slate-50">
-                                                    <td className="px-4 py-2 font-mono text-slate-500">{row.item.code}</td>
-                                                    <td className="px-4 py-2 font-bold text-slate-800">{row.item.name}</td>
-                                                    <td className="px-4 py-2 text-center text-slate-500 bg-slate-50/50">{row.item.unit}</td>
-                                                    <td className={`px-4 py-2 text-right font-bold ${row.quantity <= (row.minLevel || 0) ? 'text-red-600' : 'text-emerald-700'}`}>
+                                                <tr key={row.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                                                    <td className="px-4 py-1.5 font-mono text-[11px] text-slate-700">{row.item.code}</td>
+                                                    <td className="px-3 py-1.5 font-bold text-slate-900">{row.item.name}</td>
+                                                    <td className="px-3 py-1.5 text-center text-slate-500 bg-slate-50/30">{row.item.unit}</td>
+                                                    <td className={`px-3 py-1.5 text-right font-mono font-bold ${row.quantity <= (row.minLevel || 0) ? 'text-rose-600' : 'text-emerald-700'}`}>
                                                         {row.quantity}
-                                                        {row.quantity <= (row.minLevel || 0) && <AlertTriangle className="w-3 h-3 inline ml-1 text-red-500" />}
+                                                        {row.quantity <= (row.minLevel || 0) && <AlertTriangle className="w-3.5 h-3.5 inline ml-1 text-rose-500" />}
                                                     </td>
-                                                    <td className="px-4 py-2 text-center">
-                                                        <div className="flex gap-1 justify-center">
+                                                    <td className="px-3 py-1.5 text-center">
+                                                        <div className="flex gap-1.5 justify-center">
                                                             <Button
-                                                                variant="ghost" size="sm" className="h-7 text-[10px] gap-1 hover:bg-blue-50 text-blue-600"
+                                                                variant="ghost" size="sm" className="h-7 px-2 text-[10px] gap-1 hover:bg-blue-50 text-blue-600 font-semibold"
                                                                 onClick={() => setSelectedItemForBatches(row)}
                                                             >
                                                                 <Layers className="w-3 h-3" /> Batches
                                                             </Button>
                                                             {row.item.hasSerial && (
                                                                 <Button
-                                                                    variant="ghost" size="sm" className="h-7 text-[10px] gap-1 hover:bg-purple-50 text-purple-600"
+                                                                    variant="ghost" size="sm" className="h-7 px-2 text-[10px] gap-1 hover:bg-purple-50 text-purple-600 font-semibold"
                                                                     onClick={() => setSelectedItemForSerials(row)}
                                                                 >
                                                                     <Layers className="w-3 h-3" /> Serials
@@ -235,9 +240,9 @@ export default function StockPage() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-2 text-right">
+                                                    <td className="px-4 py-1.5 text-right">
                                                         <Button
-                                                            size="sm" variant="ghost" className="h-6 text-xs text-red-600 hover:bg-red-50"
+                                                            size="sm" variant="ghost" className="h-7 px-2 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-semibold"
                                                             onClick={() => setWastageItem(row)}
                                                         >
                                                             <Trash2 className="w-3 h-3 mr-1" /> Wastage

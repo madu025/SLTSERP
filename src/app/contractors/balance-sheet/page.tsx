@@ -245,19 +245,16 @@ export default function ContractorBalanceSheetPage() {
     };
 
     return (
-        <div className="flex h-screen bg-slate-50">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 overflow-y-auto print:overflow-visible">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden print:overflow-visible">
                 <Header />
-                <div className="p-6 print:p-0">
-                    <Card className="mb-6 print:hidden">
-                        <CardHeader>
-                            <CardTitle>Select Parameters</CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4">
-                            <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 print:p-0 print:overflow-visible">
+                    <div className="max-w-7xl mx-auto space-y-4 print:space-y-0">
+                        <div className="erp-toolbar p-3 bg-white border-slate-200 rounded-lg shadow-sm print:hidden">
+                            <div className="flex flex-wrap items-end gap-3 w-full">
                                 <div className="flex-1 min-w-[200px]">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Contractor</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Contractor</label>
                                     <Select
                                         value={selectedContractorId}
                                         onValueChange={(val) => {
@@ -266,12 +263,12 @@ export default function ContractorBalanceSheetPage() {
                                             setSelectedStoreId("");
                                         }}
                                     >
-                                        <SelectTrigger className="h-9 text-sm">
+                                        <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
                                             <SelectValue placeholder="Select Contractor" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {contractors.map((c) => (
-                                                <SelectItem key={c.id} value={c.id}>
+                                                <SelectItem key={c.id} value={c.id} className="text-xs">
                                                     {c.registrationNumber ? `${c.registrationNumber} - ${c.name}` : c.name}
                                                 </SelectItem>
                                             ))}
@@ -280,7 +277,7 @@ export default function ContractorBalanceSheetPage() {
                                 </div>
 
                                 <div className="w-[180px]">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Team</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Team</label>
                                     <Select
                                         value={selectedTeamId}
                                         onValueChange={(val) => {
@@ -288,12 +285,12 @@ export default function ContractorBalanceSheetPage() {
                                         }}
                                         disabled={!selectedContractorId}
                                     >
-                                        <SelectTrigger className="h-9 text-sm">
+                                        <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
                                             <SelectValue placeholder="Select Team" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {teams.map((t) => (
-                                                <SelectItem key={t.id} value={t.id}>
+                                                <SelectItem key={t.id} value={t.id} className="text-xs">
                                                     {t.name} ({t.opmc.name})
                                                 </SelectItem>
                                             ))}
@@ -302,18 +299,18 @@ export default function ContractorBalanceSheetPage() {
                                 </div>
 
                                 <div className="w-[180px]">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Store</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Store</label>
                                     <Select
                                         value={selectedStoreId}
                                         onValueChange={setSelectedStoreId}
                                         disabled={!selectedTeamId}
                                     >
-                                        <SelectTrigger className="h-9 text-sm">
+                                        <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
                                             <SelectValue placeholder="Select Store" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {stores.map((s) => (
-                                                <SelectItem key={s.id} value={s.id}>
+                                                <SelectItem key={s.id} value={s.id} className="text-xs">
                                                     {s.name}
                                                 </SelectItem>
                                             ))}
@@ -322,12 +319,12 @@ export default function ContractorBalanceSheetPage() {
                                 </div>
 
                                 <div className="w-[150px]">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Month</label>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Month</label>
                                     <input
                                         type="month"
                                         value={selectedMonth}
                                         onChange={(e) => setSelectedMonth(e.target.value)}
-                                        className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm bg-white"
+                                        className="w-full h-8 px-3 rounded-md border border-slate-200 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-slate-300"
                                     />
                                 </div>
 
@@ -336,230 +333,229 @@ export default function ContractorBalanceSheetPage() {
                                         onClick={() => refetch()}
                                         disabled={!selectedContractorId || !selectedStoreId || isLoading}
                                         variant="outline"
-                                        size="sm"
-                                        className="h-9"
+                                        size="icon"
+                                        className="h-8 w-8 text-slate-500 border-slate-200 shadow-sm"
                                     >
-                                        <RefreshCw className="w-4 h-4" />
+                                        <RefreshCw className="w-3.5 h-3.5" />
                                     </Button>
                                     <Button
                                         onClick={handleGenerate}
                                         disabled={!selectedContractorId || !selectedStoreId}
                                         size="sm"
-                                        className="h-9 px-4"
+                                        className="h-8 px-4 text-xs shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
                                     >
-                                        <FileText className="w-4 h-4 mr-2" />
+                                        <FileText className="w-3.5 h-3.5 mr-1.5" />
                                         Generate
                                     </Button>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
 
-                    {/* Preview Card - Show before generation */}
-                    {!balanceSheet && previewData && previewData.summary.hasData && (
-                        <Card className="mb-6 border-blue-200 bg-blue-50 print:hidden">
-                            <CardHeader>
-                                <CardTitle className="text-lg text-blue-900">Balance Sheet Preview</CardTitle>
-                                <p className="text-sm text-blue-700">
-                                    {previewData.contractor.name} - {previewData.store.name} ({previewData.month})
-                                </p>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                    <div className="bg-white p-4 rounded-lg border border-blue-200">
-                                        <div className="text-sm text-slate-500 mb-1">Material Issues</div>
-                                        <div className="text-2xl font-bold text-green-600">
-                                            {previewData.summary.materialIssues}
+                        {/* Preview Card - Show before generation */}
+                        {!balanceSheet && previewData && previewData.summary.hasData && (
+                            <Card className="mb-4 border-blue-100 bg-blue-50/50 shadow-sm print:hidden">
+                                <CardHeader className="py-2.5 px-4">
+                                    <CardTitle className="text-sm font-bold text-blue-900">Balance Sheet Preview</CardTitle>
+                                    <p className="text-xs text-blue-700">
+                                        {previewData.contractor.name} - {previewData.store.name} ({previewData.month})
+                                    </p>
+                                </CardHeader>
+                                <CardContent className="p-4 pt-0">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                        <div className="bg-white p-3 rounded-lg border border-blue-100/70">
+                                            <div className="text-xs text-slate-500 mb-0.5">Material Issues</div>
+                                            <div className="text-xl font-bold text-green-600">
+                                                {previewData.summary.materialIssues}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-lg border border-blue-100/70">
+                                            <div className="text-xs text-slate-500 mb-0.5">SOD Usage</div>
+                                            <div className="text-xl font-bold text-blue-600">
+                                                {previewData.summary.sodUsage}
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-lg border border-blue-100/70">
+                                            <div className="text-xs text-slate-500 mb-0.5">Material Returns</div>
+                                            <div className="text-xl font-bold text-purple-600">
+                                                {previewData.summary.materialReturns}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-lg border border-blue-200">
-                                        <div className="text-sm text-slate-500 mb-1">SOD Usage</div>
-                                        <div className="text-2xl font-bold text-blue-600">
-                                            {previewData.summary.sodUsage}
+                                    <div className="text-xs text-blue-700 bg-blue-50/70 p-2 rounded border border-blue-100/50">
+                                        ℹ️ Click "Generate" to create the balance sheet with these transactions
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* No Data Message */}
+                        {!balanceSheet && previewData && !previewData.summary.hasData && (
+                            <Card className="mb-4 border-amber-100 bg-amber-50/50 shadow-sm print:hidden">
+                                <CardContent className="py-6 text-center text-xs">
+                                    <p className="text-amber-800 font-bold">No material transactions found for this period</p>
+                                    <p className="text-slate-500 mt-1">
+                                        There are no material issues, returns, or SOD usage for {previewData.month}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Loading State */}
+                        {isLoading && (
+                            <div className="text-center py-12 text-xs text-slate-500">Loading balance sheet...</div>
+                        )}
+
+                        {/* Balance Sheet Report (ERP Style - Grouped) */}
+                        {!isLoading && balanceSheet && (
+                            <Card className="border-slate-200 shadow-sm print:border-none print:shadow-none">
+                                <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b border-slate-100 print:hidden">
+                                    <div>
+                                        <CardTitle className="text-sm font-bold text-slate-800">Balance Sheet Report</CardTitle>
+                                        <p className="text-[11px] text-slate-500 mt-0.5">Generated on {new Date().toLocaleDateString()}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={() => window.print()} variant="outline" size="sm" className="h-8 text-xs border-slate-200 shadow-sm">
+                                            <FileText className="w-3.5 h-3.5 mr-1.5" />
+                                            Print
+                                        </Button>
+                                        <Button onClick={handleExport} variant="outline" size="sm" className="h-8 text-xs border-slate-200 shadow-sm">
+                                            <Download className="w-3.5 h-3.5 mr-1.5" />
+                                            Export CSV
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    {/* Formal Report Header for Print/View */}
+                                    <div className="mb-6 border-b border-slate-200 pb-4">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">SLT Services</h1>
+                                                <p className="text-[11px] text-slate-500">Material Management System</p>
+                                                <p className="text-[11px] text-slate-500">Contractor Balance Sheet</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-lg font-bold text-slate-900">{balanceSheet.month}</div>
+                                                <p className="text-[10px] text-slate-400 uppercase font-bold">Report Period</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6 mt-4">
+                                            <div>
+                                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Contractor Details</h3>
+                                                <div className="text-slate-900 font-bold text-sm">{balanceSheet.contractor.name}</div>
+                                                <div className="text-slate-500 text-xs">Reg No: {balanceSheet.contractor.registrationNumber || 'N/A'}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Store Details</h3>
+                                                <div className="text-slate-900 font-bold text-sm">{balanceSheet.store.name}</div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-lg border border-blue-200">
-                                        <div className="text-sm text-slate-500 mb-1">Material Returns</div>
-                                        <div className="text-2xl font-bold text-purple-600">
-                                            {previewData.summary.materialReturns}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-sm text-blue-700 bg-blue-100 p-3 rounded-md">
-                                    ℹ️ Click "Generate" to create the balance sheet with these transactions
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
 
-                    {/* No Data Message */}
-                    {!balanceSheet && previewData && !previewData.summary.hasData && (
-                        <Card className="mb-6 border-amber-200 bg-amber-50 print:hidden">
-                            <CardContent className="py-8 text-center">
-                                <p className="text-amber-800 font-medium">No material transactions found for this period</p>
-                                <p className="text-sm text-amber-600 mt-2">
-                                    There are no material issues, returns, or SOD usage for {previewData.month}
-                                </p>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Loading State */}
-                    {isLoading && (
-                        <div className="text-center py-12 text-slate-500">Loading balance sheet...</div>
-                    )}
-
-                    {/* Balance Sheet Report (ERP Style - Grouped) */}
-                    {!isLoading && balanceSheet && (
-                        <Card className="print:border-none print:shadow-none">
-                            <CardHeader className="flex flex-row items-center justify-between print:hidden">
-                                <div>
-                                    <CardTitle>Balance Sheet Report</CardTitle>
-                                    <p className="text-sm text-slate-500 mt-1">Generated on {new Date().toLocaleDateString()}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button onClick={() => window.print()} variant="outline" size="sm">
-                                        <FileText className="w-4 h-4 mr-2" />
-                                        Print
-                                    </Button>
-                                    <Button onClick={handleExport} variant="outline" size="sm">
-                                        <Download className="w-4 h-4 mr-2" />
-                                        Export CSV
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                {/* Formal Report Header for Print/View */}
-                                <div className="mb-8 border-b pb-6">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-wide">SLT Services</h1>
-                                            <p className="text-sm text-slate-500">Material Management System</p>
-                                            <p className="text-sm text-slate-500">Contractor Balance Sheet</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xl font-bold text-slate-900">{balanceSheet.month}</div>
-                                            <p className="text-sm text-slate-500">Report Period</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-8 mt-6">
-                                        <div>
-                                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Contractor Details</h3>
-                                            <div className="text-slate-900 font-medium">{balanceSheet.contractor.name}</div>
-                                            <div className="text-slate-600 text-sm">Reg No: {balanceSheet.contractor.registrationNumber || 'N/A'}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Store Details</h3>
-                                            <div className="text-slate-900 font-medium">{balanceSheet.store.name}</div>
-                                            {/* <div className="text-slate-600 text-sm">Store ID: {balanceSheet.storeId}</div> */}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm border-collapse border border-slate-200">
-                                        <thead>
-                                            <tr className="bg-slate-100">
-                                                <th className="border border-slate-200 px-4 py-2 text-left font-semibold text-slate-700">Item Code</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-left font-semibold text-slate-700">Item Name</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-center font-semibold text-slate-700">Unit</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-right font-semibold text-slate-700 bg-slate-50">Opening</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-right font-semibold text-slate-700">Received</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-right font-semibold text-slate-700">Used</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-right font-semibold text-slate-700">Wastage</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-right font-semibold text-slate-700">Returned</th>
-                                                <th className="border border-slate-200 px-4 py-2 text-right font-semibold text-slate-900 bg-slate-50">Closing</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {sortedCategories.map(category => (
-                                                <React.Fragment key={category}>
-                                                    {/* Category Header */}
-                                                    <tr className="bg-slate-200">
-                                                        <td colSpan={9} className="px-4 py-1 font-bold text-slate-700 text-xs uppercase tracking-wide">
-                                                            {formatCategory(category)}
-                                                        </td>
-                                                    </tr>
-
-                                                    {/* Items in Category */}
-                                                    {groupedItems[category].map((item, index) => (
-                                                        <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50">
-                                                            <td className="px-4 py-1.5 font-mono text-xs text-slate-600">{item.item.code}</td>
-                                                            <td className="px-4 py-1.5">{item.item.name}</td>
-                                                            <td className="px-4 py-1.5 text-center text-slate-500 text-xs">{item.item.unit}</td>
-                                                            <td className="px-4 py-1.5 text-right bg-slate-50/50">{formatQty(item.openingBalance)}</td>
-                                                            <td className="px-4 py-1.5 text-right text-green-700 font-medium">
-                                                                {item.received > 0 ? formatQty(item.received) : '-'}
-                                                            </td>
-                                                            <td className="px-4 py-1.5 text-right text-blue-700 font-medium">
-                                                                {item.used > 0 ? formatQty(item.used) : '-'}
-                                                            </td>
-                                                            <td className="px-4 py-1.5 text-right text-orange-700">
-                                                                {item.wastage > 0 ? formatQty(item.wastage) : '-'}
-                                                            </td>
-                                                            <td className="px-4 py-1.5 text-right text-purple-700">
-                                                                {item.returned > 0 ? formatQty(item.returned) : '-'}
-                                                            </td>
-                                                            <td className="px-4 py-1.5 text-right font-bold bg-slate-50">
-                                                                {formatQty(item.closingBalance)}
+                                    <div className="erp-table-container overflow-hidden bg-white print:border-slate-300">
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-200">
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-left font-bold text-slate-600 text-[10px] uppercase tracking-wider">Item Code</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-left font-bold text-slate-600 text-[10px] uppercase tracking-wider">Item Name</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-center font-bold text-slate-600 text-[10px] uppercase tracking-wider">Unit</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-right font-bold text-slate-600 text-[10px] uppercase tracking-wider bg-slate-50/55">Opening</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-right font-bold text-slate-600 text-[10px] uppercase tracking-wider">Received</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-right font-bold text-slate-600 text-[10px] uppercase tracking-wider">Used</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-right font-bold text-slate-600 text-[10px] uppercase tracking-wider">Wastage</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-right font-bold text-slate-600 text-[10px] uppercase tracking-wider">Returned</th>
+                                                    <th className="border border-slate-200 px-3 py-1.5 text-right font-bold text-slate-900 text-[10px] uppercase tracking-wider bg-slate-50/55">Closing</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {sortedCategories.map(category => (
+                                                    <React.Fragment key={category}>
+                                                        {/* Category Header */}
+                                                        <tr className="bg-slate-100 border-b border-slate-200">
+                                                            <td colSpan={9} className="px-3 py-1 font-bold text-slate-800 text-[10px] uppercase tracking-wider border border-slate-200">
+                                                                {formatCategory(category)}
                                                             </td>
                                                         </tr>
-                                                    ))}
-                                                </React.Fragment>
-                                            ))}
-                                        </tbody>
-                                        {totals && balanceSheet.items.length > 0 && (
-                                            <tfoot>
-                                                <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
-                                                    <td className="border border-slate-200 px-4 py-2 text-right" colSpan={3}>TOTAL:</td>
-                                                    <td className="border border-slate-200 px-4 py-2 text-right">{formatQty(totals.opening)}</td>
-                                                    <td className="border border-slate-200 px-4 py-2 text-right text-green-700">{formatQty(totals.received)}</td>
-                                                    <td className="border border-slate-200 px-4 py-2 text-right text-blue-700">{formatQty(totals.used)}</td>
-                                                    <td className="border border-slate-200 px-4 py-2 text-right text-orange-700">{formatQty(totals.wastage)}</td>
-                                                    <td className="border border-slate-200 px-4 py-2 text-right text-purple-700">{formatQty(totals.returned)}</td>
-                                                    <td className="border border-slate-200 px-4 py-2 text-right">{formatQty(totals.closing)}</td>
-                                                </tr>
-                                            </tfoot>
-                                        )}
-                                    </table>
-                                </div>
 
-                                {balanceSheet.items.length === 0 && (
-                                    <div className="text-center py-12 text-slate-500 border border-slate-200 rounded-lg mt-4">
-                                        No material movements recorded for this period.
+                                                        {/* Items in Category */}
+                                                        {groupedItems[category].map((item) => (
+                                                            <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50/30">
+                                                                <td className="px-3 py-1.5 font-mono text-[11px] text-slate-500 border border-slate-200">{item.item.code}</td>
+                                                                <td className="px-3 py-1.5 border border-slate-200 text-slate-800">{item.item.name}</td>
+                                                                <td className="px-3 py-1.5 text-center text-slate-500 border border-slate-200">{item.item.unit}</td>
+                                                                <td className="px-3 py-1.5 text-right bg-slate-50/20 border border-slate-200">{formatQty(item.openingBalance)}</td>
+                                                                <td className="px-3 py-1.5 text-right text-green-700 font-medium border border-slate-200">
+                                                                    {item.received > 0 ? formatQty(item.received) : '-'}
+                                                                </td>
+                                                                <td className="px-3 py-1.5 text-right text-blue-700 font-medium border border-slate-200">
+                                                                    {item.used > 0 ? formatQty(item.used) : '-'}
+                                                                </td>
+                                                                <td className="px-3 py-1.5 text-right text-orange-700 border border-slate-200">
+                                                                    {item.wastage > 0 ? formatQty(item.wastage) : '-'}
+                                                                </td>
+                                                                <td className="px-3 py-1.5 text-right text-purple-700 border border-slate-200">
+                                                                    {item.returned > 0 ? formatQty(item.returned) : '-'}
+                                                                </td>
+                                                                <td className="px-3 py-1.5 text-right font-bold bg-slate-50/50 border border-slate-200 text-slate-900">
+                                                                    {formatQty(item.closingBalance)}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </React.Fragment>
+                                                ))}
+                                            </tbody>
+                                            {totals && balanceSheet.items.length > 0 && (
+                                                <tfoot>
+                                                    <tr className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                                                        <td className="border border-slate-200 px-3 py-1.5 text-right text-[11px]" colSpan={3}>TOTAL:</td>
+                                                        <td className="border border-slate-200 px-3 py-1.5 text-right">{formatQty(totals.opening)}</td>
+                                                        <td className="border border-slate-200 px-3 py-1.5 text-right text-green-700">{formatQty(totals.received)}</td>
+                                                        <td className="border border-slate-200 px-3 py-1.5 text-right text-blue-700">{formatQty(totals.used)}</td>
+                                                        <td className="border border-slate-200 px-3 py-1.5 text-right text-orange-700">{formatQty(totals.wastage)}</td>
+                                                        <td className="border border-slate-200 px-3 py-1.5 text-right text-purple-700">{formatQty(totals.returned)}</td>
+                                                        <td className="border border-slate-200 px-3 py-1.5 text-right text-slate-900">{formatQty(totals.closing)}</td>
+                                                    </tr>
+                                                </tfoot>
+                                            )}
+                                        </table>
                                     </div>
-                                )}
 
-                                {/* Signature Section */}
-                                <div className="grid grid-cols-3 gap-8 mt-16 pt-8 border-t break-inside-avoid">
-                                    <div className="text-center">
-                                        <div className="border-b border-slate-400 w-3/4 mx-auto mb-2"></div>
-                                        <div className="text-sm font-medium text-slate-900">Prepared By</div>
-                                        <div className="text-xs text-slate-500">Stores Assistant</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="border-b border-slate-400 w-3/4 mx-auto mb-2"></div>
-                                        <div className="text-sm font-medium text-slate-900">Checked By</div>
-                                        <div className="text-xs text-slate-500">Stores Manager</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="border-b border-slate-400 w-3/4 mx-auto mb-2"></div>
-                                        <div className="text-sm font-medium text-slate-900">Contractor Signature</div>
-                                        <div className="text-xs text-slate-500">Date: ........................</div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                    {balanceSheet.items.length === 0 && (
+                                        <div className="text-center py-12 text-slate-400 border border-slate-200 rounded-lg mt-4 text-xs italic">
+                                            No material movements recorded for this period.
+                                        </div>
+                                    )}
 
-                    {!isLoading && !balanceSheet && selectedContractorId && selectedStoreId && (
-                        <Card className="print:hidden">
-                            <CardContent className="py-12 text-center text-slate-500">
-                                No balance sheet found. Click "Generate" to create one.
-                            </CardContent>
-                        </Card>
-                    )}
+                                    {/* Signature Section */}
+                                    <div className="grid grid-cols-3 gap-8 mt-16 pt-8 border-t break-inside-avoid print:mt-12">
+                                        <div className="text-center">
+                                            <div className="border-b border-slate-300 w-3/4 mx-auto mb-2"></div>
+                                            <div className="text-xs font-bold text-slate-800">Prepared By</div>
+                                            <div className="text-[10px] text-slate-500">Stores Assistant</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="border-b border-slate-300 w-3/4 mx-auto mb-2"></div>
+                                            <div className="text-xs font-bold text-slate-800">Checked By</div>
+                                            <div className="text-[10px] text-slate-500">Stores Manager</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="border-b border-slate-300 w-3/4 mx-auto mb-2"></div>
+                                            <div className="text-xs font-bold text-slate-800">Contractor Signature</div>
+                                            <div className="text-[10px] text-slate-500">Date: ........................</div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {!isLoading && !balanceSheet && selectedContractorId && selectedStoreId && (
+                            <Card className="print:hidden border-slate-200 shadow-sm">
+                                <CardContent className="py-12 text-center text-xs text-slate-400 italic">
+                                    No balance sheet found. Click "Generate" to create one.
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
                 </div>
             </main>
         </div>

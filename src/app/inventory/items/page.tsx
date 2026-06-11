@@ -134,12 +134,12 @@ export default function ItemMasterPage() {
     const selectedItemsForMerge = items.filter(i => selectedIds.has(i.id));
 
     return (
-        <div className="h-screen flex bg-slate-50 selection:bg-blue-100 selection:text-blue-900 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full relative">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-6 md:p-12">
-                    <div className="max-w-7xl mx-auto">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
                         <ItemTable 
                             items={items}
                             isLoading={isLoading}

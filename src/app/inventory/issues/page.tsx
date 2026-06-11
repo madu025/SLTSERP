@@ -265,29 +265,29 @@ export default function StockIssuePage() {
     };
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-6">
-                    <div className="max-w-7xl mx-auto space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
                         {/* Header */}
                         <div className="flex items-center justify-between">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Stock Issue</h1>
-                                <p className="text-slate-500">Issue materials to projects, contractors, and teams</p>
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Stock Issue</h1>
+                                <p className="text-xs text-slate-500">Issue materials to projects, contractors, and teams</p>
                             </div>
-                            <Button onClick={handleOpenIssueDialog} className="bg-blue-600 hover:bg-blue-700">
-                                <PackageMinus className="w-4 h-4 mr-2" />
+                            <Button onClick={handleOpenIssueDialog} size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
+                                <PackageMinus className="w-3.5 h-3.5" />
                                 Issue Stock
                             </Button>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex gap-2 border-b">
+                        <div className="flex gap-2 border-b border-slate-200">
                             <button
                                 onClick={() => setActiveTab('NEW')}
-                                className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'NEW'
+                                className={`px-3 py-1.5 font-bold text-xs transition-colors ${activeTab === 'NEW'
                                     ? 'border-b-2 border-blue-600 text-blue-600'
                                     : 'text-slate-500 hover:text-slate-700'
                                     }`}
@@ -296,7 +296,7 @@ export default function StockIssuePage() {
                             </button>
                             <button
                                 onClick={() => setActiveTab('HISTORY')}
-                                className={`px-4 py-2 font-medium text-sm transition-colors ${activeTab === 'HISTORY'
+                                className={`px-3 py-1.5 font-bold text-xs transition-colors ${activeTab === 'HISTORY'
                                     ? 'border-b-2 border-blue-600 text-blue-600'
                                     : 'text-slate-500 hover:text-slate-700'
                                     }`}
@@ -306,64 +306,63 @@ export default function StockIssuePage() {
                         </div>
 
                         {/* Issues List */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Stock Issues</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {isLoading ? (
-                                    <div className="text-center p-8 text-slate-500">Loading...</div>
-                                ) : issues.length === 0 ? (
-                                    <div className="text-center p-8 text-slate-500">
-                                        No stock issues found
-                                    </div>
-                                ) : (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-sm">
-                                            <thead className="bg-slate-100 border-b">
-                                                <tr>
-                                                    <th className="px-4 py-3 text-left">Issue No</th>
-                                                    <th className="px-4 py-3 text-left">Date</th>
-                                                    <th className="px-4 py-3 text-left">Type</th>
-                                                    <th className="px-4 py-3 text-left">Recipient</th>
-                                                    <th className="px-4 py-3 text-left">Items</th>
-                                                    <th className="px-4 py-3 text-left">Issued By</th>
-                                                    <th className="px-4 py-3 text-right">Actions</th>
+                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
+                            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/40 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Stock Issues</span>
+                            </div>
+                            {isLoading ? (
+                                <div className="text-center p-8 text-slate-400 text-xs font-semibold">Loading...</div>
+                            ) : issues.length === 0 ? (
+                                <div className="text-center p-8 text-slate-400 text-xs font-semibold">
+                                    No stock issues found
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
+                                            <tr>
+                                                <th className="px-4 py-2">Issue No</th>
+                                                <th className="px-3 py-2">Date</th>
+                                                <th className="px-3 py-2">Type</th>
+                                                <th className="px-3 py-2">Recipient</th>
+                                                <th className="px-3 py-2 text-center">Items</th>
+                                                <th className="px-3 py-2">Issued By</th>
+                                                <th className="px-4 py-2 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {issues.slice(0, activeTab === 'NEW' ? 10 : undefined).map((issue: StockIssue) => (
+                                                <tr key={issue.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                                                    <td className="px-4 py-1.5 font-bold text-slate-800">{issue.issueNumber}</td>
+                                                    <td className="px-3 py-1.5 text-slate-500">
+                                                        {new Date(issue.createdAt).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-3 py-1.5">
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-slate-200 bg-white text-slate-600 font-medium">{issue.issueType}</Badge>
+                                                    </td>
+                                                    <td className="px-3 py-1.5 font-semibold text-slate-700">{issue.recipientName}</td>
+                                                    <td className="px-3 py-1.5 text-center font-semibold text-slate-700">{issue.items?.length || 0}</td>
+                                                    <td className="px-3 py-1.5 text-slate-500">{issue.issuedBy?.name || '-'}</td>
+                                                    <td className="px-4 py-1.5 text-right">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                                                            onClick={() => {
+                                                                setSelectedIssue(issue);
+                                                                setShowDetailsDialog(true);
+                                                            }}
+                                                        >
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    </td>
                                                 </tr>
-                                            </thead>
-                                            <tbody className="divide-y">
-                                                {issues.slice(0, activeTab === 'NEW' ? 10 : undefined).map((issue: StockIssue) => (
-                                                    <tr key={issue.id} className="hover:bg-slate-50">
-                                                        <td className="px-4 py-3 font-medium">{issue.issueNumber}</td>
-                                                        <td className="px-4 py-3">
-                                                            {new Date(issue.createdAt).toLocaleDateString()}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <Badge variant="outline">{issue.issueType}</Badge>
-                                                        </td>
-                                                        <td className="px-4 py-3">{issue.recipientName}</td>
-                                                        <td className="px-4 py-3 text-center">{issue.items?.length || 0}</td>
-                                                        <td className="px-4 py-3">{issue.issuedBy?.name || '-'}</td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setSelectedIssue(issue);
-                                                                    setShowDetailsDialog(true);
-                                                                }}
-                                                            >
-                                                                <Eye className="w-4 h-4" />
-                                                            </Button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </main>

@@ -133,30 +133,31 @@ export default function InitialStockPage() {
     );
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto space-y-6">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
 
                         <div className="flex justify-between items-center">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Initial Stock Setup</h1>
-                                <p className="text-slate-500">Set physical stock counts for stores (Fresh Start)</p>
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Initial Stock Setup</h1>
+                                <p className="text-xs text-slate-500">Set physical stock counts for stores (Fresh Start)</p>
                             </div>
-                            <Button onClick={handleSave} disabled={saveMutation.isPending || !selectedStore}>
-                                {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                            <Button onClick={handleSave} disabled={saveMutation.isPending || !selectedStore} size="sm" className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm">
+                                {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                                 Update All Stock
                             </Button>
                         </div>
 
                         {/* Controls */}
-                        <Card>
-                            <CardContent className="p-6 flex flex-col md:flex-row gap-4 items-end">
-                                <div className="w-full md:w-1/3 space-y-2">
+                        <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
+                            <CardContent className="p-3 flex flex-col sm:flex-row gap-4 items-center">
+                                <div className="w-full sm:w-1/2 flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider min-w-[80px]">Store:</span>
                                     <select
-                                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                                         value={selectedStore}
                                         onChange={(e) => setSelectedStore(e.target.value)}
                                     >
@@ -167,13 +168,13 @@ export default function InitialStockPage() {
                                     </select>
                                 </div>
 
-                                <div className="w-full md:w-1/3 space-y-2">
-                                    <label className="text-sm font-medium">Search Items</label>
-                                    <div className="relative">
-                                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                                <div className="w-full sm:w-1/2 flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider min-w-[80px]">Search:</span>
+                                    <div className="relative w-full">
+                                        <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
                                         <Input
                                             placeholder="Search by code or name..."
-                                            className="pl-8"
+                                            className="pl-8 h-8 text-xs rounded-md"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                         />
@@ -183,28 +184,28 @@ export default function InitialStockPage() {
                         </Card>
 
                         {/* Table */}
-                        <Card className="overflow-hidden">
+                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
                             <div className="max-h-[600px] overflow-y-auto relative">
                                 {!selectedStore ? (
-                                    <div className="p-12 text-center text-slate-500">
+                                    <div className="p-12 text-center text-slate-400 text-xs font-semibold">
                                         Please select a store to view stock
                                     </div>
                                 ) : isLoadingItems || isLoadingStock ? (
                                     <div className="p-12 text-center flex justify-center">
-                                        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                                        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                                     </div>
                                 ) : (
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10">
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
                                             <tr>
-                                                <th className="px-6 py-3">Code</th>
-                                                <th className="px-6 py-3">Item Name</th>
-                                                <th className="px-6 py-3">Category</th>
-                                                <th className="px-6 py-3 text-right">Current System Qty</th>
-                                                <th className="px-6 py-3 text-right bg-blue-50/50">New Physical Qty</th>
+                                                <th className="px-4 py-2 font-semibold">Code</th>
+                                                <th className="px-3 py-2 font-semibold min-w-[200px]">Item Name</th>
+                                                <th className="px-3 py-2 font-semibold">Category</th>
+                                                <th className="px-3 py-2 font-semibold text-right">Current System Qty</th>
+                                                <th className="px-4 py-2 font-semibold text-right bg-blue-50/50">New Physical Qty</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody className="divide-y divide-slate-100">
                                             {filteredItems.map((item) => {
                                                 const currentStock = currentStocks?.find((s: any) => s.itemId === item.id);
                                                 const currentQty = currentStock ? currentStock.quantity : 0;
@@ -212,24 +213,24 @@ export default function InitialStockPage() {
                                                 const isChanged = parseFloat(inputValue) !== currentQty;
 
                                                 return (
-                                                    <tr key={item.id} className="border-b hover:bg-slate-50/50">
-                                                        <td className="px-6 py-4 font-medium">{item.code}</td>
-                                                        <td className="px-6 py-4">{item.name}</td>
-                                                        <td className="px-6 py-4">{item.category}</td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            <Badge variant="outline" className="bg-slate-100">
+                                                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                                                        <td className="px-4 py-1.5 font-mono text-[11px] text-slate-700">{item.code}</td>
+                                                        <td className="px-3 py-1.5 font-semibold text-slate-900">{item.name}</td>
+                                                        <td className="px-3 py-1.5 text-slate-500">{item.category}</td>
+                                                        <td className="px-3 py-1.5 text-right font-mono">
+                                                            <Badge variant="outline" className="bg-slate-100 text-[10px] px-1.5 py-0 text-slate-600">
                                                                 {currentQty} {item.unit}
                                                             </Badge>
                                                         </td>
-                                                        <td className={`px-6 py-4 text-right ${isChanged ? 'bg-blue-50' : ''}`}>
+                                                        <td className={`px-4 py-1.5 text-right ${isChanged ? 'bg-blue-50/30' : ''}`}>
                                                             <div className="flex justify-end items-center gap-2">
                                                                 <Input
                                                                     type="number"
-                                                                    className={`w-32 text-right ${isChanged ? 'border-blue-400 font-bold' : ''}`}
+                                                                    className={`w-24 text-right h-7 text-xs ${isChanged ? 'border-blue-400 font-bold bg-blue-50/50' : 'border-slate-200'}`}
                                                                     value={inputValue}
                                                                     onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                                                                 />
-                                                                <span className="text-slate-500 w-8">{item.unit}</span>
+                                                                <span className="text-slate-500 w-8 text-[10px] text-left">{item.unit}</span>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -237,7 +238,7 @@ export default function InitialStockPage() {
                                             })}
                                             {filteredItems.length === 0 && (
                                                 <tr>
-                                                    <td colSpan={5} className="text-center py-8 text-slate-500">
+                                                    <td colSpan={5} className="text-center py-8 text-slate-400 font-semibold">
                                                         No items found
                                                     </td>
                                                 </tr>
@@ -246,7 +247,7 @@ export default function InitialStockPage() {
                                     </table>
                                 )}
                             </div>
-                        </Card>
+                        </div>
 
                     </div>
                 </div>

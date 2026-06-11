@@ -122,88 +122,88 @@ export default function RequestsPage() {
     };
 
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto w-full flex flex-col h-full space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
 
                         <div className="flex justify-between items-center flex-none">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Stock Requests</h1>
-                                <p className="text-sm text-slate-500">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Stock Requests</h1>
+                                <p className="text-xs text-slate-500">
                                     Manage Internal Transfers &amp; External Purchases
                                 </p>
                             </div>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex space-x-1 bg-slate-200/50 p-1 rounded-lg w-fit flex-none">
+                        <div className="flex space-x-1 bg-slate-200/40 p-1 rounded-lg w-fit flex-none border border-slate-200/60">
                             <button
                                 onClick={() => setActiveTab('all')}
-                                className={cn("px-4 py-1.5 text-xs font-medium rounded-md transition-all", activeTab === 'all' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700")}
+                                className={cn("px-3 py-1 text-xs font-semibold rounded transition-all", activeTab === 'all' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700")}
                             >
                                 All Requests
                             </button>
                             <button
                                 onClick={() => setActiveTab('pending')}
-                                className={cn("px-4 py-1.5 text-xs font-medium rounded-md transition-all", activeTab === 'pending' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700")}
+                                className={cn("px-3 py-1 text-xs font-semibold rounded transition-all", activeTab === 'pending' ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700")}
                             >
                                 Pending Approval
                             </button>
                         </div>
 
                         {/* List */}
-                        <div className="flex-1 bg-white rounded-xl border shadow-sm overflow-hidden flex flex-col">
-                            <div className="overflow-auto flex-1">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-slate-50 text-slate-600 font-bold border-b sticky top-0 z-10">
+                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
                                         <tr>
-                                            <th className="px-4 py-3 w-32">Request ID</th>
-                                            <th className="px-4 py-3 w-32">Priority</th>
-                                            <th className="px-4 py-3">Type</th>
-                                            <th className="px-4 py-3">Store</th>
-                                            <th className="px-4 py-3">Requested By</th>
-                                            <th className="px-4 py-3">Required Date</th>
-                                            <th className="px-4 py-3">Status</th>
-                                            <th className="px-4 py-3 text-right">Action</th>
+                                            <th className="px-4 py-2 w-32">Request ID</th>
+                                            <th className="px-3 py-2 w-32">Priority</th>
+                                            <th className="px-3 py-2">Type</th>
+                                            <th className="px-3 py-2">Store</th>
+                                            <th className="px-3 py-2">Requested By</th>
+                                            <th className="px-3 py-2">Required Date</th>
+                                            <th className="px-3 py-2">Status</th>
+                                            <th className="px-4 py-2 text-right">Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y">
+                                    <tbody className="divide-y divide-slate-100">
                                         {isLoading ? (
-                                            <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr>
+                                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 font-semibold">Loading...</td></tr>
                                         ) : filteredRequests.length === 0 ? (
-                                            <tr><td colSpan={8} className="p-8 text-center text-slate-400">No requests found.</td></tr>
+                                            <tr><td colSpan={8} className="p-8 text-center text-slate-400 font-semibold">No requests found.</td></tr>
                                         ) : (
                                             filteredRequests.map((r: InventoryRequest) => (
-                                                <tr key={r.id} className="hover:bg-slate-50">
-                                                    <td className="px-4 py-3 font-mono text-slate-500 text-xs">{r.requestNr}</td>
-                                                    <td className="px-4 py-3">
-                                                        <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5", getPriorityColor(r.priority))}>
+                                                <tr key={r.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                                                    <td className="px-4 py-1.5 font-mono text-slate-600">{r.requestNr}</td>
+                                                    <td className="px-3 py-1.5">
+                                                        <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", getPriorityColor(r.priority))}>
                                                             {r.priority}
                                                         </Badge>
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs font-medium text-slate-600">
+                                                    <td className="px-3 py-1.5 font-medium text-slate-600">
                                                         {r.toStoreId ? 'Internal Transfer' : 'External Purchase'}
                                                     </td>
-                                                    <td className="px-4 py-3 font-semibold text-slate-800">
+                                                    <td className="px-3 py-1.5 font-semibold text-slate-900">
                                                         {r.fromStore.name}
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-1.5 text-xs">
-                                                            <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                                    <td className="px-3 py-1.5 text-slate-700">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="h-4 w-4 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-500">
                                                                 {r.requestedBy.name.charAt(0)}
                                                             </div>
                                                             {r.requestedBy.name}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 text-xs text-slate-500">
+                                                    <td className="px-3 py-1.5 text-slate-500">
                                                         {r.requiredDate ? new Date(r.requiredDate).toLocaleDateString() : '-'}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-3 py-1.5">
                                                         <Badge variant="outline" className={cn(
-                                                            "text-xs px-2",
+                                                            "text-[10px] px-1.5 py-0 font-semibold uppercase",
                                                             r.status === 'PENDING' ? 'border-amber-200 bg-amber-50 text-amber-700' :
                                                                 r.status === 'APPROVED' ? 'border-blue-200 bg-blue-50 text-blue-700' :
                                                                     r.status === 'COMPLETED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
@@ -212,13 +212,13 @@ export default function RequestsPage() {
                                                             {r.status}
                                                         </Badge>
                                                     </td>
-                                                    <td className="px-4 py-3 text-right">
+                                                    <td className="px-4 py-1.5 text-right">
                                                         {r.status === 'PENDING' ? (
-                                                            <Button size="sm" className="h-7 text-xs bg-blue-600" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
+                                                            <Button size="sm" className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md" onClick={() => { setSelectedRequest(r); setApprovalMode(true); }}>
                                                                 Review
                                                             </Button>
                                                         ) : (
-                                                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setSelectedRequest(r); setApprovalMode(false); }}>
+                                                            <Button size="sm" variant="ghost" className="h-7 px-2.5 text-xs text-slate-500 hover:text-slate-800" onClick={() => { setSelectedRequest(r); setApprovalMode(false); }}>
                                                                 Details
                                                             </Button>
                                                         )}
