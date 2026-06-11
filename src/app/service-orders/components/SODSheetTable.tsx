@@ -227,19 +227,9 @@ export function SODSheetTable({
                                             {order.customerName || "-"}
                                         </td>
                                         
-                                        {/* Voice Number */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
-                                                defaultValue={order.voiceNumber || ""}
-                                                onBlur={(e) => handleSaveField(order.id, "voiceNumber", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "voiceNumber")}
-                                                data-row-index={index}
-                                                data-field="voiceNumber"
-                                                className={cellInputClass}
-                                                placeholder="N/A"
-                                            />
-                                            {renderCellStatus(order.id, "voiceNumber")}
+                                        {/* Voice Number (Read-only) */}
+                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
+                                            {order.voiceNumber || "-"}
                                         </td>
 
                                         {/* ONT Serial */}
@@ -326,19 +316,9 @@ export function SODSheetTable({
                                             {order.customerName || "-"}
                                         </td>
                                         
-                                        {/* Voice Number */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
-                                                defaultValue={order.voiceNumber || ""}
-                                                onBlur={(e) => handleSaveField(order.id, "voiceNumber", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "voiceNumber")}
-                                                data-row-index={index}
-                                                data-field="voiceNumber"
-                                                className={cellInputClass}
-                                                placeholder="N/A"
-                                            />
-                                            {renderCellStatus(order.id, "voiceNumber")}
+                                        {/* Voice Number (Read-only) */}
+                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
+                                            {order.voiceNumber || "-"}
                                         </td>
 
                                         {/* Contractor Select */}
@@ -407,19 +387,9 @@ export function SODSheetTable({
                                             {order.customerName || "-"}
                                         </td>
 
-                                        {/* Voice/TP Number */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
-                                                defaultValue={order.voiceNumber || ""}
-                                                onBlur={(e) => handleSaveField(order.id, "voiceNumber", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "voiceNumber")}
-                                                data-row-index={index}
-                                                data-field="voiceNumber"
-                                                className={cellInputClass}
-                                                placeholder="N/A"
-                                            />
-                                            {renderCellStatus(order.id, "voiceNumber")}
+                                        {/* Voice/TP Number (Read-only) */}
+                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
+                                            {order.voiceNumber || "-"}
                                         </td>
 
                                         {/* DP */}

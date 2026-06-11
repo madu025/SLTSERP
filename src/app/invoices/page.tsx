@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import ResponsiveTable from '@/components/ResponsiveTable';
@@ -10,9 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, FileText, Check, X, Trash2, Eye, Printer } from 'lucide-react';
+import { Plus, Check, Trash2, Printer } from 'lucide-react';
 
 interface Invoice {
     id: string;
@@ -41,13 +39,45 @@ interface Contractor {
     name: string;
 }
 
+interface InvoiceMaterialUsage {
+    itemId: string;
+    quantity: number;
+    item?: {
+        name: string;
+    };
+}
+
+interface InvoiceSOD {
+    serviceOrderId: string;
+    rtom: string;
+    completedAt?: string;
+    materialUsage: InvoiceMaterialUsage[];
+}
+
+interface InvoiceDetailResponse {
+    id: string;
+    invoiceNumber: string;
+    date: string;
+    totalAmount: number;
+    amountA: number;
+    contractor: {
+        name: string;
+        address?: string;
+        contactNumber?: string;
+        registrationNumber?: string;
+        bankAccountNumber?: string;
+        bankName?: string;
+        bankBranch?: string;
+    };
+    sods: InvoiceSOD[];
+}
+
 export default function InvoicesPage() {
-    const router = useRouter();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [contractors, setContractors] = useState<Contractor[]>([]);
     const [loading, setLoading] = useState(true);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
-    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [statusFilter] = useState('ALL');
 
     const [generateParams, setGenerateParams] = useState({
         contractorId: '',
@@ -69,6 +99,7 @@ export default function InvoicesPage() {
                 console.error(e);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statusFilter]);
 
     const fetchInvoices = async () => {
@@ -91,8 +122,9 @@ export default function InvoicesPage() {
         try {
             const res = await fetch('/api/contractors?page=1&limit=1000');
             if (res.ok) {
-                const data = await res.json();
-                setContractors(Array.isArray(data.contractors) ? data.contractors : []);
+                const json = await res.json();
+                const actualData = json?.success && json?.data ? json.data : json;
+                setContractors(Array.isArray(actualData?.contractors) ? actualData.contractors : []);
             }
         } catch (error) {
             console.error('Error fetching contractors:', error);
@@ -175,7 +207,7 @@ export default function InvoicesPage() {
             // Fetch Full Details
             const res = await fetch(`/api/invoices/${baseInvoice.id}/details`);
             if (!res.ok) throw new Error('Failed to fetch details');
-            const invoice = await res.json();
+            const invoice: InvoiceDetailResponse = await res.json();
 
             // Extract Month/Year
             const invDate = new Date(invoice.date);
@@ -185,8 +217,8 @@ export default function InvoicesPage() {
 
             // prepare Materials
             const allMaterials = new Set<string>();
-            invoice.sods.forEach((sod: any) => {
-                sod.materialUsage.forEach((usage: any) => {
+            invoice.sods.forEach((sod: InvoiceSOD) => {
+                sod.materialUsage.forEach((usage: InvoiceMaterialUsage) => {
                     if (usage.item && usage.item.name) allMaterials.add(usage.item.name);
                 });
             });
@@ -214,8 +246,8 @@ export default function InvoicesPage() {
             const materialTotals: Record<string, number> = {};
             sortedMaterialCols.forEach(col => materialTotals[col] = 0);
 
-            invoice.sods.forEach((sod: any) => {
-                sod.materialUsage.forEach((usage: any) => {
+            invoice.sods.forEach((sod: InvoiceSOD) => {
+                sod.materialUsage.forEach((usage: InvoiceMaterialUsage) => {
                     const name = usage.item?.name;
                     if (name && materialTotals[name] !== undefined) {
                         materialTotals[name] += (usage.quantity || 0);
@@ -460,10 +492,10 @@ export default function InvoicesPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${pageSods.map((sod: any, idx: number) => {
+                                    ${pageSods.map((sod: InvoiceSOD, idx: number) => {
                 // Build material mapping for this row
-                const usageMap: any = {};
-                sod.materialUsage.forEach((u: any) => {
+                const usageMap: Record<string, number> = {};
+                sod.materialUsage.forEach((u: InvoiceMaterialUsage) => {
                     if (u.item?.name) usageMap[u.item.name] = u.quantity;
                 });
 
@@ -510,22 +542,7 @@ export default function InvoicesPage() {
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        const variants: Record<string, { variant: any; className: string }> = {
-            PENDING: { variant: 'outline', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-            APPROVED: { variant: 'outline', className: 'bg-blue-50 text-blue-700 border-blue-200' },
-            PAID: { variant: 'outline', className: 'bg-green-50 text-green-700 border-green-200' },
-            HOLD: { variant: 'outline', className: 'bg-orange-50 text-orange-700 border-orange-200' },
-            ELIGIBLE: { variant: 'outline', className: 'bg-purple-50 text-purple-700 border-purple-200' }
-        };
 
-        const config = variants[status] || variants.PENDING;
-        return (
-            <Badge variant={config.variant} className={config.className}>
-                {status}
-            </Badge>
-        );
-    };
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', {

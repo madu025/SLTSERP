@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,75 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Plus, AlertTriangle, History, FilePlus, Search, CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
+import { Trash, Plus, AlertTriangle, History, FilePlus, CheckCircle2, ShieldCheck } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { cn } from "@/lib/utils";
+
+interface ContractorItem {
+    id: string;
+    name: string;
+}
+
+interface ContractorResponse {
+    success: boolean;
+    data?: {
+        contractors: ContractorItem[];
+    };
+    contractors?: ContractorItem[];
+}
+
+interface StoreItem {
+    id: string;
+    name: string;
+}
+
+interface InventoryItem {
+    id: string;
+    code: string;
+    name: string;
+    unit: string;
+}
+
+interface ContractorStockItem {
+    itemId: string;
+    quantity: number;
+}
+
+interface WastageLogItem {
+    id: string;
+    date: string;
+    description: string;
+    entityName: string;
+    storeName: string;
+    status: string;
+    items: Array<{
+        name: string;
+        quantity: number;
+    }>;
+}
+
+interface WastagePayload {
+    contractorId?: string;
+    storeId?: string;
+    month: string;
+    description: string;
+    items: Array<{ itemId: string; quantity: number; unit: string }>;
+}
+
+interface WastageMutationResponse {
+    success: boolean;
+    status?: string;
+    message?: string;
+}
+
+interface ApproveMutationResponse {
+    success: boolean;
+    message?: string;
+}
 
 export default function WastageReportPage() {
     const router = useRouter();
@@ -44,43 +106,47 @@ export default function WastageReportPage() {
     };
 
     // --- FETCH DATA ---
-    const { data: contractorsData } = useQuery({
+    const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ['contractors'],
         queryFn: async () => (await fetch('/api/contractors?page=1&limit=1000')).json()
     });
-    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+    const contractors: ContractorItem[] = contractorsData?.success && Array.isArray(contractorsData.data?.contractors)
+        ? contractorsData.data.contractors
+        : Array.isArray(contractorsData?.contractors)
+            ? contractorsData.contractors
+            : [];
 
-    const { data: stores = [] } = useQuery({
+    const { data: stores = [] } = useQuery<StoreItem[]>({
         queryKey: ['stores'],
         queryFn: async () => (await fetch('/api/stores')).json()
     });
 
-    const { data: items = [] } = useQuery({
+    const { data: items = [] } = useQuery<InventoryItem[]>({
         queryKey: ['inventory-items'],
         queryFn: async () => (await fetch('/api/inventory/items')).json()
     });
 
-    const { data: contractorStock = [] } = useQuery({
+    const { data: contractorStock = [] } = useQuery<ContractorStockItem[]>({
         queryKey: ['contractor-stock-for-wastage', selectedContractor],
         queryFn: async () => {
             if (!selectedContractor || selectedContractor === 'none') return [];
             const res = await fetch(`/api/inventory/in-hand-stock?contractorId=${selectedContractor}`);
-            return res.json();
+            return res.json() as Promise<ContractorStockItem[]>;
         },
         enabled: !!selectedContractor && selectedContractor !== 'none'
     });
 
-    const { data: history = [], isLoading: isHistoryLoading } = useQuery({
+    const { data: history = [], isLoading: isHistoryLoading } = useQuery<WastageLogItem[]>({
         queryKey: ['wastage-history', historyMonth],
         queryFn: async () => {
             const res = await fetch(`/api/inventory/wastage/history?month=${historyMonth}`, { headers: getAuthHeaders() });
-            return res.json();
+            return res.json() as Promise<WastageLogItem[]>;
         }
     });
 
     // --- MUTATIONS ---
-    const wastageMutation = useMutation({
-        mutationFn: async (data: any) => {
+    const wastageMutation = useMutation<WastageMutationResponse, Error, WastagePayload>({
+        mutationFn: async (data) => {
             const res = await fetch('/api/inventory/wastage', {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -92,7 +158,7 @@ export default function WastageReportPage() {
             }
             return res.json();
         },
-        onSuccess: (data: any) => {
+        onSuccess: (data) => {
             if (data.status === 'PENDING') {
                 toast.info("Record saved. High-value materials require manager approval.");
             } else {
@@ -102,11 +168,11 @@ export default function WastageReportPage() {
             setDescription('');
             queryClient.invalidateQueries({ queryKey: ['wastage-history'] });
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err) => toast.error(err.message)
     });
 
-    const approveMutation = useMutation({
-        mutationFn: async (id: string) => {
+    const approveMutation = useMutation<ApproveMutationResponse, Error, string>({
+        mutationFn: async (id) => {
             const res = await fetch('/api/inventory/wastage/approve', {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -119,7 +185,7 @@ export default function WastageReportPage() {
             toast.success("Wastage approved and stock adjusted.");
             queryClient.invalidateQueries({ queryKey: ['wastage-history'] });
         },
-        onError: (err: any) => toast.error(err.message)
+        onError: (err) => toast.error(err.message)
     });
 
     // --- HANDLERS ---
@@ -131,15 +197,15 @@ export default function WastageReportPage() {
     };
 
     const handleItemChange = (idx: number, itemId: string) => {
-        const item = items.find((i: any) => i.id === itemId);
+        const item = items.find((i: InventoryItem) => i.id === itemId);
         const newRows = [...rows];
         newRows[idx] = { ...newRows[idx], itemId, name: item?.name || '', unit: item?.unit || 'Nos' };
         setRows(newRows);
     };
 
-    const handleUpdateRow = (idx: number, field: string, value: any) => {
+    const handleUpdateRow = (idx: number, field: string, value: string | number) => {
         const newRows = [...rows];
-        (newRows[idx] as any)[field] = value;
+        (newRows[idx] as Record<string, unknown>)[field] = value;
         setRows(newRows);
     };
 
@@ -202,7 +268,7 @@ export default function WastageReportPage() {
                                                     <SelectTrigger className="bg-white"><SelectValue placeholder="Contractor (If field wastage)" /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="none">Store Only (No Contractor)</SelectItem>
-                                                        {contractors.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                                        {contractors.map((c: ContractorItem) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -211,7 +277,7 @@ export default function WastageReportPage() {
                                                 <Select value={selectedStore} onValueChange={setSelectedStore}>
                                                     <SelectTrigger className="bg-white"><SelectValue placeholder="Select Store" /></SelectTrigger>
                                                     <SelectContent>
-                                                        {stores.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                                        {stores.map((s: StoreItem) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -249,8 +315,8 @@ export default function WastageReportPage() {
                                                                     <SelectValue placeholder="Select Item" />
                                                                 </SelectTrigger>
                                                                 <SelectContent className="max-h-60">
-                                                                    {items.map((item: any) => {
-                                                                        const stock = contractorStock.find((s: any) => s.itemId === item.id);
+                                                                    {items.map((item: InventoryItem) => {
+                                                                        const stock = contractorStock.find((s: ContractorStockItem) => s.itemId === item.id);
                                                                         return (
                                                                             <SelectItem key={item.id} value={item.id}>
                                                                                 <div className="flex justify-between w-full gap-4">
@@ -314,7 +380,7 @@ export default function WastageReportPage() {
                                                     ) : (history.length === 0) ? (
                                                         <TableRow><TableCell colSpan={5} className="text-center py-10 text-slate-400">No records found for this period.</TableCell></TableRow>
                                                     ) : (
-                                                        history.map((log: any) => (
+                                                        history.map((log: WastageLogItem) => (
                                                             <TableRow key={log.id} className="hover:bg-slate-50/50">
                                                                 <TableCell>
                                                                     <div className="flex flex-col">
@@ -330,7 +396,7 @@ export default function WastageReportPage() {
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <div className="space-y-1">
-                                                                        {log.items.map((i: any, idx: number) => (
+                                                                        {log.items.map((i: { name: string; quantity: number }, idx: number) => (
                                                                             <div key={idx} className="flex justify-between text-xs border-b border-slate-50 pb-1 last:border-0 mr-4">
                                                                                 <span className="text-slate-600">{i.name}</span>
                                                                                 <span className="font-bold text-red-600">-{i.quantity}</span>

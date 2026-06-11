@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -17,7 +17,6 @@ import {
     CheckCircle2, 
     Loader2, 
     ArrowRightLeft, 
-    History,
     Boxes,
     PackageSearch,
     Info,
@@ -27,6 +26,45 @@ import {
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+
+interface ContractorItem {
+    id: string;
+    name: string;
+}
+
+interface VirtualSwapSummaryItem {
+    commonName: string;
+    totalQty: number;
+    unit: string;
+    isMappable: boolean;
+    contractorCount: number;
+}
+
+interface VirtualSwapPreviewItem {
+    contractorName: string;
+    opmcName: string;
+    fromItem: string;
+    toItem: string;
+    quantity: number;
+    unit: string;
+}
+
+interface InHandStockItem {
+    id: string;
+    contractorName: string;
+    opmcName: string;
+    itemType: string;
+    itemCode: string;
+    itemName: string;
+    quantity: number;
+    unit: string;
+}
+
+interface SwapMutationResponse {
+    success: boolean;
+    contractorsProcessed: number;
+    message?: string;
+}
 
 export default function VirtualSwapPage() {
     const queryClient = useQueryClient();
@@ -44,47 +82,48 @@ export default function VirtualSwapPage() {
     };
 
     // 1. Fetch Contractors for filters
-    const { data: contractors = [] } = useQuery({
+    const { data: contractors = [] } = useQuery<ContractorItem[]>({
         queryKey: ['contractors-list'],
         queryFn: async () => {
             const res = await fetch('/api/contractors?limit=1000');
-            const data = await res.json();
-            return data.contractors || [];
+            const json = await res.json();
+            const actualData = json?.success && json?.data ? json.data : json;
+            return (actualData?.contractors || []) as ContractorItem[];
         }
     });
 
     // 2. Fetch Transition Summary (Aggregate View)
-    const { data: summary = [], isLoading, refetch } = useQuery({
+    const { data: summary = [], isLoading, refetch } = useQuery<VirtualSwapSummaryItem[]>({
         queryKey: ['virtual-swap-summary'],
         queryFn: async () => {
             const res = await fetch('/api/inventory/virtual-swap', { headers: getAuthHeaders() });
             if (!res.ok) throw new Error('Failed to fetch summary');
-            return res.json();
+            return res.json() as Promise<VirtualSwapSummaryItem[]>;
         }
     });
 
     // 3. Fetch Transition Preview (Detailed Per Contractor)
-    const { data: preview = [], isLoading: isPreviewLoading } = useQuery({
+    const { data: preview = [], isLoading: isPreviewLoading } = useQuery<VirtualSwapPreviewItem[]>({
         queryKey: ['virtual-swap-preview'],
         queryFn: async () => {
             const res = await fetch('/api/inventory/virtual-swap/preview', { headers: getAuthHeaders() });
             if (!res.ok) throw new Error('Failed to fetch preview');
-            return res.json();
+            return res.json() as Promise<VirtualSwapPreviewItem[]>;
         }
     });
 
     // 4. Fetch Detailed In-Hand Stock (Current State)
-    const { data: inHandStock = [], isLoading: isInHandLoading } = useQuery({
+    const { data: inHandStock = [], isLoading: isInHandLoading } = useQuery<InHandStockItem[]>({
         queryKey: ['in-hand-stock'],
         queryFn: async () => {
             const res = await fetch('/api/inventory/in-hand-stock', { headers: getAuthHeaders() });
             if (!res.ok) throw new Error('Failed to fetch in-hand stock');
-            return res.json();
+            return res.json() as Promise<InHandStockItem[]>;
         }
     });
 
     // 5. Execute Swap Mutation
-    const swapMutation = useMutation({
+    const swapMutation = useMutation<SwapMutationResponse, Error, void>({
         mutationFn: async () => {
             const res = await fetch('/api/inventory/virtual-swap', {
                 method: 'POST',
@@ -104,11 +143,11 @@ export default function VirtualSwapPage() {
             setIsConfirmed(false);
             refetch();
         },
-        onError: (err: any) => toast.error(err.message || "Stock swap failed.")
+        onError: (err) => toast.error(err.message || "Stock swap failed.")
     });
 
-    const mappableQty = Array.isArray(summary) ? summary.filter((s: any) => s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
-    const unmappableQty = Array.isArray(summary) ? summary.filter((s: any) => !s.isMappable).reduce((acc: number, curr: any) => acc + curr.totalQty, 0) : 0;
+    const mappableQty = Array.isArray(summary) ? summary.filter((s: VirtualSwapSummaryItem) => s.isMappable).reduce((acc: number, curr: VirtualSwapSummaryItem) => acc + curr.totalQty, 0) : 0;
+    const unmappableQty = Array.isArray(summary) ? summary.filter((s: VirtualSwapSummaryItem) => !s.isMappable).reduce((acc: number, curr: VirtualSwapSummaryItem) => acc + curr.totalQty, 0) : 0;
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -175,12 +214,12 @@ export default function VirtualSwapPage() {
                                                     <div className="pt-4 border-t border-slate-800 space-y-2">
                                                         <div className="flex justify-between text-xs text-slate-400">
                                                             <span>Ready Mappings:</span>
-                                                            <span className="font-bold text-emerald-400">{summary.filter((s: any) => s.isMappable).length} Items</span>
+                                                            <span className="font-bold text-emerald-400">{summary.filter((s: VirtualSwapSummaryItem) => s.isMappable).length} Items</span>
                                                         </div>
                                                         <div className="flex justify-between text-xs text-slate-400">
                                                             <span>Actionable Contractors:</span>
                                                             <span className="font-bold text-white">
-                                                                {Array.isArray(summary) ? summary.filter((s: any) => s.isMappable).reduce((acc: number, curr: any) => acc + curr.contractorCount, 0) : 0} Affected
+                                                                {Array.isArray(summary) ? summary.filter((s: VirtualSwapSummaryItem) => s.isMappable).reduce((acc: number, curr: VirtualSwapSummaryItem) => acc + curr.contractorCount, 0) : 0} Affected
                                                             </span>
                                                         </div>
                                                     </div>
@@ -254,7 +293,7 @@ export default function VirtualSwapPage() {
                                                     ) : (!Array.isArray(summary) || summary.length === 0) ? (
                                                         <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400 italic">No SLT materials detected in contractor stock.</TableCell></TableRow>
                                                     ) : (
-                                                        summary.map((item: any, idx: number) => (
+                                                        summary.map((item: VirtualSwapSummaryItem, idx: number) => (
                                                             <TableRow key={idx} className={item.isMappable ? "" : "bg-red-50/30"}>
                                                                 <TableCell className="font-medium">{item.commonName}</TableCell>
                                                                 <TableCell className="text-right">
@@ -316,7 +355,7 @@ export default function VirtualSwapPage() {
                                                     ) : (!Array.isArray(preview) || preview.length === 0) ? (
                                                         <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400">No mappable transactions found.</TableCell></TableRow>
                                                     ) : (
-                                                        preview.map((p: any, idx: number) => (
+                                                        preview.map((p: VirtualSwapPreviewItem, idx: number) => (
                                                             <TableRow key={idx} className="hover:bg-slate-50/50 transition-colors">
                                                                 <TableCell>
                                                                     <div className="flex flex-col">
@@ -360,7 +399,7 @@ export default function VirtualSwapPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="all">All Contractors</SelectItem>
-                                                    {contractors.map((c: any) => (
+                                                    {contractors.map((c: ContractorItem) => (
                                                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -391,11 +430,11 @@ export default function VirtualSwapPage() {
                                                     ) : (inHandStock.length === 0) ? (
                                                         <TableRow><TableCell colSpan={5} className="text-center py-10 text-slate-400 italic">No stock found matching filters.</TableCell></TableRow>
                                                     ) : (
-                                                        inHandStock.filter((item: any) => {
-                                                            const matchContractor = selectedContractor === 'all' || item.contractorName.toLowerCase().includes(contractors.find((c: any) => c.id === selectedContractor)?.name.toLowerCase() || '');
+                                                        inHandStock.filter((item: InHandStockItem) => {
+                                                            const matchContractor = selectedContractor === 'all' || item.contractorName.toLowerCase().includes(contractors.find((c: ContractorItem) => c.id === selectedContractor)?.name.toLowerCase() || '');
                                                             const matchSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || item.itemCode.toLowerCase().includes(searchTerm.toLowerCase());
                                                             return matchContractor && matchSearch;
-                                                        }).map((row: any) => (
+                                                        }).map((row: InHandStockItem) => (
                                                             <TableRow key={row.id} className="hover:bg-slate-50/50">
                                                                 <TableCell>
                                                                     <div className="flex flex-col">

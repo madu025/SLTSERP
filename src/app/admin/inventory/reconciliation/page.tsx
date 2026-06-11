@@ -17,6 +17,39 @@ import { reconciliationFilterSchema } from '@/lib/validations/inventory';
 import { z } from 'zod';
 import { cn } from "@/lib/utils";
 
+interface ContractorItem {
+    id: string;
+    name: string;
+}
+
+interface ContractorResponse {
+    success: boolean;
+    data?: {
+        contractors: ContractorItem[];
+    };
+    contractors?: ContractorItem[];
+}
+
+interface ReconciliationItem {
+    id: string;
+    code: string;
+    name: string;
+    unit: string;
+    issued: number;
+    used: number;
+    wastage: number;
+    returned: number;
+    balance: number;
+    costPrice?: number;
+    totalValue?: number;
+}
+
+interface StoreItem {
+    id: string;
+    name: string;
+    type: string;
+}
+
 type FilterValues = z.infer<typeof reconciliationFilterSchema>;
 
 export default function ReconciliationPage() {
@@ -29,25 +62,30 @@ export default function ReconciliationPage() {
         }
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const contractorId = form.watch('contractorId');
     const storeId = form.watch('storeId');
     const month = form.watch('month');
 
     // Fetch Stores
-    const { data: stores = [] } = useQuery({
+    const { data: stores = [] } = useQuery<StoreItem[]>({
         queryKey: ['stores'],
         queryFn: async () => (await fetch('/api/stores')).json()
     });
 
     // Fetch Contractors
-    const { data: contractorsData } = useQuery({
+    const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ['contractors-all'],
         queryFn: async () => (await fetch('/api/contractors?limit=1000')).json()
     });
-    const contractors = contractorsData?.contractors || [];
+    const contractors: ContractorItem[] = contractorsData?.success && Array.isArray(contractorsData.data?.contractors)
+        ? contractorsData.data.contractors
+        : Array.isArray(contractorsData?.contractors)
+            ? contractorsData.contractors
+            : [];
 
     // Fetch Reconciliation Data
-    const { data: reportResult, isLoading, isFetching, refetch } = useQuery({
+    const { data: reportResult, isLoading, isFetching, refetch } = useQuery<{ success: boolean; data: ReconciliationItem[] }>({
         queryKey: ['reconciliation', contractorId, storeId, month],
         queryFn: async () => {
             if (!contractorId || !storeId || !month) return { success: true, data: [] };
@@ -58,7 +96,7 @@ export default function ReconciliationPage() {
         enabled: !!(contractorId && storeId && month)
     });
 
-    const report = reportResult?.data || [];
+    const report: ReconciliationItem[] = reportResult?.data || [];
 
     const onSubmit = () => refetch();
 
@@ -98,7 +136,7 @@ export default function ReconciliationPage() {
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {contractors.map((c: any) => (
+                                                            {contractors.map((c: ContractorItem) => (
                                                                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                                                             ))}
                                                         </SelectContent>
@@ -121,7 +159,7 @@ export default function ReconciliationPage() {
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {stores.map((s: any) => (
+                                                            {stores.map((s: StoreItem) => (
                                                                 <SelectItem key={s.id} value={s.id}>{s.name} ({s.type})</SelectItem>
                                                             ))}
                                                         </SelectContent>
@@ -187,7 +225,7 @@ export default function ReconciliationPage() {
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
-                                            report.map((item: any) => (
+                                            report.map((item: ReconciliationItem) => (
                                                 <TableRow key={item.id} className="hover:bg-slate-50/50">
                                                     <TableCell className="font-mono text-xs">{item.code}</TableCell>
                                                     <TableCell>

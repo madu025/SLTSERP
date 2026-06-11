@@ -87,14 +87,26 @@ export default function StockIssuePage() {
     });
 
     // Fetch contractors
-    const { data: contractorsData } = useQuery<{ contractors: Array<{ id: string; name: string }> }>({
+    interface ContractorResponse {
+        success: boolean;
+        data?: {
+            contractors: Array<{ id: string; name: string }>;
+        };
+        contractors?: Array<{ id: string; name: string }>;
+    }
+
+    const { data: contractorsData } = useQuery<ContractorResponse>({
         queryKey: ["contractors"],
         queryFn: async () => {
             const res = await fetch("/api/contractors?page=1&limit=1000");
             return res.json();
         }
     });
-    const contractors = Array.isArray(contractorsData?.contractors) ? contractorsData.contractors : [];
+    const contractors: Array<{ id: string; name: string }> = contractorsData?.success && Array.isArray(contractorsData.data?.contractors)
+        ? contractorsData.data.contractors
+        : Array.isArray(contractorsData?.contractors)
+            ? contractorsData.contractors
+            : [];
 
     // Fetch stock issues history
     const { data: issues = [], isLoading } = useQuery<StockIssue[]>({
