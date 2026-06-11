@@ -1,4 +1,4 @@
-import { StockRequest, Prisma } from '@prisma/client';
+import { StockRequest, Prisma, StockRequestItem } from '@prisma/client';
 import { StockRequestRepository } from '@/repositories/stock-request.repository';
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { emitSystemEvent } from '@/lib/events';
@@ -265,7 +265,9 @@ export class StockRequestService {
     private static async handleMainStoreRelease(data: StockRequestActionData) {
         const { requestId, userId, remarks, items } = data;
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            const stockReq = await StockRequestRepository.findById(requestId, { items: true, fromStore: true }, tx);
+            const stockReq = await StockRequestRepository.findById(requestId, { items: true, fromStore: true }, tx) as Prisma.StockRequestGetPayload<{
+                include: { items: true, fromStore: true }
+            }> | null;
 
             if (!stockReq) throw new Error("REQUEST_NOT_FOUND");
             if (stockReq.workflowStage !== 'MAIN_STORE_RELEASE') throw new Error("INVALID_WORKFLOW_STAGE");
@@ -274,7 +276,7 @@ export class StockRequestService {
                 const issuedQty = StockService.round(item.issuedQty || 0);
                 if (issuedQty <= 0) continue;
 
-                const reqItem = stockReq.items.find((i: any) => i.id === item.id);
+                const reqItem = stockReq.items.find((i: StockRequestItem) => i.id === item.id);
                 if (!reqItem) continue;
 
                 await StockRequestRepository.updateItem(reqItem.id, { issuedQty }, tx);
@@ -296,7 +298,7 @@ export class StockRequestService {
                     userId: userId || 'SYSTEM',
                     notes: `Released to ${stockReq.fromStore?.name} - Request ${stockReq.requestNr}`,
                     items: {
-                        create: pickedBatches.map((p: any) => ({
+                        create: pickedBatches.map((p) => ({
                             itemId: reqItem.itemId,
                             batchId: p.batchId,
                             quantity: -p.quantity
@@ -320,7 +322,9 @@ export class StockRequestService {
     private static async handleSubStoreReceive(data: StockRequestActionData) {
         const { requestId, userId, remarks, items } = data;
         return await prisma.$transaction(async (tx: TransactionClient) => {
-            const stockReq = await StockRequestRepository.findById(requestId, { items: true }, tx);
+            const stockReq = await StockRequestRepository.findById(requestId, { items: true }, tx) as Prisma.StockRequestGetPayload<{
+                include: { items: true }
+            }> | null;
 
             if (!stockReq) throw new Error("REQUEST_NOT_FOUND");
             if (stockReq.workflowStage !== 'SUB_STORE_RECEIVE') throw new Error("INVALID_WORKFLOW_STAGE");
@@ -330,7 +334,7 @@ export class StockRequestService {
 
             for (const item of items || []) {
                 const receivedQty = StockService.round(item.receivedQty || 0);
-                const reqItem = stockReq.items.find((i: any) => i.id === item.id);
+                const reqItem = stockReq.items.find((i: StockRequestItem) => i.id === item.id);
 
                 if (!reqItem) continue;
                 if (receivedQty <= 0) continue;
@@ -353,7 +357,17 @@ export class StockRequestService {
 
                     if (!batchId) continue;
 
-                    await InventoryRepository.updateBatchStock(stockReq.fromStoreId!, batchId, take, tx);
+                    const prismaTx = tx as unknown as typeof prisma;
+                    await prismaTx.inventoryBatchStock.upsert({
+                        where: { storeId_batchId: { storeId: stockReq.fromStoreId!, batchId } },
+                        update: { quantity: { increment: take } },
+                        create: {
+                            storeId: stockReq.fromStoreId!,
+                            batchId,
+                            itemId: reqItem.itemId,
+                            quantity: take
+                        }
+                    });
 
                     transactionItems.push({ itemId: reqItem.itemId, batchId, quantity: take });
                     remainingToReceive = StockService.round(remainingToReceive - take);
@@ -388,7 +402,7 @@ export class StockRequestService {
 
     // --- HELPER NOTIFICATION METHODS ---
 
-    private static async safeNotifyStageChange(req: any, stage: string, roles: string[]) {
+    private static async safeNotifyStageChange(req: StockRequest, stage: string, roles: string[]) {
         try {
             await eventBus.publish('inventory.stock_request_stage_changed', {
                 request: { id: req.id, requestNr: req.requestNr },
@@ -400,7 +414,7 @@ export class StockRequestService {
         }
     }
 
-    private static async safeNotifyFinalAction(req: any, action: string, remarks?: string) {
+    private static async safeNotifyFinalAction(req: StockRequest, action: string, remarks?: string) {
         try {
             await eventBus.publish('inventory.stock_request_finalized', {
                 request: { id: req.id, requestNr: req.requestNr, requestedById: req.requestedById },
