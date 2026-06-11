@@ -226,7 +226,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
             // 4. Returns & Reconciliation
             {
                 title: 'MRN (Material Return)',
-                path: '/admin/inventory/mrn/create',
+                path: '/admin/inventory/mrns',
                 icon: Receipt,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },

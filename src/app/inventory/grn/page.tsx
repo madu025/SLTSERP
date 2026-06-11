@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,6 +143,18 @@ export default function GRNPage() {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
 
         if (!selectedRequest) return;
+
+        // Validate serials for serialized items
+        for (const item of receivedItems) {
+            if (item.hasSerial) {
+                const serialsCount = (item.serials || []).filter(s => s && s.trim() !== '').length;
+                const expectedCount = Math.ceil(item.receivedQty);
+                if (serialsCount !== expectedCount) {
+                    toast.error(`Please enter exactly ${expectedCount} serial numbers for item: ${item.itemName} (Entered: ${serialsCount})`);
+                    return;
+                }
+            }
+        }
 
         const payload = {
             storeId: selectedRequest.fromStoreId,

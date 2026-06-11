@@ -32,6 +32,11 @@ interface StoreItem {
     type: string;
 }
 
+interface StoreStockItem {
+    itemId: string;
+    quantity: number;
+}
+
 interface MRNPayload {
     storeId: string;
     returnType: string;
@@ -72,6 +77,24 @@ export default function MRNCreatePage() {
             return res.json();
         }
     });
+
+    // Fetch stock for the selected store
+    const { data: storeStock = [] } = useQuery<StoreStockItem[]>({
+        queryKey: ["store-stock", selectedStore],
+        queryFn: async () => {
+            if (!selectedStore) return [];
+            const res = await fetch(`/api/inventory/stock?storeId=${selectedStore}`);
+            if (!res.ok) throw new Error("Failed to fetch stock");
+            return res.json();
+        },
+        enabled: !!selectedStore
+    });
+
+    const getStoreItemQty = (itemId: string) => {
+        if (!selectedStore) return 0;
+        const stock = storeStock.find((s) => s.itemId === itemId);
+        return stock ? stock.quantity : 0;
+    };
 
     const getCurrentUserId = () => {
         const user = localStorage.getItem('user');
@@ -135,6 +158,22 @@ export default function MRNCreatePage() {
 
         if (validItems.length === 0) {
             toast.error("Please add at least one item");
+            return;
+        }
+
+        // Validate stock availability
+        const invalidStockItems = validItems.filter(item => {
+            const qty = parseFloat(item.quantity);
+            const available = getStoreItemQty(item.itemId);
+            return qty > available;
+        });
+
+        if (invalidStockItems.length > 0) {
+            const itemNames = invalidStockItems.map(item => {
+                const details = getItemDetails(item.itemId);
+                return `${details?.code || item.itemId} (Requested: ${item.quantity}, Available: ${getStoreItemQty(item.itemId)})`;
+            });
+            toast.error(`Insufficient store stock for: ${itemNames.join(", ")}`);
             return;
         }
 
@@ -312,11 +351,25 @@ export default function MRNCreatePage() {
                                                             </select>
                                                         </td>
                                                         <td className="px-3 py-1.5">
-                                                            {itemDetails && (
-                                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-slate-200 text-slate-600 bg-white">
-                                                                    {itemDetails.unit}
-                                                                </Badge>
-                                                            )}
+                                                            <div className="flex items-center gap-1.5">
+                                                                {itemDetails && (
+                                                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-slate-200 text-slate-600 bg-white">
+                                                                        {itemDetails.unit}
+                                                                    </Badge>
+                                                                )}
+                                                                {selectedStore && item.itemId && (
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className={`text-[9px] px-1.5 py-0 font-bold ${
+                                                                            getStoreItemQty(item.itemId) > 0
+                                                                                ? "border-blue-200 text-blue-700 bg-blue-50/50"
+                                                                                : "border-rose-200 text-rose-700 bg-rose-50/50"
+                                                                        }`}
+                                                                    >
+                                                                        In Store: {getStoreItemQty(item.itemId)}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                         <td className="px-3 py-1.5">
                                                             <Input

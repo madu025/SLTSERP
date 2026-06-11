@@ -28,7 +28,7 @@ export const materialReturnSchema = z.object({
             return num;
         }).refine(val => val > 0, 'Quantity must be greater than zero'),
         unit: z.string().optional(),
-        condition: z.enum(['GOOD', 'DAMAGED']).default('GOOD')
+        condition: z.enum(['GOOD', 'DAMAGED', 'FAULTY']).default('GOOD')
     })).min(1, 'At least one item is required')
 });
 
