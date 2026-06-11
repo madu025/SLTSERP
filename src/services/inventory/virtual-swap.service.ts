@@ -234,10 +234,27 @@ export class VirtualSwapService {
                 results.itemsSwapped += 1;
                 results.totalQtySwapped += qty;
 
+                const contractor = await tx.contractor.findUnique({
+                    where: { id: cbs.contractorId },
+                    select: { opmc: { select: { storeId: true } } }
+                });
+
+                let txStoreId = contractor?.opmc?.storeId;
+                if (!txStoreId) {
+                    const fallbackStore = await tx.inventoryStore.findFirst({
+                        where: { type: 'MAIN' }
+                    });
+                    txStoreId = fallbackStore?.id || (await tx.inventoryStore.findFirst())?.id;
+                }
+
+                if (!txStoreId) {
+                    throw new Error("NO_STORE_FOUND_FOR_VIRTUAL_SWAP");
+                }
+
                 await tx.inventoryTransaction.create({
                     data: {
                         type: 'VIRTUAL_SWAP',
-                        storeId: 'SYSTEM',
+                        storeId: txStoreId,
                         userId: userId,
                         notes: `Batch Swap: ${cbs.item.name} (${qty}) -> ${targetSltsItem.name}`,
                         items: {

@@ -72,6 +72,20 @@ export class SODMaterialService {
                 } else {
                     await InventoryRepository.upsertStock(storeId!, m.itemId, -qty, tx);
                 }
+
+                // Update serial number status if the item is serialized
+                if (itemMeta.hasSerial && m.serialNumber) {
+                    const serialNum = m.serialNumber.trim();
+                    await tx.inventoryItemSerial.update({
+                        where: { serialNumber: serialNum },
+                        data: {
+                            status: m.usageType === 'WASTAGE' ? 'FAULTY' : 'INSTALLED',
+                            storeId: null,
+                            contractorId: null,
+                            sodId: serviceOrderId
+                        }
+                    });
+                }
             } else {
                 // Return or Non-decrementing types
                 finalUsageRecords.push(this.mapToUsageRecord(m, qty, null, itemMeta));
@@ -142,6 +156,20 @@ export class SODMaterialService {
                 await ContractorRepository.upsertStock(contractorId, m.itemId, qty, tx);
             } else if (storeId) {
                 await InventoryRepository.upsertStock(storeId, m.itemId, qty, tx);
+            }
+
+            // Restore serial number status
+            if (m.serialNumber) {
+                const serialNum = m.serialNumber.trim();
+                await tx.inventoryItemSerial.update({
+                    where: { serialNumber: serialNum },
+                    data: {
+                        status: contractorId ? 'ISSUED' : 'IN_STORE',
+                        storeId: contractorId ? null : (storeId || null),
+                        contractorId: contractorId || null,
+                        sodId: null
+                    }
+                });
             }
         }
 

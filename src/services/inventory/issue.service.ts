@@ -30,13 +30,13 @@ export class IssueService {
         month: string;
         items: { itemId: string; quantity: string | number; unit?: string }[];
         userId?: string;
-    }) {
+    }, tx?: TransactionClient) {
         const { contractorId, storeId, month, items, userId } = data;
 
-        const result = await prisma.$transaction(async (tx: TransactionClient) => {
+        const execute = async (transaction: TransactionClient) => {
             // 1. Create Material Issue
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const materialIssue = await (tx as any).contractorMaterialIssue.create({
+            const materialIssue = await (transaction as any).contractorMaterialIssue.create({
                 data: {
                     contractorId,
                     storeId,
@@ -62,20 +62,20 @@ export class IssueService {
                 if (qty <= 0) continue;
 
                 // A. Pick Batches using FIFO
-                const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);
+                const pickedBatches = await StockService.pickStoreBatchesFIFO(transaction, storeId, item.itemId, qty);
 
                 for (const picked of pickedBatches) {
                     if (!picked.batchId) continue; // Safety check
                     // Reduce from Store Batch Stock
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    await (tx as any).inventoryBatchStock.update({
+                    await (transaction as any).inventoryBatchStock.update({
                         where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                         data: { quantity: { decrement: picked.quantity } }
                     });
 
                     // Add to Contractor Batch Stock
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    await (tx as any).contractorBatchStock.upsert({
+                    await (transaction as any).contractorBatchStock.upsert({
                         where: { contractorId_batchId: { contractorId, batchId: picked.batchId } },
                         update: { quantity: { increment: picked.quantity } },
                         create: {
@@ -96,14 +96,14 @@ export class IssueService {
 
                 // D. Update Global Store Stock
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await (tx as any).inventoryStock.update({
+                await (transaction as any).inventoryStock.update({
                     where: { storeId_itemId: { storeId, itemId: item.itemId } },
                     data: { quantity: { decrement: qty } }
                 });
 
                 // E. Update Contractor Total Stock
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await (tx as any).contractorStock.upsert({
+                await (transaction as any).contractorStock.upsert({
                     where: { contractorId_itemId: { contractorId, itemId: item.itemId } },
                     update: { quantity: { increment: qty } },
                     create: { contractorId, itemId: item.itemId, quantity: qty }
@@ -112,7 +112,7 @@ export class IssueService {
 
             // 3. Log Transfer-Out Transaction
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (tx as any).inventoryTransaction.create({
+            await (transaction as any).inventoryTransaction.create({
                 data: {
                     type: 'TRANSFER_OUT',
                     storeId,
@@ -131,6 +131,14 @@ export class IssueService {
             });
 
             return materialIssue;
+        };
+
+        if (tx) {
+            return await execute(tx);
+        }
+
+        const result = await prisma.$transaction(async (t: TransactionClient) => {
+            return await execute(t);
         });
 
         // Trigger Low Stock Alerts (non-blocking)
@@ -151,7 +159,7 @@ export class IssueService {
         storeId: string;
         month: string;
         reason?: string;
-        items: { itemId: string; quantity: string | number; unit?: string; condition?: string }[];
+        items: { itemId: string; quantity: string | number; unit?: string; condition?: string; serials?: string[] }[];
         userId: string;
     }) {
         const { contractorId, storeId, month, reason, items, userId } = data;
@@ -173,7 +181,6 @@ export class IssueService {
                     acceptedBy: userId,
                     acceptedAt: new Date(),
                     returnDate: new Date(), // Added from edit
-                    returnedBy: userId || 'SYSTEM', // Added from edit
                     items: {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         create: items.map((item: any) => ({
@@ -233,6 +240,24 @@ export class IssueService {
                         update: { quantity: { increment: qty } },
                         create: { storeId, itemId: item.itemId, quantity: qty }
                     });
+                }
+
+                // Update serials status if returned and serials are provided
+                if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
+                    for (const sn of item.serials) {
+                        const serialNum = sn.trim();
+                        if (!serialNum) continue;
+
+                        await tx.inventoryItemSerial.update({
+                            where: { serialNumber: serialNum },
+                            data: {
+                                status: item.condition === 'GOOD' ? 'IN_STORE' : 'FAULTY',
+                                storeId: storeId,
+                                contractorId: null,
+                                sodId: null
+                            }
+                        });
+                    }
                 }
 
                 // Removed old inventoryTransaction.create for each item

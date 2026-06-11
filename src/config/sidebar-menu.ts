@@ -160,17 +160,31 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: Warehouse,
         allowedRoles: ROLE_GROUPS.STORES,
         submenu: [
+            // 1. Setup & Master Data
             {
-                title: 'Dashboard',
-                path: '/inventory',
-                icon: LayoutDashboard,
-                allowedRoles: ROLE_GROUPS.STORES
+                title: 'Material Registration',
+                path: '/inventory/items',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
-                title: 'Stock Levels',
-                path: '/inventory/stock',
+                title: 'Bulk Import',
+                path: '/inventory/items/import',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN']
+            },
+            {
+                title: 'Initial Stock',
+                path: '/admin/inventory/initial',
                 icon: Warehouse,
-                allowedRoles: ROLE_GROUPS.STORES
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+            },
+            // 2. Stock Inflow
+            {
+                title: 'GRN Entry',
+                path: '/inventory/grn',
+                icon: Receipt,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
                 title: 'Stock Requests',
@@ -190,29 +204,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: ClipboardCheck,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
+            // 3. Status & Outflow
             {
-                title: 'Material Registration',
-                path: '/inventory/items',
-                icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
-            },
-            {
-                title: 'Bulk Import',
-                path: '/inventory/items/import',
-                icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN']
-            },
-            {
-                title: 'Transaction History',
-                path: '/inventory/reports/cardex',
-                icon: FileText,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
-            },
-            {
-                title: 'GRN Entry',
-                path: '/inventory/grn',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+                title: 'Stock Levels',
+                path: '/inventory/stock',
+                icon: Warehouse,
+                allowedRoles: ROLE_GROUPS.STORES
             },
             {
                 title: 'Stock Issue',
@@ -221,27 +218,16 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
-                title: 'MRN (Material Return)',
-                path: '/admin/inventory/mrn/create',
-                icon: Receipt,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
-            },
-            {
-                title: 'Initial Stock',
-                path: '/admin/inventory/initial',
-                icon: Warehouse,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
-            },
-            {
                 title: 'Wastage Reports',
                 path: '/admin/inventory/wastage',
                 icon: PackageMinus,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
             },
+            // 4. Returns & Reconciliation
             {
-                title: 'Contractor Balance Sheet',
-                path: '/contractors/balance-sheet',
-                icon: FileText,
+                title: 'MRN (Material Return)',
+                path: '/admin/inventory/mrn/create',
+                icon: Receipt,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
@@ -251,10 +237,29 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.STORES
             },
             {
+                title: 'Contractor Balance Sheet',
+                path: '/contractors/balance-sheet',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
+            },
+            {
                 title: 'Virtual Transition',
                 path: '/admin/inventory/virtual-swap',
                 icon: RefreshCw,
                 allowedRoles: ROLE_GROUPS.STORES
+            },
+            // 5. Analytics & History
+            {
+                title: 'Dashboard',
+                path: '/inventory',
+                icon: LayoutDashboard,
+                allowedRoles: ROLE_GROUPS.STORES
+            },
+            {
+                title: 'Transaction History',
+                path: '/inventory/reports/cardex',
+                icon: FileText,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             }
         ]
     },

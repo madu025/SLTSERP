@@ -53,12 +53,11 @@ export class MaterialService {
             where: {
                 serviceOrder: {
                     contractorId,
-                    opmc: { storeId }
-                },
-                createdAt: {
-                    // Logic to match the month - for simplicity, we assume month is matched by createdAt or we can filter by SOD completedDate
-                    gte: new Date(`${month}-01`),
-                    lt: new Date(new Date(`${month}-01`).setMonth(new Date(`${month}-01`).getMonth() + 1))
+                    opmc: { storeId },
+                    completedDate: {
+                        gte: new Date(`${month}-01`),
+                        lt: new Date(new Date(`${month}-01`).setMonth(new Date(`${month}-01`).getMonth() + 1))
+                    }
                 }
             },
             select: {
@@ -73,6 +72,26 @@ export class MaterialService {
         // 3. Fetch Returns
         const returns = await prisma.contractorMaterialReturn.findMany({
             where: { contractorId, storeId, month, status: 'ACCEPTED' },
+            select: {
+                items: {
+                    select: {
+                        quantity: true,
+                        item: {
+                            select: { id: true, code: true, name: true, unit: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3.5 Fetch Direct Wastage (Reported)
+        const wastages = await prisma.contractorWastage.findMany({
+            where: {
+                contractorId,
+                storeId,
+                month,
+                status: 'APPROVED'
+            },
             select: {
                 items: {
                     select: {
@@ -131,6 +150,14 @@ export class MaterialService {
             ret.items.forEach(ri => {
                 const s = getItem(ri.item);
                 s.returned += ri.quantity;
+            });
+        });
+
+        // Add Direct Wastage
+        wastages.forEach(w => {
+            w.items.forEach(wi => {
+                const s = getItem(wi.item);
+                s.wastage += wi.quantity;
             });
         });
 

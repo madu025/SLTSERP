@@ -224,50 +224,105 @@ export class StockService {
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
             const issueNumber = `ISS-${Date.now()}`;
+            const isContractorIssue = issueType === 'CONTRACTOR' && !!contractorId;
 
-            for (const item of items) {
-                const quantity = parseFloat(item.quantity.toString());
-
-                const existingStock = await InventoryRepository.findStock(storeId, item.itemId, tx);
-
-                if (!existingStock || existingStock.quantity < quantity) {
-                    throw new Error(`INSUFFICIENT_STOCK: ${item.itemId}`);
-                }
-
-                await InventoryRepository.updateStock(storeId, item.itemId, { quantity: { decrement: quantity } }, tx);
-
-                const invTx = await InventoryRepository.createTransaction({
-                    type: 'TRANSFER_OUT',
+            if (isContractorIssue) {
+                const { IssueService } = await import('./issue.service');
+                const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+                
+                // Delegate core stock movement, batch updates, and contractor stock updates
+                await IssueService.issueMaterial({
+                    contractorId: contractorId!,
                     storeId,
-                    userId: issuedById,
-                    referenceId: issueNumber,
-                    notes: `Issued to ${recipientName} - ${issueType}`
+                    month: currentMonth,
+                    items: items.map(item => ({
+                        itemId: item.itemId,
+                        quantity: parseFloat(item.quantity.toString())
+                    })),
+                    userId: issuedById
                 }, tx);
 
-                await InventoryRepository.createTransactionItem({
-                    transactionId: invTx.id,
-                    itemId: item.itemId,
-                    quantity: -quantity
-                }, tx);
+                // Update serials status (IssueService doesn't do this, so we handle it here)
+                for (const item of items) {
+                    if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
+                        for (const sn of item.serials) {
+                            const serialNum = sn.trim();
+                            if (!serialNum) continue;
 
-                // Update serial status if serials are provided in the payload
-                if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
-                    for (const sn of item.serials) {
-                        const serialNum = sn.trim();
-                        if (!serialNum) continue;
+                            await tx.inventoryItemSerial.update({
+                                where: { serialNumber: serialNum },
+                                data: {
+                                    status: 'ISSUED',
+                                    storeId: null,
+                                    contractorId: contractorId || null
+                                }
+                            });
+                        }
+                    }
+                }
+            } else {
+                // Default path for PROJECTS, TEAMS, etc.
+                for (const item of items) {
+                    const quantity = parseFloat(item.quantity.toString());
 
-                        await tx.inventoryItemSerial.update({
-                            where: { serialNumber: serialNum },
-                            data: {
-                                status: 'ISSUED',
-                                storeId: null,
-                                contractorId: contractorId || null
-                            }
-                        });
+                    const existingStock = await InventoryRepository.findStock(storeId, item.itemId, tx);
+
+                    if (!existingStock || existingStock.quantity < quantity) {
+                        throw new Error(`INSUFFICIENT_STOCK: ${item.itemId}`);
+                    }
+
+                    // A. Pick store batches FIFO and decrement batch stock
+                    const pickedBatches = await this.pickStoreBatchesFIFO(tx, storeId, item.itemId, quantity);
+                    for (const picked of pickedBatches) {
+                        if (picked.batchId) {
+                            await tx.inventoryBatchStock.update({
+                                where: { storeId_batchId: { storeId, batchId: picked.batchId } },
+                                data: { quantity: { decrement: picked.quantity } }
+                            });
+                        }
+                    }
+
+                    // B. Decrement global store stock
+                    await InventoryRepository.updateStock(storeId, item.itemId, { quantity: { decrement: quantity } }, tx);
+
+                    // C. Log transaction and transaction items with batchId
+                    const invTx = await InventoryRepository.createTransaction({
+                        type: 'TRANSFER_OUT',
+                        storeId,
+                        userId: issuedById,
+                        referenceId: issueNumber,
+                        notes: `Issued to ${recipientName} - ${issueType}`
+                    }, tx);
+
+                    for (const picked of pickedBatches) {
+                        await InventoryRepository.createTransactionItem({
+                            transactionId: invTx.id,
+                            itemId: item.itemId,
+                            batchId: picked.batchId,
+                            quantity: -picked.quantity
+                        }, tx);
+                    }
+
+                    // D. Update serial status if serials are provided in the payload
+                    if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
+                        for (const sn of item.serials) {
+                            const serialNum = sn.trim();
+                            if (!serialNum) continue;
+
+                            await tx.inventoryItemSerial.update({
+                                where: { serialNumber: serialNum },
+                                data: {
+                                    status: 'ISSUED',
+                                    storeId: null,
+                                    contractorId: contractorId || null
+                                }
+                            });
+                        }
                     }
                 }
             }
 
+            // Always create the StockIssue and StockIssueItem records for history tracking
             const issue = await InventoryRepository.createStockIssue({
                 issueNumber,
                 storeId,
