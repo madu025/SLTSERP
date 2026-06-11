@@ -119,7 +119,8 @@ export class SODLifecycleService {
         oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null },
         serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null },
         updateData: Prisma.ServiceOrderUncheckedUpdateInput,
-        userId: string = 'SYSTEM'
+        userId: string = 'SYSTEM',
+        tx?: any
     ) {
         // Track status history if status changed
         if (serviceOrder.status && serviceOrder.status !== oldOrder.status) {
@@ -129,7 +130,7 @@ export class SODLifecycleService {
                 statusDate: updateData.statusDate 
                     ? new Date(updateData.statusDate as string | Date) 
                     : (oldOrder.statusDate || new Date())
-            }, prisma);
+            }, tx || prisma);
         }
 
         // Emit domain event for status changes

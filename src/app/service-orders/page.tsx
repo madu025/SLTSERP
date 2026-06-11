@@ -144,8 +144,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         queryFn: async () => {
             if (!selectedRtomId) return [];
             const res = await fetch(`/api/contractors?rtomId=${selectedRtomId}`);
-            const data = (await res.json()) as { items: Contractor[] };
-            return data.items || [];
+            const data = (await res.json()) as { contractors: Contractor[] };
+            return data.contractors || [];
         },
         enabled: !!selectedRtomId
     });

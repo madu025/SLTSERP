@@ -90,7 +90,7 @@ export class ServiceOrderService {
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
 
             // Post-update actions
-            await SODLifecycleService.handlePostUpdate(oldOrder, updatedOrder, updateData, userId);
+            await SODLifecycleService.handlePostUpdate(oldOrder, updatedOrder, updateData, userId, tx);
 
             return updatedOrder;
         }, {
