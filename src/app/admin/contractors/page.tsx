@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Users, UserPlus, Share2, Trash, Mail, Building2, ShieldCheck } from "lucide-react";
+import { Search, Plus, Users, UserPlus, Share2, Trash, Mail, Building2, ShieldCheck, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -72,12 +72,17 @@ export default function ContractorsPage() {
 
     const contractors = useMemo(() => {
         // Handle ApiResponse wrapping
-        const data = contractorsData as any;
-        const actualData = data?.success && data?.data ? data.data : data;
-        return Array.isArray(actualData?.contractors) ? (actualData.contractors as Contractor[]) : [];
+        const data = contractorsData as {
+            success?: boolean;
+            data?: { contractors?: Contractor[] };
+            contractors?: Contractor[];
+        } | null | undefined;
+        if (!data) return [];
+        const actualContractors = (data.success && data.data) 
+            ? data.data.contractors 
+            : data.contractors;
+        return Array.isArray(actualContractors) ? actualContractors : [];
     }, [contractorsData]);
-
-
 
     const { data: opmcs = [] } = useQuery<{ id: string; name: string; rtom: string }[]>({
         queryKey: ['opmcs'],
@@ -93,6 +98,15 @@ export default function ContractorsPage() {
         queryKey: ['branches'],
         queryFn: () => fetch('/api/branches').then(res => res.json())
     });
+
+    // --- STATS CALCULATION ---
+    const stats = useMemo(() => {
+        const total = contractors.length;
+        const active = contractors.filter(c => c.status === 'ACTIVE').length;
+        const pending = contractors.filter(c => ['PENDING', 'ARM_PENDING', 'OSP_PENDING'].includes(c.status)).length;
+        const rejected = contractors.filter(c => c.status === 'REJECTED').length;
+        return { total, active, pending, rejected };
+    }, [contractors]);
 
     // --- HANDLERS ---
     const handleAdd = () => {
@@ -131,7 +145,6 @@ export default function ContractorsPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                // API returned an error (403, 400 etc.)
                 toast.error(data.error?.message || "Invite failed");
                 return;
             }
@@ -140,7 +153,6 @@ export default function ContractorsPage() {
                 setShareLink(data.data.registrationLink);
                 setShareModalOpen(true);
                 setInviteModalOpen(false);
-                // Reset invite form
                 setInviteData({ name: '', contactNumber: '', type: 'SOD', opmcId: '' });
                 toast.success("Invitation generated successfully");
             } else {
@@ -174,9 +186,9 @@ export default function ContractorsPage() {
     };
 
     const filteredContractors = useMemo(() => {
-        return (contractors as Contractor[]).filter((c) => {
+        return contractors.filter((c) => {
             const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                c.registrationNumber?.includes(searchTerm);
+                (c.registrationNumber && c.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()));
 
             if (!matchesSearch) return false;
 
@@ -191,32 +203,98 @@ export default function ContractorsPage() {
         });
     }, [contractors, searchTerm, viewMode]);
 
+    const getStatusBadge = (status: Contractor['status']) => {
+        switch (status) {
+            case 'ACTIVE':
+                return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>;
+            case 'PENDING':
+                return <Badge className="bg-amber-50 text-amber-700 border-amber-200">Pending</Badge>;
+            case 'ARM_PENDING':
+                return <Badge className="bg-blue-50 text-blue-700 border-blue-200">ARM Pending</Badge>;
+            case 'OSP_PENDING':
+                return <Badge className="bg-purple-50 text-purple-700 border-purple-200">OSP Pending</Badge>;
+            case 'REJECTED':
+                return <Badge className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>;
+            default:
+                return <Badge className="bg-slate-50 text-slate-500 border-slate-200">{status}</Badge>;
+        }
+    };
+
     return (
-        <div className="h-screen flex bg-slate-50 overflow-hidden">
+        <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 h-full">
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto space-y-8">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
                         
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-                            <div className="space-y-1">
-                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Contractor Directory</h1>
-                                <p className="text-sm font-medium text-slate-500">Manage all registered contractors and their teams.</p>
+                        {/* Page Header */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Contractor Directory</h1>
+                                <p className="text-xs text-slate-500">Manage registered partner contractors, profiles, and technician teams.</p>
                             </div>
-                            <div className="flex gap-3 w-full sm:w-auto">
-                                <Button onClick={() => setInviteModalOpen(true)} variant="outline" className="flex-1 sm:flex-none h-11 px-6 border-slate-200 text-slate-600 hover:bg-white hover:text-blue-600 hover:border-blue-200 rounded-xl font-bold transition-all">
-                                    <UserPlus className="w-4 h-4 mr-2" /> Quick Invite
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <Button onClick={() => setInviteModalOpen(true)} variant="outline" className="flex-1 sm:flex-none h-8 px-4 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-all font-bold text-xs">
+                                    <UserPlus className="w-4 h-4 mr-1.5" /> Quick Invite
                                 </Button>
-                                <Button onClick={handleAdd} className="flex-1 sm:flex-none h-11 px-8 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-slate-200 transition-all">
-                                    <Plus className="w-4 h-4 mr-2" /> Add New Contractor
+                                <Button onClick={handleAdd} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                    <Plus className="w-4 h-4 mr-1.5" /> Add Contractor
                                 </Button>
                             </div>
                         </div>
 
-                        {/* Top Control Bar */}
-                        <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto">
+                        {/* Top Stats Cards */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Total Contractors</p>
+                                        <p className="text-base font-black text-slate-900">{stats.total}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                                        <Building2 className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Active</p>
+                                        <p className="text-base font-black text-emerald-600">{stats.active}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                        <ShieldCheck className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Pending Actions</p>
+                                        <p className="text-base font-black text-amber-600">{stats.pending}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                                        <Users className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card className="rounded-xl border border-slate-200 bg-white">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400">Rejected</p>
+                                        <p className="text-base font-black text-red-600">{stats.rejected}</p>
+                                    </div>
+                                    <div className="h-8 w-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
+                                        <Trash className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Search & Filter Toolbar */}
+                        <div className="erp-toolbar flex-col md:flex-row justify-between gap-3">
+                            <div className="flex bg-slate-100 p-1 rounded-lg w-full md:w-auto">
                                 {[
                                     { id: 'ALL', label: 'Show All' },
                                     { id: 'PENDING_DOCS', label: 'Review Required' },
@@ -226,7 +304,7 @@ export default function ContractorsPage() {
                                         key={tab.id}
                                         onClick={() => setViewMode(tab.id as 'ALL' | 'PENDING_DOCS' | 'PENDING_AUTH')}
                                         className={cn(
-                                            "flex-1 px-4 py-2 text-xs font-black uppercase tracking-widest rounded-lg transition-all",
+                                            "flex-1 px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded transition-all cursor-pointer",
                                             viewMode === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
                                         )}
                                     >
@@ -234,117 +312,171 @@ export default function ContractorsPage() {
                                     </button>
                                 ))}
                             </div>
-                            <div className="relative w-full md:w-96 group">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                            <div className="relative w-full md:w-80 group">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                 <Input
                                     placeholder="Search by name or code..."
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
-                                    className="h-11 pl-11 bg-slate-50 border-none focus-visible:ring-2 focus-visible:ring-blue-100 rounded-xl font-medium"
+                                    className="h-8 pl-9 bg-slate-50 border-none focus-visible:ring-1 focus-visible:ring-blue-200 rounded-lg text-xs"
                                 />
                             </div>
                         </div>
 
-                        {/* Grid List */}
-                        <div className="grid grid-cols-1 gap-4">
+                        {/* Contractors Table */}
+                        <div className="erp-table-container">
                             {loadingContractors ? (
                                 <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-4">
-                                    <div className="h-10 w-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-                                    <p className="text-xs font-black uppercase tracking-widest animate-pulse">Loading Contractors...</p>
+                                    <div className="h-8 w-8 border-3 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+                                    <p className="text-[10px] font-black uppercase tracking-wider animate-pulse">Loading Contractors...</p>
                                 </div>
                             ) : filteredContractors.length === 0 ? (
-                                <div className="py-20 flex flex-col items-center justify-center bg-white rounded-3xl border border-dashed text-slate-400 border-slate-200">
-                                    <Building2 className="w-12 h-12 opacity-10 mb-4" />
-                                    <p className="text-sm font-bold">No contractors found matching your search.</p>
+                                <div className="py-20 flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-slate-200 text-slate-400">
+                                    <Building2 className="w-10 h-10 opacity-20 mb-3" />
+                                    <p className="text-xs font-bold">No contractors found matching the criteria.</p>
                                 </div>
-                            ) : filteredContractors.map((contractor: Contractor) => (
-                                <Card key={contractor.id} className="group border-none shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 rounded-3xl overflow-hidden bg-white">
-                                    <CardContent className="p-0">
-                                        <div className="flex flex-col lg:flex-row">
-                                            <div className="flex-1 p-6 lg:p-8">
-                                                <div className="flex items-center gap-3 mb-4">
-                                                    <div className="h-10 w-10 rounded-2xl bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                                                        <Building2 className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition-colors" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-3 flex-wrap">
-                                                            <h3 className="text-xl font-black text-slate-900 tracking-tight">{contractor.name}</h3>
-                                                            <Badge className={cn(
-                                                                "h-6 px-3 rounded-full text-[10px] font-black uppercase tracking-widest border-none",
-                                                                contractor.status === 'ACTIVE' ? "bg-emerald-100 text-emerald-700" :
-                                                                contractor.status === 'ARM_PENDING' ? "bg-blue-100 text-blue-700" :
-                                                                contractor.status === 'OSP_PENDING' ? "bg-purple-100 text-purple-700" :
-                                                                contractor.status === 'PENDING' ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
-                                                            )}>
-                                                                {contractor.status}
-                                                            </Badge>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr>
+                                                <th className="w-12 text-center">#</th>
+                                                <th>Contractor / Company Name</th>
+                                                <th>Type</th>
+                                                <th>RTOM Region</th>
+                                                <th className="text-center">Teams</th>
+                                                <th>Status</th>
+                                                <th className="text-right pr-6 w-40">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 bg-white">
+                                            {filteredContractors.map((contractor: Contractor, index) => (
+                                                <tr key={contractor.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="text-center font-mono text-slate-400">{index + 1}</td>
+                                                    <td className="py-2.5">
+                                                        <div className="font-bold text-slate-900">{contractor.name}</div>
+                                                        <div className="text-[10px] text-slate-400 flex gap-2 items-center">
+                                                            <span className="font-mono">{contractor.registrationNumber || 'NO CODE'}</span>
+                                                            <span>•</span>
+                                                            <span>{contractor.contactNumber || 'No Phone'}</span>
                                                         </div>
-                                                        <p className="text-xs font-mono text-slate-400 mt-1">{contractor.registrationNumber || 'NO CODE'}</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-4 mt-6">
-                                                    <div className="flex items-center gap-2 group/meta">
-                                                        <div className="h-7 w-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100"><Users className="w-3.5 h-3.5" /></div>
-                                                        <div>
-                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">Technician Teams</p>
-                                                            <p className="text-xs font-bold text-slate-700">{contractor._count?.teams || 0} Active Teams</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 group/meta">
-                                                        <div className="h-7 w-7 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100"><Building2 className="w-3.5 h-3.5" /></div>
-                                                        <div>
-                                                            <p className="text-[9px] font-black uppercase text-slate-400 leading-none">RTOM Region</p>
-                                                            <p className="text-xs font-bold text-slate-700">{contractor.opmc?.name || 'Central Office'}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="lg:w-72 bg-slate-50/50 p-6 flex flex-col justify-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-100">
-                                                <Button size="sm" onClick={() => handleEdit(contractor)} className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-100 rounded-xl h-11 font-black uppercase text-[10px] tracking-widest transition-all hover:scale-[1.02] active:scale-95">
-                                                    <ShieldCheck className="w-4 h-4 mr-2" /> Manage Profile
-                                                </Button>
-                                                <Button size="sm" variant="outline" onClick={() => {
-                                                    setSelectedContractorForTeams({ id: contractor.id, name: contractor.name });
-                                                    setTeamManagerOpen(true);
-                                                }} className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 rounded-xl h-10 font-black uppercase text-[9px] tracking-widest transition-all">
-                                                    <Users className="w-3.5 h-3.5 mr-2" /> Manpower Setup
-                                                </Button>
-                                                <div className="flex gap-2">
-                                                    {(contractor.status === 'PENDING' || contractor.status === 'ARM_PENDING' || contractor.status === 'OSP_PENDING') && (
-                                                        <>
-                                                            {isAdmin && (contractor.status === 'ARM_PENDING' || contractor.status === 'OSP_PENDING' || contractor.documentStatus === 'APPROVED') ? (
-                                                                <Button size="sm" onClick={() => approveMutation.mutate(contractor.id)} className="flex-1 bg-white hover:bg-emerald-600 hover:text-white text-emerald-600 border border-emerald-100 rounded-xl h-10 font-bold transition-all">
-                                                                    Approve
-                                                                </Button>
-                                                            ) : (
-                                                                <Button size="sm" onClick={() => handleResendLink(contractor.id)} className="flex-1 bg-white hover:bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl h-10 font-bold transition-all">
-                                                                    <Share2 className="w-3.5 h-3.5" />
-                                                                </Button>
+                                                    </td>
+                                                    <td>
+                                                        <Badge className={cn(
+                                                            "border-none px-2 py-0.5 text-[9px] font-black tracking-wide",
+                                                            contractor.type === 'OSP' ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                                                        )}>
+                                                            {contractor.type || 'SOD'}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="text-slate-600 font-medium">
+                                                        {contractor.opmc?.name || 'Central Office'}
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                                                            <Users className="w-3 h-3 text-indigo-500" />
+                                                            {contractor._count?.teams || 0}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <div className="flex flex-col gap-0.5 items-start">
+                                                            {getStatusBadge(contractor.status)}
+                                                            {contractor.documentStatus && (
+                                                                <span className={cn(
+                                                                    "text-[9px] font-bold px-1.5 py-0.2 rounded border leading-none mt-0.5",
+                                                                    contractor.documentStatus === 'APPROVED' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                                                                    contractor.documentStatus === 'REJECTED' ? "bg-red-50 text-red-600 border-red-100" :
+                                                                    "bg-slate-50 text-slate-500 border-slate-100"
+                                                                )}>
+                                                                    Docs: {contractor.documentStatus}
+                                                                </span>
                                                             )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-right pr-6 py-2.5">
+                                                        <div className="inline-flex items-center gap-1.5">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => handleEdit(contractor)}
+                                                                className="h-7 w-7 p-0 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                                title="Manage Profile"
+                                                            >
+                                                                <ShieldCheck className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => {
+                                                                    setSelectedContractorForTeams({ id: contractor.id, name: contractor.name });
+                                                                    setTeamManagerOpen(true);
+                                                                }}
+                                                                className="h-7 w-7 p-0 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                title="Manpower Setup"
+                                                            >
+                                                                <Users className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            
+                                                            {(contractor.status === 'PENDING' || contractor.status === 'ARM_PENDING' || contractor.status === 'OSP_PENDING') && (
+                                                                <>
+                                                                    {isAdmin && (contractor.status === 'ARM_PENDING' || contractor.status === 'OSP_PENDING' || contractor.documentStatus === 'APPROVED') ? (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => approveMutation.mutate(contractor.id)}
+                                                                            className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                                                                            title="Approve Contractor"
+                                                                        >
+                                                                            <Check className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => handleResendLink(contractor.id)}
+                                                                            className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all"
+                                                                            title="Resend Invite Link"
+                                                                        >
+                                                                            <Share2 className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    )}
+                                                                    {isAdmin && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => rejectMutation.mutate(contractor.id)}
+                                                                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                                                                            title="Reject Contractor"
+                                                                        >
+                                                                            <X className="w-3.5 h-3.5" />
+                                                                        </Button>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                            
                                                             {isAdmin && (
-                                                                <Button size="sm" onClick={() => rejectMutation.mutate(contractor.id)} className="flex-1 bg-white hover:bg-red-50 text-red-600 border border-red-100 rounded-xl h-10 font-bold transition-all">
-                                                                    Reject
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                        if (confirm("Permanently delete this contractor?")) {
+                                                                            deleteMutation.mutate(contractor.id);
+                                                                        }
+                                                                    }}
+                                                                    className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                                    title="Delete Contractor"
+                                                                >
+                                                                    <Trash className="w-3.5 h-3.5" />
                                                                 </Button>
                                                             )}
-                                                        </>
-                                                    )}
-                                                    {isAdmin && (
-                                                        <Button size="sm" variant="ghost" onClick={() => {
-                                                            if (confirm("Permanently delete this contractor?")) {
-                                                                deleteMutation.mutate(contractor.id);
-                                                            }
-                                                        }} className="flex-1 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-xl h-10 transition-all">
-                                                            <Trash className="w-3.5 h-3.5" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -482,3 +482,51 @@ main [class*="SelectTrigger"] {
   font-size: 10px !important;
   border-radius: 8px !important;
 }
+
+/* SLTSERP Clean Light Enterprise Design System */
+:root {
+  --erp-primary: #2563eb;
+  --erp-primary-hover: #1d4ed8;
+  --erp-bg: #f8fafc;
+  --erp-surface: #ffffff;
+  --erp-border: #e2e8f0;
+  --erp-text-primary: #0f172a;
+  --erp-text-secondary: #64748b;
+}
+
+.erp-page-wrapper {
+  background-color: var(--erp-bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.erp-toolbar {
+  background-color: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.erp-table-container {
+  background-color: var(--erp-surface);
+  border: 1px solid var(--erp-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.erp-status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
