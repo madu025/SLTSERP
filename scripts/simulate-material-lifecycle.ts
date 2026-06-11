@@ -13,6 +13,8 @@ async function runSimulation() {
     console.log('STARTING LIFECYCLE & AUDIT FIX VERIFICATION SIMULATION');
     console.log('======================================================\n');
 
+    const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
     // 1. Fetch references
     const store = await prisma.inventoryStore.findFirst({
         where: {
@@ -219,7 +221,6 @@ async function runSimulation() {
         // --- STEP 4: RETURN FROM CONTRACTOR ---
         console.log('\n--- STEP 4: MATERIAL RETURN FROM CONTRACTOR ---');
         console.log('Contractor returning 1 unit of serial TEST-SN-002 back to store...');
-        const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
         const returnResult = await IssueService.createMaterialReturn({
             contractorId: contractor.id,
             storeId: store.id,

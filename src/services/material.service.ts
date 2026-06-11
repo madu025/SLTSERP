@@ -322,6 +322,6 @@ export class MaterialService {
             }
 
             return sheet;
-        });
+        }, { timeout: 30000 });
     }
 }

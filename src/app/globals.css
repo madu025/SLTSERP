@@ -290,3 +290,73 @@ body.dark-mode .glass-panel {
 .dark * {
   scrollbar-color: rgb(71 85 105) rgb(30 41 59);
 }
+
+/* ==========================================================================
+   GLOBAL ENTERPRISE-GRADE COMPACT TABLE STYLES
+   Optimized for dense data display and maximum viewport utilisation.
+   ========================================================================== */
+
+table th {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  height: 32px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+table td {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+/* Shrink generic paragraph, heading, and text elements inside tables */
+table td p,
+table td span:not([class*="badge"]):not([class*="lucide"]):not([class*="lucide-"]),
+table td div:not([class*="badge"]):not([class*="lucide"]):not([class*="lucide-"]) {
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+}
+
+/* Specific styling for Monospace codes and references inside tables */
+table td .font-mono,
+table td [class*="font-mono"] {
+  font-size: 10px !important;
+  padding: 1px 4px !important;
+}
+
+/* Compact Badges/Status indicators inside tables */
+table td [class*="badge"],
+table td div[class*="rounded-full"],
+table td span[class*="rounded-full"] {
+  font-size: 9px !important;
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+/* Shrink table action buttons */
+table td button {
+  padding: 4px !important;
+  border-radius: 6px !important;
+}
+
+table td button svg,
+table td a svg,
+table td span svg {
+  width: 13px !important;
+  height: 13px !important;
+}
