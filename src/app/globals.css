@@ -306,6 +306,16 @@ table th {
   font-weight: 800 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 10 !important;
+  background-color: #f8fafc !important;
+  box-shadow: inset 0 -1px 0 var(--border, rgba(226, 232, 240, 0.8)) !important;
+}
+
+.dark table th,
+body.dark-mode table th {
+  background-color: rgb(var(--color-sidebar)) !important; /* solid dark background */
 }
 
 table td {
