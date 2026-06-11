@@ -370,3 +370,115 @@ table td span svg {
   width: 13px !important;
   height: 13px !important;
 }
+
+/* ==========================================================================
+   GLOBAL COMPACT PAGE LAYOUT & HEADER OVERRIDES
+   Reduces white space and margins for high-density enterprise dashboard views.
+   ========================================================================== */
+
+/* Minimize page container padding */
+main > div.flex-1 {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+/* Minimize top navigation header height */
+header.sticky,
+header[class*="sticky"] {
+  height: 42px !important;
+  min-height: 42px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.08) !important;
+}
+
+/* Shrink top header widgets */
+header.sticky input,
+header[class*="sticky"] input {
+  height: 26px !important;
+  font-size: 11px !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  border-radius: 6px !important;
+}
+
+header.sticky button,
+header[class*="sticky"] button {
+  height: 26px !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  border-radius: 6px !important;
+}
+
+header.sticky .h-9,
+header.sticky .w-9,
+header.sticky .h-10,
+header.sticky .w-10,
+header[class*="sticky"] [class*="h-9"],
+header[class*="sticky"] [class*="w-9"],
+header[class*="sticky"] [class*="h-10"],
+header[class*="sticky"] [class*="w-10"] {
+  height: 26px !important;
+  width: 26px !important;
+  font-size: 11px !important;
+}
+
+/* Minimize page-specific titles and description spaces */
+main h1,
+main [class*="text-2xl"] {
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  margin-top: 0 !important;
+  margin-bottom: 2px !important;
+}
+
+main h1 + p,
+main [class*="text-2xl"] + p {
+  font-size: 10px !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Shrink gap between header elements and content tables */
+main .space-y-6,
+main [class*="space-y-6"] {
+  gap: 8px !important;
+}
+
+main .space-y-6 > :not([class*="space-y"]) {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Shrink card headers & toolbars (e.g. filters and search sub-bars) */
+main div[class*="py-8"],
+main div[class*="py-6"],
+main div[class*="py-5"] {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+main div[class*="px-10"],
+main div[class*="px-8"] {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+/* Make Add buttons or main buttons compact */
+main button[class*="h-11"] {
+  height: 32px !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  font-size: 10px !important;
+  border-radius: 8px !important;
+}
+
+/* Make toolbar select menus compact */
+main div[class*="toolbar"] button,
+main [class*="SelectTrigger"] {
+  height: 30px !important;
+  font-size: 10px !important;
+  border-radius: 8px !important;
+}
