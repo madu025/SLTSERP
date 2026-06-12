@@ -251,10 +251,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
-                                            <span>Voice Number</span>
+                                            <span>Voice</span>
                                             {sortConfig?.key === "voiceNumber" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
@@ -304,7 +304,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("status")}>
                                             <span>Status</span>
@@ -371,10 +371,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
-                                            <span>Voice Number</span>
+                                            <span>Voice</span>
                                             {sortConfig?.key === "voiceNumber" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
@@ -408,7 +408,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
                                             <span>Status</span>
@@ -479,10 +479,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
-                                            <span>Voice/TP Number</span>
+                                            <span>Voice</span>
                                             {sortConfig?.key === "voiceNumber" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
@@ -495,7 +495,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[70px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[50px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dp")}>
                                             <span>DP</span>
@@ -532,10 +532,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
-                                            <span>SLTS Status</span>
+                                            <span>Status</span>
                                             {sortConfig?.key === "sltsStatus" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <select
@@ -625,7 +625,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[210px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
+                                                {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
                                         
@@ -712,7 +712,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[210px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
+                                                {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
                                         
@@ -749,7 +749,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 onKeyDown={(e) => handleKeyDown(e, index, "sltsStatus")}
                                                 data-row-index={index}
                                                 data-field="sltsStatus"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-black text-rose-400"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-3 py-1 text-[10px] font-black text-rose-400"
                                             >
                                                 <option value="RETURN">RETURN</option>
                                                 <option value="INPROGRESS">IN PROGRESS</option>
@@ -797,7 +797,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[210px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
+                                                {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
 
@@ -806,19 +806,9 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             {order.voiceNumber || "-"}
                                         </td>
 
-                                        {/* DP */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
-                                                defaultValue={order.dp || ""}
-                                                onBlur={(e) => handleSaveField(order.id, "dp", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "dp")}
-                                                data-row-index={index}
-                                                data-field="dp"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-mono text-foreground rounded transition-all placeholder:opacity-35"
-                                                placeholder="N/A"
-                                            />
-                                            {renderCellStatus(order.id, "dp")}
+                                        {/* DP (Read-only) */}
+                                        <td className="px-2 border-r border-border/15 text-[10px] font-mono text-foreground truncate" title={order.dp || ""}>
+                                            {order.dp || "-"}
                                         </td>
 
                                         {/* Contractor Dropdown */}
@@ -849,7 +839,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 onKeyDown={(e) => handleKeyDown(e, index, "sltsStatus")}
                                                 data-row-index={index}
                                                 data-field="sltsStatus"
-                                                className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-black ${
+                                                className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-3 py-1 text-[10px] font-black ${
                                                     order.sltsStatus === "COMPLETED" ? "text-emerald-400" :
                                                     order.sltsStatus === "RETURN" ? "text-rose-400" : "text-amber-400"
                                                 }`}
