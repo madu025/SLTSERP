@@ -6,6 +6,16 @@ import { ServiceOrder } from "@/types/service-order";
 
 import { OrderCompletionData } from "@/components/modals/order-action/types";
 
+interface ServiceOrdersResponse {
+    items: ServiceOrder[];
+    summary: {
+        totalSod: number;
+        contractorAssigned: number;
+        appointments: number;
+        statusBreakdown: Record<string, number>;
+    };
+}
+
 export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
     const queryClient = useQueryClient();
 
@@ -58,11 +68,34 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
             if (!res.ok) throw new Error("Status update failed");
             return res.json();
         },
+        onMutate: async (newData) => {
+            await queryClient.cancelQueries({ queryKey: ["service-orders"] });
+            const previousData = queryClient.getQueryData<ServiceOrdersResponse>(["service-orders"]);
+
+            queryClient.setQueriesData<ServiceOrdersResponse>({ queryKey: ["service-orders"] }, (old) => {
+                if (!old || !Array.isArray(old.items)) return old;
+                return {
+                    ...old,
+                    items: old.items.map((item) => 
+                        item.id === newData.id ? { ...item, ...newData } as ServiceOrder : item
+                    )
+                };
+            });
+
+            return { previousData };
+        },
+        onError: (err, newData, context: { previousData: ServiceOrdersResponse | undefined } | undefined) => {
+            if (context?.previousData) {
+                queryClient.setQueriesData({ queryKey: ["service-orders"] }, context.previousData);
+            }
+            toast.error("Failed to update status");
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
             toast.success("Status updated successfully");
         },
-        onError: () => toast.error("Failed to update status")
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+        }
     });
 
     const scheduleMutation = useMutation({
@@ -79,11 +112,41 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
             });
             if (!res.ok) throw new Error("Failed to schedule");
         },
+        onMutate: async ({ orderId, data }) => {
+            await queryClient.cancelQueries({ queryKey: ["service-orders"] });
+            const previousData = queryClient.getQueryData<ServiceOrdersResponse>(["service-orders"]);
+
+            queryClient.setQueriesData<ServiceOrdersResponse>({ queryKey: ["service-orders"] }, (old) => {
+                if (!old || !Array.isArray(old.items)) return old;
+                return {
+                    ...old,
+                    items: old.items.map((item) => 
+                        item.id === orderId 
+                            ? { 
+                                ...item, 
+                                scheduledDate: data.date, 
+                                scheduledTime: data.time, 
+                                techContact: data.contactNumber ?? null 
+                              } as ServiceOrder
+                            : item
+                    )
+                };
+            });
+
+            return { previousData };
+        },
+        onError: (err, variables, context: { previousData: ServiceOrdersResponse | undefined } | undefined) => {
+            if (context?.previousData) {
+                queryClient.setQueriesData({ queryKey: ["service-orders"] }, context.previousData);
+            }
+            toast.error("Error scheduling");
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
             toast.success("Scheduled successfully");
         },
-        onError: () => toast.error("Error scheduling")
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+        }
     });
 
     const commentMutation = useMutation({
@@ -99,11 +162,34 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
             });
             if (!res.ok) throw new Error("Failed to add comment");
         },
+        onMutate: async ({ orderId, comment }) => {
+            await queryClient.cancelQueries({ queryKey: ["service-orders"] });
+            const previousData = queryClient.getQueryData<ServiceOrdersResponse>(["service-orders"]);
+
+            queryClient.setQueriesData<ServiceOrdersResponse>({ queryKey: ["service-orders"] }, (old) => {
+                if (!old || !Array.isArray(old.items)) return old;
+                return {
+                    ...old,
+                    items: old.items.map((item) => 
+                        item.id === orderId ? { ...item, comments: comment } as ServiceOrder : item
+                    )
+                };
+            });
+
+            return { previousData };
+        },
+        onError: (err, variables, context: { previousData: ServiceOrdersResponse | undefined } | undefined) => {
+            if (context?.previousData) {
+                queryClient.setQueriesData({ queryKey: ["service-orders"] }, context.previousData);
+            }
+            toast.error("Error adding comment");
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
             toast.success("Comment added");
         },
-        onError: () => toast.error("Error adding comment")
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+        }
     });
 
     return {
