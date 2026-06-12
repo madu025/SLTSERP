@@ -144,7 +144,7 @@ export function SODSheetTable({
     };
 
     const handleKeyDown = (
-        e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+        e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
         rowIndex: number,
         field: string
     ) => {
@@ -158,6 +158,7 @@ export function SODSheetTable({
             const prevInput = document.querySelector(`[data-row-index="${rowIndex - 1}"][data-field="${field}"]`) as HTMLElement;
             if (prevInput) prevInput.focus();
         } else if (e.key === "Enter") {
+            // Only submit on Enter if it's not a multiline textarea, or if Shift+Enter is not used
             e.preventDefault();
             (e.target as HTMLElement).blur(); // trigger auto-save
             const nextInput = document.querySelector(`[data-row-index="${rowIndex + 1}"][data-field="${field}"]`) as HTMLElement;
@@ -225,7 +226,7 @@ export function SODSheetTable({
                         {/* Dynamic columns based on filterType */}
                         {filterType === "completed" ? (
                             <>
-                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
+                                <th className="w-[95px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
                                             <span>Completed Date</span>
@@ -241,15 +242,15 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[220px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
-                                            <span>Customer Name</span>
+                                            <span>Customer Details</span>
                                             {sortConfig?.key === "customerName" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
                                             type="text"
-                                            placeholder="Filter name..."
+                                            placeholder="Filter name or address..."
                                             value={columnFilters.customerName || ""}
                                             onChange={(e) => setColumnFilters(prev => ({ ...prev, customerName: e.target.value }))}
                                             onClick={(e) => e.stopPropagation()}
@@ -257,7 +258,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice Number</span>
@@ -273,7 +274,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("ontSerialNumber")}>
                                             <span>ONT Serial</span>
@@ -289,23 +290,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[55px] px-2 py-1.5 border-r border-border/20">
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dropWireDistance")}>
-                                            <span>Wire (M)</span>
-                                            {sortConfig?.key === "dropWireDistance" && (sortConfig.direction === "asc" ? "▲" : "▼")}
-                                        </div>
-                                        <input
-                                            type="text"
-                                            placeholder="Filter..."
-                                            value={columnFilters.dropWireDistance || ""}
-                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, dropWireDistance: e.target.value }))}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
-                                        />
-                                    </div>
-                                </th>
-                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -342,7 +327,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[240px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -361,7 +346,7 @@ export function SODSheetTable({
                             </>
                         ) : filterType === "return" ? (
                             <>
-                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20 text-rose-455 dark:text-rose-400">
+                                <th className="w-[95px] px-2 py-1.5 border-r border-border/20 text-rose-455 dark:text-rose-400">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
                                             <span>Return Date</span>
@@ -377,15 +362,15 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[220px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
-                                            <span>Customer Name</span>
+                                            <span>Customer Details</span>
                                             {sortConfig?.key === "customerName" && (sortConfig.direction === "asc" ? "▲" : "▼")}
                                         </div>
                                         <input
                                             type="text"
-                                            placeholder="Filter name..."
+                                            placeholder="Filter name or address..."
                                             value={columnFilters.customerName || ""}
                                             onChange={(e) => setColumnFilters(prev => ({ ...prev, customerName: e.target.value }))}
                                             onClick={(e) => e.stopPropagation()}
@@ -393,7 +378,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice Number</span>
@@ -409,7 +394,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -449,7 +434,7 @@ export function SODSheetTable({
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[140px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("returnReason")}>
                                             <span>Return Reason</span>
@@ -465,7 +450,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[240px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -501,7 +486,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice/TP Number</span>
@@ -517,7 +502,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[55px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[70px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dp")}>
                                             <span>DP</span>
@@ -533,7 +518,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -575,7 +560,7 @@ export function SODSheetTable({
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("scheduledDate")}>
                                             <span>Appointment Date</span>
@@ -591,7 +576,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[240px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -653,8 +638,13 @@ export function SODSheetTable({
                                         <td className="px-2 border-r border-border/15 text-[10.5px] font-bold text-emerald-500 font-mono">
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
-                                        <td className="px-2 border-r border-border/15 truncate text-[10.5px] font-medium" title={order.customerName || ""}>
-                                            {order.customerName || "-"}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10.5px] font-medium text-foreground leading-tight">
+                                            <div className="font-bold text-foreground truncate max-w-[270px]" title={order.customerName || ""}>
+                                                {order.customerName || "-"}
+                                            </div>
+                                            <div className="text-[9px] text-muted-foreground truncate max-w-[270px] mt-0.5" title={order.address || ""}>
+                                                {order.address || "-"}
+                                            </div>
                                         </td>
                                         
                                         {/* Voice Number (Read-only) */}
@@ -675,21 +665,6 @@ export function SODSheetTable({
                                                 placeholder="N/A"
                                             />
                                             {renderCellStatus(order.id, "ontSerialNumber")}
-                                        </td>
-
-                                        {/* Drop Wire Distance */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="number"
-                                                defaultValue={order.dropWireDistance ?? ""}
-                                                onBlur={(e) => handleSaveField(order.id, "dropWireDistance", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "dropWireDistance")}
-                                                data-row-index={index}
-                                                data-field="dropWireDistance"
-                                                className={cellInputClass}
-                                                placeholder="0"
-                                            />
-                                            {renderCellStatus(order.id, "dropWireDistance")}
                                         </td>
 
                                         {/* Contractor Select */}
@@ -721,14 +696,14 @@ export function SODSheetTable({
 
                                         {/* Comments */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 defaultValue={order.comments || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "comments", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className={cellInputClass}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
+                                                rows={1}
                                                 placeholder="No comments"
                                             />
                                             {renderCellStatus(order.id, "comments")}
@@ -742,8 +717,13 @@ export function SODSheetTable({
                                         <td className="px-2 border-r border-border/15 text-[10.5px] font-bold text-rose-500 font-mono">
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
-                                        <td className="px-2 border-r border-border/15 truncate text-[10.5px] font-medium" title={order.customerName || ""}>
-                                            {order.customerName || "-"}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10.5px] font-medium text-foreground leading-tight">
+                                            <div className="font-bold text-foreground truncate max-w-[270px]" title={order.customerName || ""}>
+                                                {order.customerName || "-"}
+                                            </div>
+                                            <div className="text-[9px] text-muted-foreground truncate max-w-[270px] mt-0.5" title={order.address || ""}>
+                                                {order.address || "-"}
+                                            </div>
                                         </td>
                                         
                                         {/* Voice Number (Read-only) */}
@@ -795,14 +775,14 @@ export function SODSheetTable({
 
                                         {/* Comments */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 defaultValue={order.comments || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "comments", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className={cellInputClass}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
+                                                rows={1}
                                                 placeholder="No comments"
                                             />
                                             {renderCellStatus(order.id, "comments")}
@@ -830,14 +810,14 @@ export function SODSheetTable({
 
                                         {/* DP */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 defaultValue={order.dp || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "dp", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "dp")}
                                                 data-row-index={index}
                                                 data-field="dp"
-                                                className={cellInputClass}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-mono text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
+                                                rows={1}
                                                 placeholder="N/A"
                                             />
                                             {renderCellStatus(order.id, "dp")}
@@ -901,14 +881,14 @@ export function SODSheetTable({
 
                                         {/* Comments */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
+                                            <textarea
                                                 defaultValue={order.comments || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "comments", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className={cellInputClass}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
+                                                rows={1}
                                                 placeholder="No comments"
                                             />
                                             {renderCellStatus(order.id, "comments")}
