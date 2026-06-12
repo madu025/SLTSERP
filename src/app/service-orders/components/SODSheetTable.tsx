@@ -463,7 +463,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         ) : (
                             // PENDING (Dispatcher Grid)
                             <>
-                                <th className="w-[220px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[185px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
                                             <span>Customer Details</span>
@@ -495,7 +495,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                 <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                 <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dp")}>
                                             <span>DP</span>
@@ -623,7 +623,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
-                                            <div className="max-w-[210px] flex flex-col gap-0.5">
+                                            <div className="max-w-[175px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
                                                 {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
                                             </div>
@@ -795,7 +795,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                     <>
                                         {/* Customer Details */}
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
-                                            <div className="max-w-[210px] flex flex-col gap-0.5">
+                                            <div className="max-w-[175px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
                                                 {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
                                             </div>
@@ -807,7 +807,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
 
                                         {/* DP (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 text-[10px] font-mono text-foreground truncate" title={order.dp || ""}>
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] font-mono text-foreground whitespace-normal break-words" title={order.dp || ""}>
                                             {order.dp || "-"}
                                         </td>
 
