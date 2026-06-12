@@ -17,6 +17,11 @@ export async function register() {
         return;
     }
 
+    if (process.env.DISABLE_BACKGROUND_WORKERS === 'true') {
+        console.log('[INSTRUMENTATION] 🛑 Background workers disabled by environment configuration.');
+        return;
+    }
+
     console.log('[INSTRUMENTATION] 🚀 Registering server-side processes...');
     if (process.env.NEXT_RUNTIME === 'nodejs') {
         console.log('[INSTRUMENTATION] 📦 Node.js runtime detected, initializing workers...');
