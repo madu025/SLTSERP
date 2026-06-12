@@ -97,7 +97,7 @@ export default function OrderActionModal({
                 className={cn(
                     "overflow-hidden flex flex-col p-0 gap-0 transition-all duration-200",
                     useExtendedView
-                        ? "sm:max-w-4xl h-[620px] max-h-[85vh]"
+                        ? "sm:max-w-4xl h-auto max-h-[85vh]"
                         : "sm:max-w-md h-auto max-h-[85vh]"
                 )}
             >
@@ -126,10 +126,10 @@ export default function OrderActionModal({
 
                 <div className={cn(
                     "flex-1 min-h-0 bg-white flex flex-col",
-                    useExtendedView ? "overflow-hidden p-0" : "overflow-y-auto px-6 py-4"
+                    useExtendedView ? "" : "overflow-y-auto px-6 py-4"
                 )}>
                     {useExtendedView ? (
-                        <div className="flex flex-col h-full w-full bg-slate-50/30">
+                        <div className="flex flex-col w-full bg-slate-50/30">
                             {/* TABS */}
                             <div className="flex items-center px-4 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
                                 {['details', 'materials', 'finish'].map((tab, idx) => (
