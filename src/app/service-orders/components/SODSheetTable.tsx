@@ -479,7 +479,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[80px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice</span>
@@ -495,7 +495,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[50px] px-2 py-1.5 border-r border-border/20">
+                                 <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dp")}>
                                             <span>DP</span>
@@ -511,7 +511,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[135px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[125px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -532,7 +532,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[105px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
                                             <span>Status</span>
@@ -553,7 +553,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[115px] px-2 py-1.5 border-r border-border/20">
+                                 <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("scheduledDate")}>
                                             <span>Appointment Date</span>
