@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Info, MessageSquare, CheckCircle2, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -21,19 +20,17 @@ interface SODSheetTableProps {
     onOpenModal: (order: ServiceOrder, type: "detail" | "schedule" | "comment" | "action") => void;
 }
 
-export function SODSheetTable({
-    orders,
-    filterType,
-    contractors,
-    selectedIds,
-    toggleSelect,
-    toggleAll,
-    isAllSelected,
-    onSort,
-    sortConfig,
-    onUpdateField,
-    onOpenModal
-}: SODSheetTableProps) {
+export function SODSheetTable(props: SODSheetTableProps) {
+    const {
+        orders,
+        filterType,
+        contractors,
+        selectedIds,
+        onSort,
+        sortConfig,
+        onUpdateField,
+        onOpenModal
+    } = props;
     // Map to keep track of saving states per cell (key: "orderId-fieldName")
     const [savingStates, setSavingStates] = useState<Record<string, "saving" | "saved" | "error" | null>>({});
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -203,10 +200,7 @@ export function SODSheetTable({
             <table className="w-full border-collapse text-left table-fixed">
                 <thead className="bg-muted/80 border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
                     <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px]">
-                        <th className="w-[35px] text-center py-2 border-r border-border/20 md:sticky md:left-0 bg-muted/90 z-50">
-                            <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-border/40 data-[state=checked]:bg-primary" />
-                        </th>
-                        <th className="w-[100px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[35px] bg-muted/90 z-50">
+                        <th className="w-[100px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-0 bg-muted/90 z-50">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
                                     <span>SO Number</span>
@@ -222,8 +216,7 @@ export function SODSheetTable({
                                 />
                             </div>
                         </th>
-                        
-                        {/* Dynamic columns based on filterType */}
+                                             {/* Dynamic columns based on filterType */}
                         {filterType === "completed" ? (
                             <>
                                 <th className="w-[95px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
@@ -290,7 +283,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[135px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -311,7 +304,7 @@ export function SODSheetTable({
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("status")}>
                                             <span>Status</span>
@@ -327,7 +320,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[240px] px-2 py-1.5 border-r border-border/20">
+                                <th className="px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -394,7 +387,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[135px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -415,7 +408,7 @@ export function SODSheetTable({
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
                                             <span>Status</span>
@@ -450,7 +443,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[240px] px-2 py-1.5 border-r border-border/20">
+                                <th className="px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -518,7 +511,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[120px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[135px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
                                             <span>Contractor</span>
@@ -539,7 +532,7 @@ export function SODSheetTable({
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
                                             <span>SLTS Status</span>
@@ -560,7 +553,7 @@ export function SODSheetTable({
                                         </select>
                                     </div>
                                 </th>
-                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[115px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("scheduledDate")}>
                                             <span>Appointment Date</span>
@@ -576,7 +569,7 @@ export function SODSheetTable({
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[240px] px-2 py-1.5 border-r border-border/20">
+                                <th className="px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -606,17 +599,8 @@ export function SODSheetTable({
                                     selectedIds.has(order.id) ? "bg-primary/5" : ""
                                 }`}
                             >
-                                {/* Checkbox column */}
-                                <td className="text-center border-r border-border/15 md:sticky md:left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
-                                    <Checkbox
-                                        checked={selectedIds.has(order.id)}
-                                        onCheckedChange={() => toggleSelect(order.id)}
-                                        className="border-border/40"
-                                    />
-                                </td>
-                                
                                 {/* SO Number (Read-only, clickable details) */}
-                                <td className="px-2 font-mono font-bold text-[10.5px] border-r border-border/15 md:sticky md:left-[35px] bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
+                                <td className="px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
                                     <div className="flex items-center gap-1">
                                         <button
                                             type="button"
@@ -635,20 +619,18 @@ export function SODSheetTable({
                                 {/* COMPLETED VIEW */}
                                 {filterType === "completed" && (
                                     <>
-                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-bold text-emerald-500 font-mono">
+                                        <td className="px-2 border-r border-border/15 text-[10px] font-bold text-emerald-500 font-mono">
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
-                                        <td className="px-2 border-r border-border/15 py-1 text-[10.5px] font-medium text-foreground leading-tight">
-                                            <div className="font-bold text-foreground truncate max-w-[270px]" title={order.customerName || ""}>
-                                                {order.customerName || "-"}
-                                            </div>
-                                            <div className="text-[9px] text-muted-foreground truncate max-w-[270px] mt-0.5" title={order.address || ""}>
-                                                {order.address || "-"}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground truncate" title={`${order.customerName || ""} - ${order.address || ""}`}>
+                                            <div className="truncate max-w-[210px]">
+                                                <span className="font-bold">{order.customerName || "-"}</span>
+                                                {order.address && <span className="text-muted-foreground font-normal"> — {order.address}</span>}
                                             </div>
                                         </td>
                                         
                                         {/* Voice Number (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
+                                        <td className="px-2 border-r border-border/15 text-[10px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
                                             {order.voiceNumber || "-"}
                                         </td>
 
@@ -675,7 +657,7 @@ export function SODSheetTable({
                                                 onKeyDown={(e) => handleKeyDown(e, index, "contractorId")}
                                                 data-row-index={index}
                                                 data-field="contractorId"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-bold text-foreground"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-medium text-foreground"
                                             >
                                                 <option value="">Select Team</option>
                                                 {contractors.map((c) => (
@@ -689,21 +671,21 @@ export function SODSheetTable({
 
                                         {/* Status (Read-only portal status) */}
                                         <td className="px-2 border-r border-border/15">
-                                            <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase border ${getStatusColorClass(order.status)}`}>
+                                            <span className={`px-2 py-0.5 rounded-full font-black text-[10px] uppercase border ${getStatusColorClass(order.status)}`}>
                                                 {order.status || "-"}
                                             </span>
                                         </td>
 
                                         {/* Comments */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <textarea
+                                            <input
+                                                type="text"
                                                 defaultValue={order.comments || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "comments", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
-                                                rows={1}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
                                                 placeholder="No comments"
                                             />
                                             {renderCellStatus(order.id, "comments")}
@@ -714,20 +696,18 @@ export function SODSheetTable({
                                 {/* RETURN VIEW */}
                                 {filterType === "return" && (
                                     <>
-                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-bold text-rose-500 font-mono">
+                                        <td className="px-2 border-r border-border/15 text-[10px] font-bold text-rose-500 font-mono">
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
-                                        <td className="px-2 border-r border-border/15 py-1 text-[10.5px] font-medium text-foreground leading-tight">
-                                            <div className="font-bold text-foreground truncate max-w-[270px]" title={order.customerName || ""}>
-                                                {order.customerName || "-"}
-                                            </div>
-                                            <div className="text-[9px] text-muted-foreground truncate max-w-[270px] mt-0.5" title={order.address || ""}>
-                                                {order.address || "-"}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground truncate" title={`${order.customerName || ""} - ${order.address || ""}`}>
+                                            <div className="truncate max-w-[210px]">
+                                                <span className="font-bold">{order.customerName || "-"}</span>
+                                                {order.address && <span className="text-muted-foreground font-normal"> — {order.address}</span>}
                                             </div>
                                         </td>
                                         
                                         {/* Voice Number (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
+                                        <td className="px-2 border-r border-border/15 text-[10px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
                                             {order.voiceNumber || "-"}
                                         </td>
 
@@ -739,7 +719,7 @@ export function SODSheetTable({
                                                 onKeyDown={(e) => handleKeyDown(e, index, "contractorId")}
                                                 data-row-index={index}
                                                 data-field="contractorId"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-bold text-foreground"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-medium text-foreground"
                                             >
                                                 <option value="">Select Team</option>
                                                 {contractors.map((c) => (
@@ -759,7 +739,7 @@ export function SODSheetTable({
                                                 onKeyDown={(e) => handleKeyDown(e, index, "sltsStatus")}
                                                 data-row-index={index}
                                                 data-field="sltsStatus"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-black text-rose-400"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-black text-rose-400"
                                             >
                                                 <option value="RETURN">RETURN</option>
                                                 <option value="INPROGRESS">IN PROGRESS</option>
@@ -769,20 +749,20 @@ export function SODSheetTable({
                                         </td>
 
                                         {/* Return Reason (Read only from SLT Portal) */}
-                                        <td className="px-2 border-r border-border/15 text-[10.5px] truncate font-semibold text-rose-500 uppercase" title={order.returnReason || order.status || ""}>
+                                        <td className="px-2 border-r border-border/15 text-[10px] truncate font-semibold text-rose-500 uppercase" title={order.returnReason || order.status || ""}>
                                             {order.returnReason || order.status || "-"}
                                         </td>
 
                                         {/* Comments */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <textarea
+                                            <input
+                                                type="text"
                                                 defaultValue={order.comments || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "comments", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
-                                                rows={1}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
                                                 placeholder="No comments"
                                             />
                                             {renderCellStatus(order.id, "comments")}
@@ -794,30 +774,28 @@ export function SODSheetTable({
                                 {filterType === "pending" && (
                                     <>
                                         {/* Customer Details */}
-                                        <td className="px-2 border-r border-border/15 py-1 text-[10.5px] font-medium text-foreground leading-tight">
-                                            <div className="font-bold text-foreground truncate max-w-[270px]" title={order.customerName || ""}>
-                                                {order.customerName || "-"}
-                                            </div>
-                                            <div className="text-[9px] text-muted-foreground truncate max-w-[270px] mt-0.5" title={order.address || ""}>
-                                                {order.address || "-"}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground truncate" title={`${order.customerName || ""} - ${order.address || ""}`}>
+                                            <div className="truncate max-w-[210px]">
+                                                <span className="font-bold">{order.customerName || "-"}</span>
+                                                {order.address && <span className="text-muted-foreground font-normal"> — {order.address}</span>}
                                             </div>
                                         </td>
 
                                         {/* Voice/TP Number (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 text-[10.5px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
+                                        <td className="px-2 border-r border-border/15 text-[10px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
                                             {order.voiceNumber || "-"}
                                         </td>
 
                                         {/* DP */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <textarea
+                                            <input
+                                                type="text"
                                                 defaultValue={order.dp || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "dp", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "dp")}
                                                 data-row-index={index}
                                                 data-field="dp"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-mono text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
-                                                rows={1}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-mono text-foreground rounded transition-all placeholder:opacity-35"
                                                 placeholder="N/A"
                                             />
                                             {renderCellStatus(order.id, "dp")}
@@ -831,7 +809,7 @@ export function SODSheetTable({
                                                 onKeyDown={(e) => handleKeyDown(e, index, "contractorId")}
                                                 data-row-index={index}
                                                 data-field="contractorId"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-bold text-blue-400"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-bold text-blue-400"
                                             >
                                                 <option value="">Select Team</option>
                                                 {contractors.map((c) => (
@@ -851,7 +829,7 @@ export function SODSheetTable({
                                                 onKeyDown={(e) => handleKeyDown(e, index, "sltsStatus")}
                                                 data-row-index={index}
                                                 data-field="sltsStatus"
-                                                className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-black ${
+                                                className={`w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1 pr-6 py-1 text-[10px] font-black ${
                                                     order.sltsStatus === "COMPLETED" ? "text-emerald-400" :
                                                     order.sltsStatus === "RETURN" ? "text-rose-400" : "text-amber-400"
                                                 }`}
@@ -874,21 +852,21 @@ export function SODSheetTable({
                                                 onKeyDown={(e) => handleKeyDown(e, index, "scheduledDate")}
                                                 data-row-index={index}
                                                 data-field="scheduledDate"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[9.5px] font-bold text-foreground font-mono"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1 py-1 text-[10px] font-bold text-foreground font-mono"
                                             />
                                             {renderCellStatus(order.id, "scheduledDate")}
                                         </td>
 
                                         {/* Comments */}
                                         <td className="relative border-r border-border/15 p-0">
-                                            <textarea
+                                            <input
+                                                type="text"
                                                 defaultValue={order.comments || ""}
                                                 onBlur={(e) => handleSaveField(order.id, "comments", e.target.value)}
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all resize-none placeholder:opacity-35 leading-tight"
-                                                rows={1}
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
                                                 placeholder="No comments"
                                             />
                                             {renderCellStatus(order.id, "comments")}
