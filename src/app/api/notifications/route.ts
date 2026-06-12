@@ -31,3 +31,16 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: message }, { status: 500 });
     }
 }
+
+export async function DELETE(request: Request) {
+    try {
+        const userId = request.headers.get('x-user-id');
+        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+        await NotificationService.deleteAll(userId);
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return NextResponse.json({ error: message }, { status: 500 });
+    }
+}

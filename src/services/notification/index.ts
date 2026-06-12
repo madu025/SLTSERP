@@ -235,4 +235,18 @@ export class NotificationService {
             ...(onlyRead ? { isRead: true } : {})
         });
     }
+
+    /**
+     * Delete a single notification
+     */
+    static async delete(id: string) {
+        return await NotificationRepository.deleteMany({ id });
+    }
+
+    /**
+     * Delete all user's notifications
+     */
+    static async deleteAll(userId: string) {
+        return await NotificationRepository.deleteMany({ userId });
+    }
 }

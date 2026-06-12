@@ -310,6 +310,17 @@ export default function NotificationBell() {
                         </div>
                     )}
                 </ScrollArea>
+                <div className="border-t border-slate-100 p-2 text-center bg-slate-50/50 sticky bottom-0 z-10">
+                    <Button 
+                        variant="ghost" 
+                        className="w-full text-xs font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 py-2 h-auto rounded-xl"
+                        onClick={() => {
+                            router.push("/notifications");
+                        }}
+                    >
+                        View All in Notification Manager
+                    </Button>
+                </div>
             </PopoverContent>
         </Popover>
     );
