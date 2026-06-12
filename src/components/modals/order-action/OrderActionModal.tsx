@@ -17,12 +17,12 @@ import { OrderAssignmentSection } from "./OrderAssignmentSection";
 import { DeviceSerialSection } from "./DeviceSerialSection";
 import { MaterialUsageSection } from "./MaterialUsageSection";
 import { ReturnReasonSection } from "./ReturnReasonSection";
-import { OrderActionData, Contractor, InventoryItem } from "./types";
+import { OrderActionData, Contractor, InventoryItem, OrderCompletionData } from "./types";
 
 interface OrderActionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (data: any) => void;
+    onConfirm: (data: OrderCompletionData) => void;
     title?: string;
     isReturn?: boolean;
     isComplete?: boolean;
@@ -97,76 +97,78 @@ export default function OrderActionModal({
                 className={cn(
                     "overflow-hidden flex flex-col p-0 gap-0 transition-all duration-200",
                     useExtendedView
-                        ? (state.activeTab === 'materials' || state.activeTab === 'finish' ? "sm:max-w-7xl h-[90vh]" : "sm:max-w-2xl h-[90vh]")
-                        : "sm:max-w-lg max-h-[90vh]"
+                        ? "sm:max-w-4xl h-[620px] max-h-[85vh]"
+                        : "sm:max-w-md h-auto max-h-[85vh]"
                 )}
             >
-                <DialogHeader className="px-6 py-4 border-b shrink-0 bg-white">
-                    <DialogTitle className="text-xl font-extrabold text-slate-900 tracking-tight">
-                        {orderData?.sltsStatus === 'COMPLETED' ? `UPDATE COMPLETE ORDER` : title}
-                    </DialogTitle>
-                    {useExtendedView && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
-                            {[
-                                { label: "Voice", val: orderData?.voiceNumber },
-                                { label: "Pkg", val: orderData?.package },
-                                { label: "IPTV", val: orderData?.iptv },
-                                { label: "DP", val: orderData?.dp }
-                            ].map(info => (
-                                <div key={info.label} className="flex flex-col gap-1 p-2 rounded-lg bg-slate-50 border border-slate-100">
-                                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{info.label}</span>
-                                    <span className="text-sm font-bold text-slate-800 truncate">{info.val || 'N/A'}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                <DialogHeader className="px-6 py-3 border-b shrink-0 bg-white">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <DialogTitle className="text-sm font-black text-slate-900 tracking-tight">
+                            {orderData?.sltsStatus === 'COMPLETED' ? `UPDATE COMPLETE ORDER` : title}
+                        </DialogTitle>
+                        {useExtendedView && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                {[
+                                    { label: "Voice", val: orderData?.voiceNumber },
+                                    { label: "Pkg", val: orderData?.package },
+                                    { label: "IPTV", val: orderData?.iptv },
+                                    { label: "DP", val: orderData?.dp }
+                                ].map(info => (
+                                    <div key={info.label} className="flex items-center gap-1 py-0.5 px-2 rounded-lg bg-slate-50 border border-slate-200/60 text-[9px] font-bold">
+                                        <span className="text-blue-600 uppercase tracking-wider text-[8px]">{info.label}:</span>
+                                        <span className="text-slate-700 truncate max-w-[100px]">{info.val || 'N/A'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </DialogHeader>
 
                 <div className={cn(
                     "flex-1 min-h-0 bg-white flex flex-col",
-                    useExtendedView ? "overflow-hidden p-0" : "overflow-y-auto px-6 py-6"
+                    useExtendedView ? "overflow-hidden p-0" : "overflow-y-auto px-6 py-4"
                 )}>
                     {useExtendedView ? (
                         <div className="flex flex-col h-full w-full bg-slate-50/30">
                             {/* TABS */}
-                            <div className="flex items-center px-6 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+                            <div className="flex items-center px-4 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
                                 {['details', 'materials', 'finish'].map((tab, idx) => (
                                     <button
                                         key={tab}
                                         onClick={() => controls.setActiveTab(tab as 'details' | 'materials' | 'finish')}
                                         className={cn(
-                                            "px-6 py-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all",
+                                            "px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all",
                                             state.activeTab === tab
                                                 ? "border-blue-600 text-blue-600 bg-blue-50/50"
                                                 : "border-transparent text-slate-500 hover:text-slate-700"
                                         )}
                                     >
-                                        <span className="text-slate-400 font-mono mr-2">0{idx + 1}</span> {tab}
+                                        <span className="text-slate-400 font-mono mr-1.5">0{idx + 1}</span> {tab}
                                     </button>
                                 ))}
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-6">
+                             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                                 {state.activeTab === 'details' && (
-                                    <div className="max-w-3xl mx-auto space-y-6">
-                                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                <div className="space-y-6">
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Completion Date</Label>
+                                    <div className="max-w-2xl mx-auto space-y-4">
+                                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-4">
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Completion Date</Label>
                                                         <Popover>
                                                             <PopoverTrigger asChild>
-                                                                <Button variant="outline" className="w-full h-11 justify-start border-slate-200">
-                                                                    <CalendarIcon className="mr-2 h-4 w-4 text-blue-500" />
+                                                                <Button variant="outline" className="w-full h-9 justify-start border-slate-200 text-xs">
+                                                                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
                                                                     {state.date ? format(state.date, "PPP") : <span>Pick a date</span>}
                                                                 </Button>
                                                             </PopoverTrigger>
                                                             <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={state.date} onSelect={controls.setDate} /></PopoverContent>
                                                         </Popover>
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">DP Details</Label>
-                                                        <Input value={state.dpDetails} onChange={e => controls.setDpDetails(e.target.value)} className="h-11" />
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">DP Details</Label>
+                                                        <Input value={state.dpDetails} onChange={e => controls.setDpDetails(e.target.value)} className="h-9 text-xs" />
                                                     </div>
                                                 </div>
                                                 <OrderAssignmentSection 
@@ -200,7 +202,7 @@ export default function OrderActionModal({
                                 )}
 
                                 {state.activeTab === 'finish' && (
-                                    <div className="max-w-3xl mx-auto space-y-8">
+                                    <div className="max-w-2xl mx-auto space-y-4">
                                         <DeviceSerialSection 
                                             ontType={state.ontType}
                                             onOntTypeChange={controls.setOntType}
@@ -210,38 +212,38 @@ export default function OrderActionModal({
                                             onIptvSerialChange={controls.setIptvSerial}
                                             requiresIPTV={requiresIPTV}
                                         />
-                                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                            <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Notes</Label>
-                                            <Textarea value={state.comment} onChange={e => controls.setComment(e.target.value)} rows={6} />
+                                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Notes</Label>
+                                            <Textarea value={state.comment} onChange={e => controls.setComment(e.target.value)} rows={4} className="text-xs" />
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center z-20">
-                                <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                                <div className="flex gap-3">
-                                    {state.activeTab !== 'details' && <Button variant="outline" onClick={() => controls.setActiveTab(state.activeTab === 'finish' ? 'materials' : 'details')}>Back</Button>}
+                            <div className="p-3 bg-white border-t border-slate-200 flex justify-between items-center z-20 shrink-0">
+                                <Button variant="ghost" size="sm" onClick={onClose} className="h-9 text-xs">Cancel</Button>
+                                <div className="flex gap-2">
+                                    {state.activeTab !== 'details' && <Button variant="outline" size="sm" onClick={() => controls.setActiveTab(state.activeTab === 'finish' ? 'materials' : 'details')} className="h-9 text-xs">Back</Button>}
                                     {state.activeTab === 'finish' ? (
-                                        <Button onClick={controls.confirm} className="bg-emerald-600 hover:bg-emerald-700 px-8">
+                                        <Button size="sm" onClick={controls.confirm} className="bg-emerald-600 hover:bg-emerald-700 px-6 h-9 text-xs font-bold uppercase">
                                             {orderData?.sltsStatus === 'COMPLETED' ? 'Update & Save' : 'Complete Order'}
                                         </Button>
                                     ) : (
-                                        <Button onClick={() => controls.setActiveTab(state.activeTab === 'details' ? 'materials' : 'finish')}>Next</Button>
+                                        <Button size="sm" onClick={() => controls.setActiveTab(state.activeTab === 'details' ? 'materials' : 'finish')} className="h-9 text-xs font-bold uppercase">Next</Button>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-6 px-6 py-4">
+                        <div className="space-y-4 px-6 py-4">
                             {/* Simple View for Return / Update */}
-                            <div className="space-y-4">
-                                <Label>Date</Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest">Date</Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className="w-full h-12 justify-start"><CalendarIcon className="mr-2 h-4 w-4" />{state.date ? format(state.date, "PPP") : "Select Date"}</Button>
+                                        <Button variant="outline" className="w-full h-9 justify-start text-xs"><CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />{state.date ? format(state.date, "PPP") : "Select Date"}</Button>
                                     </PopoverTrigger>
-                                    <PopoverContent><Calendar mode="single" selected={state.date} onSelect={controls.setDate} /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={state.date} onSelect={controls.setDate} /></PopoverContent>
                                 </Popover>
                             </div>
                             {isReturn && (
@@ -250,11 +252,11 @@ export default function OrderActionModal({
                                     customReason={state.customReason} onCustomReasonChange={controls.setCustomReason}
                                 />
                             )}
-                            <div className="space-y-2">
-                                <Label>Comments</Label>
-                                <Textarea value={state.comment} onChange={e => controls.setComment(e.target.value)} />
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest">Comments</Label>
+                                <Textarea value={state.comment} onChange={e => controls.setComment(e.target.value)} rows={3} className="text-xs" />
                             </div>
-                            <Button onClick={controls.confirm} className="w-full h-12 bg-slate-900">{isComplete ? "Finalize" : isReturn ? "Return" : "Save"}</Button>
+                            <Button onClick={controls.confirm} className="w-full h-9 text-xs bg-slate-900 font-bold uppercase hover:bg-slate-800">{isComplete ? "Finalize" : isReturn ? "Return" : "Save"}</Button>
                         </div>
                     )}
                 </div>

@@ -60,36 +60,33 @@ export function MaterialUsageSection({
             </div>
 
             {/* Quick Access Block */}
-            <div className="bg-slate-50 border rounded-xl p-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {quickItems.map(({ label, item }) => {
                     const existingRow = rows.find(r => r.itemId === item.id);
                     const isDropWire = item.code === 'OSPFTA003';
                     const val = existingRow ? (isDropWire ? (existingRow.f1Qty || '') : (existingRow.usedQty || '')) : '';
 
                     return (
-                        <div key={label} className="space-y-1.5">
-                            <Label className="text-[11px] uppercase tracking-wider text-slate-500">{label}</Label>
-                            <div className="flex gap-1.5 items-center group">
+                        <div key={label} className="space-y-1">
+                            <Label className="text-[9px] uppercase tracking-widest text-slate-500 font-bold block truncate" title={label}>{label}</Label>
+                            <div className="flex gap-1 items-center group">
                                 <div className="relative flex-1">
                                     <Input 
-                                        className="h-9 pr-7 bg-white transition-all focus:ring-emerald-500 text-sm" 
+                                        className="h-8 pr-6 bg-white transition-all focus:ring-emerald-500 text-xs" 
                                         placeholder="Used"
                                         value={val}
                                         onChange={(e) => {
                                             const index = rows.findIndex(r => r.itemId === item.id);
                                             if (index >= 0) {
                                                 onUpdateRow(index, isDropWire ? 'f1Qty' : 'usedQty', e.target.value);
-                                            } else {
-                                                // If not in rows, add it first? 
-                                                // Actually the parent should ensure all quick items are in rows or handle this.
                                             }
                                         }}
                                     />
-                                    <span className="absolute right-1.5 top-2.5 text-[9px] font-bold text-slate-400 uppercase">{item.unit}</span>
+                                    <span className="absolute right-1 top-2 text-[8px] font-black text-slate-400 uppercase">{item.unit}</span>
                                 </div>
-                                <div className="w-16">
+                                <div className="w-12">
                                     <Input 
-                                        className="h-9 px-2 bg-red-50/30 border-red-100 focus:ring-red-500 text-xs text-center font-bold" 
+                                        className="h-8 px-1 bg-red-50/30 border-red-100 focus:ring-red-500 text-[10px] text-center font-bold" 
                                         placeholder="W" 
                                         title="Wastage Qty"
                                         value={existingRow?.wastageQty || ''}
@@ -107,14 +104,14 @@ export function MaterialUsageSection({
 
             {/* Detailed Usage Table */}
             <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs">
                     <thead className="bg-slate-50 border-b">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-medium text-slate-600 w-[280px]">Item</th>
-                            <th className="px-2 py-3 text-center font-medium text-slate-600">Usage</th>
-                            <th className="px-2 py-3 text-center font-medium text-slate-600">Wastage / Reason</th>
-                            <th className="px-2 py-3 text-center font-medium text-slate-600">Serial #</th>
-                            <th className="px-2 py-3 text-center font-medium text-slate-600 w-[50px]"></th>
+                        <tr className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                            <th className="px-3 py-2 text-left w-[240px]">Item</th>
+                            <th className="px-2 py-2 text-center w-[120px]">Usage</th>
+                            <th className="px-2 py-2 text-center w-[160px]">Wastage / Reason</th>
+                            <th className="px-2 py-2 text-center">Serial #</th>
+                            <th className="px-2 py-2 text-center w-[40px]"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -123,37 +120,37 @@ export function MaterialUsageSection({
                             const isDW = currentItem?.code === 'OSPFTA003';
                             return (
                                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-4 py-3">
+                                    <td className="px-3 py-1.5">
                                         <Select 
                                             value={row.itemId} 
                                             onValueChange={(val) => onUpdateRow(idx, 'itemId', val)}
                                         >
-                                            <SelectTrigger className="h-9 border-slate-200">
+                                            <SelectTrigger className="h-8 border-slate-200 text-xs">
                                                 <SelectValue placeholder="Select Item" />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-[250px]">
                                                 {items.map(item => (
-                                                    <SelectItem key={item.id} value={item.id}>
+                                                    <SelectItem key={item.id} value={item.id} className="text-xs">
                                                         {item.code} - {item.name} ({item.unit})
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     </td>
-                                    <td className="px-2 py-3">
+                                    <td className="px-2 py-1.5">
                                         {isDW ? (
                                             <div className="flex gap-1">
                                                 <Input 
                                                     placeholder="F1" 
                                                     value={row.f1Qty || ""} 
                                                     onChange={(e) => onUpdateRow(idx, 'f1Qty', e.target.value)}
-                                                    className="h-9 text-center"
+                                                    className="h-8 text-center text-xs"
                                                 />
                                                 <Input 
                                                     placeholder="G1" 
                                                     value={row.g1Qty || ""} 
                                                     onChange={(e) => onUpdateRow(idx, 'g1Qty', e.target.value)}
-                                                    className="h-9 text-center"
+                                                    className="h-8 text-center text-xs"
                                                 />
                                             </div>
                                         ) : (
@@ -161,41 +158,41 @@ export function MaterialUsageSection({
                                                 placeholder="Qty" 
                                                 value={row.usedQty || ""} 
                                                 onChange={(e) => onUpdateRow(idx, 'usedQty', e.target.value)}
-                                                className="h-9 text-center"
+                                                className="h-8 text-center text-xs"
                                             />
                                         )}
                                     </td>
-                                    <td className="px-2 py-3">
+                                    <td className="px-2 py-1.5">
                                         <div className="flex flex-col gap-1">
                                             <Input 
                                                 placeholder="Wastage" 
                                                 value={row.wastageQty || ""} 
                                                 onChange={(e) => onUpdateRow(idx, 'wastageQty', e.target.value)}
-                                                className="h-8 text-center text-xs font-bold bg-red-50/20 border-red-50"
+                                                className="h-7 text-center text-[10px] font-bold bg-red-50/20 border-red-50"
                                             />
                                             <Input 
                                                 placeholder="Reason" 
                                                 value={row.wastageReason || ""} 
                                                 onChange={(e) => onUpdateRow(idx, 'wastageReason', e.target.value)}
-                                                className="h-7 text-[10px] px-2 italic bg-slate-50 border-none"
+                                                className="h-6 text-[9px] px-1.5 italic bg-slate-50 border-none rounded-md"
                                             />
                                             {currentItem?.maxWastagePercentage !== undefined && (
-                                                <span className="text-[9px] text-slate-400 text-center">Max {currentItem.maxWastagePercentage}%</span>
+                                                <span className="text-[8px] text-slate-400 text-center leading-none">Max {currentItem.maxWastagePercentage}%</span>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="px-2 py-3">
+                                    <td className="px-2 py-1.5">
                                         <Input 
                                             placeholder="Serial" 
                                             value={row.serialNumber || ""} 
                                             onChange={(e) => onUpdateRow(idx, 'serialNumber', e.target.value.toUpperCase())}
-                                            className="h-9"
+                                            className="h-8 text-xs font-mono"
                                             disabled={currentItem?.hasSerial === false}
                                         />
                                     </td>
-                                    <td className="px-2 py-3">
-                                        <Button variant="ghost" size="icon" onClick={() => onRemoveRow(idx)} className="h-8 w-8 text-slate-400 hover:text-red-500">
-                                            <X className="w-4 h-4" />
+                                    <td className="px-2 py-1.5 text-center">
+                                        <Button variant="ghost" size="icon" onClick={() => onRemoveRow(idx)} className="h-7 w-7 text-slate-400 hover:text-red-500 rounded-md">
+                                            <X className="w-3.5 h-3.5" />
                                         </Button>
                                     </td>
                                 </tr>
@@ -203,9 +200,9 @@ export function MaterialUsageSection({
                         })}
                     </tbody>
                 </table>
-                <div className="p-3 bg-slate-50/50 flex justify-center border-t">
-                    <Button variant="ghost" size="sm" onClick={onAddRow} className="text-emerald-600 hover:bg-emerald-50">
-                        <Plus className="w-4 h-4 mr-1" /> Add Additional Item
+                <div className="p-2 bg-slate-50/30 flex justify-center border-t">
+                    <Button variant="ghost" size="sm" onClick={onAddRow} className="text-emerald-600 hover:bg-emerald-50 h-8 text-[11px] font-bold">
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Additional Item
                     </Button>
                 </div>
             </div>
