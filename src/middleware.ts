@@ -22,7 +22,8 @@ const publicPaths = [
     '/api/test/extension-push',
     '/api/service-orders/bridge-sync',
     '/api/service-orders/bridge-data',
-    '/api/opmcs'
+    '/api/opmcs',
+    '/presentation'
 ];
 
 export async function middleware(request: NextRequest) {

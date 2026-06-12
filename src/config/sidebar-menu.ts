@@ -18,7 +18,8 @@ import {
     Upload,
     History as HistoryIcon,
     Terminal,
-    RefreshCw
+    RefreshCw,
+    Presentation
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -69,6 +70,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/dashboard',
         icon: LayoutDashboard,
         allowedRoles: ['ALL'] // Special keyword for public/all access
+    },
+    {
+        title: 'System Presentation',
+        path: '/presentation',
+        icon: Presentation,
+        allowedRoles: ['ALL']
     },
     {
         title: 'Service Orders',
