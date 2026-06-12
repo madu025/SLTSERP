@@ -15,6 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { RefreshCcw, Database, Terminal, Link as LinkIcon, Trash2, Search, Zap, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -207,6 +208,7 @@ function deepParseForensic(scrapedLog: RawLog) {
 export default function ExtensionTestPage() {
     const queryClient = useQueryClient();
     const [selectedLog, setSelectedLog] = useState<RawLog | null>(null);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
 
     const { data, isLoading } = useQuery({
         queryKey: ['extension-logs'],
@@ -231,9 +233,7 @@ export default function ExtensionTestPage() {
     });
 
     const handleClearAll = () => {
-        if (confirm('Are you sure you want to clear all raw logs? This cannot be undone.')) {
-            clearMutation.mutate();
-        }
+        setShowClearConfirm(true);
     };
 
     const logs: RawLog[] = data?.logs || [];
@@ -506,6 +506,26 @@ export default function ExtensionTestPage() {
                     </div>
                 </div>
             </main>
+
+            <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Purge Logs</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to clear all raw logs? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            clearMutation.mutate();
+                            setShowClearConfirm(false);
+                        }} className="bg-red-600 hover:bg-red-700 text-white">
+                            Purge
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

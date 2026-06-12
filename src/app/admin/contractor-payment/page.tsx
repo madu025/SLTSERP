@@ -1,18 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, ShieldCheck, Ruler, Trash } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Tier {
     id?: string;
@@ -31,10 +30,17 @@ interface ContractorPaymentConfig {
     createdAt: string;
 }
 
+interface RTOM {
+    id: string;
+    rtom: string;
+    name: string;
+}
+
 export default function ContractorPaymentConfigPage() {
     const queryClient = useQueryClient();
     const [showForm, setShowForm] = useState(false);
     const [editingConfig, setEditingConfig] = useState<ContractorPaymentConfig | null>(null);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -52,7 +58,7 @@ export default function ContractorPaymentConfigPage() {
     ]);
 
     // Fetch configurations
-    const { data: configs, isLoading } = useQuery<{ success: boolean; data: ContractorPaymentConfig[] }>({
+    const { data: configs } = useQuery<{ success: boolean; data: ContractorPaymentConfig[] }>({
         queryKey: ["contractor-payment-configs"],
         queryFn: async () => {
             const res = await fetch("/api/admin/contractor-payment");
@@ -61,7 +67,7 @@ export default function ContractorPaymentConfigPage() {
     });
 
     // Fetch RTOMs
-    const { data: rtoms } = useQuery<any[]>({
+    const { data: rtoms } = useQuery<RTOM[]>({
         queryKey: ["opmcs"],
         queryFn: async () => {
             const res = await fetch("/api/opmcs");
@@ -71,7 +77,7 @@ export default function ContractorPaymentConfigPage() {
 
     // Create/Update mutation
     const saveMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: { rtomId: string | null; notes: string | null; isActive: boolean; tiers: Tier[] }) => {
             const url = "/api/admin/contractor-payment";
             const method = editingConfig ? "PUT" : "POST";
             const res = await fetch(url, {
@@ -152,9 +158,12 @@ export default function ContractorPaymentConfigPage() {
         setTiers(tiers.filter((_, i) => i !== index));
     };
 
-    const updateTier = (index: number, field: keyof Tier, value: string) => {
+    const updateTier = (index: number, field: 'minDistance' | 'maxDistance' | 'amount', value: string) => {
         const newTiers = [...tiers];
-        (newTiers[index] as any)[field] = parseFloat(value) || 0;
+        newTiers[index] = {
+            ...newTiers[index],
+            [field]: parseFloat(value) || 0
+        };
         setTiers(newTiers);
     };
 
@@ -210,7 +219,7 @@ export default function ContractorPaymentConfigPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="GLOBAL">Global Default (All RTOMs)</SelectItem>
-                                                    {rtoms?.map((rtom: any) => (
+                                                    {rtoms?.map((rtom) => (
                                                         <SelectItem key={rtom.id} value={rtom.id}>
                                                             {rtom.rtom} - {rtom.name}
                                                         </SelectItem>
@@ -330,11 +339,7 @@ export default function ContractorPaymentConfigPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => {
-                                                    if (confirm("Delete this pricing rule?")) {
-                                                        deleteMutation.mutate(config.id);
-                                                    }
-                                                }}
+                                                onClick={() => setDeleteTargetId(config.id)}
                                             >
                                                 <Trash2 className="w-4 h-4 text-red-400 hover:text-red-600" />
                                             </Button>
@@ -369,6 +374,29 @@ export default function ContractorPaymentConfigPage() {
                     </div>
                 </main>
             </div>
+
+            {/* Delete Config AlertDialog */}
+            <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Pricing Configuration</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this contractor payment configuration? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (deleteTargetId) {
+                                deleteMutation.mutate(deleteTargetId);
+                            }
+                            setDeleteTargetId(null);
+                        }} className="bg-red-600 hover:bg-red-700 text-white">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

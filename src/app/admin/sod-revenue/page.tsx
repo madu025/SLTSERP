@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Plus, Edit, Trash2, DollarSign, Calendar } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface RevenueConfig {
     id: string;
@@ -27,10 +28,26 @@ interface RevenueConfig {
     createdAt: string;
 }
 
+interface RTOM {
+    id: string;
+    rtom: string;
+    name: string;
+}
+
+interface SaveRevenueConfigInput {
+    rtomId: string | null;
+    revenuePerSOD: number;
+    circularRef: string | null;
+    notes: string | null;
+    effectiveFrom: string | null;
+    effectiveTo: string | null;
+}
+
 export default function SODRevenueConfigPage() {
     const queryClient = useQueryClient();
     const [showForm, setShowForm] = useState(false);
     const [editingConfig, setEditingConfig] = useState<RevenueConfig | null>(null);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -44,7 +61,7 @@ export default function SODRevenueConfigPage() {
     });
 
     // Fetch configurations
-    const { data: configs, isLoading } = useQuery<{ success: boolean; data: RevenueConfig[] }>({
+    const { data: configs } = useQuery<{ success: boolean; data: RevenueConfig[] }>({
         queryKey: ["sod-revenue-configs"],
         queryFn: async () => {
             const res = await fetch("/api/admin/sod-revenue");
@@ -53,7 +70,7 @@ export default function SODRevenueConfigPage() {
     });
 
     // Fetch RTOMs
-    const { data: rtoms } = useQuery<any[]>({
+    const { data: rtoms } = useQuery<RTOM[]>({
         queryKey: ["opmcs"],
         queryFn: async () => {
             const res = await fetch("/api/opmcs");
@@ -63,7 +80,7 @@ export default function SODRevenueConfigPage() {
 
     // Create/Update mutation
     const saveMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: SaveRevenueConfigInput) => {
             const url = editingConfig ? "/api/admin/sod-revenue" : "/api/admin/sod-revenue";
             const method = editingConfig ? "PUT" : "POST";
             const res = await fetch(url, {
@@ -131,11 +148,13 @@ export default function SODRevenueConfigPage() {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const submitData: any = {
+        const submitData: SaveRevenueConfigInput = {
             rtomId: formData.rtomId === "GLOBAL" ? null : formData.rtomId,
             revenuePerSOD: parseFloat(formData.revenuePerSOD),
             circularRef: formData.circularRef || null,
-            notes: formData.notes || null
+            notes: formData.notes || null,
+            effectiveFrom: formData.hasDateRange ? (formData.effectiveFrom || null) : null,
+            effectiveTo: formData.hasDateRange ? (formData.effectiveTo || null) : null
         };
 
         if (formData.hasDateRange) {
@@ -217,7 +236,7 @@ export default function SODRevenueConfigPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="GLOBAL">All RTOMs (Default)</SelectItem>
-                                                    {rtoms?.map((rtom: any) => (
+                                                    {rtoms?.map((rtom: RTOM) => (
                                                         <SelectItem key={rtom.id} value={rtom.id}>
                                                             {rtom.rtom} - {rtom.name}
                                                         </SelectItem>
@@ -343,11 +362,7 @@ export default function SODRevenueConfigPage() {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => {
-                                                                if (confirm("Delete this configuration?")) {
-                                                                    deleteMutation.mutate(config.id);
-                                                                }
-                                                            }}
+                                                            onClick={() => setDeleteTargetId(config.id)}
                                                         >
                                                             <Trash2 className="w-4 h-4 text-red-600" />
                                                         </Button>
@@ -362,6 +377,28 @@ export default function SODRevenueConfigPage() {
                     </Card>
                 </main>
             </div>
+
+            <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this revenue configuration? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (deleteTargetId) {
+                                deleteMutation.mutate(deleteTargetId);
+                            }
+                            setDeleteTargetId(null);
+                        }} className="bg-red-600 hover:bg-red-700 text-white">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

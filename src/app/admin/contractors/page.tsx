@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import TeamManager from './TeamManager';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ContractorFormDialog } from './components/ContractorFormDialog';
@@ -39,6 +40,7 @@ export default function ContractorsPage() {
     const [inviteModalOpen, setInviteModalOpen] = useState(false);
     const [shareModalOpen, setShareModalOpen] = useState(false);
     const [shareLink, setShareLink] = useState("");
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     const [inviteData, setInviteData] = useState({
         name: '',
@@ -458,11 +460,7 @@ export default function ContractorsPage() {
                                                                 <Button
                                                                     size="sm"
                                                                     variant="ghost"
-                                                                    onClick={() => {
-                                                                        if (confirm("Permanently delete this contractor?")) {
-                                                                            deleteMutation.mutate(contractor.id);
-                                                                        }
-                                                                    }}
+                                                                    onClick={() => setDeleteTargetId(contractor.id)}
                                                                     className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                                     title="Delete Contractor"
                                                                 >
@@ -566,6 +564,29 @@ export default function ContractorsPage() {
                         </div>
                     </DialogContent>
                 </Dialog>
+
+                {/* Delete Contractor AlertDialog */}
+                <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Contractor</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to permanently delete this contractor? This action cannot be undone and will remove all contractor assignments.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => {
+                                if (deleteTargetId) {
+                                    deleteMutation.mutate(deleteTargetId);
+                                }
+                                setDeleteTargetId(null);
+                            }} className="bg-red-600 hover:bg-red-700 text-white">
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
             </main>
         </div>

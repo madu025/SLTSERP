@@ -12,6 +12,43 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { UserPlus, Shield, Layers, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+interface User {
+    id: string;
+    name: string;
+    username: string;
+}
+
+interface Section {
+    id: string;
+    name: string;
+    icon?: string;
+}
+
+interface Role {
+    id: string;
+    name: string;
+}
+
+interface UserAssignment {
+    id: string;
+    section: {
+        id: string;
+        name: string;
+    };
+    role: {
+        id: string;
+        name: string;
+    };
+    isPrimary: boolean;
+}
+
+interface AssignSectionInput {
+    sectionId: string;
+    roleId: string;
+    isPrimary: boolean;
+}
 
 export default function UserAssignmentPage() {
     const queryClient = useQueryClient();
@@ -20,9 +57,10 @@ export default function UserAssignmentPage() {
     const [selectedSection, setSelectedSection] = useState<string>('');
     const [selectedRole, setSelectedRole] = useState<string>('');
     const [isPrimary, setIsPrimary] = useState(false);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     // Fetch users
-    const { data: users = [] } = useQuery({
+    const { data: users = [] } = useQuery<User[]>({
         queryKey: ['users'],
         queryFn: async () => {
             const res = await fetch('/api/users?page=1&limit=1000');
@@ -33,7 +71,7 @@ export default function UserAssignmentPage() {
     });
 
     // Fetch sections
-    const { data: sections = [] } = useQuery({
+    const { data: sections = [] } = useQuery<Section[]>({
         queryKey: ['sections'],
         queryFn: async () => {
             const res = await fetch('/api/admin/sections');
@@ -43,7 +81,7 @@ export default function UserAssignmentPage() {
     });
 
     // Fetch roles for selected section
-    const { data: roles = [] } = useQuery({
+    const { data: roles = [] } = useQuery<Role[]>({
         queryKey: ['section-roles', selectedSection],
         queryFn: async () => {
             if (!selectedSection) return [];
@@ -55,7 +93,7 @@ export default function UserAssignmentPage() {
     });
 
     // Fetch user assignments
-    const { data: assignments = [], isLoading } = useQuery({
+    const { data: assignments = [], isLoading } = useQuery<UserAssignment[]>({
         queryKey: ['user-assignments', selectedUser],
         queryFn: async () => {
             if (!selectedUser) return [];
@@ -68,7 +106,7 @@ export default function UserAssignmentPage() {
 
     // Assign section/role to user
     const assignMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: AssignSectionInput) => {
             const res = await fetch(`/api/admin/users/${selectedUser}/sections`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -120,7 +158,7 @@ export default function UserAssignmentPage() {
         });
     };
 
-    const selectedUserData = users.find((u: any) => u.id === selectedUser);
+    const selectedUserData = users.find((u) => u.id === selectedUser);
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -154,7 +192,7 @@ export default function UserAssignmentPage() {
                                         <SelectValue placeholder="Choose a user..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {users.map((user: any) => (
+                                        {users.map((user) => (
                                             <SelectItem key={user.id} value={user.id}>
                                                 {user.name} ({user.username})
                                             </SelectItem>
@@ -170,7 +208,7 @@ export default function UserAssignmentPage() {
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Shield className="w-5 h-5" />
-                                        {selectedUserData?.name}'s Section Assignments
+                                        {selectedUserData?.name}&apos;s Section Assignments
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
@@ -178,11 +216,11 @@ export default function UserAssignmentPage() {
                                         <div className="text-center p-8 text-slate-500">Loading...</div>
                                     ) : assignments.length === 0 ? (
                                         <div className="text-center p-8 text-slate-500">
-                                            No sections assigned yet. Click "Assign Section" to add one.
+                                            No sections assigned yet. Click &quot;Assign Section&quot; to add one.
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
-                                            {assignments.map((assignment: any) => (
+                                            {assignments.map((assignment) => (
                                                 <div
                                                     key={assignment.id}
                                                     className="flex items-center justify-between p-4 rounded-lg border bg-white hover:shadow-sm transition-shadow"
@@ -205,11 +243,7 @@ export default function UserAssignmentPage() {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => {
-                                                            if (confirm('Remove this assignment?')) {
-                                                                removeMutation.mutate(assignment.id);
-                                                            }
-                                                        }}
+                                                        onClick={() => setDeleteTargetId(assignment.id)}
                                                         className="text-red-600 hover:text-red-700"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -239,7 +273,7 @@ export default function UserAssignmentPage() {
                                     <SelectValue placeholder="Choose section..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {sections.map((section: any) => (
+                                    {sections.map((section) => (
                                         <SelectItem key={section.id} value={section.id}>
                                             {section.icon} {section.name}
                                         </SelectItem>
@@ -255,7 +289,7 @@ export default function UserAssignmentPage() {
                                         <SelectValue placeholder="Choose role..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {roles.map((role: any) => (
+                                        {roles.map((role) => (
                                             <SelectItem key={role.id} value={role.id}>
                                                 {role.name}
                                             </SelectItem>
@@ -284,6 +318,32 @@ export default function UserAssignmentPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Remove Assignment AlertDialog */}
+            <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Remove Assignment</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to remove this section assignment? The user will lose access to the assigned section and role.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (deleteTargetId) {
+                                    removeMutation.mutate(deleteTargetId);
+                                }
+                                setDeleteTargetId(null);
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Remove
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

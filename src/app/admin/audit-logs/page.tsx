@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from 'date-fns';
 import {
@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS } from '@/config/sidebar-menu';
+import { toast } from "sonner";
 
 interface AuditLog {
     id: string;
@@ -29,11 +30,11 @@ interface AuditLog {
     createdAt: string;
     user: { name: string; username: string };
     ipAddress?: string;
-    oldValue: any;
-    newValue: any;
+    oldValue: Record<string, unknown> | null;
+    newValue: Record<string, unknown> | null;
 }
 
-const ENTITY_ICONS: Record<string, any> = {
+const ENTITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
     'Contractor': HardHat,
     'ServiceOrder': FileText,
     'InventoryItem': Package,
@@ -74,6 +75,44 @@ export default function AuditLogPage() {
         return matchesSearch && matchesEntity && matchesAction;
     });
 
+    const handleDownloadCSV = () => {
+        if (!filteredLogs || filteredLogs.length === 0) {
+            toast.error("No logs available to download");
+            return;
+        }
+
+        try {
+            const headers = ["Timestamp", "User Name", "Username", "Action", "Entity", "Entity ID", "IP Address"];
+            const rows = filteredLogs.map(log => [
+                new Date(log.createdAt).toISOString(),
+                log.user.name,
+                log.user.username,
+                log.action,
+                log.entity,
+                log.entityId,
+                log.ipAddress || "Internal"
+            ]);
+
+            const csvContent = [
+                headers.join(","),
+                ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+            ].join("\n");
+
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `system_audit_logs_${new Date().toISOString().split("T")[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.success("Audit logs exported to CSV successfully");
+        } catch (error) {
+            console.error("Failed to download CSV", error);
+            toast.error("Failed to export logs");
+        }
+    };
+
     // Statistics
     const stats = {
         total: logs.length,
@@ -90,7 +129,7 @@ export default function AuditLogPage() {
         return <Icon className="w-3.5 h-3.5" />;
     };
 
-    const renderDiff = (oldVal: any, newVal: any) => {
+    const renderDiff = (oldVal: Record<string, unknown> | null, newVal: Record<string, unknown> | null) => {
         if (!oldVal || !newVal) return null;
 
         const changes = [];
@@ -216,7 +255,7 @@ export default function AuditLogPage() {
                                             </SelectContent>
                                         </Select>
 
-                                        <Button variant="outline" className="h-10 rounded-xl border-slate-100 bg-slate-50 px-3">
+                                        <Button onClick={handleDownloadCSV} variant="outline" className="h-10 rounded-xl border-slate-100 bg-slate-50 px-3">
                                             <Download className="w-4 h-4 text-slate-600" />
                                         </Button>
                                     </div>

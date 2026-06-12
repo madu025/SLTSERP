@@ -2,15 +2,16 @@
 
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Download, CheckCircle2, XCircle, Loader2, Link2, Shield, User, Store } from "lucide-react";
+import { Upload, Download, CheckCircle2, XCircle, Loader2, Link2, Shield, User } from "lucide-react";
 import readXlsxFile from 'read-excel-file';
 import RoleGuard from '@/components/RoleGuard';
 import { ROLE_GROUPS } from '@/config/sidebar-menu';
 import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { useRouter } from 'next/navigation';
 
 interface ImportSummary {
     total: number;
@@ -20,14 +21,15 @@ interface ImportSummary {
 }
 
 export default function UserBulkImportPage() {
+    const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [summary, setSummary] = useState<ImportSummary | null>(null);
 
     // Fetch necessary data for mapping
-    const { data: opmcs = [] } = useQuery({ queryKey: ['opmcs'], queryFn: () => fetch('/api/opmcs').then(res => res.json()) });
-    const { data: users = [] } = useQuery({ queryKey: ['users'], queryFn: () => fetch('/api/users?limit=1000').then(res => res.json()).then(d => d.users || []) });
-    const { data: stores = [] } = useQuery({ queryKey: ['stores'], queryFn: () => fetch('/api/inventory/stores').then(res => res.json()) });
+    const { data: opmcs = [] } = useQuery<{ id: string; rtom: string }[]>({ queryKey: ['opmcs'], queryFn: () => fetch('/api/opmcs').then(res => res.json()) });
+    const { data: users = [] } = useQuery<{ id: string; username: string }[]>({ queryKey: ['users'], queryFn: () => fetch('/api/users?limit=1000').then(res => res.json()).then(d => d.users || []) });
+    const { data: stores = [] } = useQuery<{ id: string; name: string }[]>({ queryKey: ['stores'], queryFn: () => fetch('/api/inventory/stores').then(res => res.json()) });
 
     const downloadTemplate = () => {
         const headers = ["Username", "Email", "Full Name", "Staff ID", "Password", "Role", "RTOMs", "Supervisor_Username", "Store_Name"];
@@ -63,7 +65,7 @@ export default function UserBulkImportPage() {
 
         for (let i = 0; i < dataRows.length; i++) {
             const row = dataRows[i];
-            const rowData: any = {};
+            const rowData: Record<string, unknown> = {};
             headers.forEach((header, index) => {
                 rowData[header] = row[index];
             });
@@ -72,15 +74,15 @@ export default function UserBulkImportPage() {
                 // Map RTOMs to IDs
                 const rtoms = String(rowData['RTOMs'] || '').split(',').map(s => s.trim());
                 const opmcIds = opmcs
-                    .filter((o: any) => rtoms.includes(o.rtom))
-                    .map((o: any) => o.id);
+                    .filter((o) => rtoms.includes(o.rtom))
+                    .map((o) => o.id);
 
                 // Map Supervisor Username to ID
-                const supervisor = users.find((u: any) => u.username === String(rowData['Supervisor_Username']).trim());
+                const supervisor = users.find((u) => u.username === String(rowData['Supervisor_Username'] || '').trim());
                 const supervisorId = supervisor?.id || undefined;
 
                 // Map Store Name to ID
-                const store = stores.find((s: any) => s.name === String(rowData['Store_Name']).trim());
+                const store = stores.find((s) => s.name === String(rowData['Store_Name'] || '').trim());
                 const assignedStoreId = store?.id || 'none';
 
                 const payload = {
@@ -107,9 +109,10 @@ export default function UserBulkImportPage() {
                 }
 
                 successCount++;
-            } catch (err: any) {
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Unknown error';
                 failedCount++;
-                errors.push({ row: i + 2, error: err.message });
+                errors.push({ row: i + 2, error: message });
             }
         }
 
@@ -204,7 +207,7 @@ export default function UserBulkImportPage() {
                                                     <Link2 className="w-3 h-3" /> Linkage Fields
                                                 </div>
                                                 <ul className="list-disc list-inside space-y-1 pl-1">
-                                                    <li><strong>RTOMs:</strong> Comma separated RTOM codes (e.g. "MT, GM")</li>
+                                                    <li><strong>RTOMs:</strong> Comma separated RTOM codes (e.g. &quot;MT, GM&quot;)</li>
                                                     <li><strong>Supervisor:</strong> SLT Username of the supervisor</li>
                                                     <li><strong>Store_Name:</strong> Exact name as in Inventory module</li>
                                                 </ul>
@@ -274,7 +277,7 @@ export default function UserBulkImportPage() {
                                                     <div className="text-xs text-slate-400">All successful registers are now active with assigned roles.</div>
                                                 </div>
                                             </div>
-                                            <Button className="bg-white text-slate-900 hover:bg-slate-100 font-bold" onClick={() => window.location.href = '/admin/users'}>
+                                            <Button className="bg-white text-slate-900 hover:bg-slate-100 font-bold" onClick={() => router.push('/admin/users')}>
                                                 Go to Users Directory
                                             </Button>
                                         </div>

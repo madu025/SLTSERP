@@ -14,6 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { MaterialAssignment } from './MaterialAssignment';
 import { cn } from "@/lib/utils";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 interface ColumnConfig {
     key: string;
@@ -271,18 +274,16 @@ function AdvancedOperationsCard() {
     const [syncStats, setSyncStats] = useState<SyncStats | null>(null);
     const [historicStats, setHistoricStats] = useState<HistoricStats | null>(null);
     const [clearResults, setClearResults] = useState<ResetResults | null>(null);
+    const [showSyncConfirm, setShowSyncConfirm] = useState(false);
+    const [showResetDialog, setShowResetDialog] = useState(false);
+    const [resetConfirmText, setResetConfirmText] = useState("");
 
-    const handleHistoricSync = async () => {
-        const confirmed = window.confirm(
-            '⏳ HISTORY SYNC\n\n' +
-            'This will sync ALL completed Service Orders starting from 2026-01-01.\n\n' +
-            'This process may take a while depending on the data volume.\n' +
-            'Missing SODs will be created.\n\n' +
-            'Proceed?'
-        );
+    const handleHistoricSync = () => {
+        setShowSyncConfirm(true);
+    };
 
-        if (!confirmed) return;
-
+    const executeHistoricSync = async () => {
+        setShowSyncConfirm(false);
         setIsHistoricSync(true);
         setHistoricStats(null);
         try {
@@ -325,28 +326,18 @@ function AdvancedOperationsCard() {
         }
     };
 
-    const handleClearServiceOrders = async () => {
-        const confirmed = window.confirm(
-            '⚠️ WARNING: This will permanently delete ALL Service Order data!\n\n' +
-            'This includes:\n' +
-            '- All Pending, Completed, and Returned Service Orders\n' +
-            '- All Status History\n' +
-            '- All Material Usage Records\n' +
-            '- All Restore Requests\n' +
-            '- Dashboard Statistics\n\n' +
-            'This action CANNOT be undone!\n\n' +
-            'Are you absolutely sure you want to proceed?'
-        );
+    const handleClearServiceOrders = () => {
+        setResetConfirmText("");
+        setShowResetDialog(true);
+    };
 
-        if (!confirmed) return;
-
-        const confirmStr = window.prompt('🚨 FINAL SECURITY CHECK\n\nPlease type "RESET_ALL" to proceed with the full system reset:');
-
-        if (confirmStr !== 'RESET_ALL') {
-            if (confirmStr !== null) toast.error("Incorrect confirmation text.");
+    const executeClearServiceOrders = async () => {
+        if (resetConfirmText !== 'RESET_ALL') {
+            toast.error("Incorrect confirmation text.");
             return;
         }
 
+        setShowResetDialog(false);
         setIsClearing(true);
         setClearResults(null);
         try {
@@ -533,6 +524,62 @@ function AdvancedOperationsCard() {
                     </div>
                 </div>
             </CardContent>
+
+            {/* History Sync AlertDialog */}
+            <AlertDialog open={showSyncConfirm} onOpenChange={setShowSyncConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>⏳ Start History Sync?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will sync ALL completed Service Orders starting from 2026-01-01. 
+                            This process may take a while depending on the data volume. Missing SODs will be created.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={executeHistoricSync} className="bg-blue-600 hover:bg-blue-700 text-white">
+                            Proceed Sync
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Reset System Data Dialog */}
+            <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600 flex items-center gap-2">
+                            🚨 Critical System Reset
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            This will permanently delete ALL Service Order data including Pending, Completed, Returned orders, usage records, restore requests, and history. <strong>This action CANNOT be undone!</strong>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <Label className="text-xs font-bold text-slate-600">
+                            Type <span className="font-mono text-red-600 font-extrabold select-all">RESET_ALL</span> below to confirm:
+                        </Label>
+                        <Input 
+                            value={resetConfirmText} 
+                            onChange={(e) => setResetConfirmText(e.target.value)} 
+                            placeholder="Type RESET_ALL" 
+                            className="font-mono text-center text-sm font-bold border-red-200 focus-visible:ring-red-500"
+                        />
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setShowResetDialog(false)} className="h-9 text-xs">
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={executeClearServiceOrders} 
+                            disabled={resetConfirmText !== "RESET_ALL"} 
+                            className="h-9 text-xs bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Reset System Data
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

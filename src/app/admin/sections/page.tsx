@@ -11,11 +11,34 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Layers, Plus, Edit, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+interface Section {
+    id: string;
+    name: string;
+    code: string;
+    description?: string | null;
+    icon?: string | null;
+    color?: string | null;
+    _count?: {
+        roles: number;
+        userAssignments: number;
+    } | null;
+}
+
+interface SectionFormData {
+    name: string;
+    code: string;
+    description: string;
+    icon: string;
+    color: string;
+}
 
 export default function SectionManagementPage() {
     const queryClient = useQueryClient();
     const [showDialog, setShowDialog] = useState(false);
-    const [editingSection, setEditingSection] = useState<any>(null);
+    const [editingSection, setEditingSection] = useState<Section | null>(null);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         code: '',
@@ -25,7 +48,7 @@ export default function SectionManagementPage() {
     });
 
     // Fetch sections
-    const { data: sections = [], isLoading } = useQuery({
+    const { data: sections = [], isLoading } = useQuery<Section[]>({
         queryKey: ['sections'],
         queryFn: async () => {
             const res = await fetch('/api/admin/sections');
@@ -36,7 +59,7 @@ export default function SectionManagementPage() {
 
     // Create/Update mutation
     const saveMutation = useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async (data: SectionFormData) => {
             const url = editingSection
                 ? `/api/admin/sections/${editingSection.id}`
                 : '/api/admin/sections';
@@ -78,7 +101,7 @@ export default function SectionManagementPage() {
         setFormData({ name: '', code: '', description: '', icon: '', color: '' });
     };
 
-    const handleEdit = (section: any) => {
+    const handleEdit = (section: Section) => {
         setEditingSection(section);
         setFormData({
             name: section.name,
@@ -126,7 +149,7 @@ export default function SectionManagementPage() {
                                     No sections found. Create your first section!
                                 </div>
                             ) : (
-                                sections.map((section: any) => (
+                                sections.map((section) => (
                                     <Card key={section.id} className="hover:shadow-md transition-shadow">
                                         <CardHeader className="pb-3">
                                             <div className="flex items-start justify-between">
@@ -161,11 +184,7 @@ export default function SectionManagementPage() {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => {
-                                                            if (confirm('Delete this section?')) {
-                                                                deleteMutation.mutate(section.id);
-                                                            }
-                                                        }}
+                                                        onClick={() => setDeleteTargetId(section.id)}
                                                         className="text-red-600 hover:text-red-700"
                                                     >
                                                         <Trash2 className="w-3 h-3" />
@@ -248,6 +267,29 @@ export default function SectionManagementPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Section AlertDialog */}
+            <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Section</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this section? This will remove all associated user assignments and roles. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (deleteTargetId) {
+                                deleteMutation.mutate(deleteTargetId);
+                            }
+                            setDeleteTargetId(null);
+                        }} className="bg-red-600 hover:bg-red-700 text-white">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

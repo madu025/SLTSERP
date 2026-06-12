@@ -11,16 +11,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Shield, Plus, Edit, Trash2, Layers } from "lucide-react";
 import { RoleFormDialog } from "./components/RoleFormDialog";
 import { useRoleOperations } from "./hooks/useRoleOperations";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+interface Section {
+    id: string;
+    name: string;
+    icon?: string;
+}
+
+interface Role {
+    id: string;
+    name: string;
+    code: string;
+    description?: string;
+    level: number;
+    permissions: string; // JSON string
+    sectionId: string;
+}
+
+interface RoleFormData {
+    name: string;
+    code: string;
+    description: string;
+    level: number;
+    permissions: string; // JSON string of page permissions
+}
 
 export default function SectionRolesPage() {
     const [selectedSection, setSelectedSection] = useState<string>('');
     const [showDialog, setShowDialog] = useState(false);
-    const [editingRole, setEditingRole] = useState<any>(null);
+    const [editingRole, setEditingRole] = useState<Role | null>(null);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
     const { upsertMutation, removeMutation } = useRoleOperations(selectedSection);
 
     // Fetch sections
-    const { data: sections = [] } = useQuery({
+    const { data: sections = [] } = useQuery<Section[]>({
         queryKey: ['sections'],
         queryFn: async () => {
             const res = await fetch('/api/admin/sections');
@@ -30,7 +56,7 @@ export default function SectionRolesPage() {
     });
 
     // Fetch roles for selected section
-    const { data: roles = [], isLoading } = useQuery({
+    const { data: roles = [], isLoading } = useQuery<Role[]>({
         queryKey: ['section-roles', selectedSection],
         queryFn: async () => {
             if (!selectedSection) return [];
@@ -41,7 +67,7 @@ export default function SectionRolesPage() {
         enabled: !!selectedSection
     });
 
-    const handleEdit = (role: any) => {
+    const handleEdit = (role: Role) => {
         setEditingRole(role);
         setShowDialog(true);
     };
@@ -51,7 +77,7 @@ export default function SectionRolesPage() {
         setShowDialog(true);
     };
 
-    const handleFormSubmit = async (data: any) => {
+    const handleFormSubmit = async (data: RoleFormData) => {
         await upsertMutation.mutateAsync({
             id: editingRole?.id,
             data
@@ -105,7 +131,7 @@ export default function SectionRolesPage() {
                                         <SelectValue placeholder="Choose a section to manage roles..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {sections.map((section: any) => (
+                                        {sections.map((section) => (
                                             <SelectItem key={section.id} value={section.id}>
                                                 <span className="mr-2">{section.icon}</span> {section.name}
                                             </SelectItem>
@@ -129,7 +155,7 @@ export default function SectionRolesPage() {
                                         <Button variant="link" onClick={handleAdd} className="mt-2 text-blue-600 font-bold">Create your first role</Button>
                                     </div>
                                 ) : (
-                                    roles.map((role: any) => {
+                                    roles.map((role) => {
                                         const levelInfo = getLevelBadge(role.level);
                                         const permissions = JSON.parse(role.permissions || '[]');
                                         return (
@@ -173,11 +199,7 @@ export default function SectionRolesPage() {
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => {
-                                                                    if (confirm('Permanently delete this role configuration?')) {
-                                                                        removeMutation.mutate(role.id);
-                                                                    }
-                                                                }}
+                                                                onClick={() => setDeleteTargetId(role.id)}
                                                                 className="h-8 w-8 p-0 text-red-500 hover:bg-red-50 hover:text-red-600 border-slate-200"
                                                             >
                                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -202,6 +224,29 @@ export default function SectionRolesPage() {
                 initialData={editingRole}
                 isSubmitting={upsertMutation.isPending}
             />
+
+            {/* Delete Role AlertDialog */}
+            <AlertDialog open={!!deleteTargetId} onOpenChange={(o) => !o && setDeleteTargetId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Role</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to permanently delete this role configuration? Users assigned to this role will lose their section access.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (deleteTargetId) {
+                                removeMutation.mutate(deleteTargetId);
+                            }
+                            setDeleteTargetId(null);
+                        }} className="bg-red-600 hover:bg-red-700 text-white">
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
