@@ -167,11 +167,9 @@ export function SODSheetTable({
                         ) : (
                             // PENDING (Dispatcher Grid)
                             <>
-                                <th className="w-[130px] px-2 border-r border-border/20">Customer Name</th>
-                                <th className="w-[200px] px-2 border-r border-border/20">Customer Address</th>
+                                <th className="w-[280px] px-2 border-r border-border/20">Customer details</th>
                                 <th className="w-[95px] px-2 border-r border-border/20">Voice/TP Number</th>
                                 <th className="w-[60px] px-2 border-r border-border/20">DP</th>
-                                <th className="w-[60px] px-2 border-r border-border/20">Wire (M)</th>
                                 <th className="w-[125px] px-2 border-r border-border/20">Contractor</th>
                                 <th className="w-[95px] px-2 border-r border-border/20">SLTS Status</th>
                                 <th className="w-[110px] px-2 border-r border-border/20">Appointment Date</th>
@@ -186,7 +184,7 @@ export function SODSheetTable({
                         orders.map((order, index) => (
                             <tr
                                 key={order.id}
-                                className={`h-9 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] border-b border-border/10 transition-colors ${
+                                className={`hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] border-b border-border/10 transition-colors ${
                                     selectedIds.has(order.id) ? "bg-primary/5" : ""
                                 }`}
                             >
@@ -382,13 +380,14 @@ export function SODSheetTable({
                                 {/* PENDING / DISPATCH VIEW */}
                                 {filterType === "pending" && (
                                     <>
-                                        <td className="px-2 border-r border-border/15 truncate text-[10.5px] font-medium text-foreground" title={order.customerName || ""}>
-                                            {order.customerName || "-"}
-                                        </td>
-
-                                        {/* Customer Address */}
-                                        <td className="px-2 border-r border-border/15 truncate text-[10.5px] font-medium text-foreground" title={order.address || ""}>
-                                            {order.address || "-"}
+                                        {/* Customer Details */}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10.5px] font-medium text-foreground leading-tight">
+                                            <div className="font-bold text-foreground truncate max-w-[270px]" title={order.customerName || ""}>
+                                                {order.customerName || "-"}
+                                            </div>
+                                            <div className="text-[9px] text-muted-foreground truncate max-w-[270px] mt-0.5" title={order.address || ""}>
+                                                {order.address || "-"}
+                                            </div>
                                         </td>
 
                                         {/* Voice/TP Number (Read-only) */}
@@ -409,21 +408,6 @@ export function SODSheetTable({
                                                 placeholder="N/A"
                                             />
                                             {renderCellStatus(order.id, "dp")}
-                                        </td>
-
-                                        {/* Wire distance (M) */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="number"
-                                                defaultValue={order.dropWireDistance ?? ""}
-                                                onBlur={(e) => handleSaveField(order.id, "dropWireDistance", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "dropWireDistance")}
-                                                data-row-index={index}
-                                                data-field="dropWireDistance"
-                                                className={cellInputClass}
-                                                placeholder="0"
-                                            />
-                                            {renderCellStatus(order.id, "dropWireDistance")}
                                         </td>
 
                                         {/* Contractor Dropdown */}
