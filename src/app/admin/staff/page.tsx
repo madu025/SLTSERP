@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Trash, User as UserIcon, Network, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Trash, User as UserIcon, Network, ChevronRight, ChevronDown, Pencil, Search } from "lucide-react";
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -50,11 +51,14 @@ type StaffFormValues = z.infer<typeof staffSchema>
 export default function StaffHierarchyPage() {
     const queryClient = useQueryClient();
     const [viewMode, setViewMode] = useState<'tree' | 'chart'>('tree');
+    const [searchTerm, setSearchTerm] = useState("");
 
     // UI State
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Staff | null>(null);
 
     // --- QUERIES ---
     const { data: staffList = [], isLoading } = useQuery<Staff[]>({
@@ -77,10 +81,6 @@ export default function StaffHierarchyPage() {
     // --- DERIVED STATE ---
     const treeData = React.useMemo(() => {
         if (!Array.isArray(staffList)) return [];
-        const idMapping = staffList.reduce((acc, el, i) => {
-            acc[el.id] = i;
-            return acc;
-        }, {} as Record<string, number>);
 
         const rootNodes: Staff[] = [];
         // Deep copy to avoid mutating cache directly if we were modifying it, though re-render handles it
@@ -115,6 +115,22 @@ export default function StaffHierarchyPage() {
             queryClient.invalidateQueries({ queryKey: ['staff'] });
             setShowAddModal(false);
             toast.success("Staff member added");
+        }
+    });
+
+    const editMutation = useMutation({
+        mutationFn: async (values: StaffFormValues & { id: string }) => {
+            const res = await fetch('/api/staff', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(values)
+            });
+            if (!res.ok) throw new Error('Failed');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['staff'] });
+            setShowEditModal(false);
+            toast.success("Staff member updated");
         }
     });
 
@@ -153,11 +169,17 @@ export default function StaffHierarchyPage() {
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
                     {/* Header Controls */}
-                    <div className="flex-none p-4 space-y-4">
+                    <div className="flex-none p-4 space-y-3">
                         <div className="flex justify-between items-center">
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900">Staff Hierarchy</h1>
-                                <p className="text-xs text-slate-500 mt-0.5">Manage organization structure and user linkage</p>
+                                <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                                    <Network className="w-5 h-5 text-slate-500" />
+                                    Staff Hierarchy
+                                </h1>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Manage organization structure and user linkage
+                                    {!isLoading && <span className="ml-1 font-bold text-slate-700">({staffList.length} members)</span>}
+                                </p>
                             </div>
                             <div className="flex gap-2">
                                 <div className="bg-white border rounded-lg p-1 flex">
@@ -179,6 +201,16 @@ export default function StaffHierarchyPage() {
                                 </Button>
                             </div>
                         </div>
+                        {/* Search Bar */}
+                        <div className="relative w-full md:w-80">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Input
+                                placeholder="Search by name, employee ID, or designation..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="h-8 pl-9 text-xs border-slate-200"
+                            />
+                        </div>
                     </div>
 
                     {/* Content Area */}
@@ -190,13 +222,16 @@ export default function StaffHierarchyPage() {
                                 <div className="flex justify-center items-center h-full text-slate-400 text-sm">No staff found. Create the first record.</div>
                             ) : viewMode === 'tree' ? (
                                 <div className="space-y-1">
-                                    {treeData.map(node => (
+                                    {treeData
+                                        .filter(n => !searchTerm || n.name.toLowerCase().includes(searchTerm.toLowerCase()) || n.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) || n.designation.toLowerCase().includes(searchTerm.toLowerCase()))
+                                        .map(node => (
                                         <TreeNode
                                             key={node.id}
                                             node={node}
                                             depth={0}
                                             onAssign={(s) => { setSelectedStaff(s); setShowAssignModal(true); }}
-                                            onDelete={(id) => { if (confirm('Delete staff member?')) deleteMutation.mutate(id); }}
+                                            onEdit={(s) => { setSelectedStaff(s); setShowEditModal(true); }}
+                                            onDelete={(s) => setDeleteTarget(s)}
                                         />
                                     ))}
                                 </div>
@@ -217,6 +252,14 @@ export default function StaffHierarchyPage() {
                     staffList={staffList}
                 />
 
+                <EditStaffModal
+                    isOpen={showEditModal}
+                    staff={selectedStaff}
+                    onClose={() => { setShowEditModal(false); setSelectedStaff(null); }}
+                    onSubmit={(vals) => selectedStaff && editMutation.mutate({ ...vals, id: selectedStaff.id })}
+                    staffList={staffList}
+                />
+
                 <AssignUserModal
                     isOpen={showAssignModal}
                     staff={selectedStaff}
@@ -225,6 +268,27 @@ export default function StaffHierarchyPage() {
                     users={users.filter(u => !u.staffId || (selectedStaff && u.staffId === selectedStaff.id))}
                 />
 
+                {/* Delete Confirmation */}
+                <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete &quot;{deleteTarget?.name}&quot;?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete this staff member. Any users linked to this staff profile will be unlinked. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                            >
+                                Delete Staff
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
             </main>
         </div>
     );
@@ -232,7 +296,7 @@ export default function StaffHierarchyPage() {
 
 // --- SUB COMPONENTS ---
 
-function TreeNode({ node, depth, onAssign, onDelete }: { node: Staff, depth: number, onAssign: (s: Staff) => void, onDelete: (id: string) => void }) {
+function TreeNode({ node, depth, onAssign, onEdit, onDelete }: { node: Staff, depth: number, onAssign: (s: Staff) => void, onEdit: (s: Staff) => void, onDelete: (s: Staff) => void }) {
     const [isOpen, setIsOpen] = useState(true);
     const hasChildren = node.children && node.children.length > 0;
 
@@ -274,7 +338,10 @@ function TreeNode({ node, depth, onAssign, onDelete }: { node: Staff, depth: num
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onAssign(node)}>
                         {node.user ? 'Change User' : 'Assign User'}
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(node.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(node)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(node)}>
                         <Trash className="w-3.5 h-3.5" />
                     </Button>
                 </div>
@@ -284,7 +351,7 @@ function TreeNode({ node, depth, onAssign, onDelete }: { node: Staff, depth: num
                     {/* Connector Line */}
                     <div className="absolute left-[11px] top-0 bottom-0 w-px bg-slate-200" style={{ left: `${depth * 28 + 11 + 24}px` }}></div>
                     {node.children!.map(child => (
-                        <TreeNode key={child.id} node={child} depth={depth + 1} onAssign={onAssign} onDelete={onDelete} />
+                        <TreeNode key={child.id} node={child} depth={depth + 1} onAssign={onAssign} onEdit={onEdit} onDelete={onDelete} />
                     ))}
                 </div>
             )}
@@ -439,6 +506,82 @@ function AssignUserModal({ isOpen, onClose, onAssign, users, staff }: { isOpen: 
                         ))
                     )}
                 </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function EditStaffModal({ isOpen, staff, onClose, onSubmit, staffList }: { isOpen: boolean, staff: Staff | null, onClose: () => void, onSubmit: (v: StaffFormValues) => void, staffList: Staff[] }) {
+    const form = useForm<StaffFormValues>({
+        resolver: zodResolver(staffSchema),
+        defaultValues: { name: '', employeeId: '', designation: '', reportsToId: null, opmcId: null }
+    });
+
+    React.useEffect(() => {
+        if (isOpen && staff) {
+            form.reset({
+                name: staff.name,
+                employeeId: staff.employeeId,
+                designation: staff.designation,
+                reportsToId: staff.reportsToId,
+                opmcId: staff.opmcId
+            });
+        }
+    }, [isOpen, staff, form]);
+
+    if (!staff) return null;
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Staff Member</DialogTitle>
+                    <DialogDescription>Update staff details for {staff.name}.</DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="name" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs">Name</FormLabel>
+                                    <FormControl><Input className="h-8 text-xs" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="employeeId" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs">Employee ID</FormLabel>
+                                    <FormControl><Input className="h-8 text-xs" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name="designation" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs">Designation</FormLabel>
+                                <FormControl><Input className="h-8 text-xs" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="reportsToId" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs">Reports To</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                                    <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select Manager" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="none">None (Top Level)</SelectItem>
+                                        {staffList.filter(s => s.id !== staff.id).map(s => (
+                                            <SelectItem key={s.id} value={s.id} className="text-xs">{s.name} - {s.designation}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        <DialogFooter>
+                            <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+                            <Button type="submit" size="sm">Save Changes</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
             </DialogContent>
         </Dialog>
     );

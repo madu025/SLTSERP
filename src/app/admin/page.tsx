@@ -5,12 +5,115 @@ import { useQuery } from '@tanstack/react-query';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import Link from 'next/link';
-import { Users, Briefcase, Settings, Network, HardHat, ChevronRight } from "lucide-react";
-import InventoryAlerts from '@/components/dashboard/InventoryAlerts';
+import {
+    Users, Briefcase, Settings, Building2, HardHat, ChevronRight,
+    Warehouse, Receipt, Shield, HistoryIcon, UserCog, Upload, Terminal,
+    Network, ClipboardList, Layers
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+
+const modules = [
+    {
+        title: 'User Management',
+        description: 'Manage system user accounts, roles and passwords',
+        href: '/admin/users',
+        icon: Users,
+        color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-100'
+    },
+    {
+        title: 'Staff Hierarchy',
+        description: 'Organize reporting structure and org chart',
+        href: '/admin/staff',
+        icon: Network,
+        color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-100'
+    },
+    {
+        title: 'RTOM Management',
+        description: 'Manage Regional Telecom Offices and store assignments',
+        href: '/admin/opmcs',
+        icon: Building2,
+        color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-100'
+    },
+    {
+        title: 'Contractor Management',
+        description: 'Register contractors, teams and agreements',
+        href: '/admin/contractors',
+        icon: HardHat,
+        color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-100'
+    },
+    {
+        title: 'Store Management',
+        description: 'Manage inventory stores and branch locations',
+        href: '/admin/stores',
+        icon: Warehouse,
+        color: 'text-violet-600', bgColor: 'bg-violet-50', borderColor: 'border-violet-100'
+    },
+    {
+        title: 'User Permissions',
+        description: 'Configure role-based access and permission rules',
+        href: '/admin/user-permissions',
+        icon: Shield,
+        color: 'text-rose-600', bgColor: 'bg-rose-50', borderColor: 'border-rose-100'
+    },
+    {
+        title: 'Access Rules',
+        description: 'Set access restrictions and override policies',
+        href: '/admin/access-rules',
+        icon: ClipboardList,
+        color: 'text-cyan-600', bgColor: 'bg-cyan-50', borderColor: 'border-cyan-100'
+    },
+    {
+        title: 'System Audit Log',
+        description: 'View full system event log and user activity history',
+        href: '/admin/audit-logs',
+        icon: HistoryIcon,
+        color: 'text-slate-600', bgColor: 'bg-slate-100', borderColor: 'border-slate-200'
+    },
+    {
+        title: 'SOD Revenue Config',
+        description: 'Configure revenue amounts per service order type',
+        href: '/admin/sod-revenue',
+        icon: Receipt,
+        color: 'text-teal-600', bgColor: 'bg-teal-50', borderColor: 'border-teal-100'
+    },
+    {
+        title: 'Contractor Pricing',
+        description: 'Set contractor payment rates and billing schedules',
+        href: '/admin/contractor-payment',
+        icon: Briefcase,
+        color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-100'
+    },
+    {
+        title: 'Table Settings',
+        description: 'Configure column visibility and order for all tables',
+        href: '/admin/settings',
+        icon: Settings,
+        color: 'text-slate-600', bgColor: 'bg-slate-100', borderColor: 'border-slate-200'
+    },
+    {
+        title: 'SOD Bulk Import',
+        description: 'Import historical service order data from spreadsheets',
+        href: '/admin/sod-import',
+        icon: Upload,
+        color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-100'
+    },
+    {
+        title: 'Sections & Roles',
+        description: 'Configure system sections and role definitions',
+        href: '/admin/sections',
+        icon: Layers,
+        color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-100'
+    },
+    {
+        title: 'Phoenix Bridge',
+        description: 'System bridge monitor and diagnostic terminal',
+        href: '/admin/test-extension',
+        icon: Terminal,
+        color: 'text-slate-600', bgColor: 'bg-slate-100', borderColor: 'border-slate-200'
+    },
+];
 
 export default function AdminPanel() {
-
-    // --- QUERIES ---
     const { data: stats = { users: 0, staff: 0, opmcs: 0, contractors: 0 } } = useQuery({
         queryKey: ["admin-stats"],
         queryFn: async () => {
@@ -18,114 +121,68 @@ export default function AdminPanel() {
             if (!res.ok) throw new Error('Failed to fetch stats');
             return res.json();
         },
-        staleTime: 600000, // 👈 Optimized: Keep stats fresh for 10 minutes
-        refetchOnWindowFocus: false // 👈 Optimized: Don't refresh on tab Switch
+        staleTime: 600000,
+        refetchOnWindowFocus: false
     });
 
-
-    const modules = [
-        {
-            title: 'User Management',
-            description: 'Manage system users, roles, and access permissions',
-            href: '/admin/users',
-            icon: Users,
-            stat: stats.users,
-            statLabel: 'Active Users',
-            color: 'text-blue-400',
-            bgColor: 'bg-blue-500/10',
-            borderColor: 'border-border/40 hover:border-blue-500/30'
-        },
-        {
-            title: 'Staff Hierarchy',
-            description: 'Organize reporting structure and org chart',
-            href: '/admin/staff',
-            icon: Network,
-            stat: stats.staff,
-            statLabel: 'Staff Members',
-            color: 'text-indigo-400',
-            bgColor: 'bg-indigo-500/10',
-            borderColor: 'border-border/40 hover:border-indigo-500/30'
-        },
-        {
-            title: 'RTOM Registration',
-            description: 'Manage Regional Telecom Offices',
-            href: '/admin/opmcs',
-            icon: Briefcase,
-            stat: stats.opmcs,
-            statLabel: 'RTOMs',
-            color: 'text-emerald-400',
-            bgColor: 'bg-emerald-500/10',
-            borderColor: 'border-border/40 hover:border-emerald-500/30'
-        },
-        {
-            title: 'Contractor Management',
-            description: 'Register contractors, teams & agreements',
-            href: '/admin/contractors',
-            icon: HardHat,
-            stat: stats.contractors,
-            statLabel: 'Contractors',
-            color: 'text-amber-400',
-            bgColor: 'bg-amber-500/10',
-            borderColor: 'border-border/40 hover:border-amber-500/30'
-        },
-        {
-            title: 'Table Settings',
-            description: 'Configure column visibility and order for tables',
-            href: '/admin/settings',
-            icon: Settings,
-            stat: 'Config',
-            statLabel: 'Table Layouts',
-            color: 'text-slate-400',
-            bgColor: 'bg-slate-500/10',
-            borderColor: 'border-border/40 hover:border-slate-500/30'
-        }
+    const statCards = [
+        { label: 'System Users', value: stats.users, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { label: 'Staff Members', value: stats.staff, icon: Network, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { label: 'RTOMs', value: stats.opmcs, icon: Building2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { label: 'Contractors', value: stats.contractors, icon: HardHat, color: 'text-amber-600', bg: 'bg-amber-50' },
     ];
 
     return (
-        <div className="h-screen flex bg-background text-foreground overflow-hidden">
+        <div className="h-screen flex bg-slate-50 overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
-                <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto space-y-8">
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+
+                    {/* Page Header */}
+                    <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-foreground tracking-tight">Administration Panel</h1>
-                            <p className="text-muted-foreground mt-1">Manage users, organizational structure, and system configuration</p>
+                            <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                                <UserCog className="w-5 h-5 text-slate-500" />
+                                Administration Panel
+                            </h1>
+                            <p className="text-xs text-slate-500 mt-0.5">Manage users, organization, stores, and system configuration</p>
                         </div>
+                    </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <InventoryAlerts />
-                        </div>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        {statCards.map((s) => (
+                            <Card key={s.label} className="rounded-xl border border-slate-200 bg-white shadow-none">
+                                <CardContent className="p-3 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{s.label}</p>
+                                        <p className="text-xl font-black text-slate-900 mt-0.5">{s.value}</p>
+                                    </div>
+                                    <div className={`h-9 w-9 rounded-lg ${s.bg} ${s.color} flex items-center justify-center`}>
+                                        <s.icon className="w-4 h-4" />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Module Grid */}
+                    <div>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-3">Administration Modules</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                             {modules.map((module) => (
                                 <Link key={module.href} href={module.href}>
-                                    <div className={`group relative h-full bg-card/60 backdrop-blur-sm rounded-2xl border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${module.borderColor}`}>
-                                        <div className="p-6">
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${module.bgColor} ${module.color}`}>
-                                                <module.icon className="w-6 h-6" />
+                                    <div className={`group bg-white rounded-xl border ${module.borderColor} hover:border-slate-300 hover:shadow-md transition-all duration-200 p-4 flex items-start gap-3 cursor-pointer`}>
+                                        <div className={`w-9 h-9 rounded-lg ${module.bgColor} ${module.color} flex items-center justify-center flex-shrink-0`}>
+                                            <module.icon className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-1">
+                                                <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight">{module.title}</p>
+                                                <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-400 flex-shrink-0 transition-colors" />
                                             </div>
-
-                                            <h3 className="text-lg font-bold text-foreground mb-2 group-hover:text-primary transition-colors">
-                                                {module.title}
-                                            </h3>
-                                            <p className="text-sm text-muted-foreground mb-6">
-                                                {module.description}
-                                            </p>
-
-                                            <div className="flex items-center justify-between mt-auto">
-                                                <div>
-                                                    <div className={`text-2xl font-bold ${module.color}`}>
-                                                        {module.stat}
-                                                    </div>
-                                                    <div className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-wider">
-                                                        {module.statLabel}
-                                                    </div>
-                                                </div>
-                                                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-all">
-                                                    <ChevronRight className="w-4 h-4" />
-                                                </div>
-                                            </div>
+                                            <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{module.description}</p>
                                         </div>
                                     </div>
                                 </Link>

@@ -6,9 +6,11 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Trash, Pencil, Shield } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Search, Plus, Trash, Pencil, Shield, Users } from "lucide-react";
 import { UserFormDialog, UserFormValues } from './components/UserFormDialog';
 import { useUserOperations } from './hooks/useUserOperations';
+import { useRouter } from 'next/navigation';
 
 // Types
 interface UserData {
@@ -39,8 +41,11 @@ interface Store {
 
 export default function UserRegistrationPage() {
     const [searchTerm, setSearchTerm] = useState("");
+    const [roleFilter, setRoleFilter] = useState("ALL");
     const [showModal, setShowModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
+    const router = useRouter();
 
     const { upsertMutation, removeMutation } = useUserOperations();
 
@@ -92,12 +97,15 @@ export default function UserRegistrationPage() {
     };
 
     // Filter Logic
+    const ALL_ROLES = ['ALL', 'SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'MANAGER', 'STORES_MANAGER', 'STORES_ASSISTANT', 'PROCUREMENT_OFFICER'];
     const filteredUsers = users.filter(u => {
         const searchLower = searchTerm.toLowerCase();
-        return u.name?.toLowerCase().includes(searchLower) ||
+        const matchSearch = u.name?.toLowerCase().includes(searchLower) ||
             u.username.toLowerCase().includes(searchLower) ||
             u.email.toLowerCase().includes(searchLower) ||
             u.role.toLowerCase().includes(searchLower);
+        const matchRole = roleFilter === 'ALL' || u.role === roleFilter;
+        return matchSearch && matchRole;
     });
 
     return (
@@ -108,14 +116,20 @@ export default function UserRegistrationPage() {
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
                     {/* Fixed Top Section */}
-                    <div className="flex-none p-4 space-y-4">
+                    <div className="flex-none p-4 space-y-3">
                         <div className="flex justify-between items-center">
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900">System Users</h1>
-                                <p className="text-xs text-slate-500 mt-0.5">Manage user accounts, roles & permissions</p>
+                                <h1 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                                    <Users className="w-5 h-5 text-slate-500" />
+                                    System Users
+                                </h1>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Manage user accounts, roles &amp; permissions
+                                    {!usersLoading && <span className="ml-1 font-bold text-slate-700">({users.length} total)</span>}
+                                </p>
                             </div>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => window.location.href = '/admin/users/import'} className="h-8 text-xs border-dashed border-slate-300">
+                                <Button variant="outline" size="sm" onClick={() => router.push('/admin/users/import')} className="h-8 text-xs border-dashed border-slate-300">
                                     <Plus className="w-4 h-4 mr-2" /> Bulk Import
                                 </Button>
                                 <Button size="sm" onClick={() => handleOpenModal()} className="h-8 text-xs">
@@ -124,14 +138,30 @@ export default function UserRegistrationPage() {
                             </div>
                         </div>
 
-                        <div className="bg-white p-2 rounded-lg border shadow-sm flex items-center gap-2">
-                            <Search className="w-4 h-4 text-slate-400" />
-                            <Input
-                                placeholder="Search users by name, email, or role..."
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="h-8 text-xs border-0 focus-visible:ring-0 max-w-sm"
-                            />
+                        {/* Role Filter Pills + Search */}
+                        <div className="flex flex-col md:flex-row gap-2 items-start md:items-center">
+                            <div className="flex gap-1 flex-wrap">
+                                {ALL_ROLES.slice(0, 6).map(role => (
+                                    <button
+                                        key={role}
+                                        onClick={() => setRoleFilter(role)}
+                                        className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-full border transition-all ${
+                                            roleFilter === role ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'
+                                        }`}
+                                    >
+                                        {role.replace(/_/g, ' ')}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="relative ml-auto w-full md:w-80">
+                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <Input
+                                    placeholder="Search by name, email, or role..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="h-8 pl-9 text-xs border-slate-200"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -200,7 +230,7 @@ export default function UserRegistrationPage() {
                                                             <Pencil className="w-3.5 h-3.5" />
                                                         </Button>
                                                         {u.role !== 'SUPER_ADMIN' && (
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:bg-red-50" onClick={() => { if (confirm(`Delete ${u.username}?`)) removeMutation.mutate(u.id) }}>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:bg-red-50" onClick={() => setDeleteTarget(u)}>
                                                                 <Trash className="w-3.5 h-3.5" />
                                                             </Button>
                                                         )}
@@ -232,6 +262,27 @@ export default function UserRegistrationPage() {
                     opmcs={opmcs}
                     stores={stores}
                 />
+
+                {/* Delete Confirmation */}
+                <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete user &quot;{deleteTarget?.username}&quot;?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete this user account and remove all associated access. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => deleteTarget && removeMutation.mutate(deleteTarget.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                            >
+                                {removeMutation.isPending ? 'Deleting...' : 'Delete User'}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
             </main>
         </div>
