@@ -61,6 +61,14 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [selectedMonth] = useState<string>(String(new Date().getMonth() + 1));
     const [selectedYear] = useState<string>(String(new Date().getFullYear()));
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
     const [showMetrics, setShowMetrics] = useState<boolean>(() => {
         if (typeof window !== 'undefined') {
             const val = localStorage.getItem('sod_show_metrics');
@@ -123,12 +131,12 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     });
 
     const { data: qData, isLoading: isLoadingOrders } = useQuery<{ items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> } }>({
-        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, searchTerm, statusFilter, patFilter, matFilter, sortConfig],
+        queryKey: ["service-orders", selectedRtomId, filterType, selectedMonth, selectedYear, debouncedSearchTerm, statusFilter, patFilter, matFilter, sortConfig],
         queryFn: async () => {
             if (!selectedRtomId) return { items: [], summary: { totalSod: 0, contractorAssigned: 0, appointments: 0, statusBreakdown: {} } };
             const monthParam = filterType === 'pending' ? '' : `&month=${selectedMonth}`;
             const yearParam = filterType === 'pending' ? '' : `&year=${selectedYear}`;
-            const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
+            const searchParam = debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : '';
             const statusParam = statusFilter ? `&statusFilter=${statusFilter}` : '';
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
@@ -144,9 +152,9 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         queryFn: async () => {
             if (!selectedRtomId) return [];
             const res = await fetch(`/api/contractors?rtomId=${selectedRtomId}`);
-            const json = (await res.json()) as any;
-            const actualData = json?.success && json?.data ? json.data : json;
-            return actualData?.contractors || [];
+            const json = (await res.json()) as Record<string, unknown>;
+            const actualData = (json?.success && json?.data ? json.data : json) as Record<string, unknown>;
+            return (actualData?.contractors || []) as Contractor[];
         },
         enabled: !!selectedRtomId
     });

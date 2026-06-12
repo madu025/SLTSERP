@@ -16,8 +16,8 @@ export class SODQueryService {
             throw new Error('RTOM_ID_REQUIRED');
         }
 
-        // Build where clause
-        const whereClause: Prisma.ServiceOrderWhereInput = { opmcId };
+        // Build where clause using an array of AND filters to avoid OR collisions
+        const andFilters: Prisma.ServiceOrderWhereInput[] = [{ opmcId }];
 
         // Date Filtering
         if (month && year) {
@@ -25,22 +25,26 @@ export class SODQueryService {
             const nextMonth = new Date(year, month, 1);
 
             if (patFilter === 'READY') {
-                whereClause.hoPatDate = { gte: startDate, lt: nextMonth };
-                whereClause.isInvoicable = true;
+                andFilters.push({
+                    hoPatDate: { gte: startDate, lt: nextMonth },
+                    isInvoicable: true
+                });
             } else if (filter === 'completed') {
-                whereClause.completedDate = { gte: startDate, lt: nextMonth };
+                andFilters.push({ completedDate: { gte: startDate, lt: nextMonth } });
             } else if (filter === 'return') {
-                whereClause.OR = [
-                    { completedDate: { gte: startDate, lt: nextMonth } },
-                    {
-                        AND: [
-                            { completedDate: null },
-                            { statusDate: { gte: startDate, lt: nextMonth } }
-                        ]
-                    }
-                ];
+                andFilters.push({
+                    OR: [
+                        { completedDate: { gte: startDate, lt: nextMonth } },
+                        {
+                            AND: [
+                                { completedDate: null },
+                                { statusDate: { gte: startDate, lt: nextMonth } }
+                            ]
+                        }
+                    ]
+                });
             } else {
-                whereClause.createdAt = { gte: startDate, lt: nextMonth };
+                andFilters.push({ createdAt: { gte: startDate, lt: nextMonth } });
             }
         }
 
@@ -49,60 +53,74 @@ export class SODQueryService {
 
         if (filter === 'pending') {
             if (statusFilter === 'RETURN') {
-                whereClause.sltsStatus = 'RETURN';
+                andFilters.push({ sltsStatus: 'RETURN' });
             } else {
-                whereClause.sltsStatus = { notIn: ['COMPLETED', 'RETURN'] };
-                whereClause.status = { notIn: completionStatuses };
+                andFilters.push({
+                    sltsStatus: { notIn: ['COMPLETED', 'RETURN'] },
+                    status: { notIn: completionStatuses }
+                });
             }
         } else if (filter === 'completed') {
-            whereClause.OR = [
-                { sltsStatus: 'COMPLETED' },
-                { status: { in: completionStatuses } }
-            ];
+            andFilters.push({
+                OR: [
+                    { sltsStatus: 'COMPLETED' },
+                    { status: { in: completionStatuses } }
+                ]
+            });
         } else if (filter === 'return') {
-            whereClause.sltsStatus = 'RETURN';
-        }
-
-        // Sub-Filtering
-        if (search) {
-            whereClause.OR = [
-                { soNum: { contains: search, mode: 'insensitive' } },
-                { customerName: { contains: search, mode: 'insensitive' } },
-                { voiceNumber: { contains: search, mode: 'insensitive' } }
-            ];
+            andFilters.push({ sltsStatus: 'RETURN' });
         }
 
         if (statusFilter && statusFilter !== 'ALL' && statusFilter !== 'DEFAULT') {
-            whereClause.status = statusFilter;
+            andFilters.push({ status: statusFilter });
         } else if (statusFilter === 'DEFAULT' && filter === 'pending') {
-            whereClause.status = { in: ["ASSIGNED", "INPROGRESS", "PROV_CLOSED"] };
+            andFilters.push({ status: { in: ["ASSIGNED", "INPROGRESS", "PROV_CLOSED"] } });
         }
 
         if (patFilter && patFilter !== 'ALL') {
             if (patFilter === 'READY') {
-                whereClause.isInvoicable = true;
+                andFilters.push({ isInvoicable: true });
             } else if (patFilter === 'OPMC_REJECTED') {
-                whereClause.opmcPatStatus = 'REJECTED';
+                andFilters.push({ opmcPatStatus: 'REJECTED' });
             } else if (patFilter === 'HO_REJECTED') {
-                whereClause.hoPatStatus = 'REJECTED';
+                andFilters.push({ hoPatStatus: 'REJECTED' });
             } else if (patFilter === 'HO_PASS' || patFilter === 'PAT_PASSED') {
-                whereClause.hoPatStatus = 'PAT_PASSED';
+                andFilters.push({ hoPatStatus: 'PAT_PASSED' });
             } else if (patFilter === 'SLTS_PASS') {
-                whereClause.sltsPatStatus = 'PAT_PASSED';
+                andFilters.push({ sltsPatStatus: 'PAT_PASSED' });
             } else if (patFilter === 'PENDING') {
-                whereClause.isInvoicable = false;
-                whereClause.hoPatStatus = 'PENDING';
+                andFilters.push({ isInvoicable: false, hoPatStatus: 'PENDING' });
             }
         }
 
         if (matFilter && matFilter !== 'ALL') {
             const isMatPending = matFilter === 'PENDING';
             if (isMatPending) {
-                whereClause.comments = { not: { contains: '[MATERIAL_COMPLETED]' } };
+                andFilters.push({ comments: { not: { contains: '[MATERIAL_COMPLETED]' } } });
             } else {
-                whereClause.comments = { contains: '[MATERIAL_COMPLETED]' };
+                andFilters.push({ comments: { contains: '[MATERIAL_COMPLETED]' } });
             }
         }
+
+        // Clone the current andFilters for summary metrics (excludes search term table scans)
+        const summaryWhereClause: Prisma.ServiceOrderWhereInput = {
+            AND: [...andFilters]
+        };
+
+        // Add the search term filter ONLY to the main list items and total count query
+        if (search) {
+            andFilters.push({
+                OR: [
+                    { soNum: { contains: search, mode: 'insensitive' } },
+                    { customerName: { contains: search, mode: 'insensitive' } },
+                    { voiceNumber: { contains: search, mode: 'insensitive' } }
+                ]
+            });
+        }
+
+        const whereClause: Prisma.ServiceOrderWhereInput = {
+            AND: andFilters
+        };
 
         // Sort order
         let primaryOrderBy: Prisma.ServiceOrderOrderByWithRelationInput = { createdAt: 'desc' };
@@ -114,7 +132,7 @@ export class SODQueryService {
 
         const orderBy: Prisma.ServiceOrderOrderByWithRelationInput[] = [primaryOrderBy, { id: 'desc' }];
 
-        // Run queries
+        // Run queries (using optimized summaryWhereClause for metrics queries)
         const [total, items, statusGroups, contractorCount, appointmentCount, opmcGroups, hoGroups, sltGroups, returnCount] = await Promise.all([
             prisma.serviceOrder.count({ where: whereClause }),
             prisma.serviceOrder.findMany({
@@ -186,24 +204,24 @@ export class SODQueryService {
             }),
             prisma.serviceOrder.groupBy({
                 by: ['status'],
-                where: whereClause,
+                where: summaryWhereClause,
                 _count: true
             }),
             prisma.serviceOrder.count({
                 where: {
-                    ...whereClause,
+                    ...summaryWhereClause,
                     contractorId: { not: null }
                 }
             }),
             prisma.serviceOrder.count({
                 where: {
-                    ...whereClause,
+                    ...summaryWhereClause,
                     scheduledDate: { not: null }
                 }
             }),
-            prisma.serviceOrder.groupBy({ by: ['opmcPatStatus'], where: whereClause, _count: true }),
-            prisma.serviceOrder.groupBy({ by: ['hoPatStatus'], where: whereClause, _count: true }),
-            prisma.serviceOrder.groupBy({ by: ['sltsPatStatus'], where: whereClause, _count: true }),
+            prisma.serviceOrder.groupBy({ by: ['opmcPatStatus'], where: summaryWhereClause, _count: true }),
+            prisma.serviceOrder.groupBy({ by: ['hoPatStatus'], where: summaryWhereClause, _count: true }),
+            prisma.serviceOrder.groupBy({ by: ['sltsPatStatus'], where: summaryWhereClause, _count: true }),
             prisma.serviceOrder.count({
                 where: { opmcId, sltsStatus: 'RETURN' }
             })

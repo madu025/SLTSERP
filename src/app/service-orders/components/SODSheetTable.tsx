@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,6 +36,73 @@ export function SODSheetTable({
 }: SODSheetTableProps) {
     // Map to keep track of saving states per cell (key: "orderId-fieldName")
     const [savingStates, setSavingStates] = useState<Record<string, "saving" | "saved" | "error" | null>>({});
+    const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+
+    const filteredAndSortedOrders = useMemo(() => {
+        let result = [...orders];
+
+        for (const [key, filterValue] of Object.entries(columnFilters)) {
+            if (!filterValue) continue;
+            
+            const lowerFilter = filterValue.toLowerCase();
+            result = result.filter(order => {
+                if (key === "contractorId") {
+                    return order.contractorId === filterValue;
+                }
+                if (key === "sltsStatus") {
+                    return order.sltsStatus === filterValue;
+                }
+                if (key === "completedDate") {
+                    const dateStr = order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "";
+                    return dateStr.includes(filterValue);
+                }
+                if (key === "statusDate") {
+                    const dateStr = order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "";
+                    return dateStr.includes(filterValue);
+                }
+                if (key === "scheduledDate") {
+                    const dateStr = order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString("en-GB") : "";
+                    return dateStr.includes(filterValue);
+                }
+                if (key === "returnReason") {
+                    const reason = order.returnReason || order.status || "";
+                    return reason.toLowerCase().includes(lowerFilter);
+                }
+                if (key === "customerName") {
+                    const nameMatch = order.customerName?.toLowerCase().includes(lowerFilter) || false;
+                    const addressMatch = order.address?.toLowerCase().includes(lowerFilter) || false;
+                    return nameMatch || addressMatch;
+                }
+                
+                const val = order[key as keyof ServiceOrder];
+                if (val === null || val === undefined) return false;
+                return String(val).toLowerCase().includes(lowerFilter);
+            });
+        }
+
+        if (sortConfig) {
+            const { key, direction } = sortConfig;
+            result.sort((a, b) => {
+                let aVal = a[key];
+                let bVal = b[key];
+
+                if (aVal === null || aVal === undefined) aVal = "";
+                if (bVal === null || bVal === undefined) bVal = "";
+
+                if (typeof aVal === "number" && typeof bVal === "number") {
+                    return direction === "asc" ? aVal - bVal : bVal - aVal;
+                }
+
+                const aStr = String(aVal);
+                const bStr = String(bVal);
+                return direction === "asc"
+                    ? aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: "base" })
+                    : bStr.localeCompare(aStr, undefined, { numeric: true, sensitivity: "base" });
+            });
+        }
+
+        return result;
+    }, [orders, columnFilters, sortConfig]);
 
     const handleSaveField = async (orderId: string, fieldName: string, value: unknown) => {
         const cellKey = `${orderId}-${fieldName}`;
@@ -134,54 +201,420 @@ export function SODSheetTable({
         <div className="w-full h-full overflow-auto border-t border-border/20 custom-scrollbar">
             <table className="w-full border-collapse text-left table-fixed">
                 <thead className="bg-muted/80 border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
-                    <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px] h-9">
-                        <th className="w-[35px] text-center border-r border-border/20 md:sticky md:left-0 bg-muted/90 z-50">
+                    <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px]">
+                        <th className="w-[35px] text-center py-2 border-r border-border/20 md:sticky md:left-0 bg-muted/90 z-50">
                             <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-border/40 data-[state=checked]:bg-primary" />
                         </th>
-                        <th className="w-[100px] px-2 border-r border-border/20 md:sticky md:left-[35px] bg-muted/90 z-50 cursor-pointer hover:bg-muted/70" onClick={() => onSort("soNum")}>
-                            SO Number {sortConfig?.key === "soNum" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                        <th className="w-[100px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-[35px] bg-muted/90 z-50">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
+                                    <span>SO Number</span>
+                                    {sortConfig?.key === "soNum" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Filter..."
+                                    value={columnFilters.soNum || ""}
+                                    onChange={(e) => setColumnFilters(prev => ({ ...prev, soNum: e.target.value }))}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                />
+                            </div>
                         </th>
                         
                         {/* Dynamic columns based on filterType */}
                         {filterType === "completed" ? (
                             <>
-                                <th className="w-[110px] px-2 border-r border-border/20 text-emerald-400">Completed Date</th>
-                                <th className="w-[140px] px-2 border-r border-border/20">Customer Name</th>
-                                <th className="w-[90px] px-2 border-r border-border/20">Voice Number</th>
-                                <th className="w-[110px] px-2 border-r border-border/20">ONT Serial</th>
-                                <th className="w-[60px] px-2 border-r border-border/20">Wire (M)</th>
-                                <th className="w-[120px] px-2 border-r border-border/20">Contractor</th>
-                                <th className="w-[100px] px-2 border-r border-border/20">Status</th>
-                                <th className="w-[160px] px-2 border-r border-border/20">Comments/Notes</th>
+                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20 text-emerald-450 dark:text-emerald-400">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
+                                            <span>Completed Date</span>
+                                            {sortConfig?.key === "completedDate" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="DD/MM/YYYY"
+                                            value={columnFilters.completedDate || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, completedDate: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
+                                            <span>Customer Name</span>
+                                            {sortConfig?.key === "customerName" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter name..."
+                                            value={columnFilters.customerName || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, customerName: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
+                                            <span>Voice Number</span>
+                                            {sortConfig?.key === "voiceNumber" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter..."
+                                            value={columnFilters.voiceNumber || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, voiceNumber: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("ontSerialNumber")}>
+                                            <span>ONT Serial</span>
+                                            {sortConfig?.key === "ontSerialNumber" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter serial..."
+                                            value={columnFilters.ontSerialNumber || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, ontSerialNumber: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[55px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dropWireDistance")}>
+                                            <span>Wire (M)</span>
+                                            {sortConfig?.key === "dropWireDistance" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter..."
+                                            value={columnFilters.dropWireDistance || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, dropWireDistance: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
+                                            <span>Contractor</span>
+                                            {sortConfig?.key === "contractorId" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <select
+                                            value={columnFilters.contractorId || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, contractorId: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none font-sans font-normal text-foreground"
+                                        >
+                                            <option value="">All Teams</option>
+                                            {contractors.map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </th>
+                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("status")}>
+                                            <span>Status</span>
+                                            {sortConfig?.key === "status" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter..."
+                                            value={columnFilters.status || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, status: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
+                                            <span>Comments/Notes</span>
+                                            {sortConfig?.key === "comments" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter comments..."
+                                            value={columnFilters.comments || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, comments: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
                             </>
                         ) : filterType === "return" ? (
                             <>
-                                <th className="w-[110px] px-2 border-r border-border/20 text-rose-400">Return Date</th>
-                                <th className="w-[130px] px-2 border-r border-border/20">Customer Name</th>
-                                <th className="w-[95px] px-2 border-r border-border/20">Voice Number</th>
-                                <th className="w-[120px] px-2 border-r border-border/20">Contractor</th>
-                                <th className="w-[100px] px-2 border-r border-border/20">Status</th>
-                                <th className="w-[180px] px-2 border-r border-border/20">Return Reason</th>
-                                <th className="w-[160px] px-2 border-r border-border/20">Comments/Notes</th>
+                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20 text-rose-455 dark:text-rose-400">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("completedDate")}>
+                                            <span>Return Date</span>
+                                            {sortConfig?.key === "completedDate" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="DD/MM/YYYY"
+                                            value={columnFilters.completedDate || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, completedDate: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
+                                            <span>Customer Name</span>
+                                            {sortConfig?.key === "customerName" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter name..."
+                                            value={columnFilters.customerName || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, customerName: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
+                                            <span>Voice Number</span>
+                                            {sortConfig?.key === "voiceNumber" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter..."
+                                            value={columnFilters.voiceNumber || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, voiceNumber: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
+                                            <span>Contractor</span>
+                                            {sortConfig?.key === "contractorId" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <select
+                                            value={columnFilters.contractorId || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, contractorId: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none font-sans font-normal text-foreground"
+                                        >
+                                            <option value="">All Teams</option>
+                                            {contractors.map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </th>
+                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
+                                            <span>Status</span>
+                                            {sortConfig?.key === "sltsStatus" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <select
+                                            value={columnFilters.sltsStatus || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, sltsStatus: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none font-sans font-normal text-foreground"
+                                        >
+                                            <option value="">All</option>
+                                            <option value="RETURN">RETURN</option>
+                                            <option value="INPROGRESS">IN PROGRESS</option>
+                                            <option value="COMPLETED">COMPLETED</option>
+                                        </select>
+                                    </div>
+                                </th>
+                                <th className="w-[130px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("returnReason")}>
+                                            <span>Return Reason</span>
+                                            {sortConfig?.key === "returnReason" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter reasons..."
+                                            value={columnFilters.returnReason || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, returnReason: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
+                                            <span>Comments/Notes</span>
+                                            {sortConfig?.key === "comments" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter comments..."
+                                            value={columnFilters.comments || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, comments: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
                             </>
                         ) : (
                             // PENDING (Dispatcher Grid)
                             <>
-                                <th className="w-[280px] px-2 border-r border-border/20">Customer details</th>
-                                <th className="w-[95px] px-2 border-r border-border/20">Voice/TP Number</th>
-                                <th className="w-[60px] px-2 border-r border-border/20">DP</th>
-                                <th className="w-[125px] px-2 border-r border-border/20">Contractor</th>
-                                <th className="w-[95px] px-2 border-r border-border/20">SLTS Status</th>
-                                <th className="w-[110px] px-2 border-r border-border/20">Appointment Date</th>
-                                <th className="w-[160px] px-2 border-r border-border/20">Comments/Notes</th>
+                                <th className="w-[220px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("customerName")}>
+                                            <span>Customer Details</span>
+                                            {sortConfig?.key === "customerName" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter name or address..."
+                                            value={columnFilters.customerName || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, customerName: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
+                                            <span>Voice/TP Number</span>
+                                            {sortConfig?.key === "voiceNumber" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter..."
+                                            value={columnFilters.voiceNumber || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, voiceNumber: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[55px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("dp")}>
+                                            <span>DP</span>
+                                            {sortConfig?.key === "dp" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter..."
+                                            value={columnFilters.dp || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, dp: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("contractorId")}>
+                                            <span>Contractor</span>
+                                            {sortConfig?.key === "contractorId" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <select
+                                            value={columnFilters.contractorId || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, contractorId: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none font-sans font-normal text-foreground"
+                                        >
+                                            <option value="">All Teams</option>
+                                            {contractors.map((c) => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </th>
+                                <th className="w-[85px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("sltsStatus")}>
+                                            <span>SLTS Status</span>
+                                            {sortConfig?.key === "sltsStatus" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <select
+                                            value={columnFilters.sltsStatus || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, sltsStatus: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none font-sans font-normal text-foreground"
+                                        >
+                                            <option value="">All</option>
+                                            <option value="PENDING">PENDING</option>
+                                            <option value="ASSIGNED">ASSIGNED</option>
+                                            <option value="INPROGRESS">IN PROGRESS</option>
+                                            <option value="COMPLETED">COMPLETED</option>
+                                            <option value="RETURN">RETURN</option>
+                                        </select>
+                                    </div>
+                                </th>
+                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("scheduledDate")}>
+                                            <span>Appointment Date</span>
+                                            {sortConfig?.key === "scheduledDate" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="DD/MM/YYYY"
+                                            value={columnFilters.scheduledDate || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-mono font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
+                                <th className="px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
+                                            <span>Comments/Notes</span>
+                                            {sortConfig?.key === "comments" && (sortConfig.direction === "asc" ? "▲" : "▼")}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Filter comments..."
+                                            value={columnFilters.comments || ""}
+                                            onChange={(e) => setColumnFilters(prev => ({ ...prev, comments: e.target.value }))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
+                                        />
+                                    </div>
+                                </th>
                             </>
                         )}
                         <th className="w-[85px] text-center md:sticky md:right-0 bg-muted/90 z-50">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-border/25">
-                    {orders.length > 0 ? (
-                        orders.map((order, index) => (
+                    {filteredAndSortedOrders.length > 0 ? (
+                        filteredAndSortedOrders.map((order, index) => (
                             <tr
                                 key={order.id}
                                 className={`hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04] border-b border-border/10 transition-colors ${
