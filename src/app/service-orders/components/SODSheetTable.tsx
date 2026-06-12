@@ -320,7 +320,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -443,7 +443,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -569,7 +569,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[150px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("comments")}>
                                             <span>Comments/Notes</span>
@@ -622,10 +622,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-emerald-500 font-mono">
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
-                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground truncate" title={`${order.customerName || ""} - ${order.address || ""}`}>
-                                            <div className="truncate max-w-[210px]">
-                                                <span className="font-bold">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal"> — {order.address}</span>}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
+                                            <div className="max-w-[210px] flex flex-col gap-0.5">
+                                                <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
+                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
                                         
@@ -677,7 +677,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
 
                                         {/* Comments */}
-                                        <td className="relative border-r border-border/15 p-0">
+                                        <td className="relative border-r border-border/15 p-0 group">
                                             <input
                                                 type="text"
                                                 defaultValue={order.comments || ""}
@@ -685,9 +685,19 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1.5 pr-6 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
                                                 placeholder="No comments"
                                             />
+                                            {order.comments && order.comments.length > 20 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenModal(order, "comment")}
+                                                    className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-0.5 bg-background/80 rounded"
+                                                    title="View Full Comments"
+                                                >
+                                                    <Info className="w-3.5 h-3.5 text-blue-400 hover:text-blue-500" />
+                                                </button>
+                                            )}
                                             {renderCellStatus(order.id, "comments")}
                                         </td>
                                     </>
@@ -699,10 +709,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 text-[10px] font-bold text-rose-500 font-mono">
                                             {order.completedDate ? new Date(order.completedDate).toLocaleDateString("en-GB") : order.statusDate ? new Date(order.statusDate).toLocaleDateString("en-GB") : "-"}
                                         </td>
-                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground truncate" title={`${order.customerName || ""} - ${order.address || ""}`}>
-                                            <div className="truncate max-w-[210px]">
-                                                <span className="font-bold">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal"> — {order.address}</span>}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
+                                            <div className="max-w-[210px] flex flex-col gap-0.5">
+                                                <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
+                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
                                         
@@ -754,7 +764,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
 
                                         {/* Comments */}
-                                        <td className="relative border-r border-border/15 p-0">
+                                        <td className="relative border-r border-border/15 p-0 group">
                                             <input
                                                 type="text"
                                                 defaultValue={order.comments || ""}
@@ -762,9 +772,19 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1.5 pr-6 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
                                                 placeholder="No comments"
                                             />
+                                            {order.comments && order.comments.length > 20 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenModal(order, "comment")}
+                                                    className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-0.5 bg-background/80 rounded"
+                                                    title="View Full Comments"
+                                                >
+                                                    <Info className="w-3.5 h-3.5 text-blue-400 hover:text-blue-500" />
+                                                </button>
+                                            )}
                                             {renderCellStatus(order.id, "comments")}
                                         </td>
                                     </>
@@ -774,10 +794,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                 {filterType === "pending" && (
                                     <>
                                         {/* Customer Details */}
-                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground truncate" title={`${order.customerName || ""} - ${order.address || ""}`}>
-                                            <div className="truncate max-w-[210px]">
-                                                <span className="font-bold">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal"> — {order.address}</span>}
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
+                                            <div className="max-w-[210px] flex flex-col gap-0.5">
+                                                <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
+                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
 
@@ -858,7 +878,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
 
                                         {/* Comments */}
-                                        <td className="relative border-r border-border/15 p-0">
+                                        <td className="relative border-r border-border/15 p-0 group">
                                             <input
                                                 type="text"
                                                 defaultValue={order.comments || ""}
@@ -866,9 +886,19 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 onKeyDown={(e) => handleKeyDown(e, index, "comments")}
                                                 data-row-index={index}
                                                 data-field="comments"
-                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 px-1.5 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
+                                                className="w-full h-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500/80 focus:bg-background/90 pl-1.5 pr-6 py-1 text-[10px] font-sans text-foreground rounded transition-all placeholder:opacity-35"
                                                 placeholder="No comments"
                                             />
+                                            {order.comments && order.comments.length > 20 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onOpenModal(order, "comment")}
+                                                    className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-0.5 bg-background/80 rounded"
+                                                    title="View Full Comments"
+                                                >
+                                                    <Info className="w-3.5 h-3.5 text-blue-400 hover:text-blue-500" />
+                                                </button>
+                                            )}
                                             {renderCellStatus(order.id, "comments")}
                                         </td>
                                     </>
