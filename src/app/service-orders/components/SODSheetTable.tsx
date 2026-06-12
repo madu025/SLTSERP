@@ -168,10 +168,9 @@ export function SODSheetTable({
                             // PENDING (Dispatcher Grid)
                             <>
                                 <th className="w-[130px] px-2 border-r border-border/20">Customer Name</th>
+                                <th className="w-[200px] px-2 border-r border-border/20">Customer Address</th>
                                 <th className="w-[95px] px-2 border-r border-border/20">Voice/TP Number</th>
                                 <th className="w-[60px] px-2 border-r border-border/20">DP</th>
-                                <th className="w-[120px] px-2 border-r border-border/20">ONT Serial</th>
-                                <th className="w-[100px] px-2 border-r border-border/20">DP Details</th>
                                 <th className="w-[60px] px-2 border-r border-border/20">Wire (M)</th>
                                 <th className="w-[125px] px-2 border-r border-border/20">Contractor</th>
                                 <th className="w-[95px] px-2 border-r border-border/20">SLTS Status</th>
@@ -387,6 +386,11 @@ export function SODSheetTable({
                                             {order.customerName || "-"}
                                         </td>
 
+                                        {/* Customer Address */}
+                                        <td className="px-2 border-r border-border/15 truncate text-[10.5px] font-medium text-foreground" title={order.address || ""}>
+                                            {order.address || "-"}
+                                        </td>
+
                                         {/* Voice/TP Number (Read-only) */}
                                         <td className="px-2 border-r border-border/15 text-[10.5px] font-medium text-foreground truncate" title={order.voiceNumber || ""}>
                                             {order.voiceNumber || "-"}
@@ -405,36 +409,6 @@ export function SODSheetTable({
                                                 placeholder="N/A"
                                             />
                                             {renderCellStatus(order.id, "dp")}
-                                        </td>
-
-                                        {/* ONT Serial Number */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
-                                                defaultValue={order.ontSerialNumber || ""}
-                                                onBlur={(e) => handleSaveField(order.id, "ontSerialNumber", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "ontSerialNumber")}
-                                                data-row-index={index}
-                                                data-field="ontSerialNumber"
-                                                className={cellInputClass}
-                                                placeholder="N/A"
-                                            />
-                                            {renderCellStatus(order.id, "ontSerialNumber")}
-                                        </td>
-
-                                        {/* DP Details */}
-                                        <td className="relative border-r border-border/15 p-0">
-                                            <input
-                                                type="text"
-                                                defaultValue={order.dpDetails || ""}
-                                                onBlur={(e) => handleSaveField(order.id, "dpDetails", e.target.value)}
-                                                onKeyDown={(e) => handleKeyDown(e, index, "dpDetails")}
-                                                data-row-index={index}
-                                                data-field="dpDetails"
-                                                className={cellInputClass}
-                                                placeholder="N/A"
-                                            />
-                                            {renderCellStatus(order.id, "dpDetails")}
                                         </td>
 
                                         {/* Wire distance (M) */}
