@@ -837,7 +837,7 @@ export default function PresentationPage() {
                                 <span>LKR 40,000.00</span>
                             </div>
                             <div className="flex justify-between items-center text-[9px] text-slate-500 border-t border-slate-850 pt-2">
-                                <span>Auto-releases after warranty period expires.</span>
+                                <span>Auto-releases after retention period expires.</span>
                                 <span className="text-slate-400 font-bold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> ELIGIBLE</span>
                             </div>
                         </div>
