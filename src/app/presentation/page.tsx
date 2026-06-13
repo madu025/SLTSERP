@@ -48,6 +48,8 @@ export default function PresentationPage() {
     const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const playTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const touchStartX = useRef<number | null>(null);
+    const touchEndX = useRef<number | null>(null);
 
     // Check auth status locally to customize CTA button
     useEffect(() => {
@@ -79,6 +81,29 @@ export default function PresentationPage() {
     const handlePrev = useCallback(() => {
         setCurrentSlide((prev) => (prev - 1 + 14) % 14);
     }, []);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        touchStartX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        touchEndX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+        if (touchStartX.current === null || touchEndX.current === null) return;
+        const diffX = touchStartX.current - touchEndX.current;
+        const minSwipeDistance = 50;
+
+        if (diffX > minSwipeDistance) {
+            handleNext();
+        } else if (diffX < -minSwipeDistance) {
+            handlePrev();
+        }
+
+        touchStartX.current = null;
+        touchEndX.current = null;
+    };
 
     // Autoplay logic
     useEffect(() => {
@@ -835,7 +860,7 @@ export default function PresentationPage() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         {[
                             { title: "📊 Cashflow Ledger", desc: "Track organizational income, outstanding payments, and regional cost centers." },
                             { title: "🔌 Accounting Package Sync", desc: "Integrate with external accounting packages (e.g. QuickBooks, SAP) to sync contractor ledger balances." },
@@ -904,7 +929,10 @@ export default function PresentationPage() {
     return (
         <div
             ref={containerRef}
-            className="w-screen h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between overflow-hidden relative select-none font-sans"
+            className="w-screen h-screen h-[100dvh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between overflow-hidden relative select-none font-sans"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
         >
             {/* Background glowing decorations */}
             <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-blue-600/5 blur-3xl pointer-events-none" />
@@ -992,9 +1020,9 @@ export default function PresentationPage() {
                 )}
 
                 {/* SLIDE CANVAS */}
-                <div className="flex-1 flex flex-col p-6 md:p-12 items-center justify-center overflow-y-auto custom-scrollbar">
+                <div className="flex-1 flex flex-col p-3 sm:p-6 md:p-12 items-center justify-center overflow-y-auto custom-scrollbar">
                     {/* Slide container (Glassmorphic) */}
-                    <div className="w-full max-w-5xl bg-slate-900/50 border border-slate-800 p-8 md:p-12 rounded-2xl backdrop-blur-xl shadow-2xl flex flex-col justify-between min-h-[480px] lg:min-h-[520px]">
+                    <div className="w-full max-w-5xl bg-slate-900/50 border border-slate-800 p-4 sm:p-8 md:p-12 rounded-2xl backdrop-blur-xl shadow-2xl flex flex-col justify-between min-h-[440px] sm:min-h-[480px] lg:min-h-[520px]">
                         
                         {/* Slide Top Details */}
                         <div className="flex items-center justify-between border-b border-slate-850 pb-4 mb-4">
