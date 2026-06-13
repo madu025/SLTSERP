@@ -1172,20 +1172,20 @@ export default function PresentationPage() {
         localStorage.setItem("sltserp_presentation_slide", String(currentSlide));
     }, [currentSlide]);
 
-    const goToSlide = useCallback((index: number, direction?: "left" | "right") => {
+    const goToSlide = useCallback((index: number) => {
         if (isTransitioning) return;
         setIsTransitioning(true);
         setCurrentSlide(index);
         // Reset transition lock after animation completes
         setTimeout(() => setIsTransitioning(false), 350);
-    }, [currentSlide, isTransitioning]);
+    }, [isTransitioning]);
 
     const handleNext = useCallback(() => {
-        goToSlide((currentSlide + 1) % slidesLength, "right");
+        goToSlide((currentSlide + 1) % slidesLength);
     }, [currentSlide, slidesLength, goToSlide]);
 
     const handlePrev = useCallback(() => {
-        goToSlide((currentSlide - 1 + slidesLength) % slidesLength, "left");
+        goToSlide((currentSlide - 1 + slidesLength) % slidesLength);
     }, [currentSlide, slidesLength, goToSlide]);
 
     const handleTouchStart = (e: React.TouchEvent) => {
