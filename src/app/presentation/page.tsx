@@ -1247,31 +1247,52 @@ export default function PresentationPage() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [handleNext, handlePrev, isFullscreen, isOutlineOpen]);
 
-    // Fullscreen toggle
+    // Fullscreen toggle with cross-browser support
     const toggleFullscreen = useCallback(async () => {
-        if (!containerRef.current) return;
-        if (!isFullscreen) {
-            try {
-                await containerRef.current.requestFullscreen();
-            } catch {
-                // Fullscreen not supported or denied
-            }
-        } else {
-            try {
-                await document.exitFullscreen();
-            } catch {
-                // Exit fullscreen failed
-            }
-        }
-    }, [isFullscreen]);
+        const el = containerRef.current;
+        if (!el) return;
 
-    // Monitor fullscreen change from browser (e.g. Esc key)
+        try {
+            if (!document.fullscreenElement && !(document as unknown as Record<string, unknown>).webkitFullscreenElement) {
+                // Enter fullscreen with vendor prefixes
+                if (el.requestFullscreen) {
+                    await el.requestFullscreen();
+                } else if ((el as unknown as Record<string, unknown>).webkitRequestFullscreen) {
+                    await (el as unknown as { webkitRequestFullscreen: () => Promise<void> }).webkitRequestFullscreen();
+                } else if ((el as unknown as Record<string, unknown>).msRequestFullscreen) {
+                    await (el as unknown as { msRequestFullscreen: () => Promise<void> }).msRequestFullscreen();
+                }
+            } else {
+                // Exit fullscreen with vendor prefixes
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if ((document as unknown as Record<string, unknown>).webkitExitFullscreen) {
+                    await (document as unknown as { webkitExitFullscreen: () => Promise<void> }).webkitExitFullscreen();
+                } else if ((document as unknown as Record<string, unknown>).msExitFullscreen) {
+                    await (document as unknown as { msExitFullscreen: () => Promise<void> }).msExitFullscreen();
+                }
+            }
+        } catch (err) {
+            console.warn("Fullscreen request failed:", err);
+        }
+    }, []);
+
+    // Monitor fullscreen change from browser (e.g. Esc key) — with vendor prefix support
     useEffect(() => {
         const handleFsChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
+            const isFs = !!(
+                document.fullscreenElement ||
+                (document as unknown as Record<string, unknown>).webkitFullscreenElement ||
+                (document as unknown as Record<string, unknown>).msFullscreenElement
+            );
+            setIsFullscreen(isFs);
         };
         document.addEventListener("fullscreenchange", handleFsChange);
-        return () => document.removeEventListener("fullscreenchange", handleFsChange);
+        document.addEventListener("webkitfullscreenchange", handleFsChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFsChange);
+            document.removeEventListener("webkitfullscreenchange", handleFsChange);
+        };
     }, []);
 
     // Close outline when clicking outside
