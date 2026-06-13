@@ -55,6 +55,11 @@ temp_*.txt
 temp_*.env
 *.log
 
+# playwright
+playwright-report/
+test-results/
+.auth/
+
 # database files
 *.sql
 setup_*.sql

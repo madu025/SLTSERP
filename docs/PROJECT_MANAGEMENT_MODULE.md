@@ -6,7 +6,8 @@ The Project Management Module in SLTSERP is designed to manage the full lifecycl
 ## 2. Key Features
 
 ### 2.1 Project Administration
-- **Create/Edit Projects**: Capture project details like Name, Code, Type (FTTH, UG, etc.), Location (Region/Province), and OPMC.
+- **Create/Edit Projects**: Capture project details like Name, Code, Type, Location (Region/Province), and OPMC.
+- **Project Types**: Supports Telecom-specific types: OSP_FTTH, OSP_COPPER, FIBER_BACKBONE, FIBER_ACCESS, TOWER_INSTALL, TOWER_REMOVE, TOWER_REPAIR, BUILDING_INDOOR, BUILDING_OUTDOOR, OSP_MAINTENANCE, OTHER.
 - **Team Assignment**: Assign Area Managers and Contractors to projects.
 - **Status Tracking**: Track project status (PLANNED, IN_PROGRESS, COMPLETED, ON_HOLD) and overall progress percentage.
 
@@ -110,8 +111,11 @@ Standard tracking models for time and detailed costs.
 
 ## 6. Future Roadmap
 - PDF Export for Project Reports.
-- Service Order (SOD) direct linking.
+- Advanced Dashboard & Analytics for project KPIs.
+- Document Management for project attachments.
 - Mobile App interface for Site Supervisors.
+- Budget Revision history tracking.
+- Automated progress calculation from milestone completion.
 
 ---
 *Documentation generated on 2026-01-07*

@@ -13,6 +13,10 @@ import ProjectBOQ from '@/components/projects/ProjectBOQ';
 import ProjectMilestones from '@/components/projects/ProjectMilestones';
 import ProjectExpenses from '@/components/projects/ProjectExpenses';
 import ProjectMaterialIssues from '@/components/projects/ProjectMaterialIssues';
+import ProjectTasks from '@/components/projects/ProjectTasks';
+import ProjectProcurement from '@/components/projects/ProjectProcurement';
+import ProjectFinance from '@/components/projects/ProjectFinance';
+import ProjectClosure from '@/components/projects/ProjectClosure';
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -175,7 +179,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 <TabsTrigger value="materials" className="px-4 py-2">Material Issues</TabsTrigger>
                                 <TabsTrigger value="milestones" className="px-4 py-2">Milestones</TabsTrigger>
                                 <TabsTrigger value="expenses" className="px-4 py-2">Expenses</TabsTrigger>
-                                <TabsTrigger value="sods" className="px-4 py-2">Service Orders</TabsTrigger>
+                                <TabsTrigger value="tasks" className="px-4 py-2">Tasks</TabsTrigger>
+                                <TabsTrigger value="procurement" className="px-4 py-2">Procurement</TabsTrigger>
+                                <TabsTrigger value="finance" className="px-4 py-2">Finance</TabsTrigger>
+                                <TabsTrigger value="closure" className="px-4 py-2">Closure</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="overview">
@@ -198,10 +205,19 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 <ProjectExpenses project={project} refreshProject={fetchProjectDetails} />
                             </TabsContent>
 
-                            <TabsContent value="sods">
-                                <div className="p-12 text-center bg-white rounded-xl border border-slate-200">
-                                    <p className="text-slate-500">Service Orders Integration coming soon...</p>
-                                </div>
+                            <TabsContent value="tasks">
+                                <ProjectTasks project={project} refreshProject={fetchProjectDetails} />
+                            </TabsContent>
+
+                            <TabsContent value="procurement">
+                                <ProjectProcurement project={project} refreshProject={fetchProjectDetails} />
+                            </TabsContent>
+
+                            <TabsContent value="finance">
+                                <ProjectFinance project={project} refreshProject={fetchProjectDetails} />
+                            </TabsContent>
+                            <TabsContent value="closure">
+                                <ProjectClosure project={project} refreshProject={fetchProjectDetails} />
                             </TabsContent>
                         </Tabs>
                     </div>
@@ -211,8 +227,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     );
 }
 
-// Simple Icon wrapper for HardHat since it was imported as User in some places? 
-// No, I'll just use a local SVG or Lucide Icon.
+// Simple Icon wrapper for HardHat
 function HardHatIcon(props: any) {
     return (
         <svg

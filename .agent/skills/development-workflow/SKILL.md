@@ -957,3 +957,8 @@ To prevent code regressions or architectural misunderstandings, any AI Agent wor
 * **Approving/Rejecting Penalties:** Restricted to `AREA_MANAGER`, `ADMIN`, and `SUPER_ADMIN` roles.
 * **Recalculation Trigger:** Whenever a penalty is created (auto-approved if by Area Manager), updated (approved/rejected), or deleted, the system **MUST** immediately trigger `InvoiceGeneratorService.recalculateInvoiceSplits` inside the same database transaction.
 
+### 4. OSP Project Management & WBS Progress Propagation Flow
+* **Concurrency Protection:** Invoice status updates, payment voucher allocations, and task edits **MUST** execute within Prisma transactions (`prisma.$transaction`) to block concurrency race conditions and enforce billing ledger accuracy.
+* **WBS Progress updates:** Sub-task progress edits **MUST** run a transaction and call a recursive helper `updateParentProgress` to dynamically propagate the weighted or flat completion average up the WBS (Work Breakdown Structure) hierarchy all the way to root-level parent tasks.
+* **Frontend Component Standards:** Frontend modules within the project section (tasks, finance, procurement, closure) **MUST** remain strictly typed (zero `any` types), wrap all state fetchers with `useCallback` to avoid stale closures, and declare proper interfaces matching development standards.
+

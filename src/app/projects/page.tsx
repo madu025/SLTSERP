@@ -45,7 +45,7 @@ export default function ProjectsPage() {
         projectCode: '',
         name: '',
         description: '',
-        type: 'FTTH',
+        type: 'OSP_FTTH',
         location: '',
         budget: '',
         startDate: '',
@@ -91,7 +91,7 @@ export default function ProjectsPage() {
                 projectCode: '',
                 name: '',
                 description: '',
-                type: 'FTTH',
+                type: 'OSP_FTTH',
                 location: '',
                 budget: '',
                 startDate: '',
@@ -307,9 +307,16 @@ export default function ProjectsPage() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="FTTH">FTTH</SelectItem>
-                                    <SelectItem value="FAC">FAC</SelectItem>
-                                    <SelectItem value="BUILDING">Building</SelectItem>
+                                    <SelectItem value="OSP_FTTH">OSP FTTH</SelectItem>
+                                    <SelectItem value="OSP_COPPER">OSP Copper</SelectItem>
+                                    <SelectItem value="FIBER_BACKBONE">Fiber Backbone</SelectItem>
+                                    <SelectItem value="FIBER_ACCESS">Fiber Access</SelectItem>
+                                    <SelectItem value="TOWER_INSTALL">Tower Install</SelectItem>
+                                    <SelectItem value="TOWER_REMOVE">Tower Remove</SelectItem>
+                                    <SelectItem value="TOWER_REPAIR">Tower Repair</SelectItem>
+                                    <SelectItem value="BUILDING_INDOOR">Building Indoor</SelectItem>
+                                    <SelectItem value="BUILDING_OUTDOOR">Building Outdoor</SelectItem>
+                                    <SelectItem value="OSP_MAINTENANCE">OSP Maintenance</SelectItem>
                                     <SelectItem value="OTHER">Other</SelectItem>
                                 </SelectContent>
                             </Select>

@@ -67,13 +67,6 @@ export async function GET(
                         status: true,
                         date: true
                     }
-                },
-                sods: {
-                    select: {
-                        id: true,
-                        sodNumber: true,
-                        status: true
-                    }
                 }
             }
         });

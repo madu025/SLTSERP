@@ -27,7 +27,8 @@ import {
     HelpCircle,
     Zap,
     ExternalLink,
-    Banknote
+    Banknote,
+    Archive
 } from "lucide-react";
 
 interface Slide {
@@ -61,7 +62,7 @@ export default function PresentationPage() {
                 setIsLoggedIn(!!token);
                 if (savedSlide) {
                     const index = parseInt(savedSlide, 10);
-                    if (index >= 0 && index < 14) {
+                    if (index >= 0 && index < 15) {
                         setCurrentSlide(index);
                     }
                 }
@@ -75,11 +76,11 @@ export default function PresentationPage() {
     }, [currentSlide]);
 
     const handleNext = useCallback(() => {
-        setCurrentSlide((prev) => (prev + 1) % 14);
+        setCurrentSlide((prev) => (prev + 1) % 15);
     }, []);
 
     const handlePrev = useCallback(() => {
-        setCurrentSlide((prev) => (prev - 1 + 14) % 14);
+        setCurrentSlide((prev) => (prev - 1 + 15) % 15);
     }, []);
 
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -849,6 +850,71 @@ export default function PresentationPage() {
         },
         {
             id: 13,
+            chapter: "Project Operations",
+            title: "OSP Project Management & Financial Controls",
+            subtitle: "Unified workspace tracking WBS tasks, project finances, procurement, and closures",
+            icon: Archive,
+            content: (
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider">
+                            <Zap className="w-3 h-3" /> Fully Integrated
+                        </div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Unified Project Workspace</h3>
+                        <p className="text-slate-400 text-xs leading-relaxed">
+                            Tracks full telecom infrastructure projects from task scheduling to ultimate sign-off. Governs budgets, contractor requisitions, and structural project adjustments.
+                        </p>
+                        <ul className="space-y-2 text-[11px] text-slate-300">
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Recursive WBS Progress:** Sub-task progress changes automatically propagate up the parent hierarchy for accurate real-time completion tracking.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Transactional Security:** Payment and invoice state changes are protected by concurrency locks to prevent billing discrepancies.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Comprehensive Closure Checklist:** Enforces absolute resolution of change orders, stock returns, and retention releases before project sign-off.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
+                            <span className="text-[10px] font-black text-blue-400 font-mono uppercase tracking-wider">WBS & Task Tracker</span>
+                            <h4 className="text-xs font-bold text-slate-200">Hierarchical Progress</h4>
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                                Parent tasks compute the weighted average of child completions, ensuring transparent field metrics.
+                            </p>
+                        </div>
+                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
+                            <span className="text-[10px] font-black text-emerald-400 font-mono uppercase tracking-wider">Financial ledger</span>
+                            <h4 className="text-xs font-bold text-slate-200">Retentions & PV Locks</h4>
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                                Manages 10% contract retentions and payment vouchers, wrapping all modifications in safe database transactions.
+                            </p>
+                        </div>
+                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
+                            <span className="text-[10px] font-black text-purple-400 font-mono uppercase tracking-wider">Procurement logs</span>
+                            <h4 className="text-xs font-bold text-slate-200">PR to Goods Receipt</h4>
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                                Coordinates supplier requisitions, vendor PO issuances, and warehouse Goods Received Notes.
+                            </p>
+                        </div>
+                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
+                            <span className="text-[10px] font-black text-amber-400 font-mono uppercase tracking-wider">Change Orders & Closure</span>
+                            <h4 className="text-xs font-bold text-slate-200">Audit-Verified Closure</h4>
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                                Tracks scope, cost, and time modifications, requiring a completed checklist for project completion.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 14,
             chapter: "Future Roadmap",
             title: "Upcoming Upgrades & Enhancements",
             subtitle: "Proposed modules for the next phase of development",
@@ -881,7 +947,7 @@ export default function PresentationPage() {
             )
         },
         {
-            id: 14,
+            id: 15,
             chapter: "Conclusion",
             title: "Unlock Operational Excellence",
             subtitle: "Transitioning SLTS connection logs to high-speed digital tracks",
@@ -1081,7 +1147,7 @@ export default function PresentationPage() {
                                 </span>
                             </div>
                             <span className="text-[10px] font-black text-slate-500 font-mono bg-slate-950/60 px-2.5 py-0.5 rounded-full border border-slate-850">
-                                {slide.id < 10 ? '0' : ''}{slide.id} / 14
+                                {slide.id < 10 ? '0' : ''}{slide.id} / 15
                             </span>
                         </div>
 
