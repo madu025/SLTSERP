@@ -422,7 +422,7 @@ export default function PresentationPage() {
                             <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800 flex justify-between items-center gap-4">
                                 <div className="space-y-0.5">
                                     <span className="text-xs font-bold text-amber-400 uppercase tracking-widest font-mono">SLTS Sourced</span>
-                                    <p className="text-[10px] text-slate-500">Materials sourced from subsidiary services. Deducted from contractor payments based on usage.</p>
+                                    <p className="text-[10px] text-slate-500">Materials sourced from SLT Services (our inventory). Used by contractors and tracked for monthly reconciliation.</p>
                                 </div>
                                 <span className="text-[9px] font-black px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">BILLED</span>
                             </div>
