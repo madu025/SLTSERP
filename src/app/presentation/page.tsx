@@ -62,7 +62,7 @@ export default function PresentationPage() {
                 setIsLoggedIn(!!token);
                 if (savedSlide) {
                     const index = parseInt(savedSlide, 10);
-                    if (index >= 0 && index < 18) {
+                    if (index >= 0 && index < 19) {
                         setCurrentSlide(index);
                     }
                 }
@@ -76,11 +76,11 @@ export default function PresentationPage() {
     }, [currentSlide]);
 
     const handleNext = useCallback(() => {
-        setCurrentSlide((prev) => (prev + 1) % 18);
+        setCurrentSlide((prev) => (prev + 1) % 19);
     }, []);
 
     const handlePrev = useCallback(() => {
-        setCurrentSlide((prev) => (prev - 1 + 18) % 18);
+        setCurrentSlide((prev) => (prev - 1 + 19) % 19);
     }, []);
 
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -187,12 +187,13 @@ export default function PresentationPage() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full pt-0 sm:pt-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 w-full pt-0 sm:pt-4 justify-center">
                         {[
                             { label: "📋 Operations Team", desc: "Service Order Sheets" },
-                            { label: "📁 OSP Projects", desc: "WBS & Financial Controls" },
-                            { label: "🏭 Store Keepers", desc: "Warehouse GRN & stock" },
-                            { label: "👷 Contractor Teams", desc: "Job tracking & details" }
+                            { label: "📁 OSP Projects", desc: "WBS & Task Schedules" },
+                            { label: "🏭 Store Keepers", desc: "Warehouse GRN & Stock" },
+                            { label: "👷 Contractor Teams", desc: "Job Completion Logs" },
+                            { label: "👔 OSP Managers", desc: "Analytics, Budgets & Audits" }
                         ].map((role, i) => (
                             <div key={i} className="bg-slate-900/40 border border-slate-800/80 p-2.5 sm:p-3.5 rounded-xl backdrop-blur-sm hover:border-slate-700/50 transition-colors">
                                 <p className="text-xs font-bold text-slate-200">{role.label}</p>
@@ -245,8 +246,8 @@ export default function PresentationPage() {
                                 Warehouse stock issues and contractor allocations are verified and tracked against active project purchase orders.
                             </div>
                             <div className="bg-emerald-950/20 border border-emerald-900/30 p-3 rounded-lg text-slate-300 shadow-lg shadow-emerald-950/5">
-                                <span className="font-bold text-emerald-300 block mb-0.5">Transparent Audits & Safe Transactions</span>
-                                Tracks task schedule progress (WBS), invoice retention splits, and coordinate approvals using safe database transactions.
+                                <span className="font-bold text-emerald-300 block mb-0.5">Manager Analytics & Audits</span>
+                                Automated reports for project budgets, contractor performance rankings, and approvals backed by transactional logs.
                             </div>
                         </div>
                     </div>
@@ -1116,6 +1117,74 @@ export default function PresentationPage() {
         },
         {
             id: 17,
+            chapter: "Project Operations",
+            title: "Manager Analytics & Project Reports",
+            subtitle: "Real-time dashboards tracking completion statuses, contractor performance, and regional workloads",
+            icon: FileSpreadsheet,
+            content: (
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider">
+                            <Zap className="w-3 h-3" /> Real-time Analytics
+                        </div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Executive Management Insights</h3>
+                        <p className="text-slate-400 text-xs leading-relaxed">
+                            Empowers OSP Managers and Admins with direct business intelligence metrics. Auto-compiles delayed tasks, financial utilization scales, and operational summaries to streamline regional performance reviews.
+                        </p>
+                        <ul className="space-y-2 text-[11px] text-slate-300 font-medium">
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Budget Utilization Tracker:** Instantly generates planned vs. actual project expense details to flag overruns before they happen.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Contractor Rank & Waste Analysis:** Audits contractor efficiency lists, logging active task speed, wastage metrics, and penalty counts.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Regional Area Breakdowns:** Groups metrics by OPMCs/RTOMs, enabling managers to assign resources where backlog load is highest.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="lg:col-span-3 bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5"><FileSpreadsheet className="w-4 h-4 text-blue-400" /> Kandy Region OSP Summary</span>
+                            <span className="text-[9px] font-mono text-slate-400">June 2026</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2.5 text-[9px] text-center">
+                            <div className="bg-slate-950/45 p-2 rounded border border-slate-850">
+                                <span className="text-slate-500 block">Active Projects</span>
+                                <span className="text-xs font-black text-slate-200">8 Projects</span>
+                            </div>
+                            <div className="bg-slate-950/45 p-2 rounded border border-slate-850">
+                                <span className="text-slate-500 block">Budget Cap Spent</span>
+                                <span className="text-xs font-black text-emerald-400">92.4%</span>
+                            </div>
+                            <div className="bg-slate-950/45 p-2 rounded border border-slate-850">
+                                <span className="text-slate-500 block">Avg completion</span>
+                                <span className="text-xs font-black text-blue-400">74.2%</span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-950/50 p-2.5 rounded-lg border border-slate-850/80 space-y-2">
+                            <div className="text-[9px] font-bold text-slate-450 uppercase tracking-wider">Contractor Efficiency Rankings</div>
+                            <div className="space-y-1.5 font-mono text-[9px]">
+                                <div className="flex justify-between items-center text-slate-300">
+                                    <span>1. Lanka Tech Team A (Kandy)</span>
+                                    <span className="text-emerald-450 font-bold">95.8% (1.2% Waste)</span>
+                                </div>
+                                <div className="flex justify-between items-center text-slate-300">
+                                    <span>2. Central OSP Builders</span>
+                                    <span className="text-amber-450 font-bold">81.5% (4.8% Waste)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 18,
             chapter: "Future Roadmap",
             title: "Upcoming Upgrades & Enhancements",
             subtitle: "Proposed modules for the next phase of development",
@@ -1148,7 +1217,7 @@ export default function PresentationPage() {
             )
         },
         {
-            id: 18,
+            id: 19,
             chapter: "Conclusion",
             title: "Unlock Operational Excellence",
             subtitle: "Transitioning SLTS connection logs to high-speed digital tracks",
@@ -1348,7 +1417,7 @@ export default function PresentationPage() {
                                 </span>
                             </div>
                             <span className="text-[10px] font-black text-slate-500 font-mono bg-slate-950/60 px-2.5 py-0.5 rounded-full border border-slate-850">
-                                {slide.id < 10 ? '0' : ''}{slide.id} / 18
+                                {slide.id < 10 ? '0' : ''}{slide.id} / 19
                             </span>
                         </div>
 
