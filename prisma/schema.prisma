@@ -120,6 +120,7 @@ model ServiceOrder {
   @@index([isInvoicable])
   
   forensicAudit     SODForensicAudit?
+  penalties         Penalty[]
 }
 
 model SODForensicAudit {
@@ -595,6 +596,7 @@ model Invoice {
   contractor    Contractor     @relation(fields: [contractorId], references: [id])
   project       Project?       @relation(fields: [projectId], references: [id])
   sods          ServiceOrder[]
+  penalties     Penalty[]
 }
 
 model Vehicle {
@@ -1485,5 +1487,20 @@ model InventoryItemSerial {
   @@index([storeId])
   @@index([contractorId])
   @@index([status])
+}
+
+model Penalty {
+  id             String        @id @default(cuid())
+  amount         Float         @default(0)
+  reason         String        // QC_FAILURE, PAT_REJECT, MATERIAL_MISMATCH, MANUAL
+  description    String?
+  status         String        @default("PENDING") // PENDING, APPROVED, REJECTED
+  proposedBy     String?
+  invoiceId      String?
+  serviceOrderId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id])
 }
 

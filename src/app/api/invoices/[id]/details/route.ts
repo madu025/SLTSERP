@@ -9,6 +9,7 @@ export async function GET(
     try {
         const { id } = await params;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const invoice = await (prisma as any).invoice.findUnique({
             where: { id },
             include: {
@@ -35,7 +36,8 @@ export async function GET(
                     orderBy: {
                         completedAt: 'asc'
                     }
-                }
+                },
+                penalties: true
             }
         });
 

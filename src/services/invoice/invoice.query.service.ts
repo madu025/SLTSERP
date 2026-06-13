@@ -18,7 +18,12 @@ export class InvoiceQueryService {
                 invoiced: false
             },
             include: {
-                opmc: true
+                opmc: true,
+                materialUsage: {
+                    include: {
+                        item: true
+                    }
+                }
             }
         });
     }

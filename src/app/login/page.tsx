@@ -126,6 +126,14 @@ export default function LoginPage() {
             <p className="slt-hero-sub">
               Streamline OSP workflows with SLT&apos;s next-generation Nexus enterprise platform.
             </p>
+            <div className="slt-hero-cta">
+              <Link href="/presentation" className="slt-cta-link">
+                Explore Platform Features
+                <svg className="slt-cta-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
           </div>
 
 
@@ -444,11 +452,31 @@ export default function LoginPage() {
           line-height: 1.6;
           max-width: 28ch;
         }
-
-
-        /* Quote carousel */
+        .slt-hero-cta {
+          margin-top: 1.5rem;
+        }
+        .slt-cta-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: #00AEEF;
+          text-decoration: none;
+          transition: color 0.25s, transform 0.25s;
+        }
+        .slt-cta-link:hover {
+          color: #fff;
+        }
+        .slt-cta-arrow {
+          transition: transform 0.2s;
+        }
+        .slt-cta-link:hover .slt-cta-arrow {
+          transform: translateX(3px);
+        }
         .slt-quote-area { position: relative; z-index: 1; }
         .slt-quote-fade { animation: sltFadeUp 0.5s ease-out; }
+
         @keyframes sltFadeUp {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }

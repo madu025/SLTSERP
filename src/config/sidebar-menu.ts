@@ -72,12 +72,6 @@ export const SIDEBAR_MENU: MenuItem[] = [
         allowedRoles: ['ALL'] // Special keyword for public/all access
     },
     {
-        title: 'System Presentation',
-        path: '/presentation',
-        icon: Presentation,
-        allowedRoles: ['ALL']
-    },
-    {
         title: 'Service Orders',
         path: '/service-orders',
         icon: FileText,
@@ -103,7 +97,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
-                title: 'Invoice',
+                title: 'Invoicable SODs',
                 path: '/service-orders/invoicable',
                 icon: Receipt,
                 allowedRoles: ROLE_GROUPS.ALL_OPS
@@ -137,14 +131,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
                     ...ROLE_GROUPS.ADMINS,
                     ...ROLE_GROUPS.INVOICE,
                     ...ROLE_GROUPS.FINANCE,
-                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER'
+                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'
                 ]
-            },
-            {
-                title: 'Registration Approvals',
-                path: '/admin/contractors/approvals',
-                icon: FileSignature,
-                allowedRoles: ROLE_GROUPS.ALL_OPS
             },
             {
                 title: 'Bulk Import',
@@ -271,17 +259,22 @@ export const SIDEBAR_MENU: MenuItem[] = [
         ]
     },
     {
-        title: 'OSP Managers',
+        title: 'Approvals',
         path: '/procurement/approvals',
-        icon: Users,
-        // Approvals needed by OSP Managers and New Connection Managers
-        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER'],
+        icon: FileSignature,
+        allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', ...ROLE_GROUPS.ALL_OPS],
         submenu: [
             {
-                title: 'Approvals',
+                title: 'Procurement Approvals',
                 path: '/procurement/approvals',
                 icon: FileSignature,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER']
+            },
+            {
+                title: 'Contractor Registration Approvals',
+                path: '/admin/contractors/approvals',
+                icon: FileSignature,
+                allowedRoles: ROLE_GROUPS.ALL_OPS
             }
         ]
     },

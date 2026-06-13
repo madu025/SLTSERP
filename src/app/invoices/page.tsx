@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Check, Trash2, Printer, Search, Banknote, ShieldCheck, Users, FileText } from 'lucide-react';
+import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, ShieldAlert } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface Invoice {
@@ -56,6 +56,18 @@ interface InvoiceSOD {
     materialUsage: InvoiceMaterialUsage[];
 }
 
+interface Penalty {
+    id: string;
+    invoiceId: string;
+    amount: number;
+    reason: string;
+    description: string | null;
+    status: string;
+    proposedBy: string | null;
+    serviceOrderId: string | null;
+    createdAt: string;
+}
+
 interface InvoiceDetailResponse {
     id: string;
     invoiceNumber: string;
@@ -72,6 +84,7 @@ interface InvoiceDetailResponse {
         bankBranch?: string;
     };
     sods: InvoiceSOD[];
+    penalties?: Penalty[];
 }
 
 export default function InvoicesPage() {
@@ -87,6 +100,15 @@ export default function InvoicesPage() {
         year: new Date().getFullYear()
     });
     const [userRole, setUserRole] = useState<string | null>(null);
+    const [penaltiesDialogOpen, setPenaltiesDialogOpen] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+    const [penalties, setPenalties] = useState<Penalty[]>([]);
+    const [newPenalty, setNewPenalty] = useState({
+        amount: '',
+        reason: 'MANUAL',
+        description: '',
+        serviceOrderId: ''
+    });
 
     useEffect(() => {
         fetchInvoices();
@@ -193,6 +215,116 @@ export default function InvoicesPage() {
         } catch (error) {
             console.error('Error deleting invoice:', error);
             alert('Failed to delete invoice');
+        }
+    };
+
+    const handleOpenPenalties = async (invoice: Invoice) => {
+        setSelectedInvoice(invoice);
+        setPenalties([]);
+        setNewPenalty({ amount: '', reason: 'MANUAL', description: '', serviceOrderId: '' });
+        setPenaltiesDialogOpen(true);
+        try {
+            const res = await fetch(`/api/invoices/${invoice.id}/details`);
+            if (res.ok) {
+                const data = await res.json();
+                setPenalties(data.penalties || []);
+            }
+        } catch (e) {
+            console.error('Error fetching penalties:', e);
+        }
+    };
+
+    const handleAddPenalty = async () => {
+        if (!selectedInvoice) return;
+        if (!newPenalty.amount || isNaN(parseFloat(newPenalty.amount))) {
+            alert('Please enter a valid amount');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/invoices/${selectedInvoice.id}/penalties`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: parseFloat(newPenalty.amount),
+                    reason: newPenalty.reason,
+                    description: newPenalty.description || undefined,
+                    serviceOrderId: newPenalty.serviceOrderId || undefined
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || 'Failed to add penalty');
+                return;
+            }
+
+            const detailRes = await fetch(`/api/invoices/${selectedInvoice.id}/details`);
+            if (detailRes.ok) {
+                const data = await detailRes.json();
+                setPenalties(data.penalties || []);
+            }
+            setNewPenalty({ amount: '', reason: 'MANUAL', description: '', serviceOrderId: '' });
+            fetchInvoices();
+        } catch (e) {
+            console.error(e);
+            alert('Error adding penalty');
+        }
+    };
+
+    const handleDeletePenalty = async (penaltyId: string) => {
+        if (!selectedInvoice) return;
+        if (!confirm('Are you sure you want to delete this penalty?')) return;
+
+        try {
+            const res = await fetch(`/api/invoices/${selectedInvoice.id}/penalties?penaltyId=${penaltyId}`, {
+                method: 'DELETE'
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || 'Failed to delete penalty');
+                return;
+            }
+
+            const detailRes = await fetch(`/api/invoices/${selectedInvoice.id}/details`);
+            if (detailRes.ok) {
+                const data = await detailRes.json();
+                setPenalties(data.penalties || []);
+            }
+            fetchInvoices();
+        } catch (e) {
+            console.error(e);
+            alert('Error deleting penalty');
+        }
+    };
+
+    const handleUpdatePenaltyStatus = async (penaltyId: string, status: 'APPROVED' | 'REJECTED') => {
+        if (!selectedInvoice) return;
+        if (!confirm(`Are you sure you want to ${status.toLowerCase()} this penalty?`)) return;
+
+        try {
+            const res = await fetch(`/api/invoices/${selectedInvoice.id}/penalties`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ penaltyId, status })
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || `Failed to ${status.toLowerCase()} penalty`);
+                return;
+            }
+
+            const detailRes = await fetch(`/api/invoices/${selectedInvoice.id}/details`);
+            if (detailRes.ok) {
+                const data = await detailRes.json();
+                setPenalties(data.penalties || []);
+            }
+            fetchInvoices();
+        } catch (e) {
+            console.error(e);
+            alert(`Error updating penalty status`);
         }
     };
 
@@ -691,6 +823,15 @@ export default function InvoicesPage() {
                                                             >
                                                                 <Printer className="w-3.5 h-3.5" />
                                                             </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => handleOpenPenalties(inv)}
+                                                                className="h-7 w-7 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all"
+                                                                title="Manage Penalties"
+                                                            >
+                                                                <ShieldAlert className="w-3.5 h-3.5" />
+                                                            </Button>
                                                             {inv.status === 'PENDING' && (
                                                                 <Button
                                                                     size="sm"
@@ -768,6 +909,185 @@ export default function InvoicesPage() {
                     <DialogFooter>
                         <Button onClick={handleGenerate} disabled={loading} className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 rounded-lg font-bold text-xs uppercase tracking-wider">{loading ? 'Generating...' : 'Generate Invoice'}</Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Penalties Dialog */}
+            <Dialog open={penaltiesDialogOpen} onOpenChange={setPenaltiesDialogOpen}>
+                <DialogContent className="max-w-xl rounded-2xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-black text-slate-900 flex items-center gap-2">
+                            <ShieldAlert className="w-5 h-5 text-amber-500" />
+                            Manage Penalties
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            Invoice Number: <span className="font-mono font-bold text-slate-700">{selectedInvoice?.invoiceNumber}</span>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6 py-4">
+                        {/* Penalty List */}
+                        <div className="space-y-2">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Current Penalties</h3>
+                            {penalties.length === 0 ? (
+                                <div className="p-4 text-center rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-500">
+                                    No penalties applied to this invoice.
+                                </div>
+                            ) : (
+                                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                                    {penalties.map((penalty) => {
+                                        const isApprover = userRole === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
+                                        const canDelete = penalty.status === 'PENDING' || isApprover;
+                                        return (
+                                            <div key={penalty.id} className="flex justify-between items-start p-3 bg-slate-50/70 border border-slate-100 rounded-xl relative group">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-bold text-xs text-slate-800">
+                                                            {penalty.reason === 'QC_OFFICER_REJECT' ? 'QC Officer Quality Check Failure' :
+                                                             penalty.reason === 'SLT_PAT_REJECT' ? 'SLT PAT Reject' :
+                                                             penalty.reason === 'MATERIAL_MISMATCH' ? 'Material Mismatch' :
+                                                             'Manual Penalty'}
+                                                        </span>
+                                                        {penalty.serviceOrderId && (
+                                                            <span className="font-mono text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-semibold">
+                                                                SO: {penalty.serviceOrderId}
+                                                            </span>
+                                                        )}
+                                                        <Badge className={cn(
+                                                            "border-none px-1.5 py-0.2 text-[9px] font-black leading-none",
+                                                            penalty.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' :
+                                                            penalty.status === 'REJECTED' ? 'bg-red-50 text-red-700' :
+                                                            'bg-amber-50 text-amber-700'
+                                                        )}>
+                                                            {penalty.status}
+                                                        </Badge>
+                                                    </div>
+                                                    {penalty.description && (
+                                                        <p className="text-xs text-slate-600 leading-normal">{penalty.description}</p>
+                                                    )}
+                                                    <div className="flex gap-2 text-[10px] text-slate-400">
+                                                        <span>Proposed By: {penalty.proposedBy || 'System'}</span>
+                                                        <span>•</span>
+                                                        <span>{new Date(penalty.createdAt).toLocaleDateString()}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-2 ml-4">
+                                                    <span className="font-bold text-xs text-red-600">
+                                                        -{formatCurrency(penalty.amount)}
+                                                    </span>
+                                                    <div className="flex items-center gap-1">
+                                                        {/* Approve / Reject buttons for Area Managers */}
+                                                        {penalty.status === 'PENDING' && isApprover && (
+                                                            <>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleUpdatePenaltyStatus(penalty.id, 'APPROVED')}
+                                                                    className="h-6 px-1.5 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded"
+                                                                >
+                                                                    Approve
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleUpdatePenaltyStatus(penalty.id, 'REJECTED')}
+                                                                    className="h-6 px-1.5 text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                                                >
+                                                                    Reject
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                        {canDelete && selectedInvoice?.status !== 'PAID' && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                onClick={() => handleDeletePenalty(penalty.id)}
+                                                                className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                                                title="Delete Penalty"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {penalties.length > 0 && (
+                                <div className="flex justify-between items-center px-3 py-2 bg-slate-900 text-white rounded-xl">
+                                    <span className="text-xs font-bold uppercase tracking-wider">Total Approved Deduction</span>
+                                    <span className="font-black text-sm">
+                                        -{formatCurrency(penalties.filter(p => p.status === 'APPROVED').reduce((sum, p) => sum + p.amount, 0))}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Add Manual Penalty Form */}
+                        {selectedInvoice?.status !== 'PAID' && (
+                            <div className="space-y-3 pt-4 border-t border-slate-100">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Add Manual Penalty</h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Reason / Type</Label>
+                                        <Select
+                                            value={newPenalty.reason}
+                                            onValueChange={(v) => setNewPenalty({ ...newPenalty, reason: v })}
+                                        >
+                                            <SelectTrigger className="h-9 rounded-lg bg-slate-50 border-none">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="MANUAL">Manual Entry</SelectItem>
+                                                <SelectItem value="QC_OFFICER_REJECT">QC Reject</SelectItem>
+                                                <SelectItem value="SLT_PAT_REJECT">SLT PAT Reject</SelectItem>
+                                                <SelectItem value="MATERIAL_MISMATCH">Material Mismatch</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount (LKR)</Label>
+                                        <Input
+                                            type="number"
+                                            value={newPenalty.amount}
+                                            onChange={(e) => setNewPenalty({ ...newPenalty, amount: e.target.value })}
+                                            placeholder="e.g. 1500"
+                                            className="h-9 rounded-lg bg-slate-50 border-none"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Service Order ID (Optional)</Label>
+                                    <Input
+                                        type="text"
+                                        value={newPenalty.serviceOrderId}
+                                        onChange={(e) => setNewPenalty({ ...newPenalty, serviceOrderId: e.target.value })}
+                                        placeholder="e.g. SO123456789"
+                                        className="h-9 rounded-lg bg-slate-50 border-none"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description / Remarks</Label>
+                                    <Input
+                                        type="text"
+                                        value={newPenalty.description}
+                                        onChange={(e) => setNewPenalty({ ...newPenalty, description: e.target.value })}
+                                        placeholder="Why is this penalty being applied?"
+                                        className="h-9 rounded-lg bg-slate-50 border-none"
+                                    />
+                                </div>
+                                <Button
+                                    onClick={handleAddPenalty}
+                                    className="w-full bg-slate-900 hover:bg-slate-800 text-white h-9 rounded-lg font-bold text-xs uppercase tracking-wider mt-2"
+                                >
+                                    Apply Penalty
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

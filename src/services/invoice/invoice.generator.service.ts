@@ -40,7 +40,7 @@ export class InvoiceGeneratorService {
     }
 
     /**
-     * Create actual invoice record and connect SODs in a transaction
+     * Create actual invoice record and connect SODs in a transaction, including penalties
      */
     static async createRegionalInvoice(data: {
         invoiceNumber: string;
@@ -50,12 +50,16 @@ export class InvoiceGeneratorService {
         totalAmount: number;
         regionName: string;
         sodIds: string[];
+        penaltyTotal?: number;
+        penaltiesList?: { amount: number; reason: string; description?: string; serviceOrderId?: string }[];
     }) {
-        const { totalAmount, ...other } = data;
-        const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount);
+        const { totalAmount, penaltyTotal = 0, penaltiesList = [], ...other } = data;
+        const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount, penaltyTotal);
 
         return await prisma.$transaction(async (tx) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const invoice = await tx.invoice.create({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 data: {
                     invoiceNumber: other.invoiceNumber,
                     contractorId: other.contractorId,
@@ -69,8 +73,18 @@ export class InvoiceGeneratorService {
                     statusB: 'HOLD',
                     status: 'PENDING',
                     description: `Monthly Invoice for ${other.regionName} - ${other.month}/${other.year}`,
-                    sods: { connect: other.sodIds.map(id => ({ id })) }
-                }
+                    sods: { connect: other.sodIds.map(id => ({ id })) },
+                    penalties: {
+                        create: penaltiesList.map(p => ({
+                            amount: p.amount,
+                            reason: p.reason,
+                            description: p.description,
+                            serviceOrderId: p.serviceOrderId,
+                            status: 'APPROVED',
+                            proposedBy: 'SYSTEM'
+                        }))
+                    }
+                } as any
             });
 
             await tx.serviceOrder.updateMany({
@@ -79,6 +93,33 @@ export class InvoiceGeneratorService {
             });
 
             return invoice;
+        });
+    }
+
+    /**
+     * Recalculate splits (amountA / amountB) for an invoice based on its associated Penalty records
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static async recalculateInvoiceSplits(invoiceId: string, tx?: any) {
+        const db = tx || prisma;
+        const invoice = await db.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { penalties: true }
+        });
+        if (!invoice) throw new Error('Invoice not found');
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const penaltyTotal = invoice.penalties
+            .filter((p: any) => p.status === 'APPROVED')
+            .reduce((sum: number, p: any) => sum + p.amount, 0);
+        const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(invoice.totalAmount, penaltyTotal);
+
+        return await db.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                amountA,
+                amountB
+            }
         });
     }
 }

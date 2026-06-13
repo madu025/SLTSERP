@@ -26,7 +26,8 @@ import {
     TrendingUp,
     HelpCircle,
     Zap,
-    ExternalLink
+    ExternalLink,
+    Banknote
 } from "lucide-react";
 
 interface Slide {
@@ -58,7 +59,7 @@ export default function PresentationPage() {
                 setIsLoggedIn(!!token);
                 if (savedSlide) {
                     const index = parseInt(savedSlide, 10);
-                    if (index >= 0 && index < 13) {
+                    if (index >= 0 && index < 14) {
                         setCurrentSlide(index);
                     }
                 }
@@ -72,11 +73,11 @@ export default function PresentationPage() {
     }, [currentSlide]);
 
     const handleNext = useCallback(() => {
-        setCurrentSlide((prev) => (prev + 1) % 13);
+        setCurrentSlide((prev) => (prev + 1) % 14);
     }, []);
 
     const handlePrev = useCallback(() => {
-        setCurrentSlide((prev) => (prev - 1 + 13) % 13);
+        setCurrentSlide((prev) => (prev - 1 + 14) % 14);
     }, []);
 
     // Autoplay logic
@@ -747,6 +748,80 @@ export default function PresentationPage() {
         },
         {
             id: 12,
+            chapter: "Efficiency & Reporting",
+            title: "Contractor Invoicing & 90/10 Split",
+            subtitle: "Seamless monthly billing generation and payment control",
+            icon: Banknote,
+            content: (
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto font-sans">
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider">
+                            <CheckCircle2 className="w-3 h-3" /> Built-in Feature
+                        </div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Automated Contractor Invoices</h3>
+                        <p className="text-slate-405 text-xs leading-relaxed">
+                            Generates monthly contractor invoices grouped by region and month, fully integrated with completed service orders and actual material consumption records.
+                        </p>
+                        <ul className="space-y-2 text-[11px] text-slate-300">
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-450 font-bold">✓</span>
+                                <span>**90/10 Payment Split:** Automatically retains a 10% retention (Part B) for warranty checks and releases Part A (90%) for immediate settlement.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-455 font-bold">✓</span>
+                                <span>**Automated Penalties:** Auto-deducts penalties (QC check failure: LKR 1.5k, SLT PAT reject: LKR 2.5k, material mismatch: LKR 1k) directly from the Part B retention amount.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-460 font-bold">✓</span>
+                                <span>**Landscape Work Detail Sheet:** Generates an exhaustive material grid page listing items used (F-1, G-1, etc.) per TP order to eliminate payment disputes.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-465 font-bold">✓</span>
+                                <span>**Approval Workflow:** Follows strict transition checks (Pending, Approved, and Paid), matching verified regional coordinate sign-offs.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="lg:col-span-3 bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-xl">
+                        {/* Mock Invoice UI */}
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5"><Banknote className="w-4 h-4 text-emerald-400" /> Invoice - LANKA-KANDY-26-06</span>
+                            <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">90% APPROVED</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-[10px]">
+                            <div className="bg-slate-950/40 p-2.5 rounded border border-slate-850">
+                                <span className="text-slate-500 block">Total Work Done Value</span>
+                                <span className="text-sm font-black text-slate-200">LKR 450,000.00</span>
+                            </div>
+                            <div className="bg-slate-950/40 p-2.5 rounded border border-slate-850">
+                                <span className="text-slate-500 block">Immediate Payout (90%)</span>
+                                <span className="text-sm font-black text-blue-400">LKR 405,000.00</span>
+                            </div>
+                        </div>
+                        <div className="bg-slate-950/45 p-3 rounded-lg border border-slate-850/80 space-y-2">
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-slate-400 font-medium">Part B Retention (10%)</span>
+                                <span className="font-bold text-amber-400">LKR 45,000.00</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-rose-400 border-t border-slate-800/40 pt-1.5">
+                                <span className="font-medium">QC / PAT Penalty Deductions</span>
+                                <span className="font-bold">- LKR 5,000.00</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-emerald-400 font-bold border-t border-slate-800/40 pt-1.5">
+                                <span>Net Retention Balance</span>
+                                <span>LKR 40,000.00</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] text-slate-500 border-t border-slate-850 pt-2">
+                                <span>Auto-releases after warranty period expires.</span>
+                                <span className="text-slate-400 font-bold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> ELIGIBLE</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 13,
             chapter: "Future Roadmap",
             title: "Upcoming Upgrades & Enhancements",
             subtitle: "Proposed modules for the next phase of development",
@@ -762,8 +837,8 @@ export default function PresentationPage() {
 
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {[
-                            { title: "💰 Contractor Billing", desc: "Auto-generate contractor invoices. Deduct material wastage values from billing balances." },
                             { title: "📊 Cashflow Ledger", desc: "Track organizational income, outstanding payments, and regional cost centers." },
+                            { title: "🔌 Accounting Package Sync", desc: "Integrate with external accounting packages (e.g. QuickBooks, SAP) to sync contractor ledger balances." },
                             { title: "📱 Technicians App", desc: "Technicians receive jobs, scan serial barcodes, and attach closure photos on site." },
                             { title: "🗺️ GPS Dispatching", desc: "Track technical team locations on a live map and auto-assign tasks to closest units." },
                             { title: "📨 Automated SMS", desc: "Auto-send confirmation messages to customers on job dispatch and completion." },
@@ -779,7 +854,7 @@ export default function PresentationPage() {
             )
         },
         {
-            id: 13,
+            id: 14,
             chapter: "Conclusion",
             title: "Unlock Operational Excellence",
             subtitle: "Transitioning SLTS connection logs to high-speed digital tracks",
@@ -904,7 +979,7 @@ export default function PresentationPage() {
                                                 : "text-slate-450 hover:bg-slate-900 hover:text-white"
                                         }`}
                                     >
-                                        <span className="font-mono text-[9px] opacity-65">0{s.id}</span>
+                                        <span className="font-mono text-[9px] opacity-65">{s.id < 10 ? '0' : ''}{s.id}</span>
                                         <span className="truncate">{s.title}</span>
                                     </button>
                                 ))}
@@ -930,7 +1005,7 @@ export default function PresentationPage() {
                                 </span>
                             </div>
                             <span className="text-[10px] font-black text-slate-500 font-mono bg-slate-950/60 px-2.5 py-0.5 rounded-full border border-slate-850">
-                                0{slide.id} / 13
+                                {slide.id < 10 ? '0' : ''}{slide.id} / 14
                             </span>
                         </div>
 

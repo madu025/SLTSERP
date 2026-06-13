@@ -355,7 +355,7 @@ export default function TeamManager({ isOpen, onClose, contractorId, contractorN
             {/* FORCE WIDTH: max-w-none removes default limit, w-[95vw] sets intended width */}
             <DialogContent className="max-w-none w-[98vw] sm:w-[95vw] h-[98vh] sm:h-[95vh] flex flex-col p-0 gap-0 overflow-hidden bg-slate-50 sm:max-w-none">
                 {/* Compact Header */}
-                <div className="px-4 py-3 border-b bg-white flex justify-between items-center shrink-0 h-14">
+                <div className="pl-4 pr-12 py-3 border-b bg-white flex justify-between items-center shrink-0 h-14">
                     <div className="flex items-center gap-3">
                         <DialogTitle className="text-lg font-bold text-slate-800">Team Management</DialogTitle>
                         <Separator orientation="vertical" className="h-4" />
