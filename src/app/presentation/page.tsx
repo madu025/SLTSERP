@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
     ChevronLeft,
@@ -93,7 +93,7 @@ export default function PresentationPage() {
     const handleTouchEnd = () => {
         if (touchStartX.current === null || touchEndX.current === null) return;
         const diffX = touchStartX.current - touchEndX.current;
-        const minSwipeDistance = 50;
+        const minSwipeDistance = 30;
 
         if (diffX > minSwipeDistance) {
             handleNext();
@@ -209,7 +209,7 @@ export default function PresentationPage() {
             subtitle: "Solving operational disconnects and double data entry",
             icon: HelpCircle,
             content: (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full items-center max-w-5xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 h-full items-center max-w-5xl mx-auto">
                     <div className="space-y-4">
                         <h3 className="text-xl font-bold text-rose-400 flex items-center gap-2">
                             <X className="w-5 h-5" /> The Old Offline Flow
@@ -259,7 +259,7 @@ export default function PresentationPage() {
             subtitle: "Dense, spreadsheet-style table optimized for rapid data updates",
             icon: FileSpreadsheet,
             content: (
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
                     <div className="lg:col-span-2 space-y-4">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider">
                             <Zap className="w-3 h-3" /> Built for speed
@@ -291,6 +291,7 @@ export default function PresentationPage() {
                     <div className="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl p-4 space-y-4">
                         {/* Mock spreadsheet UI */}
                         <div className="border border-slate-800/80 rounded-lg overflow-hidden text-[10px]">
+                            <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-slate-800/60 border-b border-slate-800">
                                     <tr className="font-bold text-slate-400 uppercase tracking-tight text-[9px]">
@@ -320,6 +321,7 @@ export default function PresentationPage() {
                                     </tr>
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                         <div className="flex items-center justify-between text-[9px] text-slate-500 border-t border-slate-800/80 pt-2 font-mono">
                             <span>* Use ↑↓ keys to jump rows</span>
@@ -348,7 +350,7 @@ export default function PresentationPage() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col justify-between space-y-4 shadow-lg">
                             <div className="space-y-2">
                                 <div className="text-xs font-black text-blue-400 font-mono tracking-widest uppercase">Step 01</div>
@@ -404,7 +406,7 @@ export default function PresentationPage() {
             subtitle: "Enforcing compliance on OSP items and split billing records",
             icon: Settings,
             content: (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full items-center max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 h-full items-center max-w-4xl mx-auto">
                     <div className="space-y-4">
                         <div className="inline-flex items-center gap-1 py-0.5 px-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold">
                             RECONCILIATION PREP
@@ -463,7 +465,7 @@ export default function PresentationPage() {
             subtitle: "Warehouse workflows tracking items from arrival to installation",
             icon: Warehouse,
             content: (
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
                     <div className="lg:col-span-2 space-y-4">
                         <h3 className="text-2xl font-bold text-white tracking-tight">End-to-End Stock Ledger</h3>
                         <p className="text-slate-400 text-xs leading-relaxed">
@@ -521,7 +523,7 @@ export default function PresentationPage() {
             subtitle: "Enforcing authorization barriers to ensure operational compliance",
             icon: Users,
             content: (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full items-center max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 h-full items-center max-w-4xl mx-auto">
                     <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-xl">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold">
@@ -571,7 +573,7 @@ export default function PresentationPage() {
             subtitle: "Global broadcast updates with customized user preferences",
             icon: Bell,
             content: (
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
                     <div className="lg:col-span-2 space-y-4">
                         <h3 className="text-2xl font-bold text-white tracking-tight">Global Broadcast System</h3>
                         <p className="text-slate-400 text-xs leading-relaxed">
@@ -626,7 +628,7 @@ export default function PresentationPage() {
             subtitle: "Strict appointment notifications running globally across all views",
             icon: Clock,
             content: (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 h-full items-center max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 h-full items-center max-w-4xl mx-auto">
                     <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4 shadow-xl">
                         <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest font-mono flex items-center gap-1.5"><Clock className="w-4 h-4 text-emerald-400" /> SLA Notification Rules</h4>
                         <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -679,7 +681,7 @@ export default function PresentationPage() {
             subtitle: "Import bulk datasets instantly and bridge direct with main monitoring",
             icon: FileSpreadsheet,
             content: (
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
                     <div className="lg:col-span-2 space-y-4">
                         <h3 className="text-2xl font-bold text-white tracking-tight">Smart Bulk Importing</h3>
                         <p className="text-slate-400 text-xs leading-relaxed">
@@ -923,29 +925,62 @@ export default function PresentationPage() {
         }
     ];
 
-    const slide = slides[currentSlide];
+    const slide = useMemo(() => slides[currentSlide], [currentSlide]);
     const SlideIcon = slide.icon;
 
     return (
         <div
             ref={containerRef}
-            className="w-screen h-screen h-[100dvh] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between overflow-hidden relative select-none font-sans"
+            className="
+                min-h-[100dvh]
+                bg-gradient-to-br
+                from-slate-950
+                via-slate-900
+                to-slate-950
+                text-white
+                flex
+                flex-col
+                overflow-hidden
+                relative
+                font-sans
+                select-none
+            "
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            style={{
+                paddingTop: "env(safe-area-inset-top)",
+                paddingBottom: "env(safe-area-inset-bottom)"
+            }}
         >
             {/* Background glowing decorations */}
             <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-blue-600/5 blur-3xl pointer-events-none" />
             <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
 
             {/* HEADER */}
-            <header className="flex-none px-6 py-4 flex items-center justify-between border-b border-slate-900 bg-slate-950/30 backdrop-blur-sm z-30">
+            <header
+                className="
+                    flex-none
+                    px-3 sm:px-6
+                    py-2 sm:py-4
+                    flex
+                    items-center
+                    justify-between
+                    border-b
+                    border-slate-900
+                    bg-slate-950/60
+                    backdrop-blur-xl
+                    sticky
+                    top-0
+                    z-50
+                "
+            >
                 <div className="flex items-center gap-2.5">
                     <span className="bg-gradient-to-r from-blue-600 to-emerald-500 text-white p-1.5 rounded-lg">
-                        <Layers className="w-5 h-5" />
+                        <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
                     </span>
                     <div>
-                        <h1 className="text-xs font-black tracking-widest uppercase bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+                        <h1 className="text-[10px] sm:text-xs font-black tracking-widest uppercase bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
                             SLTSERP
                         </h1>
                         <p className="text-[9px] text-slate-500 uppercase tracking-tight font-semibold">Features Showcase</p>
@@ -982,7 +1017,7 @@ export default function PresentationPage() {
             <main className="flex-1 min-h-0 flex overflow-hidden relative">
                 {/* SLIDE OUTLINE SIDEBAR (Drawer) */}
                 {isOutlineOpen && (
-                    <div className="absolute inset-y-0 left-0 w-80 bg-slate-950 border-r border-slate-900 p-4 flex flex-col justify-between z-40 shadow-2xl backdrop-blur-md animate-in slide-in-from-left duration-250">
+                    <div className="absolute inset-y-0 left-0 w-[90vw] max-w-[340px] bg-slate-950 border-r border-slate-900 p-4 flex flex-col justify-between z-40 shadow-2xl backdrop-blur-md animate-in slide-in-from-left duration-250">
                         <div className="space-y-4">
                             <div className="flex justify-between items-center border-b border-slate-900 pb-2">
                                 <span className="text-xs font-black tracking-widest uppercase text-slate-400">Slide Index</span>
@@ -993,7 +1028,7 @@ export default function PresentationPage() {
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="space-y-1 overflow-y-auto max-h-[70vh] custom-scrollbar pr-1">
+                            <div className="space-y-1 overflow-y-auto max-h-[calc(100dvh-140px)] custom-scrollbar pr-1">
                                 {slides.map((s, idx) => (
                                     <button
                                         key={s.id}
@@ -1020,9 +1055,22 @@ export default function PresentationPage() {
                 )}
 
                 {/* SLIDE CANVAS */}
-                <div className="flex-1 flex flex-col p-3 sm:p-6 md:p-12 items-center justify-center overflow-y-auto custom-scrollbar">
+                <div
+                    className="
+                        flex-1
+                        flex
+                        flex-col
+                        p-2
+                        sm:p-6
+                        md:p-10
+                        items-center
+                        justify-center
+                        overflow-y-auto
+                        custom-scrollbar
+                    "
+                >
                     {/* Slide container (Glassmorphic) */}
-                    <div className="w-full max-w-5xl bg-slate-900/50 border border-slate-800 p-4 sm:p-8 md:p-12 rounded-2xl backdrop-blur-xl shadow-2xl flex flex-col justify-between min-h-[440px] sm:min-h-[480px] lg:min-h-[520px]">
+                    <div className="w-full max-w-7xl bg-slate-900/50 border border-slate-800 p-3 sm:p-6 md:p-10 rounded-2xl backdrop-blur-xl shadow-2xl flex flex-col justify-between min-h-[calc(100dvh-180px)] lg:min-h-[520px]">
                         
                         {/* Slide Top Details */}
                         <div className="flex items-center justify-between border-b border-slate-850 pb-4 mb-4">
@@ -1041,10 +1089,10 @@ export default function PresentationPage() {
                         <div className="flex-1 flex flex-col justify-center py-4">
                             {/* Slide Title & Subtitle */}
                             <div className="mb-6">
-                                <h2 className="text-xl md:text-3xl font-bold tracking-tight text-white">
+                                <h2 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight text-white">
                                     {slide.title}
                                 </h2>
-                                <p className="text-slate-400 text-xs md:text-sm mt-1">
+                                <p className="text-[11px] sm:text-sm text-slate-400 mt-1 leading-relaxed">
                                     {slide.subtitle}
                                 </p>
                             </div>
@@ -1058,7 +1106,25 @@ export default function PresentationPage() {
             </main>
 
             {/* FOOTER CONTROLS */}
-            <footer className="flex-none px-6 py-4 flex items-center justify-between border-t border-slate-900 bg-slate-950/20 backdrop-blur-sm z-30">
+            <footer
+                className="
+                    flex-none
+                    px-2
+                    sm:px-6
+                    py-2
+                    sm:py-4
+                    border-t
+                    border-slate-900
+                    bg-slate-950/70
+                    backdrop-blur-xl
+                    sticky
+                    bottom-0
+                    z-50
+                    flex
+                    items-center
+                    justify-between
+                "
+            >
                 <div className="flex items-center gap-1.5 sm:gap-3">
                     <button
                         onClick={handlePrev}
@@ -1089,7 +1155,7 @@ export default function PresentationPage() {
                 </div>
 
                 {/* Progress Indicators */}
-                <div className="hidden md:flex items-center gap-1 max-w-md w-full mx-6 bg-slate-950/80 p-1.5 rounded-full border border-slate-850">
+                <div className="flex items-center gap-1 max-w-md w-full mx-2 sm:mx-6 bg-slate-950/80 p-1.5 rounded-full border border-slate-850 overflow-x-auto">
                     {slides.map((s, idx) => (
                         <button
                             key={s.id}
