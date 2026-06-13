@@ -414,17 +414,17 @@ export default function PresentationPage() {
                             <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800 flex justify-between items-center gap-4">
                                 <div className="space-y-0.5">
                                     <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest font-mono">SLT Sourced</span>
-                                    <p className="text-[10px] text-slate-500">Materials issued directly from Sri Lanka Telecom store. Not chargeable to contractor invoices.</p>
+                                    <p className="text-[10px] text-slate-500">Materials issued directly from Sri Lanka Telecom store. Cost deducted from SLTS monthly invoice by SLT.</p>
                                 </div>
-                                <span className="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">FREE</span>
+                                <span className="text-[9px] font-black px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">DEDUCTED</span>
                             </div>
 
                             <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-800 flex justify-between items-center gap-4">
                                 <div className="space-y-0.5">
                                     <span className="text-xs font-bold text-amber-400 uppercase tracking-widest font-mono">SLTS Sourced</span>
-                                    <p className="text-[10px] text-slate-500">Materials sourced from SLT Services (our inventory). Used by contractors and tracked for monthly reconciliation.</p>
+                                    <p className="text-[10px] text-slate-500">Materials issued from SLTS warehouse. Owned by SLTS and tracked for internal project reconciliation.</p>
                                 </div>
-                                <span className="text-[9px] font-black px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">BILLED</span>
+                                <span className="text-[9px] font-black px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">SLTS STOCK</span>
                             </div>
                         </div>
                     </div>
