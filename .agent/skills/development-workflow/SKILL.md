@@ -931,3 +931,29 @@ Before committing code, ensure:
 - Write descriptive commit messages
 - Update documentation when adding new features
 - Review code before committing
+
+## Core Domain Rules & Business Logic Gotchas (CRITICAL FOR AGENTS)
+
+To prevent code regressions or architectural misunderstandings, any AI Agent working on this codebase must adhere to the following business logic and technical specifications:
+
+### 1. Material Sourcing & Reconciliation Flow
+* **SLT Sourced (Parent Company Inventory):**
+  * Materials issued from the Sri Lanka Telecom parent store.
+  * These are **NOT** billed to the contractor, but at the end of each month, SLT generates a "BOM Created" report of completed Service Orders (SODs) and deducts these costs from the SLTS invoice.
+  * The system must track these completions for manual/automated monthly reconciliation.
+* **SLTS Sourced (Our Stock/Inventory):**
+  * Materials purchased and owned by SLTS (SLT Services).
+  * Issued to contractor teams from SLTS stores.
+  * **Contractors do not purchase or get any materials themselves.** They only consume what is issued to them from the SLTS warehouse.
+  * All consumption and wastage of SLTS stock are reconciled against their completions.
+
+### 2. Prisma Extended Client Type Resolution Gotcha
+* The client exported as `prisma` in `src/lib/prisma.ts` is wrapped in `$extends` to handle read/write splitting, query tracing, and profiling.
+* Due to compiler or IDE type-resolution limits, typescript types for newly added tables/models (such as `Penalty`) might show as missing on the extended `prisma` type, leading to IDE error warnings or developers using `as any` casts.
+* **Solution:** For database writes, updates, deletions, and all Prisma transaction clients (`tx`), import and use **`primaryClient`** directly from `@/lib/prisma`. This utilizes the raw `PrismaClient` type, ensuring absolute type-safety without any IDE resolution failures or the need for `any` type casting.
+
+### 3. Invoice Penalties Approval Matrix
+* **Proposing Penalties:** QC Officers, Area Coordinators, or other field staff propose penalties on service order invoices due to QC failures, delays, or mismatches.
+* **Approving/Rejecting Penalties:** Restricted to `AREA_MANAGER`, `ADMIN`, and `SUPER_ADMIN` roles.
+* **Recalculation Trigger:** Whenever a penalty is created (auto-approved if by Area Manager), updated (approved/rejected), or deleted, the system **MUST** immediately trigger `InvoiceGeneratorService.recalculateInvoiceSplits` inside the same database transaction.
+
