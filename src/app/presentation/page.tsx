@@ -183,16 +183,16 @@ export default function PresentationPage() {
                             SLTS Workflow Management
                         </h2>
                         <p className="text-slate-400 text-xs sm:text-sm md:text-base mt-2 sm:mt-3 max-w-2xl font-medium leading-relaxed">
-                            Built specifically for OSP and Service Provisioning teams to coordinate customer service orders, contractor assignments, materials utilization, and warehouse stock balances.
+                            Built specifically for OSP teams to manage structured project lifecycles (WBS, retentions, change orders) and coordinate customer service orders, contractor assignments, and warehouse stock.
                         </p>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full pt-0 sm:pt-4">
                         {[
                             { label: "📋 Operations Team", desc: "Service Order Sheets" },
+                            { label: "📁 OSP Projects", desc: "WBS & Financial Controls" },
                             { label: "🏭 Store Keepers", desc: "Warehouse GRN & stock" },
-                            { label: "👷 Contractor Teams", desc: "Job tracking & details" },
-                            { label: "👔 Regional Managers", desc: "Performance & Audits" }
+                            { label: "👷 Contractor Teams", desc: "Job tracking & details" }
                         ].map((role, i) => (
                             <div key={i} className="bg-slate-900/40 border border-slate-800/80 p-2.5 sm:p-3.5 rounded-xl backdrop-blur-sm hover:border-slate-700/50 transition-colors">
                                 <p className="text-xs font-bold text-slate-200">{role.label}</p>
@@ -241,12 +241,12 @@ export default function PresentationPage() {
                                 Single source of truth. Updates to service orders or material stock instantly propagate to all departments.
                             </div>
                             <div className="bg-emerald-950/20 border border-emerald-900/30 p-3 rounded-lg text-slate-300 shadow-lg shadow-emerald-950/5">
-                                <span className="font-bold text-emerald-300 block mb-0.5">Real-time Stock Deductions</span>
-                                When a service order is finalized, materials are verified and balanced against contractor stock records.
+                                <span className="font-bold text-emerald-300 block mb-0.5">Real-time Stock & Procurement Control</span>
+                                Warehouse stock issues and contractor allocations are verified and tracked against active project purchase orders.
                             </div>
                             <div className="bg-emerald-950/20 border border-emerald-900/30 p-3 rounded-lg text-slate-300 shadow-lg shadow-emerald-950/5">
-                                <span className="font-bold text-emerald-300 block mb-0.5">Transparent Audit History</span>
-                                System captures exact contractor registration, verification code, stock issues, usage details, and dates.
+                                <span className="font-bold text-emerald-300 block mb-0.5">Transparent Audits & Safe Transactions</span>
+                                Tracks task schedule progress (WBS), invoice retention splits, and coordinate approvals using safe database transactions.
                             </div>
                         </div>
                     </div>
