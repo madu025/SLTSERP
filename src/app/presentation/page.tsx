@@ -166,34 +166,34 @@ export default function PresentationPage() {
         {
             id: 1,
             chapter: "Welcome to SLTSERP",
-            title: "SLTSERP Platform",
-            subtitle: "Next-Generation Telecom Operations Portal",
+            title: "SLTS Workflow Management",
+            subtitle: "End-to-End Telecom Operations Management Platform",
             icon: Layers,
             content: (
-                <div className="flex flex-col items-center justify-center text-center space-y-8 h-full max-w-3xl mx-auto">
+                <div className="flex flex-col items-center justify-center text-center space-y-5 sm:space-y-8 h-full max-w-3xl mx-auto">
                     <div className="relative">
                         <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-emerald-600 rounded-full blur opacity-45 animate-pulse"></div>
-                        <div className="relative bg-slate-900 border border-slate-700/80 p-6 rounded-full">
-                            <Layers className="w-16 h-16 text-blue-400" />
+                        <div className="relative bg-slate-900 border border-slate-700/80 p-4 sm:p-6 rounded-full">
+                            <Layers className="w-10 h-10 sm:w-16 sm:h-16 text-blue-400" />
                         </div>
                     </div>
                     <div>
-                        <h2 className="text-3xl md:text-5xl font-black bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent tracking-tight">
-                            SLTS Operations Management
+                        <h2 className="text-2xl sm:text-4xl md:text-5xl font-black bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent tracking-tight">
+                            SLTS Workflow Management
                         </h2>
-                        <p className="text-slate-400 text-sm md:text-base mt-3 max-w-2xl font-medium leading-relaxed">
+                        <p className="text-slate-400 text-xs sm:text-sm md:text-base mt-2 sm:mt-3 max-w-2xl font-medium leading-relaxed">
                             Built specifically for OSP and Service Provisioning teams to coordinate customer service orders, contractor assignments, materials utilization, and warehouse stock balances.
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full pt-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 w-full pt-0 sm:pt-4">
                         {[
                             { label: "📋 Operations Team", desc: "Service Order Sheets" },
                             { label: "🏭 Store Keepers", desc: "Warehouse GRN & stock" },
                             { label: "👷 Contractor Teams", desc: "Job tracking & details" },
                             { label: "👔 Regional Managers", desc: "Performance & Audits" }
                         ].map((role, i) => (
-                            <div key={i} className="bg-slate-900/40 border border-slate-800/80 p-3.5 rounded-xl backdrop-blur-sm hover:border-slate-700/50 transition-colors">
+                            <div key={i} className="bg-slate-900/40 border border-slate-800/80 p-2.5 sm:p-3.5 rounded-xl backdrop-blur-sm hover:border-slate-700/50 transition-colors">
                                 <p className="text-xs font-bold text-slate-200">{role.label}</p>
                                 <p className="text-[10px] text-slate-500 mt-0.5">{role.desc}</p>
                             </div>
