@@ -450,14 +450,22 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         if (allTasks.length === 0) return <p className="text-slate-500 text-center py-8">No tasks to display in Gantt view</p>;
 
         const sortedTasks = [...allTasks].sort((a, b) => {
-            if (!a.plannedStartDate) return 1;
-            if (!b.plannedStartDate) return -1;
-            return new Date(a.plannedStartDate).getTime() - new Date(b.plannedStartDate).getTime();
+            const startA = a.plannedStartDate;
+            const startB = b.plannedStartDate;
+            if (!startA) return 1;
+            if (!startB) return -1;
+            return new Date(startA).getTime() - new Date(startB).getTime();
         });
 
         // Find date range
-        const startDates = sortedTasks.filter(t => t.plannedStartDate).map(t => new Date(t.plannedStartDate));
-        const endDates = sortedTasks.filter(t => t.plannedEndDate).map(t => new Date(t.plannedEndDate));
+        const startDates = sortedTasks
+            .map(t => t.plannedStartDate)
+            .filter((d): d is string => d !== undefined && d !== null && d !== '')
+            .map(d => new Date(d));
+        const endDates = sortedTasks
+            .map(t => t.plannedEndDate)
+            .filter((d): d is string => d !== undefined && d !== null && d !== '')
+            .map(d => new Date(d));
         const minDate = startDates.length > 0 ? new Date(Math.min(...startDates.map(d => d.getTime()))) : new Date();
         const maxDate = endDates.length > 0 ? new Date(Math.max(...endDates.map(d => d.getTime()))) : new Date();
         const totalDays = Math.max((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24), 30);

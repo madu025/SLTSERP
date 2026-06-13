@@ -947,11 +947,11 @@ export default function ProjectFinance({ project, refreshProject }: ProjectFinan
                                             {ret.releaseCondition && (
                                                 <p className="text-xs text-slate-400 mt-1">Condition: {ret.releaseCondition.replace(/_/g, ' ')}</p>
                                             )}
-                                            {ret.releases?.length > 0 && (
+                                            {ret.releases && ret.releases.length > 0 && (
                                                 <details className="mt-2">
                                                     <summary className="text-xs text-blue-500 cursor-pointer">View Release History ({ret.releases.length})</summary>
                                                     <div className="mt-2 space-y-1">
-                                                        {ret.releases?.map((rel: RetentionRelease) => (
+                                                        {ret.releases.map((rel: RetentionRelease) => (
                                                             <div key={rel.id} className="flex justify-between text-xs text-slate-500 bg-slate-50 p-2 rounded">
                                                                 <span>LKR {rel.releaseAmount?.toLocaleString()}</span>
                                                                 <span>{new Date(rel.releaseDate).toLocaleDateString()}</span>

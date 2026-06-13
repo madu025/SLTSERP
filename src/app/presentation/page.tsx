@@ -62,7 +62,7 @@ export default function PresentationPage() {
                 setIsLoggedIn(!!token);
                 if (savedSlide) {
                     const index = parseInt(savedSlide, 10);
-                    if (index >= 0 && index < 15) {
+                    if (index >= 0 && index < 18) {
                         setCurrentSlide(index);
                     }
                 }
@@ -76,11 +76,11 @@ export default function PresentationPage() {
     }, [currentSlide]);
 
     const handleNext = useCallback(() => {
-        setCurrentSlide((prev) => (prev + 1) % 15);
+        setCurrentSlide((prev) => (prev + 1) % 18);
     }, []);
 
     const handlePrev = useCallback(() => {
-        setCurrentSlide((prev) => (prev - 1 + 15) % 15);
+        setCurrentSlide((prev) => (prev - 1 + 18) % 18);
     }, []);
 
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -851,63 +851,63 @@ export default function PresentationPage() {
         {
             id: 13,
             chapter: "Project Operations",
-            title: "OSP Project Management & Financial Controls",
-            subtitle: "Unified workspace tracking WBS tasks, project finances, procurement, and closures",
+            title: "OSP Project Operations & Infrastructure Management",
+            subtitle: "Transitioning from simple service tickets to structured multi-phase project lifecycles",
             icon: Archive,
             content: (
                 <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
                     <div className="lg:col-span-2 space-y-4">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider">
-                            <Zap className="w-3 h-3" /> Fully Integrated
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider">
+                            <Zap className="w-3 h-3" /> Brand New Module
                         </div>
-                        <h3 className="text-2xl font-bold text-white tracking-tight">Unified Project Workspace</h3>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Structured Project Controls</h3>
                         <p className="text-slate-400 text-xs leading-relaxed">
-                            Tracks full telecom infrastructure projects from task scheduling to ultimate sign-off. Governs budgets, contractor requisitions, and structural project adjustments.
+                            Telecom infrastructure deployment (fiber rollouts, tower setups) requires more than single-ticket scheduling. The OSP Project module consolidates WBS tasks, material logistics, procurement ledger, and contractual closures.
                         </p>
-                        <ul className="space-y-2 text-[11px] text-slate-300">
+                        <ul className="space-y-2 text-[11px] text-slate-300 font-medium">
                             <li className="flex items-start gap-2">
-                                <span className="text-emerald-400 font-bold">✓</span>
-                                <span>**Recursive WBS Progress:** Sub-task progress changes automatically propagate up the parent hierarchy for accurate real-time completion tracking.</span>
+                                <span className="text-blue-400 font-bold">✓</span>
+                                <span>**Comprehensive Lifecycle Management:** Tracks projects from planning and scheduling to billing reconciliation and ultimate sign-off.</span>
                             </li>
                             <li className="flex items-start gap-2">
-                                <span className="text-emerald-400 font-bold">✓</span>
-                                <span>**Transactional Security:** Payment and invoice state changes are protected by concurrency locks to prevent billing discrepancies.</span>
+                                <span className="text-blue-400 font-bold">✓</span>
+                                <span>**Cross-Department Synergy:** Unifies project managers, regional engineers, storekeepers, and contractors in one workspace.</span>
                             </li>
                             <li className="flex items-start gap-2">
-                                <span className="text-emerald-400 font-bold">✓</span>
-                                <span>**Comprehensive Closure Checklist:** Enforces absolute resolution of change orders, stock returns, and retention releases before project sign-off.</span>
+                                <span className="text-blue-400 font-bold">✓</span>
+                                <span>**Robust Financial Governance:** Enforces validation barriers to prevent budget overruns, inventory leaks, and billing discrepancies.</span>
                             </li>
                         </ul>
                     </div>
 
-                    <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                            <span className="text-[10px] font-black text-blue-400 font-mono uppercase tracking-wider">WBS & Task Tracker</span>
-                            <h4 className="text-xs font-bold text-slate-200">Hierarchical Progress</h4>
-                            <p className="text-[10px] text-slate-500 leading-normal">
-                                Parent tasks compute the weighted average of child completions, ensuring transparent field metrics.
-                            </p>
+                    <div className="lg:col-span-3 bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5"><Layers className="w-4 h-4 text-blue-405" /> Project Workspace Overview</span>
+                            <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">IN PROGRESS</span>
                         </div>
-                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                            <span className="text-[10px] font-black text-emerald-400 font-mono uppercase tracking-wider">Financial ledger</span>
-                            <h4 className="text-xs font-bold text-slate-200">Retentions & PV Locks</h4>
-                            <p className="text-[10px] text-slate-500 leading-normal">
-                                Manages 10% contract retentions and payment vouchers, wrapping all modifications in safe database transactions.
-                            </p>
+                        <div className="grid grid-cols-2 gap-3 text-[10px]">
+                            <div className="bg-slate-950/40 p-2.5 rounded border border-slate-850">
+                                <span className="text-slate-500 block">Total Budget Allocation</span>
+                                <span className="text-sm font-black text-slate-200">LKR 12,500,000.00</span>
+                            </div>
+                            <div className="bg-slate-950/40 p-2.5 rounded border border-slate-850">
+                                <span className="text-slate-500 block">Projected Completion</span>
+                                <span className="text-sm font-black text-emerald-400">68% / 100%</span>
+                            </div>
                         </div>
-                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                            <span className="text-[10px] font-black text-purple-400 font-mono uppercase tracking-wider">Procurement logs</span>
-                            <h4 className="text-xs font-bold text-slate-200">PR to Goods Receipt</h4>
-                            <p className="text-[10px] text-slate-500 leading-normal">
-                                Coordinates supplier requisitions, vendor PO issuances, and warehouse Goods Received Notes.
-                            </p>
-                        </div>
-                        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-2">
-                            <span className="text-[10px] font-black text-amber-400 font-mono uppercase tracking-wider">Change Orders & Closure</span>
-                            <h4 className="text-xs font-bold text-slate-200">Audit-Verified Closure</h4>
-                            <p className="text-[10px] text-slate-500 leading-normal">
-                                Tracks scope, cost, and time modifications, requiring a completed checklist for project completion.
-                            </p>
+                        <div className="bg-slate-950/45 p-3 rounded-lg border border-slate-850/80 space-y-2">
+                            <div className="flex justify-between items-center text-[10px]">
+                                <span className="text-slate-400 font-medium">Work Breakdown Structure</span>
+                                <span className="font-bold text-blue-400">12 Completed / 5 Active</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-800/40 pt-1.5">
+                                <span>Procurement Status</span>
+                                <span className="font-bold text-purple-400">3 Purchase Orders Issued</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-slate-400 border-t border-slate-800/40 pt-1.5">
+                                <span>Closure Status</span>
+                                <span className="font-bold text-amber-500">Pending Final Sign-off</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -915,6 +915,207 @@ export default function PresentationPage() {
         },
         {
             id: 14,
+            chapter: "Project Operations",
+            title: "WBS & Recursive Progress Propagation",
+            subtitle: "Interactive work breakdown structures with automated child-to-parent synchronization",
+            icon: Layers,
+            content: (
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-black uppercase tracking-wider">
+                            <Zap className="w-3 h-3" /> Recursive Progress
+                        </div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Hierarchical Progress Engine</h3>
+                        <p className="text-slate-400 text-xs leading-relaxed">
+                            Telecom works involve complex nested phases. Manual progress reporting on parent tasks is error-prone. The OSP Project module propagates sub-task completions directly up the WBS tree.
+                        </p>
+                        <ul className="space-y-2 text-[11px] text-slate-300 font-medium">
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Database-Level Recalculation:** Sub-task progress edits run a transaction and call a recursive helper `updateParentProgress` to update parent progress all the way to the root.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Task Dependency Constraints:** Enforces scheduling rules where child milestones must be met before successor tasks can begin.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-emerald-400 font-bold">✓</span>
+                                <span>**Timesheet Logging Integration:** Connects contractor daily logs to WBS tasks for real-time verification of field hours.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="lg:col-span-3 bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5"><Layers className="w-4 h-4 text-emerald-400" /> Work Breakdown Structure</span>
+                            <span className="text-[9px] font-mono text-emerald-400">ROOT PROGRESS: 68%</span>
+                        </div>
+                        <div className="space-y-2 text-[10px] font-mono">
+                            <div className="bg-slate-950/40 p-2.5 rounded border border-slate-850">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-slate-300 font-bold flex items-center gap-1.5">📁 1. Civil Work & Excavation</span>
+                                    <span className="text-emerald-400 font-bold">75%</span>
+                                </div>
+                                <div className="w-full bg-slate-900 rounded-full h-1">
+                                    <div className="bg-emerald-500 h-1 rounded-full" style={{ width: "75%" }} />
+                                </div>
+                                <div className="mt-2 pl-4 space-y-1.5 border-l border-slate-800">
+                                    <div className="flex justify-between items-center text-slate-450">
+                                        <span>📄 1.1 Trench Excavation (100m)</span>
+                                        <span className="text-emerald-450">100% ✓</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-slate-450">
+                                        <span>📄 1.2 PVC Pipe Insertion</span>
+                                        <span className="text-amber-450">50% In-Progress</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-slate-950/40 p-2.5 rounded border border-slate-850">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-slate-300 font-bold flex items-center gap-1.5">📁 2. Fiber Blowing & Splicing</span>
+                                    <span className="text-slate-500 font-bold">0%</span>
+                                </div>
+                                <div className="w-full bg-slate-900 rounded-full h-1">
+                                    <div className="bg-emerald-500 h-1 rounded-full" style={{ width: "0%" }} />
+                                </div>
+                                <div className="mt-2 pl-4 space-y-1.5 border-l border-slate-800 text-slate-500">
+                                    <div className="flex justify-between items-center">
+                                        <span>📄 2.1 Fiber Cable Blowing</span>
+                                        <span>0% Pending</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 15,
+            chapter: "Project Operations",
+            title: "Project Financials & Procurement Control",
+            subtitle: "Managing materials from purchase requisitions to vendor deliveries and contractor retentions",
+            icon: Banknote,
+            content: (
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider">
+                            <CheckCircle2 className="w-3 h-3" /> Financial Control
+                        </div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Procurement to Invoice Integrity</h3>
+                        <p className="text-slate-400 text-xs leading-relaxed">
+                            Tracks the lifecycle of physical assets from Purchase Requisition (PR), Purchase Order (PO) with suppliers, to Goods Receipt Notes (GRN). Aligns all invoices and payment vouchers to prevent stock and billing leakages.
+                        </p>
+                        <ul className="space-y-2 text-[11px] text-slate-300 font-medium">
+                            <li className="flex items-start gap-2">
+                                <span className="text-purple-400 font-bold">✓</span>
+                                <span>**PR-to-PO Bridge:** Links contractor material requests directly to official store purchase orders to eliminate ad-hoc, unapproved stock usage.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-purple-400 font-bold">✓</span>
+                                <span>**90/10 Split and Part B Lock:** Automatically manages the 10% invoice retention (Part B) and Part A (90%) release.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-purple-400 font-bold">✓</span>
+                                <span>**Concurrency Protection:** Wrap invoice status updates and payment voucher allocations in `prisma.$transaction` to guarantee database consistency.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="lg:col-span-3 bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5"><Banknote className="w-4 h-4 text-emerald-400" /> Invoice Payment Details</span>
+                            <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">TRANS_LOCKED</span>
+                        </div>
+                        <div className="space-y-2.5 text-[10px]">
+                            <div className="flex items-center justify-between bg-slate-950/30 p-2 rounded border border-slate-850">
+                                <span className="text-slate-400">Linked Purchase Order</span>
+                                <span className="font-mono text-slate-200">PO-2026-0925 (Approved)</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-slate-950/45 p-2 rounded border border-slate-850">
+                                    <span className="text-slate-500 block text-[9px]">Part A (90% Released)</span>
+                                    <span className="text-xs font-bold text-blue-400">LKR 900,000.00</span>
+                                </div>
+                                <div className="bg-slate-950/45 p-2 rounded border border-slate-850">
+                                    <span className="text-slate-500 block text-[9px]">Part B (10% Retained)</span>
+                                    <span className="text-xs font-bold text-amber-500">LKR 100,000.00</span>
+                                </div>
+                            </div>
+                            <div className="bg-slate-950/45 p-3 rounded-lg border border-slate-850/80 space-y-2">
+                                <div className="flex justify-between items-center text-[10px] text-rose-400">
+                                    <span className="font-medium">QC Penalty / Delay Deduction</span>
+                                    <span className="font-bold">- LKR 15,000.00</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-emerald-400 font-bold border-t border-slate-800/40 pt-1.5">
+                                    <span>Net Retention to Release</span>
+                                    <span>LKR 85,000.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 16,
+            chapter: "Project Operations",
+            title: "Change Orders & Closure Workflows",
+            subtitle: "Strict scope tracking and verification checks before final project sign-off",
+            icon: Settings,
+            content: (
+                <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 h-full items-center max-w-5xl mx-auto">
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-black uppercase tracking-wider">
+                            <Zap className="w-3 h-3" /> Audit Verified
+                        </div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Scope Modifications & Release</h3>
+                        <p className="text-slate-400 text-xs leading-relaxed">
+                            OSP projects naturally evolve. The scope, budget, and timeline changes must be explicitly logged via Change Orders (COs) and approved. Once completed, a strict multi-point checksheet enforces audit compliance.
+                        </p>
+                        <ul className="space-y-2 text-[11px] text-slate-300 font-medium">
+                            <li className="flex items-start gap-2">
+                                <span className="text-amber-400 font-bold">✓</span>
+                                <span>**Change Order Management:** Tracks scope changes, additional cost impacts, and timeline modifications under a unified register.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-amber-400 font-bold">✓</span>
+                                <span>**Material Return Note (MRN):** Validates and registers returned/unused contractor materials before clearing closure.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-amber-400 font-bold">✓</span>
+                                <span>**Structured Closure Checklist:** Enforces absolute resolution of all change orders, store balances, and retention releases before sign-off.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="lg:col-span-3 bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-xl">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-amber-400" /> Closure Checklist Status</span>
+                            <span className="text-[9px] font-mono text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">PENDING FINAL SIGN-OFF</span>
+                        </div>
+                        <div className="space-y-2.5 text-[10px]">
+                            <div className="flex justify-between items-center p-2.5 bg-slate-950/40 rounded border border-emerald-500/20">
+                                <span className="text-slate-300 flex items-center gap-2"><span className="text-emerald-400 font-bold">✓</span> All Change Orders Resolved</span>
+                                <span className="text-emerald-400 font-mono">3/3 APPROVED</span>
+                            </div>
+                            <div className="flex justify-between items-center p-2.5 bg-slate-950/40 rounded border border-emerald-500/20">
+                                <span className="text-slate-300 flex items-center gap-2"><span className="text-emerald-400 font-bold">✓</span> Materials Reconciled (MRN)</span>
+                                <span className="text-emerald-400 font-mono">LKR 0.00 OUTSTANDING</span>
+                            </div>
+                            <div className="flex justify-between items-center p-2.5 bg-slate-950/40 rounded border border-rose-500/20">
+                                <span className="text-slate-300 flex items-center gap-2"><span className="text-rose-400 font-bold">✗</span> Regional Manager Approval</span>
+                                <button className="bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-bold text-[9px] px-2.5 py-1 rounded transition-all cursor-pointer">
+                                    SIGN-OFF PROJECT
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        },
+        {
+            id: 17,
             chapter: "Future Roadmap",
             title: "Upcoming Upgrades & Enhancements",
             subtitle: "Proposed modules for the next phase of development",
@@ -947,7 +1148,7 @@ export default function PresentationPage() {
             )
         },
         {
-            id: 15,
+            id: 18,
             chapter: "Conclusion",
             title: "Unlock Operational Excellence",
             subtitle: "Transitioning SLTS connection logs to high-speed digital tracks",
@@ -1147,7 +1348,7 @@ export default function PresentationPage() {
                                 </span>
                             </div>
                             <span className="text-[10px] font-black text-slate-500 font-mono bg-slate-950/60 px-2.5 py-0.5 rounded-full border border-slate-850">
-                                {slide.id < 10 ? '0' : ''}{slide.id} / 15
+                                {slide.id < 10 ? '0' : ''}{slide.id} / 18
                             </span>
                         </div>
 
