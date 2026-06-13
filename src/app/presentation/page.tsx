@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
     ChevronLeft,
@@ -925,7 +925,7 @@ export default function PresentationPage() {
         }
     ];
 
-    const slide = useMemo(() => slides[currentSlide], [currentSlide]);
+    const slide = slides[currentSlide];
     const SlideIcon = slide.icon;
 
     return (
