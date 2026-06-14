@@ -23,7 +23,7 @@ export default function Slide10() {
                                                         </div>
                                                         <h3 className="font-semibold text-lg sm:text-xl">Billing Engine</h3>
                                                     </div>
-                                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
+                                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5">
                                                         Processes monthly operational summaries to calculate billing splits and deductions automatically, ensuring transparent financial settlements with field contractors.
                                                     </p>
                                                     <div className="space-y-3">
@@ -76,13 +76,13 @@ export default function Slide10() {
     
                                                     {/* KPI Block */}
                                                     <div className="mt-8 grid grid-cols-2 gap-3">
-                                                        <div className="kpi-block text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                                        <div className="kpi-block text-center p-3 rounded-lg bg-blue-100 dark:bg-blue-900/25">
                                                             <div className="kpi-number text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">90%</div>
-                                                            <div className="kpi-label text-xs text-slate-500 dark:text-slate-400">Contractor</div>
+                                                            <div className="kpi-label text-xs text-slate-700 dark:text-slate-400">Contractor</div>
                                                         </div>
-                                                        <div className="kpi-block text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                                                        <div className="kpi-block text-center p-3 rounded-lg bg-amber-100 dark:bg-amber-900/25">
                                                             <div className="kpi-number text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">10%</div>
-                                                            <div className="kpi-label text-xs text-slate-500 dark:text-slate-400">Service Provider</div>
+                                                            <div className="kpi-label text-xs text-slate-700 dark:text-slate-400">Service Provider</div>
                                                         </div>
                                                     </div>
                                                 </div>

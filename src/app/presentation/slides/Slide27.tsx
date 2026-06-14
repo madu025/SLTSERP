@@ -27,7 +27,7 @@ export default function Slide27() {
                                                         <h3 className="font-mono text-xs sm:text-sm font-bold text-blue-500 uppercase mb-1.5">
                                                             {item.title}
                                                         </h3>
-                                                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                                                        <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400">
                                                             {item.desc}
                                                         </p>
                                                     </div>

@@ -45,14 +45,14 @@ export default function Slide18() {
                                                             return (
                                                                 <div
                                                                     key={doc.title}
-                                                                    className="flex items-start gap-3 p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"
+                                                                    className="flex items-start gap-3 p-3 rounded-lg bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700"
                                                                 >
                                                                     <div className={`w-9 h-9 rounded-lg ${doc.iconBg} flex items-center justify-center flex-shrink-0`}>
                                                                         <Icon className={`w-4.5 h-4.5 ${doc.iconColor}`} />
                                                                     </div>
                                                                     <div>
                                                                         <p className="text-sm font-semibold">{doc.title}</p>
-                                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{doc.desc}</p>
+                                                                        <p className="text-xs text-slate-700 dark:text-slate-400">{doc.desc}</p>
                                                                     </div>
                                                                 </div>
                                                             );
@@ -68,7 +68,7 @@ export default function Slide18() {
                                                         </div>
                                                         <h3 className="font-semibold text-lg sm:text-xl">Audit-Ready Paperwork</h3>
                                                     </div>
-                                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
+                                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5">
                                                         Generate professional, sign-off-ready documents that meet compliance requirements and streamline warehouse operations.
                                                     </p>
                                                     <div className="space-y-3">

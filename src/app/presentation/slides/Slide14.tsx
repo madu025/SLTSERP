@@ -40,7 +40,7 @@ export default function Slide14() {
                                                         </span>
                                                         <h3 className="font-semibold text-lg sm:text-xl">Formalize Handover</h3>
                                                     </div>
-                                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
+                                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5">
                                                         Systematic project closure ensures all deliverables are verified and formally handed over with complete documentation.
                                                     </p>
                                                     <div className="space-y-3">
@@ -59,7 +59,7 @@ export default function Slide14() {
                                                         <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                                                         <h3 className="font-semibold text-lg sm:text-xl">Retention Management</h3>
                                                     </div>
-                                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
+                                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5">
                                                         Hold back a percentage of payment until the defect liability period is satisfied, then release through defined workflows.
                                                     </p>
                                                     <div className="space-y-3">
@@ -72,7 +72,7 @@ export default function Slide14() {
                                                                     </span>
                                                                     <div>
                                                                         <span className="text-sm font-semibold">{feat.title}</span>
-                                                                        <span className="text-sm text-slate-500 dark:text-slate-400"> — {feat.desc}</span>
+                                                                        <span className="text-sm text-slate-700 dark:text-slate-400"> — {feat.desc}</span>
                                                                     </div>
                                                                 </div>
                                                             );

@@ -30,13 +30,13 @@ export default function Slide2() {
                                             <div className={`h-1.5 bg-gradient-to-r ${mod.color}`} />
                                             <div className="p-4 sm:p-5">
                                                 <div className="flex items-center gap-2 mb-3">
-                                                    <span className="text-2xl sm:text-3xl font-bold text-slate-300 dark:text-slate-600">
+                                                    <span className="text-2xl sm:text-3xl font-bold text-slate-700 dark:text-slate-600">
                                                         {mod.num}
                                                     </span>
-                                                    <Icon className="w-5 h-5 text-slate-400" />
+                                                    <Icon className="w-5 h-5 text-slate-700" />
                                                 </div>
                                                 <h3 className="font-semibold text-sm sm:text-base mb-1">{mod.title}</h3>
-                                                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                                                <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400">
                                                     {mod.desc}
                                                 </p>
                                             </div>

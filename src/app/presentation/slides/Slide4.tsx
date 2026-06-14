@@ -59,7 +59,7 @@ export default function Slide4() {
                                                 </div>
                                                 <h3 className="font-semibold text-base sm:text-lg">{cap.title}</h3>
                                             </div>
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">{cap.desc}</p>
+                                            <p className="text-sm text-slate-700 dark:text-slate-400">{cap.desc}</p>
                                         </div>
                                     );
                                 })}

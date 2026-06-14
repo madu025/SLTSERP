@@ -51,7 +51,7 @@ export default function Slide9() {
                                                                                 </svg>
                                                                             </span>
                                                                         </div>
-                                                                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                                                        <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400 mt-0.5">
                                                                             {feat.desc}
                                                                         </p>
                                                                     </div>

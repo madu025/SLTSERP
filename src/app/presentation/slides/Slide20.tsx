@@ -25,7 +25,7 @@ export default function Slide20() {
                                             </div>
     
                                             {/* Subtitle */}
-                                            <p className="text-center text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-6 sm:mt-8 font-medium">
+                                            <p className="text-center text-xs sm:text-sm text-slate-700 dark:text-slate-400 mt-6 sm:mt-8 font-medium">
                                                 Real-time executive metrics — auto-compiled from operational data
                                             </p>
                                         </div>

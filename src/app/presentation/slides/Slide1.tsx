@@ -25,7 +25,7 @@ export default function Slide1() {
                                     >
                                         <div className="text-3xl sm:text-4xl mb-2">{role.icon}</div>
                                         <h3 className="font-semibold text-sm sm:text-base mb-1">{role.title}</h3>
-                                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{role.desc}</p>
+                                        <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400">{role.desc}</p>
                                     </div>
                                 ))}
                             </div>

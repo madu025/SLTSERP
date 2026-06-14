@@ -28,7 +28,7 @@ export default function Slide17() {
                                                         </div>
                                                         <h3 className="font-semibold text-lg sm:text-xl">Safety Stock</h3>
                                                     </div>
-                                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
+                                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5">
                                                         Prevent stock-outs with configurable minimum thresholds that trigger automatic alerts and procurement suggestions.
                                                     </p>
                                                     <div className="space-y-3">
@@ -55,9 +55,9 @@ export default function Slide17() {
                                                         {storeStatuses.map((store) => (
                                                             <div
                                                                 key={store.name}
-                                                                className="p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-center"
+                                                                className="p-3 rounded-lg bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-center"
                                                             >
-                                                                <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">{store.name}</p>
+                                                                <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">{store.name}</p>
                                                                 <div className="flex items-center justify-center gap-1.5">
                                                                     <span className={`w-2 h-2 rounded-full ${store.dotClass}`} />
                                                                     <span className={`text-sm font-bold ${store.colorClass.split(" ").pop()}`}>
@@ -69,7 +69,7 @@ export default function Slide17() {
                                                     </div>
     
                                                     {/* Alert Card */}
-                                                    <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800">
+                                                    <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-100 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800">
                                                         <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
                                                         <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
                                                             Automatically broadcasts notifications when stock falls below thresholds

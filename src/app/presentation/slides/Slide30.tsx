@@ -34,7 +34,7 @@ export default function Slide30() {
                                         </h2>
     
                                         {/* Footer */}
-                                        <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500">
+                                        <p className="text-[10px] sm:text-xs text-slate-700 dark:text-slate-400">
                                             © 2026 SLTSERP • Sri Lanka Telecom Services
                                         </p>
                                     </div>

@@ -60,9 +60,9 @@ export default function Slide24() {
                                                             return (
                                                                 <div
                                                                     key={rule.time}
-                                                                    className="bg-white/60 dark:bg-white/10 rounded-lg p-3 flex items-center gap-3"
+                                                                    className="bg-slate-100 dark:bg-slate-900/50 rounded-lg p-3 flex items-center gap-3"
                                                                 >
-                                                                    <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm">
+                                                                    <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shadow-sm">
                                                                         <Icon className={`w-4 h-4 ${rule.iconColor}`} />
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
@@ -85,7 +85,7 @@ export default function Slide24() {
                                                         <Clock className="w-5 h-5 text-amber-500" />
                                                         <h3 className="font-bold text-sm sm:text-base">Today&apos;s Appointment Logins</h3>
                                                     </div>
-                                                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                                                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400">
                                                         Time-sensitive SLA alerts keep teams on schedule. Appointments trigger escalating reminders, and login dashboards surface the most urgent items immediately.
                                                     </p>
     
@@ -102,7 +102,7 @@ export default function Slide24() {
                                                                     </div>
                                                                     <div>
                                                                         <h4 className="font-semibold text-xs sm:text-sm">{feature.title}</h4>
-                                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                                                        <p className="text-xs text-slate-700 dark:text-slate-400 mt-0.5">
                                                                             {feature.desc}
                                                                         </p>
                                                                     </div>

@@ -33,7 +33,7 @@ export default function Slide25() {
                                                         {beforeItems.map((item, idx) => (
                                                             <div
                                                                 key={idx}
-                                                                className="flex items-start gap-3 bg-rose-50/60 dark:bg-rose-900/20 rounded-lg p-3"
+                                                                className="flex items-start gap-3 bg-rose-100/80 dark:bg-rose-900/20 rounded-lg p-3"
                                                             >
                                                                 <div className="flex-shrink-0 w-6 h-6 rounded-full bg-rose-200 dark:bg-rose-800/60 flex items-center justify-center mt-0.5">
                                                                     <X className="w-3.5 h-3.5 text-rose-600 dark:text-rose-300" />
@@ -56,7 +56,7 @@ export default function Slide25() {
                                                         {afterItems.map((item, idx) => (
                                                             <div
                                                                 key={idx}
-                                                                className="flex items-start gap-3 bg-emerald-50/60 dark:bg-emerald-900/20 rounded-lg p-3"
+                                                                className="flex items-start gap-3 bg-emerald-100/80 dark:bg-emerald-900/20 rounded-lg p-3"
                                                             >
                                                                 <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-200 dark:bg-emerald-800/60 flex items-center justify-center mt-0.5">
                                                                     <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-300" />

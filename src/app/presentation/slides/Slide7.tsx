@@ -45,7 +45,7 @@ export default function Slide7() {
                                                 </div>
                                                 <div>
                                                     <h4 className="font-semibold text-sm sm:text-base">{point.title}</h4>
-                                                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400 mt-0.5">
                                                         {point.desc}
                                                     </p>
                                                 </div>
@@ -61,7 +61,7 @@ export default function Slide7() {
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between text-sm mb-1">
                                         <span className="font-medium">Drop-wire</span>
-                                        <span className="text-slate-500 dark:text-slate-400">4.2% used / 5% limit</span>
+                                        <span className="text-slate-700 dark:text-slate-300">4.2% used / 5% limit</span>
                                     </div>
                                     <div className="w-full h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                         <div
@@ -69,7 +69,7 @@ export default function Slide7() {
                                             style={{ width: "84%" }}
                                         />
                                     </div>
-                                    <div className="flex items-center justify-between text-xs text-slate-400">
+                                    <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-400">
                                         <span>0%</span>
                                         <span className="text-amber-600 dark:text-amber-400 font-medium">4.2%</span>
                                         <span className="text-rose-500 font-medium">5% limit</span>

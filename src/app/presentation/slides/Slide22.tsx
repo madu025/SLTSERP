@@ -38,7 +38,7 @@ export default function Slide22() {
                                                             <h3 className="font-bold text-sm sm:text-base">Contractor Verification Validation</h3>
                                                         </div>
                                                     </div>
-                                                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mb-4">
+                                                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mb-4">
                                                         Every contractor action is validated against registered verification codes. The system ensures only authorized teams can record progress, submit completions, or draw materials from stock.
                                                     </p>
     
@@ -49,7 +49,7 @@ export default function Slide22() {
                                                             <h4 className="font-semibold text-xs sm:text-sm text-rose-600 dark:text-rose-400">
                                                                 Code Mismatch Prevention
                                                             </h4>
-                                                            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                                                            <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
                                                                 If contractor team lacks valid verification code, system blocks and locks the save button.
                                                             </p>
                                                         </div>
@@ -62,7 +62,7 @@ export default function Slide22() {
                                                         <BookOpen className="w-5 h-5 text-blue-500" />
                                                         <h3 className="font-bold text-sm sm:text-base">Contractor Master Ledger</h3>
                                                     </div>
-                                                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                                                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400">
                                                         A centralized registry of all registered contractors, their teams, and historical performance data.
                                                     </p>
     
@@ -79,7 +79,7 @@ export default function Slide22() {
                                                                     </div>
                                                                     <div>
                                                                         <h4 className="font-semibold text-xs sm:text-sm">{feature.title}</h4>
-                                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                                                        <p className="text-xs text-slate-700 dark:text-slate-400 mt-0.5">
                                                                             {feature.desc}
                                                                         </p>
                                                                     </div>

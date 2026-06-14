@@ -49,7 +49,7 @@ export default function Slide19() {
                                                                     <Icon className={`w-4 h-4 ${layer.textColor} flex-shrink-0`} />
                                                                     <div className="text-left">
                                                                         <span className={`font-bold ${layer.textColor}`}>{layer.label}</span>
-                                                                        <span className="block text-xs text-slate-500 dark:text-slate-400 font-normal">
+                                                                        <span className="block text-xs text-slate-700 dark:text-slate-400 font-normal">
                                                                             {layer.detail}
                                                                         </span>
                                                                     </div>

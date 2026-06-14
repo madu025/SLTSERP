@@ -43,7 +43,7 @@ export default function Slide16() {
                                                         </div>
                                                         <h3 className="font-semibold text-lg sm:text-xl">Stock Ledger</h3>
                                                     </div>
-                                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
+                                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5">
                                                         A running record of every receipt and issue, giving you an always-accurate view of current stock levels.
                                                     </p>
                                                     <div className="space-y-3">
@@ -67,10 +67,10 @@ export default function Slide16() {
                                                         <table className="w-full text-sm">
                                                             <thead>
                                                                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                                                                    <th className="text-left py-2 font-semibold text-slate-600 dark:text-slate-300">Item</th>
-                                                                    <th className="text-right py-2 font-semibold text-slate-600 dark:text-slate-300">Received</th>
-                                                                    <th className="text-right py-2 font-semibold text-slate-600 dark:text-slate-300">Issued</th>
-                                                                    <th className="text-right py-2 font-semibold text-slate-600 dark:text-slate-300">Balance</th>
+                                                                    <th className="text-left py-2 font-semibold text-slate-700 dark:text-slate-300">Item</th>
+                                                                    <th className="text-right py-2 font-semibold text-slate-700 dark:text-slate-300">Received</th>
+                                                                    <th className="text-right py-2 font-semibold text-slate-700 dark:text-slate-300">Issued</th>
+                                                                    <th className="text-right py-2 font-semibold text-slate-700 dark:text-slate-300">Balance</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
@@ -91,20 +91,20 @@ export default function Slide16() {
                                                         {ledgerData.map((row) => (
                                                             <div
                                                                 key={row.item}
-                                                                className="p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"
+                                                                className="p-3 rounded-lg bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700"
                                                             >
                                                                 <p className="font-semibold text-sm mb-2">{row.item}</p>
                                                                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                                                                     <div>
-                                                                        <p className="text-slate-500 dark:text-slate-400 font-medium">Received</p>
+                                                                        <p className="text-slate-700 dark:text-slate-400 font-medium">Received</p>
                                                                         <p className={`font-mono font-bold ${row.receivedColor}`}>{row.received}</p>
                                                                     </div>
                                                                     <div>
-                                                                        <p className="text-slate-500 dark:text-slate-400 font-medium">Issued</p>
+                                                                        <p className="text-slate-700 dark:text-slate-400 font-medium">Issued</p>
                                                                         <p className={`font-mono font-bold ${row.issuedColor}`}>{row.issued}</p>
                                                                     </div>
                                                                     <div>
-                                                                        <p className="text-slate-500 dark:text-slate-400 font-medium">Balance</p>
+                                                                        <p className="text-slate-700 dark:text-slate-400 font-medium">Balance</p>
                                                                         <p className={`font-mono font-bold ${row.balanceColor}`}>{row.balance}</p>
                                                                     </div>
                                                                 </div>

@@ -19,7 +19,7 @@ export default function Slide8() {
                             <h3 className="text-xl sm:text-2xl font-bold mb-2 text-emerald-700 dark:text-emerald-400">
                                 SLT Sourced
                             </h3>
-                            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                            <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
                                 Materials from SLT store, cost deducted from monthly invoice
                             </p>
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-100 dark:bg-rose-900/40 text-xs font-semibold text-rose-600 dark:text-rose-400">
@@ -35,7 +35,7 @@ export default function Slide8() {
                             <h3 className="text-xl sm:text-2xl font-bold mb-2 text-amber-700 dark:text-amber-400">
                                 SLTS Sourced
                             </h3>
-                            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                            <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
                                 Materials from SLTS warehouse, tracked for internal reconciliation
                             </p>
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-xs font-semibold text-blue-600 dark:text-blue-400">

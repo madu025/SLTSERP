@@ -26,7 +26,7 @@ export default function Slide26() {
                                             </div>
     
                                             {/* Disclaimer */}
-                                            <p className="text-center text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mt-6 sm:mt-8 font-medium">
+                                            <p className="text-center text-[10px] sm:text-xs text-slate-700 dark:text-slate-400 mt-6 sm:mt-8 font-medium">
                                                 Estimated improvements based on operational benchmarks
                                             </p>
                                         </div>

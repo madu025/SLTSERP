@@ -32,7 +32,7 @@ export default function Slide28() {
                                                     {summaryItems.map((item) => (
                                                         <div
                                                             key={item}
-                                                            className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-full px-4 py-2"
+                                                            className="flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-full px-4 py-2"
                                                         >
                                                             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                                                             <span className="text-xs sm:text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -53,7 +53,7 @@ export default function Slide28() {
                                                     </button>
                                                     <button
                                                         onClick={() => { if (typeof window !== "undefined" && (window as any).__sltserp_navigate) (window as any).__sltserp_navigate(0); }}
-                                                        className="btn-focus inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                        className="btn-focus inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                                     >
                                                         <Home className="w-4 h-4" />
                                                         Restart Presentation

@@ -62,7 +62,7 @@ export default function Slide6() {
                                                 <h3 className="font-semibold text-base sm:text-lg mb-3">{step.title}</h3>
                                                 <ul className="space-y-2">
                                                     {step.fields.map((field: any) => (
-                                                        <li key={field} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                                        <li key={field} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                                                             <span className={`w-1.5 h-1.5 rounded-full ${step.topBorder} flex-shrink-0`} />
                                                             {field}
                                                         </li>

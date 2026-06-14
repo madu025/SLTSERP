@@ -22,7 +22,7 @@ export default function Slide12() {
                                                         return (
                                                             <div key={item.id} className={indent}>
                                                                 <div className="flex items-center gap-3 mb-1.5">
-                                                                    <span className="text-xs sm:text-sm font-mono font-bold text-slate-400">
+                                                                    <span className="text-xs sm:text-sm font-mono font-bold text-slate-700">
                                                                         {item.id}
                                                                     </span>
                                                                     <span className="text-sm sm:text-base font-semibold">{item.label}</span>

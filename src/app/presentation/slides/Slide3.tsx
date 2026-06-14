@@ -43,7 +43,7 @@ export default function Slide3() {
                                                         </div>
                                                         <div>
                                                             <h4 className="font-semibold text-sm sm:text-base">{item.title}</h4>
-                                                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400 mt-0.5">
                                                                 {item.desc}
                                                             </p>
                                                         </div>
@@ -75,7 +75,7 @@ export default function Slide3() {
                                                         </div>
                                                         <div>
                                                             <h4 className="font-semibold text-sm sm:text-base">{item.title}</h4>
-                                                            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                                                            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400 mt-0.5">
                                                                 {item.desc}
                                                             </p>
                                                         </div>

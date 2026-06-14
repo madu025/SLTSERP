@@ -25,7 +25,7 @@ export default function Slide5() {
                                         <Zap className="w-3 h-3" />
                                         Built for speed
                                     </span>
-                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-6">
+                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-6">
                                         Edit service orders in a familiar spreadsheet interface — no page reloads, no modals, just cells.
                                     </p>
     
@@ -36,12 +36,12 @@ export default function Slide5() {
                                             </div>
                                             <div>
                                                 <h4 className="font-semibold text-sm sm:text-base">Inline Field Editing</h4>
-                                                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                                                <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-400">
                                                     Select any cell to make rapid adjustments, utilizing standard spreadsheet navigation.
                                                 </p>
                                             </div>
                                         </div>
-    
+
                                         <div className="flex items-start gap-3">
                                             <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
                                                 <Save className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -50,7 +50,7 @@ export default function Slide5() {
                                                 <h4 className="font-semibold text-sm sm:text-base">Auto-Save States</h4>
                                                 <div className="flex items-center gap-3 mt-1.5">
                                                     {statusDots.map((dot) => (
-                                                        <span key={dot.label} className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                                        <span key={dot.label} className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-400">
                                                             <span className={`w-2 h-2 rounded-full ${dot.color}`} />
                                                             {dot.label}
                                                         </span>
@@ -72,20 +72,20 @@ export default function Slide5() {
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-xs sm:text-sm">
                                                     <thead>
-                                                        <tr className="bg-slate-50 dark:bg-slate-800/50">
-                                                            <th className="text-left p-3 font-medium text-slate-500 dark:text-slate-400">SO Number</th>
-                                                            <th className="text-left p-3 font-medium text-slate-500 dark:text-slate-400">Customer Details</th>
-                                                            <th className="text-left p-3 font-medium text-slate-500 dark:text-slate-400">Contractor</th>
-                                                            <th className="text-left p-3 font-medium text-slate-500 dark:text-slate-400">Comments</th>
+                                                        <tr className="bg-slate-100 dark:bg-slate-800/50">
+                                                            <th className="text-left p-3 font-medium text-slate-700 dark:text-slate-300">SO Number</th>
+                                                            <th className="text-left p-3 font-medium text-slate-700 dark:text-slate-300">Customer Details</th>
+                                                            <th className="text-left p-3 font-medium text-slate-700 dark:text-slate-300">Contractor</th>
+                                                            <th className="text-left p-3 font-medium text-slate-700 dark:text-slate-300">Comments</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {tableData.map((row) => (
-                                                            <tr key={row.so} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                            <tr key={row.so} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/30">
                                                                 <td className="p-3 font-mono text-xs">{row.so}</td>
                                                                 <td className="p-3">{row.customer}</td>
                                                                 <td className="p-3">{row.contractor}</td>
-                                                                <td className="p-3 text-slate-500 dark:text-slate-400">{row.comments}</td>
+                                                                <td className="p-3 text-slate-700 dark:text-slate-400">{row.comments}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -100,10 +100,10 @@ export default function Slide5() {
                                             <div key={row.so} className="card-primary rounded-xl p-4">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="font-mono text-xs font-semibold text-blue-600 dark:text-blue-400">{row.so}</span>
-                                                    <span className="text-xs text-slate-400">{row.contractor}</span>
+                                                        <span className="text-xs text-slate-700 dark:text-slate-400">{row.contractor}</span>
                                                 </div>
                                                 <p className="text-sm font-medium">{row.customer}</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{row.comments}</p>
+                                                <p className="text-xs text-slate-700 dark:text-slate-400 mt-1">{row.comments}</p>
                                             </div>
                                         ))}
                                     </div>

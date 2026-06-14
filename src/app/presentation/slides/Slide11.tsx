@@ -51,7 +51,7 @@ export default function Slide11() {
                                                                 </div>
                                                                 <h3 className="font-semibold text-base sm:text-lg">{concept.title}</h3>
                                                             </div>
-                                                            <p className="text-sm text-slate-500 dark:text-slate-400">{concept.desc}</p>
+                                                            <p className="text-sm text-slate-700 dark:text-slate-400">{concept.desc}</p>
                                                         </div>
                                                     );
                                                 })}

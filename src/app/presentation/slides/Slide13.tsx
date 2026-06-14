@@ -28,7 +28,7 @@ export default function Slide13() {
                                                         </div>
                                                         <h3 className="font-semibold text-lg sm:text-xl">Change Orders</h3>
                                                     </div>
-                                                    <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
+                                                    <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 mb-5">
                                                         Manage project scope changes with full traceability and financial impact tracking.
                                                     </p>
                                                     <div className="space-y-3">
@@ -55,12 +55,12 @@ export default function Slide13() {
                                                         {purchaseOrders.map((po) => (
                                                             <div
                                                                 key={po.id}
-                                                                className="flex items-center justify-between p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"
+                                                                className="flex items-center justify-between p-3 rounded-lg bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700"
                                                             >
                                                                 <div className="flex items-center gap-3">
-                                                                    <Package className="w-4 h-4 text-slate-400" />
-                                                                    <div>
-                                                                        <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{po.id}</span>
+                                                                        <Package className="w-4 h-4 text-slate-700" />
+                                                                        <div>
+                                                                            <span className="text-xs font-mono text-slate-700 dark:text-slate-400">{po.id}</span>
                                                                         <p className="text-sm font-medium">{po.item}</p>
                                                                     </div>
                                                                 </div>
