@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
@@ -42,10 +41,10 @@ export default function Slide10() {
                                                 <div className="card-analytics rounded-xl p-5 sm:p-6 flex flex-col justify-center">
                                                     <h3 className="font-semibold text-base sm:text-lg mb-6 text-center">Payment Split</h3>
     
-                                                    {/* SLTS Contractor Share - 90% */}
+                                                    {/* Contractor Payment - 90% */}
                                                     <div className="mb-6">
                                                         <div className="flex items-center justify-between mb-2">
-                                                            <span className="text-sm sm:text-base font-medium">SLTS Contractor Share</span>
+                                                            <span className="text-sm sm:text-base font-medium">Contractor Payment</span>
                                                             <span className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">90%</span>
                                                         </div>
                                                         <div className="w-full h-5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -57,11 +56,11 @@ export default function Slide10() {
                                                             </div>
                                                         </div>
                                                     </div>
-    
-                                                    {/* SLT Service Provider Share - 10% */}
+     
+                                                    {/* SLTS Retention - 10% */}
                                                     <div>
                                                         <div className="flex items-center justify-between mb-2">
-                                                            <span className="text-sm sm:text-base font-medium">SLT Service Provider Share</span>
+                                                            <span className="text-sm sm:text-base font-medium">SLTS Retention</span>
                                                             <span className="text-lg sm:text-xl font-bold text-amber-600 dark:text-amber-400">10%</span>
                                                         </div>
                                                         <div className="w-full h-5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -73,16 +72,16 @@ export default function Slide10() {
                                                             </div>
                                                         </div>
                                                     </div>
-    
+     
                                                     {/* KPI Block */}
                                                     <div className="mt-8 grid grid-cols-2 gap-3">
-                                                        <div className="kpi-block text-center p-3 rounded-lg bg-blue-100 dark:bg-blue-900/25">
+                                                        <div className="kpi-block text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                                                             <div className="kpi-number text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">90%</div>
-                                                            <div className="kpi-label text-xs text-slate-700 dark:text-slate-400">Contractor</div>
+                                                            <div className="kpi-label text-xs text-slate-500 dark:text-slate-400">Contractor</div>
                                                         </div>
-                                                        <div className="kpi-block text-center p-3 rounded-lg bg-amber-100 dark:bg-amber-900/25">
+                                                        <div className="kpi-block text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
                                                             <div className="kpi-number text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">10%</div>
-                                                            <div className="kpi-label text-xs text-slate-700 dark:text-slate-400">Service Provider</div>
+                                                            <div className="kpi-label text-xs text-slate-500 dark:text-slate-400">SLTS Retention</div>
                                                         </div>
                                                     </div>
                                                 </div>
