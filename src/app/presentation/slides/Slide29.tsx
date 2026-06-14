@@ -7,12 +7,7 @@ import { Home, Users, ExternalLink, Info, Mail, MessageCircle } from "lucide-rea
 export default function Slide29() {
     return (
             <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                    {/* Chapter Header */}
-                                    <div className="mb-6 sm:mb-8 text-center">
-                                        <span className="inline-block px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-xs font-medium text-blue-600 dark:text-blue-400 mb-3">
-                                            Discussion
-                                        </span>
-                                    </div>
+                                    
     
                                     <div className="text-center stagger-children">
                                         {/* Big Chat Icon */}
@@ -22,13 +17,9 @@ export default function Slide29() {
                                             </div>
                                         </div>
     
-                                        {/* Title */}
-                                        <h2 className="text-3xl sm:text-5xl font-bold mb-3">Questions &amp; Discussion</h2>
+                                        
     
-                                        {/* Subtitle */}
-                                        <p className="text-sm sm:text-lg text-slate-600 dark:text-slate-300 max-w-xl mx-auto mb-8 sm:mb-10">
-                                            Open floor for feedback, queries, and next steps
-                                        </p>
+                                        
     
                                         {/* Contact Info Section */}
                                         <div className="inline-block bg-slate-50 dark:bg-slate-800/60 rounded-xl p-5 sm:p-6 mb-8 sm:mb-10">

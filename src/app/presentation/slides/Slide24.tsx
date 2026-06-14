@@ -47,13 +47,7 @@ export default function Slide24() {
     ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                            {/* Chapter Header */}
-                                            <div className="mb-6 sm:mb-8 text-center">
-                                                <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-3">
-                                                    Security &amp; Utilities
-                                                </span>
-                                                <h2 className="text-2xl sm:text-4xl font-bold">SLA Alarms &amp; Appointment Alerts</h2>
-                                            </div>
+                                            
     
                                             {/* Two Column Layout */}
                                             <div className="stagger-children grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">

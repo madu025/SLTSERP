@@ -21,17 +21,9 @@ export default function Slide30() {
                                             </div>
                                         </div>
     
-                                        {/* SLTSERP Gradient Text */}
-                                        <h1 className="text-4xl sm:text-6xl font-bold mb-3">
-                                            <span className="bg-gradient-to-r from-blue-500 via-emerald-500 to-purple-500 bg-clip-text text-transparent">
-                                                SLTSERP
-                                            </span>
-                                        </h1>
+                                        
     
-                                        {/* Tagline */}
-                                        <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-2">
-                                            Built for Sri Lanka Telecom Operations
-                                        </p>
+                                        
     
                                         {/* Decorative Line */}
                                         <div className="w-16 h-0.5 bg-gradient-to-r from-blue-500 to-emerald-500 mx-auto my-6 sm:my-8 rounded-full" />

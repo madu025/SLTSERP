@@ -32,13 +32,7 @@ export default function Slide16() {
     ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                            {/* Chapter Header */}
-                                            <div className="mb-6 sm:mb-8">
-                                                <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-3">
-                                                    Warehouse &amp; Stock Control
-                                                </span>
-                                                <h2 className="text-2xl sm:text-4xl font-bold">Stock Ledger &amp; GRN</h2>
-                                            </div>
+                                            
     
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                                                 {/* Left - Description & Features */}

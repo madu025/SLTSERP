@@ -13,12 +13,7 @@ export default function Slide28() {
     ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                            {/* Chapter Header */}
-                                            <div className="mb-6 sm:mb-8 text-center">
-                                                <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-3">
-                                                    Conclusion
-                                                </span>
-                                            </div>
+                                            
     
                                             <div className="text-center stagger-children">
                                                 {/* Big Checkmark Icon */}
@@ -28,13 +23,9 @@ export default function Slide28() {
                                                     </div>
                                                 </div>
     
-                                                {/* Title */}
-                                                <h2 className="text-2xl sm:text-4xl font-bold mb-3">System Ready for Deployment</h2>
+                                                
     
-                                                {/* Subtitle */}
-                                                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto mb-6 sm:mb-8">
-                                                    By centering all workflows around a single web platform, SLTSERP reduces administrative delays, eliminates data discrepancies, and optimizes regional field work.
-                                                </p>
+                                                
     
                                                 {/* 4 Checkmark Summary Items */}
                                                 <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-8 sm:mb-10">

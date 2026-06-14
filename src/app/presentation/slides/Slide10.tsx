@@ -12,13 +12,7 @@ export default function Slide10() {
     ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                            {/* Chapter Header */}
-                                            <div className="mb-6 sm:mb-8">
-                                                <span className="inline-block px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-xs font-medium text-blue-600 dark:text-blue-400 mb-3">
-                                                    Service Order Details (SOD)
-                                                </span>
-                                                <h2 className="text-2xl sm:text-4xl font-bold">Invoicing</h2>
-                                            </div>
+                                            
     
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                                                 {/* Left - Billing Description & Features */}
@@ -30,7 +24,7 @@ export default function Slide10() {
                                                         <h3 className="font-semibold text-lg sm:text-xl">Billing Engine</h3>
                                                     </div>
                                                     <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-5">
-                                                        Automated invoicing with configurable payment splits. Generate, review, and export invoices in one workflow.
+                                                        Processes monthly operational summaries to calculate billing splits and deductions automatically, ensuring transparent financial settlements with field contractors.
                                                     </p>
                                                     <div className="space-y-3">
                                                         {features.map((feat) => (

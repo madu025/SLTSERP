@@ -33,15 +33,7 @@ export default function Slide15() {
     ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                            {/* Chapter Header */}
-                                            <div className="text-center mb-6 sm:mb-8">
-                                                <span className="inline-block px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-3">
-                                                    Warehouse &amp; Stock Control
-                                                </span>
-                                                <h2 className="text-2xl sm:text-4xl font-bold mb-2">
-                                                    Full inventory lifecycle from <span className="text-emerald-500">goods receipt to issue</span>
-                                                </h2>
-                                            </div>
+                                            
     
                                             {/* 3 Capability Cards */}
                                             <div className="stagger-children grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 max-w-4xl mx-auto">

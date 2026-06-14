@@ -17,13 +17,7 @@ export default function Slide25() {
     ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                            {/* Chapter Header */}
-                                            <div className="mb-6 sm:mb-8 text-center">
-                                                <span className="inline-block px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-xs font-medium text-amber-600 dark:text-amber-400 mb-3">
-                                                    Business Value
-                                                </span>
-                                                <h2 className="text-2xl sm:text-4xl font-bold">Before vs. After — Benefits</h2>
-                                            </div>
+                                            
     
                                             {/* Two Column Comparison */}
                                             <div className="stagger-children grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">

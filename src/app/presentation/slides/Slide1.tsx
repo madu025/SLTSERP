@@ -14,25 +14,7 @@ export default function Slide1() {
     ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                            {/* Hero Section */}
-                            <div className="text-center mb-8 sm:mb-12">
-                                <div className="pulse-glow inline-block mb-6">
-                                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center mx-auto shadow-lg">
-                                        <Shield className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
-                                    </div>
-                                </div>
-                                <h1 className="text-3xl sm:text-5xl font-bold mb-3">
-                                    <span className="bg-gradient-to-r from-blue-500 via-emerald-500 to-purple-500 bg-clip-text text-transparent">
-                                        SLTS Workflow Management
-                                    </span>
-                                </h1>
-                                <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 mb-3">
-                                    End-to-End Telecom Operations Management Platform
-                                </p>
-                                <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-                                    Designed for OSP teams managing service orders, warehouse stock, contractor workflows, and billing — all within one unified system.
-                                </p>
-                            </div>
+                            
     
                             {/* Role Cards Grid */}
                             <div className="stagger-children grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">

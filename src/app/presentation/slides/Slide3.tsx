@@ -18,13 +18,7 @@ export default function Slide3() {
     ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                            {/* Chapter Header */}
-                            <div className="text-center mb-8 sm:mb-10">
-                                <span className="inline-block px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">
-                                    Introduction
-                                </span>
-                                <h2 className="text-2xl sm:text-4xl font-bold">Before & After</h2>
-                            </div>
+                            
     
                             {/* Two Column Comparison */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">

@@ -34,13 +34,7 @@ export default function Slide19() {
     ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                                            {/* Chapter Header */}
-                                            <div className="mb-6 sm:mb-8 text-center">
-                                                <span className="inline-block px-3 py-1 rounded-full bg-cyan-100 dark:bg-cyan-900/40 text-xs font-medium text-cyan-600 dark:text-cyan-400 mb-3">
-                                                    System Architecture
-                                                </span>
-                                                <h2 className="text-2xl sm:text-4xl font-bold">Technical Architecture</h2>
-                                            </div>
+                                            
     
                                             {/* Layered Architecture Diagram */}
                                             <div className="stagger-children flex flex-col items-center gap-1 max-w-2xl mx-auto">

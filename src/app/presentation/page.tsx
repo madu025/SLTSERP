@@ -356,13 +356,13 @@ export default function PresentationPage() {
                 {/* SLIDE CANVAS */}
                 <div
                     ref={contentAreaRef}
-                    className="flex-1 flex flex-col p-2 sm:p-6 md:p-8 items-center justify-center overflow-y-auto custom-scrollbar"
+                    className="flex-1 flex flex-col p-2 sm:p-6 md:p-8 items-center justify-center overflow-hidden"
                 >
                     {/* Slide container (Glassmorphic) */}
-                    <div className="w-full max-w-[95vw] xl:max-w-7xl bg-slate-900/50 border border-slate-800 p-4 sm:p-8 lg:p-10 rounded-2xl backdrop-blur-xl shadow-2xl flex flex-col justify-between min-h-[calc(100dvh-185px)] lg:min-h-[550px]">
+                    <div className="w-full max-w-[95vw] xl:max-w-6xl bg-slate-900/40 border border-slate-800/80 p-4 sm:p-6 lg:p-8 rounded-2xl backdrop-blur-xl shadow-2xl flex flex-col justify-between min-h-[520px] h-[calc(100dvh-180px)] lg:h-[620px] max-h-[calc(100dvh-140px)] overflow-hidden">
 
                         {/* Slide Top Details */}
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3 flex-none">
                             <div className="flex items-center gap-2">
                                 <SlideIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                                 <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400 font-mono">
@@ -375,9 +375,9 @@ export default function PresentationPage() {
                         </div>
 
                         {/* Slide Core Content */}
-                        <div className="flex-1 flex flex-col justify-center py-2 sm:py-4 md:py-6">
+                        <div className="flex-1 flex flex-col justify-between overflow-hidden">
                             {/* Slide Title & Subtitle */}
-                            <div className="mb-4 sm:mb-6 md:mb-8 slide-content-enter" key={`title-${slide.id}`}>
+                            <div className="mb-3 sm:mb-4 lg:mb-5 flex-none slide-content-enter" key={`title-${slide.id}`}>
                                 <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
                                     {slide.title}
                                 </h2>
@@ -387,8 +387,10 @@ export default function PresentationPage() {
                             </div>
 
                             {/* Render Custom React Content */}
-                            <div className="flex-1 flex flex-col justify-center slide-content-enter" key={`content-${slide.id}`}>
-                                <ActiveSlideComponent />
+                            <div className="flex-1 min-h-0 overflow-hidden">
+                                <div className="h-full w-full min-h-0 overflow-y-auto custom-scrollbar pr-1 slide-content-enter" key={`content-${slide.id}`}>
+                                    <ActiveSlideComponent />
+                                </div>
                             </div>
                         </div>
 

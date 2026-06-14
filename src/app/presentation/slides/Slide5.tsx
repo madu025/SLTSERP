@@ -16,13 +16,7 @@ export default function Slide5() {
     ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
-                            {/* Chapter Header */}
-                            <div className="mb-6 sm:mb-8">
-                                <span className="inline-block px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-xs font-medium text-blue-600 dark:text-blue-400 mb-3">
-                                    Service Order Details (SOD)
-                                </span>
-                                <h2 className="text-2xl sm:text-4xl font-bold">Sheet Mode</h2>
-                            </div>
+                            
     
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                                 {/* Left - Description & Features */}
@@ -43,7 +37,7 @@ export default function Slide5() {
                                             <div>
                                                 <h4 className="font-semibold text-sm sm:text-base">Inline Field Editing</h4>
                                                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                                                    Click any cell to edit directly — tab to move between fields
+                                                    Select any cell to make rapid adjustments, utilizing standard spreadsheet navigation.
                                                 </p>
                                             </div>
                                         </div>
