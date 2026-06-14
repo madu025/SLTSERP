@@ -2,11 +2,31 @@
 "use client";
 
 import React from "react";
-import { CheckCircle2, Lock } from "lucide-react";
+import { Check, CheckCircle2, Clock, Lock, ShieldAlert } from "lucide-react";
 
 export default function Slide14() {
-    const closurePoints: any[] = [];
-    const retentionFeatures: any[] = [];
+    const closurePoints = [
+        "All tasks at 100% = Closure eligible",
+        "Auto-generates closure PDF report",
+        "Locks project from further edits"
+    ];
+    const retentionFeatures = [
+        {
+            title: "Retention Percentage",
+            desc: "Configurable per contract (e.g., 5% or 10% held).",
+            icon: ShieldAlert
+        },
+        {
+            title: "Defect Liability",
+            desc: "Warranty window tracking for automated release.",
+            icon: Clock
+        },
+        {
+            title: "Release Workflows",
+            desc: "Manual overrides, early release, or extensions.",
+            icon: Check
+        }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

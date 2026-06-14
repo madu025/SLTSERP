@@ -4,7 +4,12 @@
 import React from "react";
 
 export default function Slide26() {
-    const kpis: any[] = [];
+    const kpis = [
+        { label: "Admin Overhead", number: "-40%", sublabel: "Less time spent chasing sheets", textColor: "text-rose-500" },
+        { label: "Billing Cycles", number: "-75%", sublabel: "Auto-split & report compile time", textColor: "text-emerald-500" },
+        { label: "Audit Resolution", number: "-90%", sublabel: "Traceability search reduction", textColor: "text-blue-500" },
+        { label: "Data Accuracy", number: "99.9%", sublabel: "System validation blocks", textColor: "text-purple-500" }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

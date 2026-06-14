@@ -2,10 +2,26 @@
 "use client";
 
 import React from "react";
-import { BookOpen, Shield, AlertTriangle } from "lucide-react";
+import { AlertTriangle, BookOpen, Layers, Shield, Users } from "lucide-react";
 
 export default function Slide22() {
-    const ledgerFeatures: any[] = [];
+    const ledgerFeatures = [
+        {
+            title: "Registered Contractor Profiles",
+            desc: "Maps company codes, bank account details, and active OPMCs.",
+            icon: Users
+        },
+        {
+            title: "Team Splits",
+            desc: "Supports multiple technical teams registered under one parent contractor.",
+            icon: Layers
+        },
+        {
+            title: "Performance Trackers",
+            desc: "Compare completion ratios, returns, and material wastage history.",
+            icon: BookOpen
+        }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

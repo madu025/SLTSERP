@@ -5,8 +5,16 @@ import React from "react";
 import { Check, Package, FileEdit, ShoppingCart } from "lucide-react";
 
 export default function Slide13() {
-    const changeFeatures: any[] = [];
-    const purchaseOrders: any[] = [];
+    const changeFeatures = [
+        "Scope Adjustments",
+        "Cost Impact Analysis",
+        "Approval Workflow"
+    ];
+    const purchaseOrders = [
+        { id: "PO-2026-045", item: "Fiber Cable", status: "APPROVED", badgeClass: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400" },
+        { id: "PO-2026-046", item: "Distribution Points", status: "PENDING", badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400" },
+        { id: "PO-2026-047", item: "Splitters & Connectors", status: "IN REVIEW", badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400" }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

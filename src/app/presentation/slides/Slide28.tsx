@@ -5,7 +5,12 @@ import React from "react";
 import { ArrowRight, Home, CheckCircle2 } from "lucide-react";
 
 export default function Slide28() {
-    const summaryItems: any[] = [];
+    const summaryItems = [
+        "Unified Workflows",
+        "Real-Time Tracking",
+        "Inventory Security",
+        "Automated Billing"
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

@@ -5,8 +5,16 @@ import React from "react";
 import { Warehouse, ShieldAlert, Check, Store } from "lucide-react";
 
 export default function Slide17() {
-    const safetyFeatures: any[] = [];
-    const storeStatuses: any[] = [];
+    const safetyFeatures = [
+        "Configurable Thresholds",
+        "Multi-Store Support",
+        "Auto-Procurement Suggestions"
+    ];
+    const storeStatuses = [
+        { name: "Colombo Store", status: "OK", dotClass: "bg-emerald-500", colorClass: "text-emerald-600 dark:text-emerald-400" },
+        { name: "Gampaha Store", status: "LOW", dotClass: "bg-amber-500", colorClass: "text-amber-600 dark:text-amber-400" },
+        { name: "Kandy Store", status: "CRIT", dotClass: "bg-rose-500", colorClass: "text-rose-600 dark:text-rose-500" }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

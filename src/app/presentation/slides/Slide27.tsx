@@ -4,7 +4,14 @@
 import React from "react";
 
 export default function Slide27() {
-    const upgrades: any[] = [];
+    const upgrades = [
+        { title: "Cashflow Ledger", emoji: "📊", desc: "Track organizational income, outstanding payments, and regional cost centers." },
+        { title: "Accounting Package Sync", emoji: "🔌", desc: "Integrate with QuickBooks, SAP to sync contractor ledger balances." },
+        { title: "Technicians App", emoji: "📱", desc: "Technicians receive jobs, scan barcodes, and attach closure photos on site." },
+        { title: "GPS Dispatching", emoji: "🗺️", desc: "Track team locations on a live map and auto-assign tasks to closest units." },
+        { title: "Automated SMS", emoji: "📨", desc: "Auto-send confirmation messages to customers on job dispatch and completion." },
+        { title: "AI Stock Predictor", emoji: "🤖", desc: "Forecast safety stock depletion dates using historical consumption models." }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

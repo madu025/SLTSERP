@@ -5,7 +5,13 @@ import React from "react";
 import { Shield } from "lucide-react";
 
 export default function Slide1() {
-    const roles: any[] = [];
+    const roles = [
+        { title: "Operations Team", icon: "📋", desc: "Service Order Sheets" },
+        { title: "OSP Projects", icon: "📁", desc: "WBS & Task Schedules" },
+        { title: "Store Keepers", icon: "🏭", desc: "Warehouse GRN & Stock" },
+        { title: "Contractor Teams", icon: "👷", desc: "Job Completion Logs" },
+        { title: "OSP Managers", icon: "👔", desc: "Analytics, Budgets & Audits" }
+    ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                             {/* Hero Section */}

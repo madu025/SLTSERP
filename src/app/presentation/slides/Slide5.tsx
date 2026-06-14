@@ -5,8 +5,15 @@ import React from "react";
 import { Zap, Save, Pencil } from "lucide-react";
 
 export default function Slide5() {
-    const tableData: any[] = [];
-    const statusDots: any[] = [];
+    const tableData = [
+        { so: "SO-2026-0812", customer: "P. K. Silva, Kandy", contractor: "Lanka Tech Team A", comments: "Waiting for OSP path" },
+        { so: "SO-2026-0813", customer: "A. G. Perera, Gampaha", contractor: "Select Team...", comments: "ONT swap required" }
+    ];
+    const statusDots = [
+        { label: "Saving", color: "bg-blue-500" },
+        { label: "Saved", color: "bg-emerald-500" },
+        { label: "ERR", color: "bg-rose-500" }
+    ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                             {/* Chapter Header */}

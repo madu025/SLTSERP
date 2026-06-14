@@ -2,10 +2,35 @@
 "use client";
 
 import React from "react";
-import { Warehouse } from "lucide-react";
+import { FileDown, ShieldAlert, Warehouse } from "lucide-react";
 
 export default function Slide15() {
-    const capabilities: any[] = [];
+    const capabilities = [
+        {
+            title: "Stock Ledger & GRN",
+            desc: "Review real-time transaction history, inspect store balances, and log goods receipts.",
+            icon: Warehouse,
+            iconBg: "bg-blue-100 dark:bg-blue-900/40",
+            iconColor: "text-blue-600 dark:text-blue-400",
+            cardClass: "card-primary border-slate-200 dark:border-slate-800"
+        },
+        {
+            title: "Safety Alerts",
+            desc: "Prevent inventory stock-outs with automated critical threshold warnings.",
+            icon: ShieldAlert,
+            iconBg: "bg-amber-100 dark:bg-amber-900/40",
+            iconColor: "text-amber-600 dark:text-amber-400",
+            cardClass: "card-primary border-slate-200 dark:border-slate-800"
+        },
+        {
+            title: "PDF Exports",
+            desc: "Instantly compile sign-off ready GRNs and gate passes client-side using jsPDF.",
+            icon: FileDown,
+            iconBg: "bg-purple-100 dark:bg-purple-900/40",
+            iconColor: "text-purple-600 dark:text-purple-400",
+            cardClass: "card-primary border-slate-200 dark:border-slate-800"
+        }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

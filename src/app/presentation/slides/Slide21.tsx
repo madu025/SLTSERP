@@ -5,8 +5,41 @@ import React from "react";
 import { CheckCircle2 } from "lucide-react";
 
 export default function Slide21() {
-    const features: any[] = [];
-    const contractorRankings: any[] = [];
+    const features = [
+        {
+            title: "Budget Utilization Tracker",
+            desc: "Instantly generates planned vs. actual project expense details to flag overruns.",
+            icon: CheckCircle2
+        },
+        {
+            title: "Contractor Rank & Waste Analysis",
+            desc: "Audits contractor efficiency lists, logging task speed and wastage metrics.",
+            icon: CheckCircle2
+        },
+        {
+            title: "Regional Area Breakdowns",
+            desc: "Groups metrics by OPMCs/RTOMs, highlighting areas with the highest backlog.",
+            icon: CheckCircle2
+        }
+    ];
+    const contractorRankings = [
+        {
+            rank: 1,
+            name: "Lanka Tech Team A (Kandy)",
+            efficiency: "95.8%",
+            waste: "1.2%",
+            color: "text-emerald-600 dark:text-emerald-400",
+            bgColor: "bg-emerald-50/50 dark:bg-emerald-950/20"
+        },
+        {
+            rank: 2,
+            name: "Central OSP Builders",
+            efficiency: "81.5%",
+            waste: "4.8%",
+            color: "text-amber-600 dark:text-amber-400",
+            bgColor: "bg-amber-50/50 dark:bg-amber-950/20"
+        }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

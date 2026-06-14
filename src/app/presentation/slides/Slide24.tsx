@@ -2,11 +2,49 @@
 "use client";
 
 import React from "react";
-import { Clock } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Bell, Clock, ExternalLink, Info, ShieldAlert } from "lucide-react";
 
 export default function Slide24() {
-    const slaRules: any[] = [];
-    const todayFeatures: any[] = [];
+    const slaRules = [
+        {
+            time: "2 Hours Before Slot",
+            icon: Info,
+            iconColor: "text-blue-500",
+            badge: "INFO REMINDER",
+            badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400"
+        },
+        {
+            time: "1 Hour Before Slot",
+            icon: AlertTriangle,
+            iconColor: "text-amber-500",
+            badge: "URGENT REMINDER",
+            badgeColor: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400"
+        },
+        {
+            time: "30 Mins Before Slot",
+            icon: AlertOctagon,
+            iconColor: "text-rose-500",
+            badge: "CRITICAL ALARM",
+            badgeColor: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400"
+        }
+    ];
+    const todayFeatures = [
+        {
+            title: "Login Summary Popup",
+            desc: "On login, the system pops up a dashboard listing today's active tickets.",
+            icon: Bell
+        },
+        {
+            title: "Global Alarm Injections",
+            desc: "SLA notifications display globally across all sections of the platform.",
+            icon: ShieldAlert
+        },
+        {
+            title: "Direct Ticket Jumps",
+            desc: "Clicking any alert routes the operator directly to the service order record.",
+            icon: ExternalLink
+        }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

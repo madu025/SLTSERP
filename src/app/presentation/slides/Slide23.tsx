@@ -2,11 +2,55 @@
 "use client";
 
 import React from "react";
-import { Settings, Bell } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Bell, Info, Settings } from "lucide-react";
 
 export default function Slide23() {
-    const notificationLevels: any[] = [];
-    const preferences: any[] = [];
+    const notificationLevels = [
+        {
+            level: "CRITICAL",
+            desc: "Security violations, failed audits, and stockouts.",
+            icon: AlertOctagon,
+            color: "text-rose-600 dark:text-rose-400",
+            bg: "bg-rose-50/50 dark:bg-rose-950/20",
+            border: "border-rose-200 dark:border-rose-800"
+        },
+        {
+            level: "WARNING",
+            desc: "Approvals pending, SLA timers expiring, high wastage.",
+            icon: AlertTriangle,
+            color: "text-amber-600 dark:text-amber-400",
+            bg: "bg-amber-50/50 dark:bg-amber-950/20",
+            border: "border-amber-200 dark:border-amber-800"
+        },
+        {
+            level: "INFO",
+            desc: "New service orders imported, status changes.",
+            icon: Info,
+            color: "text-blue-600 dark:text-blue-400",
+            bg: "bg-blue-50/50 dark:bg-blue-950/20",
+            border: "border-blue-200 dark:border-blue-800"
+        }
+    ];
+    const preferences = [
+        {
+            name: "System / Core Updates",
+            sub: "Core system notifications and errors.",
+            status: "ACTIVE",
+            statusColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400"
+        },
+        {
+            name: "Inventory & Stock Alerts",
+            sub: "Safety level threshold and replenishment alerts.",
+            status: "ACTIVE",
+            statusColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400"
+        },
+        {
+            name: "Contractor Registrations",
+            sub: "New contractor signups and code updates.",
+            status: "MUTED",
+            statusColor: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400"
+        }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

@@ -1,10 +1,37 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { Database, Monitor, Server } from "lucide-react";
+
 import React from "react";
 
 export default function Slide19() {
-    const layers: any[] = [];
+    const layers = [
+        {
+            label: "Client UI Layer",
+            detail: "Next.js pages & React components using Tailwind CSS.",
+            icon: Monitor,
+            cardClass: "card-primary",
+            borderColor: "border-slate-800",
+            textColor: "text-blue-400"
+        },
+        {
+            label: "Service Layer",
+            detail: "Business logic routing, validations, and controller operations.",
+            icon: Server,
+            cardClass: "card-primary",
+            borderColor: "border-slate-800",
+            textColor: "text-emerald-400"
+        },
+        {
+            label: "Repository Layer",
+            detail: "Database queries, transaction processing, and data persistence.",
+            icon: Database,
+            cardClass: "card-primary",
+            borderColor: "border-slate-800",
+            textColor: "text-purple-400"
+        }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

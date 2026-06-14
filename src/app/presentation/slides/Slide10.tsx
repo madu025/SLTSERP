@@ -5,7 +5,11 @@ import React from "react";
 import { Check, FileText } from "lucide-react";
 
 export default function Slide10() {
-    const features: any[] = [];
+    const features = [
+        "Monthly Invoice Generation",
+        "90/10 Payment Split",
+        "PDF Invoice Export"
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

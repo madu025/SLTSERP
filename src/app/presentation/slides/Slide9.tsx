@@ -2,11 +2,31 @@
 "use client";
 
 import React from "react";
-import { Zap } from "lucide-react";
+import { AlertCircle, Clipboard, Upload, Zap } from "lucide-react";
 
 export default function Slide9() {
-    const features: any[] = [];
-    const bridgeSteps: any[] = [];
+    const features = [
+        {
+            title: "Drag-and-Drop Files",
+            desc: "Uploads `.xlsx`, `.xls` or `.csv` spreadsheets.",
+            icon: Upload
+        },
+        {
+            title: "Copy & Paste Mode",
+            desc: "Directly paste grid rows copied from desktop spreadsheets.",
+            icon: Clipboard
+        },
+        {
+            title: "Validation Preview",
+            desc: "Displays a table highlighting missing columns (like missing SOD or RTOM values) before saving.",
+            icon: AlertCircle
+        }
+    ];
+    const bridgeSteps = [
+        "Fetches pre-logged material logs for the ticket from `/api/service-orders/bridge-sync`.",
+        "Parses aliases and maps code values to local stock items.",
+        "Automatically pre-fills quantities used, saving the contractor from double-entering data."
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

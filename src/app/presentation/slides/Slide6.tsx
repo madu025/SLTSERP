@@ -1,10 +1,43 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { Layers, Settings, Users } from "lucide-react";
+
 import React from "react";
 
 export default function Slide6() {
-    const steps: any[] = [];
+    const steps = [
+        {
+            num: "01",
+            title: "Details & Assignment",
+            icon: Users,
+            iconBg: "bg-blue-100 dark:bg-blue-900/40",
+            iconColor: "text-blue-600 dark:text-blue-400",
+            cardClass: "card-primary",
+            topBorder: "bg-blue-500",
+            fields: ["Completion Date", "DP Details", "Contractor Selection"]
+        },
+        {
+            num: "02",
+            title: "Material Usage & Wastage",
+            icon: Layers,
+            iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
+            iconColor: "text-emerald-600 dark:text-emerald-400",
+            cardClass: "card-primary",
+            topBorder: "bg-emerald-500",
+            fields: ["F1 / G1 Drop-wire", "Connectors & Splitters", "Wastage Limit Check"]
+        },
+        {
+            num: "03",
+            title: "Device Serials & Comments",
+            icon: Settings,
+            iconBg: "bg-purple-100 dark:bg-purple-900/40",
+            iconColor: "text-purple-600 dark:text-purple-400",
+            cardClass: "card-primary",
+            topBorder: "bg-purple-500",
+            fields: ["New/Existing ONT Type", "ONT & IPTV Serial Numbers", "Closing Notes / Remarks"]
+        }
+    ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                             {/* Chapter Header */}

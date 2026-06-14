@@ -1,11 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { CheckCircle2, X } from "lucide-react";
+
 import React from "react";
 
 export default function Slide3() {
-    const oldProblems: any[] = [];
-    const newSolutions: any[] = [];
+    const oldProblems = [
+        { title: "Scattered Excel Sheets", desc: "Service orders tracked in separate sheets, leading to data synchronization lag.", icon: X },
+        { title: "Manual Stock Reconciliation", desc: "Warehouse stock issues and contractor usage recorded in different sheets, causing inventory discrepancies.", icon: X },
+        { title: "Slow Audit Trials", desc: "Finding which contractor completed which job and what specific items they used takes days of manual email search.", icon: X }
+    ];
+    const newSolutions = [
+        { title: "One Shared Database", desc: "Single source of truth. Updates to service orders or material stock instantly propagate to all departments.", icon: CheckCircle2 },
+        { title: "Real-time Stock & Procurement Control", desc: "Warehouse stock issues and contractor allocations are verified and tracked against active project purchase orders.", icon: CheckCircle2 },
+        { title: "Manager Analytics & Audits", desc: "Automated reports for project budgets, contractor performance rankings, and approvals backed by transactional logs.", icon: CheckCircle2 }
+    ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                             {/* Chapter Header */}

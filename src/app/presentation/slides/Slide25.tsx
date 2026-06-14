@@ -5,8 +5,16 @@ import React from "react";
 import { X, Check } from "lucide-react";
 
 export default function Slide25() {
-    const beforeItems: any[] = [];
-    const afterItems: any[] = [];
+    const beforeItems = [
+        "Scattered Excel sheets with 24-48h sync delays.",
+        "Manual calculations of contractor invoices and 90/10 splits.",
+        "Inventory discrepancies due to manual reconciliations."
+    ];
+    const afterItems = [
+        "Real-time database updates immediately visible to all teams.",
+        "Automated monthly invoice runs with precise payment breakdowns.",
+        "Real-time ledger entries, safety level alerts, and PDF sign-offs."
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

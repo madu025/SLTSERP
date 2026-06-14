@@ -5,8 +5,31 @@ import React from "react";
 import { BookOpen, Warehouse, Check } from "lucide-react";
 
 export default function Slide16() {
-    const ledgerData: any[] = [];
-    const features: any[] = [];
+    const ledgerData = [
+        {
+            item: "Drop Wire (m)",
+            received: "+12,500",
+            receivedColor: "text-emerald-600 dark:text-emerald-400",
+            issued: "-8,200",
+            issuedColor: "text-rose-600 dark:text-rose-400",
+            balance: "4,300",
+            balanceColor: "text-slate-800 dark:text-slate-200"
+        },
+        {
+            item: "ONT Router",
+            received: "+320",
+            receivedColor: "text-emerald-600 dark:text-emerald-400",
+            issued: "-285",
+            issuedColor: "text-rose-600 dark:text-rose-400",
+            balance: "35",
+            balanceColor: "text-slate-800 dark:text-slate-200"
+        }
+    ];
+    const features = [
+        "Goods Received Notes (GRN)",
+        "Material Issue Tracking",
+        "Stock Ledger Running Balance"
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

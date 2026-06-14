@@ -1,10 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { FileText, Grid, ShieldAlert } from "lucide-react";
+
 import React from "react";
 
 export default function Slide7() {
-    const points: any[] = [];
+    const points = [
+        {
+            title: "Quick-Access Materials Grid",
+            desc: "The most commonly consumed items (Drop-wire, Connectors, Splitters) are laid out as quick-entry fields.",
+            icon: Grid,
+            iconBg: "bg-amber-100 dark:bg-amber-900/40",
+            iconColor: "text-amber-600 dark:text-amber-400"
+        },
+        {
+            title: "Wastage Thresholds",
+            desc: "If wastage values exceed maximum allowed limits (e.g. 5% on dropwire), a validation warning is logged.",
+            icon: ShieldAlert,
+            iconBg: "bg-amber-100 dark:bg-amber-900/40",
+            iconColor: "text-amber-600 dark:text-amber-400"
+        },
+        {
+            title: "Mandatory Reasons",
+            desc: "Contractors must submit a valid explanation (e.g. 'damage on reel') for flagged wastage.",
+            icon: FileText,
+            iconBg: "bg-amber-100 dark:bg-amber-900/40",
+            iconColor: "text-amber-600 dark:text-amber-400"
+        }
+    ];
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                             {/* Chapter Header */}

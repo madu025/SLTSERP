@@ -4,7 +4,11 @@
 import React from "react";
 
 export default function Slide20() {
-    const kpis: any[] = [];
+    const kpis = [
+        { label: "Active Projects", number: "8", sublabel: "Ongoing regional developments", textColor: "text-slate-800 dark:text-slate-200" },
+        { label: "Budget Cap Spent", number: "92.4%", sublabel: "Planned vs actual utilization", textColor: "text-emerald-600 dark:text-emerald-400" },
+        { label: "Avg completion", number: "74.2%", sublabel: "Average milestone milestone completion rate", textColor: "text-blue-600 dark:text-blue-400" }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

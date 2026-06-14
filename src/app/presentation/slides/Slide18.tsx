@@ -2,11 +2,30 @@
 "use client";
 
 import React from "react";
-import { Warehouse, FileDown, Check, Store, ClipboardCheck } from "lucide-react";
+import { Check, ClipboardCheck, FileDown, FileText, Store, Warehouse } from "lucide-react";
 
 export default function Slide18() {
-    const documentTypes: any[] = [];
-    const auditFeatures: any[] = [];
+    const documentTypes = [
+        {
+            title: "Goods Received Note (GRN) PDF",
+            desc: "Supplier & Store receipt summary report.",
+            icon: FileText,
+            iconBg: "bg-purple-100 dark:bg-purple-900/40",
+            iconColor: "text-purple-600 dark:text-purple-400"
+        },
+        {
+            title: "Gate Pass / Issue Note PDF",
+            desc: "Contains formal Security Check sign-off lines.",
+            icon: ClipboardCheck,
+            iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
+            iconColor: "text-emerald-600 dark:text-emerald-400"
+        }
+    ];
+    const auditFeatures = [
+        "Standard Layout Templates",
+        "Authorized Sign-offs",
+        "Direct Downloads"
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}

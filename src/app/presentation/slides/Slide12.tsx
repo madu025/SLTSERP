@@ -5,7 +5,11 @@ import React from "react";
 import { FolderTree } from "lucide-react";
 
 export default function Slide12() {
-    const wbsItems: any[] = [];
+    const wbsItems = [
+        { id: "1.0", label: "Civil Works", percent: 78, level: 0, textColor: "text-emerald-500", color: "bg-emerald-500" },
+        { id: "1.1", label: "Pole Installation", percent: 100, level: 1, textColor: "text-emerald-500", color: "bg-emerald-500" },
+        { id: "1.2", label: "Duct Laying", percent: 56, level: 1, textColor: "text-amber-500", color: "bg-amber-500" }
+    ];
                                     return (
                                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                                             {/* Chapter Header */}
