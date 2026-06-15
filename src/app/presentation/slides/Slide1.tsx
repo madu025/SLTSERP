@@ -11,6 +11,9 @@ export default function Slide1() {
         { title: "Contractor Teams", icon: "👷", desc: "Job Completion Logs" },
         { title: "OSP Managers", icon: "👔", desc: "Analytics, Budgets & Audits" }
     ];
+
+    const w = typeof window !== "undefined" ? (window as unknown as { __sltserp_navigate?: (index: number) => void }) : null;
+
                     return (
                         <div className="flex flex-col h-full justify-center max-w-5xl mx-auto py-2 sm:py-6">
                             
@@ -32,7 +35,7 @@ export default function Slide1() {
                             {/* Navigation Hint */}
                             <div className="text-center mt-8 sm:mt-10">
                                 <button
-                                    onClick={() => { if (typeof window !== "undefined" && (window as any).__sltserp_navigate) (window as any).__sltserp_navigate(0); }}
+                                    onClick={() => { w?.__sltserp_navigate?.(0); }}
                                     className="btn-focus inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gradient-to-r from-blue-500 to-emerald-500 text-white font-medium text-sm hover:opacity-90 transition-opacity"
                                 >
                                     Explore the Platform →

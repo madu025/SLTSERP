@@ -29,8 +29,6 @@ import Slide25 from "./Slide25";
 import Slide26 from "./Slide26";
 import Slide27 from "./Slide27";
 import Slide28 from "./Slide28";
-import Slide29 from "./Slide29";
-import Slide30 from "./Slide30";
 
 export interface SlideMeta {
     id: number;
@@ -265,21 +263,5 @@ export const SLIDES: SlideMeta[] = [
         subtitle: "By centering all workflows around a single web platform, SLTSERP reduces administrative delays, eliminates data discrepancies, and optimizes regional field work.",
         icon: Layers,
         component: Slide28
-    },
-    {
-        id: 29,
-        chapter: "Discussion",
-        title: "Questions & Discussion",
-        subtitle: "Open floor for feedback, queries, and next steps",
-        icon: Users,
-        component: Slide29
-    },
-    {
-        id: 30,
-        chapter: "Thank You",
-        title: "Thank You",
-        subtitle: "Built for Sri Lanka Telecom Operations",
-        icon: Layers,
-        component: Slide30
     },
 ];
