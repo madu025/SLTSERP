@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, Car, MapPin, User, Building2, Gauge } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Car, MapPin, User, Building2, Gauge, DollarSign } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface VehicleDetail {
@@ -156,6 +156,11 @@ export default function VehicleDetailPage() {
                                 </div>
                             </div>
                             <div className="flex gap-2">
+                                {vehicle.ownership === 'RENTAL' && (
+                                    <Button onClick={() => router.push(`/vehicles/${vehicle.id}/rental-summary`)} className="h-8 px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold text-xs">
+                                        <DollarSign className="w-3.5 h-3.5 mr-1.5" /> Rental Payment
+                                    </Button>
+                                )}
                                 <Button onClick={() => router.push(`/vehicles/${vehicle.id}/edit`)} className="h-8 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-xs">
                                     <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
                                 </Button>

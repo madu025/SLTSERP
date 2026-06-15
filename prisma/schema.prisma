@@ -1973,6 +1973,15 @@ enum FenceTypeEnum {
   RESTRICTED_AREA
 }
 
+enum SummaryStatusEnum {
+  DRAFT
+  SUBMITTED
+  CHECKED
+  RECOMMENDED
+  APPROVED
+  REJECTED
+}
+
 model VMSite {
   id                    String   @id @default(cuid())
   name                  String
@@ -2086,6 +2095,7 @@ model VMRentalVehicle {
   vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
   
   supplier_id               String
+  supplier_contact          String?
   rental_contract_id        String   @unique
   rental_start_date         DateTime
   rental_end_date           DateTime
@@ -2098,9 +2108,88 @@ model VMRentalVehicle {
   mileage_limit_monthly     Int?
   excess_mileage_cost_per_km Float?
   contract_terms            String
+
+  // --- Billing / Payment Summary Fields ---
+  driver_portion_monthly    Float?   // monthly driver allowance portion
+  expected_working_days     Int?     // expected working days per month
+  rate_per_additional_km    Float?   // rate charged per km over limit (if different from excess_mileage)
+  absent_deduction_rate     Float?   // per-day deduction for driver absence
+  fuel_allowance_per_km     Float?   // fuel allowance if fuel is supplied by owner
+  driver_term               String?  // driver term/description e.g. "Included", "Separate", "N/A"
+  fuel_supplying            String?  // "OWNER" or "COMPANY"
+  fuel_efficiency           Float?   // km per liter expected
   
+  // Bank Details
+  bank_name                 String?
+  bank_account_number       String?
+  bank_branch               String?
+  bank_branch_code          String?
+
+  // Relations
+  monthlySummaries          VMRentedVehicleMonthlySummary[]
+
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
+}
+
+model VMRentedVehicleMonthlySummary {
+  id                        String   @id @default(cuid())
+  rentalVehicleId           String
+  rentalVehicle             VMRentalVehicle  @relation(fields: [rentalVehicleId], references: [id], onDelete: Cascade)
+
+  year                      Int
+  month                     Int
+
+  // Captured snapshot of billing parameters at time of calculation
+  rental_cost_monthly       Float
+  driver_portion_monthly    Float?
+  expected_working_days     Int?
+  rate_per_additional_km    Float?
+  absent_deduction_rate     Float?
+  fuel_allowance_per_km     Float?
+  fuel_supplying            String?  // "OWNER" or "COMPANY"
+  fuel_efficiency           Float?
+  mileage_limit_monthly     Int?
+  excess_mileage_cost_per_km Float?
+  fuel_included             Boolean  @default(false)
+
+  // Calculated Metrics
+  total_days_worked         Int?     // Actual days vehicle was used
+  absent_days               Int?     // Days driver was absent
+  total_km_traveled         Float?   // Total km from VMVehicleLog
+  base_rental               Float    // Vehicle Rental Rate + Driver Portion
+  fuel_allowance_amount     Float    // Adjusted Mileage × Fuel Allowance Per Km (if OWNER)
+  driver_overtime_pay       Float    // Total OT cost from VMDriverOT
+  absent_deductions         Float    // Absent Days × Absent Deduction Rate
+  additional_km_charges     Float    // Additional km over limit × rate
+  net_payment               Float    // Base Rental + Fuel + OT - Deductions
+
+  // Workflow
+  status                    SummaryStatusEnum @default(DRAFT)
+
+  prepared_by_id            String?
+  prepared_by_name          String?
+  prepared_at               DateTime?
+
+  checked_by_id             String?
+  checked_by_name           String?
+  checked_at                DateTime?
+  checked_remarks           String?
+
+  recommended_by_id         String?
+  recommended_by_name       String?
+  recommended_at            DateTime?
+  recommended_remarks       String?
+
+  notes                     String?
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@unique([rentalVehicleId, year, month])
+  @@index([rentalVehicleId])
+  @@index([year, month])
+  @@index([status])
 }
 
 model VMDriver {
