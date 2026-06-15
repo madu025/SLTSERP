@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers, BookOpen, HelpCircle, FileSpreadsheet, Warehouse, Zap, FileText, FolderTree, Package, Lock, Settings, Clock, Users } from "lucide-react";
+import { Layers, BookOpen, HelpCircle, FileSpreadsheet, Warehouse, Zap, FileText, FolderTree, Package, Lock, Settings, Clock, Users, Car, Calculator } from "lucide-react";
 import Slide1 from "./Slide1";
 import Slide2 from "./Slide2";
 import Slide3 from "./Slide3";
@@ -29,6 +29,8 @@ import Slide25 from "./Slide25";
 import Slide26 from "./Slide26";
 import Slide27 from "./Slide27";
 import Slide28 from "./Slide28";
+import Slide29 from "./Slide29";
+import Slide30 from "./Slide30";
 
 export interface SlideMeta {
     id: number;
@@ -234,6 +236,22 @@ export const SLIDES: SlideMeta[] = [
     },
     {
         id: 25,
+        chapter: "Vehicle Management",
+        title: "QR-Code Scan Vehicle Logs",
+        subtitle: "Driver-facing mobile interface for error-free check-ins and mileage entry.",
+        icon: Car,
+        component: Slide29
+    },
+    {
+        id: 26,
+        chapter: "Vehicle Management",
+        title: "Monthly Rental Payment Summary",
+        subtitle: "Automated aggregation, audit calculator, and multi-level approval pipeline.",
+        icon: Calculator,
+        component: Slide30
+    },
+    {
+        id: 27,
         chapter: "Business Value",
         title: "Before vs. After — Benefits",
         subtitle: "Quantitative benefits of transition to centralization",
@@ -241,7 +259,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide25
     },
     {
-        id: 26,
+        id: 28,
         chapter: "Business Value",
         title: "ROI & Business Impact",
         subtitle: "Estimated improvements based on operational benchmarks",
@@ -249,7 +267,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide26
     },
     {
-        id: 27,
+        id: 29,
         chapter: "Future Roadmap",
         title: "Upcoming Upgrades & Enhancements",
         subtitle: "Proposed modules for the next phase of development",
@@ -257,7 +275,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide27
     },
     {
-        id: 28,
+        id: 30,
         chapter: "Conclusion",
         title: "System Ready for Deployment",
         subtitle: "By centering all workflows around a single web platform, SLTSERP reduces administrative delays, eliminates data discrepancies, and optimizes regional field work.",

@@ -17,6 +17,15 @@ import ProjectTasks from '@/components/projects/ProjectTasks';
 import ProjectProcurement from '@/components/projects/ProjectProcurement';
 import ProjectFinance from '@/components/projects/ProjectFinance';
 import ProjectClosure from '@/components/projects/ProjectClosure';
+import ProjectResources from '@/components/projects/ProjectResources';
+import ProjectDocuments from '@/components/projects/ProjectDocuments';
+import ProjectApprovals from '@/components/projects/ProjectApprovals';
+import ProjectRisks from '@/components/projects/ProjectRisks';
+import ProjectQA from '@/components/projects/ProjectQA';
+import ProjectContractors from '@/components/projects/ProjectContractors';
+import ProjectCommissioning from '@/components/projects/ProjectCommissioning';
+import ProjectKPIs from '@/components/projects/ProjectKPIs';
+import ProjectWorkflowTracker from '@/components/projects/ProjectWorkflowTracker';
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -175,11 +184,20 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                             <TabsList className="bg-white border border-slate-200 p-1 w-full md:w-auto overflow-x-auto flex justify-start h-auto">
                                 <TabsTrigger value="overview" className="px-4 py-2">Overview</TabsTrigger>
+                                <TabsTrigger value="workflow-pipeline" className="px-4 py-2">Workflow Pipeline</TabsTrigger>
                                 <TabsTrigger value="boq" className="px-4 py-2">BOQ & Material</TabsTrigger>
                                 <TabsTrigger value="materials" className="px-4 py-2">Material Issues</TabsTrigger>
                                 <TabsTrigger value="milestones" className="px-4 py-2">Milestones</TabsTrigger>
                                 <TabsTrigger value="expenses" className="px-4 py-2">Expenses</TabsTrigger>
                                 <TabsTrigger value="tasks" className="px-4 py-2">Tasks</TabsTrigger>
+                                <TabsTrigger value="resources" className="px-4 py-2">Resources</TabsTrigger>
+                                <TabsTrigger value="documents" className="px-4 py-2">Documents</TabsTrigger>
+                                <TabsTrigger value="approvals" className="px-4 py-2">Approvals</TabsTrigger>
+                                <TabsTrigger value="risks" className="px-4 py-2">Risks</TabsTrigger>
+                                <TabsTrigger value="qa" className="px-4 py-2">QA/QC</TabsTrigger>
+                                <TabsTrigger value="contractor" className="px-4 py-2">Contractor</TabsTrigger>
+                                <TabsTrigger value="commissioning" className="px-4 py-2">Commissioning</TabsTrigger>
+                                <TabsTrigger value="kpis" className="px-4 py-2">KPIs</TabsTrigger>
                                 <TabsTrigger value="procurement" className="px-4 py-2">Procurement</TabsTrigger>
                                 <TabsTrigger value="finance" className="px-4 py-2">Finance</TabsTrigger>
                                 <TabsTrigger value="closure" className="px-4 py-2">Closure</TabsTrigger>
@@ -187,6 +205,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
                             <TabsContent value="overview">
                                 <ProjectOverview project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="workflow-pipeline">
+                                <ProjectWorkflowTracker project={project} />
                             </TabsContent>
 
                             <TabsContent value="boq">
@@ -207,6 +229,38 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
                             <TabsContent value="tasks">
                                 <ProjectTasks project={project} refreshProject={fetchProjectDetails} />
+                            </TabsContent>
+
+                            <TabsContent value="resources">
+                                <ProjectResources project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="documents">
+                                <ProjectDocuments project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="approvals">
+                                <ProjectApprovals project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="risks">
+                                <ProjectRisks project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="qa">
+                                <ProjectQA project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="contractor">
+                                <ProjectContractors project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="commissioning">
+                                <ProjectCommissioning project={project} />
+                            </TabsContent>
+
+                            <TabsContent value="kpis">
+                                <ProjectKPIs project={project} />
                             </TabsContent>
 
                             <TabsContent value="procurement">

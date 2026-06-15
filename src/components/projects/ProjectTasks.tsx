@@ -82,7 +82,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
     });
 
     const [progressForm, setProgressForm] = useState({
-        progress: '0', description: '', gpsLatitude: '', gpsLongitude: ''
+        progress: '0', description: '', gpsLatitude: '', gpsLongitude: '', photoUrl: ''
     });
 
     const [dependencyForm, setDependencyForm] = useState({
@@ -256,7 +256,11 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     taskId: selectedTask.id,
-                    ...progressForm
+                    progress: progressForm.progress,
+                    description: progressForm.description,
+                    gpsLatitude: progressForm.gpsLatitude,
+                    gpsLongitude: progressForm.gpsLongitude,
+                    photoUrls: progressForm.photoUrl ? [progressForm.photoUrl] : []
                 })
             });
 
@@ -403,8 +407,8 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                                onClick={() => { setSelectedTask(task); setProgressForm({ progress: task.actualProgress.toString(), description: '', gpsLatitude: '', gpsLongitude: '' }); setIsProgressDialogOpen(true); }}>
+                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
+                                onClick={() => { setSelectedTask(task); setProgressForm({ progress: task.actualProgress.toString(), description: '', gpsLatitude: '', gpsLongitude: '', photoUrl: '' }); setIsProgressDialogOpen(true); }}>
                                 <Clock className="w-3.5 h-3.5 text-blue-500" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
@@ -715,7 +719,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                 onChange={(e) => setProgressForm({ ...progressForm, description: e.target.value })}
                                 placeholder="What was accomplished?" />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>GPS Latitude</Label>
                                 <Input value={progressForm.gpsLatitude}
@@ -728,6 +732,12 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                     onChange={(e) => setProgressForm({ ...progressForm, gpsLongitude: e.target.value })}
                                     placeholder="79.8612" />
                             </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Progress Photo Proof (Image URL)</Label>
+                            <Input value={progressForm.photoUrl}
+                                onChange={(e) => setProgressForm({ ...progressForm, photoUrl: e.target.value })}
+                                placeholder="https://s3.amazonaws.com/sltserp/progress/pic.jpg" />
                         </div>
                     </div>
                     <DialogFooter>
