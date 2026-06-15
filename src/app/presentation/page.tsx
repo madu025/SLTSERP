@@ -252,6 +252,10 @@ export default function PresentationPage() {
                 .slide-content-enter {
                     animation: slideInFromRight 0.35s ease-out forwards;
                 }
+                .slide-content-enter > div {
+                    height: auto !important;
+                    min-height: 100% !important;
+                }
             `}</style>
 
             {/* Background glowing decorations */}
