@@ -1,0 +1,1477 @@
+openapi: 3.0.0
+info:
+  title: Vehicle Management Module API
+  description: |
+    Comprehensive REST API for fleet management, including vehicle tracking, driver management,
+    insurance, maintenance, payment processing, and real-time GPS tracking.
+  version: 1.0.0
+  contact:
+    name: Vehicle Management Team
+    email: fleet@sltserp.com
+  license:
+    name: Internal
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development Server
+  - url: https://api.sltserp.com/api/v1
+    description: Production Server
+
+tags:
+  - name: Vehicles
+    description: Vehicle management and operations
+  - name: Drivers
+    description: Driver management and profiles
+  - name: Trips
+    description: Trip tracking and logging
+  - name: Fuel
+    description: Fuel consumption and cost analysis
+  - name: Insurance
+    description: Insurance and warranty management
+  - name: Payments
+    description: Payment and invoice management
+  - name: Dispatch
+    description: Vehicle dispatch and assignment
+  - name: GPS Tracking
+    description: Real-time GPS tracking and location
+  - name: Reports
+    description: Reporting and analytics
+
+# ============================================================================
+# PATHS
+# ============================================================================
+
+paths:
+  /vehicles:
+    get:
+      tags:
+        - Vehicles
+      summary: List all vehicles
+      operationId: listVehicles
+      parameters:
+        - name: site_id
+          in: query
+          schema:
+            type: string
+          description: Filter by site/office ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [AVAILABLE, IN_USE, MAINTENANCE, DECOMMISSIONED, RESERVED]
+          description: Filter by vehicle status
+        - name: ownership
+          in: query
+          schema:
+            type: string
+            enum: [OWNED, RENTAL, HYBRID]
+          description: Filter by ownership type
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of vehicles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vehicle'
+                  meta:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Vehicles
+      summary: Create a new vehicle
+      operationId: createVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVehicleRequest'
+      responses:
+        '201':
+          description: Vehicle created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /vehicles/{vehicleId}:
+    get:
+      tags:
+        - Vehicles
+      summary: Get vehicle details
+      operationId: getVehicle
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vehicle details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Vehicle'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Vehicles
+      summary: Update vehicle
+      operationId: updateVehicle
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVehicleRequest'
+      responses:
+        '200':
+          description: Vehicle updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /drivers:
+    get:
+      tags:
+        - Drivers
+      summary: List all drivers
+      operationId: listDrivers
+      parameters:
+        - name: employment_status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, ON_LEAVE, INACTIVE]
+        - name: site_id
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of drivers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Driver'
+                  meta:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Drivers
+      summary: Create a new driver
+      operationId: createDriver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDriverRequest'
+      responses:
+        '201':
+          description: Driver created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Driver'
+
+  /trips:
+    get:
+      tags:
+        - Trips
+      summary: List trips
+      operationId: listTrips
+      parameters:
+        - name: vehicle_id
+          in: query
+          schema:
+            type: string
+        - name: driver_id
+          in: query
+          schema:
+            type: string
+        - name: trip_status
+          in: query
+          schema:
+            type: string
+            enum: [PLANNED, IN_PROGRESS, COMPLETED, CANCELLED]
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of trips
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trip'
+                  meta:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Trips
+      summary: Create a new trip
+      operationId: createTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTripRequest'
+      responses:
+        '201':
+          description: Trip created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Trip'
+
+  /trips/{tripId}/start:
+    patch:
+      tags:
+        - Trips
+      summary: Start a trip
+      operationId: startTrip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actual_start_time:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Trip started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Trip'
+
+  /trips/{tripId}/end:
+    patch:
+      tags:
+        - Trips
+      summary: End a trip
+      operationId: endTrip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actual_end_time:
+                  type: string
+                  format: date-time
+                actual_distance_km:
+                  type: number
+                fuel_consumed_liters:
+                  type: number
+      responses:
+        '200':
+          description: Trip ended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Trip'
+
+  /fuel-logs:
+    get:
+      tags:
+        - Fuel
+      summary: List fuel logs
+      operationId: listFuelLogs
+      parameters:
+        - name: vehicle_id
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of fuel logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FuelLog'
+
+    post:
+      tags:
+        - Fuel
+      summary: Log fuel consumption
+      operationId: createFuelLog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFuelLogRequest'
+      responses:
+        '201':
+          description: Fuel log created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/FuelLog'
+
+  /payments:
+    get:
+      tags:
+        - Payments
+      summary: List payments
+      operationId: listPayments
+      parameters:
+        - name: payment_type
+          in: query
+          schema:
+            type: string
+            enum: [RENTAL, MAINTENANCE, INSURANCE_PREMIUM, FUEL, DRIVER_OT_SALARY, TOLL, PARKING, FINE, REGISTRATION, OTHER]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, PARTIAL, COMPLETED, OVERDUE, CANCELLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+
+    post:
+      tags:
+        - Payments
+      summary: Create a payment
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Payment'
+
+  /invoices:
+    get:
+      tags:
+        - Payments
+      summary: List invoices
+      operationId: listInvoices
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: site_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Invoice'
+
+    post:
+      tags:
+        - Payments
+      summary: Create an invoice
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceRequest'
+      responses:
+        '201':
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Invoice'
+
+  /dispatch-orders:
+    get:
+      tags:
+        - Dispatch
+      summary: List dispatch orders
+      operationId: listDispatchOrders
+      parameters:
+        - name: site_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED]
+      responses:
+        '200':
+          description: List of dispatch orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DispatchOrder'
+
+    post:
+      tags:
+        - Dispatch
+      summary: Create a dispatch order
+      operationId: createDispatchOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDispatchOrderRequest'
+      responses:
+        '201':
+          description: Dispatch order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/DispatchOrder'
+
+  /insurance-policies:
+    get:
+      tags:
+        - Insurance
+      summary: List insurance policies
+      operationId: listInsurancePolicies
+      parameters:
+        - name: vehicle_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, EXPIRED, PENDING_RENEWAL, LAPSED]
+      responses:
+        '200':
+          description: List of insurance policies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InsurancePolicy'
+
+    post:
+      tags:
+        - Insurance
+      summary: Create an insurance policy
+      operationId: createInsurancePolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInsurancePolicyRequest'
+      responses:
+        '201':
+          description: Insurance policy created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/InsurancePolicy'
+
+  /gps-locations/{vehicleId}/current:
+    get:
+      tags:
+        - GPS Tracking
+      summary: Get current GPS location of a vehicle
+      operationId: getCurrentLocation
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current GPS location
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/GPSLocation'
+
+  /gps-locations/{vehicleId}/history:
+    get:
+      tags:
+        - GPS Tracking
+      summary: Get GPS location history
+      operationId: getLocationHistory
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Location history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GPSLocation'
+
+  /gps-locations:
+    post:
+      tags:
+        - GPS Tracking
+      summary: Record GPS location (for mobile/tracker apps)
+      operationId: recordGPSLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordGPSLocationRequest'
+      responses:
+        '201':
+          description: GPS location recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/GPSLocation'
+
+  /reports/fleet-summary:
+    get:
+      tags:
+        - Reports
+      summary: Get fleet summary report
+      operationId: getFleetSummary
+      parameters:
+        - name: site_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Fleet summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      total_vehicles:
+                        type: integer
+                      available_vehicles:
+                        type: integer
+                      in_use_vehicles:
+                        type: integer
+                      maintenance_vehicles:
+                        type: integer
+                      owned_vehicles:
+                        type: integer
+                      rental_vehicles:
+                        type: integer
+                      total_trips:
+                        type: integer
+                      total_distance_km:
+                        type: number
+                      total_fuel_cost:
+                        type: number
+
+  /reports/driver-ot:
+    get:
+      tags:
+        - Reports
+      summary: Get driver OT report
+      operationId: getDriverOTReport
+      parameters:
+        - name: driver_id
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, pdf]
+      responses:
+        '200':
+          description: Driver OT report
+
+  /reports/vehicle-fuel-analysis:
+    get:
+      tags:
+        - Reports
+      summary: Get vehicle fuel cost analysis
+      operationId: getFuelAnalysisReport
+      parameters:
+        - name: vehicle_id
+          in: query
+          schema:
+            type: string
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Fuel analysis report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      vehicle_id:
+                        type: string
+                      total_fuel_consumed_liters:
+                        type: number
+                      average_efficiency_km_per_liter:
+                        type: number
+                      total_fuel_cost:
+                        type: number
+                      cost_per_km:
+                        type: number
+
+# ============================================================================
+# COMPONENTS (Schemas, Responses, etc.)
+# ============================================================================
+
+components:
+  schemas:
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+        registration_number:
+          type: string
+        chassis_number:
+          type: string
+        engine_number:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        color:
+          type: string
+        vehicle_type:
+          type: string
+          enum: [CAR, VAN, MINI_VAN, LORRY, CAB, DOUBLE_CAB, BOOM_TRUCK, TRUCK]
+        ownership:
+          type: string
+          enum: [OWNED, RENTAL, HYBRID]
+        status:
+          type: string
+          enum: [AVAILABLE, IN_USE, MAINTENANCE, DECOMMISSIONED, RESERVED]
+        capacity_passengers:
+          type: integer
+        capacity_cargo_weight_kg:
+          type: number
+        capacity_cargo_volume_m3:
+          type: number
+        site_id:
+          type: string
+        current_driver_id:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        location_timestamp:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateVehicleRequest:
+      type: object
+      required:
+        - registration_number
+        - chassis_number
+        - engine_number
+        - make
+        - model
+        - year
+        - vehicle_type
+        - ownership
+        - capacity_passengers
+        - capacity_cargo_weight_kg
+        - capacity_cargo_volume_m3
+        - site_id
+      properties:
+        registration_number:
+          type: string
+        chassis_number:
+          type: string
+        engine_number:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        color:
+          type: string
+        vehicle_type:
+          type: string
+          enum: [CAR, VAN, MINI_VAN, LORRY, CAB, DOUBLE_CAB, BOOM_TRUCK, TRUCK]
+        ownership:
+          type: string
+          enum: [OWNED, RENTAL, HYBRID]
+        capacity_passengers:
+          type: integer
+        capacity_cargo_weight_kg:
+          type: number
+        capacity_cargo_volume_m3:
+          type: number
+        site_id:
+          type: string
+        purchase_cost:
+          type: number
+
+    UpdateVehicleRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [AVAILABLE, IN_USE, MAINTENANCE, DECOMMISSIONED, RESERVED]
+        assigned_site_id:
+          type: string
+        current_driver_id:
+          type: string
+
+    Driver:
+      type: object
+      properties:
+        id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        license_number:
+          type: string
+        license_expiry_date:
+          type: string
+          format: date-time
+        license_class:
+          type: string
+        medical_fitness_status:
+          type: string
+        performance_score:
+          type: integer
+        employment_status:
+          type: string
+          enum: [ACTIVE, ON_LEAVE, INACTIVE]
+        base_hourly_rate:
+          type: number
+        ot_hourly_rate:
+          type: number
+
+    CreateDriverRequest:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - email
+        - phone
+        - license_number
+        - license_expiry_date
+        - license_class
+        - base_hourly_rate
+        - ot_hourly_rate
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        license_number:
+          type: string
+        license_expiry_date:
+          type: string
+          format: date-time
+        license_class:
+          type: string
+        base_hourly_rate:
+          type: number
+        ot_hourly_rate:
+          type: number
+
+    Trip:
+      type: object
+      properties:
+        id:
+          type: string
+        vehicle_id:
+          type: string
+        driver_id:
+          type: string
+        start_location_name:
+          type: string
+        start_location_lat:
+          type: number
+        start_location_lng:
+          type: number
+        end_location_name:
+          type: string
+        end_location_lat:
+          type: number
+        end_location_lng:
+          type: number
+        trip_status:
+          type: string
+          enum: [PLANNED, IN_PROGRESS, COMPLETED, CANCELLED]
+        trip_type:
+          type: string
+        planned_distance_km:
+          type: number
+        actual_distance_km:
+          type: number
+        fuel_consumed_liters:
+          type: number
+        fuel_cost:
+          type: number
+        actual_start_time:
+          type: string
+          format: date-time
+        actual_end_time:
+          type: string
+          format: date-time
+
+    CreateTripRequest:
+      type: object
+      required:
+        - vehicle_id
+        - driver_id
+        - start_location_name
+        - start_location_lat
+        - start_location_lng
+        - end_location_name
+        - end_location_lat
+        - end_location_lng
+        - trip_type
+      properties:
+        vehicle_id:
+          type: string
+        driver_id:
+          type: string
+        start_location_name:
+          type: string
+        start_location_lat:
+          type: number
+        start_location_lng:
+          type: number
+        end_location_name:
+          type: string
+        end_location_lat:
+          type: number
+        end_location_lng:
+          type: number
+        trip_type:
+          type: string
+
+    FuelLog:
+      type: object
+      properties:
+        id:
+          type: string
+        vehicle_id:
+          type: string
+        fuel_type:
+          type: string
+        quantity_liters:
+          type: number
+        cost_per_liter:
+          type: number
+        total_cost:
+          type: number
+        fuel_efficiency_km_per_liter:
+          type: number
+        fuel_date:
+          type: string
+          format: date-time
+
+    CreateFuelLogRequest:
+      type: object
+      required:
+        - vehicle_id
+        - fuel_type
+        - quantity_liters
+        - cost_per_liter
+        - odometer_reading_km
+      properties:
+        vehicle_id:
+          type: string
+        fuel_type:
+          type: string
+        quantity_liters:
+          type: number
+        cost_per_liter:
+          type: number
+        odometer_reading_km:
+          type: number
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+        invoice_id:
+          type: string
+        payment_type:
+          type: string
+        base_amount:
+          type: number
+        tax_amount:
+          type: number
+        total_amount:
+          type: number
+        status:
+          type: string
+          enum: [PENDING, PARTIAL, COMPLETED, OVERDUE, CANCELLED]
+        payment_method:
+          type: string
+        due_date:
+          type: string
+          format: date-time
+
+    CreatePaymentRequest:
+      type: object
+      required:
+        - invoice_id
+        - payment_type
+        - base_amount
+        - payment_method
+        - due_date
+      properties:
+        invoice_id:
+          type: string
+        payment_type:
+          type: string
+        base_amount:
+          type: number
+        tax_config_id:
+          type: string
+        payment_method:
+          type: string
+        due_date:
+          type: string
+          format: date-time
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+        invoice_number:
+          type: string
+        site_id:
+          type: string
+        subtotal:
+          type: number
+        total_tax:
+          type: number
+        total_amount:
+          type: number
+        status:
+          type: string
+        invoice_date:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date-time
+
+    CreateInvoiceRequest:
+      type: object
+      required:
+        - site_id
+        - items
+        - due_date
+      properties:
+        site_id:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              description:
+                type: string
+              quantity:
+                type: number
+              unit_price:
+                type: number
+        due_date:
+          type: string
+          format: date-time
+
+    DispatchOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        site_id:
+          type: string
+        vehicle_id:
+          type: string
+        driver_id:
+          type: string
+        purpose:
+          type: string
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+        status:
+          type: string
+        scheduled_start_time:
+          type: string
+          format: date-time
+
+    CreateDispatchOrderRequest:
+      type: object
+      required:
+        - site_id
+        - vehicle_id
+        - driver_id
+        - purpose
+      properties:
+        site_id:
+          type: string
+        vehicle_id:
+          type: string
+        driver_id:
+          type: string
+        purpose:
+          type: string
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+
+    InsurancePolicy:
+      type: object
+      properties:
+        id:
+          type: string
+        vehicle_id:
+          type: string
+        policy_number:
+          type: string
+        insurance_type:
+          type: string
+        premium_amount:
+          type: number
+        expiry_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, PENDING_RENEWAL, LAPSED]
+
+    CreateInsurancePolicyRequest:
+      type: object
+      required:
+        - vehicle_id
+        - policy_number
+        - insurance_type
+        - coverage_limit
+        - premium_amount
+        - expiry_date
+      properties:
+        vehicle_id:
+          type: string
+        policy_number:
+          type: string
+        insurance_type:
+          type: string
+        coverage_limit:
+          type: number
+        premium_amount:
+          type: number
+        expiry_date:
+          type: string
+          format: date-time
+
+    GPSLocation:
+      type: object
+      properties:
+        id:
+          type: string
+        vehicle_id:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        speed_kmh:
+          type: number
+        heading:
+          type: number
+        recorded_at:
+          type: string
+          format: date-time
+
+    RecordGPSLocationRequest:
+      type: object
+      required:
+        - vehicle_id
+        - latitude
+        - longitude
+      properties:
+        vehicle_id:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        altitude:
+          type: number
+        speed_kmh:
+          type: number
+        heading:
+          type: number
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        pages:
+          type: integer
+
+  responses:
+    BadRequestError:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                default: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                default: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    default: UNAUTHORIZED
+                  message:
+                    type: string
+                    default: Missing or invalid authentication
+
+    NotFoundError:
+      description: Resource Not Found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                default: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    default: NOT_FOUND
+                  message:
+                    type: string

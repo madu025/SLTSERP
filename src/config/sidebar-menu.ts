@@ -19,7 +19,11 @@ import {
     History as HistoryIcon,
     Terminal,
     RefreshCw,
-    Presentation
+    Presentation,
+    Car,
+    Route,
+    Banknote,
+    BarChart3
 } from 'lucide-react';
 
 // Define Role Groups based on Department Categories
@@ -70,6 +74,44 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/dashboard',
         icon: LayoutDashboard,
         allowedRoles: ['ALL'] // Special keyword for public/all access
+    },
+    {
+        title: 'Vehicle Management',
+        path: '/vehicles',
+        icon: Car,
+        allowedRoles: ['ALL'],
+        submenu: [
+            {
+                title: 'All Vehicles',
+                path: '/vehicles',
+                icon: Car,
+                allowedRoles: ['ALL']
+            },
+            {
+                title: 'Trips',
+                path: '/trips',
+                icon: Route,
+                allowedRoles: ['ALL']
+            },
+            {
+                title: 'Drivers',
+                path: '/drivers',
+                icon: Users,
+                allowedRoles: ['ALL']
+            },
+            {
+                title: 'Payments',
+                path: '/payments',
+                icon: Banknote,
+                allowedRoles: ['ALL']
+            },
+            {
+                title: 'Fleet Reports',
+                path: '/reports/fleet',
+                icon: BarChart3,
+                allowedRoles: ['ALL']
+            }
+        ]
     },
     {
         title: 'Service Orders',

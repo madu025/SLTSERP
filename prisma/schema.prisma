@@ -1848,8 +1848,702 @@ model ProjectInvoice {
   @@index([projectId])
   @@index([status])
   @@index([invoiceNumber])
-  @@index([dueDate])
+  @@index([invoiceDate])
 }
+
+// ============================================================================
+// VEHICLE MANAGEMENT MODULE
+// ============================================================================
+
+enum VehicleTypeEnum {
+  CAR
+  VAN
+  MINI_VAN
+  LORRY
+  CAB
+  DOUBLE_CAB
+  BOOM_TRUCK
+  TRUCK
+}
+
+enum OwnershipTypeEnum {
+  OWNED
+  RENTAL
+  HYBRID
+}
+
+enum VehicleStatusEnum {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  DECOMMISSIONED
+  RESERVED
+}
+
+enum TripStatusEnum {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentTypeEnum {
+  RENTAL
+  MAINTENANCE
+  INSURANCE_PREMIUM
+  FUEL
+  DRIVER_OT_SALARY
+  TOLL
+  PARKING
+  FINE
+  REGISTRATION
+  OTHER
+}
+
+enum PaymentStatusEnum {
+  PENDING
+  PARTIAL
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum InsuranceTypeEnum {
+  LIABILITY
+  COMPREHENSIVE
+  THIRD_PARTY
+  THEFT
+  ACCIDENT
+  DRIVER_COVER
+}
+
+enum InsuranceStatusEnum {
+  ACTIVE
+  EXPIRED
+  PENDING_RENEWAL
+  LAPSED
+}
+
+enum DriverOTStatusEnum {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PAID
+}
+
+enum EmploymentStatusEnum {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum MedicalFitnessStatusEnum {
+  PASS
+  FAIL
+  PENDING
+  EXPIRED
+}
+
+enum ComplianceTypeEnum {
+  MOT
+  ROAD_TAX
+  REGISTRATION
+  EMISSION
+  INSPECTION
+}
+
+enum DispatchOrderPriorityEnum {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaxTypeEnum {
+  VAT
+  GST
+  SALES_TAX
+  OTHER
+}
+
+enum FenceTypeEnum {
+  SITE
+  ZONE
+  DANGER_ZONE
+  RESTRICTED_AREA
+}
+
+model VMSite {
+  id                    String   @id @default(cuid())
+  name                  String
+  code                  String   @unique
+  address               String
+  city                  String
+  state                 String
+  postal_code           String
+  country               String
+  latitude              Float
+  longitude             Float
+  contact_person        String
+  phone                 String
+  email                 String
+  manager_id            String
+  status                String   @default("ACTIVE")
+  vehicle_pool_capacity Int      @default(50)
+  
+  vehicles              VMVehicle[]
+  dispatchOrders        VMDispatchOrder[]
+  geofences             VMGeofence[]
+  invoices              VMInvoice[]
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([code])
+  @@index([status])
+}
+
+model VMVehicle {
+  id                        String   @id @default(cuid())
+  registration_number       String   @unique
+  chassis_number            String   @unique
+  engine_number             String
+  make                      String
+  model                     String
+  year                      Int
+  color                     String
+  vehicle_type              VehicleTypeEnum
+  ownership                 OwnershipTypeEnum
+  status                    VehicleStatusEnum @default(AVAILABLE)
+  
+  capacity_passengers       Int
+  capacity_cargo_weight_kg  Float
+  capacity_cargo_volume_m3  Float
+  
+  site_id                   String
+  site                      VMSite     @relation(fields: [site_id], references: [id])
+  current_driver_id         String?
+  driver                    VMDriver?  @relation(fields: [current_driver_id], references: [id])
+  
+  latitude                  Float?
+  longitude                 Float?
+  location_timestamp        DateTime?
+  location_accuracy_meters  Int?
+  
+  registration_date         DateTime
+  decommissioned_date       DateTime?
+  
+  purchase_cost             Float?
+  insurance_cost_annual     Float?
+  fuel_cost_per_liter       Float?
+  
+  ownedVehicle              VMOwnedVehicle?
+  rentalVehicle             VMRentalVehicle?
+  trips                     VMTrip[]
+  fuelLogs                  VMFuelLog[]
+  insurancePolicies         VMInsurancePolicy[]
+  warranties                VMWarranty[]
+  complianceStatuses        VMComplianceStatus[]
+  dispatchOrders            VMDispatchOrder[]
+  gpsLocations              VMGPSLocation[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([status])
+  @@index([ownership])
+  @@index([vehicle_type])
+  @@index([registration_number])
+}
+
+model VMOwnedVehicle {
+  id                        String   @id @default(cuid())
+  vehicle_id                String   @unique
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  
+  purchase_date             DateTime
+  purchase_cost             Float
+  depreciation_rate_percent Float
+  depreciation_schedule     String
+  book_value                Float
+  salvage_value             Float
+  finance_type              String
+  loan_amount               Float?
+  loan_remaining            Float?
+  loan_end_date             DateTime?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model VMRentalVehicle {
+  id                        String   @id @default(cuid())
+  vehicle_id                String   @unique
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  
+  supplier_id               String
+  rental_contract_id        String   @unique
+  rental_start_date         DateTime
+  rental_end_date           DateTime
+  rental_cost_daily         Float
+  rental_cost_weekly        Float?
+  rental_cost_monthly       Float?
+  fuel_included             Boolean  @default(false)
+  maintenance_included      Boolean  @default(false)
+  insurance_included        Boolean  @default(false)
+  mileage_limit_monthly     Int?
+  excess_mileage_cost_per_km Float?
+  contract_terms            String
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model VMDriver {
+  id                        String   @id @default(cuid())
+  first_name                String
+  last_name                 String
+  email                     String   @unique
+  phone                     String
+  date_of_birth             DateTime
+  
+  street                    String
+  city                      String
+  state                     String
+  postal_code               String
+  country                   String
+  
+  license_number            String   @unique
+  license_issue_date        DateTime
+  license_expiry_date       DateTime
+  license_class             String
+  
+  medical_fitness_status    MedicalFitnessStatusEnum
+  medical_fitness_expiry    DateTime?
+  certifications            String
+  
+  performance_score         Int      @default(100)
+  safety_incidents_count    Int      @default(0)
+  trips_completed           Int      @default(0)
+  
+  employment_date           DateTime
+  employment_status         EmploymentStatusEnum @default(ACTIVE)
+  site_id                   String?
+  base_hourly_rate          Float
+  ot_hourly_rate            Float
+  
+  vehicles                  VMVehicle[]
+  trips                     VMTrip[]
+  driverOTs                 VMDriverOT[]
+  insurancePolicies         VMInsurancePolicy[]
+  dispatchOrders            VMDispatchOrder[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([email])
+  @@index([license_number])
+  @@index([employment_status])
+}
+
+model VMDriverOT {
+  id                        String   @id @default(cuid())
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  trip_id                   String?  @unique
+  trip                      VMTrip?    @relation(fields: [trip_id], references: [id])
+  
+  date                      DateTime
+  shift_start_time          DateTime
+  shift_end_time            DateTime
+  
+  regular_hours             Float
+  overtime_hours            Float
+  break_duration_minutes    Int      @default(0)
+  
+  ot_threshold_hours        Float    @default(8)
+  ot_rate_multiplier        Float    @default(1.5)
+  
+  regular_pay               Float
+  ot_pay                    Float
+  total_pay                 Float
+  
+  status                    DriverOTStatusEnum @default(DRAFT)
+  approved_by               String?
+  approved_at               DateTime?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([driver_id])
+  @@index([date])
+  @@index([status])
+}
+
+model VMTrip {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  
+  start_location_name       String
+  start_location_lat        Float
+  start_location_lng        Float
+  start_location_address    String?
+  
+  end_location_name         String
+  end_location_lat          Float
+  end_location_lng          Float
+  end_location_address      String?
+  
+  scheduled_start_time      DateTime
+  actual_start_time         DateTime?
+  scheduled_end_time        DateTime
+  actual_end_time           DateTime?
+  
+  planned_distance_km       Float?
+  actual_distance_km        Float?
+  planned_duration_minutes  Int?
+  actual_duration_minutes   Int?
+  
+  trip_status               TripStatusEnum @default(PLANNED)
+  trip_type                 String
+  
+  fuel_consumed_liters      Float?
+  fuel_cost                 Float?
+  
+  fuelLog                   VMFuelLog?
+  driverOT                  VMDriverOT?
+  
+  notes                     String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([trip_status])
+  @@index([actual_start_time])
+}
+
+model VMFuelLog {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  trip_id                   String?  @unique
+  trip                      VMTrip?    @relation(fields: [trip_id], references: [id])
+  
+  fuel_type                 String
+  quantity_liters           Float
+  cost_per_liter            Float
+  total_cost                Float
+  
+  odometer_reading_km       Float
+  previous_odometer_km      Float?
+  
+  fuel_efficiency_km_per_liter Float?
+  
+  fuel_date                 DateTime
+  fuel_station              String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([fuel_date])
+}
+
+model VMInsurancePolicy {
+  id                        String   @id @default(cuid())
+  vehicle_id                String?
+  vehicle                   VMVehicle? @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String?
+  driver                    VMDriver?  @relation(fields: [driver_id], references: [id])
+  
+  policy_number             String   @unique
+  insurer_name              String
+  insurer_contact           String
+  
+  insurance_type            InsuranceTypeEnum
+  coverage_limit            Float
+  excess_amount             Float
+  insured_value             Float
+  
+  issue_date                DateTime
+  start_date                DateTime
+  renewal_date              DateTime
+  expiry_date               DateTime
+  
+  premium_amount            Float
+  premium_frequency         String
+  next_premium_due_date     DateTime
+  
+  status                    InsuranceStatusEnum @default(ACTIVE)
+  
+  policy_document_url       String?
+  certificate_url           String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([status])
+  @@index([expiry_date])
+}
+
+model VMWarranty {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  
+  warranty_type             String
+  start_date                DateTime
+  expiry_date               DateTime
+  
+  coverage_miles            Int?
+  coverage_time_months      Int?
+  coverage_details          String
+  
+  service_interval_miles    Int?
+  service_interval_months   Int?
+  next_service_due_miles    Int?
+  next_service_due_date     DateTime?
+  
+  status                    String
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([status])
+  @@index([expiry_date])
+}
+
+model VMComplianceStatus {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  
+  compliance_type           ComplianceTypeEnum
+  compliance_due_date       DateTime
+  compliance_status         String
+  
+  last_checked_date         DateTime?
+  next_check_date           DateTime?
+  
+  alert_sent                Boolean  @default(false)
+  alert_sent_date           DateTime?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([compliance_due_date])
+}
+
+model VMPayment {
+  id                        String   @id @default(cuid())
+  invoice_id                String
+  invoice                   VMInvoice  @relation(fields: [invoice_id], references: [id])
+  
+  payment_type              PaymentTypeEnum
+  reference_id              String
+  
+  base_amount               Float
+  tax_amount                Float
+  total_amount              Float
+  
+  tax_config_id             String?
+  tax_config                VMTaxConfig? @relation(fields: [tax_config_id], references: [id])
+  tax_rate_percent          Float?
+  tax_type                  String?
+  
+  payment_date              DateTime?
+  payment_method            String
+  payment_ref_number        String?
+  
+  status                    PaymentStatusEnum @default(PENDING)
+  
+  due_date                  DateTime
+  payment_received_date     DateTime?
+  
+  notes                     String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([invoice_id])
+  @@index([payment_type])
+  @@index([status])
+  @@index([due_date])
+}
+
+model VMInvoice {
+  id                        String   @id @default(cuid())
+  invoice_number            String   @unique
+  
+  site_id                   String
+  site                      VMSite     @relation(fields: [site_id], references: [id])
+  issued_to_customer_id     String?
+  
+  subtotal                  Float
+  discount                  Float?   @default(0)
+  tax_before_discount       Boolean  @default(false)
+  total_tax                 Float
+  total_amount              Float
+  
+  invoice_date              DateTime
+  due_date                  DateTime
+  
+  status                    String
+  description               String?
+  
+  items                     VMInvoiceItem[]
+  payments                  VMPayment[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([invoice_number])
+  @@index([status])
+  @@index([due_date])
+}
+
+model VMInvoiceItem {
+  id                        String   @id @default(cuid())
+  invoice_id                String
+  invoice                   VMInvoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  
+  description               String
+  quantity                  Float
+  unit_price                Float
+  line_total                Float
+  
+  tax_config_id             String?
+  tax_config                VMTaxConfig? @relation(fields: [tax_config_id], references: [id])
+  tax_rate_percent          Float?
+  line_tax                  Float
+  
+  item_type                 PaymentTypeEnum
+  reference_id              String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([invoice_id])
+}
+
+model VMTaxConfig {
+  id                        String   @id @default(cuid())
+  
+  tax_name                  String
+  tax_type                  TaxTypeEnum
+  
+  tax_rate_percent          Float
+  effective_from_date       DateTime
+  effective_to_date         DateTime?
+  
+  applicable_to             String
+  
+  tax_inclusive             Boolean  @default(false)
+  tax_exempt_items          String?
+  
+  status                    String
+  
+  payments                  VMPayment[]
+  invoiceItems              VMInvoiceItem[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([tax_type])
+  @@index([status])
+}
+
+model VMDispatchOrder {
+  id                        String   @id @default(cuid())
+  site_id                   String
+  site                      VMSite     @relation(fields: [site_id], references: [id])
+  
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  
+  trip_id                   String?
+  
+  assignment_date           DateTime
+  scheduled_start_time      DateTime
+  scheduled_end_time        DateTime
+  
+  purpose                   String
+  priority                  DispatchOrderPriorityEnum @default(MEDIUM)
+  status                    String @default("PENDING")
+  
+  special_instructions      String?
+  customer_info             String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([status])
+}
+
+model VMGPSLocation {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  trip_id                   String?
+  
+  latitude                  Float
+  longitude                 Float
+  altitude                  Float?
+  
+  speed_kmh                 Float?
+  heading                   Float?
+  accuracy_meters           Int?
+  
+  recorded_at               DateTime
+  
+  createdAt                DateTime @default(now())
+
+  @@index([vehicle_id])
+  @@index([recorded_at])
+  @@index([trip_id])
+}
+
+model VMGeofence {
+  id                        String   @id @default(cuid())
+  site_id                   String?
+  site                      VMSite?    @relation(fields: [site_id], references: [id])
+  
+  name                      String
+  fence_type                FenceTypeEnum
+  
+  boundary_points           String
+  radius_meters             Int?
+  
+  alert_on_entry            Boolean  @default(true)
+  alert_on_exit             Boolean  @default(true)
+  allowed_vehicles          String?
+  allowed_drivers           String?
+  
+  status                    String
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([fence_type])
+}
+
 
 model ProjectInvoiceItem {
   id              String          @id @default(cuid())
