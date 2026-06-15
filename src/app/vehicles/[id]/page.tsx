@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, Car, MapPin, User, Building2, Gauge, DollarSign } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Car, MapPin, Building2, Gauge, DollarSign, QrCode } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 interface VehicleDetail {
@@ -42,14 +42,9 @@ export default function VehicleDetailPage() {
     const [vehicle, setVehicle] = useState<VehicleDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [deleting, setDeleting] = useState(false);
+    const [showQR, setShowQR] = useState(false);
 
-    useEffect(() => {
-        if (id) {
-            fetchVehicle();
-        }
-    }, [id]);
-
-    const fetchVehicle = async () => {
+    const fetchVehicle = useCallback(async () => {
         try {
             const res = await fetch(`/api/vehicles/${id}`);
             if (!res.ok) throw new Error('Not found');
@@ -60,7 +55,13 @@ export default function VehicleDetailPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        if (id) {
+            fetchVehicle();
+        }
+    }, [id, fetchVehicle]);
 
     const handleDelete = async () => {
         if (!confirm('Are you sure you want to delete this vehicle?')) return;
@@ -156,6 +157,9 @@ export default function VehicleDetailPage() {
                                 </div>
                             </div>
                             <div className="flex gap-2">
+                                <Button onClick={() => setShowQR(true)} className="h-8 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-xs">
+                                    <QrCode className="w-3.5 h-3.5 mr-1.5" /> QR Code
+                                </Button>
                                 {vehicle.ownership === 'RENTAL' && (
                                     <Button onClick={() => router.push(`/vehicles/${vehicle.id}/rental-summary`)} className="h-8 px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold text-xs">
                                         <DollarSign className="w-3.5 h-3.5 mr-1.5" /> Rental Payment
@@ -243,6 +247,58 @@ export default function VehicleDetailPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Print-ready QR Code Modal */}
+                {showQR && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
+                        <Card className="w-full max-w-sm bg-white rounded-2xl border-none shadow-2xl p-6 relative animate-in fade-in zoom-in-95 duration-200">
+                            <button 
+                                onClick={() => setShowQR(false)} 
+                                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold"
+                            >
+                                ✕
+                            </button>
+                            <div className="flex flex-col items-center text-center space-y-4">
+                                <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl">
+                                    <QrCode className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-slate-900">Vehicle QR Code Card</h3>
+                                    <p className="text-[11px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">{vehicle.registration_number}</p>
+                                </div>
+                                
+                                <div className="p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img 
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`${window.location.origin}/vehicles/${vehicle.id}/scan`)}`} 
+                                        alt="Vehicle QR Code"
+                                        className="w-48 h-48"
+                                    />
+                                </div>
+
+                                <p className="text-[10px] text-slate-400 max-w-[240px]">
+                                    Scan this QR code with a mobile device to perform Driver Check-in (Duty On) and Check-out (Duty Off).
+                                </p>
+
+                                <div className="flex gap-2 w-full pt-2">
+                                    <Button 
+                                        onClick={() => window.print()} 
+                                        className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold"
+                                    >
+                                        Print Card
+                                    </Button>
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => setShowQR(false)} 
+                                        className="flex-1 h-9 rounded-xl text-xs font-bold"
+                                    >
+                                        Close
+                                    </Button>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                )}
             </main>
         </div>
     );
