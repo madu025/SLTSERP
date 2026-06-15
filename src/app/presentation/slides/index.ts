@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers, BookOpen, HelpCircle, FileSpreadsheet, Warehouse, Zap, FileText, FolderTree, Package, Lock, Settings, Clock, Users, Car, Calculator } from "lucide-react";
+import { Layers, BookOpen, HelpCircle, FileSpreadsheet, Warehouse, Zap, FileText, FolderTree, Package, Lock, Settings, Clock, Users, Car, Calculator, Workflow } from "lucide-react";
 import Slide1 from "./Slide1";
 import Slide2 from "./Slide2";
 import Slide3 from "./Slide3";
@@ -31,6 +31,8 @@ import Slide27 from "./Slide27";
 import Slide28 from "./Slide28";
 import Slide29 from "./Slide29";
 import Slide30 from "./Slide30";
+import Slide31 from "./Slide31";
+import Slide32 from "./Slide32";
 
 export interface SlideMeta {
     id: number;
@@ -156,6 +158,22 @@ export const SLIDES: SlideMeta[] = [
     },
     {
         id: 15,
+        chapter: "OSP Project Management",
+        title: "Dynamic OSP Workflow Builder",
+        subtitle: "Configure stages, tasks, and quality gate triggers tailored to project types.",
+        icon: Workflow,
+        component: Slide31
+    },
+    {
+        id: 16,
+        chapter: "OSP Project Management",
+        title: "Workflow Snapshot & Execution Gating",
+        subtitle: "Independent project snapshots with checklist, photo upload, and multi-level approvals gating.",
+        icon: Lock,
+        component: Slide32
+    },
+    {
+        id: 17,
         chapter: "Warehouse & Stock Control",
         title: "Full inventory lifecycle from goods receipt to issue",
         subtitle: "Real-time transactional ledger for all telecom materials",
@@ -163,7 +181,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide15
     },
     {
-        id: 16,
+        id: 18,
         chapter: "Warehouse & Stock Control",
         title: "Stock Ledger & GRN",
         subtitle: "Review stock logs, check receipts, and inspect balances",
@@ -171,7 +189,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide16
     },
     {
-        id: 17,
+        id: 19,
         chapter: "Warehouse & Stock Control",
         title: "Safety Stock & Alerts",
         subtitle: "Prevent stock-outs with configurable minimum thresholds that trigger automatic alerts and procurement suggestions.",
@@ -179,7 +197,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide17
     },
     {
-        id: 18,
+        id: 20,
         chapter: "Warehouse & Stock Control",
         title: "PDF Exports",
         subtitle: "Generate professional, sign-off-ready documents that meet compliance requirements and streamline warehouse operations.",
@@ -187,7 +205,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide18
     },
     {
-        id: 19,
+        id: 21,
         chapter: "System Architecture",
         title: "Technical Architecture",
         subtitle: "Clean service-repository pattern with Next.js and Tailwind",
@@ -195,7 +213,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide19
     },
     {
-        id: 20,
+        id: 22,
         chapter: "Managerial Insights",
         title: "Analytics — KPI Dashboard",
         subtitle: "Real-time executive metrics — auto-compiled from operational data",
@@ -203,7 +221,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide20
     },
     {
-        id: 21,
+        id: 23,
         chapter: "Managerial Insights",
         title: "Analytics — Reports & Rankings",
         subtitle: "Compare contractor efficiency and regional performance",
@@ -211,7 +229,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide21
     },
     {
-        id: 22,
+        id: 24,
         chapter: "Security & Utilities",
         title: "Contractor Verification & Ledger",
         subtitle: "A centralized registry of all registered contractors, their teams, and historical performance data.",
@@ -219,7 +237,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide22
     },
     {
-        id: 23,
+        id: 25,
         chapter: "Security & Utilities",
         title: "Notifications & Preferences",
         subtitle: "Multi-tier notification engine delivering targeted alerts based on severity and role.",
@@ -227,7 +245,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide23
     },
     {
-        id: 24,
+        id: 26,
         chapter: "Security & Utilities",
         title: "SLA Alarms & Appointment Alerts",
         subtitle: "Time-sensitive SLA alerts keep teams on schedule. Appointments trigger escalating reminders, and login dashboards surface the most urgent items immediately.",
@@ -235,7 +253,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide24
     },
     {
-        id: 25,
+        id: 27,
         chapter: "Vehicle Management",
         title: "QR-Code Scan Vehicle Logs",
         subtitle: "Driver-facing mobile interface for error-free check-ins and mileage entry.",
@@ -243,7 +261,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide29
     },
     {
-        id: 26,
+        id: 28,
         chapter: "Vehicle Management",
         title: "Monthly Rental Payment Summary",
         subtitle: "Automated aggregation, audit calculator, and multi-level approval pipeline.",
@@ -251,7 +269,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide30
     },
     {
-        id: 27,
+        id: 29,
         chapter: "Business Value",
         title: "Before vs. After — Benefits",
         subtitle: "Quantitative benefits of transition to centralization",
@@ -259,7 +277,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide25
     },
     {
-        id: 28,
+        id: 30,
         chapter: "Business Value",
         title: "ROI & Business Impact",
         subtitle: "Estimated improvements based on operational benchmarks",
@@ -267,7 +285,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide26
     },
     {
-        id: 29,
+        id: 31,
         chapter: "Future Roadmap",
         title: "Upcoming Upgrades & Enhancements",
         subtitle: "Proposed modules for the next phase of development",
@@ -275,7 +293,7 @@ export const SLIDES: SlideMeta[] = [
         component: Slide27
     },
     {
-        id: 30,
+        id: 32,
         chapter: "Conclusion",
         title: "System Ready for Deployment",
         subtitle: "By centering all workflows around a single web platform, SLTSERP reduces administrative delays, eliminates data discrepancies, and optimizes regional field work.",
