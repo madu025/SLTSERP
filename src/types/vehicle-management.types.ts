@@ -133,6 +133,8 @@ export interface Vehicle {
   purchase_cost?: number;
   insurance_cost_annual?: number;
   fuel_cost_per_liter?: number;
+  last_odometer: number;
+  photo_url?: string;
   site?: { id: string; name: string } | null;
   driver?: { id: string; first_name: string; last_name: string; phone?: string; email?: string } | null;
   created_at: Date;
@@ -200,6 +202,11 @@ export interface Driver {
   assigned_site_id?: string;
   base_hourly_rate: number;
   ot_hourly_rate: number;
+  photo_url?: string;
+  license_front_url?: string;
+  license_back_url?: string;
+  nic_front_url?: string;
+  nic_back_url?: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -485,6 +492,7 @@ export interface CreateVehicleDTO {
   capacity_cargo_weight_kg: number;
   capacity_cargo_volume_m3: number;
   assigned_site_id: string;
+  photo_url?: string;
 }
 
 export interface UpdateVehicleDTO {
@@ -492,6 +500,8 @@ export interface UpdateVehicleDTO {
   assigned_site_id?: string;
   current_driver_id?: string;
   notes?: string;
+  photo_url?: string;
+  last_odometer?: number;
 }
 
 export interface CreateTripDTO {
@@ -538,6 +548,41 @@ export interface CreateInvoiceDTO {
   }>;
   invoice_date: Date;
   due_date: Date;
+}
+
+// Vehicle Log
+export interface VehicleLog {
+  id: string;
+  vehicle_id: string;
+  driver_id: string;
+  start_time: Date;
+  end_time?: Date;
+  start_odometer: number;
+  end_odometer?: number;
+  expected_start_odometer: number;
+  odometer_mismatch: boolean;
+  mismatch_reason?: string;
+  passengers?: string;
+  status: 'ACTIVE' | 'COMPLETED';
+  created_at: Date;
+  updated_at: Date;
+  vehicle?: Vehicle | null;
+  driver?: Driver | null;
+}
+
+export interface CreateVehicleLogDTO {
+  vehicle_id: string;
+  driver_id: string;
+  start_odometer: number;
+  expected_start_odometer: number;
+  mismatch_reason?: string;
+  passengers?: string;
+  start_time?: Date;
+}
+
+export interface EndVehicleLogDTO {
+  end_odometer: number;
+  end_time?: Date;
 }
 
 // ============================================================================

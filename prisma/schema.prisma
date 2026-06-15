@@ -2036,6 +2036,8 @@ model VMVehicle {
   purchase_cost             Float?
   insurance_cost_annual     Float?
   fuel_cost_per_liter       Float?
+  last_odometer             Float             @default(0)
+  photo_url                 String?
   
   ownedVehicle              VMOwnedVehicle?
   rentalVehicle             VMRentalVehicle?
@@ -2046,6 +2048,7 @@ model VMVehicle {
   complianceStatuses        VMComplianceStatus[]
   dispatchOrders            VMDispatchOrder[]
   gpsLocations              VMGPSLocation[]
+  vehicleLogs               VMVehicleLog[]
   
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
@@ -2132,12 +2135,18 @@ model VMDriver {
   site_id                   String?
   base_hourly_rate          Float
   ot_hourly_rate            Float
+  photo_url                 String?
+  license_front_url         String?
+  license_back_url          String?
+  nic_front_url             String?
+  nic_back_url              String?
   
   vehicles                  VMVehicle[]
   trips                     VMTrip[]
   driverOTs                 VMDriverOT[]
   insurancePolicies         VMInsurancePolicy[]
   dispatchOrders            VMDispatchOrder[]
+  vehicleLogs               VMVehicleLog[]
   
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
@@ -2709,5 +2718,33 @@ model ProjectChangeOrder {
   @@index([status])
   @@index([coNumber])
   @@index([type])
+}
+
+model VMVehicleLog {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  
+  start_time                DateTime @default(now())
+  end_time                  DateTime?
+  
+  start_odometer            Float
+  end_odometer              Float?
+  expected_start_odometer   Float
+  
+  odometer_mismatch         Boolean  @default(false)
+  mismatch_reason           String?
+  
+  passengers                String?
+  status                    String   @default("ACTIVE") // ACTIVE, COMPLETED
+  
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([status])
 }
 
