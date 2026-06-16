@@ -36,7 +36,7 @@ export async function POST(
                     { name: { contains: "Splice", mode: "insensitive" } }
                 ]}, take: 50
             });
-            const findRate = (keywords) => {
+            const findRate = (keywords: string[]) => {
                 const m = inventoryItems.find(i => keywords.some(k => i.name?.toLowerCase().includes(k.toLowerCase())));
                 return m?.unitPrice || 0;
             };
