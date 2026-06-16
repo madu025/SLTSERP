@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import Sidebar from "@/components/Sidebar";
@@ -106,7 +106,7 @@ export default function PMDashboardPage() {
   const totalStatusCount = useMemo(() => statusBreakdown.reduce((sum, entry) => sum + entry.count, 0) || 1, [statusBreakdown]);
 
   const statusCards = statusBreakdown.map((entry) => {
-    const width = ${Math.min(100, (entry.count / totalStatusCount) * 100)}%;
+    const width = Math.min(100, (entry.count / totalStatusCount) * 100);
     return {
       label: statusLabel(entry.status),
       count: entry.count,
@@ -144,7 +144,7 @@ export default function PMDashboardPage() {
                     <p className="text-2xl font-bold text-foreground mt-0.5">{overview ? overview.activeProjects : '-'}</p>
                     <p className="text-xs text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
                       <ArrowUpRight className="w-3 h-3" />
-                      {overview ? ${overview.delayedCount} delayed : 'Loading...'}
+                      {overview ? `${overview.delayedCount} delayed` : 'Loading...'}
                     </p>
                   </div>
                 </CardContent>
@@ -171,7 +171,7 @@ export default function PMDashboardPage() {
                     <p className="text-2xl font-bold text-foreground mt-0.5">{overview ? formatCurrency(overview.actualSpend) : '-'}</p>
                     <p className="text-xs text-rose-600 font-medium mt-0.5 flex items-center gap-1">
                       <ArrowDownRight className="w-3 h-3" />
-                      {overview ? ${Math.round((overview.actualSpend / Math.max(1, overview.totalBudget)) * 100)}% utilized : 'Loading...'}
+                      {overview ? `${Math.round((overview.actualSpend / Math.max(1, overview.totalBudget)) * 100)}% utilized` : 'Loading...'}
                     </p>
                   </div>
                 </CardContent>
@@ -183,8 +183,8 @@ export default function PMDashboardPage() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Schedule Variance</p>
-                    <p className="text-2xl font-bold text-foreground mt-0.5">{overview ? ${overview.scheduleVariance}% : '-'}</p>
-                    <p className="text-xs text-amber-600 font-medium mt-0.5">{overview ? ${overview.delayedCount} delayed : 'Loading...'}</p>
+                    <p className="text-2xl font-bold text-foreground mt-0.5">{overview ? `${overview.scheduleVariance}%` : '-'}</p>
+                    <p className="text-xs text-amber-600 font-medium mt-0.5">{overview ? `${overview.delayedCount} delayed` : 'Loading...'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -206,7 +206,7 @@ export default function PMDashboardPage() {
                           <span className="text-muted-foreground">{item.count} projects</span>
                         </div>
                         <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                          <div className={h-full rounded-full  transition-all duration-700} style={{ width: item.width }} />
+                          <div className={`h-full rounded-full ${item.color} transition-all duration-700`} style={{ width: `${item.width}%` }} />
                         </div>
                       </div>
                     ))}

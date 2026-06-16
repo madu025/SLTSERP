@@ -15,24 +15,23 @@ export async function GET(
             where: { projectId },
             include: {
                 _count: {
-                    select: { inspections: true }
+                    select: { documents: true }
                 }
             },
             orderBy: { createdAt: 'desc' }
         });
 
         // Also query inventory serials linked to this project (commissioned items)
-        // Check if there's a relation via inspections or directly
         const commissionedItems = assets.map((asset) => ({
             id: asset.id,
             name: asset.assetName,
             serialNumber: asset.assetCode,
             status: asset.status,
             type: asset.assetType,
-            warrantyMonths: asset.warrantyMonths || 12,
+            warrantyMonths: 12,
             date: asset.installationDate || asset.createdAt.toISOString(),
             location: asset.latitude ? `${asset.latitude}, ${asset.longitude}` : null,
-            inspections: asset._count.inspections
+            inspections: asset._count.documents
         }));
 
         return NextResponse.json(commissionedItems);
@@ -64,11 +63,10 @@ export async function POST(
                 assetCode: serialNumber,
                 assetName: name,
                 status: status || 'COMMISSIONED',
-                warrantyMonths: warrantyMonths ? parseInt(warrantyMonths) : 12,
                 latitude: latitude || null,
                 longitude: longitude || null,
                 sourceType: 'MANUAL',
-                createdById: body.createdById || null,
+                createdById: body.createdById || 'system',
                 installationDate: new Date().toISOString()
             }
         });
@@ -81,7 +79,7 @@ export async function POST(
                 serialNumber: asset.assetCode,
                 status: asset.status,
                 type: asset.assetType,
-                warrantyMonths: asset.warrantyMonths,
+                warrantyMonths: 12,
                 date: asset.installationDate,
                 location: asset.latitude ? `${asset.latitude}, ${asset.longitude}` : null,
             }
