@@ -106,3 +106,40 @@ export async function GET(
         );
     }
 }
+
+// DELETE project - Admin/Super Admin only
+export async function DELETE(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const userRole = request.headers.get('x-user-role');
+        if (!userRole || !['SUPER_ADMIN', 'ADMIN'].includes(userRole)) {
+            return NextResponse.json(
+                { error: 'Unauthorized: Only Admin or Super Admin can delete projects' },
+                { status: 403 }
+            );
+        }
+
+        const { id } = await params;
+
+        // Verify project exists before deleting
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (!project) {
+            return NextResponse.json(
+                { error: 'Project not found' },
+                { status: 404 }
+            );
+        }
+
+        await prisma.project.delete({ where: { id } });
+
+        return NextResponse.json({ success: true, message: 'Project deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        return NextResponse.json(
+            { error: 'Failed to delete project' },
+            { status: 500 }
+        );
+    }
+}

@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle, Loader2, X, BookOpen } from 'lucide-react';
+import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle, Loader2, X, BookOpen, Trash2 } from 'lucide-react';
 import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
 
 interface ProjectType {
@@ -86,6 +86,11 @@ export default function ProjectsPage() {
     const [newTypeDescription, setNewTypeDescription] = useState('');
     const [creatingType, setCreatingType] = useState(false);
 
+    // Delete Project state
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
     const handleAddProjectType = async () => {
         if (!newTypeName.trim()) {
             alert('Please enter a project type name');
@@ -107,7 +112,6 @@ export default function ProjectsPage() {
                 return;
             }
             const created = await res.json();
-            // Auto-select the newly created type
             setNewProject(prev => ({ ...prev, projectTypeId: created.id }));
             setNewTypeDialogOpen(false);
             setNewTypeName('');
@@ -170,6 +174,31 @@ export default function ProjectsPage() {
         } catch (error) {
             console.error('Error:', error);
             alert('Failed to create project');
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!projectToDelete) return;
+        try {
+            setDeleting(true);
+            const res = await fetch(`/api/projects/${projectToDelete.id}`, {
+                method: 'DELETE'
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                alert(error.error || 'Failed to delete project');
+                return;
+            }
+
+            setDeleteDialogOpen(false);
+            setProjectToDelete(null);
+            fetchProjects();
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            alert('Failed to delete project');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -340,15 +369,28 @@ export default function ProjectsPage() {
                                                     {project._count.boqItems} items
                                                 </td>
                                                 <td className="px-4 md:px-6 py-4">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => router.push(`/projects/${project.id}`)}
-                                                        className="gap-1"
-                                                    >
-                                                        <Eye className="w-3 h-3" />
-                                                        View
-                                                    </Button>
+                                                    <div className="flex gap-1.5">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => router.push(`/projects/${project.id}`)}
+                                                            className="gap-1"
+                                                        >
+                                                            <Eye className="w-3 h-3" />
+                                                            View
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setProjectToDelete(project);
+                                                                setDeleteDialogOpen(true);
+                                                            }}
+                                                            className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -529,6 +571,52 @@ export default function ProjectsPage() {
                                 </>
                             ) : (
                                 'Create Type'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600 flex items-center gap-2">
+                            <Trash2 className="w-5 h-5" />
+                            Delete Project
+                        </DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this project? This action cannot be undone.
+                            All related data including BOQ items, milestones, expenses, documents, and workflow will be permanently removed.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {projectToDelete && (
+                        <div className="py-2 space-y-1 bg-red-50 rounded-lg p-3 border border-red-200">
+                            <p className="text-sm font-semibold text-slate-900">{projectToDelete.name}</p>
+                            <p className="text-xs text-slate-500">Code: {projectToDelete.projectCode}</p>
+                            <p className="text-xs text-slate-500">Status: {projectToDelete.status?.replace('_', ' ')}</p>
+                        </div>
+                    )}
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="gap-2"
+                        >
+                            {deleting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete Project
+                                </>
                             )}
                         </Button>
                     </DialogFooter>
