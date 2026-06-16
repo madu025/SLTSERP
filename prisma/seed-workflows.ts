@@ -193,51 +193,145 @@ async function main() {
             name: 'Feasibility Study',
             description: 'Technical and commercial feasibility assessment',
             sequence: 1, reqApproval: true, reqChecklist: true,
+            checklistTemplates: {
+              create: [
+                { label: 'Demand forecast completed', isMandatory: true },
+                { label: 'ROI analysis done', isMandatory: true },
+                { label: 'Infrastructure availability confirmed', isMandatory: true },
+              ],
+            },
+            approvalTemplates: {
+              create: [
+                { level: 1, role: 'OSP_MANAGER' },
+              ],
+            },
           },
           {
             name: 'Survey & Route Planning',
             description: 'Field survey and GIS route design',
             sequence: 2, reqPhotos: true, reqGPS: true, reqChecklist: true,
+            checklistTemplates: {
+              create: [
+                { label: 'GIS route data uploaded', isMandatory: true },
+                { label: 'Field verification complete', isMandatory: true, reqPhoto: true },
+                { label: 'GPS coordinates confirmed', isMandatory: true },
+                { label: 'Pole/chamber locations marked', isMandatory: true },
+              ],
+            },
           },
           {
             name: 'Permit Management',
             description: 'All permits including RDA, LRA, etc.',
             sequence: 3, reqApproval: true, reqDocuments: true,
+            approvalTemplates: {
+              create: [
+                { level: 1, role: 'AREA_MANAGER' },
+              ],
+            },
           },
           {
             name: 'Detailed Engineering',
             description: 'Detailed engineering and final BOQ',
             sequence: 4, reqApproval: true,
+            approvalTemplates: {
+              create: [
+                { level: 1, role: 'ENGINEER' },
+                { level: 2, role: 'AREA_MANAGER' },
+              ],
+            },
           },
           {
             name: 'Material Procurement',
             description: 'Procurement and store receiving',
             sequence: 5, reqMaterials: true, reqChecklist: true,
+            checklistTemplates: {
+              create: [
+                { label: 'BOQ finalized and approved', isMandatory: true },
+                { label: 'PR created from BOQ', isMandatory: true },
+                { label: 'PO issued to vendor', isMandatory: true },
+                { label: 'Materials received at store', isMandatory: true },
+              ],
+            },
           },
           {
             name: 'Civil Works',
             description: 'Trenching, duct laying, chamber construction',
             sequence: 6, reqPhotos: true, reqChecklist: true, reqGPS: true,
+            checklistTemplates: {
+              create: [
+                { label: 'Trenching completed per design', isMandatory: true, reqPhoto: true },
+                { label: 'Duct laid and backfilled', isMandatory: true, reqPhoto: true },
+                { label: 'Chambers constructed', isMandatory: true, reqPhoto: true },
+                { label: 'GPS of chambers and duct path recorded', isMandatory: true },
+                { label: 'HSE compliance verified', isMandatory: true },
+              ],
+            },
           },
           {
             name: 'Cabling & Splicing',
             description: 'Cable installation, fusion splicing, closure assembly',
             sequence: 7, reqPhotos: true, reqChecklist: true,
+            checklistTemplates: {
+              create: [
+                { label: 'Cable blown/pulled through ducts', isMandatory: true, reqPhoto: true },
+                { label: 'Fusion splicing completed', isMandatory: true, reqPhoto: true },
+                { label: 'Closure assembled and sealed', isMandatory: true, reqPhoto: true },
+                { label: 'Slack cable stored properly', isMandatory: true },
+                { label: 'Splice loss within spec', isMandatory: true },
+              ],
+            },
           },
           {
             name: 'OTDR Testing',
             description: 'End-to-end fiber testing and acceptance',
             sequence: 8, reqOTDR: true, reqChecklist: true,
+            checklistTemplates: {
+              create: [
+                { label: 'All fibers tested end-to-end', isMandatory: true },
+                { label: 'OTDR traces saved', isMandatory: true },
+                { label: 'Bi-directional testing done', isMandatory: true },
+                { label: 'All results within acceptance criteria', isMandatory: true },
+              ],
+            },
           },
           {
             name: 'QA/QC & Commissioning',
             description: 'Quality inspection and network commissioning',
             sequence: 9, reqApproval: true, reqChecklist: true, reqPhotos: true,
+            checklistTemplates: {
+              create: [
+                { label: 'Visual inspection passed', isMandatory: true, reqPhoto: true },
+                { label: 'All test results within spec', isMandatory: true },
+                { label: 'Site clean and tidy', isMandatory: true, reqPhoto: true },
+                { label: 'NOC commissioning checklist completed', isMandatory: true },
+              ],
+            },
+            approvalTemplates: {
+              create: [
+                { level: 1, role: 'QC_OFFICER' },
+                { level: 2, role: 'OSP_MANAGER' },
+              ],
+            },
           },
           {
             name: 'Handover & Asset Registration',
             description: 'Final handover and asset registration with NOC',
             sequence: 10, reqApproval: true, reqDocuments: true, reqChecklist: true,
+            checklistTemplates: {
+              create: [
+                { label: 'As-built documents completed', isMandatory: true },
+                { label: 'Asset register created in NOC', isMandatory: true },
+                { label: 'Customer acceptance signed', isMandatory: true },
+                { label: 'All invoices processed', isMandatory: true },
+                { label: 'Project closure report submitted', isMandatory: true },
+              ],
+            },
+            approvalTemplates: {
+              create: [
+                { level: 1, role: 'AREA_MANAGER' },
+                { level: 2, role: 'OSP_MANAGER' },
+              ],
+            },
           },
         ],
       },
