@@ -1,0 +1,9 @@
+.next/
+node_modules/
+.git/
+.github/
+*.zip
+*.pem
+.env
+build_log.txt
+deploy_staging/

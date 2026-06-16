@@ -1,0 +1,110 @@
+import { z } from 'zod';
+
+export const contractorMemberSchema = z.object({
+    name: z.string().min(1, "Member name is required"),
+    designation: z.string().min(1, "Designation is required"),
+    nic: z.string()
+        .min(10, "NIC must be 10 or 12 characters")
+        .max(12, "NIC must be 10 or 12 characters")
+        .regex(/^(?:\d{9}[vVxX]|\d{12})$/, "Invalid NIC format (Old or New)"),
+    contactNumber: z.string().optional(),
+    address: z.string().optional(),
+    photoUrl: z.string().optional(),
+    nicUrl: z.string().optional(),
+    passportPhotoUrl: z.string().min(5, "Passport size photo is mandatory"),
+    policeReportUrl: z.string().optional(),
+    gramaCertUrl: z.string().optional(),
+    shoeSize: z.string().optional(),
+    tshirtSize: z.string().optional(),
+});
+
+export const contractorTeamSchema = z.object({
+    id: z.string().optional(),
+    name: z.string().min(1, "Team name is required"),
+    opmcId: z.string().min(1, "OPMC Assignment is required").nullable(),
+    sltCode: z.string().optional().nullable(),
+    storeIds: z.array(z.string()).optional(),
+    primaryStoreId: z.string().optional().nullable(),
+    members: z.array(contractorMemberSchema).min(1, "At least one team member is required"),
+});
+
+export const contractorSchema = z.object({
+    id: z.string().optional(),
+    name: z.string().min(1, "Name is required"),
+    registrationNumber: z.string().optional().nullable(),
+    address: z.string().optional().nullable(),
+    brNumber: z.string().optional().nullable(),
+    status: z.string().optional(),
+    type: z.string().optional(),
+    contactNumber: z.string().trim().min(9, "Valid contact number is required (min 9-10 digits)"),
+    nic: z.string().min(10, "Valid NIC is required"),
+    email: z.string().email("Invalid email").optional().nullable(),
+    
+    // Bank Details
+    bankName: z.string().optional().nullable(),
+    bankBranch: z.string().optional().nullable(),
+    bankAccountNumber: z.string().optional().nullable(),
+    bankPassbookUrl: z.string().optional().nullable(),
+    
+    // Internal assignment
+    opmcId: z.string().optional().nullable(),
+    
+    // Status/Agreements
+    registrationFeePaid: z.boolean().optional(),
+    agreementSigned: z.boolean().optional(),
+    agreementDate: z.string().optional().nullable(),
+    agreementDuration: z.union([z.number(), z.string()]).optional().nullable(),
+    
+    // Document URLs
+    photoUrl: z.string().optional().nullable(),
+    nicFrontUrl: z.string().optional().nullable(),
+    nicBackUrl: z.string().optional().nullable(),
+    policeReportUrl: z.string().optional().nullable(),
+    gramaCertUrl: z.string().optional().nullable(),
+    brCertUrl: z.string().optional().nullable(),
+    registrationFeeSlipUrl: z.string().optional().nullable(),
+    
+    // Teams
+    teams: z.array(contractorTeamSchema).optional().default([]),
+});
+
+// For public registration specifically
+export const publicRegistrationSchema = contractorSchema.extend({
+    nic: z.string()
+        .min(10, "NIC must be 10 or 12 characters")
+        .max(12, "NIC must be 10 or 12 characters")
+        .regex(/^(?:\d{9}[vVxX]|\d{12})$/, "Invalid NIC format (Old or New)"),
+    address: z.string().min(5, "Full address is required"),
+    contactNumber: z.string().trim().min(9, "Contact number is required (min 9-10 digits)"),
+    bankName: z.string().min(2, "Bank name is required"),
+    bankAccountNumber: z.string()
+        .min(8, "Account number is too short")
+        .max(16, "Account number is too long")
+        .regex(/^\d+$/, "Account number must contain only digits"),
+        
+    // Document URLs are now strictly mandatory
+    nicFrontUrl: z.string().min(5, "NIC Front is mandatory"),
+    nicBackUrl: z.string().min(5, "NIC Back is mandatory"),
+    photoUrl: z.string().min(5, "Executive portrait/photo is mandatory"),
+    bankPassbookUrl: z.string().min(5, "Bank Passbook/Statement photo is mandatory"),
+    registrationFeeSlipUrl: z.string().min(5, "Payment receipt is mandatory"),
+    brCertUrl: z.string().min(5, "Business Registration certificate is mandatory"),
+    
+    // Workforce requirement
+    teams: z.array(contractorTeamSchema).min(1, "At least one operational team must be registered"),
+});
+
+export const registrationInviteSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    contactNumber: z.string().trim().min(9, "Valid contact number is required (min 9-10 digits)"),
+    type: z.enum(['SOD', 'OSP']).default('SOD'),
+    opmcId: z.string().min(1, "Regional Office is required"),
+    siteOfficeStaffId: z.string().optional(),
+    email: z.string().email().optional().nullable(),
+});
+
+export type ContractorSchema = z.infer<typeof contractorSchema>;
+export type PublicRegistrationSchema = z.infer<typeof publicRegistrationSchema>;
+export type ContractorTeamSchema = z.infer<typeof contractorTeamSchema>;
+export type ContractorMemberSchema = z.infer<typeof contractorMemberSchema>;
+export type RegistrationInviteSchema = z.infer<typeof registrationInviteSchema>;

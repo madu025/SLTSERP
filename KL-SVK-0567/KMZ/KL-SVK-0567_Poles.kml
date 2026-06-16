@@ -1,0 +1,898 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="KL_SVK_0567_Poles" id="KL_SVK_0567_Poles">
+	<SimpleField name="PL_Number" type="string"></SimpleField>
+	<SimpleField name="LEA" type="string"></SimpleField>
+	<SimpleField name="POLE TYPE" type="string"></SimpleField>
+	<SimpleField name="POLE MAKE" type="string"></SimpleField>
+	<SimpleField name="ROAD NAME" type="string"></SimpleField>
+	<SimpleField name="SIDE" type="string"></SimpleField>
+	<SimpleField name="DP COUNT" type="string"></SimpleField>
+	<SimpleField name="FDP COUNT" type="int"></SimpleField>
+	<SimpleField name="NUMBER OF RISERS" type="int"></SimpleField>
+	<SimpleField name="NO OF DROP WIRES(COPPER)" type="string"></SimpleField>
+	<SimpleField name="NO OF DROP WIRES(FIBER)" type="string"></SimpleField>
+	<SimpleField name="ADJACENT PREVIOUS" type="string"></SimpleField>
+	<SimpleField name="POWER ENCLOSURE" type="int"></SimpleField>
+	<SimpleField name="MOUNTED MSAN" type="int"></SimpleField>
+	<SimpleField name="RISER PIPE" type="int"></SimpleField>
+	<SimpleField name="STAYS" type="string"></SimpleField>
+	<SimpleField name="STRUT" type="int"></SimpleField>
+	<SimpleField name="OVERHEAD GUY" type="int"></SimpleField>
+	<SimpleField name="BARBED" type="string"></SimpleField>
+	<SimpleField name="POLE HEIGHT" type="string"></SimpleField>
+	<SimpleField name="REMARK" type="string"></SimpleField>
+	<SimpleField name="JOINT" type="int"></SimpleField>
+	<SimpleField name="LAC" type="string"></SimpleField>
+	<SimpleField name="Exist_New" type="string"></SimpleField>
+	<SimpleField name="Longitute" type="float"></SimpleField>
+	<SimpleField name="Latitude" type="float"></SimpleField>
+</Schema>
+<Folder><name>KL_SVK_0567_Poles</name>
+  <Placemark id="KL_SVK_0567_Poles.1">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00009</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7750414976935</SimpleData>
+		<SimpleData name="Latitude">7.41128042071111</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7750532936727,7.4112617455155</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.2">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00008</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7754111437625</SimpleData>
+		<SimpleData name="Latitude">7.41155768450498</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7754111437625,7.41155768450498</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.3">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00007</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7756973084069</SimpleData>
+		<SimpleData name="Latitude">7.41178365659825</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7756973084069,7.41178365659825</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.4">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00006</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7759738584379</SimpleData>
+		<SimpleData name="Latitude">7.41200281874328</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7759738584379,7.41200281874328</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.5">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00005</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7762844231555</SimpleData>
+		<SimpleData name="Latitude">7.41223702015</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7762915194083,7.41222082095212</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.6">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00004</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7765834880327</SimpleData>
+		<SimpleData name="Latitude">7.41246611583322</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.776603640215,7.41244795111663</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.7">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00036</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">1</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7861556735021</SimpleData>
+		<SimpleData name="Latitude">7.41878062106706</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7861556735021,7.41878062106706</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.8">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00035</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7864905497373</SimpleData>
+		<SimpleData name="Latitude">7.41900115066262</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7864905497373,7.41900115066262</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.9">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00034</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7868119814959</SimpleData>
+		<SimpleData name="Latitude">7.41920449861366</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7868119814959,7.41920449861366</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.10">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00033</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7871333284217</SimpleData>
+		<SimpleData name="Latitude">7.41940104431459</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7871333284217,7.41940104431459</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.11">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00032</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">1</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7874356176335</SimpleData>
+		<SimpleData name="Latitude">7.41956905784083</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7874388480793,7.41960511567173</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.12">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00031</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">1</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7877044853221</SimpleData>
+		<SimpleData name="Latitude">7.41973334507708</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7877044853221,7.41973334507708</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.13">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00030</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7878910955741</SimpleData>
+		<SimpleData name="Latitude">7.41986065465431</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7878910955741,7.41986065465431</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.14">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00003</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7767751928112</SimpleData>
+		<SimpleData name="Latitude">7.41259367686387</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.776794136482,7.41257397172404</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.15">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00029</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7880899901827</SimpleData>
+		<SimpleData name="Latitude">7.41998775203896</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7880899901827,7.41998775203896</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.16">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00028</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7884981777267</SimpleData>
+		<SimpleData name="Latitude">7.42025015442576</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7884981777267,7.42025015442576</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.17">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00027</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7885550074804</SimpleData>
+		<SimpleData name="Latitude">7.42049695662677</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7886056377148,7.42051180463492</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.18">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00026</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7884803543842</SimpleData>
+		<SimpleData name="Latitude">7.42076684397949</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7885382313434,7.42079315296774</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.19">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00025</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7884191617583</SimpleData>
+		<SimpleData name="Latitude">7.42108663819155</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7884620328366,7.42109501628317</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.20">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00024</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">1</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7883319683068</SimpleData>
+		<SimpleData name="Latitude">7.42145183393831</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.788368250059,7.42146721668179</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.21">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00022</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7707978346389</SimpleData>
+		<SimpleData name="Latitude">7.40844807188296</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7708403954599,7.40844130174677</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.22">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00021</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7711958723541</SimpleData>
+		<SimpleData name="Latitude">7.40872093610416</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7712118631806,7.40870213509699</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.23">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00020</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7715616717601</SimpleData>
+		<SimpleData name="Latitude">7.40898360469973</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7715836972403,7.40896333478618</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.24">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00002</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.776971059107</SimpleData>
+		<SimpleData name="Latitude">7.41270400373559</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.776971059107,7.41270400373559</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.25">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00019</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7719142126466</SimpleData>
+		<SimpleData name="Latitude">7.40925346831273</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7719357489952,7.4092270988482</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.26">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00018</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7722577588019</SimpleData>
+		<SimpleData name="Latitude">7.40948509835166</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7722859690554,7.40944543687732</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.27">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00017</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.772643446165</SimpleData>
+		<SimpleData name="Latitude">7.40971279375435</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7726618328437,7.40967623043159</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.28">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00016</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7730304054181</SimpleData>
+		<SimpleData name="Latitude">7.4099426184367</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7730428253777,7.4099150834433</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.29">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00015</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7733646058691</SimpleData>
+		<SimpleData name="Latitude">7.410135532952</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7733827879466,7.41011363916777</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.30">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00013</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7737257479685</SimpleData>
+		<SimpleData name="Latitude">7.41034034105734</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7737425328201,7.41030706614658</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.31">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00012</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7740707030187</SimpleData>
+		<SimpleData name="Latitude">7.41054365180071</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7740707030187,7.41054365180071</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.32">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00011</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7744073472378</SimpleData>
+		<SimpleData name="Latitude">7.41079160412658</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7744261213475,7.41076718789921</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.33">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00010</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">0</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7747468493342</SimpleData>
+		<SimpleData name="Latitude">7.41104624727759</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7747646185604,7.41100970430068</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.34">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00001</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">LHS</SimpleData>
+		<SimpleData name="FDP COUNT">1</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">6.7m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">Exist</SimpleData>
+		<SimpleData name="Longitute">81.7767352753805</SimpleData>
+		<SimpleData name="Latitude">7.41300624835977</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7767352753805,7.41300624835977</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.35">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00014</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">1</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">8m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">New</SimpleData>
+		<SimpleData name="Longitute">81.7737844789718</SimpleData>
+		<SimpleData name="Latitude">7.41013777999809</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7737844789718,7.41013777999809</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Poles.36">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Poles">
+		<SimpleData name="PL_Number">KL-PL-SVK-00023</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="POLE TYPE">Concrete</SimpleData>
+		<SimpleData name="POLE MAKE">SLT</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="SIDE">RHS</SimpleData>
+		<SimpleData name="FDP COUNT">1</SimpleData>
+		<SimpleData name="NUMBER OF RISERS">0</SimpleData>
+		<SimpleData name="POWER ENCLOSURE">0</SimpleData>
+		<SimpleData name="MOUNTED MSAN">0</SimpleData>
+		<SimpleData name="RISER PIPE">0</SimpleData>
+		<SimpleData name="STAYS">No</SimpleData>
+		<SimpleData name="STRUT">0</SimpleData>
+		<SimpleData name="OVERHEAD GUY">0</SimpleData>
+		<SimpleData name="POLE HEIGHT">8m</SimpleData>
+		<SimpleData name="JOINT">0</SimpleData>
+		<SimpleData name="Exist_New">New</SimpleData>
+		<SimpleData name="Longitute">81.7710732167696</SimpleData>
+		<SimpleData name="Latitude">7.40839889099662</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7710732167696,7.40839889099662</coordinates></Point>
+  </Placemark>
+</Folder>
+</Document></kml>

@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # NOTE: Local Postgres is disabled to avoid conflict with remote DB development
+
+  # Redis for BullMQ (Queues)
+  redis:
+    image: redis:7-alpine
+    container_name: sltserp-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - sltserp-network
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sltserp-app
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://sltserp_user:${POSTGRES_PASSWORD:-ChangeThisPassword123!}@postgres:5432/sltserp_db
+      DIRECT_URL: postgresql://sltserp_user:${POSTGRES_PASSWORD:-ChangeThisPassword123!}@postgres:5432/sltserp_db
+      REDIS_URL: redis://redis:6379
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NODE_ENV: production
+      CRON_SECRET: ${CRON_SECRET}
+      TZ: Asia/Colombo
+    ports:
+      - "3000:3000"
+    networks:
+      - sltserp-network
+    volumes:
+      - uploads_data:/app/uploads
+
+  # PgAdmin (Optional - Database Management UI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: sltserp-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@sltserp.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - sltserp-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  uploads_data:
+    driver: local
+
+networks:
+  sltserp-network:
+    driver: bridge

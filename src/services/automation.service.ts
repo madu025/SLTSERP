@@ -1,0 +1,1 @@
+export { AutomationService } from './automation';

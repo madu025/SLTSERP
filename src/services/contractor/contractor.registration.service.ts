@@ -1,0 +1,347 @@
+import { prisma } from '@/lib/prisma';
+import crypto from 'crypto';
+import { Prisma, ContractorType, ContractorStatus } from '@prisma/client';
+import { emitSystemEvent } from '@/lib/events';
+import { RegistrationLinkParams, ContractorUpdateData, TeamMemberInput } from './contractor-types';
+import { ContractorQueryService } from './contractor.query.service';
+import { eventBus } from '@/lib/events/event-bus';
+
+export class ContractorRegistrationService {
+    /**
+     * Generate a unique registration link
+     */
+    static async generateRegistrationLink(data: RegistrationLinkParams) {
+        const { name, contactNumber, email, siteOfficeStaffId, origin, opmcId } = data;
+        let { type } = data;
+
+        if (!type) type = 'SOD';
+
+        try {
+            const existing = await prisma.contractor.findFirst({
+                where: { contactNumber, status: { in: ['PENDING', 'REJECTED'] } }
+            });
+
+            const token = crypto.randomBytes(5).toString('hex').toUpperCase(); // 10 chars
+            const expiry = new Date();
+            expiry.setDate(expiry.getDate() + 7);
+
+            if (existing) {
+                const updated = await prisma.contractor.update({
+                    where: { id: existing.id },
+                    data: {
+                        name,
+                        type: type as ContractorType,
+                        registrationToken: token,
+                        registrationTokenExpiry: expiry,
+                        registrationStartedAt: null,
+                        siteOfficeStaffId,
+                        opmcId: opmcId || null
+                    }
+                });
+                return {
+                    contractor: updated,
+                    registrationLink: `${origin}/contractor-registration/${token}`,
+                    isUpdate: true
+                };
+            }
+
+            await ContractorQueryService.validateUnique({ contactNumber });
+
+            const contractor = await prisma.contractor.create({
+                data: {
+                    name,
+                    contactNumber,
+                    email,
+                    type: type as ContractorType,
+                    status: 'PENDING',
+                    registrationToken: token,
+                    registrationTokenExpiry: expiry,
+                    siteOfficeStaffId,
+                    opmcId: opmcId || null
+                }
+            });
+
+            return {
+                contractor,
+                registrationLink: `${origin}/contractor-registration/${token}`
+            };
+        } catch (error) {
+            console.error("[REG-SERVICE] generateRegistrationLink Error:", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Resend registration link for an existing contractor
+     */
+    static async resendRegistrationLink(id: string, origin: string) {
+        const contractor = await prisma.contractor.findUnique({
+            where: { id }
+        });
+
+        if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
+
+        if (!['PENDING', 'REJECTED'].includes(contractor.status)) {
+            await prisma.contractor.update({
+                where: { id },
+                data: { status: 'REJECTED' }
+            });
+        }
+
+        const token = crypto.randomBytes(5).toString('hex').toUpperCase();
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 7);
+
+        const updated = await prisma.contractor.update({
+            where: { id },
+            data: {
+                registrationToken: token,
+                registrationTokenExpiry: expiry,
+                registrationStartedAt: null,
+            }
+        });
+
+        return {
+            contractor: updated,
+            registrationLink: `${origin}/contractor-registration/${token}`
+        };
+    }
+
+    /**
+     * Generate a renewal link for an active contractor
+     * This copies existing data into a registration draft for easy review
+     */
+    static async generateRenewalLink(id: string, origin: string) {
+        const contractor = await prisma.contractor.findUnique({
+            where: { id },
+            include: {
+                teams: {
+                    include: {
+                        members: true,
+                        storeAssignments: true
+                    }
+                }
+            }
+        });
+
+        if (!contractor) throw new Error('CONTRACTOR_NOT_FOUND');
+
+        // Copy current data into draft
+        const draft: Partial<ContractorUpdateData> = {
+            name: contractor.name,
+            email: contractor.email || undefined,
+            nic: contractor.nic || undefined,
+            address: contractor.address || undefined,
+            contactNumber: contractor.contactNumber || undefined,
+            brNumber: contractor.brNumber || undefined,
+            bankName: contractor.bankName || undefined,
+            bankBranch: contractor.bankBranch || undefined,
+            bankAccountNumber: contractor.bankAccountNumber || undefined,
+            bankPassbookUrl: contractor.bankPassbookUrl || undefined,
+            registrationFeeSlipUrl: contractor.registrationFeeSlipUrl || undefined,
+            photoUrl: contractor.photoUrl || undefined,
+            nicFrontUrl: contractor.nicFrontUrl || undefined,
+            nicBackUrl: contractor.nicBackUrl || undefined,
+            policeReportUrl: contractor.policeReportUrl || undefined,
+            gramaCertUrl: contractor.gramaCertUrl || undefined,
+            brCertUrl: contractor.brCertUrl || undefined,
+            teams: contractor.teams.map(t => ({
+                id: t.id,
+                name: t.name,
+                opmcId: t.opmcId || "",
+                primaryStoreId: t.storeAssignments?.find((sa) => sa.isPrimary)?.storeId || "",
+                members: t.members.map(m => ({
+                    name: m.name,
+                    nic: m.nic || undefined,
+                    contactNumber: m.contactNumber || undefined,
+                    address: m.address || undefined,
+                    designation: m.designation || undefined,
+                    photoUrl: m.photoUrl || undefined,
+                    passportPhotoUrl: m.passportPhotoUrl || undefined,
+                    nicUrl: m.nicUrl || undefined,
+                    policeReportUrl: m.policeReportUrl || undefined,
+                    gramaCertUrl: m.gramaCertUrl || undefined,
+                    shoeSize: m.shoeSize || undefined,
+                    tshirtSize: m.tshirtSize || undefined
+                } as TeamMemberInput))
+            }))
+        };
+
+        const token = crypto.randomBytes(5).toString('hex').toUpperCase();
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + 30); // Renewals have a longer lead time
+
+        const updated = await prisma.contractor.update({
+            where: { id },
+            data: {
+                registrationToken: token,
+                registrationTokenExpiry: expiry,
+                registrationStartedAt: null,
+                status: 'PENDING', // Reset status to allow the public form to proceed
+                registrationDraft: draft as Prisma.InputJsonValue
+            }
+        });
+
+        return {
+            contractor: updated,
+            registrationLink: `${origin}/contractor-registration/${token}`
+        };
+    }
+
+    /**
+     * Get contractor by registration token
+     */
+    static async getContractorByToken(token: string) {
+        const contractor = await prisma.contractor.findFirst({
+            where: { registrationToken: token },
+            include: {
+                teams: {
+                    include: {
+                        members: true,
+                        storeAssignments: true
+                    }
+                }
+            }
+        });
+
+        if (!contractor) throw new Error('INVALID_TOKEN');
+
+        if (contractor.registrationTokenExpiry && new Date(contractor.registrationTokenExpiry) < new Date()) {
+            throw new Error('TOKEN_EXPIRED');
+        }
+
+        if (!['PENDING', 'REJECTED'].includes(contractor.status)) {
+            throw new Error('ALREADY_SUBMITTED');
+        }
+
+        if (!contractor.registrationStartedAt && contractor.status === 'PENDING') {
+            const now = new Date();
+            // Only set a shorter expiry if the current one is missing or already expired/very soon
+            // Renewals typically have 30 days, we don't want to overwrite that to 3 days.
+            const currentExpiry = contractor.registrationTokenExpiry ? new Date(contractor.registrationTokenExpiry) : null;
+            const threeDaysFromNow = new Date();
+            threeDaysFromNow.setDate(now.getDate() + 3);
+
+            let newExpiry = contractor.registrationTokenExpiry;
+            if (!currentExpiry || currentExpiry < threeDaysFromNow) {
+                newExpiry = threeDaysFromNow;
+            }
+
+            return await prisma.contractor.update({
+                where: { id: contractor.id },
+                data: {
+                    registrationStartedAt: now,
+                    registrationTokenExpiry: newExpiry
+                },
+                include: {
+                    teams: {
+                        include: {
+                            members: true,
+                            storeAssignments: true
+                        }
+                    }
+                }
+            });
+        }
+
+        return contractor;
+    }
+
+    /**
+     * Save registration data as draft
+     */
+    static async saveRegistrationDraft(token: string, draftData: ContractorUpdateData) {
+        const contractor = await this.getContractorByToken(token);
+        const currentDraft = (contractor.registrationDraft as Record<string, unknown>) || {};
+        const mergedDraft = { ...currentDraft };
+
+        for (const key in draftData) {
+            const newVal = (draftData as Record<string, unknown>)[key];
+            if (newVal !== "" && newVal !== null && newVal !== undefined) {
+                if (key === 'teams' && Array.isArray(newVal)) {
+                    if (newVal.length > 0) mergedDraft[key] = newVal;
+                } else {
+                    mergedDraft[key] = newVal;
+                }
+            }
+        }
+
+        return await prisma.contractor.update({
+            where: { id: contractor.id },
+            data: { 
+                registrationDraft: mergedDraft as Prisma.InputJsonValue,
+                registrationStartedAt: contractor.registrationStartedAt || new Date()
+            }
+        });
+    }
+
+    /**
+     * Submit registration data
+     */
+    static async submitPublicRegistration(token: string, data: ContractorUpdateData) {
+        const contractor = await this.getContractorByToken(token);
+        const { teams, id: _id, createdAt: _c, updatedAt: _u, ...restData } = data;
+        void _id; void _c; void _u;
+
+        await ContractorQueryService.validateUnique({
+            nic: restData.nic,
+            contactNumber: restData.contactNumber
+        }, contractor.id);
+
+        const result = await prisma.$transaction(async (tx) => {
+            const updated = await tx.contractor.update({
+                where: { id: contractor.id },
+                data: {
+                    name: restData.name || contractor.name,
+                    email: restData.email || contractor.email,
+                    nic: restData.nic,
+                    address: restData.address,
+                    contactNumber: restData.contactNumber,
+                    brNumber: restData.brNumber,
+                    bankName: restData.bankName,
+                    bankBranch: restData.bankBranch,
+                    bankAccountNumber: restData.bankAccountNumber,
+                    bankPassbookUrl: restData.bankPassbookUrl,
+                    photoUrl: restData.photoUrl,
+                    nicFrontUrl: restData.nicFrontUrl,
+                    nicBackUrl: restData.nicBackUrl,
+                    policeReportUrl: restData.policeReportUrl,
+                    gramaCertUrl: restData.gramaCertUrl,
+                    brCertUrl: restData.brCertUrl,
+                    registrationFeeSlipUrl: restData.registrationFeeSlipUrl,
+                    status: 'ARM_PENDING' as ContractorStatus,
+                    registrationDraft: Prisma.JsonNull,
+                    registrationStartedAt: null,
+                    registrationToken: null,
+                    registrationTokenExpiry: null,
+                }
+            });
+
+            // Sync teams instead of deleting blindly (prevents database FK violations on renewal/re-registration)
+            const { ContractorLifecycleService } = await import('./contractor.lifecycle.service');
+            await ContractorLifecycleService.syncTeams(contractor.id, teams || [], updated.opmcId, tx);
+
+            return updated;
+        }, {
+            maxWait: 10000,
+            timeout: 30000,
+        });
+
+        try {
+            await eventBus.publish('contractor.registered', {
+                contractor: {
+                    id: result.id,
+                    name: result.name,
+                    siteOfficeStaffId: result.siteOfficeStaffId,
+                    opmcId: result.opmcId
+                },
+                siteOfficeStaffId: result.siteOfficeStaffId
+            });
+        } catch (nErr) {
+            console.error("[REG-SERVICE] Event Publish Failed:", nErr);
+        }
+
+        emitSystemEvent('CONTRACTOR_UPDATE');
+        return result;
+    }
+}

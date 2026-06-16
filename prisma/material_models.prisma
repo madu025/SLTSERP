@@ -1,0 +1,177 @@
+// Material Categories (OSP New Connection, FAC, etc.)
+model MaterialCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  standards   MaterialStandard[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Standard materials per package type
+model MaterialStandard {
+  id              String   @id @default(cuid())
+  categoryId      String
+  category        MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  packageType     String   // "VOICE_INT", "VOICE_IPTV", etc.
+  itemId          String
+  item            InventoryItem @relation("MaterialStandards", fields: [itemId], references: [id])
+  
+  standardQty     Float    // Standard quantity per SOD
+  maxQty          Float?   // Maximum allowed
+  wastagePercent  Float    @default(5) // Max wastage %
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([categoryId, packageType, itemId])
+  @@index([packageType])
+}
+
+// Material issued to contractor (per store)
+model ContractorMaterialIssue {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           InventoryStore @relation("MaterialIssues", fields: [storeId], references: [id])
+  
+  issueDate       DateTime @default(now())
+  month           String   // "2025-01"
+  issuedBy        String?  // User ID
+  
+  items           ContractorMaterialIssueItem[]
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([contractorId, storeId, month])
+  @@index([month])
+}
+
+model ContractorMaterialIssueItem {
+  id              String   @id @default(cuid())
+  issueId         String
+  issue           ContractorMaterialIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("IssueItems", fields: [itemId], references: [id])
+  
+  quantity        Float
+  unit            String
+  
+  @@index([issueId])
+  @@index([itemId])
+}
+
+// Material used per SOD
+model SODMaterialUsage {
+  id              String   @id @default(cuid())
+  serviceOrderId  String
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("SODUsage", fields: [itemId], references: [id])
+  
+  quantity        Float
+  unit            String
+  usageType       String   // "USED", "WASTAGE"
+  
+  // Wastage tracking
+  wastagePercent  Float?   // Calculated wastage %
+  exceedsLimit    Boolean  @default(false) // If wastage > standard
+  comment         String?  @db.Text // Required if exceeds limit
+  approvedBy      String?  // Store Manager approval
+  approvedAt      DateTime?
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([serviceOrderId])
+  @@index([itemId])
+  @@index([usageType])
+}
+
+// Material returns
+model ContractorMaterialReturn {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           InventoryStore @relation("MaterialReturns", fields: [storeId], references: [id])
+  
+  returnDate      DateTime @default(now())
+  month           String   // Month being returned for
+  reason          String?  @db.Text
+  
+  items           ContractorMaterialReturnItem[]
+  
+  acceptedBy      String?  // Store Manager
+  acceptedAt      DateTime?
+  status          String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([contractorId, storeId, month])
+  @@index([status])
+}
+
+model ContractorMaterialReturnItem {
+  id              String   @id @default(cuid())
+  returnId        String
+  return          ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("ReturnItems", fields: [itemId], references: [id])
+  
+  quantity        Float
+  unit            String
+  condition       String   @default("GOOD") // GOOD, DAMAGED
+  
+  @@index([returnId])
+  @@index([itemId])
+}
+
+// Monthly balance sheet (per store)
+model ContractorMaterialBalanceSheet {
+  id              String   @id @default(cuid())
+  contractorId    String
+  contractor      Contractor @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           InventoryStore @relation("BalanceSheets", fields: [storeId], references: [id])
+  
+  month           String   // "2025-01"
+  
+  items           ContractorBalanceSheetItem[]
+  
+  totalValue      Float?
+  usageRate       Float?   // Percentage
+  wastageRate     Float?   // Percentage
+  
+  generatedAt     DateTime @default(now())
+  generatedBy     String?  // User ID
+  
+  @@unique([contractorId, storeId, month])
+  @@index([month])
+  @@index([contractorId])
+  @@index([storeId])
+}
+
+model ContractorBalanceSheetItem {
+  id              String   @id @default(cuid())
+  balanceSheetId  String
+  balanceSheet    ContractorMaterialBalanceSheet @relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            InventoryItem @relation("BalanceSheetItems", fields: [itemId], references: [id])
+  
+  openingBalance  Float    // From previous month
+  received        Float    // Issued this month
+  returned        Float    @default(0) // Returned to store
+  used            Float    // Used in SODs
+  wastage         Float    // Wastage
+  closingBalance  Float    // Opening + Received - Returned - Used - Wastage
+  requiredNext    Float?   // Estimated for next month
+  
+  @@index([balanceSheetId])
+  @@index([itemId])
+}

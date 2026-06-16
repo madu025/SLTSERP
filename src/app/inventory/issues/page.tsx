@@ -1,0 +1,610 @@
+"use client";
+
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { PackageMinus, Plus, Trash2, Eye } from "lucide-react";
+import { toast } from "sonner";
+import { createStockIssue } from "@/actions/inventory-actions";
+
+interface User {
+    id: string;
+    name: string;
+    role: string;
+    storeId?: string;
+}
+
+interface IssueItem {
+    itemId: string;
+    quantity: string;
+    remarks: string;
+    serials?: string[];
+    hasSerial?: boolean;
+    availableSerials?: Array<{ id: string; serialNumber: string }>;
+}
+
+interface StockIssue {
+    id: string;
+    issueNumber: string;
+    issueType: string;
+    recipientName: string;
+    issuedById: string;
+    issuedBy: { id: string; name: string };
+    items: Array<{
+        id: string;
+        itemId: string;
+        item: { name: string; unit: string };
+        quantity: number;
+        remarks?: string;
+    }>;
+    remarks?: string;
+    createdAt: string;
+}
+
+export default function StockIssuePage() {
+    const queryClient = useQueryClient();
+    const [user] = useState<User | null>(() => {
+        if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('user');
+            return stored ? JSON.parse(stored) : null;
+        }
+        return null;
+    });
+    const [activeTab, setActiveTab] = useState<'NEW' | 'HISTORY'>('NEW');
+
+    // Issue Form State
+    const [showIssueDialog, setShowIssueDialog] = useState(false);
+    const [issueType, setIssueType] = useState<'PROJECT' | 'CONTRACTOR' | 'TEAM' | 'OTHER'>('PROJECT');
+    const [selectedProject, setSelectedProject] = useState('');
+    const [selectedContractor, setSelectedContractor] = useState('');
+    const [selectedTeam, setSelectedTeam] = useState('');
+    const [recipientName, setRecipientName] = useState('');
+    const [issueItems, setIssueItems] = useState<IssueItem[]>([]);
+    const [issueRemarks, setIssueRemarks] = useState('');
+    const [selectedIssue, setSelectedIssue] = useState<StockIssue | null>(null);
+    const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+
+    // Fetch items for dropdown
+    const { data: items = [] } = useQuery<Array<{ id: string; name: string; code: string; hasSerial?: boolean }>>({
+        queryKey: ["items"],
+        queryFn: async (): Promise<Array<{ id: string; name: string; code: string; hasSerial?: boolean }>> => {
+            const res = await fetch("/api/inventory/items");
+            return res.json();
+        }
+    });
+
+    // Fetch projects
+    const { data: projects = [] } = useQuery<Array<{ id: string; name: string }>>({
+        queryKey: ["projects"],
+        queryFn: async (): Promise<Array<{ id: string; name: string }>> => {
+            const res = await fetch("/api/projects");
+            return res.json();
+        }
+    });
+
+    // Fetch contractors
+    interface ContractorResponse {
+        success: boolean;
+        data?: {
+            contractors: Array<{ id: string; name: string }>;
+        };
+        contractors?: Array<{ id: string; name: string }>;
+    }
+
+    const { data: contractorsData } = useQuery<ContractorResponse>({
+        queryKey: ["contractors"],
+        queryFn: async () => {
+            const res = await fetch("/api/contractors?page=1&limit=1000");
+            return res.json();
+        }
+    });
+    const contractors: Array<{ id: string; name: string }> = contractorsData?.success && Array.isArray(contractorsData.data?.contractors)
+        ? contractorsData.data.contractors
+        : Array.isArray(contractorsData?.contractors)
+            ? contractorsData.contractors
+            : [];
+
+    // Fetch stock issues history
+    const { data: issues = [], isLoading } = useQuery<StockIssue[]>({
+        queryKey: ['stock-issues'],
+        queryFn: async (): Promise<StockIssue[]> => {
+            const res = await fetch('/api/inventory/issues');
+            return res.json();
+        }
+    });
+
+    // Create issue mutation
+    const createIssueMutation = useMutation({
+        mutationFn: async (data: {
+            storeId: string | undefined;
+            issuedById: string | undefined;
+            issueType: string;
+            projectId: string | null;
+            contractorId: string | null;
+            teamId: string | null;
+            recipientName: string;
+            remarks: string;
+            items: Array<{ itemId: string; quantity: number; remarks: string; serials?: string[] }>;
+        }) => {
+            return await createStockIssue(data);
+        },
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success('Stock issued successfully!');
+                queryClient.invalidateQueries({ queryKey: ['stock-issues'] });
+                queryClient.invalidateQueries({ queryKey: ['stock'] });
+                handleCloseIssueDialog();
+            } else {
+                toast.error(result.error || 'Failed to issue stock');
+            }
+        },
+        onError: (error: Error) => {
+            toast.error(error.message || 'Failed to issue stock');
+        }
+    });
+
+    const handleOpenIssueDialog = () => {
+        setIssueItems([{ itemId: '', quantity: '', remarks: '', serials: [], hasSerial: false, availableSerials: [] }]);
+        setShowIssueDialog(true);
+    };
+
+    const handleCloseIssueDialog = () => {
+        setShowIssueDialog(false);
+        setIssueType('PROJECT');
+        setSelectedProject('');
+        setSelectedContractor('');
+        setSelectedTeam('');
+        setRecipientName('');
+        setIssueItems([]);
+        setIssueRemarks('');
+    };
+
+    const addIssueItem = () => {
+        setIssueItems([...issueItems, { itemId: '', quantity: '', remarks: '', serials: [], hasSerial: false, availableSerials: [] }]);
+    };
+
+    const removeIssueItem = (index: number) => {
+        setIssueItems(issueItems.filter((_, i) => i !== index));
+    };
+
+    const updateIssueItem = async (index: number, field: keyof IssueItem, value: string) => {
+        const updated = [...issueItems];
+        if (field === 'itemId') {
+            const selectedItem = items.find(i => i.id === value);
+            const hasSerial = selectedItem?.hasSerial || false;
+            updated[index] = {
+                ...updated[index],
+                itemId: value,
+                hasSerial,
+                serials: [],
+                quantity: hasSerial ? '0' : updated[index].quantity,
+                availableSerials: []
+            };
+            setIssueItems(updated);
+
+            if (hasSerial && value && user?.storeId) {
+                try {
+                    const res = await fetch(`/api/inventory/serials?storeId=${user.storeId}&itemId=${value}`);
+                    if (res.ok) {
+                        const serialsData = await res.json();
+                        setIssueItems(prev => {
+                            const newItems = [...prev];
+                            if (newItems[index] && newItems[index].itemId === value) {
+                                newItems[index] = {
+                                    ...newItems[index],
+                                    availableSerials: serialsData
+                                };
+                            }
+                            return newItems;
+                        });
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch serials", err);
+                    toast.error("Failed to load serial numbers for the selected item");
+                }
+            }
+        } else {
+            updated[index] = { ...updated[index], [field]: value };
+            setIssueItems(updated);
+        }
+    };
+
+    const handleCreateIssue = () => {
+        if (issueItems.length === 0 || issueItems.some(i => !i.itemId || !i.quantity || parseFloat(i.quantity) <= 0)) {
+            toast.error('Please add at least one item with valid quantity');
+            return;
+        }
+
+        if (!recipientName) {
+            toast.error('Please enter recipient name');
+            return;
+        }
+
+        // Validate serials count
+        for (const item of issueItems) {
+            if (item.hasSerial) {
+                const selectedCount = item.serials?.length || 0;
+                if (selectedCount === 0) {
+                    const itemName = items.find(i => i.id === item.itemId)?.name || 'Serialized item';
+                    toast.error(`Please select at least one serial number for ${itemName}`);
+                    return;
+                }
+                if (selectedCount !== parseFloat(item.quantity)) {
+                    const itemName = items.find(i => i.id === item.itemId)?.name || 'Serialized item';
+                    toast.error(`Selected serial numbers count does not match the quantity for ${itemName}`);
+                    return;
+                }
+            }
+        }
+
+        const payload = {
+            storeId: user?.storeId,
+            issuedById: user?.id,
+            issueType,
+            projectId: issueType === 'PROJECT' ? selectedProject : null,
+            contractorId: issueType === 'CONTRACTOR' ? selectedContractor : null,
+            teamId: issueType === 'TEAM' ? selectedTeam : null,
+            recipientName,
+            remarks: issueRemarks,
+            items: issueItems.map(item => ({
+                itemId: item.itemId,
+                quantity: parseFloat(item.quantity),
+                remarks: item.remarks,
+                serials: item.hasSerial ? item.serials : undefined
+            }))
+        };
+
+        createIssueMutation.mutate(payload);
+    };
+
+    return (
+        <div className="erp-page-wrapper flex-row overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+                <Header />
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                    <div className="max-w-7xl mx-auto space-y-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Stock Issue</h1>
+                                <p className="text-xs text-slate-500">Issue materials to projects, contractors, and teams</p>
+                            </div>
+                            <Button onClick={handleOpenIssueDialog} size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
+                                <PackageMinus className="w-3.5 h-3.5" />
+                                Issue Stock
+                            </Button>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex gap-2 border-b border-slate-200">
+                            <button
+                                onClick={() => setActiveTab('NEW')}
+                                className={`px-3 py-1.5 font-bold text-xs transition-colors ${activeTab === 'NEW'
+                                    ? 'border-b-2 border-blue-600 text-blue-600'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                Recent Issues
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('HISTORY')}
+                                className={`px-3 py-1.5 font-bold text-xs transition-colors ${activeTab === 'HISTORY'
+                                    ? 'border-b-2 border-blue-600 text-blue-600'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                            >
+                                All History
+                            </button>
+                        </div>
+
+                        {/* Issues List */}
+                        <div className="erp-table-container flex flex-col bg-white overflow-hidden">
+                            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/40 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Stock Issues</span>
+                            </div>
+                            {isLoading ? (
+                                <div className="text-center p-8 text-slate-400 text-xs font-semibold">Loading...</div>
+                            ) : issues.length === 0 ? (
+                                <div className="text-center p-8 text-slate-400 text-xs font-semibold">
+                                    No stock issues found
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 sticky top-0 z-10">
+                                            <tr>
+                                                <th className="px-4 py-2">Issue No</th>
+                                                <th className="px-3 py-2">Date</th>
+                                                <th className="px-3 py-2">Type</th>
+                                                <th className="px-3 py-2">Recipient</th>
+                                                <th className="px-3 py-2 text-center">Items</th>
+                                                <th className="px-3 py-2">Issued By</th>
+                                                <th className="px-4 py-2 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {issues.slice(0, activeTab === 'NEW' ? 10 : undefined).map((issue: StockIssue) => (
+                                                <tr key={issue.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                                                    <td className="px-4 py-1.5 font-bold text-slate-800">{issue.issueNumber}</td>
+                                                    <td className="px-3 py-1.5 text-slate-500">
+                                                        {new Date(issue.createdAt).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-3 py-1.5">
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-slate-200 bg-white text-slate-600 font-medium">{issue.issueType}</Badge>
+                                                    </td>
+                                                    <td className="px-3 py-1.5 font-semibold text-slate-700">{issue.recipientName}</td>
+                                                    <td className="px-3 py-1.5 text-center font-semibold text-slate-700">{issue.items?.length || 0}</td>
+                                                    <td className="px-3 py-1.5 text-slate-500">{issue.issuedBy?.name || '-'}</td>
+                                                    <td className="px-4 py-1.5 text-right">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                                                            onClick={() => {
+                                                                setSelectedIssue(issue);
+                                                                setShowDetailsDialog(true);
+                                                            }}
+                                                        >
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            {/* Create Issue Dialog */}
+            <Dialog open={showIssueDialog} onOpenChange={setShowIssueDialog}>
+                <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="px-6 py-4 border-b">
+                        <DialogTitle>Issue Stock</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 no-scrollbar">
+                        <div className="space-y-4">
+                            {/* Issue Type & Recipient */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-600 uppercase">Issue Type</label>
+                                    <select
+                                        className="w-full mt-1 h-9 rounded border px-3 text-sm"
+                                        value={issueType}
+                                        onChange={e => setIssueType(e.target.value as 'PROJECT' | 'CONTRACTOR' | 'TEAM' | 'OTHER')}
+                                    >
+                                        <option value="PROJECT">Project</option>
+                                        <option value="CONTRACTOR">Contractor</option>
+                                        <option value="TEAM">Team</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+
+                                {issueType === 'PROJECT' && (
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 uppercase">Project</label>
+                                        <select
+                                            className="w-full mt-1 h-9 rounded border px-3 text-sm"
+                                            value={selectedProject}
+                                            onChange={e => setSelectedProject(e.target.value)}
+                                        >
+                                            <option value="">Select Project...</option>
+                                            {projects.map((p) => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {issueType === 'CONTRACTOR' && (
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-600 uppercase">Contractor</label>
+                                        <select
+                                            className="w-full mt-1 h-9 rounded border px-3 text-sm"
+                                            value={selectedContractor}
+                                            onChange={e => setSelectedContractor(e.target.value)}
+                                        >
+                                            <option value="">Select Contractor...</option>
+                                            {contractors.map((c) => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 uppercase">Recipient Name</label>
+                                <Input
+                                    className="mt-1"
+                                    value={recipientName}
+                                    onChange={e => setRecipientName(e.target.value)}
+                                    placeholder="Person receiving the materials"
+                                />
+                            </div>
+
+                            {/* Items Table */}
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-xs font-bold text-slate-600 uppercase">Items to Issue</label>
+                                    <Button size="sm" onClick={addIssueItem}>
+                                        <Plus className="w-4 h-4 mr-1" />
+                                        Add Item
+                                    </Button>
+                                </div>
+                                <div className="border rounded overflow-hidden">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-slate-100">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left">Item</th>
+                                                <th className="px-3 py-2 text-center w-[120px]">Quantity</th>
+                                                <th className="px-3 py-2 text-left">Remarks</th>
+                                                <th className="px-3 py-2 w-8"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {issueItems.map((item, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="px-3 py-2">
+                                                        <select
+                                                            className="w-full h-8 rounded border text-xs px-2"
+                                                            value={item.itemId}
+                                                            onChange={e => updateIssueItem(idx, 'itemId', e.target.value)}
+                                                        >
+                                                            <option value="">Select Item...</option>
+                                                            {items.map((i) => (
+                                                                <option key={i.id} value={i.id}>
+                                                                    {i.name} ({i.code})
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        {item.hasSerial && (
+                                                            <div className="mt-2 space-y-1 bg-slate-50 p-2 rounded border border-slate-200">
+                                                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Select Serials:</label>
+                                                                {item.availableSerials && item.availableSerials.length > 0 ? (
+                                                                    <div className="max-h-24 overflow-y-auto space-y-1 border border-slate-100 p-1 rounded bg-white">
+                                                                        {item.availableSerials.map((s) => {
+                                                                            const isChecked = item.serials?.includes(s.serialNumber) || false;
+                                                                            return (
+                                                                                <label key={s.id} className="flex items-center gap-2 text-[10px] font-mono cursor-pointer hover:bg-slate-50 p-0.5 rounded">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={isChecked}
+                                                                                        onChange={(e) => {
+                                                                                            const checked = e.target.checked;
+                                                                                            const updatedItems = [...issueItems];
+                                                                                            const currentSerials = updatedItems[idx].serials || [];
+                                                                                            let newSerials = [];
+                                                                                            if (checked) {
+                                                                                                newSerials = [...currentSerials, s.serialNumber];
+                                                                                            } else {
+                                                                                                newSerials = currentSerials.filter(sn => sn !== s.serialNumber);
+                                                                                            }
+                                                                                            updatedItems[idx].serials = newSerials;
+                                                                                            updatedItems[idx].quantity = newSerials.length.toString();
+                                                                                            setIssueItems(updatedItems);
+                                                                                        }}
+                                                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                                                    />
+                                                                                    {s.serialNumber}
+                                                                                </label>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[10px] text-red-500 font-medium italic">No serials available in store</span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-center"
+                                                            value={item.quantity}
+                                                            onChange={e => updateIssueItem(idx, 'quantity', e.target.value)}
+                                                            disabled={item.hasSerial}
+                                                            placeholder={item.hasSerial ? "Auto" : ""}
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <Input
+                                                            className="h-8"
+                                                            value={item.remarks}
+                                                            onChange={e => updateIssueItem(idx, 'remarks', e.target.value)}
+                                                            placeholder="Optional"
+                                                        />
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center">
+                                                        <button
+                                                            onClick={() => removeIssueItem(idx)}
+                                                            className="text-red-500 hover:text-red-700"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-600 uppercase">Remarks</label>
+                                <Textarea
+                                    className="mt-1"
+                                    rows={2}
+                                    value={issueRemarks}
+                                    onChange={e => setIssueRemarks(e.target.value)}
+                                    placeholder="Optional notes"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter className="px-6 py-4 border-t bg-slate-50">
+                        <Button variant="outline" onClick={handleCloseIssueDialog}>Cancel</Button>
+                        <Button
+                            onClick={handleCreateIssue}
+                            disabled={createIssueMutation.isPending}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            {createIssueMutation.isPending ? 'Issuing...' : 'Issue Stock'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Details Dialog */}
+            <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+                <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Issue Details</DialogTitle>
+                    </DialogHeader>
+                    {selectedIssue && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded">
+                                <div><span className="font-bold">Issue No:</span> {selectedIssue.issueNumber}</div>
+                                <div><span className="font-bold">Date:</span> {new Date(selectedIssue.createdAt).toLocaleString()}</div>
+                                <div><span className="font-bold">Type:</span> {selectedIssue.issueType}</div>
+                                <div><span className="font-bold">Recipient:</span> {selectedIssue.recipientName}</div>
+                                {selectedIssue.remarks && (
+                                    <div className="col-span-2"><span className="font-bold">Remarks:</span> {selectedIssue.remarks}</div>
+                                )}
+                            </div>
+                            <table className="w-full text-xs border">
+                                <thead className="bg-slate-100">
+                                    <tr>
+                                        <th className="p-2 border text-left">Item</th>
+                                        <th className="p-2 border text-center">Quantity</th>
+                                        <th className="p-2 border text-left">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {selectedIssue.items?.map((item) => (
+                                        <tr key={item.id}>
+                                            <td className="p-2 border">{item.item?.name}</td>
+                                            <td className="p-2 border text-center">{item.quantity}</td>
+                                            <td className="p-2 border">{item.remarks || '-'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}

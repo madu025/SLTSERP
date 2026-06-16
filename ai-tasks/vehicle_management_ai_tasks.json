@@ -1,0 +1,224 @@
+{
+  "project": "Vehicle Management Module",
+  "version": "1.0",
+  "created_at": "2026-06-15T00:00:00Z",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Define requirements & scope",
+      "description": "Gather functional and non-functional requirements including: Own vehicles vs Rental vehicles, vehicle types (Cars, Vans, Mini-vans, Lorries, Cabs, Double-cabs, Boom Trucks), site/office dispatch, driver OT calculation, insurance/warranty tracking, payment module with tax/VAT support, short/long rentals.",
+      "acceptanceCriteria": [
+        "Detailed requirements doc covering all business features",
+        "Entity list: Vehicle, RentalVehicle, OwnedVehicle, Driver, DriverOT, Insurance, VehiclePayment, PaymentTax, VATConfig, Site/Office",
+        "Vehicle type taxonomy (Cars, Vans, Mini-vans, Lorries, Cabs, Double-cabs, Boom Trucks, Trucks)",
+        "Payment flows with tax/VAT calculation examples",
+        "Rental term options (short/long, daily/weekly/monthly)",
+        "MVP feature priorities signed off"
+      ],
+      "dependencies": [],
+      "status": "completed",
+      "estimate_hours": 8,
+      "outputs": ["docs/vehicle-requirements.md"]
+    },
+    {
+      "id": 2,
+      "title": "Identify domain models",
+      "description": "Define core domain entities (Vehicle, Driver, Assignment, Maintenance, Trip, FuelLog, etc.) and relationships.",
+      "acceptanceCriteria": ["ER diagram or model list", "Attributes and example payloads"],
+      "dependencies": [1],
+      "status": "completed",
+      "estimate_hours": 4,
+      "outputs": ["design/domain-models.md", "src/types/vehicle-management.types.ts"]
+    },
+    {
+      "id": 3,
+      "title": "Design database schema",
+      "description": "Create normalized schema, indices, migrations and sample queries for main flows.",
+      "acceptanceCriteria": ["SQL migration files", "Indexing notes for performance"],
+      "dependencies": [2],
+      "status": "completed",
+      "estimate_hours": 6,
+      "outputs": ["prisma/schema.prisma"]
+    },
+    {
+      "id": 4,
+      "title": "Define REST API spec",
+      "description": "Design REST (or GraphQL) endpoints for CRUD, assignments, maintenance, reports and webhooks.",
+      "acceptanceCriteria": ["OpenAPI spec or Postman collection", "Example requests/responses"],
+      "dependencies": [2,3],
+      "status": "completed",
+      "estimate_hours": 6,
+      "outputs": ["api/openapi.yaml"]
+    },
+    {
+      "id": 5,
+      "title": "Implement backend endpoints",
+      "description": "Implement API endpoints, validation, services, and persistence according to spec.",
+      "acceptanceCriteria": ["Unit+integration tests", "Endpoints pass example requests"],
+      "dependencies": [3,4],
+      "status": "completed",
+      "estimate_hours": 24,
+      "outputs": ["src/services/VehicleService.ts", "src/services/TripService.ts", "src/services/PaymentService.ts", "src/controllers/VehicleController.ts", "src/controllers/TripController.ts"]
+    },
+    {
+      "id": 6,
+      "title": "Implement frontend UI",
+      "description": "Create UI screens for vehicle listing, detail, edit, trips management, payments, fleet reports, driver management, and dashboard widget.",
+      "acceptanceCriteria": [
+        "Vehicle list page with filters (status, ownership, search)",
+        "Vehicle create and edit forms",
+        "Vehicle detail view with all fields",
+        "Trip list, create, and detail pages with Start/End actions",
+        "Payments page with Create Payment and Record Receipt dialogs",
+        "Fleet Reports page with date filters and by-type breakdown",
+        "Driver management placeholder with detail page",
+        "Dashboard widget showing vehicle status summary",
+        "Sidebar menu navigation for Vehicle Management section",
+        "All pages follow existing ERP UI patterns (Sidebar + Header + layout)"
+      ],
+      "dependencies": [4,5],
+      "status": "completed",
+      "estimate_hours": 24,
+      "outputs": [
+        "src/app/vehicles/page.tsx",
+        "src/app/vehicles/new/page.tsx",
+        "src/app/vehicles/[id]/page.tsx",
+        "src/app/vehicles/[id]/edit/page.tsx",
+        "src/app/trips/page.tsx",
+        "src/app/trips/new/page.tsx",
+        "src/app/trips/[id]/page.tsx",
+        "src/app/drivers/page.tsx",
+        "src/app/drivers/[id]/page.tsx",
+        "src/app/payments/page.tsx",
+        "src/app/reports/fleet/page.tsx",
+        "src/components/dashboard/VehicleManagementSummary.tsx"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Integrate with workflow events",
+      "description": "Hook vehicle events into project workflow (notifications, approvals, state transitions).",
+      "acceptanceCriteria": ["Event handlers + tests", "Sample event flows working"],
+      "dependencies": [5],
+      "status": "not-started",
+      "estimate_hours": 8,
+      "outputs": ["src/events/vehicleEvents.js"]
+    },
+    {
+      "id": 8,
+      "title": "Implement auth & roles",
+      "description": "Add role-based access for fleet managers, drivers, and admins; secure endpoints and UI routes.",
+      "acceptanceCriteria": ["RBAC tests", "Unauthorized access blocked"],
+      "dependencies": [5,6],
+      "status": "not-started",
+      "estimate_hours": 8,
+      "outputs": ["src/middleware/auth.js"]
+    },
+    {
+      "id": 9,
+      "title": "Add reporting & notifications",
+      "description": "Add scheduled reports, CSV export, and push/email notifications for key events.",
+      "acceptanceCriteria": ["Report endpoints", "Notification delivery working"],
+      "dependencies": [5,7],
+      "status": "not-started",
+      "estimate_hours": 12,
+      "outputs": ["reports/vehicle-report.js"]
+    },
+    {
+      "id": 10,
+      "title": "Implement Payment & Tax Module",
+      "description": "Build payment processing for rentals and services; integrate tax/VAT calculation, invoice generation, and payment history.",
+      "acceptanceCriteria": ["Payment API with tax/VAT", "Invoice generation", "Payment history & reconciliation", "Tax configuration UI"],
+      "dependencies": [5,6],
+      "status": "not-started",
+      "estimate_hours": 14,
+      "outputs": ["src/modules/payment-tax/", "src/services/paymentService.ts", "src/services/taxService.ts"]
+    },
+    {
+      "id": 11,
+      "title": "Implement Driver OT & Insurance Module",
+      "description": "Track driver overtime, manage insurance policies (vehicle & driver), warranty tracking, and compliance alerts.",
+      "acceptanceCriteria": ["Driver OT calculation API", "Insurance tracking", "Warranty management", "Alert system for renewals"],
+      "dependencies": [5,6,13],
+      "status": "not-started",
+      "estimate_hours": 12,
+      "outputs": ["src/modules/driver-ot-insurance/", "src/services/otService.ts", "src/services/insuranceService.ts"]
+    },
+    {
+      "id": 12,
+      "title": "Implement Site/Office Vehicle Dispatch",
+      "description": "Manage vehicle allocation across multiple sites/offices, dispatch workflows, and vehicle availability tracking.",
+      "acceptanceCriteria": ["Multi-site dispatch API", "Vehicle availability view", "Dispatch optimization", "Site/office config UI"],
+      "dependencies": [5,6],
+      "status": "not-started",
+      "estimate_hours": 10,
+      "outputs": ["src/modules/site-dispatch/", "src/services/dispatchService.ts"]
+    },
+    {
+      "id": 13,
+      "title": "Implement Rental vs Owned Vehicle Management",
+      "description": "Distinguish rental and owned vehicles, manage rental contracts, ownership history, and vehicle lifecycle.",
+      "acceptanceCriteria": ["Rental contract API", "Vehicle type taxonomy", "Ownership tracking", "Contract templates UI"],
+      "dependencies": [2,5,6],
+      "status": "not-started",
+      "estimate_hours": 10,
+      "outputs": ["src/modules/vehicle-types/", "src/services/rentalService.ts"]
+    },
+    {
+      "id": 14,
+      "title": "Implement GPS Tracking & Real-time Location",
+      "description": "Integrate GPS tracking, live vehicle location, geofencing, and route history.",
+      "acceptanceCriteria": ["Live map widget", "Geofence alerts", "Location history API"],
+      "dependencies": [5,6],
+      "status": "not-started",
+      "estimate_hours": 16,
+      "outputs": ["src/modules/gps-tracking/", "src/services/locationService.ts"]
+    },
+    {
+      "id": 15,
+      "title": "Implement Fuel Management & Cost Analysis",
+      "description": "Track fuel consumption, costs, efficiency metrics, and generate fuel reports.",
+      "acceptanceCriteria": ["Fuel log endpoints", "Cost dashboard", "CSV export"],
+      "dependencies": [5,6],
+      "status": "not-started",
+      "estimate_hours": 12,
+      "outputs": ["src/modules/fuel-management/", "src/services/fuelService.ts"]
+    },
+    {
+      "id": 16,
+      "title": "Implement Mobile App for Drivers",
+      "description": "Build mobile app for drivers to view assignments, track location, log trips, and receive notifications.",
+      "acceptanceCriteria": ["Mobile UI screens", "Offline support", "App store ready"],
+      "dependencies": [5,6,11],
+      "status": "not-started",
+      "estimate_hours": 32,
+      "outputs": ["apps/mobile/", "apps/mobile/src/screens/"]
+    },
+    {
+      "id": 17,
+      "title": "Write tests & CI/CD for all modules",
+      "description": "Add unit, integration, and E2E tests for all modules; configure CI/CD pipeline.",
+      "acceptanceCriteria": ["Test coverage >80%", "Passing CI on all modules", "CD to staging"],
+      "dependencies": [5,6,8,10,11,12,13,14,15,16],
+      "status": "not-started",
+      "estimate_hours": 20,
+      "outputs": [".github/workflows/ci.yml", "tests/modules/*"]
+    },
+    {
+      "id": 18,
+      "title": "Deployment & documentation",
+      "description": "Prepare deployment manifests, runbooks, and comprehensive user documentation.",
+      "acceptanceCriteria": ["Deployed to staging", "User & admin docs published", "API docs"],
+      "dependencies": [17],
+      "status": "not-started",
+      "estimate_hours": 8,
+      "outputs": ["docs/vehicle-module.md", "deploy/*", "docs/API.md"]
+    }
+  ],
+  "agent_instructions": {
+    "pick_policy": "Choose the lowest-id task with status 'not-started' whose dependencies are all 'completed' or empty.",
+    "claim": "Set task.status='in-progress', create a branch named 'feature/vm-task-<id>', commit changes, and update this JSON.",
+    "complete": "Set task.status='completed', add a summary to task.outputs, and open a PR referencing the task id.",
+    "state_file": "d:\\MyProject\\SLTSERP\\ai-tasks\\vehicle_management_ai_tasks.json"
+  }
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="KL_SVK_0567_FJ" id="KL_SVK_0567_FJ">
+	<SimpleField name="FJ NAME" type="string"></SimpleField>
+	<SimpleField name="LEA" type="string"></SimpleField>
+	<SimpleField name="TYPE" type="string"></SimpleField>
+	<SimpleField name="Main Sheat Name" type="string"></SimpleField>
+	<SimpleField name="Extention_Sheat_Name_1" type="string"></SimpleField>
+	<SimpleField name="Extention_Sheat Name_2" type="string"></SimpleField>
+	<SimpleField name="Extention_Sheat Name_3" type="string"></SimpleField>
+	<SimpleField name="Extention_Sheat Name_4" type="string"></SimpleField>
+	<SimpleField name="Extention_Sheat Name_5" type="string"></SimpleField>
+	<SimpleField name="Connected EQ Number" type="string"></SimpleField>
+	<SimpleField name="REMARKS" type="string"></SimpleField>
+	<SimpleField name="Joint Number" type="string"></SimpleField>
+	<SimpleField name="LAC" type="string"></SimpleField>
+	<SimpleField name="Exst_New" type="string"></SimpleField>
+	<SimpleField name="Longitute" type="float"></SimpleField>
+	<SimpleField name="Latitude" type="float"></SimpleField>
+</Schema>
+<Folder><name>KL_SVK_0567_FJ</name>
+  <Placemark id="KL_SVK_0567_FJ.1">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_FJ">
+		<SimpleData name="FJ NAME">KL-CL-00001</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="TYPE">Aerial</SimpleData>
+		<SimpleData name="Joint Number">KL-CL-00001</SimpleData>
+		<SimpleData name="Exst_New">New</SimpleData>
+		<SimpleData name="Longitute">81.7874640325174</SimpleData>
+		<SimpleData name="Latitude">7.41962150416887</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7874640325174,7.41962150416887</coordinates></Point>
+  </Placemark>
+</Folder>
+</Document></kml>

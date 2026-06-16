@@ -1,0 +1,266 @@
+"use client";
+
+import React, { useMemo } from "react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+import { useOrderAction } from "./useOrderAction";
+import { OrderAssignmentSection } from "./OrderAssignmentSection";
+import { DeviceSerialSection } from "./DeviceSerialSection";
+import { MaterialUsageSection } from "./MaterialUsageSection";
+import { ReturnReasonSection } from "./ReturnReasonSection";
+import { OrderActionData, Contractor, InventoryItem, OrderCompletionData } from "./types";
+
+interface OrderActionModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: (data: OrderCompletionData) => void;
+    title?: string;
+    isReturn?: boolean;
+    isComplete?: boolean;
+    orderData?: OrderActionData;
+    contractors?: Contractor[];
+    items?: InventoryItem[];
+    showExtendedFields?: boolean;
+    materialSource?: string;
+    itemSortOrder?: string[];
+}
+
+export default function OrderActionModal({
+    isOpen,
+    onClose,
+    onConfirm,
+    title = "Select Date",
+    isReturn = false,
+    isComplete = false,
+    orderData,
+    contractors = [],
+    items = [],
+    showExtendedFields = false,
+    materialSource = 'SLT',
+    itemSortOrder = []
+}: OrderActionModalProps) {
+    const { state, controls } = useOrderAction(isOpen, orderData, items || [], materialSource, onConfirm);
+
+    const useExtendedView = showExtendedFields || (isComplete && !isReturn);
+    const iptvCount = orderData?.iptv ? parseInt(orderData.iptv) : 0;
+    const requiresIPTV = useExtendedView && iptvCount > 0;
+
+    // Filter & Sort Items Logic
+    const filteredItems = useMemo(() => {
+        if (!items) return [];
+        const result = [...items];
+        
+        if (itemSortOrder && itemSortOrder.length > 0) {
+            result.sort((a, b) => {
+                const indexA = itemSortOrder.indexOf(a.id);
+                const indexB = itemSortOrder.indexOf(b.id);
+                if (indexA === -1 && indexB === -1) return 0;
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+        }
+        return result;
+    }, [items, itemSortOrder]);
+
+    // Quick Items logic extracted from original
+    const quickItems = useMemo(() => {
+        if (!items) return [];
+        const candidates = items.filter(i => i.isOspFtth);
+        const groups: Record<string, InventoryItem[]> = {};
+        candidates.forEach(i => {
+            const key = (i.commonName || i.name || "").trim();
+            if (!key) return;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(i);
+        });
+
+        return Object.entries(groups).map(([label, groupItems]) => {
+            const activeSource = materialSource === 'SLT' ? 'SLT' : 'SLTS';
+            const best = groupItems.find(i => i.type === activeSource) || groupItems[0];
+            return { label, item: best };
+        });
+    }, [items, materialSource]);
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent
+                className={cn(
+                    "overflow-hidden flex flex-col p-0 gap-0 transition-all duration-200",
+                    useExtendedView
+                        ? "sm:max-w-4xl h-auto max-h-[85vh]"
+                        : "sm:max-w-md h-auto max-h-[85vh]"
+                )}
+            >
+                <DialogHeader className="px-6 py-3 border-b shrink-0 bg-white">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <DialogTitle className="text-sm font-black text-slate-900 tracking-tight">
+                            {orderData?.sltsStatus === 'COMPLETED' ? `UPDATE COMPLETE ORDER` : title}
+                        </DialogTitle>
+                        {useExtendedView && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                {[
+                                    { label: "Voice", val: orderData?.voiceNumber },
+                                    { label: "Pkg", val: orderData?.package },
+                                    { label: "IPTV", val: orderData?.iptv },
+                                    { label: "DP", val: orderData?.dp }
+                                ].map(info => (
+                                    <div key={info.label} className="flex items-center gap-1 py-0.5 px-2 rounded-lg bg-slate-50 border border-slate-200/60 text-[9px] font-bold">
+                                        <span className="text-blue-600 uppercase tracking-wider text-[8px]">{info.label}:</span>
+                                        <span className="text-slate-700 truncate max-w-[100px]">{info.val || 'N/A'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </DialogHeader>
+
+                <div className={cn(
+                    "flex-1 min-h-0 bg-white flex flex-col",
+                    useExtendedView ? "" : "overflow-y-auto px-6 py-4"
+                )}>
+                    {useExtendedView ? (
+                        <div className="flex flex-col w-full bg-slate-50/30">
+                            {/* TABS */}
+                            <div className="flex items-center px-4 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+                                {['details', 'materials', 'finish'].map((tab, idx) => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => controls.setActiveTab(tab as 'details' | 'materials' | 'finish')}
+                                        className={cn(
+                                            "px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all",
+                                            state.activeTab === tab
+                                                ? "border-blue-600 text-blue-600 bg-blue-50/50"
+                                                : "border-transparent text-slate-500 hover:text-slate-700"
+                                        )}
+                                    >
+                                        <span className="text-slate-400 font-mono mr-1.5">0{idx + 1}</span> {tab}
+                                    </button>
+                                ))}
+                            </div>
+
+                             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                                {state.activeTab === 'details' && (
+                                    <div className="max-w-2xl mx-auto space-y-4">
+                                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-4">
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Completion Date</Label>
+                                                        <Popover>
+                                                            <PopoverTrigger asChild>
+                                                                <Button variant="outline" className="w-full h-9 justify-start border-slate-200 text-xs">
+                                                                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                                                                    {state.date ? format(state.date, "PPP") : <span>Pick a date</span>}
+                                                                </Button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={state.date} onSelect={controls.setDate} /></PopoverContent>
+                                                        </Popover>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">DP Details</Label>
+                                                        <Input value={state.dpDetails} onChange={e => controls.setDpDetails(e.target.value)} className="h-9 text-xs" />
+                                                    </div>
+                                                </div>
+                                                <OrderAssignmentSection 
+                                                    assignmentType={state.assignmentType}
+                                                    onAssignmentTypeChange={controls.setAssignmentType}
+                                                    selectedContractorId={state.selectedContractorId}
+                                                    onContractorChange={controls.setSelectedContractorId}
+                                                    selectedTeamId={state.selectedTeamId}
+                                                    onTeamChange={controls.setSelectedTeamId}
+                                                    directTeamName={state.directTeamName}
+                                                    onDirectTeamNameChange={controls.setDirectTeamName}
+                                                    contractors={contractors}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {state.activeTab === 'materials' && (
+                                    <MaterialUsageSection 
+                                        rows={state.extendedMaterialRows}
+                                        onAddRow={controls.addExtendedRow}
+                                        onUpdateRow={controls.updateExtendedRow}
+                                        onRemoveRow={controls.removeExtendedRow}
+                                        onPortalImport={controls.handlePortalImport}
+                                        onApplyPreset={controls.applyPreset}
+                                        items={filteredItems}
+                                        quickItems={quickItems}
+                                        materialSource={materialSource}
+                                    />
+                                )}
+
+                                {state.activeTab === 'finish' && (
+                                    <div className="max-w-2xl mx-auto space-y-4">
+                                        <DeviceSerialSection 
+                                            ontType={state.ontType}
+                                            onOntTypeChange={controls.setOntType}
+                                            ontSerialNumber={state.ontSerialNumber}
+                                            onOntSerialNumberChange={controls.setOntSerialNumber}
+                                            iptvSerials={state.iptvSerials}
+                                            onIptvSerialChange={controls.setIptvSerial}
+                                            requiresIPTV={requiresIPTV}
+                                        />
+                                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Notes</Label>
+                                            <Textarea value={state.comment} onChange={e => controls.setComment(e.target.value)} rows={4} className="text-xs" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-3 bg-white border-t border-slate-200 flex justify-between items-center z-20 shrink-0">
+                                <Button variant="ghost" size="sm" onClick={onClose} className="h-9 text-xs">Cancel</Button>
+                                <div className="flex gap-2">
+                                    {state.activeTab !== 'details' && <Button variant="outline" size="sm" onClick={() => controls.setActiveTab(state.activeTab === 'finish' ? 'materials' : 'details')} className="h-9 text-xs">Back</Button>}
+                                    {state.activeTab === 'finish' ? (
+                                        <Button size="sm" onClick={controls.confirm} className="bg-emerald-600 hover:bg-emerald-700 px-6 h-9 text-xs font-bold uppercase">
+                                            {orderData?.sltsStatus === 'COMPLETED' ? 'Update & Save' : 'Complete Order'}
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" onClick={() => controls.setActiveTab(state.activeTab === 'details' ? 'materials' : 'finish')} className="h-9 text-xs font-bold uppercase">Next</Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-4 px-6 py-4">
+                            {/* Simple View for Return / Update */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest">Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className="w-full h-9 justify-start text-xs"><CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />{state.date ? format(state.date, "PPP") : "Select Date"}</Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={state.date} onSelect={controls.setDate} /></PopoverContent>
+                                </Popover>
+                            </div>
+                            {isReturn && (
+                                <ReturnReasonSection 
+                                    reason={state.reason} onReasonChange={controls.setReason}
+                                    customReason={state.customReason} onCustomReasonChange={controls.setCustomReason}
+                                />
+                            )}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-bold text-slate-450 uppercase tracking-widest">Comments</Label>
+                                <Textarea value={state.comment} onChange={e => controls.setComment(e.target.value)} rows={3} className="text-xs" />
+                            </div>
+                            <Button onClick={controls.confirm} className="w-full h-9 text-xs bg-slate-900 font-bold uppercase hover:bg-slate-800">{isComplete ? "Finalize" : isReturn ? "Return" : "Save"}</Button>
+                        </div>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}

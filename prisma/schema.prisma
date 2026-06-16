@@ -1,0 +1,4009 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+}
+
+model OPMC {
+  id                       String                    @id @default(cuid())
+  name                     String                    @default("")
+  rtom                     String                    @unique
+  region                   String                    @default("METRO")
+  province                 String                    @default("METRO 01")
+  storeId                  String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  contractors              Contractor[]
+  contractorPaymentConfigs ContractorPaymentConfig[]
+  contractorTeams          ContractorTeam[]
+  store                    InventoryStore?           @relation(fields: [storeId], references: [id])
+  projects                 Project[]
+  revenueConfigs           SODRevenueConfig[]
+  serviceOrders            ServiceOrder[]
+  staff                    Staff[]
+  users                    User[]                    @relation("UserOpmcs")
+}
+
+model ServiceOrder {
+  id                String             @id @default(cuid())
+  rtom              String
+  lea               String?
+  soNum             String
+  voiceNumber       String?
+  orderType         String?
+  serviceType       String?
+  customerName      String?
+  techContact       String?
+  status            String
+  statusDate        DateTime?
+  receivedDate      DateTime?
+  address           String?
+  dp                String?
+  package           String?
+  ospPhoneClass     String?
+  phonePurchase     String?
+  sales             String?
+  woroTaskName      String?
+  iptv              String?
+  woroSeit          String?
+  ftthInstSeit      String?
+  ftthWifi          String?
+  sltsStatus        String             @default("INPROGRESS")
+  scheduledDate     DateTime?
+  scheduledTime     String?
+  comments          String?
+  completedDate     DateTime?
+  ontSerialNumber   String?
+  iptvSerialNumbers String?
+  dpDetails         String?
+  patStatus         String?
+  sltsPatStatus     String?            @default("PENDING")
+  sltsPatDate       DateTime?
+  opmcPatStatus     String?            @default("PENDING")
+  opmcPatDate       DateTime?
+  hoPatStatus       String?            @default("PENDING")
+  hoPatDate         DateTime?
+  isInvoicable      Boolean            @default(false)
+  invoiced          Boolean            @default(false)
+  invoiceId         String?
+  wiredOnly         Boolean            @default(false)
+  delayReasons      Json?
+  stbShortage       Boolean            @default(false)
+  ontShortage       Boolean            @default(false)
+  ontType           String?
+  returnReason      String?
+  completionMode    String?
+  materialSource    String?
+  directTeam        String?
+  photoUrls         String[]           @default([])
+  dropWireDistance  Float?
+  revenueAmount     Float?
+  contractorAmount  Float?
+  opmcId            String
+  contractorId      String?
+  teamId            String?
+  isManualEntry    Boolean            @default(false)
+  isLegacyImport    Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  restoreRequests   RestoreRequest[]
+  materialUsage     SODMaterialUsage[]
+  materialReturns   ContractorMaterialReturn[] @relation("SODMaterialReturns")  // GAP 4: physical returns linked to this SOD
+  statusHistory     ServiceOrderStatusHistory[]
+  commentsHistory   ServiceOrderComment[]
+  contractor        Contractor?        @relation(fields: [contractorId], references: [id])
+  invoice           Invoice?           @relation(fields: [invoiceId], references: [id])
+  opmc              OPMC               @relation(fields: [opmcId], references: [id], onDelete: Cascade)
+  team              ContractorTeam?    @relation(fields: [teamId], references: [id])
+
+  @@unique([soNum])
+  @@index([opmcId])
+  @@index([rtom])
+  @@index([status])
+  @@index([soNum])
+  @@index([scheduledDate])
+  @@index([contractorId])
+  @@index([teamId])
+  @@index([sltsStatus])
+  @@index([createdAt])
+  @@index([completedDate])
+  @@index([updatedAt])
+  @@index([opmcId, status])
+  @@index([opmcId, sltsStatus])
+  @@index([receivedDate])
+  @@index([statusDate])
+  @@index([isInvoicable])
+  
+  forensicAudit     SODForensicAudit?
+  penalties         Penalty[]
+}
+
+model SODForensicAudit {
+  id              String       @id @default(cuid())
+  soNum           String       @unique
+  serviceOrder    ServiceOrder @relation(fields: [soNum], references: [soNum], onDelete: Cascade)
+  auditData       Json         // [{ name: string, status: string, uuid: string }]
+  voiceTestStatus String?      // PASS/FAIL
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([soNum])
+}
+
+model ExtensionRawData {
+  id          String   @id @default(cuid())
+  soNum       String?
+  sltUser     String?
+  activeTab   String?
+  url         String?
+  scrapedData Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([soNum])
+  @@index([updatedAt])
+}
+
+model ServiceOrderStatusHistory {
+  id              String       @id @default(cuid())
+  serviceOrderId  String
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  status          String
+  statusDate      DateTime
+  createdAt       DateTime     @default(now())
+
+  @@index([serviceOrderId])
+  @@index([statusDate])
+  @@index([status])
+}
+
+model ServiceOrderComment {
+  id              String       @id @default(cuid())
+  serviceOrderId  String
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  comment         String
+  authorId        String?
+  author          User?        @relation("UserComments", fields: [authorId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([createdAt])
+}
+
+model User {
+  id                            String                   @id @default(cuid())
+  email                         String                   @unique
+  username                      String                   @unique
+  password                      String
+  name                          String?
+  role                          Role                     @default(ENGINEER)
+  staffId                       String?                  @unique
+  securityQuestion              String?
+  securityAnswer                String?
+  employeeId                    String?
+  supervisorId                  String?
+  assignedStoreId               String?
+  mustChangePassword            Boolean                  @default(false)
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  auditLogs                     AuditLog[]
+  armApprovedContractors        Contractor[]             @relation("ContractorArmApproval")
+  ospApprovedContractors        Contractor[]             @relation("ContractorOspApproval")
+  rejectedContractors           Contractor[]             @relation("ContractorRejection")
+  generatedContractorLinks      Contractor[]             @relation("ContractorLinkGenerator")
+  receivedGRNs                  GRN[]
+  managedStores                 InventoryStore[]
+  approvedMRNs                  MRN[]                    @relation("MRNApprover")
+  returnedMRNs                  MRN[]
+  notifications                 Notification[]
+  notificationPreferences       NotificationPreference[]
+  approvedProjectReturns        ProjectMaterialReturn[]  @relation("ProjectReturnApprover")
+  projectReturns                ProjectMaterialReturn[]  @relation("ProjectReturnUser")
+  approvedRestores              RestoreRequest[]         @relation("ApprovedRestores")
+  requestedRestores             RestoreRequest[]         @relation("RequestedRestores")
+  approvedIssues                StockIssue[]             @relation("IssueApprover")
+  stockIssues                   StockIssue[]             @relation("StockIssuer")
+  approvedStock                 StockRequest[]           @relation("ApproveUser")
+  armApprovedRequests           StockRequest[]           @relation("ARMApprover")
+  receivedRequests              StockRequest[]           @relation("ReceivedBy")
+  releasedRequests              StockRequest[]           @relation("ReleasedBy")
+  requestedStock                StockRequest[]           @relation("RequestUser")
+  storesManagerApprovedRequests StockRequest[]           @relation("StoresManagerApprover")
+  comments                      ServiceOrderComment[]    @relation("UserComments")
+  assignedStore                 InventoryStore?          @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
+  staff                         Staff?                   @relation(fields: [staffId], references: [id])
+  supervisor                    User?                    @relation("UserSupervisor", fields: [supervisorId], references: [id])
+  subordinates                  User[]                   @relation("UserSupervisor")
+  sectionAssignments            UserSectionAssignment[]
+  accessibleOpmcs               OPMC[]                   @relation("UserOpmcs")
+  uploadedDocuments             ProjectDocument[]
+  assignedApprovalSteps         ProjectApprovalStep[]    @relation("StepAssignee")
+  actionedApprovalSteps         ProjectApprovalStep[]    @relation("StepActioner")
+
+  @@index([role])
+  @@index([supervisorId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  priority  String   @default("MEDIUM")
+  isRead    Boolean  @default(false)
+  link      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model RestoreRequest {
+  id              String       @id @default(cuid())
+  serviceOrderId  String
+  requestedById   String
+  reason          String
+  status          String       @default("PENDING")
+  approvedById    String?
+  approvalComment String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  approvedBy      User?        @relation("ApprovedRestores", fields: [approvedById], references: [id])
+  requestedBy     User         @relation("RequestedRestores", fields: [requestedById], references: [id])
+  serviceOrder    ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([serviceOrderId])
+  @@index([requestedById])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Staff {
+  id           String    @id @default(cuid())
+  name         String
+  employeeId   String    @unique
+  designation  Role
+  area         String?
+  opmcId       String?
+  reportsToId  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  projects     Project[]
+  opmc         OPMC?     @relation(fields: [opmcId], references: [id])
+  reportsTo    Staff?    @relation("Hierarchy", fields: [reportsToId], references: [id])
+  subordinates Staff[]   @relation("Hierarchy")
+  user         User?
+
+  @@index([opmcId])
+  @@index([reportsToId])
+  @@index([designation])
+}
+
+model Project {
+  id                String                  @id @default(cuid())
+  projectCode       String                  @unique
+  name              String
+  description       String?
+  type              String                  @default("OSP_FTTH")
+  location          String?
+  status            String                  @default("PLANNING")
+  progress          Float                   @default(0)
+  budget            Float?
+  actualCost        Float                   @default(0)
+  variance          Float?
+  startDate         DateTime?
+  endDate           DateTime?
+  estimatedDuration Int?
+  actualDuration    Int?
+  areaManagerId     String?
+  contractorId      String?
+  opmcId            String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  invoices          Invoice[]
+  areaManager       Staff?                  @relation(fields: [areaManagerId], references: [id])
+  contractor        Contractor?             @relation(fields: [contractorId], references: [id])
+  opmc              OPMC?                   @relation(fields: [opmcId], references: [id])
+  boqItems          ProjectBOQItem[]
+  expenses          ProjectExpense[]
+  projectReturns    ProjectMaterialReturn[]
+  milestones        ProjectMilestone[]
+  stockIssues       StockIssue[]
+  tasks             ProjectTask[]
+  timesheets        Timesheet[]
+  requisitions      ProjectRequisition[]
+  purchaseOrders    ProjectPurchaseOrder[]
+  goodsReceipts     ProjectGoodsReceipt[]
+  projectInvoices   ProjectInvoice[]
+  paymentVouchers   PaymentVoucher[]
+  ldPenalties       ProjectLDPenalty[]
+  retentions        ProjectRetention[]
+  changeOrders      ProjectChangeOrder[]
+  resources         ProjectResource[]
+  documents         ProjectDocument[]
+  approvalRequests  ProjectApprovalRequest[]
+  risks             ProjectRisk[]
+  inspections       ProjectInspection[]
+  projectTypeId     String?
+  projectType       ProjectType?            @relation(fields: [projectTypeId], references: [id])
+  workflowInstance  ProjectWorkflowInstance?
+
+  // OSP Enhancement Relations
+  permits           ProjectPermit[]
+  gisRoutes         GISRoute[]
+  generatedBOQs     GISGeneratedBOQ[]
+  surveys           SurveyRequest[]
+  contractorScores  ContractorPerformanceScore[]
+  fieldTasks        FieldTask[]
+  otdrTests         OTDRTest[]
+  hseSafetyLogs     HSESafetyLog[]
+  evm               ProjectEVM?
+  assets            ProjectAsset[]
+
+  @@index([status])
+  @@index([opmcId])
+  @@index([contractorId])
+}
+
+model ProjectBOQItem {
+  id             String         @id @default(cuid())
+  projectId      String
+  itemCode       String
+  description    String
+  unit           String
+  quantity       Float
+  unitRate       Float
+  amount         Float
+  category       String?
+  actualQuantity Float          @default(0)
+  actualCost     Float          @default(0)
+  materialId     String?
+  remarks        String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  material       InventoryItem? @relation("BOQMaterials", fields: [materialId], references: [id])
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([category])
+}
+
+model ProjectMilestone {
+  id            String    @id @default(cuid())
+  projectId     String
+  name          String
+  description   String?
+  targetDate    DateTime
+  completedDate DateTime?
+  status        String    @default("PENDING")
+  progress      Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model ProjectExpense {
+  id          String   @id @default(cuid())
+  projectId   String
+  type        String
+  description String
+  amount      Float
+  date        DateTime @default(now())
+  invoiceRef  String?
+  remarks     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([type])
+  @@index([date])
+}
+
+// Phase 2: WBS / Task Management
+model ProjectTask {
+  id                String              @id @default(cuid())
+  projectId         String
+  parentId          String?
+  wbsCode           String              // e.g., "1.1.1", "1.2"
+  name              String
+  description       String?
+  type              String              @default("TASK") // TASK, MILESTONE, PHASE
+  status            String              @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED
+  priority          String              @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  plannedStartDate  DateTime?
+  plannedEndDate    DateTime?
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+  plannedDuration   Int?
+  actualDuration    Int?
+  plannedProgress   Float               @default(0)
+  actualProgress    Float               @default(0)
+  estimatedCost     Float?
+  actualCost        Float?
+  order             Int                 @default(0)
+  isCritical        Boolean             @default(false)
+  assigneeType      String?             // STAFF, CONTRACTOR, TEAM
+  assigneeId        String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent            ProjectTask?        @relation("TaskHierarchy", fields: [parentId], references: [id])
+  children          ProjectTask[]       @relation("TaskHierarchy")
+  dependencies      TaskDependency[]    @relation("TaskDependents")
+  dependsOn         TaskDependency[]    @relation("TaskPrerequisites")
+  progressLogs      TaskProgressLog[]
+  timesheets        Timesheet[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([status])
+  @@index([wbsCode])
+}
+
+model TaskDependency {
+  id                String      @id @default(cuid())
+  taskId            String      // dependent task
+  dependsOnTaskId   String      // predecessor task
+  type              String      @default("FINISH_TO_START") // FINISH_TO_START, START_TO_START, FINISH_TO_FINISH
+  lagDays           Int         @default(0)
+  createdAt         DateTime    @default(now())
+  task              ProjectTask @relation("TaskDependents", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn         ProjectTask @relation("TaskPrerequisites", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
+}
+
+model TaskProgressLog {
+  id                String      @id @default(cuid())
+  taskId            String
+  date              DateTime    @default(now())
+  progress          Float       @default(0) // percentage 0-100
+  description       String?
+  photoUrls         String[]    @default([])
+  gpsLatitude       Float?
+  gpsLongitude      Float?
+  loggedById        String?
+  createdAt         DateTime    @default(now())
+  task              ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([date])
+}
+
+model Timesheet {
+  id                String      @id @default(cuid())
+  projectId         String
+  taskId            String
+  staffId           String?
+  contractorId      String?
+  date              DateTime
+  hours             Float
+  description       String?
+  status            String      @default("PENDING") // PENDING, VERIFIED, APPROVED, REJECTED
+  verifiedById      String?
+  verifiedAt        DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  task              ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project           Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([taskId])
+  @@index([staffId])
+  @@index([date])
+}
+
+model Contractor {
+
+  id                      String                           @id @default(cuid())
+  name                    String
+  contactNumber           String?
+  email                   String?
+  nic                     String?
+  address                 String?
+  type                    ContractorType                   @default(SOD)
+  registrationNumber      String?                          @unique
+  brNumber                String?
+  status                  ContractorStatus                 @default(PENDING)
+  photoUrl                String?
+  nicFrontUrl             String?
+  nicBackUrl              String?
+  policeReportUrl         String?
+  gramaCertUrl            String?
+  registrationFeePaid     Boolean                          @default(false)
+  registrationFeeSlipUrl  String?                          // Registration Fee Payment Slip URL
+  agreementSigned         Boolean                          @default(false)
+  agreementDate           DateTime?
+  agreementDuration       Int?                             @default(1)
+  brCertUrl               String?
+  armApprovedAt           DateTime?
+  armApprovedById         String?
+  ospApprovedAt           DateTime?
+  ospApprovedById         String?
+  rejectionReason         String?
+  rejectionById           String?
+  rejectedAt              DateTime?
+  registrationToken       String?                          @unique
+  registrationTokenExpiry DateTime?
+  registrationStartedAt   DateTime?
+  registrationDraft       Json?
+  siteOfficeStaffId       String?
+  opmcId                  String?
+  bankName                String?
+  bankBranch              String?
+  bankAccountNumber       String?
+  bankPassbookUrl         String?
+  documentStatus          String                           @default("PENDING")
+  uploadToken             String?                          @unique
+  uploadTokenExpiry       DateTime?
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+  armApprovedBy           User?                            @relation("ContractorArmApproval", fields: [armApprovedById], references: [id])
+  opmc                    OPMC?                            @relation(fields: [opmcId], references: [id])
+  ospApprovedBy           User?                            @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
+  rejectionBy             User?                            @relation("ContractorRejection", fields: [rejectionById], references: [id])
+  siteOfficeStaff         User?                            @relation("ContractorLinkGenerator", fields: [siteOfficeStaffId], references: [id])
+  batchStocks             ContractorBatchStock[]
+  balanceSheets           ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  materialIssues          ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns         ContractorMaterialReturn[]       @relation("MaterialReturns")
+  stock                   ContractorStock[]
+  teams                   ContractorTeam[]
+  wastageReports          ContractorWastage[]
+  invoices                Invoice[]
+  serials                 InventoryItemSerial[]
+  projects                Project[]
+  serviceOrders           ServiceOrder[]
+  stockIssues             StockIssue[]                     @relation("ContractorIssues")
+  teamMembers             TeamMember[]
+  performanceScores       ContractorPerformanceScore[]
+
+  @@index([status])
+  @@index([opmcId])
+  @@index([type])
+}
+
+model ContractorStock {
+  id           String        @id @default(cuid())
+  contractorId String
+  itemId       String
+  quantity     Float         @default(0)
+  updatedAt    DateTime      @updatedAt
+  contractor   Contractor    @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  item         InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@unique([contractorId, itemId])
+  @@index([contractorId])
+  @@index([itemId])
+}
+
+model ContractorTeam {
+  id               String                @id @default(cuid())
+  name             String
+  status           String                @default("ACTIVE")
+  contractorId     String
+  opmcId           String?
+  sltCode          String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  contractor       Contractor            @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  opmc             OPMC?                 @relation(fields: [opmcId], references: [id])
+  serviceOrders    ServiceOrder[]
+  members          TeamMember[]
+  storeAssignments TeamStoreAssignment[]
+}
+
+model TeamStoreAssignment {
+  id        String         @id @default(cuid())
+  teamId    String
+  storeId   String
+  isPrimary Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  store     InventoryStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  team      ContractorTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, storeId])
+  @@index([teamId])
+  @@index([storeId])
+}
+
+model TeamMember {
+  id                     String          @id @default(cuid())
+  name                   String
+  idCopyNumber           String?
+  contractorIdCopyNumber String?
+  nic                    String?
+  designation            String?
+  photoUrl               String?
+  nicUrl                 String?
+  policeReportUrl        String?
+  gramaCertUrl           String?
+  contactNumber          String?
+  address                String?
+  shoeSize               String?
+  tshirtSize             String?
+  passportPhotoUrl       String?
+  uploadToken            String?         @unique
+  uploadTokenExpiry      DateTime?
+  contractorId           String
+  teamId                 String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  contractor             Contractor      @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  team                   ContractorTeam? @relation(fields: [teamId], references: [id])
+}
+
+model Invoice {
+  id            String         @id @default(cuid())
+  invoiceNumber String         @unique
+  contractorId  String
+  projectId     String?
+  year          Int?
+  month         Int?
+  totalAmount   Float          @default(0)
+  amountA       Float          @default(0)
+  statusA       String         @default("PENDING")
+  paidDateA     DateTime?
+  amountB       Float          @default(0)
+  statusB       String         @default("HOLD")
+  paidDateB     DateTime?
+  amount        Float
+  status        String         @default("PENDING")
+  description   String?
+  dueDate       DateTime?
+  date          DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contractor    Contractor     @relation(fields: [contractorId], references: [id])
+  project       Project?       @relation(fields: [projectId], references: [id])
+  sods          ServiceOrder[]
+  penalties     Penalty[]
+}
+
+model Vehicle {
+  id              String   @id @default(cuid())
+  registration    String   @unique
+  make            String?
+  model           String?
+  status          String   @default("ACTIVE")
+  licenseExpiry   DateTime
+  licensePhotoUrl String?
+  driverName      String?
+  ownerType       String   @default("HIRED")
+  rentAmount      Float?
+  fuelLimit       Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model TableColumnSettings {
+  id        String   @id @default(cuid())
+  tableName String   @unique
+  columns   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryStore {
+  id              String                           @id @default(cuid())
+  name            String
+  type            String                           @default("SUB")
+  location        String?
+  managerId       String?
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+  balanceSheets   ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  materialIssues  ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns ContractorMaterialReturn[]       @relation("MaterialReturns")
+  wastageReports  ContractorWastage[]
+  grns            GRN[]
+  batchStocks     InventoryBatchStock[]
+  stocks          InventoryStock[]
+  manager         User?                            @relation(fields: [managerId], references: [id])
+  transactions    InventoryTransaction[]
+  mrns            MRN[]
+  opmcs           OPMC[]
+  projectReturns  ProjectMaterialReturn[]
+  stockIssues     StockIssue[]                     @relation("StockIssues")
+  outRequests     StockRequest[]                   @relation("RequestSource")
+  inRequests      StockRequest[]                   @relation("RequestTarget")
+  teamAssignments TeamStoreAssignment[]
+  assignedUsers   User[]                           @relation("UserAssignedStore")
+  serials         InventoryItemSerial[]
+
+  @@index([type])
+  @@index([managerId])
+}
+
+model InventoryItem {
+  id                    String                         @id @default(cuid())
+  code                  String                         @unique
+  name                  String
+  description           String?
+  unit                  String
+  type                  String                         @default("SLTS")
+  category              String                         @default("OTHERS")
+  minLevel              Float                          @default(0)
+  isWastageAllowed      Boolean                        @default(true)
+  maxWastagePercentage  Float                          @default(0)
+  hasSerial             Boolean                        @default(false)
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  source                String                         @default("SLT")
+  commonFor             String[]
+  unitPrice             Float?                         @default(0)
+  costPrice             Float?                         @default(0)
+  commonName            String?
+  sltCode               String?
+  isOspFtth             Boolean?                       @default(false)
+  importAliases         String[]
+  balanceSheetItems     ContractorBalanceSheetItem[]   @relation("BalanceSheetItems")
+  contractorBatchStocks ContractorBatchStock[]
+  issueItems            ContractorMaterialIssueItem[]  @relation("IssueItems")
+  returnItems           ContractorMaterialReturnItem[] @relation("ReturnItems")
+  contractorStock       ContractorStock[]
+  wastageItems          ContractorWastageItem[]
+  grnItems              GRNItem[]
+  batches               InventoryBatch[]
+  batchStocks           InventoryBatchStock[]
+  stocks                InventoryStock[]
+  transactionItems      InventoryTransactionItem[]
+  mrnItems              MRNItem[]
+  materialStandards     MaterialStandard[]             @relation("MaterialStandards")
+  boqItems              ProjectBOQItem[]               @relation("BOQMaterials")
+  projectReturnItems    ProjectMaterialReturnItem[]    @relation("ProjectReturnItems")
+  sodUsage              SODMaterialUsage[]             @relation("SODUsage")
+  stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
+  requestItems          StockRequestItem[]
+  serials               InventoryItemSerial[]
+
+  @@index([code])
+  @@index([type])
+  @@index([category])
+  @@index([commonName])
+}
+
+model InventoryStock {
+  id        String         @id @default(cuid())
+  storeId   String
+  itemId    String
+  quantity  Float          @default(0)
+  minLevel  Float          @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  item      InventoryItem  @relation(fields: [itemId], references: [id])
+  store     InventoryStore @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, itemId])
+}
+
+model InventoryBatch {
+  id               String                     @id @default(cuid())
+  batchNumber      String?
+  itemId           String
+  grnId            String?
+  initialQty       Float
+  costPrice        Float                      @default(0)
+  unitPrice        Float                      @default(0)
+  createdAt        DateTime                   @default(now())
+  contractorStocks ContractorBatchStock[]
+  grnItem          GRNItem?
+  grn              GRN?                       @relation(fields: [grnId], references: [id])
+  item             InventoryItem              @relation(fields: [itemId], references: [id])
+  storeStocks      InventoryBatchStock[]
+  transactionItems InventoryTransactionItem[]
+  usageItems       SODMaterialUsage[]
+
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+model InventoryBatchStock {
+  id        String         @id @default(cuid())
+  storeId   String
+  itemId    String
+  batchId   String
+  quantity  Float          @default(0)
+  updatedAt DateTime       @updatedAt
+  batch     InventoryBatch @relation(fields: [batchId], references: [id])
+  item      InventoryItem  @relation(fields: [itemId], references: [id])
+  store     InventoryStore @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, batchId])
+  @@index([storeId])
+  @@index([itemId])
+  @@index([batchId])
+}
+
+model ContractorBatchStock {
+  id           String         @id @default(cuid())
+  contractorId String
+  itemId       String
+  batchId      String
+  quantity     Float          @default(0)
+  updatedAt    DateTime       @updatedAt
+  batch        InventoryBatch @relation(fields: [batchId], references: [id])
+  contractor   Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  item         InventoryItem  @relation(fields: [itemId], references: [id])
+
+  @@unique([contractorId, batchId])
+  @@index([contractorId])
+  @@index([itemId])
+  @@index([batchId])
+}
+
+model StockRequest {
+  id                        String             @id @default(cuid())
+  requestNr                 String             @unique @default(cuid())
+  fromStoreId               String?
+  toStoreId                 String?
+  status                    String             @default("PENDING")
+  requestedById             String
+  approvedById              String?
+  remarks                   String?
+  sltReferenceId            String?
+  priority                  String             @default("MEDIUM")
+  requiredDate              DateTime?
+  purpose                   String?
+  sourceType                String             @default("SLT")
+  projectTypes              String[]
+  maintenanceMonths         String?
+  workflowStage             String             @default("REQUEST")
+  procurementStatus         String             @default("PENDING")
+  poNumber                  String?
+  vendor                    String?
+  expectedDelivery          DateTime?
+  irNumber                  String?
+  isCoveringPO              Boolean            @default(false)
+  armAction                 String?
+  armDate                   DateTime?
+  armRemarks                String?
+  armApprovedById           String?
+  storesManagerAction       String?
+  storesManagerDate         DateTime?
+  storesManagerRemarks      String?
+  storesManagerApprovedById String?
+  hsOspAction               String?
+  hsOspDate                 DateTime?
+  managerAction             String?
+  managerDate               DateTime?
+  releasedById              String?
+  releasedDate              DateTime?
+  releasedRemarks           String?
+  receivedById              String?
+  receivedDate              DateTime?
+  receivedRemarks           String?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  grns                      GRN[]
+  approvedBy                User?              @relation("ApproveUser", fields: [approvedById], references: [id])
+  armApprovedBy             User?              @relation("ARMApprover", fields: [armApprovedById], references: [id])
+  fromStore                 InventoryStore?    @relation("RequestSource", fields: [fromStoreId], references: [id])
+  receivedBy                User?              @relation("ReceivedBy", fields: [receivedById], references: [id])
+  releasedBy                User?              @relation("ReleasedBy", fields: [releasedById], references: [id])
+  requestedBy               User               @relation("RequestUser", fields: [requestedById], references: [id])
+  storesManagerApprovedBy   User?              @relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])
+  toStore                   InventoryStore?    @relation("RequestTarget", fields: [toStoreId], references: [id])
+  items                     StockRequestItem[]
+
+  @@index([fromStoreId])
+  @@index([toStoreId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([workflowStage])
+  @@index([createdAt])
+}
+
+model StockRequestItem {
+  id              String        @id @default(cuid())
+  requestId       String
+  itemId          String
+  requestedQty    Float
+  approvedQty     Float         @default(0)
+  issuedQty       Float?
+  receivedQty     Float         @default(0)
+  remarks         String?
+  make            String?
+  model           String?
+  suggestedVendor String?
+  createdAt       DateTime      @default(now())
+  item            InventoryItem @relation(fields: [itemId], references: [id])
+  request         StockRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([itemId])
+}
+
+model GRN {
+  id           String           @id @default(cuid())
+  grnNumber    String           @unique
+  storeId      String
+  sourceType   String
+  supplier     String?
+  requestId    String?
+  receivedById String
+  reference    String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  receivedBy   User             @relation(fields: [receivedById], references: [id])
+  request      StockRequest?    @relation(fields: [requestId], references: [id])
+  store        InventoryStore   @relation(fields: [storeId], references: [id])
+  items        GRNItem[]
+  batches      InventoryBatch[]
+
+  @@index([storeId])
+  @@index([requestId])
+  @@index([grnNumber])
+}
+
+model GRNItem {
+  id        String          @id @default(cuid())
+  grnId     String
+  itemId    String
+  quantity  Float
+  batchId   String?         @unique
+  createdAt DateTime        @default(now())
+  batch     InventoryBatch? @relation(fields: [batchId], references: [id])
+  grn       GRN             @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  item      InventoryItem   @relation(fields: [itemId], references: [id])
+
+  @@index([grnId])
+  @@index([itemId])
+}
+
+model MRN {
+  id           String         @id @default(cuid())
+  mrnNumber    String         @unique
+  storeId      String
+  returnType   String
+  returnTo     String?
+  supplier     String?
+  reason       String?
+  grnId        String?
+  returnedById String
+  status       String         @default("PENDING")
+  approvedById String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  approvedBy   User?          @relation("MRNApprover", fields: [approvedById], references: [id])
+  returnedBy   User           @relation(fields: [returnedById], references: [id])
+  store        InventoryStore @relation(fields: [storeId], references: [id])
+  items        MRNItem[]
+
+  @@index([storeId])
+  @@index([status])
+  @@index([mrnNumber])
+}
+
+model MRNItem {
+  id        String        @id @default(cuid())
+  mrnId     String
+  itemId    String
+  quantity  Float
+  reason    String?
+  createdAt DateTime      @default(now())
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  mrn       MRN           @relation(fields: [mrnId], references: [id], onDelete: Cascade)
+
+  @@index([mrnId])
+  @@index([itemId])
+}
+
+model InventoryTransaction {
+  id          String                     @id @default(cuid())
+  type        String
+  storeId     String
+  referenceId String?
+  notes       String?
+  date        DateTime                   @default(now())
+  userId      String
+  store       InventoryStore             @relation(fields: [storeId], references: [id])
+  items       InventoryTransactionItem[]
+
+  @@index([storeId])
+  @@index([type])
+  @@index([date])
+}
+
+model InventoryTransactionItem {
+  id            String               @id @default(cuid())
+  transactionId String
+  itemId        String
+  quantity      Float
+  batchId       String?
+  batch         InventoryBatch?      @relation(fields: [batchId], references: [id])
+  item          InventoryItem        @relation(fields: [itemId], references: [id])
+  transaction   InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model MaterialCategory {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  standards   MaterialStandard[]
+}
+
+model MaterialStandard {
+  id             String           @id @default(cuid())
+  categoryId     String
+  packageType    String
+  itemId         String
+  standardQty    Float
+  maxQty         Float?
+  wastagePercent Float            @default(5)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  category       MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  item           InventoryItem    @relation("MaterialStandards", fields: [itemId], references: [id])
+
+  @@unique([categoryId, packageType, itemId])
+  @@index([packageType])
+}
+
+model ContractorMaterialIssue {
+  id           String                        @id @default(cuid())
+  contractorId String
+  storeId      String
+  issueDate    DateTime                      @default(now())
+  month        String
+  issuedBy     String?
+  createdAt    DateTime                      @default(now())
+  contractor   Contractor                    @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore                @relation("MaterialIssues", fields: [storeId], references: [id])
+  items        ContractorMaterialIssueItem[]
+
+  @@index([contractorId, storeId, month])
+  @@index([month])
+}
+
+model ContractorMaterialIssueItem {
+  id       String                  @id @default(cuid())
+  issueId  String
+  itemId   String
+  quantity Float
+  unit     String
+  issue    ContractorMaterialIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item     InventoryItem           @relation("IssueItems", fields: [itemId], references: [id])
+
+  @@index([issueId])
+  @@index([itemId])
+}
+
+model SODMaterialUsage {
+  id             String          @id @default(cuid())
+  serviceOrderId String
+  itemId         String
+  quantity       Float
+  unit           String
+  usageType      String
+  batchId        String?
+  unitPrice      Float?          @default(0)
+  costPrice      Float?          @default(0)
+  wastagePercent Float?
+  exceedsLimit   Boolean         @default(false)
+  comment        String?
+  serialNumber   String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  batch          InventoryBatch? @relation(fields: [batchId], references: [id])
+  item           InventoryItem   @relation("SODUsage", fields: [itemId], references: [id])
+  serviceOrder   ServiceOrder    @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@index([serviceOrderId])
+  @@index([itemId])
+  @@index([usageType])
+}
+
+model ContractorMaterialReturn {
+  id             String                         @id @default(cuid())
+  contractorId   String
+  storeId        String
+  serviceOrderId String?                        // GAP 4 FIX: optional link to the SOD that triggered this return
+  returnDate     DateTime                       @default(now())
+  month          String
+  reason         String?
+  acceptedBy     String?
+  acceptedAt     DateTime?
+  status         String                         @default("PENDING")
+  createdAt      DateTime                       @default(now())
+  contractor     Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  store          InventoryStore                 @relation("MaterialReturns", fields: [storeId], references: [id])
+  serviceOrder   ServiceOrder?                  @relation("SODMaterialReturns", fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  items          ContractorMaterialReturnItem[]
+
+  @@index([contractorId, storeId, month])
+  @@index([status])
+  @@index([serviceOrderId])
+}
+
+model ContractorMaterialReturnItem {
+  id        String                   @id @default(cuid())
+  returnId  String
+  itemId    String
+  quantity  Float
+  unit      String
+  condition String                   @default("GOOD")
+  item      InventoryItem            @relation("ReturnItems", fields: [itemId], references: [id])
+  return    ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([itemId])
+}
+
+model ContractorWastage {
+  id           String                  @id @default(cuid())
+  contractorId String
+  storeId      String
+  date         DateTime                @default(now())
+  month        String
+  description  String?
+  status       String                  @default("APPROVED")
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime                @default(now())
+  contractor   Contractor              @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore          @relation(fields: [storeId], references: [id])
+  items        ContractorWastageItem[]
+
+  @@index([contractorId, storeId, month])
+  @@index([status])
+}
+
+model ContractorWastageItem {
+  id        String            @id @default(cuid())
+  wastageId String
+  itemId    String
+  quantity  Float
+  unit      String
+  item      InventoryItem     @relation(fields: [itemId], references: [id])
+  wastage   ContractorWastage @relation(fields: [wastageId], references: [id], onDelete: Cascade)
+
+  @@index([wastageId])
+  @@index([itemId])
+}
+
+model ContractorMaterialBalanceSheet {
+  id           String                       @id @default(cuid())
+  contractorId String
+  storeId      String
+  month        String
+  totalValue   Float?
+  usageRate    Float?
+  wastageRate  Float?
+  generatedAt  DateTime                     @default(now())
+  generatedBy  String?
+  items        ContractorBalanceSheetItem[]
+  contractor   Contractor                   @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore               @relation("BalanceSheets", fields: [storeId], references: [id])
+
+  @@unique([contractorId, storeId, month])
+  @@index([month])
+  @@index([contractorId])
+  @@index([storeId])
+}
+
+model ContractorBalanceSheetItem {
+  id             String                         @id @default(cuid())
+  balanceSheetId String
+  itemId         String
+  openingBalance Float
+  received       Float
+  returned       Float                          @default(0)
+  used           Float
+  wastage        Float
+  closingBalance Float
+  requiredNext   Float?
+  balanceSheet   ContractorMaterialBalanceSheet @relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)
+  item           InventoryItem                  @relation("BalanceSheetItems", fields: [itemId], references: [id])
+
+  @@index([balanceSheetId])
+  @@index([itemId])
+}
+
+model StockIssue {
+  id            String           @id @default(cuid())
+  issueNumber   String           @unique
+  storeId       String
+  issuedById    String
+  issueType     String
+  projectId     String?
+  contractorId  String?
+  teamId        String?
+  recipientName String
+  remarks       String?
+  status        String           @default("PENDING")
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  approvedBy    User?            @relation("IssueApprover", fields: [approvedById], references: [id])
+  contractor    Contractor?      @relation("ContractorIssues", fields: [contractorId], references: [id])
+  issuedBy      User             @relation("StockIssuer", fields: [issuedById], references: [id])
+  project       Project?         @relation(fields: [projectId], references: [id])
+  store         InventoryStore   @relation("StockIssues", fields: [storeId], references: [id])
+  items         StockIssueItem[]
+
+  @@index([storeId])
+  @@index([issueType])
+  @@index([status])
+}
+
+model StockIssueItem {
+  id        String        @id @default(cuid())
+  issueId   String
+  itemId    String
+  quantity  Float
+  remarks   String?
+  createdAt DateTime      @default(now())
+  issue     StockIssue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item      InventoryItem @relation("IssueItemsStock", fields: [itemId], references: [id])
+
+  @@index([issueId])
+  @@index([itemId])
+}
+
+model ProjectMaterialReturn {
+  id           String                      @id @default(cuid())
+  returnNumber String                      @unique
+  projectId    String
+  storeId      String
+  returnedById String
+  status       String                      @default("PENDING")
+  approvedById String?
+  approvedAt   DateTime?
+  reason       String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  approvedBy   User?                       @relation("ProjectReturnApprover", fields: [approvedById], references: [id])
+  project      Project                     @relation(fields: [projectId], references: [id])
+  returnedBy   User                        @relation("ProjectReturnUser", fields: [returnedById], references: [id])
+  store        InventoryStore              @relation(fields: [storeId], references: [id])
+  items        ProjectMaterialReturnItem[]
+
+  @@index([projectId])
+  @@index([storeId])
+  @@index([status])
+}
+
+model ProjectMaterialReturnItem {
+  id        String                @id @default(cuid())
+  returnId  String
+  itemId    String
+  quantity  Float
+  condition String                @default("GOOD")
+  remarks   String?
+  item      InventoryItem         @relation("ProjectReturnItems", fields: [itemId], references: [id])
+  return    ProjectMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([itemId])
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  storeId   String
+  itemId    String
+  type      String
+  quantity  Float
+  reference String?
+  remarks   String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+  @@index([itemId])
+  @@index([type])
+}
+
+model CurrentStock {
+  id        String   @id @default(cuid())
+  storeId   String
+  itemId    String
+  quantity  Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, itemId])
+  @@index([storeId])
+  @@index([itemId])
+}
+
+model Section {
+  id              String                  @id @default(cuid())
+  name            String                  @unique
+  code            String                  @unique
+  description     String?
+  icon            String?
+  color           String?
+  isActive        Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  roles           SystemRole[]
+  userAssignments UserSectionAssignment[]
+}
+
+model SystemRole {
+  id              String                  @id @default(cuid())
+  name            String
+  code            String                  @unique
+  sectionId       String
+  description     String?
+  level           Int                     @default(1)
+  isActive        Boolean                 @default(true)
+  permissions     String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  section         Section                 @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  userAssignments UserSectionAssignment[]
+
+  @@index([sectionId])
+}
+
+model UserSectionAssignment {
+  id        String     @id @default(cuid())
+  userId    String
+  sectionId String
+  roleId    String
+  isPrimary Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  role      SystemRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sectionId])
+  @@index([userId])
+  @@index([sectionId])
+  @@index([roleId])
+}
+
+model SystemConfig {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model Bank {
+  id        String       @id @default(cuid())
+  code      String       @unique
+  name      String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  branches  BankBranch[]
+}
+
+model BankBranch {
+  id        String   @id @default(cuid())
+  bankId    String
+  code      String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+
+  @@unique([bankId, code])
+}
+
+model SODRevenueConfig {
+  id            String    @id @default(cuid())
+  rtomId        String?
+  revenuePerSOD Float
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  circularRef   String?
+  notes         String?
+  isActive      Boolean   @default(true)
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  rtom          OPMC?     @relation(fields: [rtomId], references: [id], onDelete: Cascade)
+
+  @@index([rtomId])
+  @@index([effectiveFrom, effectiveTo])
+  @@index([isActive])
+}
+
+model ContractorPaymentConfig {
+  id            String                  @id @default(cuid())
+  rtomId        String?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  isActive      Boolean                 @default(true)
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  rtom          OPMC?                   @relation(fields: [rtomId], references: [id], onDelete: Cascade)
+  tiers         ContractorPaymentTier[]
+
+  @@index([rtomId])
+  @@index([isActive])
+}
+
+model ContractorPaymentTier {
+  id          String                  @id @default(cuid())
+  configId    String
+  minDistance Float
+  maxDistance Float
+  amount      Float
+  config      ContractorPaymentConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId])
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model SLTPATStatus {
+  id          String    @id @default(cuid())
+  soNum       String    @unique
+  rtom        String?
+  lea         String?
+  voiceNumber String?
+  sType       String?
+  orderType   String?
+  task        String?
+  package     String?
+  conName     String?
+  patUser     String?
+  status      String
+  source      String
+  statusDate  DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([rtom])
+  @@index([soNum])
+}
+
+model DashboardStat {
+  id              String   @id @default(cuid())
+  opmcId          String   @unique
+  rtom            String
+  pending         Int      @default(0)
+  completed       Int      @default(0)
+  returned        Int      @default(0)
+  patPassed       Int      @default(0)
+  patRejected     Int      @default(0)
+  sltsPatRejected Int      @default(0)
+  lastUpdated     DateTime @updatedAt
+
+  @@index([opmcId])
+  @@index([rtom])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  OSP_MANAGER
+  AREA_MANAGER
+  ENGINEER
+  ASSISTANT_ENGINEER
+  AREA_COORDINATOR
+  QC_OFFICER
+  OFFICE_ADMIN
+  OFFICE_ADMIN_ASSISTANT
+  SITE_OFFICE_STAFF
+  FINANCE_MANAGER
+  FINANCE_ASSISTANT
+  INVOICE_MANAGER
+  INVOICE_ASSISTANT
+  STORES_MANAGER
+  STORES_ASSISTANT
+  SA_MANAGER
+  SA_ASSISTANT
+  PROCUREMENT_OFFICER
+}
+
+enum ContractorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  ARM_PENDING
+  OSP_PENDING
+  REJECTED
+}
+
+enum ContractorType {
+  SOD
+  OSP
+}
+
+model InventoryItemSerial {
+  id           String          @id @default(cuid())
+  itemId       String
+  serialNumber String          @unique
+  status       String          @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY
+  storeId      String?
+  contractorId String?
+  sodId        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  
+  item         InventoryItem   @relation(fields: [itemId], references: [id])
+  store        InventoryStore? @relation(fields: [storeId], references: [id])
+  contractor   Contractor?     @relation(fields: [contractorId], references: [id])
+
+  @@index([itemId])
+  @@index([storeId])
+  @@index([contractorId])
+  @@index([status])
+}
+
+model Penalty {
+  id             String        @id @default(cuid())
+  amount         Float         @default(0)
+  reason         String        // QC_FAILURE, PAT_REJECT, MATERIAL_MISMATCH, MANUAL
+  description    String?
+  status         String        @default("PENDING") // PENDING, APPROVED, REJECTED
+  proposedBy     String?
+  invoiceId      String?
+  serviceOrderId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id])
+}
+
+// Phase 3: Procurement Integration
+model Vendor {
+  id              String                     @id @default(cuid())
+  code            String                     @unique
+  name            String
+  contactPerson   String?
+  email           String?
+  phone           String?
+  address         String?
+  registrationNo  String?
+  brNumber        String?
+  bankName        String?
+  bankBranch      String?
+  bankAccountNo   String?
+  status          String                     @default("ACTIVE")
+  type            String                     @default("SUPPLIER")
+  paymentTerms    String?
+  rating          Int?                       @default(0)
+  notes           String?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  requisitions    ProjectRequisition[]       @relation("VendorRequisitions")
+  quotations      Quotation[]
+
+  @@index([status])
+  @@index([type])
+  @@index([code])
+}
+
+model ProjectRequisition {
+  id                String                      @id @default(cuid())
+  prNumber          String                      @unique
+  projectId         String
+  title             String
+  description       String?
+  priority          String                      @default("MEDIUM")
+  status            String                      @default("DRAFT")
+  type              String                      @default("MATERIAL")
+  deliveryLocation  String?
+  requiredDate      DateTime?
+  requestedById     String
+  approvedById      String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+  vendorId          String?
+  estimatedTotal    Float                       @default(0)
+  remarks           String?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  project           Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendor            Vendor?                     @relation("VendorRequisitions", fields: [vendorId], references: [id])
+  items             ProjectRequisitionItem[]
+  purchaseOrders    ProjectPurchaseOrder[]
+  quotations        Quotation[]                 @relation("RequisitionQuotations")
+
+  @@index([projectId])
+  @@index([status])
+  @@index([prNumber])
+  @@index([vendorId])
+}
+
+model ProjectRequisitionItem {
+  id              String               @id @default(cuid())
+  requisitionId   String
+  boqItemId       String?
+  itemCode        String
+  description     String
+  unit            String
+  quantity        Float
+  estimatedPrice  Float                 @default(0)
+  totalEstimated  Float                 @default(0)
+  notes           String?
+  createdAt       DateTime             @default(now())
+  requisition     ProjectRequisition   @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+
+  @@index([requisitionId])
+}
+
+model Quotation {
+  id              String             @id @default(cuid())
+  quoteNumber     String             @unique
+  requisitionId   String
+  vendorId        String
+  vendorName      String
+  quoteDate       DateTime           @default(now())
+  validUntil      DateTime?
+  totalAmount     Float              @default(0)
+  status          String             @default("PENDING")
+  currency        String             @default("LKR")
+  deliveryDays    Int?
+  warrantyPeriod  String?
+  paymentTerms    String?
+  remarks         String?
+  acceptedById    String?
+  acceptedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  requisition     ProjectRequisition @relation("RequisitionQuotations", fields: [requisitionId], references: [id], onDelete: Cascade)
+  vendor          Vendor             @relation(fields: [vendorId], references: [id])
+  items           QuotationItem[]
+
+  @@index([requisitionId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([quoteNumber])
+}
+
+model QuotationItem {
+  id              String      @id @default(cuid())
+  quotationId     String
+  itemCode        String
+  description     String
+  unit            String
+  quantity        Float
+  unitPrice       Float
+  totalPrice      Float
+  deliveryDays    Int?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  quotation       Quotation   @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+}
+
+model ProjectPurchaseOrder {
+  id              String                       @id @default(cuid())
+  poNumber        String                       @unique
+  projectId       String
+  requisitionId   String?
+  vendorId        String
+  vendorName      String
+  title           String
+  description     String?
+  status          String                       @default("DRAFT")
+  priority        String                       @default("MEDIUM")
+  type            String                       @default("MATERIAL")
+  orderDate       DateTime                     @default(now())
+  expectedDelivery DateTime?
+  deliveryLocation String?
+  subtotal        Float                        @default(0)
+  taxAmount       Float                        @default(0)
+  discountAmount  Float                        @default(0)
+  totalAmount     Float                        @default(0)
+  currency        String                       @default("LKR")
+  paymentTerms    String?
+  deliveryTerms   String?
+  notes           String?
+  approvedById    String?
+  approvedAt      DateTime?
+  issuedById      String?
+  issuedAt        DateTime?
+  closedById      String?
+  closedAt        DateTime?
+  cancellationReason String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  project         Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requisition     ProjectRequisition?           @relation(fields: [requisitionId], references: [id])
+  items           ProjectPurchaseOrderItem[]
+  goodsReceipts   ProjectGoodsReceipt[]
+
+  @@index([projectId])
+  @@index([requisitionId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([poNumber])
+}
+
+model ProjectPurchaseOrderItem {
+  id              String                 @id @default(cuid())
+  poId            String
+  requisitionItemId String?
+  itemCode        String
+  description     String
+  unit            String
+  quantity        Float
+  unitPrice       Float
+  totalPrice      Float
+  receivedQty     Float                  @default(0)
+  balanceQty      Float                  @default(0)
+  deliveryDate    DateTime?
+  notes           String?
+  createdAt       DateTime               @default(now())
+  purchaseOrder   ProjectPurchaseOrder   @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+}
+
+model ProjectGoodsReceipt {
+  id              String                       @id @default(cuid())
+  grnNumber       String                       @unique
+  poId            String
+  projectId       String
+  receivedById    String
+  receivedDate    DateTime                     @default(now())
+  status          String                       @default("PENDING")
+  deliveryNoteRef String?
+  invoiceRef      String?
+  remarks         String?
+  storeId         String?
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  purchaseOrder   ProjectPurchaseOrder         @relation(fields: [poId], references: [id], onDelete: Cascade)
+  project         Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items           ProjectGoodsReceiptItem[]
+
+  @@index([poId])
+  @@index([projectId])
+  @@index([grnNumber])
+  @@index([status])
+}
+
+model ProjectGoodsReceiptItem {
+  id              String               @id @default(cuid())
+  goodsReceiptId  String
+  poItemId        String
+  itemCode        String
+  description     String
+  unit            String
+  quantityOrdered Float
+  quantityReceived Float
+  quantityAccepted Float
+  quantityRejected Float               @default(0)
+  rejectionReason String?
+  unitPrice       Float
+  totalPrice      Float
+  batchNumber     String?
+  serialNumbers   String[]             @default([])
+  notes           String?
+  createdAt       DateTime             @default(now())
+  goodsReceipt    ProjectGoodsReceipt  @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+
+  @@index([goodsReceiptId])
+}
+
+// Phase 4: Finance & Billing
+model ProjectInvoice {
+  id                String                    @id @default(cuid())
+  invoiceNumber     String                    @unique
+  projectId         String
+  title             String
+  description       String?
+  status            String                    @default("DRAFT") // DRAFT, ISSUED, PARTIALLY_PAID, FULLY_PAID, OVERDUE, CANCELLED
+  type              String                    @default("CLIENT") // CLIENT, CONTRACTOR, INTERNAL
+  invoiceDate       DateTime                  @default(now())
+  dueDate           DateTime?
+  subtotal          Float                     @default(0)
+  taxAmount         Float                     @default(0)
+  discountAmount    Float                     @default(0)
+  totalAmount       Float                     @default(0)
+  paidAmount        Float                     @default(0)
+  balanceAmount     Float                     @default(0)
+  currency          String                    @default("LKR")
+  notes             String?
+  referenceNumber   String?                   // Client PO ref, SO ref, etc.
+  periodFrom        DateTime?
+  periodTo          DateTime?
+  createdById       String?
+  approvedById      String?
+  approvedAt        DateTime?
+  cancelledReason   String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  project           Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items             ProjectInvoiceItem[]
+  payments          PaymentVoucher[]          @relation("InvoicePayments")
+  retentions        ProjectRetention[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([invoiceNumber])
+  @@index([invoiceDate])
+}
+
+// ============================================================================
+// VEHICLE MANAGEMENT MODULE
+// ============================================================================
+
+enum VehicleTypeEnum {
+  CAR
+  VAN
+  MINI_VAN
+  LORRY
+  CAB
+  DOUBLE_CAB
+  BOOM_TRUCK
+  TRUCK
+}
+
+enum OwnershipTypeEnum {
+  OWNED
+  RENTAL
+  HYBRID
+}
+
+enum VehicleStatusEnum {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  DECOMMISSIONED
+  RESERVED
+}
+
+enum TripStatusEnum {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentTypeEnum {
+  RENTAL
+  MAINTENANCE
+  INSURANCE_PREMIUM
+  FUEL
+  DRIVER_OT_SALARY
+  TOLL
+  PARKING
+  FINE
+  REGISTRATION
+  OTHER
+}
+
+enum PaymentStatusEnum {
+  PENDING
+  PARTIAL
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum InsuranceTypeEnum {
+  LIABILITY
+  COMPREHENSIVE
+  THIRD_PARTY
+  THEFT
+  ACCIDENT
+  DRIVER_COVER
+}
+
+enum InsuranceStatusEnum {
+  ACTIVE
+  EXPIRED
+  PENDING_RENEWAL
+  LAPSED
+}
+
+enum DriverOTStatusEnum {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PAID
+}
+
+enum EmploymentStatusEnum {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum MedicalFitnessStatusEnum {
+  PASS
+  FAIL
+  PENDING
+  EXPIRED
+}
+
+enum ComplianceTypeEnum {
+  MOT
+  ROAD_TAX
+  REGISTRATION
+  EMISSION
+  INSPECTION
+}
+
+enum DispatchOrderPriorityEnum {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaxTypeEnum {
+  VAT
+  GST
+  SALES_TAX
+  OTHER
+}
+
+enum FenceTypeEnum {
+  SITE
+  ZONE
+  DANGER_ZONE
+  RESTRICTED_AREA
+}
+
+enum SummaryStatusEnum {
+  DRAFT
+  SUBMITTED
+  CHECKED
+  RECOMMENDED
+  APPROVED
+  REJECTED
+}
+
+model VMSite {
+  id                    String   @id @default(cuid())
+  name                  String
+  code                  String   @unique
+  address               String
+  city                  String
+  state                 String
+  postal_code           String
+  country               String
+  latitude              Float
+  longitude             Float
+  contact_person        String
+  phone                 String
+  email                 String
+  manager_id            String
+  status                String   @default("ACTIVE")
+  vehicle_pool_capacity Int      @default(50)
+  
+  vehicles              VMVehicle[]
+  dispatchOrders        VMDispatchOrder[]
+  geofences             VMGeofence[]
+  invoices              VMInvoice[]
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([code])
+  @@index([status])
+}
+
+model VMVehicle {
+  id                        String   @id @default(cuid())
+  registration_number       String   @unique
+  chassis_number            String   @unique
+  engine_number             String
+  make                      String
+  model                     String
+  year                      Int
+  color                     String
+  vehicle_type              VehicleTypeEnum
+  ownership                 OwnershipTypeEnum
+  status                    VehicleStatusEnum @default(AVAILABLE)
+  
+  capacity_passengers       Int
+  capacity_cargo_weight_kg  Float
+  capacity_cargo_volume_m3  Float
+  
+  site_id                   String
+  site                      VMSite     @relation(fields: [site_id], references: [id])
+  current_driver_id         String?
+  driver                    VMDriver?  @relation(fields: [current_driver_id], references: [id])
+  
+  latitude                  Float?
+  longitude                 Float?
+  location_timestamp        DateTime?
+  location_accuracy_meters  Int?
+  
+  registration_date         DateTime
+  decommissioned_date       DateTime?
+  
+  purchase_cost             Float?
+  insurance_cost_annual     Float?
+  fuel_cost_per_liter       Float?
+  last_odometer             Float             @default(0)
+  photo_url                 String?
+  
+  ownedVehicle              VMOwnedVehicle?
+  rentalVehicle             VMRentalVehicle?
+  trips                     VMTrip[]
+  fuelLogs                  VMFuelLog[]
+  insurancePolicies         VMInsurancePolicy[]
+  warranties                VMWarranty[]
+  complianceStatuses        VMComplianceStatus[]
+  dispatchOrders            VMDispatchOrder[]
+  gpsLocations              VMGPSLocation[]
+  vehicleLogs               VMVehicleLog[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([status])
+  @@index([ownership])
+  @@index([vehicle_type])
+  @@index([registration_number])
+}
+
+model VMOwnedVehicle {
+  id                        String   @id @default(cuid())
+  vehicle_id                String   @unique
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  
+  purchase_date             DateTime
+  purchase_cost             Float
+  depreciation_rate_percent Float
+  depreciation_schedule     String
+  book_value                Float
+  salvage_value             Float
+  finance_type              String
+  loan_amount               Float?
+  loan_remaining            Float?
+  loan_end_date             DateTime?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model VMRentalVehicle {
+  id                        String   @id @default(cuid())
+  vehicle_id                String   @unique
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  
+  supplier_id               String
+  supplier_contact          String?
+  rental_contract_id        String   @unique
+  rental_start_date         DateTime
+  rental_end_date           DateTime
+  rental_cost_daily         Float
+  rental_cost_weekly        Float?
+  rental_cost_monthly       Float?
+  fuel_included             Boolean  @default(false)
+  maintenance_included      Boolean  @default(false)
+  insurance_included        Boolean  @default(false)
+  mileage_limit_monthly     Int?
+  excess_mileage_cost_per_km Float?
+  contract_terms            String
+
+  // --- Billing / Payment Summary Fields ---
+  driver_portion_monthly    Float?   // monthly driver allowance portion
+  expected_working_days     Int?     // expected working days per month
+  rate_per_additional_km    Float?   // rate charged per km over limit (if different from excess_mileage)
+  absent_deduction_rate     Float?   // per-day deduction for driver absence
+  fuel_allowance_per_km     Float?   // fuel allowance if fuel is supplied by owner
+  driver_term               String?  // driver term/description e.g. "Included", "Separate", "N/A"
+  fuel_supplying            String?  // "OWNER" or "COMPANY"
+  fuel_efficiency           Float?   // km per liter expected
+  
+  // Bank Details
+  bank_name                 String?
+  bank_account_number       String?
+  bank_branch               String?
+  bank_branch_code          String?
+
+  // Relations
+  monthlySummaries          VMRentedVehicleMonthlySummary[]
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model VMRentedVehicleMonthlySummary {
+  id                        String   @id @default(cuid())
+  rentalVehicleId           String
+  rentalVehicle             VMRentalVehicle  @relation(fields: [rentalVehicleId], references: [id], onDelete: Cascade)
+
+  year                      Int
+  month                     Int
+
+  // Captured snapshot of billing parameters at time of calculation
+  rental_cost_monthly       Float
+  driver_portion_monthly    Float?
+  expected_working_days     Int?
+  rate_per_additional_km    Float?
+  absent_deduction_rate     Float?
+  fuel_allowance_per_km     Float?
+  fuel_supplying            String?  // "OWNER" or "COMPANY"
+  fuel_efficiency           Float?
+  mileage_limit_monthly     Int?
+  excess_mileage_cost_per_km Float?
+  fuel_included             Boolean  @default(false)
+
+  // Calculated Metrics
+  total_days_worked         Int?     // Actual days vehicle was used
+  absent_days               Int?     // Days driver was absent
+  total_km_traveled         Float?   // Total km from VMVehicleLog
+  base_rental               Float    // Vehicle Rental Rate + Driver Portion
+  fuel_allowance_amount     Float    // Adjusted Mileage Ãƒâ€” Fuel Allowance Per Km (if OWNER)
+  driver_overtime_pay       Float    // Total OT cost from VMDriverOT
+  absent_deductions         Float    // Absent Days Ãƒâ€” Absent Deduction Rate
+  additional_km_charges     Float    // Additional km over limit Ãƒâ€” rate
+  net_payment               Float    // Base Rental + Fuel + OT - Deductions
+
+  // Workflow
+  status                    SummaryStatusEnum @default(DRAFT)
+
+  prepared_by_id            String?
+  prepared_by_name          String?
+  prepared_at               DateTime?
+
+  checked_by_id             String?
+  checked_by_name           String?
+  checked_at                DateTime?
+  checked_remarks           String?
+
+  recommended_by_id         String?
+  recommended_by_name       String?
+  recommended_at            DateTime?
+  recommended_remarks       String?
+
+  notes                     String?
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@unique([rentalVehicleId, year, month])
+  @@index([rentalVehicleId])
+  @@index([year, month])
+  @@index([status])
+}
+
+model VMDriver {
+  id                        String   @id @default(cuid())
+  first_name                String
+  last_name                 String
+  email                     String   @unique
+  phone                     String
+  date_of_birth             DateTime
+  
+  street                    String
+  city                      String
+  state                     String
+  postal_code               String
+  country                   String
+  
+  license_number            String   @unique
+  license_issue_date        DateTime
+  license_expiry_date       DateTime
+  license_class             String
+  
+  medical_fitness_status    MedicalFitnessStatusEnum
+  medical_fitness_expiry    DateTime?
+  certifications            String
+  
+  performance_score         Int      @default(100)
+  safety_incidents_count    Int      @default(0)
+  trips_completed           Int      @default(0)
+  
+  employment_date           DateTime
+  employment_status         EmploymentStatusEnum @default(ACTIVE)
+  site_id                   String?
+  base_hourly_rate          Float
+  ot_hourly_rate            Float
+  photo_url                 String?
+  license_front_url         String?
+  license_back_url          String?
+  nic_front_url             String?
+  nic_back_url              String?
+  
+  vehicles                  VMVehicle[]
+  trips                     VMTrip[]
+  driverOTs                 VMDriverOT[]
+  insurancePolicies         VMInsurancePolicy[]
+  dispatchOrders            VMDispatchOrder[]
+  vehicleLogs               VMVehicleLog[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([email])
+  @@index([license_number])
+  @@index([employment_status])
+}
+
+model VMDriverOT {
+  id                        String   @id @default(cuid())
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  trip_id                   String?  @unique
+  trip                      VMTrip?    @relation(fields: [trip_id], references: [id])
+  
+  date                      DateTime
+  shift_start_time          DateTime
+  shift_end_time            DateTime
+  
+  regular_hours             Float
+  overtime_hours            Float
+  break_duration_minutes    Int      @default(0)
+  
+  ot_threshold_hours        Float    @default(8)
+  ot_rate_multiplier        Float    @default(1.5)
+  
+  regular_pay               Float
+  ot_pay                    Float
+  total_pay                 Float
+  
+  status                    DriverOTStatusEnum @default(DRAFT)
+  approved_by               String?
+  approved_at               DateTime?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([driver_id])
+  @@index([date])
+  @@index([status])
+}
+
+model VMTrip {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  
+  start_location_name       String
+  start_location_lat        Float
+  start_location_lng        Float
+  start_location_address    String?
+  
+  end_location_name         String
+  end_location_lat          Float
+  end_location_lng          Float
+  end_location_address      String?
+  
+  scheduled_start_time      DateTime
+  actual_start_time         DateTime?
+  scheduled_end_time        DateTime
+  actual_end_time           DateTime?
+  
+  planned_distance_km       Float?
+  actual_distance_km        Float?
+  planned_duration_minutes  Int?
+  actual_duration_minutes   Int?
+  
+  trip_status               TripStatusEnum @default(PLANNED)
+  trip_type                 String
+  
+  fuel_consumed_liters      Float?
+  fuel_cost                 Float?
+  
+  fuelLog                   VMFuelLog?
+  driverOT                  VMDriverOT?
+  
+  notes                     String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([trip_status])
+  @@index([actual_start_time])
+}
+
+model VMFuelLog {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  trip_id                   String?  @unique
+  trip                      VMTrip?    @relation(fields: [trip_id], references: [id])
+  
+  fuel_type                 String
+  quantity_liters           Float
+  cost_per_liter            Float
+  total_cost                Float
+  
+  odometer_reading_km       Float
+  previous_odometer_km      Float?
+  
+  fuel_efficiency_km_per_liter Float?
+  
+  fuel_date                 DateTime
+  fuel_station              String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([fuel_date])
+}
+
+model VMInsurancePolicy {
+  id                        String   @id @default(cuid())
+  vehicle_id                String?
+  vehicle                   VMVehicle? @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String?
+  driver                    VMDriver?  @relation(fields: [driver_id], references: [id])
+  
+  policy_number             String   @unique
+  insurer_name              String
+  insurer_contact           String
+  
+  insurance_type            InsuranceTypeEnum
+  coverage_limit            Float
+  excess_amount             Float
+  insured_value             Float
+  
+  issue_date                DateTime
+  start_date                DateTime
+  renewal_date              DateTime
+  expiry_date               DateTime
+  
+  premium_amount            Float
+  premium_frequency         String
+  next_premium_due_date     DateTime
+  
+  status                    InsuranceStatusEnum @default(ACTIVE)
+  
+  policy_document_url       String?
+  certificate_url           String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([status])
+  @@index([expiry_date])
+}
+
+model VMWarranty {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  
+  warranty_type             String
+  start_date                DateTime
+  expiry_date               DateTime
+  
+  coverage_miles            Int?
+  coverage_time_months      Int?
+  coverage_details          String
+  
+  service_interval_miles    Int?
+  service_interval_months   Int?
+  next_service_due_miles    Int?
+  next_service_due_date     DateTime?
+  
+  status                    String
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([status])
+  @@index([expiry_date])
+}
+
+model VMComplianceStatus {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  
+  compliance_type           ComplianceTypeEnum
+  compliance_due_date       DateTime
+  compliance_status         String
+  
+  last_checked_date         DateTime?
+  next_check_date           DateTime?
+  
+  alert_sent                Boolean  @default(false)
+  alert_sent_date           DateTime?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([compliance_due_date])
+}
+
+model VMPayment {
+  id                        String   @id @default(cuid())
+  invoice_id                String
+  invoice                   VMInvoice  @relation(fields: [invoice_id], references: [id])
+  
+  payment_type              PaymentTypeEnum
+  reference_id              String
+  
+  base_amount               Float
+  tax_amount                Float
+  total_amount              Float
+  
+  tax_config_id             String?
+  tax_config                VMTaxConfig? @relation(fields: [tax_config_id], references: [id])
+  tax_rate_percent          Float?
+  tax_type                  String?
+  
+  payment_date              DateTime?
+  payment_method            String
+  payment_ref_number        String?
+  
+  status                    PaymentStatusEnum @default(PENDING)
+  
+  due_date                  DateTime
+  payment_received_date     DateTime?
+  
+  notes                     String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([invoice_id])
+  @@index([payment_type])
+  @@index([status])
+  @@index([due_date])
+}
+
+model VMInvoice {
+  id                        String   @id @default(cuid())
+  invoice_number            String   @unique
+  
+  site_id                   String
+  site                      VMSite     @relation(fields: [site_id], references: [id])
+  issued_to_customer_id     String?
+  
+  subtotal                  Float
+  discount                  Float?   @default(0)
+  tax_before_discount       Boolean  @default(false)
+  total_tax                 Float
+  total_amount              Float
+  
+  invoice_date              DateTime
+  due_date                  DateTime
+  
+  status                    String
+  description               String?
+  
+  items                     VMInvoiceItem[]
+  payments                  VMPayment[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([invoice_number])
+  @@index([status])
+  @@index([due_date])
+}
+
+model VMInvoiceItem {
+  id                        String   @id @default(cuid())
+  invoice_id                String
+  invoice                   VMInvoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  
+  description               String
+  quantity                  Float
+  unit_price                Float
+  line_total                Float
+  
+  tax_config_id             String?
+  tax_config                VMTaxConfig? @relation(fields: [tax_config_id], references: [id])
+  tax_rate_percent          Float?
+  line_tax                  Float
+  
+  item_type                 PaymentTypeEnum
+  reference_id              String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([invoice_id])
+}
+
+model VMTaxConfig {
+  id                        String   @id @default(cuid())
+  
+  tax_name                  String
+  tax_type                  TaxTypeEnum
+  
+  tax_rate_percent          Float
+  effective_from_date       DateTime
+  effective_to_date         DateTime?
+  
+  applicable_to             String
+  
+  tax_inclusive             Boolean  @default(false)
+  tax_exempt_items          String?
+  
+  status                    String
+  
+  payments                  VMPayment[]
+  invoiceItems              VMInvoiceItem[]
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([tax_type])
+  @@index([status])
+}
+
+model VMDispatchOrder {
+  id                        String   @id @default(cuid())
+  site_id                   String
+  site                      VMSite     @relation(fields: [site_id], references: [id])
+  
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  
+  trip_id                   String?
+  
+  assignment_date           DateTime
+  scheduled_start_time      DateTime
+  scheduled_end_time        DateTime
+  
+  purpose                   String
+  priority                  DispatchOrderPriorityEnum @default(MEDIUM)
+  status                    String @default("PENDING")
+  
+  special_instructions      String?
+  customer_info             String?
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([status])
+}
+
+model VMGPSLocation {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  trip_id                   String?
+  
+  latitude                  Float
+  longitude                 Float
+  altitude                  Float?
+  
+  speed_kmh                 Float?
+  heading                   Float?
+  accuracy_meters           Int?
+  
+  recorded_at               DateTime
+  
+  createdAt                DateTime @default(now())
+
+  @@index([vehicle_id])
+  @@index([recorded_at])
+  @@index([trip_id])
+}
+
+model VMGeofence {
+  id                        String   @id @default(cuid())
+  site_id                   String?
+  site                      VMSite?    @relation(fields: [site_id], references: [id])
+  
+  name                      String
+  fence_type                FenceTypeEnum
+  
+  boundary_points           String
+  radius_meters             Int?
+  
+  alert_on_entry            Boolean  @default(true)
+  alert_on_exit             Boolean  @default(true)
+  allowed_vehicles          String?
+  allowed_drivers           String?
+  
+  status                    String
+  
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([site_id])
+  @@index([fence_type])
+}
+
+
+model ProjectInvoiceItem {
+  id              String          @id @default(cuid())
+  invoiceId       String
+  description     String
+  quantity        Float           @default(1)
+  unitPrice       Float           @default(0)
+  totalPrice      Float           @default(0)
+  boqItemId       String?
+  taskId          String?
+  itemType        String          @default("SERVICE") // SERVICE, MATERIAL, EQUIPMENT, MISC
+  notes           String?
+  createdAt       DateTime        @default(now())
+  invoice         ProjectInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model PaymentVoucher {
+  id                String              @id @default(cuid())
+  pvNumber          String              @unique
+  projectId         String
+  title             String
+  description       String?
+  status            String              @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, PAID, REJECTED, CANCELLED
+  type              String              @default("CONTRACTOR") // CONTRACTOR, VENDOR, STAFF, CLIENT_REFUND, MISC
+  payeeName         String
+  payeeId           String?
+  invoiceId         String?
+  amount            Float               @default(0)
+  paymentDate       DateTime?
+  paymentMethod     String?             // BANK_TRANSFER, CHEQUE, CASH, CARD
+  bankName          String?
+  bankBranch        String?
+  accountNumber     String?
+  chequeNumber      String?
+  referenceNumber   String?
+  taxWithheld        Float              @default(0)
+  netAmount         Float               @default(0)
+  retentionAmount   Float               @default(0)
+  retentionReleaseId String?
+  notes             String?
+  createdById       String?
+  approvedById      String?
+  approvedAt        DateTime?
+  paidById          String?
+  paidAt            DateTime?
+  rejectionReason   String?
+  cancelledReason   String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invoice           ProjectInvoice?     @relation("InvoicePayments", fields: [invoiceId], references: [id])
+
+  @@index([projectId])
+  @@index([status])
+  @@index([pvNumber])
+  @@index([invoiceId])
+}
+
+model ProjectLDPenalty {
+  id                String              @id @default(cuid())
+  projectId         String
+  title             String
+  description       String?
+  type              String              @default("LD") // LD, PENALTY
+  category          String              @default("DELAY") // DELAY, QUALITY, SAFETY, PERFORMANCE, MATERIAL, OTHER
+  amount            Float               @default(0)
+  percentage        Float?              // e.g., 0.5% per week
+  referenceTable    String?             // e.g., "ProjectMilestone", "ProjectTask"
+  referenceId       String?
+  referenceDesc     String?
+  waivedAmount      Float               @default(0)
+  netAmount         Float               @default(0)
+  status            String              @default("PROPOSED") // PROPOSED, APPROVED, WAIVED, COLLECTED
+  appliedDate       DateTime?
+  leviedById        String?
+  approvedById      String?
+  approvedAt        DateTime?
+  remarks           String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([type])
+}
+
+model ProjectRetention {
+  id                String                  @id @default(cuid())
+  projectId         String
+  invoiceId         String?
+  title             String
+  description       String?
+  retentionPercent  Float                   @default(10) // e.g., 10%
+  retentionAmount   Float                   @default(0)
+  releasedAmount    Float                   @default(0)
+  balanceAmount     Float                   @default(0)
+  status            String                  @default("HELD") // HELD, PARTIALLY_RELEASED, FULLY_RELEASED
+  releaseCondition  String?                 // e.g., "DEFECT_LIABILITY_PERIOD", "COMPLETION_CERTIFICATE"
+  defectLiabilityPeriod Int?                // days
+  defectLiabilityEnd    DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  project           Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invoice           ProjectInvoice?         @relation(fields: [invoiceId], references: [id])
+  releases          RetentionRelease[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([invoiceId])
+}
+
+model RetentionRelease {
+  id                String              @id @default(cuid())
+  retentionId       String
+  releaseAmount     Float               @default(0)
+  releaseDate       DateTime            @default(now())
+  paymentVoucherId  String?
+  approvedById      String?
+  approvedAt        DateTime?
+  remarks           String?
+  createdAt         DateTime            @default(now())
+  retention         ProjectRetention    @relation(fields: [retentionId], references: [id], onDelete: Cascade)
+
+  @@index([retentionId])
+}
+
+// Phase 5: Change Orders & Project Closure
+model ProjectChangeOrder {
+  id                String                  @id @default(cuid())
+  coNumber          String                  @unique
+  projectId         String
+  title             String
+  description       String?
+  type              String                  @default("SCOPE") // SCOPE, TIME, COST, RESOURCE, QUALITY
+  status            String                  @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, IMPLEMENTED, CANCELLED
+  priority          String                  @default("MEDIUM")
+  reason            String?                 // CLIENT_REQUEST, DESIGN_CHANGE, SITE_CONDITION, REGULATORY, OTHER
+  referenceTable    String?                 // e.g., "ProjectTask", "ProjectMilestone", "ProjectBOQItem"
+  referenceId       String?
+  originalValue     Float?                  // Original cost/duration value
+  newValue          Float?                  // Revised cost/duration value
+  costImpact        Float                   @default(0)
+  timeImpact        Int?                    // days added or removed
+  scopeImpact       String?
+  riskAssessment    String?
+  supportingDocs    String[]                @default([])
+  requestedById     String?
+  requestedDate     DateTime                @default(now())
+  approvedById      String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+  implementedById   String?
+  implementedAt     DateTime?
+  notes             String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  project           Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([coNumber])
+  @@index([type])
+}
+
+model VMVehicleLog {
+  id                        String   @id @default(cuid())
+  vehicle_id                String
+  vehicle                   VMVehicle  @relation(fields: [vehicle_id], references: [id])
+  driver_id                 String
+  driver                    VMDriver   @relation(fields: [driver_id], references: [id])
+  
+  start_time                DateTime @default(now())
+  end_time                  DateTime?
+  
+  start_odometer            Float
+  end_odometer              Float?
+  expected_start_odometer   Float
+  
+  odometer_mismatch         Boolean  @default(false)
+  mismatch_reason           String?
+  
+  passengers                String?
+  status                    String   @default("ACTIVE") // ACTIVE, COMPLETED
+  
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@index([vehicle_id])
+  @@index([driver_id])
+  @@index([status])
+}
+
+// 1. Resource Allocation & Workforce
+model ProjectResource {
+  id                   String      @id @default(cuid())
+  projectId            String
+  project              Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  resourceType         String      // STAFF, CONTRACTOR, TEAM, EQUIPMENT
+  resourceId           String      // Id referencing User/Staff, Contractor, ContractorTeam, or Equipment
+  name                 String
+  role                 String?     // e.g. "Lead Cable Splicer", "Excavator"
+  allocationPercentage Float       @default(100) // Resource Loading % (e.g. 50%)
+  
+  startDate            DateTime
+  endDate              DateTime
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@index([projectId])
+}
+
+// 2. Project Documents (with Version Control)
+model ProjectDocument {
+  id              String                  @id @default(cuid())
+  projectId       String
+  project         Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  category        String                  // DRAWING, BOQ, CONTRACT, SPECIFICATION, OTHER
+  status          String                  @default("DRAFT") // DRAFT, UNDER_REVIEW, APPROVED, REJECTED
+  currentVersion  Int                     @default(1)
+  fileUrl         String
+  uploadedById    String
+  uploadedBy      User                    @relation(fields: [uploadedById], references: [id])
+  
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  versions        ProjectDocumentVersion[]
+  approvals       ProjectApprovalRequest[]
+
+  @@index([projectId])
+}
+
+model ProjectDocumentVersion {
+  id              String          @id @default(cuid())
+  documentId      String
+  document        ProjectDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  versionNumber   Int
+  fileUrl         String
+  changeSummary   String?
+  uploadedById    String
+  createdAt       DateTime        @default(now())
+
+  @@index([documentId])
+}
+
+// 3. Multi-Level Approval Engine
+model ProjectApprovalRequest {
+  id              String            @id @default(cuid())
+  projectId       String
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  type            String            // BUDGET, MATERIAL, CHANGE_ORDER, DOCUMENT, INSPECTION
+  referenceId     String            // Id of the related entity (e.g. DocumentId, ChangeOrderId, etc.)
+  documentId      String?
+  document        ProjectDocument?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?
+  amount          Float?            // If applicable (e.g., Change Order value)
+  status          String            @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  steps           ProjectApprovalStep[]
+
+  @@index([projectId])
+  @@index([documentId])
+}
+
+model ProjectApprovalStep {
+  id              String                 @id @default(cuid())
+  requestId       String
+  request         ProjectApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  stepNumber      Int                    // e.g. Step 1 (Engineer), Step 2 (ARM), Step 3 (OPMC Manager)
+  roleRequired    String                 // Role name or User role enum (e.g. ENGINEER, OPMC_MANAGER, FINANCE_ADMIN)
+  assignedUserId  String?
+  assignedUser    User?                  @relation("StepAssignee", fields: [assignedUserId], references: [id])
+  
+  status          String                 @default("PENDING") // PENDING, APPROVED, REJECTED, SKIPPED
+  actionedById    String?
+  actionedBy      User?                  @relation("StepActioner", fields: [actionedById], references: [id])
+  actionedAt      DateTime?
+  comment         String?
+  
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([requestId])
+}
+
+// 4. Risk & Issue Management (Phase 2)
+model ProjectRisk {
+  id              String      @id @default(cuid())
+  projectId       String
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String
+  probability     Int         // 1-5 Scale
+  impact          Int         // 1-5 Scale
+  score           Int         // Probability * Impact
+  mitigationPlan  String?
+  status          String      @default("OPEN") // OPEN, MITIGATED, CLOSED
+  identifiedById  String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([projectId])
+}
+
+// 5. Quality Assurance (QA/QC) (Phase 2)
+model ProjectInspection {
+  id              String      @id @default(cuid())
+  projectId       String
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title           String
+  category        String      // INSPECTION_REQUEST (IR), NON_CONFORMANCE (NCR)
+  status          String      @default("PENDING") // PENDING, PASSED, FAILED, UNDER_CORRECTION
+  checklist       Json        // JSON array of checked list items
+  correctiveAction String?
+  photoUrls       String[]    @default([])
+  inspectorId     String
+  inspectedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([projectId])
+}
+
+// ==========================================
+// WORKFLOW TEMPLATE SCHEMA (Master Templates)
+// ==========================================
+
+model ProjectType {
+  id                String             @id @default(cuid())
+  name              String             @unique // e.g., "Cluster Development", "SSD"
+  description       String?
+  workflowTemplates WorkflowTemplate[]
+  projects          Project[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model WorkflowTemplate {
+  id            String                  @id @default(cuid())
+  name          String                  @unique // e.g., "Cluster Dev Standard Workflow"
+  description   String?
+  projectTypeId String
+  projectType   ProjectType             @relation(fields: [projectTypeId], references: [id])
+  stages        WorkflowStageTemplate[]
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  isActive      Boolean                 @default(true)
+}
+
+model WorkflowStageTemplate {
+  id                 String                     @id @default(cuid())
+  name               String                     // e.g., "Splicing", "OTDR Testing"
+  description        String?
+  sequence           Int                        // Drag-and-drop order
+  workflowTemplateId String
+  workflowTemplate   WorkflowTemplate           @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+  
+  // Gates & Prerequisites Configurations
+  reqApproval        Boolean                    @default(false)
+  reqChecklist       Boolean                    @default(false)
+  reqPhotos          Boolean                    @default(false)
+  reqMaterials       Boolean                    @default(false)
+  reqDocuments       Boolean                    @default(false)
+  reqOTDR            Boolean                    @default(false)
+  reqGPS             Boolean                    @default(false)
+
+  // Sub-templates
+  taskTemplates      WorkflowTaskTemplate[]
+  checklistTemplates WorkflowChecklistTemplate[]
+  approvalTemplates  WorkflowApprovalTemplate[]
+  conditions         WorkflowConditionTemplate[]
+  
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@unique([workflowTemplateId, sequence])
+}
+
+model WorkflowTaskTemplate {
+  id              String                @id @default(cuid())
+  name            String
+  description     String?
+  priority        String                @default("MEDIUM") // LOW, MEDIUM, HIGH
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowChecklistTemplate {
+  id              String                @id @default(cuid())
+  label           String                // e.g., "Verify core alignment"
+  isMandatory     Boolean               @default(true)
+  reqPhoto        Boolean               @default(false)
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowApprovalTemplate {
+  id              String                @id @default(cuid())
+  level           Int                   @default(1) // Level 1, 2, 3
+  role            String                // e.g., "PROJECT_MANAGER", "OPMC_MANAGER"
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowConditionTemplate {
+  id              String                @id @default(cuid())
+  field           String                // e.g., "permitRequired" or "otdrRequired"
+  operator        String                // e.g., "EQUALS"
+  value           String                // e.g., "true"
+  action          String                // e.g., "SKIP" or "REQUIRE"
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// PROJECT WORKFLOW INSTANCE SCHEMA (Snapshots)
+// ==========================================
+
+model ProjectWorkflowInstance {
+  id             String                 @id @default(cuid())
+  projectId      String                 @unique
+  project        Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  currentStageId String?
+  stages         ProjectStageInstance[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+}
+
+model ProjectStageInstance {
+  id                        String                     @id @default(cuid())
+  name                      String
+  description               String?
+  sequence                  Int
+  status                    String                     @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  projectWorkflowInstanceId String
+  projectWorkflowInstance   ProjectWorkflowInstance    @relation(fields: [projectWorkflowInstanceId], references: [id], onDelete: Cascade)
+
+  // Cloned Gates & Prerequisites
+  reqApproval               Boolean
+  reqChecklist              Boolean
+  reqPhotos                 Boolean
+  reqMaterials              Boolean
+  reqDocuments              Boolean
+  reqOTDR                   Boolean
+  reqGPS                    Boolean
+
+  // Dynamic Content Instances
+  tasks                     ProjectTaskInstance[]
+  checklists                ProjectChecklistInstance[]
+  approvals                 ProjectApprovalInstance[]
+  
+  actualStart               DateTime?
+  actualFinish              DateTime?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+}
+
+model ProjectTaskInstance {
+  id             String               @id @default(cuid())
+  name           String
+  description    String?
+  priority       String               @default("MEDIUM")
+  status         String               @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  assignedTeamId String?
+  assignedUserId String?
+  plannedStart   DateTime?
+  plannedFinish  DateTime?
+  actualStart    DateTime?
+  actualFinish   DateTime?
+  progress       Float                @default(0)
+  stageId        String
+  stage          ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model ProjectChecklistInstance {
+  id          String               @id @default(cuid())
+  label       String
+  isMandatory Boolean
+  isCompleted Boolean              @default(false)
+  photoUrl    String?
+  stageId     String
+  stage       ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model ProjectApprovalInstance {
+  id           String               @id @default(cuid())
+  level        Int
+  role         String
+  status       String               @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedById String?
+  approvedAt   DateTime?
+  comments     String?
+  stageId      String
+  stage        ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowAuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   // e.g., "STAGE_COMPLETE", "APPROVAL_SUBMITTED"
+  entityType String   // e.g., "ProjectStageInstance"
+  entityId   String
+  details    Json?    // Stores request IP, previous state, etc.
+  createdAt  DateTime @default(now())
+}
+
+// ============================================================================
+// OSP MODULE ENHANCEMENTS - Enterprise OSP Project Management Lifecycle
+// ============================================================================
+// 17-Stage OSP Deployment Lifecycle Models
+// ============================================================================
+
+// ============================================================================
+// A1: PERMIT & AUTHORITY MANAGEMENT
+// ============================================================================
+
+model AuthorityEntity {
+  id              String        @id @default(cuid())
+  name            String        // e.g., "Road Development Authority", "Municipal Council"
+  shortName       String?       // e.g., "RDA", "MC"
+  contactPerson   String?
+  contactNumber   String?
+  email           String?
+  address         String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  permitTypes     PermitType[]
+
+  @@index([isActive])
+}
+
+model PermitType {
+  id              String        @id @default(cuid())
+  name            String        // e.g., "Road Cutting Permit", "Wayleave Agreement"
+  code            String        @unique // e.g., "ROAD_CUTTING", "WAYLEAVE", "RAILWAY_CROSSING"
+  description     String?
+  authorityId     String
+  authority       AuthorityEntity @relation(fields: [authorityId], references: [id])
+  defaultDuration Int?          // Default validity days
+  requiresRenewal Boolean       @default(false)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  permits         ProjectPermit[]
+
+  @@index([authorityId])
+  @@index([code])
+}
+
+model ProjectPermit {
+  id                String        @id @default(cuid())
+  projectId         String
+  permitTypeId      String
+  permitNumber      String?       // Official permit reference number
+  status            String        @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED, EXPIRED, CANCELLED
+  applicationDate   DateTime?
+  submittedDate     DateTime?
+  approvedDate      DateTime?
+  expiryDate        DateTime?
+  rejectionReason   String?
+  approvalDocument  String?       // URL to uploaded approval document
+  remarks           String?
+  appliedById       String?
+  approvedById      String?
+  cost              Float?        // Permit application fee
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  permitType        PermitType    @relation(fields: [permitTypeId], references: [id])
+  permitDocuments   ProjectPermitDocument[]
+  approvalSteps     PermitApprovalStep[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([expiryDate])
+}
+
+model ProjectPermitDocument {
+  id            String        @id @default(cuid())
+  permitId      String
+  documentType  String        // APPLICATION, APPROVAL_LETTER, PAYMENT_RECEIPT, OTHER
+  fileName      String
+  fileUrl       String
+  uploadedById  String
+  uploadedAt    DateTime      @default(now())
+  permit        ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+
+  @@index([permitId])
+}
+
+model PermitApprovalStep {
+  id            String        @id @default(cuid())
+  permitId      String
+  stepNumber    Int
+  roleRequired  String
+  assignedUserId String?
+  status        String        @default("PENDING") // PENDING, APPROVED, REJECTED, SKIPPED
+  actionedById  String?
+  actionedAt    DateTime?
+  comment       String?
+  permit        ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+
+  @@index([permitId])
+}
+
+// ============================================================================
+// A2: GIS ROUTE DESIGN & AUTO-BOQ
+// ============================================================================
+
+model GISRoute {
+  id              String        @id @default(cuid())
+  projectId       String
+  name            String
+  description     String?
+  sourceFile      String?       // Original uploaded file URL (GeoJSON/Shapefile)
+  sourceFormat    String?       // GEOJSON, SHAPEFILE, KML
+  routeLength     Float?        // Total route length in meters
+  poleSpacing     Float?        // Default pole spacing in meters (e.g., 50m)
+  calculatedPoles Int?          // Auto-calculated: ceil(routeLength / poleSpacing)
+  status          String        @default("DRAFT") // DRAFT, IMPORTED, BOQ_GENERATED, APPROVED
+  geojsonData     Json?         // Parsed GeoJSON features
+  metadata        Json?         // Import metadata (coordinate system, etc.)
+  createdById     String?
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  poles           GISPole[]
+  chambers        GISChamber[]
+  closures        GISClosure[]
+  cableSegments   GISCableSegment[]
+  generatedBOQs   GISGeneratedBOQ[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model GISPole {
+  id            String    @id @default(cuid())
+  routeId       String
+  poleNumber    Int       // Sequential pole number
+  latitude      Float
+  longitude     Float
+  elevation     Float?
+  poleType      String?   // WOOD, CONCRETE, STEEL
+  height        Float?    // meters
+  status        String    @default("PLANNED") // PLANNED, INSTALLED, VERIFIED
+  installationDate DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  outgoingSegments GISCableSegment[] @relation("SegmentFromPole")
+  incomingSegments GISCableSegment[] @relation("SegmentToPole")
+
+  @@index([routeId])
+  @@index([poleNumber])
+}
+
+model GISChamber {
+  id            String    @id @default(cuid())
+  routeId       String
+  chamberNumber Int
+  chamberType   String?   // JUNCTION, PULLING, SPLICE, TERMINAL
+  latitude      Float
+  longitude     Float
+  depth         Float?    // meters
+  dimensions    String?   // e.g., "1.2m x 0.9m x 0.75m"
+  status        String    @default("PLANNED")
+  installationDate DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  outgoingSegments GISCableSegment[] @relation("SegmentFromChamber")
+  incomingSegments GISCableSegment[] @relation("SegmentToChamber")
+
+  @@index([routeId])
+}
+
+model GISClosure {
+  id            String    @id @default(cuid())
+  routeId       String
+  closureNumber Int
+  closureType   String?   // DOME, INLINE, TERMINAL
+  latitude      Float
+  longitude     Float
+  capacity      Int?      // Max splice capacity
+  status        String    @default("PLANNED")
+  installationDate DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([routeId])
+}
+
+model GISCableSegment {
+  id            String    @id @default(cuid())
+  routeId       String
+  segmentNumber Int
+  fromPoleId    String?
+  toPoleId      String?
+  fromChamberId String?
+  toChamberId   String?
+  length        Float     // meters
+  cableType     String?   // e.g., "24F SM", "48F SM", "96F SM"
+  fiberCount    Int?
+  ductCount     Int?
+  installationMethod String? // DUCT, DIRECT_BURIED, AERIAL
+  status        String    @default("PLANNED")
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  route         GISRoute  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  fromPole      GISPole?  @relation("SegmentFromPole", fields: [fromPoleId], references: [id])
+  toPole        GISPole?  @relation("SegmentToPole", fields: [toPoleId], references: [id])
+  fromChamber   GISChamber? @relation("SegmentFromChamber", fields: [fromChamberId], references: [id])
+  toChamber     GISChamber? @relation("SegmentToChamber", fields: [toChamberId], references: [id])
+  otdrTests     OTDRTest[] @relation("CableSegmentOTDR")
+
+  @@index([routeId])
+  @@index([segmentNumber])
+}
+
+// Auto-BOQ generated from GIS Route
+model GISGeneratedBOQ {
+  id            String                    @id @default(cuid())
+  routeId       String
+  projectId     String
+  status        String                    @default("DRAFT") // DRAFT, REVIEWED, APPROVED, CONVERTED
+  totalEstimated Float                    @default(0)
+  notes         String?
+  createdById   String?
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  route         GISRoute                  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  project       Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items         GISGeneratedBOQItem[]
+
+  @@index([routeId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model GISGeneratedBOQItem {
+  id              String            @id @default(cuid())
+  boqId           String
+  itemCategory    String            // POLE, CHAMBER, CLOSURE, CABLE, DUCT, LABOR, MISC
+  itemCode        String
+  description     String
+  unit            String
+  quantity        Float
+  unitRate        Float             @default(0)
+  amount          Float             @default(0)
+  sourceType      String?           // AUTO_CALCULATED, MANUAL_OVERRIDE
+  sourceReference String?           // GIS element reference (e.g., pole count)
+  remarks         String?
+  createdAt       DateTime          @default(now())
+  generatedBOQ    GISGeneratedBOQ   @relation(fields: [boqId], references: [id], onDelete: Cascade)
+
+  @@index([boqId])
+}
+
+// ============================================================================
+// A3: SURVEY MANAGEMENT
+// ============================================================================
+
+model SurveyRequest {
+  id              String          @id @default(cuid())
+  projectId       String
+  requestNumber   String          @unique
+  title           String
+  description     String?
+  surveyType      String          // ROUTE_SURVEY, SITE_SURVEY, FEASIBILITY, TOPOGRAPHICAL
+  priority        String          @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status          String          @default("PENDING") // PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, APPROVED, REJECTED
+  assignedTeamId  String?
+  assignedToId    String?
+  scheduledDate   DateTime?
+  completedDate   DateTime?
+  estimatedBOQ    Float?          // Initial BOQ estimation from survey
+  finalBOQ        Float?          // Final BOQ after survey approval
+  remarks         String?
+  createdById     String
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checkins        SurveyCheckIn[]
+  photos          SurveyPhoto[]
+  findings        SurveyFinding[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([requestNumber])
+}
+
+model SurveyCheckIn {
+  id              String          @id @default(cuid())
+  surveyRequestId String
+  checkInType     String          // CHECK_IN, CHECK_OUT
+  timestamp       DateTime        @default(now())
+  latitude        Float?
+  longitude       Float?
+  address         String?
+  userId          String
+  remarks         String?
+  surveyRequest   SurveyRequest   @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
+
+  @@index([surveyRequestId])
+}
+
+model SurveyPhoto {
+  id              String          @id @default(cuid())
+  surveyRequestId String
+  fileName        String
+  fileUrl         String
+  latitude        Float?
+  longitude       Float?
+  altitude        Float?
+  bearing         Float?          // compass direction
+  photoType       String          // ROUTE, OBSTRUCTION, ACCESS_POINT, EXISTING_INFRA, OTHER
+  description     String?
+  uploadedById    String
+  uploadedAt      DateTime        @default(now())
+  surveyRequest   SurveyRequest   @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
+
+  @@index([surveyRequestId])
+}
+
+model SurveyFinding {
+  id              String          @id @default(cuid())
+  surveyRequestId String
+  findingType     String          // OBSTRUCTION, UTILITY_CONFLICT, ACCESS_ISSUE, ENVIRONMENTAL, OTHER
+  description     String
+  severity        String          @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  latitude        Float?
+  longitude       Float?
+  recommendation  String?
+  status          String          @default("OPEN") // OPEN, RESOLVED, WAIVED
+  resolvedAt      DateTime?
+  resolvedById    String?
+  photoId         String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  surveyRequest   SurveyRequest   @relation(fields: [surveyRequestId], references: [id], onDelete: Cascade)
+
+  @@index([surveyRequestId])
+  @@index([findingType])
+}
+
+// ============================================================================
+// A4: CONTRACTOR PERFORMANCE MONITORING
+// ============================================================================
+
+model ContractorPerformanceScore {
+  id                  String    @id @default(cuid())
+  contractorId        String
+  projectId           String?
+  project             Project?                  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  evaluationMonth     String    // Format: "YYYY-MM"
+  score               Float     @default(0) // 0-100%
+  
+  // Component Scores
+  productivityScore   Float?    // 0-100
+  qualityScore        Float?    // 0-100
+  safetyScore         Float?    // 0-100
+  slaComplianceScore  Float?   // 0-100
+  scheduleScore       Float?    // 0-100
+  
+  // Metrics
+  ncrCount            Int       @default(0)
+  ncrClosedCount      Int       @default(0)
+  hseIncidentCount    Int       @default(0)
+  completedTasksCount Int       @default(0)
+  delayedTasksCount   Int       @default(0)
+  totalTasksAssigned  Int       @default(0)
+  
+  // Ratings
+  averageRating       Float?    // From inspection ratings
+  inspectionCount     Int       @default(0)
+  inspectionPassCount Int       @default(0)
+  
+  evaluatedById       String?
+  evaluatedAt         DateTime  @default(now())
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  contractor          Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  @@unique([contractorId, evaluationMonth])
+  @@index([contractorId])
+  @@index([evaluationMonth])
+  @@index([score])
+}
+
+// ============================================================================
+// A5: FIELD MOBILE INTEGRATION
+// ============================================================================
+
+model FieldTask {
+  id                String          @id @default(cuid())
+  projectId         String
+  taskInstanceId    String?         // Reference to ProjectTaskInstance or ProjectTask
+  assignedTeamId    String?
+  assignedUserId    String?
+  title             String
+  description       String?
+  status            String          @default("ASSIGNED") // ASSIGNED, IN_PROGRESS, COMPLETED, VERIFIED
+  priority          String          @default("MEDIUM")
+  scheduledDate     DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  durationMinutes   Int?
+  latitude          Float?
+  longitude         Float?
+  address           String?
+  syncStatus        String          @default("PENDING") // PENDING, SYNCED, FAILED
+  deviceId          String?
+  appVersion        String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  photos            FieldPhoto[]
+  checklists        FieldChecklist[]
+  signatures        FieldSignature[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([assignedUserId])
+  @@index([syncStatus])
+}
+
+model FieldPhoto {
+  id                String      @id @default(cuid())
+  fieldTaskId       String
+  fileName          String
+  fileUrl           String
+  photoType         String      // PROOF, PROGRESS, COMPLETION, DEFECT, OTHER
+  latitude          Float?
+  longitude         Float?
+  uploadedAt        DateTime    @default(now())
+  fieldTask         FieldTask   @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
+
+  @@index([fieldTaskId])
+}
+
+model FieldChecklist {
+  id                String      @id @default(cuid())
+  fieldTaskId       String
+  label             String
+  isMandatory       Boolean     @default(true)
+  isCompleted       Boolean     @default(false)
+  completedAt       DateTime?
+  photoRequired     Boolean     @default(false)
+  photoUrl          String?
+  fieldTask         FieldTask   @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
+
+  @@index([fieldTaskId])
+}
+
+model FieldSignature {
+  id                String      @id @default(cuid())
+  fieldTaskId       String
+  signatoryName     String
+  signatureDataUrl  String      // Base64 encoded signature
+  role              String?     // TECHNICIAN, SUPERVISOR, CUSTOMER
+  signedAt          DateTime    @default(now())
+  fieldTask         FieldTask   @relation(fields: [fieldTaskId], references: [id], onDelete: Cascade)
+
+  @@index([fieldTaskId])
+}
+
+// ============================================================================
+// A6: FIBER TESTING MANAGEMENT (OTDR)
+// ============================================================================
+
+model OTDRTest {
+  id                String            @id @default(cuid())
+  projectId         String
+  cableSegmentId    String?
+  testNumber        String            @unique
+  testDate          DateTime          @default(now())
+  testType          String            // INSTALLATION_ACCEPTANCE, MAINTENANCE, TROUBLESHOOTING
+  fiberNumber       Int?              // Fiber number within the cable
+  wavelength        Int?              // 1310, 1550, 1625 nm
+  
+  // Trace File
+  traceFileName     String?
+  traceFileUrl      String?
+  fileFormat        String?           // SOR, PDF, PNG
+  
+  // Parsed Metrics
+  totalLength       Float?            // km
+  endToEndLoss      Float?            // dB
+  lossPerKm         Float?            // dB/km
+  orl               Float?            // Optical Return Loss (dB)
+  spliceLoss        Float?            // Total splice loss (dB)
+  connectorLoss     Float?            // Total connector loss (dB)
+  spliceCount       Int?
+  eventCount        Int?
+  
+  // Thresholds
+  lossLimit         Float?            // Max allowable loss per km (e.g., 0.3 dB/km)
+  orlLimit          Float?            // Min ORL threshold
+  autoResult        String?           // PASS, FAIL, BORDERLINE
+  failureReason     String?
+  
+  // Metadata
+  testedById        String
+  equipmentModel    String?
+  equipmentSerial   String?
+  remarks           String?
+  
+  // Workflow
+  status            String            @default("PENDING_REVIEW") // PENDING_REVIEW, REVIEWED, APPROVED, FAILED
+  reviewedById      String?
+  reviewedAt        DateTime?
+  reviewNotes       String?
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cableSegment      GISCableSegment?  @relation("CableSegmentOTDR", fields: [cableSegmentId], references: [id])
+  events            OTDRTestEvent[]
+
+  @@index([projectId])
+  @@index([testNumber])
+  @@index([autoResult])
+}
+
+model OTDRTestEvent {
+  id              String    @id @default(cuid())
+  testId          String
+  eventNumber     Int
+  eventType       String    // REFLECTIVE, NON_REFLECTIVE, END_OF_FIBER, SPLICE, CONNECTOR
+  distance        Float     // km from launch
+  loss            Float?    // dB
+  reflectance     Float?    // dB
+  cumulativeLoss  Float?    // dB
+  comment         String?
+  test            OTDRTest  @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@index([testId])
+  @@index([eventNumber])
+}
+
+// ============================================================================
+// A7: HEALTH, SAFETY & ENVIRONMENT (HSE)
+// ============================================================================
+
+model HSESafetyLog {
+  id              String        @id @default(cuid())
+  projectId       String
+  logType         String        // TOOLBOX_TALK, INCIDENT, NEAR_MISS, PPE_CHECK, INSPECTION, ENVIRONMENTAL
+  title           String
+  description     String?
+  location        String?
+  date            DateTime      @default(now())
+  severity        String?       // For incidents: LOW, MEDIUM, HIGH, CRITICAL
+  status          String        @default("OPEN") // OPEN, CLOSED, INVESTIGATING, ESCALATED
+  
+  // For Toolbox Talks
+  topic           String?
+  presenterName   String?
+  attendeeCount   Int?
+  durationMinutes Int?
+  
+  // For Incidents
+  incidentType    String?       // FIRE, ELECTRICAL, FALL, VEHICLE, EQUIPMENT, OTHER
+  injuryCount     Int?          @default(0)
+  fatalityCount   Int?          @default(0)
+  propertyDamage  Float?        // Estimated damage cost
+  rootCause       String?
+  correctiveAction String?
+  
+  // For PPE Checks
+  ppeChecklist    Json?         // JSON of PPE items checked
+  allCompliant    Boolean?      @default(false)
+  
+  // Attachments
+  photoUrls       String[]      @default([])
+  documentUrls    String[]      @default([])
+  
+  // Relations
+  recordedById    String
+  closedById      String?
+  closedAt        DateTime?
+  blocksStage     Boolean       @default(false) // If true, blocks project stage progression
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attendees       HSEAttendee[]
+
+  @@index([projectId])
+  @@index([logType])
+  @@index([date])
+  @@index([status])
+  @@index([severity])
+}
+
+model HSEAttendee {
+  id              String        @id @default(cuid())
+  safetyLogId     String
+  name            String
+  designation     String?
+  signatureUrl    String?
+  attendedAt      DateTime      @default(now())
+  safetyLog       HSESafetyLog  @relation(fields: [safetyLogId], references: [id], onDelete: Cascade)
+
+  @@index([safetyLogId])
+}
+
+// ============================================================================
+// A9: EARNED VALUE MANAGEMENT (EVM)
+// ============================================================================
+
+model ProjectEVM {
+  id                String    @id @default(cuid())
+  projectId         String    @unique
+  lastCalculatedAt  DateTime  @default(now())
+  
+  // Planned Value (Budgeted Cost of Work Scheduled)
+  pvTotal           Float     @default(0) // Sum of all planned values
+  pvCurrentPeriod   Float     @default(0) // PV for current reporting period
+  
+  // Earned Value (Budgeted Cost of Work Performed)
+  evTotal           Float     @default(0)
+  evCurrentPeriod   Float     @default(0)
+  
+  // Actual Cost (Actual Cost of Work Performed)
+  acTotal           Float     @default(0)
+  acCurrentPeriod   Float     @default(0)
+  
+  // Performance Indices
+  spi               Float?    // Schedule Performance Index = EV / PV
+  cpi               Float?    // Cost Performance Index = EV / AC
+  
+  // Variances
+  scheduleVariance  Float?    // SV = EV - PV (negative means behind schedule)
+  costVariance      Float?    // CV = EV - AC (negative means over budget)
+  
+  // Forecasting
+  estimateAtCompletion Float? // EAC = BAC / CPI
+  estimateToComplete   Float? // ETC = EAC - AC
+  varianceAtCompletion Float? // VAC = BAC - EAC
+  
+  // Status
+  status            String    @default("GREEN") // GREEN, AMBER, RED
+  statusNotes       String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  snapshots         EVMSnapshot[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model EVMSnapshot {
+  id                String    @id @default(cuid())
+  evmId             String
+  snapshotDate      DateTime  @default(now())
+  
+  // Snapshot values at point in time
+  pvCumulative      Float     @default(0)
+  evCumulative      Float     @default(0)
+  acCumulative      Float     @default(0)
+  spi               Float?
+  cpi               Float?
+  scheduleVariance  Float?
+  costVariance      Float?
+  periodLabel       String    // e.g., "Week 12", "Month 3", "2026-03"
+  
+  createdAt         DateTime  @default(now())
+  evm               ProjectEVM @relation(fields: [evmId], references: [id], onDelete: Cascade)
+
+  @@index([evmId])
+  @@index([snapshotDate])
+}
+
+// ============================================================================
+// A10: ASSET REGISTER AUTOMATION
+// ============================================================================
+
+model ProjectAsset {
+  id                String        @id @default(cuid())
+  projectId         String
+  
+  // Asset Identification
+  assetType         String        // FIBER_ROUTE, FIBER_CABLE, POLE, CHAMBER, CLOSURE, ODF, SPLICE_TRAY
+  assetCode         String?       // Auto-generated asset code
+  assetName         String
+  description       String?
+  
+  // Geolocation
+  latitude          Float?
+  longitude         Float?
+  address           String?
+  routeIdentifier   String?       // Reference to the fiber route / cable route name
+  
+  // Technical Details
+  fiberCount        Int?
+  cableType         String?
+  manufacturer      String?
+  model             String?
+  serialNumber      String?
+  
+  // Status & Ownership
+  status            String        @default("ACTIVE") // ACTIVE, INACTIVE, DECOMMISSIONED, FAULTY
+  ownership         String?       // SLT_OWNED, LEASED, SHARED
+  warrantyExpiry    DateTime?
+  installationDate  DateTime?
+  commissionedDate  DateTime?
+  
+  // Source Reference
+  sourceType        String?       // GIS_ROUTE, MANUAL_ENTRY, SURVEY_RESULT, COMMISSIONING
+  sourceId          String?       // Reference to source record ID
+  sourceDescription String?
+  
+  // Network Operations Transfer
+  transferredToNOC  Boolean       @default(false) // Transferred to Network Operations inventory
+  transferDate      DateTime?
+  nocAssetId        String?       // Asset ID in NOC system
+  transferNotes     String?
+  
+  // Audit
+  createdById       String
+  verifiedById      String?
+  verifiedAt        DateTime?
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cables            ProjectAssetCable[]
+  connections       ProjectAssetConnection[] @relation("AssetConnections")
+  documents         ProjectAssetDocument[]
+  connectedFrom     ProjectAssetConnection[] @relation("ConnectedAssets")
+
+  @@index([projectId])
+  @@index([assetType])
+  @@index([assetCode])
+  @@index([status])
+  @@index([transferredToNOC])
+}
+
+model ProjectAssetCable {
+  id                String        @id @default(cuid())
+  assetId           String
+  cableNumber       Int           // Cable number within ODF/Closure
+  fiberCount        Int
+  fiberFrom         Int?          // Fiber range start
+  fiberTo           Int?          // Fiber range end
+  direction         String?       // A_END, B_END, BOTH
+  connectedToAssetId String?      // Connected asset (e.g., another closure)
+  connectedToPort   String?       // Port on connected asset
+  notes             String?
+  createdAt         DateTime      @default(now())
+  asset             ProjectAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+}
+
+model ProjectAssetConnection {
+  id                String        @id @default(cuid())
+  assetId           String
+  connectedAssetId  String
+  connectionType    String        // FIBER, DUCT, CABLE, PIGTAIL, ADAPTER
+  fiberNumber       Int?
+  loss              Float?        // dB
+  testReferenceId   String?       // OTDR test ID
+  notes             String?
+  createdAt         DateTime      @default(now())
+  asset             ProjectAsset  @relation("AssetConnections", fields: [assetId], references: [id], onDelete: Cascade)
+  connectedAsset    ProjectAsset  @relation("ConnectedAssets", fields: [connectedAssetId], references: [id])
+
+  @@index([assetId])
+  @@index([connectedAssetId])
+}
+
+model ProjectAssetDocument {
+  id                String        @id @default(cuid())
+  assetId           String
+  documentType      String        // DATASHEET, WARRANTY, TEST_RESULT, AS_BUILT, PHOTO
+  fileName          String
+  fileUrl           String
+  uploadedById      String
+  uploadedAt        DateTime      @default(now())
+  asset             ProjectAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+}
+
+// ============================================================================
+// 17-STAGE OSP LIFECYCLE GATE RULES
+// ============================================================================
+
+model StageGateRule {
+  id                String        @id @default(cuid())
+  stageFrom         String        // Source stage identifier (e.g., "PERMIT_MANAGEMENT")
+  stageTo           String        // Target stage identifier (e.g., "GIS_ROUTE_DESIGN")
+  ruleType          String        // PERMIT_REQUIRED, SURVEY_REQUIRED, APPROVAL_REQUIRED, CHECKLIST_REQUIRED
+  description       String?
+  entityType        String?       // "ProjectPermit", "SurveyRequest", etc.
+  condition         String?       // JSON condition expression
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([stageFrom, stageTo])
+  @@index([ruleType])
+}
+
+
+
+
+
+
+
