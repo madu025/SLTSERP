@@ -14,6 +14,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
+interface ProjectType {
+    id: string;
+    name: string;
+    description: string;
+}
+
 interface Project {
     id: string;
     projectCode: string;
@@ -27,6 +33,7 @@ interface Project {
     endDate: string | null;
     opmc?: { id: string; rtom: string };
     contractor?: { id: string; name: string };
+    projectType?: { id: string; name: string; description: string };
     _count: {
         boqItems: number;
         milestones: number;
@@ -40,6 +47,7 @@ export default function ProjectsPage() {
     const [loading, setLoading] = useState(true);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
 
     const [newProject, setNewProject] = useState({
         projectCode: '',
@@ -49,12 +57,26 @@ export default function ProjectsPage() {
         location: '',
         budget: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
+        projectTypeId: ''
     });
 
     useEffect(() => {
         fetchProjects();
+        fetchProjectTypes();
     }, [statusFilter]);
+
+    const fetchProjectTypes = async () => {
+        try {
+            const res = await fetch('/api/projects/types');
+            if (res.ok) {
+                const data = await res.json();
+                setProjectTypes(data);
+            }
+        } catch (error) {
+            console.error('Error fetching project types:', error);
+        }
+    };
 
     const fetchProjects = async () => {
         try {
@@ -71,6 +93,9 @@ export default function ProjectsPage() {
             setLoading(false);
         }
     };
+
+    // Get the selected project type details
+    const selectedProjectType = projectTypes.find(pt => pt.id === newProject.projectTypeId);
 
     const handleCreate = async () => {
         try {
@@ -95,7 +120,8 @@ export default function ProjectsPage() {
                 location: '',
                 budget: '',
                 startDate: '',
-                endDate: ''
+                endDate: '',
+                projectTypeId: ''
             });
             fetchProjects();
         } catch (error) {
@@ -229,6 +255,9 @@ export default function ProjectsPage() {
                                                         {project.opmc && (
                                                             <p className="text-xs text-slate-500">{project.opmc.rtom}</p>
                                                         )}
+                                                        {project.projectType && (
+                                                            <p className="text-xs text-blue-500">{project.projectType.name}</p>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 md:px-6 py-4">
@@ -298,28 +327,27 @@ export default function ProjectsPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Project Type</Label>
+                            <Label>Project Type (Workflow)</Label>
                             <Select
-                                value={newProject.type}
-                                onValueChange={(value) => setNewProject({ ...newProject, type: value })}
+                                value={newProject.projectTypeId}
+                                onValueChange={(value) => setNewProject({ ...newProject, projectTypeId: value })}
                             >
                                 <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder="Select project type..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="OSP_FTTH">OSP FTTH</SelectItem>
-                                    <SelectItem value="OSP_COPPER">OSP Copper</SelectItem>
-                                    <SelectItem value="FIBER_BACKBONE">Fiber Backbone</SelectItem>
-                                    <SelectItem value="FIBER_ACCESS">Fiber Access</SelectItem>
-                                    <SelectItem value="TOWER_INSTALL">Tower Install</SelectItem>
-                                    <SelectItem value="TOWER_REMOVE">Tower Remove</SelectItem>
-                                    <SelectItem value="TOWER_REPAIR">Tower Repair</SelectItem>
-                                    <SelectItem value="BUILDING_INDOOR">Building Indoor</SelectItem>
-                                    <SelectItem value="BUILDING_OUTDOOR">Building Outdoor</SelectItem>
-                                    <SelectItem value="OSP_MAINTENANCE">OSP Maintenance</SelectItem>
-                                    <SelectItem value="OTHER">Other</SelectItem>
+                                    {projectTypes.map((pt) => (
+                                        <SelectItem key={pt.id} value={pt.id}>
+                                            {pt.name.replace('_', ' ')}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
+                            {selectedProjectType && (
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Workflow: {selectedProjectType.description}
+                                </p>
+                            )}
                         </div>
                         <div className="col-span-2 space-y-2">
                             <Label>Project Name *</Label>
@@ -347,6 +375,30 @@ export default function ProjectsPage() {
                             />
                         </div>
                         <div className="space-y-2">
+                            <Label>OSP Type</Label>
+                            <Select
+                                value={newProject.type}
+                                onValueChange={(value) => setNewProject({ ...newProject, type: value })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="OSP_FTTH">OSP FTTH</SelectItem>
+                                    <SelectItem value="OSP_COPPER">OSP Copper</SelectItem>
+                                    <SelectItem value="FIBER_BACKBONE">Fiber Backbone</SelectItem>
+                                    <SelectItem value="FIBER_ACCESS">Fiber Access</SelectItem>
+                                    <SelectItem value="TOWER_INSTALL">Tower Install</SelectItem>
+                                    <SelectItem value="TOWER_REMOVE">Tower Remove</SelectItem>
+                                    <SelectItem value="TOWER_REPAIR">Tower Repair</SelectItem>
+                                    <SelectItem value="BUILDING_INDOOR">Building Indoor</SelectItem>
+                                    <SelectItem value="BUILDING_OUTDOOR">Building Outdoor</SelectItem>
+                                    <SelectItem value="OSP_MAINTENANCE">OSP Maintenance</SelectItem>
+                                    <SelectItem value="OTHER">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
                             <Label>Budget (LKR)</Label>
                             <Input
                                 type="number"
@@ -361,6 +413,14 @@ export default function ProjectsPage() {
                                 type="date"
                                 value={newProject.startDate}
                                 onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>End Date</Label>
+                            <Input
+                                type="date"
+                                value={newProject.endDate}
+                                onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
                             />
                         </div>
                     </div>

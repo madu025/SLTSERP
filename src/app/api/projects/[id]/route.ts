@@ -34,6 +34,25 @@ export async function GET(
                         email: true
                     }
                 },
+                projectType: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true
+                    }
+                },
+                workflowInstance: {
+                    include: {
+                        stages: {
+                            orderBy: { sequence: 'asc' },
+                            include: {
+                                tasks: true,
+                                checklists: true,
+                                approvals: true,
+                            },
+                        },
+                    },
+                },
                 boqItems: {
                     include: {
                         material: {

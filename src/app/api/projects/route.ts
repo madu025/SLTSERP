@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { WorkflowEngine } from '@/services/WorkflowEngine';
 
 // GET all projects
 export async function GET(request: Request) {
@@ -8,12 +9,14 @@ export async function GET(request: Request) {
         const status = searchParams.get('status');
         const type = searchParams.get('type');
         const opmcId = searchParams.get('opmcId');
+        const projectTypeId = searchParams.get('projectTypeId');
 
         const where: any = {};
 
         if (status) where.status = status;
         if (type) where.type = type;
         if (opmcId) where.opmcId = opmcId;
+        if (projectTypeId) where.projectTypeId = projectTypeId;
 
         const projects = await prisma.project.findMany({
             where,
@@ -36,6 +39,13 @@ export async function GET(request: Request) {
                         id: true,
                         name: true,
                         contactNumber: true
+                    }
+                },
+                projectType: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true
                     }
                 },
                 _count: {
@@ -77,7 +87,8 @@ export async function POST(request: Request) {
             estimatedDuration,
             areaManagerId,
             contractorId,
-            opmcId
+            opmcId,
+            projectTypeId
         } = body;
 
         // Validate required fields
@@ -114,14 +125,28 @@ export async function POST(request: Request) {
                 areaManagerId: areaManagerId || null,
                 contractorId: contractorId || null,
                 opmcId: opmcId || null,
+                projectTypeId: projectTypeId || null,
                 status: 'PLANNING'
             },
             include: {
                 opmc: true,
                 areaManager: true,
-                contractor: true
+                contractor: true,
+                projectType: {
+                    select: { id: true, name: true, description: true }
+                }
             }
         });
+
+        // Auto-generate ProjectWorkflowInstance if projectTypeId is provided
+        if (project.projectTypeId) {
+            try {
+                await WorkflowEngine.initializeProjectWorkflow(project.id, project.projectTypeId);
+            } catch (wfError) {
+                console.warn('Workflow auto-initialization skipped:', wfError);
+                // Don't fail the project creation if workflow init fails
+            }
+        }
 
         return NextResponse.json(project);
     } catch (error: any) {

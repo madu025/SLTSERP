@@ -1,13 +1,13 @@
 "use client";
 
-import React, { use, useEffect, useState } from 'react';
+import React, { use, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, MapPin, Building2, User, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow } from 'lucide-react';
 import ProjectOverview from '@/components/projects/ProjectOverview';
 import ProjectBOQ from '@/components/projects/ProjectBOQ';
 import ProjectMilestones from '@/components/projects/ProjectMilestones';
@@ -26,6 +26,47 @@ import ProjectContractors from '@/components/projects/ProjectContractors';
 import ProjectCommissioning from '@/components/projects/ProjectCommissioning';
 import ProjectKPIs from '@/components/projects/ProjectKPIs';
 import ProjectWorkflowTracker from '@/components/projects/ProjectWorkflowTracker';
+import ProjectPermits from '@/components/projects/ProjectPermits';
+import ProjectGISRoute from '@/components/projects/ProjectGISRoute';
+import ProjectSurvey from '@/components/projects/ProjectSurvey';
+import ProjectOTDR from '@/components/projects/ProjectOTDR';
+import ProjectHSE from '@/components/projects/ProjectHSE';
+import ProjectContractorPerformance from '@/components/projects/ProjectContractorPerformance';
+import ProjectEVM from '@/components/projects/ProjectEVM';
+import ProjectAssetRegister from '@/components/projects/ProjectAssetRegister';
+import ProjectVariationOrders from '@/components/projects/ProjectVariationOrders';
+import { getTabsForStage, TabDefinition } from '@/config/stage-tab-mapping';
+
+// Map tab values to their components for dynamic rendering
+const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
+    overview: ProjectOverview,
+    'workflow-pipeline': ProjectWorkflowTracker,
+    permits: ProjectPermits,
+    gis: ProjectGISRoute,
+    survey: ProjectSurvey,
+    otdr: ProjectOTDR,
+    hse: ProjectHSE,
+    'contractor-perf': ProjectContractorPerformance,
+    evm: ProjectEVM,
+    assets: ProjectAssetRegister,
+    variations: ProjectVariationOrders,
+    boq: ProjectBOQ,
+    materials: ProjectMaterialIssues,
+    milestones: ProjectMilestones,
+    expenses: ProjectExpenses,
+    tasks: ProjectTasks,
+    resources: ProjectResources,
+    documents: ProjectDocuments,
+    approvals: ProjectApprovals,
+    risks: ProjectRisks,
+    qa: ProjectQA,
+    contractor: ProjectContractors,
+    commissioning: ProjectCommissioning,
+    kpis: ProjectKPIs,
+    procurement: ProjectProcurement,
+    finance: ProjectFinance,
+    closure: ProjectClosure,
+};
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
@@ -50,6 +91,32 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             setLoading(false);
         }
     };
+
+    // Determine the current stage name from the workflow instance
+    const currentStageName = useMemo(() => {
+        if (!project?.workflowInstance?.stages) return null;
+
+        // Find the stage that's IN_PROGRESS first, then fall back to first PENDING
+        const activeStage = project.workflowInstance.stages.find(
+            (s: any) => s.status === 'IN_PROGRESS'
+        ) || project.workflowInstance.stages.find(
+            (s: any) => s.status === 'PENDING'
+        );
+
+        return activeStage?.name || null;
+    }, [project]);
+
+    // Get the tabs visible for the current stage
+    const visibleTabs = useMemo(() => {
+        return getTabsForStage(currentStageName);
+    }, [currentStageName]);
+
+    // Reset active tab if it's no longer visible
+    useEffect(() => {
+        if (visibleTabs.length > 0 && !visibleTabs.find(t => t.value === activeTab)) {
+            setActiveTab(visibleTabs[0]?.value || 'overview');
+        }
+    }, [visibleTabs, activeTab]);
 
     if (loading) {
         return (
@@ -109,6 +176,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     }>
                                         {project.status.replace('_', ' ')}
                                     </Badge>
+                                    {project.projectType && (
+                                        <Badge variant="outline" className="text-sm border-blue-300 bg-blue-50 text-blue-700">
+                                            {project.projectType.name.replace('_', ' ')}
+                                        </Badge>
+                                    )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
                                     <div className="flex items-center gap-1.5">
@@ -130,7 +202,6 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
 
                             <div className="flex gap-2">
                                 <Button variant="outline">Edit Details</Button>
-                                {/* Additional Actions */}
                             </div>
                         </div>
 
@@ -175,104 +246,57 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 </div>
                             </div>
                         </div>
+
+                        {/* Stage Info Bar - shows current stage */}
+                        {currentStageName && (
+                            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-sm">
+                                <Workflow className="w-4 h-4 text-blue-500" />
+                                <span className="text-slate-500">Current Stage:</span>
+                                <Badge className="bg-blue-100 text-blue-800 border border-blue-200">
+                                    {currentStageName}
+                                </Badge>
+                                <span className="text-xs text-slate-400 ml-2">
+                                    {visibleTabs.length} modules available
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Content Tabs */}
+                {/* Content Tabs - Dynamically Rendered Based on Stage */}
                 <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
                     <div className="max-w-7xl mx-auto">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                             <TabsList className="bg-white border border-slate-200 p-1 w-full md:w-auto overflow-x-auto flex justify-start h-auto">
-                                <TabsTrigger value="overview" className="px-4 py-2">Overview</TabsTrigger>
-                                <TabsTrigger value="workflow-pipeline" className="px-4 py-2">Workflow Pipeline</TabsTrigger>
-                                <TabsTrigger value="boq" className="px-4 py-2">BOQ & Material</TabsTrigger>
-                                <TabsTrigger value="materials" className="px-4 py-2">Material Issues</TabsTrigger>
-                                <TabsTrigger value="milestones" className="px-4 py-2">Milestones</TabsTrigger>
-                                <TabsTrigger value="expenses" className="px-4 py-2">Expenses</TabsTrigger>
-                                <TabsTrigger value="tasks" className="px-4 py-2">Tasks</TabsTrigger>
-                                <TabsTrigger value="resources" className="px-4 py-2">Resources</TabsTrigger>
-                                <TabsTrigger value="documents" className="px-4 py-2">Documents</TabsTrigger>
-                                <TabsTrigger value="approvals" className="px-4 py-2">Approvals</TabsTrigger>
-                                <TabsTrigger value="risks" className="px-4 py-2">Risks</TabsTrigger>
-                                <TabsTrigger value="qa" className="px-4 py-2">QA/QC</TabsTrigger>
-                                <TabsTrigger value="contractor" className="px-4 py-2">Contractor</TabsTrigger>
-                                <TabsTrigger value="commissioning" className="px-4 py-2">Commissioning</TabsTrigger>
-                                <TabsTrigger value="kpis" className="px-4 py-2">KPIs</TabsTrigger>
-                                <TabsTrigger value="procurement" className="px-4 py-2">Procurement</TabsTrigger>
-                                <TabsTrigger value="finance" className="px-4 py-2">Finance</TabsTrigger>
-                                <TabsTrigger value="closure" className="px-4 py-2">Closure</TabsTrigger>
+                                {visibleTabs.map((tab: TabDefinition) => (
+                                    <TabsTrigger key={tab.value} value={tab.value} className="px-4 py-2 text-xs">
+                                        {tab.label}
+                                    </TabsTrigger>
+                                ))}
                             </TabsList>
 
-                            <TabsContent value="overview">
-                                <ProjectOverview project={project} />
-                            </TabsContent>
+                            {/* Dynamically render tab content from the component map */}
+                            {visibleTabs.map((tab: TabDefinition) => {
+                                const Component = TAB_COMPONENTS[tab.value];
+                                if (!Component) return null;
 
-                            <TabsContent value="workflow-pipeline">
-                                <ProjectWorkflowTracker project={project} />
-                            </TabsContent>
+                                // Special case: workflow-pipeline needs the full project
+                                // Other components may need refreshProject
+                                const needsRefresh = ['boq', 'materials', 'milestones', 'expenses', 'tasks', 'procurement', 'finance', 'closure'].includes(tab.value);
 
-                            <TabsContent value="boq">
-                                <ProjectBOQ project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
-
-                            <TabsContent value="materials">
-                                <ProjectMaterialIssues project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
-
-                            <TabsContent value="milestones">
-                                <ProjectMilestones project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
-
-                            <TabsContent value="expenses">
-                                <ProjectExpenses project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
-
-                            <TabsContent value="tasks">
-                                <ProjectTasks project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
-
-                            <TabsContent value="resources">
-                                <ProjectResources project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="documents">
-                                <ProjectDocuments project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="approvals">
-                                <ProjectApprovals project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="risks">
-                                <ProjectRisks project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="qa">
-                                <ProjectQA project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="contractor">
-                                <ProjectContractors project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="commissioning">
-                                <ProjectCommissioning project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="kpis">
-                                <ProjectKPIs project={project} />
-                            </TabsContent>
-
-                            <TabsContent value="procurement">
-                                <ProjectProcurement project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
-
-                            <TabsContent value="finance">
-                                <ProjectFinance project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
-                            <TabsContent value="closure">
-                                <ProjectClosure project={project} refreshProject={fetchProjectDetails} />
-                            </TabsContent>
+                                return (
+                                    <TabsContent key={tab.value} value={tab.value}>
+                                        {tab.value === 'workflow-pipeline' ? (
+                                            <ProjectWorkflowTracker project={project} />
+                                        ) : (
+                                            <Component
+                                                project={project}
+                                                refreshProject={needsRefresh ? fetchProjectDetails : undefined}
+                                            />
+                                        )}
+                                    </TabsContent>
+                                );
+                            })}
                         </Tabs>
                     </div>
                 </div>
@@ -281,7 +305,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     );
 }
 
-// Simple Icon wrapper for HardHat
+// Simple SVG icon for HardHat (since it's not in lucide by default)
 function HardHatIcon(props: any) {
     return (
         <svg
