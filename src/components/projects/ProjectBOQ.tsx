@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 interface ProjectBOQProps {
     project: any;
@@ -18,6 +19,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
 
     const [formData, setFormData] = useState({
         itemCode: '',
@@ -38,6 +40,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
 
     const handleEdit = (item: any) => {
         setEditingItem(item);
+        setSelectedInventoryItem(null);
         setFormData({
             itemCode: item.itemCode,
             description: item.description,
@@ -51,6 +54,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
 
     const handleAddNew = () => {
         setEditingItem(null);
+        setSelectedInventoryItem(null);
         setFormData({
             itemCode: '',
             description: '',
@@ -60,6 +64,20 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
             category: 'CIVIL'
         });
         setIsDialogOpen(true);
+    };
+
+    const handleItemSelect = (item: InventoryItem | null) => {
+        setSelectedInventoryItem(item);
+        if (item) {
+            setFormData(prev => ({
+                ...prev,
+                itemCode: item.code,
+                description: item.name + (item.description ? ' - ' + item.description : ''),
+                unit: item.unit || 'Nos',
+                category: item.category || 'MATERIAL',
+                unitRate: item.unitPrice ? item.unitPrice.toString() : prev.unitRate
+            }));
+        }
     };
 
     const handleDelete = async (id: string) => {
@@ -89,9 +107,14 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
         try {
             const endpoint = '/api/projects/boq';
             const method = editingItem ? 'PATCH' : 'POST';
-            const body = editingItem
+            const body: any = editingItem
                 ? { id: editingItem.id, ...formData }
                 : { projectId: project.id, ...formData };
+
+            // Include materialId if an inventory item was selected
+            if (selectedInventoryItem) {
+                body.materialId = selectedInventoryItem.id;
+            }
 
             const res = await fetch(endpoint, {
                 method,
@@ -221,14 +244,30 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
 
             {/* Add/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>{editingItem ? 'Edit BOQ Item' : 'Add BOQ Item'}</DialogTitle>
                         <DialogDescription>
-                            Enter item details for the Bill of Quantities.
+                            {editingItem ? 'Edit existing BOQ item details.' : 'Search and select an inventory item, or manually enter details.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-4 py-4">
+                        {/* Searchable Inventory Item Select */}
+                        {!editingItem && (
+                            <div className="col-span-2 space-y-2">
+                                <Label>Search Inventory Item</Label>
+                                <SearchableItemSelect
+                                    value={selectedInventoryItem?.id || ''}
+                                    onChange={handleItemSelect}
+                                    placeholder="Type to search materials..."
+                                />
+                                {selectedInventoryItem && (
+                                    <p className="text-xs text-green-600">
+                                        ✓ Item selected: {selectedInventoryItem.code} - will link to inventory
+                                    </p>
+                                )}
+                            </div>
+                        )}
                         <div className="col-span-1 space-y-2">
                             <Label>Item Code *</Label>
                             <Input

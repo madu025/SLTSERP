@@ -15,6 +15,7 @@ import {
     ShoppingCart, FileText, Package, Plus, Eye, CheckCircle, XCircle,
     Loader2,
 } from 'lucide-react';
+import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 interface Project {
     id: string;
@@ -31,6 +32,7 @@ interface RequisitionItem {
     quantity: number;
     estimatedPrice: number;
     totalEstimated?: number;
+    materialId?: string;
 }
 
 interface Requisition {
@@ -52,6 +54,7 @@ interface PurchaseOrderItem {
     quantity: number;
     unitPrice: number;
     totalPrice?: number;
+    materialId?: string;
 }
 
 interface PurchaseOrder {
@@ -85,17 +88,25 @@ interface GoodsReceipt {
     items?: GoodsReceiptItem[];
 }
 
+interface PRFormItem extends RequisitionItem {
+    _key?: number;
+}
+
+interface POFormItem extends PurchaseOrderItem {
+    _key?: number;
+}
+
 interface PRForm {
     title?: string;
     priority?: string;
     type?: string;
-    items: RequisitionItem[];
+    items: PRFormItem[];
 }
 
 interface POForm {
     title?: string;
     vendorId?: string;
-    items: PurchaseOrderItem[];
+    items: POFormItem[];
 }
 
 interface ProjectProcurementProps {
@@ -115,9 +126,17 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
     const [showPODialog, setShowPODialog] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
+    // Counter for unique keys
+    let itemCounter = 0;
+    const nextKey = () => ++itemCounter;
+
     // Form data
-    const [prForm, setPrForm] = useState<PRForm>({ items: [{ itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
-    const [poForm, setPoForm] = useState<POForm>({ items: [{ itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
+    const [prForm, setPrForm] = useState<PRForm>({ items: [{ _key: nextKey(), itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
+    const [poForm, setPoForm] = useState<POForm>({ items: [{ _key: nextKey(), itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
+
+    // Track which items have inventory selected
+    const [prItemInventory, setPrItemInventory] = useState<Record<number, InventoryItem | null>>({});
+    const [poItemInventory, setPoItemInventory] = useState<Record<number, InventoryItem | null>>({});
 
     const fetchRequisitions = useCallback(async () => {
         try {
@@ -149,6 +168,38 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
         }
     }, [project?.id, fetchRequisitions, fetchPurchaseOrders, fetchGoodsReceipts]);
 
+    const handlePRItemSelect = (idx: number, item: InventoryItem | null) => {
+        setPrItemInventory(prev => ({ ...prev, [idx]: item }));
+        const items = [...prForm.items];
+        if (item) {
+            items[idx] = {
+                ...items[idx],
+                itemCode: item.code,
+                description: item.name,
+                unit: item.unit || 'NOS',
+                estimatedPrice: item.unitPrice || items[idx].estimatedPrice,
+                materialId: item.id,
+            };
+        }
+        setPrForm({ ...prForm, items });
+    };
+
+    const handlePOItemSelect = (idx: number, item: InventoryItem | null) => {
+        setPoItemInventory(prev => ({ ...prev, [idx]: item }));
+        const items = [...poForm.items];
+        if (item) {
+            items[idx] = {
+                ...items[idx],
+                itemCode: item.code,
+                description: item.name,
+                unit: item.unit || 'NOS',
+                unitPrice: item.unitPrice || items[idx].unitPrice,
+                materialId: item.id,
+            };
+        }
+        setPoForm({ ...poForm, items });
+    };
+
     const handleCreatePR = async () => {
         setSubmitting(true);
         try {
@@ -163,7 +214,8 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
             });
             if (res.ok) {
                 setShowPRDialog(false);
-                setPrForm({ items: [{ itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
+                setPrForm({ items: [{ _key: nextKey(), itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
+                setPrItemInventory({});
                 fetchRequisitions();
                 refreshProject();
             }
@@ -184,7 +236,8 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
             });
             if (res.ok) {
                 setShowPODialog(false);
-                setPoForm({ items: [{ itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
+                setPoForm({ items: [{ _key: nextKey(), itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
+                setPoItemInventory({});
                 fetchPurchaseOrders();
                 refreshProject();
             }
@@ -281,35 +334,46 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
                                     </div>
                                     <div>
                                         <Label>Items</Label>
-                                        {prForm.items?.map((item: RequisitionItem, i: number) => (
-                                            <div key={i} className="grid grid-cols-5 gap-2 mt-2">
-                                                <Input placeholder="Code" value={item.itemCode} onChange={e => {
-                                                    const items = [...prForm.items];
-                                                    items[i].itemCode = e.target.value;
-                                                    setPrForm({ ...prForm, items });
-                                                }} />
-                                                <Input placeholder="Description" value={item.description} onChange={e => {
-                                                    const items = [...prForm.items];
-                                                    items[i].description = e.target.value;
-                                                    setPrForm({ ...prForm, items });
-                                                }} />
-                                                <Input type="number" placeholder="Qty" value={item.quantity} onChange={e => {
-                                                    const items = [...prForm.items];
-                                                    items[i].quantity = +e.target.value;
-                                                    setPrForm({ ...prForm, items });
-                                                }} />
-                                                <Input type="number" placeholder="Est. Price" value={item.estimatedPrice} onChange={e => {
-                                                    const items = [...prForm.items];
-                                                    items[i].estimatedPrice = +e.target.value;
-                                                    setPrForm({ ...prForm, items });
-                                                }} />
-                                                <Button variant="ghost" size="sm" onClick={() => {
-                                                    setPrForm({ ...prForm, items: prForm.items.filter((_item: RequisitionItem, j: number) => j !== i) });
-                                                }}><XCircle className="w-4 h-4 text-red-500" /></Button>
+                                        {prForm.items?.map((item: PRFormItem, i: number) => (
+                                            <div key={item._key ?? i} className="space-y-2 mt-2 border p-3 rounded-md">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-semibold text-slate-500">Item {i + 1}</span>
+                                                    <Button variant="ghost" size="sm" onClick={() => {
+                                                        setPrForm({ ...prForm, items: prForm.items.filter((_item: PRFormItem, j: number) => j !== i) });
+                                                    }}><XCircle className="w-4 h-4 text-red-500" /></Button>
+                                                </div>
+                                                <SearchableItemSelect
+                                                    value={item.materialId || ''}
+                                                    onChange={(invItem) => handlePRItemSelect(i, invItem)}
+                                                    placeholder="Search inventory item..."
+                                                />
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    <Input placeholder="Code" value={item.itemCode} onChange={e => {
+                                                        const items = [...prForm.items];
+                                                        items[i].itemCode = e.target.value;
+                                                        setPrForm({ ...prForm, items });
+                                                    }} />
+                                                    <Input placeholder="Description" value={item.description} onChange={e => {
+                                                        const items = [...prForm.items];
+                                                        items[i].description = e.target.value;
+                                                        setPrForm({ ...prForm, items });
+                                                    }} />
+                                                    <Input type="number" placeholder="Qty" value={item.quantity} onChange={e => {
+                                                        const items = [...prForm.items];
+                                                        items[i].quantity = +e.target.value;
+                                                        setPrForm({ ...prForm, items });
+                                                    }} />
+                                                    <Input type="number" placeholder="Est. Price" value={item.estimatedPrice} onChange={e => {
+                                                        const items = [...prForm.items];
+                                                        items[i].estimatedPrice = +e.target.value;
+                                                        setPrForm({ ...prForm, items });
+                                                    }} />
+                                                </div>
                                             </div>
                                         ))}
                                         <Button variant="outline" size="sm" className="mt-2" onClick={() => {
-                                            setPrForm({ ...prForm, items: [...prForm.items, { itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
+                                            const newKey = nextKey();
+                                            setPrForm({ ...prForm, items: [...prForm.items, { _key: newKey, itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
                                         }}><Plus className="w-4 h-4 mr-1" /> Add Item</Button>
                                     </div>
                                 </div>
@@ -411,28 +475,42 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
                                     </div>
                                     <div>
                                         <Label>Items</Label>
-                                        {poForm.items?.map((item: PurchaseOrderItem, i: number) => (
-                                            <div key={i} className="grid grid-cols-4 gap-2 mt-2">
-                                                <Input placeholder="Code" value={item.itemCode} onChange={e => {
-                                                    const items = [...poForm.items]; items[i].itemCode = e.target.value;
-                                                    setPoForm({ ...poForm, items });
-                                                }} />
-                                                <Input placeholder="Description" value={item.description} onChange={e => {
-                                                    const items = [...poForm.items]; items[i].description = e.target.value;
-                                                    setPoForm({ ...poForm, items });
-                                                }} />
-                                                <Input type="number" placeholder="Qty" value={item.quantity} onChange={e => {
-                                                    const items = [...poForm.items]; items[i].quantity = +e.target.value;
-                                                    setPoForm({ ...poForm, items });
-                                                }} />
-                                                <Input type="number" placeholder="Unit Price" value={item.unitPrice} onChange={e => {
-                                                    const items = [...poForm.items]; items[i].unitPrice = +e.target.value;
-                                                    setPoForm({ ...poForm, items });
-                                                }} />
+                                        {poForm.items?.map((item: POFormItem, i: number) => (
+                                            <div key={item._key ?? i} className="space-y-2 mt-2 border p-3 rounded-md">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-semibold text-slate-500">Item {i + 1}</span>
+                                                    <Button variant="ghost" size="sm" onClick={() => {
+                                                        setPoForm({ ...poForm, items: poForm.items.filter((_item: POFormItem, j: number) => j !== i) });
+                                                    }}><XCircle className="w-4 h-4 text-red-500" /></Button>
+                                                </div>
+                                                <SearchableItemSelect
+                                                    value={item.materialId || ''}
+                                                    onChange={(invItem) => handlePOItemSelect(i, invItem)}
+                                                    placeholder="Search inventory item..."
+                                                />
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    <Input placeholder="Code" value={item.itemCode} onChange={e => {
+                                                        const items = [...poForm.items]; items[i].itemCode = e.target.value;
+                                                        setPoForm({ ...poForm, items });
+                                                    }} />
+                                                    <Input placeholder="Description" value={item.description} onChange={e => {
+                                                        const items = [...poForm.items]; items[i].description = e.target.value;
+                                                        setPoForm({ ...poForm, items });
+                                                    }} />
+                                                    <Input type="number" placeholder="Qty" value={item.quantity} onChange={e => {
+                                                        const items = [...poForm.items]; items[i].quantity = +e.target.value;
+                                                        setPoForm({ ...poForm, items });
+                                                    }} />
+                                                    <Input type="number" placeholder="Unit Price" value={item.unitPrice} onChange={e => {
+                                                        const items = [...poForm.items]; items[i].unitPrice = +e.target.value;
+                                                        setPoForm({ ...poForm, items });
+                                                    }} />
+                                                </div>
                                             </div>
                                         ))}
                                         <Button variant="outline" size="sm" className="mt-2" onClick={() => {
-                                            setPoForm({ ...poForm, items: [...poForm.items, { itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
+                                            const newKey = nextKey();
+                                            setPoForm({ ...poForm, items: [...poForm.items, { _key: newKey, itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
                                         }}><Plus className="w-4 h-4 mr-1" /> Add Item</Button>
                                     </div>
                                 </div>
