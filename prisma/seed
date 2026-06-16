@@ -1,0 +1,117 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('Seeding Authority Entities and Permit Types...');
+
+  // ============================================
+  // Authority Entities (use findFirst + create since name is not @unique)
+  // ============================================
+  const authorityList = [
+    { name: 'Road Development Authority', shortName: 'RDA' },
+    { name: 'Sri Lanka Railways', shortName: 'SLR' },
+    { name: 'Municipal Council', shortName: 'MC' },
+    { name: 'Urban Development Authority', shortName: 'UDA' },
+    { name: 'Central Environmental Authority', shortName: 'CEA' },
+    { name: 'Pradeshiya Sabha', shortName: 'PS' },
+    { name: 'Ceylon Electricity Board', shortName: 'CEB' },
+    { name: 'National Water Supply & Drainage Board', shortName: 'NWSDB' },
+  ];
+
+  const authorityMap: Record<string, string> = {};
+
+  for (const a of authorityList) {
+    let existing = await prisma.authorityEntity.findFirst({
+      where: { name: a.name }
+    });
+    
+    if (existing) {
+      await prisma.authorityEntity.update({
+        where: { id: existing.id },
+        data: { shortName: a.shortName, isActive: true }
+      });
+    } else {
+      existing = await prisma.authorityEntity.create({
+        data: { name: a.name, shortName: a.shortName, isActive: true }
+      });
+    }
+    
+    authorityMap[a.name] = existing.id;
+  }
+
+  console.log(`✓ ${authorityList.length} authority entities seeded`);
+
+  // ============================================
+  // Permit Types
+  // ============================================
+  const permitTypes = [
+    // RDA Permits
+    { code: 'ROAD_CUTTING', name: 'Road Cutting Permit', authority: 'Road Development Authority', defaultDuration: 90, requiresRenewal: true },
+    { code: 'ROAD_CROSSING', name: 'Road Crossing Permit', authority: 'Road Development Authority', defaultDuration: 90, requiresRenewal: true },
+    { code: 'ROW_ACCESS', name: 'Right of Way Access', authority: 'Road Development Authority', defaultDuration: 180, requiresRenewal: false },
+    // Railway Permits
+    { code: 'RAILWAY_CROSSING', name: 'Railway Crossing Permit', authority: 'Sri Lanka Railways', defaultDuration: 90, requiresRenewal: true },
+    { code: 'RAILWAY_ROW', name: 'Railway Right of Way', authority: 'Sri Lanka Railways', defaultDuration: 180, requiresRenewal: false },
+    // Municipal Permits
+    { code: 'WAYLEAVE', name: 'Wayleave Agreement', authority: 'Municipal Council', defaultDuration: 365, requiresRenewal: true },
+    { code: 'BUILDING_ACCESS', name: 'Building Access Permit', authority: 'Municipal Council', defaultDuration: 90, requiresRenewal: false },
+    { code: 'PARKING_SUSPENSION', name: 'Parking Suspension Permit', authority: 'Municipal Council', defaultDuration: 30, requiresRenewal: true },
+    { code: 'STREET_FURNITURE', name: 'Street Furniture Installation', authority: 'Municipal Council', defaultDuration: 365, requiresRenewal: true },
+    // UDA Permits
+    { code: 'DEVELOPMENT_PERMIT', name: 'Development Permit', authority: 'Urban Development Authority', defaultDuration: 365, requiresRenewal: false },
+    // Environmental Permits
+    { code: 'ENV_CLEARANCE', name: 'Environmental Clearance', authority: 'Central Environmental Authority', defaultDuration: 180, requiresRenewal: false },
+    { code: 'TREE_TRIMMING', name: 'Tree Trimming Permit', authority: 'Central Environmental Authority', defaultDuration: 30, requiresRenewal: true },
+    // PS Permits
+    { code: 'LOCAL_AUTHORITY', name: 'Local Authority Approval', authority: 'Pradeshiya Sabha', defaultDuration: 365, requiresRenewal: true },
+    // CEB - Pole Sharing
+    { code: 'POLE_SHARING', name: 'Pole Sharing Agreement', authority: 'Ceylon Electricity Board', defaultDuration: 365, requiresRenewal: true },
+    { code: 'DUCT_SHARING', name: 'Duct Sharing Agreement', authority: 'Ceylon Electricity Board', defaultDuration: 365, requiresRenewal: true },
+    // NWSDB
+    { code: 'WATER_CROSSING', name: 'Water Pipeline Crossing', authority: 'National Water Supply & Drainage Board', defaultDuration: 90, requiresRenewal: true },
+    { code: 'DRAIN_CROSSING', name: 'Drainage Crossing Permit', authority: 'National Water Supply & Drainage Board', defaultDuration: 90, requiresRenewal: true },
+  ];
+
+  let created = 0;
+  for (const pt of permitTypes) {
+    const authorityId = authorityMap[pt.authority];
+    if (!authorityId) {
+      console.warn(`⚠ Authority "${pt.authority}" not found, skipping permit type: ${pt.code}`);
+      continue;
+    }
+
+    await prisma.permitType.upsert({
+      where: { code: pt.code },
+      update: {
+        name: pt.name,
+        description: `${pt.name} issued by ${pt.authority}`,
+        authorityId,
+        defaultDuration: pt.defaultDuration,
+        requiresRenewal: pt.requiresRenewal,
+      },
+      create: {
+        code: pt.code,
+        name: pt.name,
+        description: `${pt.name} issued by ${pt.authority}`,
+        authorityId,
+        defaultDuration: pt.defaultDuration,
+        requiresRenewal: pt.requiresRenewal,
+      },
+    });
+    created++;
+  }
+
+  console.log(`✓ ${created} permit types seeded`);
+  console.log('✓ Authority & Permit seed complete!');
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

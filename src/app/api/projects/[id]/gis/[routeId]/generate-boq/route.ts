@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { updateProgressOnBOQGenerate } from "@/lib/project-progress";
 
 // POST: Generate BOQ from GIS route - auto-calculate quantities and create BOTH
 // GISGeneratedBOQ (for GIS tracking) AND ProjectBOQItems (for project BOQ tab / overview)
@@ -233,6 +234,9 @@ export async function POST(
             where: { id: routeId },
             data: { status: "BOQ_GENERATED" }
         });
+
+        // Auto-update project progress after BOQ generation
+        await updateProgressOnBOQGenerate(projectId);
 
         return NextResponse.json({
             ...boq,

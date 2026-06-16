@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ProjectStageInstance } from '@prisma/client';
+import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
 
 export class WorkflowEngine {
   /**
@@ -233,6 +234,15 @@ export class WorkflowEngine {
             details: { stageName: nextStage.name },
           },
         });
+      }
+
+      // Auto-update project progress after stage completion
+      const workflowInstance = await prisma.projectWorkflowInstance.findUnique({
+        where: { id: stage.projectWorkflowInstanceId },
+        select: { projectId: true }
+      });
+      if (workflowInstance?.projectId) {
+        await updateProjectProgressOnStageChange(workflowInstance.projectId);
       }
     } else {
       // Manual status adjustments (e.g. BLOCKED, ON_HOLD)
