@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle, Loader2, X } from 'lucide-react';
+import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle, Loader2, X, BookOpen } from 'lucide-react';
+import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
 
 interface ProjectType {
     id: string;
@@ -46,6 +47,7 @@ export default function ProjectsPage() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const [guideDialogOpen, setGuideDialogOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
 
@@ -228,10 +230,21 @@ export default function ProjectsPage() {
                                 <h1 className="text-xl md:text-2xl font-bold text-slate-900">Project Management</h1>
                                 <p className="text-sm text-slate-500 mt-1">Manage construction projects and BOQ</p>
                             </div>
-                            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-                                <Plus className="w-4 h-4" />
-                                New Project
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setGuideDialogOpen(true)}
+                                    className="gap-1.5"
+                                >
+                                    <BookOpen className="w-4 h-4" />
+                                    Guide
+                                </Button>
+                                <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+                                    <Plus className="w-4 h-4" />
+                                    New Project
+                                </Button>
+                            </div>
                         </div>
 
                         {/* Stats */}
@@ -302,7 +315,9 @@ export default function ProjectsPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 md:px-6 py-4">
-                                                    <Badge variant="outline">{project.type}</Badge>
+                                                    <Badge variant="outline">
+                                                        {project.projectType?.name?.replace('_', ' ') || project.type?.replace('_', ' ') || 'N/A'}
+                                                    </Badge>
                                                 </td>
                                                 <td className="px-4 md:px-6 py-4">
                                                     {getStatusBadge(project.status)}
@@ -460,6 +475,19 @@ export default function ProjectsPage() {
                             Create Project
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Guide Documentation Modal */}
+            <Dialog open={guideDialogOpen} onOpenChange={setGuideDialogOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl">📖 Project Module Guide</DialogTitle>
+                        <DialogDescription>
+                            Complete A-to-Z documentation for all project modules and features
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ProjectDocumentation />
                 </DialogContent>
             </Dialog>
 

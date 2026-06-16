@@ -191,10 +191,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                         <MapPin className="w-4 h-4" />
                                         {project.location || 'No location set'}
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <Building2 className="w-4 h-4" />
-                                        {project.type}
-                                    </div>
+                                    {project.projectType && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Building2 className="w-4 h-4" />
+                                            {project.projectType.name.replace('_', ' ')}
+                                        </div>
+                                    )}
                                     {project.opmc && (
                                         <div className="flex items-center gap-1.5">
                                             <span className="font-medium text-slate-700">OPMC:</span>
