@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="KL_SVK_0567_FDP" id="KL_SVK_0567_FDP">
+	<SimpleField name="FDP NAME" type="string"></SimpleField>
+	<SimpleField name="LEA" type="string"></SimpleField>
+	<SimpleField name="NO OF SPLITTERS" type="int"></SimpleField>
+	<SimpleField name="SPLITTER TYPE" type="string"></SimpleField>
+	<SimpleField name="ROAD NAME" type="string"></SimpleField>
+	<SimpleField name="REMARKS" type="string"></SimpleField>
+	<SimpleField name="TYPE" type="string"></SimpleField>
+	<SimpleField name="LAC" type="string"></SimpleField>
+	<SimpleField name="Exst_New" type="string"></SimpleField>
+	<SimpleField name="Longitute" type="float"></SimpleField>
+	<SimpleField name="Latitude" type="float"></SimpleField>
+</Schema>
+<Folder><name>KL_SVK_0567_FDP</name>
+  <Placemark id="KL_SVK_0567_FDP.1">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_FDP">
+		<SimpleData name="FDP NAME">KL-SVK-0567-003</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="NO OF SPLITTERS">1</SimpleData>
+		<SimpleData name="SPLITTER TYPE">1:8</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="TYPE">Pole Mounted</SimpleData>
+		<SimpleData name="Exst_New">Exst</SimpleData>
+		<SimpleData name="Longitute">81.7877512559833</SimpleData>
+		<SimpleData name="Latitude">7.41969057249832</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7877512559833,7.41969057249832</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_FDP.2">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_FDP">
+		<SimpleData name="FDP NAME">KL-SVK-0567-008</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="NO OF SPLITTERS">1</SimpleData>
+		<SimpleData name="SPLITTER TYPE">1:8</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="TYPE">Pole Mounted</SimpleData>
+		<SimpleData name="Exst_New">Exst</SimpleData>
+		<SimpleData name="Longitute">81.7767582536746</SimpleData>
+		<SimpleData name="Latitude">7.41306284286935</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7767582536746,7.41306284286935</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_FDP.3">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_FDP">
+		<SimpleData name="FDP NAME">KL-SVK-0567-001</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="NO OF SPLITTERS">1</SimpleData>
+		<SimpleData name="SPLITTER TYPE">1:8</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="TYPE">Pole Mounted</SimpleData>
+		<SimpleData name="Exst_New">New</SimpleData>
+		<SimpleData name="Longitute">81.7882960709011</SimpleData>
+		<SimpleData name="Latitude">7.42150259880174</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7882960709011,7.42150259880174</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_FDP.4">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_FDP">
+		<SimpleData name="FDP NAME">KL-SVK-0567-002</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="NO OF SPLITTERS">1</SimpleData>
+		<SimpleData name="SPLITTER TYPE">1:8</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="TYPE">Pole Mounted</SimpleData>
+		<SimpleData name="Exst_New">New</SimpleData>
+		<SimpleData name="Longitute">81.7861782086906</SimpleData>
+		<SimpleData name="Latitude">7.4187231451856</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7861782086906,7.4187231451856</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_FDP.5">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_FDP">
+		<SimpleData name="FDP NAME">KL-SVK-0567-005</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="NO OF SPLITTERS">1</SimpleData>
+		<SimpleData name="SPLITTER TYPE">1:8</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="TYPE">Pole Mounted</SimpleData>
+		<SimpleData name="Exst_New">New</SimpleData>
+		<SimpleData name="Longitute">81.7711152683705</SimpleData>
+		<SimpleData name="Latitude">7.40837610909019</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7711152683705,7.40837610909019</coordinates></Point>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_FDP.6">
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_FDP">
+		<SimpleData name="FDP NAME">KL-SVK-0567-006</SimpleData>
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="NO OF SPLITTERS">1</SimpleData>
+		<SimpleData name="SPLITTER TYPE">1:8</SimpleData>
+		<SimpleData name="ROAD NAME">Kalmunai - Chavalakadai Road</SimpleData>
+		<SimpleData name="TYPE">Pole Mounted</SimpleData>
+		<SimpleData name="Exst_New">New</SimpleData>
+		<SimpleData name="Longitute">81.7738052825397</SimpleData>
+		<SimpleData name="Latitude">7.41010743709675</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>81.7738052825397,7.41010743709675</coordinates></Point>
+  </Placemark>
+</Folder>
+</Document></kml>

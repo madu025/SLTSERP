@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,11 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Route, Upload, Calculator, CheckCircle2, Download } from 'lucide-react';
+import { MapPin, Route, Upload, Calculator, CheckCircle2, Download, MapIcon } from 'lucide-react';
 
 interface ProjectGISRouteProps { project: any; }
 
 export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
+  const router = useRouter();
   const [routes, setRoutes] = useState<any[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,10 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
     } catch (err) { console.error(err); }
   };
 
+  const handleOpenMapView = () => {
+    router.push(`/projects/${project.id}/gis`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -42,8 +48,12 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
           <p className="text-sm text-slate-500">Import QGIS exports, auto-calculate quantities, generate BOQ</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2"><Upload className="w-4 h-4" /> Import GeoJSON</Button>
-          <Button variant="outline" className="gap-2"><Download className="w-4 h-4" /> Export Template</Button>
+          <Button variant="outline" className="gap-2" onClick={() => router.push('/gis/upload')}>
+            <Upload className="w-4 h-4" /> Import GIS
+          </Button>
+          <Button variant="default" className="gap-2" onClick={handleOpenMapView}>
+            <MapIcon className="w-4 h-4" /> Map View
+          </Button>
         </div>
       </div>
 
@@ -94,7 +104,9 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
               <Button size="sm" variant="secondary" onClick={() => handleGenerateBOQ(route.id)}>
                 <Calculator className="w-4 h-4 mr-1" /> Generate Auto-BOQ
               </Button>
-              <Button size="sm" variant="outline">View Details</Button>
+              <Button size="sm" variant="outline" onClick={handleOpenMapView}>
+                <MapIcon className="w-4 h-4 mr-1" /> View on Map
+              </Button>
               {route.gisGeneratedBOQs?.length > 0 && (
                 <Badge variant="secondary" className="ml-2">
                   <CheckCircle2 className="w-3 h-3 mr-1" /> BOQ Generated
@@ -110,7 +122,9 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
           <CardContent className="py-12 text-center">
             <MapPin className="w-12 h-12 mx-auto text-slate-300 mb-4" />
             <p className="text-slate-500">No GIS routes imported yet</p>
-            <Button className="mt-4" variant="outline"><Upload className="w-4 h-4 mr-2" /> Import Route</Button>
+            <Button className="mt-4" variant="outline" onClick={() => router.push('/gis/upload')}>
+              <Upload className="w-4 h-4 mr-2" /> Import Route
+            </Button>
           </CardContent>
         </Card>
       )}

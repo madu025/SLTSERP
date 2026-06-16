@@ -1,0 +1,13 @@
+{
+"type": "FeatureCollection",
+"name": "SLT_FDP",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "FDP NAME": "KL-SVK-0567-003", "LEA": "KL", "NO OF SPLITTERS": 1, "SPLITTER TYPE": "1:8", "ROAD NAME": "Kalmunai - Chavalakadai Road", "REMARKS": null, "TYPE": "Pole Mounted", "LAC": null, "Exst_New": "Exst", "Longitute": 81.787751255983295, "Latitude": 7.41969057249832 }, "geometry": { "type": "Point", "coordinates": [ 81.787751255983295, 7.41969057249832 ] } },
+{ "type": "Feature", "properties": { "FDP NAME": "KL-SVK-0567-008", "LEA": "KL", "NO OF SPLITTERS": 1, "SPLITTER TYPE": "1:8", "ROAD NAME": "Kalmunai - Chavalakadai Road", "REMARKS": null, "TYPE": "Pole Mounted", "LAC": null, "Exst_New": "Exst", "Longitute": 81.7767582536746, "Latitude": 7.4130628428693504 }, "geometry": { "type": "Point", "coordinates": [ 81.7767582536746, 7.41306284286935 ] } },
+{ "type": "Feature", "properties": { "FDP NAME": "KL-SVK-0567-001", "LEA": "KL", "NO OF SPLITTERS": 1, "SPLITTER TYPE": "1:8", "ROAD NAME": "Kalmunai - Chavalakadai Road", "REMARKS": null, "TYPE": "Pole Mounted", "LAC": null, "Exst_New": "New", "Longitute": 81.788296070901097, "Latitude": 7.42150259880174 }, "geometry": { "type": "Point", "coordinates": [ 81.788296070901097, 7.42150259880174 ] } },
+{ "type": "Feature", "properties": { "FDP NAME": "KL-SVK-0567-002", "LEA": "KL", "NO OF SPLITTERS": 1, "SPLITTER TYPE": "1:8", "ROAD NAME": "Kalmunai - Chavalakadai Road", "REMARKS": null, "TYPE": "Pole Mounted", "LAC": null, "Exst_New": "New", "Longitute": 81.7861782086906, "Latitude": 7.4187231451856013 }, "geometry": { "type": "Point", "coordinates": [ 81.7861782086906, 7.418723145185601 ] } },
+{ "type": "Feature", "properties": { "FDP NAME": "KL-SVK-0567-005", "LEA": "KL", "NO OF SPLITTERS": 1, "SPLITTER TYPE": "1:8", "ROAD NAME": "Kalmunai - Chavalakadai Road", "REMARKS": null, "TYPE": "Pole Mounted", "LAC": null, "Exst_New": "New", "Longitute": 81.771115268370494, "Latitude": 7.4083761090901898 }, "geometry": { "type": "Point", "coordinates": [ 81.771115268370494, 7.40837610909019 ] } },
+{ "type": "Feature", "properties": { "FDP NAME": "KL-SVK-0567-006", "LEA": "KL", "NO OF SPLITTERS": 1, "SPLITTER TYPE": "1:8", "ROAD NAME": "Kalmunai - Chavalakadai Road", "REMARKS": null, "TYPE": "Pole Mounted", "LAC": null, "Exst_New": "New", "Longitute": 81.773805282539698, "Latitude": 7.4101074370967499 }, "geometry": { "type": "Point", "coordinates": [ 81.773805282539698, 7.41010743709675 ] } }
+]
+}

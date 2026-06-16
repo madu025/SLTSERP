@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="KL_SVK_0567_Cables" id="KL_SVK_0567_Cables">
+	<SimpleField name="LEA" type="string"></SimpleField>
+	<SimpleField name="Cable_Type" type="string"></SimpleField>
+	<SimpleField name="Main_Sheat" type="string"></SimpleField>
+	<SimpleField name="Ext_Sheath" type="string"></SimpleField>
+	<SimpleField name="CBL_END_1" type="string"></SimpleField>
+	<SimpleField name="CBL_END_2" type="string"></SimpleField>
+	<SimpleField name="Length" type="string"></SimpleField>
+	<SimpleField name="Cores" type="string"></SimpleField>
+	<SimpleField name="Duct" type="string"></SimpleField>
+	<SimpleField name="PE_Number" type="string"></SimpleField>
+	<SimpleField name="Remarks" type="string"></SimpleField>
+	<SimpleField name="SLT-REF" type="string"></SimpleField>
+	<SimpleField name="Desc" type="string"></SimpleField>
+</Schema>
+<Folder><name>KL_SVK_0567_Cables</name>
+  <Placemark id="KL_SVK_0567_Cables.1">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Cables">
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="Cable_Type">Aerial</SimpleData>
+		<SimpleData name="CBL_END_1">KL-CL-00001</SimpleData>
+		<SimpleData name="CBL_END_2">KL-SRK-0550-002</SimpleData>
+		<SimpleData name="Length">199m</SimpleData>
+		<SimpleData name="Cores">OF-4-1.3</SimpleData>
+		<SimpleData name="SLT-REF">FSSD_SLTS_2025_017(04)</SimpleData>
+		<SimpleData name="Desc">Laying of Optical Fiber to Pillaiyar Kovil. Opening of 04 Fiber DPs.</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><LineString><coordinates>81.7874640325174,7.41962150416887 81.7874164435577,7.41958413078845 81.7871392465891,7.41940670519108 81.7868051384595,7.41920821612045 81.7864958631412,7.41901836489555 81.7861658418226,7.41879227798963</coordinates></LineString></MultiGeometry>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Cables.2">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Cables">
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="Cable_Type">Aerial</SimpleData>
+		<SimpleData name="CBL_END_1">KL-SRK-0550-008</SimpleData>
+		<SimpleData name="CBL_END_2">KL-SRK-0550-005</SimpleData>
+		<SimpleData name="Length">927m</SimpleData>
+		<SimpleData name="Cores">OF-4-1.3</SimpleData>
+		<SimpleData name="SLT-REF">FSSD_SLTS_2025_017(04)</SimpleData>
+		<SimpleData name="Desc">Laying of Optical Fiber to Pillaiyar Kovil. Opening of 04 Fiber DPs.</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><LineString><coordinates>81.7767578866492,7.41301312306089 81.7769669294952,7.41270441920102 81.776794136482,7.41257397172404 81.776603640215,7.41244795111663 81.7762915194083,7.41222082095212 81.7759776254339,7.41199423525154 81.7756946646264,7.41178558420525 81.7754322185103,7.41155788151887 81.775042252577,7.41125688405477 81.7747646185604,7.41100970430068 81.7744261213475,7.41076718789921 81.7740623850829,7.41053698051681 81.7737502259385,7.41031366024813 81.7737925880682,7.41015153786216 81.7737216514985,7.41030193740093 81.7733827879466,7.41011363916777 81.7730428253777,7.4099150834433 81.7726618328437,7.40967623043159 81.7722859690554,7.40944543687732 81.7719357489952,7.4092270988482 81.7715828122271,7.40896983886566 81.7712118631806,7.40870213509699 81.7708403954599,7.40844130174677 81.7710629374531,7.40840657666115</coordinates></LineString></MultiGeometry>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Cables.3">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Cables">
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="Cable_Type">Aerial</SimpleData>
+		<SimpleData name="CBL_END_1">KL-CL-00001</SimpleData>
+		<SimpleData name="CBL_END_2">KL-SRK-0550-001</SimpleData>
+		<SimpleData name="Length">234m</SimpleData>
+		<SimpleData name="Cores">OF-4-1.3</SimpleData>
+		<SimpleData name="SLT-REF">FSSD_SLTS_2025_017(04)</SimpleData>
+		<SimpleData name="Desc">Laying of Optical Fiber to Pillaiyar Kovil. Opening of 04 Fiber DPs.</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><LineString><coordinates>81.7883359240177,7.42145500167832 81.7884620328366,7.42109501628317 81.7885382313434,7.42079315296774 81.7886056377148,7.42051180463492 81.788510445037,7.42026027788393 81.7880724008391,7.41999208078499 81.7878633617036,7.41985589772777 81.7877167796847,7.41975080065825 81.787466790574,7.41962322795423</coordinates></LineString></MultiGeometry>
+  </Placemark>
+  <Placemark id="KL_SVK_0567_Cables.4">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#KL_SVK_0567_Cables">
+		<SimpleData name="LEA">KL</SimpleData>
+		<SimpleData name="Cable_Type">Aerial</SimpleData>
+		<SimpleData name="CBL_END_1">KL-SRK-0550-003</SimpleData>
+		<SimpleData name="CBL_END_2">KL-CL-00001</SimpleData>
+		<SimpleData name="Length">40m</SimpleData>
+		<SimpleData name="Cores">OF-4-1.3</SimpleData>
+		<SimpleData name="SLT-REF">FSSD_SLTS_2025_017(04)</SimpleData>
+		<SimpleData name="Desc">Laying of Optical Fiber to Pillaiyar Kovil. Opening of 04 Fiber DPs.</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><LineString><coordinates>81.7877512559833,7.41969057249832 81.7875253992762,7.41958668370464 81.7874640325174,7.41962150416887</coordinates></LineString></MultiGeometry>
+  </Placemark>
+</Folder>
+</Document></kml>
