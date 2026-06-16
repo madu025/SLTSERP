@@ -152,7 +152,7 @@ export class GISParser {
       feature.properties?.poleHeight ||
       undefined;
     let parsedHeight: number | undefined = undefined;
-    if (rawHeight !== undefined && rawHeight !== null && rawHeight !== false) {
+    if (rawHeight !== undefined && rawHeight !== null) {
       const heightStr = String(rawHeight).replace(/[^0-9.]/g, '');
       if (heightStr) {
         parsedHeight = Number(heightStr);

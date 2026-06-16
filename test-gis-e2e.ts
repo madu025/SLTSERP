@@ -256,9 +256,9 @@ async function main() {
   console.log(`     Total road length: ${roadData.totalLength.toFixed(2)}m (${(roadData.totalLength / 1000).toFixed(3)}km)`);
 
   // Check road names
-  const roadNames = [...new Set(roadData.roadSegments.map((r: any) => r.roadName))];
+  const roadNames: string[] = [...new Set<string>(roadData.roadSegments.map((r: any) => r.roadName))];
   console.log(`     Road names: ${roadNames.join(', ')}`);
-  assert(roadNames.some((n: string) => n.includes('Kalmunai')), 'Road name includes Kalmunai');
+  assert(roadNames.some((n) => n.includes('Kalmunai')), 'Road name includes Kalmunai');
 
   // ==========================================================================
   // PHASE 4: Validation

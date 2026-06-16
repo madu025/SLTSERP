@@ -735,7 +735,7 @@ export class GISImportService {
           unitRate: item.unitRate,
           amount: item.amount,
           sourceType: 'AUTO_CALCULATED',
-          sourceReference: `GIS Import ${importId}`,
+          sourceReference: `GIS Import ${session.id}`,
         })),
       });
 
