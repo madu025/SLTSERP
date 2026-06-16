@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle, Loader2, X } from 'lucide-react';
 
 interface ProjectType {
     id: string;
@@ -75,6 +75,47 @@ export default function ProjectsPage() {
             }
         } catch (error) {
             console.error('Error fetching project types:', error);
+        }
+    };
+
+    // Add New Project Type dialog state
+    const [newTypeDialogOpen, setNewTypeDialogOpen] = useState(false);
+    const [newTypeName, setNewTypeName] = useState('');
+    const [newTypeDescription, setNewTypeDescription] = useState('');
+    const [creatingType, setCreatingType] = useState(false);
+
+    const handleAddProjectType = async () => {
+        if (!newTypeName.trim()) {
+            alert('Please enter a project type name');
+            return;
+        }
+        try {
+            setCreatingType(true);
+            const res = await fetch('/api/projects/types', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newTypeName.trim(),
+                    description: newTypeDescription.trim()
+                })
+            });
+            if (!res.ok) {
+                const error = await res.json();
+                alert(error.error || 'Failed to create project type');
+                return;
+            }
+            const created = await res.json();
+            // Auto-select the newly created type
+            setNewProject(prev => ({ ...prev, projectTypeId: created.id }));
+            setNewTypeDialogOpen(false);
+            setNewTypeName('');
+            setNewTypeDescription('');
+            fetchProjectTypes();
+        } catch (error) {
+            console.error('Error creating project type:', error);
+            alert('Failed to create project type');
+        } finally {
+            setCreatingType(false);
         }
     };
 
@@ -327,7 +368,17 @@ export default function ProjectsPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Project Type (Workflow)</Label>
+                            <div className="flex items-center justify-between">
+                                <Label>Project Type (Workflow)</Label>
+                                <button
+                                    type="button"
+                                    onClick={() => setNewTypeDialogOpen(true)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                >
+                                    <PlusCircle className="w-3 h-3" />
+                                    Add New
+                                </button>
+                            </div>
                             <Select
                                 value={newProject.projectTypeId}
                                 onValueChange={(value) => setNewProject({ ...newProject, projectTypeId: value })}
@@ -374,30 +425,7 @@ export default function ProjectsPage() {
                                 placeholder="Project location"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label>OSP Type</Label>
-                            <Select
-                                value={newProject.type}
-                                onValueChange={(value) => setNewProject({ ...newProject, type: value })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OSP_FTTH">OSP FTTH</SelectItem>
-                                    <SelectItem value="OSP_COPPER">OSP Copper</SelectItem>
-                                    <SelectItem value="FIBER_BACKBONE">Fiber Backbone</SelectItem>
-                                    <SelectItem value="FIBER_ACCESS">Fiber Access</SelectItem>
-                                    <SelectItem value="TOWER_INSTALL">Tower Install</SelectItem>
-                                    <SelectItem value="TOWER_REMOVE">Tower Remove</SelectItem>
-                                    <SelectItem value="TOWER_REPAIR">Tower Repair</SelectItem>
-                                    <SelectItem value="BUILDING_INDOOR">Building Indoor</SelectItem>
-                                    <SelectItem value="BUILDING_OUTDOOR">Building Outdoor</SelectItem>
-                                    <SelectItem value="OSP_MAINTENANCE">OSP Maintenance</SelectItem>
-                                    <SelectItem value="OTHER">Other</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {/* OSP Type field removed - use Project Type (Workflow) instead */}
                         <div className="space-y-2">
                             <Label>Budget (LKR)</Label>
                             <Input
@@ -430,6 +458,50 @@ export default function ProjectsPage() {
                         </Button>
                         <Button onClick={handleCreate}>
                             Create Project
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Add New Project Type Dialog */}
+            <Dialog open={newTypeDialogOpen} onOpenChange={setNewTypeDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Add New Project Type</DialogTitle>
+                        <DialogDescription>Create a new workflow project type</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Type Name *</Label>
+                            <Input
+                                value={newTypeName}
+                                onChange={(e) => setNewTypeName(e.target.value)}
+                                placeholder="e.g., OSP_FTTH, FIBER_BACKBONE"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Description</Label>
+                            <Textarea
+                                value={newTypeDescription}
+                                onChange={(e) => setNewTypeDescription(e.target.value)}
+                                placeholder="Brief description of this project type..."
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setNewTypeDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleAddProjectType} disabled={creatingType}>
+                            {creatingType ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Creating...
+                                </>
+                            ) : (
+                                'Create Type'
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

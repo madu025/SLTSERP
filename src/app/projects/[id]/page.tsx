@@ -7,7 +7,8 @@ import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow, BookOpen } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import ProjectOverview from '@/components/projects/ProjectOverview';
 import ProjectBOQ from '@/components/projects/ProjectBOQ';
 import ProjectMilestones from '@/components/projects/ProjectMilestones';
@@ -76,6 +77,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     const [project, setProject] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
+    const [guideDialogOpen, setGuideDialogOpen] = useState(false);
 
     useEffect(() => {
         fetchProjectDetails();
@@ -203,6 +205,15 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                             </div>
 
                             <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setGuideDialogOpen(true)}
+                                    className="gap-1.5"
+                                >
+                                    <BookOpen className="w-4 h-4" />
+                                    Guide
+                                </Button>
                                 <Button variant="outline">Edit Details</Button>
                             </div>
                         </div>
@@ -303,6 +314,19 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     </div>
                 </div>
             </main>
+
+            {/* Guide Documentation Dialog */}
+            <Dialog open={guideDialogOpen} onOpenChange={setGuideDialogOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl">📖 Project Module Guide</DialogTitle>
+                        <DialogDescription>
+                            Complete A-to-Z documentation for all project modules and features
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ProjectDocumentation />
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

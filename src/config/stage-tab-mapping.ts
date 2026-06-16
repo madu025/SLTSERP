@@ -20,7 +20,6 @@ export interface TabDefinition {
 export const ALWAYS_VISIBLE_TABS: TabDefinition[] = [
     { value: 'overview', label: 'Overview', description: 'Project summary and key metrics' },
     { value: 'workflow-pipeline', label: 'Workflow Pipeline', description: 'Stage gate control and workflow tracking' },
-    { value: 'guide', label: '📖 Guide', description: 'Complete A-to-Z project module documentation and user guide' },
 ];
 
 /**

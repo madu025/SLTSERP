@@ -21,3 +21,44 @@ export async function GET() {
         );
     }
 }
+
+export async function POST(request: Request) {
+    try {
+        const body = await request.json();
+        const { name, description } = body;
+
+        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+            return NextResponse.json(
+                { error: 'Project type name is required' },
+                { status: 400 }
+            );
+        }
+
+        // Check for duplicate
+        const existing = await prisma.projectType.findUnique({
+            where: { name: name.trim() }
+        });
+
+        if (existing) {
+            return NextResponse.json(
+                { error: 'A project type with this name already exists' },
+                { status: 409 }
+            );
+        }
+
+        const projectType = await prisma.projectType.create({
+            data: {
+                name: name.trim(),
+                description: description?.trim() || ''
+            }
+        });
+
+        return NextResponse.json(projectType, { status: 201 });
+    } catch (error) {
+        console.error('Error creating project type:', error);
+        return NextResponse.json(
+            { error: 'Failed to create project type' },
+            { status: 500 }
+        );
+    }
+}
