@@ -41,6 +41,20 @@ export default function SearchableItemSelect({
 
     const selectedItem = items.find(i => i.id === value);
 
+    // Client-side filtered items based on search text
+    const filteredItems = React.useMemo(() => {
+        if (!search.trim()) return items;
+        const q = search.toLowerCase().trim();
+        return items.filter(item =>
+            item.code.toLowerCase().includes(q) ||
+            item.name.toLowerCase().includes(q) ||
+            item.commonName.toLowerCase().includes(q) ||
+            (item.description && item.description.toLowerCase().includes(q)) ||
+            (item.category && item.category.toLowerCase().includes(q)) ||
+            (item.unit && item.unit.toLowerCase().includes(q))
+        );
+    }, [items, search]);
+
     // Fetch items on mount
     useEffect(() => {
         fetchItems();
@@ -57,12 +71,10 @@ export default function SearchableItemSelect({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchItems = async (query?: string) => {
+    const fetchItems = async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams();
-            if (query) params.append('search', query);
-            const res = await fetch(`/api/inventory/items?${params}`);
+            const res = await fetch('/api/inventory/items');
             if (res.ok) {
                 const data = await res.json();
                 setItems(Array.isArray(data) ? data : []);
@@ -75,11 +87,7 @@ export default function SearchableItemSelect({
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const q = e.target.value;
-        setSearch(q);
-        // Debounce search
-        const timer = setTimeout(() => fetchItems(q), 300);
-        return () => clearTimeout(timer);
+        setSearch(e.target.value);
     };
 
     const handleSelect = (item: InventoryItem) => {
@@ -132,12 +140,12 @@ export default function SearchableItemSelect({
                             <div className="py-6 text-center text-sm text-slate-400">
                                 Loading...
                             </div>
-                        ) : items.length === 0 ? (
+                        ) : filteredItems.length === 0 ? (
                             <div className="py-6 text-center text-sm text-slate-400">
-                                No items found
+                                {search ? 'No matching items found' : 'No items found'}
                             </div>
                         ) : (
-                            items.map((item) => (
+                            filteredItems.map((item) => (
                                 <button
                                     key={item.id}
                                     type="button"
