@@ -749,17 +749,26 @@ export class GISImportService {
       });
 
       // Sync BOQ items to ProjectBOQItem for dashboard BOQ tab visibility
+      // Track category counters to ensure unique item codes
+      const categoryCounters: Record<string, number> = {};
       await prisma.projectBOQItem.createMany({
-        data: boq.items.map((item) => ({
-          projectId: project.id,
-          category: item.category,
-          itemCode: `BOQ-${projectCode}-${item.category.substring(0, 3)}`,
-          description: item.description,
-          unit: item.unit,
-          quantity: item.quantity,
-          unitRate: item.unitRate,
-          amount: item.amount,
-        })),
+        data: boq.items.map((item) => {
+          const catKey = item.category.substring(0, 3);
+          categoryCounters[catKey] = (categoryCounters[catKey] || 0) + 1;
+          const seq = String(categoryCounters[catKey]).padStart(2, '0');
+          // Round amount to 2 decimal places to avoid floating point drift
+          const roundedAmount = Math.round(item.amount * 100) / 100;
+          return {
+            projectId: project.id,
+            category: item.category,
+            itemCode: `BOQ-${projectCode}-${catKey}-${seq}`,
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            unitRate: Math.round(item.unitRate * 100) / 100,
+            amount: roundedAmount,
+          };
+        }),
       });
 
       auditLog.push({
