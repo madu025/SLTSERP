@@ -74,11 +74,7 @@ const LAYER_ICONS: Record<string, string> = {
 
 function createPolylineStyle(color: string, weight: number, opacity: number, dashArray?: string) {
   return new Style({
-    stroke: new Stroke({
-      color,
-      width: weight,
-      lineDash: dashArray ? dashArray.split(',').map(Number) : undefined,
-    }),
+    stroke: new Stroke({ color, width: weight, lineDash: dashArray ? dashArray.split(',').map(Number) : undefined }),
   });
 }
 
@@ -93,18 +89,12 @@ function createCircleStyle(color: string, radius: number, fillOpacity: number, d
 }
 
 function createHoverPolylineStyle(color: string) {
-  return new Style({
-    stroke: new Stroke({ color, width: 5 }),
-  });
+  return new Style({ stroke: new Stroke({ color, width: 5 }) });
 }
 
 function createHoverCircleStyle(color: string, radius: number) {
   return new Style({
-    image: new CircleStyle({
-      radius,
-      fill: new Fill({ color: hexToRgba(color, 0.9) }),
-      stroke: new Stroke({ color, width: 2 }),
-    }),
+    image: new CircleStyle({ radius, fill: new Fill({ color: hexToRgba(color, 0.9) }), stroke: new Stroke({ color, width: 2 }) }),
   });
 }
 
@@ -115,77 +105,37 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-// ============================================================================
-// Popup helper — builds HTML, returns an ol/Overlay
-// ============================================================================
-
 function createPopupOverlay(html: string): Overlay {
   const element = document.createElement('div');
   element.innerHTML = html;
   element.style.cssText = `
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    padding: 12px;
-    min-width: 220px;
-    max-width: 320px;
-    font-family: system-ui, sans-serif;
-    font-size: 13px;
-    color: #1f2937;
+    background: white; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    padding: 12px; min-width: 220px; max-width: 320px;
+    font-family: system-ui, sans-serif; font-size: 13px; color: #1f2937;
   `;
-
-  // Close button
   const closeBtn = document.createElement('span');
   closeBtn.innerHTML = '&times;';
-  closeBtn.style.cssText = `
-    position: absolute;
-    top: 6px;
-    right: 10px;
-    cursor: pointer;
-    font-size: 16px;
-    color: #9ca3af;
-    line-height: 1;
-  `;
+  closeBtn.style.cssText = 'position: absolute; top: 6px; right: 10px; cursor: pointer; font-size: 16px; color: #9ca3af; line-height: 1;';
   closeBtn.onclick = () => { element.style.display = 'none'; };
   element.appendChild(closeBtn);
-
-  return new Overlay({
-    element,
-    autoPan: { animation: { duration: 250 } },
-    offset: [0, -10],
-    positioning: 'bottom-center',
-    stopEvent: false,
-  });
+  return new Overlay({ element, autoPan: { animation: { duration: 250 } }, offset: [0, -10], positioning: 'bottom-center', stopEvent: false });
 }
 
 // ============================================================================
 // Main Component
 // ============================================================================
 
-export function GISMapView({
-  gisRoutes = [],
-  assets = [],
-  width = '100%',
-  height = '600px',
-  fullscreen = false,
-}: GISMapViewProps) {
+export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height = '600px', fullscreen = false }: GISMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const popupRef = useRef<Overlay | null>(null);
   const layerSourcesRef = useRef<Record<string, VectorSource>>({});
   const vectorLayersRef = useRef<Record<string, VectorLayer<VectorSource>>>({});
   const [mapReady, setMapReady] = useState(false);
-
   const [visibility, setVisibility] = useState<LayerVisibility>({
-    cables: true,
-    poles: true,
-    fdps: true,
-    fiberJoints: true,
-    roads: true,
-    assets: true,
+    cables: true, poles: true, fdps: true, fiberJoints: true, roads: true, assets: true,
   });
 
-  // --- Create layer styles (constant per key) ---
   const layerStyles = useMemo(() => ({
     cables: createPolylineStyle(LAYER_COLORS.cables, 3, 0.8),
     cablesHover: createHoverPolylineStyle(LAYER_COLORS.cables),
@@ -204,42 +154,22 @@ export function GISMapView({
   // --- Initialize map once ---
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
-
     const map = new Map({
       target: mapContainerRef.current,
-      layers: [
-        new TileLayer({
-          source: new OSM({
-            attributions: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          }),
-        }),
-      ],
-      view: new View({
-        center: fromLonLat([80.7718, 7.8731]), // Sri Lanka
-        zoom: 8,
-        maxZoom: 21,
-      }),
+      layers: [new TileLayer({ source: new OSM({ attributions: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }) })],
+      view: new View({ center: fromLonLat([80.7718, 7.8731]), zoom: 8, maxZoom: 21 }),
       controls: defaultControls().extend([new FullScreen()]),
     });
-
     mapRef.current = map;
     setMapReady(true);
-
-    // Update size after render
     requestAnimationFrame(() => map.updateSize());
-
-    return () => {
-      map.setTarget(undefined);
-      mapRef.current = null;
-    };
+    return () => { map.setTarget(undefined); mapRef.current = null; };
   }, []);
 
   // --- Invalidate size on dimension / fullscreen change ---
   useEffect(() => {
     if (!mapRef.current) return;
-    const timeout = setTimeout(() => {
-      mapRef.current?.updateSize();
-    }, 50);
+    const timeout = setTimeout(() => { mapRef.current?.updateSize(); }, 50);
     return () => clearTimeout(timeout);
   }, [width, height, fullscreen]);
 
@@ -249,67 +179,46 @@ export function GISMapView({
     const popup = createPopupOverlay('');
     mapRef.current.addOverlay(popup);
     popupRef.current = popup;
-
-    // Show popup on feature click
     const handleClick = (evt: any) => {
       const map = mapRef.current;
       if (!map) return;
-
       const feature = map.forEachFeatureAtPixel(evt.pixel, (f: any) => f);
       if (feature) {
         const html = feature.get('popupHtml');
-        if (html && popup.getElement()) {
-          popup.getElement()!.innerHTML = html;
-          popup.setPosition(evt.coordinate);
-          popup.getElement()!.style.display = '';
-        }
+        if (html && popup.getElement()) { popup.getElement()!.innerHTML = html; popup.setPosition(evt.coordinate); popup.getElement()!.style.display = ''; }
       } else {
-        // Clicked empty space — hide
         if (popup.getElement()) popup.getElement()!.style.display = 'none';
       }
     };
-
     mapRef.current.on('click', handleClick);
-    return () => {
-      mapRef.current?.un('click', handleClick);
-    };
+    return () => { mapRef.current?.un('click', handleClick); };
   }, [mapReady]);
 
   // --- Hover (pointermove) for highlight ---
   const hoverFeatureRef = useRef<Feature | null>(null);
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
-
     const map = mapRef.current;
     const handlePointerMove = (evt: any) => {
-      // Clear previous hover
       if (hoverFeatureRef.current) {
         const prev = hoverFeatureRef.current;
         const prevLayerKey = prev.get('layerKey');
         if (prevLayerKey) {
           const hoverStyleKey = (prevLayerKey + 'Hover') as keyof typeof layerStyles;
-          if (layerStyles[hoverStyleKey]) {
-            prev.setStyle(undefined); // revert to layer default
-          }
+          if (layerStyles[hoverStyleKey]) { prev.setStyle(undefined); }
         }
         hoverFeatureRef.current = null;
       }
-
       const feature = map.forEachFeatureAtPixel(evt.pixel, (f: any) => f);
       if (feature) {
         const layerKey = feature.get('layerKey');
         if (layerKey) {
           const hoverStyleKey = (layerKey + 'Hover') as keyof typeof layerStyles;
-          if (layerStyles[hoverStyleKey]) {
-            feature.setStyle(layerStyles[hoverStyleKey]);
-            hoverFeatureRef.current = feature;
-          }
+          if (layerStyles[hoverStyleKey]) { feature.setStyle(layerStyles[hoverStyleKey]); hoverFeatureRef.current = feature; }
         }
       }
-
       map.getTargetElement().style.cursor = feature ? 'pointer' : '';
     };
-
     map.on('pointermove', handlePointerMove);
     return () => { map.un('pointermove', handlePointerMove); };
   }, [mapReady, layerStyles]);
@@ -317,30 +226,17 @@ export function GISMapView({
   // --- Process GIS data → populate vector layers ---
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
-
     const map = mapRef.current;
-
-    // Remove existing GIS layers
-    Object.values(vectorLayersRef.current).forEach((layer) => {
-      if (layer) map.removeLayer(layer);
-    });
-
+    Object.values(vectorLayersRef.current).forEach((layer) => { if (layer) map.removeLayer(layer); });
     Object.values(layerSourcesRef.current).forEach((src) => src.clear());
 
-    // Build fresh sources
     const sources: Record<string, VectorSource> = {
-      cables: new VectorSource(),
-      poles: new VectorSource(),
-      fdps: new VectorSource(),
-      fiberJoints: new VectorSource(),
-      roads: new VectorSource(),
-      assets: new VectorSource(),
+      cables: new VectorSource(), poles: new VectorSource(), fdps: new VectorSource(),
+      fiberJoints: new VectorSource(), roads: new VectorSource(), assets: new VectorSource(),
     };
-
     const allExtents: any[] = [];
     layerSourcesRef.current = sources;
 
-    // Helper: add feature to source
     function addFeature(sourceKey: string, geom: any, popupHtml: string, layerKey: string) {
       const feature = new Feature({ geometry: geom });
       feature.set('popupHtml', popupHtml);
@@ -349,7 +245,6 @@ export function GISMapView({
       allExtents.push(geom.getExtent());
     }
 
-    // Helper: build cable popup HTML
     function cablePopup(seg: any, route: any) {
       return `
         <div style="font-family: sans-serif; min-width: 200px;">
@@ -363,29 +258,24 @@ export function GISMapView({
         </div>`;
     }
 
-    // Process routes
     for (const route of gisRoutes) {
       // --- CABLES (with pole-reference fallback) ---
       if (route.cableSegments?.length) {
-        // Build pole coordinate lookup for rendering cables between poles
-        const poleCoordMap = new Map<string, [number, number]>();
+        const poleCoordMap: Record<string, [number, number]> = {};
         if (route.poles) {
           for (const p of route.poles) {
             const lat = p.latitude ?? p.lat;
             const lng = p.longitude ?? p.lon ?? p.lng;
-            if (lat != null && lng != null) poleCoordMap.set(p.id, [lng, lat]);
+            if (lat != null && lng != null) poleCoordMap[p.id] = [lng, lat];
           }
         }
         for (const seg of route.cableSegments) {
           let cableCoords: Array<[number, number]> | null = null;
-          // Priority 1: explicit coordinates array on segment
           if (seg.coordinates?.length) {
             cableCoords = seg.coordinates;
-          }
-          // Priority 2: fromPoleId / toPoleId references
-          else if (seg.fromPoleId && seg.toPoleId) {
-            const fromC = poleCoordMap.get(seg.fromPoleId);
-            const toC = poleCoordMap.get(seg.toPoleId);
+          } else if (seg.fromPoleId && seg.toPoleId) {
+            const fromC = poleCoordMap[seg.fromPoleId];
+            const toC = poleCoordMap[seg.toPoleId];
             if (fromC && toC) cableCoords = [fromC, toC];
           }
           if (cableCoords) {
@@ -396,18 +286,14 @@ export function GISMapView({
         }
       }
 
-      // Geometry-based cables fallback (route-level)
+      // Geometry-based cables fallback
       if (route.geometry) {
         try {
           const geom = typeof route.geometry === 'string' ? JSON.parse(route.geometry) : route.geometry;
           if (geom?.coordinates?.length) {
             const coords = geom.coordinates.map((c: number[]) => fromLonLat([c[0], c[1]]));
             const line = new LineString(coords);
-            const html = `
-              <div style="font-family: sans-serif; min-width: 200px;">
-                <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🔌 Route: ${route.name}</h3>
-                <p style="font-size: 12px; color: #666;">Length: ${route.routeLength ? route.routeLength.toFixed(2) + ' m' : 'N/A'}</p>
-              </div>`;
+            const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🔌 Route: ${route.name}</h3><p style="font-size: 12px; color: #666;">Length: ${route.routeLength ? route.routeLength.toFixed(2) + ' m' : 'N/A'}</p></div>`;
             addFeature('cables', line, html, 'cables');
           }
         } catch (e) { /* ignore */ }
@@ -420,16 +306,7 @@ export function GISMapView({
           const lng = pole.longitude ?? pole.lon ?? pole.lng;
           if (lat == null || lng == null) continue;
           const point = new Point(fromLonLat([lng, lat]));
-          const html = `
-            <div style="font-family: sans-serif; min-width: 200px;">
-              <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">📡 Pole #${pole.poleNumber || '?'}</h3>
-              <table style="width:100%; font-size: 12px; border-collapse: collapse;">
-                <tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr>
-                <tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${pole.poleType || 'CONCRETE'}</td></tr>
-                <tr><td style="padding: 2px 4px; color: #666;">Height</td><td style="padding: 2px 4px; font-weight: 500;">${pole.height || 9}m</td></tr>
-                <tr><td style="padding: 2px 4px; color: #666;">Status</td><td style="padding: 2px 4px; font-weight: 500;">${pole.status || 'PLANNED'}</td></tr>
-              </table>
-            </div>`;
+          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">📡 Pole #${pole.poleNumber || '?'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${pole.poleType || 'CONCRETE'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Height</td><td style="padding: 2px 4px; font-weight: 500;">${pole.height || 9}m</td></tr><tr><td style="padding: 2px 4px; color: #666;">Status</td><td style="padding: 2px 4px; font-weight: 500;">${pole.status || 'PLANNED'}</td></tr></table></div>`;
           addFeature('poles', point, html, 'poles');
         }
       }
@@ -445,16 +322,7 @@ export function GISMapView({
           const typeName = isFDP ? 'FDP' : 'Fiber Joint';
           const icon = isFDP ? '📦' : '🔗';
           const point = new Point(fromLonLat([lng, lat]));
-          const html = `
-            <div style="font-family: sans-serif; min-width: 200px;">
-              <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">${icon} ${typeName} #${closure.closureNumber || '?'}</h3>
-              <table style="width:100%; font-size: 12px; border-collapse: collapse;">
-                <tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr>
-                <tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${closure.closureType || 'N/A'}</td></tr>
-                <tr><td style="padding: 2px 4px; color: #666;">Capacity</td><td style="padding: 2px 4px; font-weight: 500;">${closure.capacity || '?'}</td></tr>
-                <tr><td style="padding: 2px 4px; color: #666;">Notes</td><td style="padding: 2px 4px; font-weight: 500; max-width: 150px; word-break: break-word;">${closure.notes || '-'}</td></tr>
-              </table>
-            </div>`;
+          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">${icon} ${typeName} #${closure.closureNumber || '?'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${closure.closureType || 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Capacity</td><td style="padding: 2px 4px; font-weight: 500;">${closure.capacity || '?'}</td></tr><tr><td style="padding: 2px 4px; color: #666; max-width: 150px; word-break: break-word;">Notes</td><td style="padding: 2px 4px; font-weight: 500;">${closure.notes || '-'}</td></tr></table></div>`;
           addFeature(layerKey, point, html, layerKey);
         }
       }
@@ -465,14 +333,7 @@ export function GISMapView({
           if (road.coordinates?.length) {
             const coords = road.coordinates.map((c: any) => fromLonLat([c[0], c[1]]));
             const line = new LineString(coords);
-            const html = `
-              <div style="font-family: sans-serif; min-width: 200px;">
-                <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🛣️ ${road.roadName || 'Road Segment'}</h3>
-                <table style="width:100%; font-size: 12px; border-collapse: collapse;">
-                  <tr><td style="padding: 2px 4px; color: #666;">Length</td><td style="padding: 2px 4px; font-weight: 500;">${road.length ? road.length.toFixed(2) + ' m' : 'N/A'}</td></tr>
-                  <tr><td style="padding: 2px 4px; color: #666;">Authority</td><td style="padding: 2px 4px; font-weight: 500;">${road.authority || road.roadType || 'N/A'}</td></tr>
-                </table>
-              </div>`;
+            const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🛣️ ${road.roadName || 'Road Segment'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">Length</td><td style="padding: 2px 4px; font-weight: 500;">${road.length ? road.length.toFixed(2) + ' m' : 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Authority</td><td style="padding: 2px 4px; font-weight: 500;">${road.authority || road.roadType || 'N/A'}</td></tr></table></div>`;
             addFeature('roads', line, html, 'roads');
           }
         }
@@ -481,12 +342,7 @@ export function GISMapView({
 
     // --- ASSETS ---
     if (assets?.length) {
-      const assetColors: Record<string, string> = {
-        CABLE: LAYER_COLORS.cables,
-        POLE: LAYER_COLORS.poles,
-        FDP: LAYER_COLORS.fdps,
-        FIBER_JOINT: LAYER_COLORS.fiberJoints,
-      };
+      const assetColors: Record<string, string> = { CABLE: LAYER_COLORS.cables, POLE: LAYER_COLORS.poles, FDP: LAYER_COLORS.fdps, FIBER_JOINT: LAYER_COLORS.fiberJoints };
       for (const asset of assets) {
         const lat = asset.latitude ?? asset.lat;
         const lng = asset.longitude ?? asset.lon ?? asset.lng;
@@ -495,17 +351,7 @@ export function GISMapView({
         const point = new Point(fromLonLat([lng, lat]));
         const feature = new Feature({ geometry: point });
         feature.set('layerKey', 'assets');
-        feature.set('popupHtml', `
-          <div style="font-family: sans-serif; min-width: 200px;">
-            <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">📍 ${asset.assetName || asset.assetCode || 'Asset'}</h3>
-            <table style="width:100%; font-size: 12px; border-collapse: collapse;">
-              <tr><td style="padding: 2px 4px; color: #666;">Code</td><td style="padding: 2px 4px; font-weight: 500;">${asset.assetCode || 'N/A'}</td></tr>
-              <tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${asset.assetType || 'N/A'}</td></tr>
-              <tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr>
-              <tr><td style="padding: 2px 4px; color: #666;">Status</td><td style="padding: 2px 4px; font-weight: 500;">${asset.status || 'ACTIVE'}</td></tr>
-            </table>
-          </div>`);
-        // Custom style per asset
+        feature.set('popupHtml', `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">📍 ${asset.assetName || asset.assetCode || 'Asset'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">Code</td><td style="padding: 2px 4px; font-weight: 500;">${asset.assetCode || 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${asset.assetType || 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Status</td><td style="padding: 2px 4px; font-weight: 500;">${asset.status || 'ACTIVE'}</td></tr></table></div>`);
         feature.setStyle(createCircleStyle(color, 6, 0.7, '2,2'));
         sources.assets.addFeature(feature);
         allExtents.push(point.getExtent());
@@ -514,55 +360,33 @@ export function GISMapView({
 
     // Create vector layers and add to map
     const vectorLayers: Record<string, VectorLayer<VectorSource>> = {};
-
     const layerDefs: { key: string; style: any }[] = [
-      { key: 'cables', style: layerStyles.cables },
-      { key: 'poles', style: layerStyles.poles },
-      { key: 'fdps', style: layerStyles.fdps },
-      { key: 'fiberJoints', style: layerStyles.fiberJoints },
+      { key: 'cables', style: layerStyles.cables }, { key: 'poles', style: layerStyles.poles },
+      { key: 'fdps', style: layerStyles.fdps }, { key: 'fiberJoints', style: layerStyles.fiberJoints },
       { key: 'roads', style: layerStyles.roads },
     ];
-
     for (const { key, style } of layerDefs) {
-      const vl = new VectorLayer({
-        source: sources[key],
-        style,
-        visible: visibility[key as keyof LayerVisibility],
-      });
-
+      const vl = new VectorLayer({ source: sources[key], style, visible: visibility[key as keyof LayerVisibility] });
       vl.set('layerKey', key);
       map.addLayer(vl);
       vectorLayers[key] = vl;
     }
-
-    // Assets layer — uses per-feature style so no layer-level style
+    // Assets layer
     {
       const key = 'assets';
-      const vl = new VectorLayer({
-        source: sources[key],
-        visible: visibility[key as keyof LayerVisibility],
-      });
+      const vl = new VectorLayer({ source: sources[key], visible: visibility[key as keyof LayerVisibility] });
       vl.set('layerKey', key);
       map.addLayer(vl);
       vectorLayers[key] = vl;
     }
-
     vectorLayersRef.current = vectorLayers;
 
-    // Fit extent
     if (allExtents.length > 0) {
-      const overallExtent = allExtents.reduce((acc, ext) => {
-        return [
-          Math.min(acc[0], ext[0]),
-          Math.min(acc[1], ext[1]),
-          Math.max(acc[2], ext[2]),
-          Math.max(acc[3], ext[3]),
-        ];
-      }, allExtents[0]);
+      const overallExtent = allExtents.reduce((acc, ext) => [
+        Math.min(acc[0], ext[0]), Math.min(acc[1], ext[1]), Math.max(acc[2], ext[2]), Math.max(acc[3], ext[3]),
+      ], allExtents[0]);
       map.getView().fit(overallExtent, { padding: [50, 50], maxZoom: 16, duration: 500 });
     }
-
-    // Invalidate size after data render
     setTimeout(() => map.updateSize(), 100);
   }, [mapReady, gisRoutes, assets]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -571,44 +395,31 @@ export function GISMapView({
     const layers = vectorLayersRef.current;
     for (const [key, visible] of Object.entries(visibility)) {
       const layer = layers[key];
-      if (layer) {
-        layer.setVisible(visible);
-      }
+      if (layer) layer.setVisible(visible);
     }
   }, [visibility]);
 
-  // --- Count features ---
   const countFeatures = useMemo(() => {
     const sources = layerSourcesRef.current;
     return {
-      cables: sources.cables?.getFeatures().length || 0,
-      poles: sources.poles?.getFeatures().length || 0,
-      fdps: sources.fdps?.getFeatures().length || 0,
-      fiberJoints: sources.fiberJoints?.getFeatures().length || 0,
-      roads: sources.roads?.getFeatures().length || 0,
-      assets: sources.assets?.getFeatures().length || 0,
+      cables: sources.cables?.getFeatures().length || 0, poles: sources.poles?.getFeatures().length || 0,
+      fdps: sources.fdps?.getFeatures().length || 0, fiberJoints: sources.fiberJoints?.getFeatures().length || 0,
+      roads: sources.roads?.getFeatures().length || 0, assets: sources.assets?.getFeatures().length || 0,
     };
   }, [gisRoutes, assets]);
 
-  // --- Handlers ---
   const toggleLayer = useCallback((layer: keyof LayerVisibility) => {
     setVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }));
   }, []);
-
   const showAllLayers = useCallback(() => {
     setVisibility({ cables: true, poles: true, fdps: true, fiberJoints: true, roads: true, assets: true });
   }, []);
-
   const hideAllLayers = useCallback(() => {
     setVisibility({ cables: false, poles: false, fdps: false, fiberJoints: false, roads: false, assets: false });
   }, []);
 
-  // ============================================================================
-  // Render
-  // ============================================================================
   return (
     <div className="relative" style={{ width, height }}>
-      {/* Loading State */}
       {!mapReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded-lg z-10">
           <div className="text-center space-y-3">
@@ -617,32 +428,22 @@ export function GISMapView({
           </div>
         </div>
       )}
-
-      {/* Empty State */}
       {mapReady && gisRoutes.length === 0 && !assets?.length && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 rounded-lg z-10 backdrop-blur-sm">
           <div className="text-center space-y-3 p-8">
             <p className="text-4xl">🗺️</p>
             <p className="text-base font-medium text-gray-700">No GIS Data Available</p>
-            <p className="text-sm text-gray-500 max-w-sm">
-              Import GIS files to visualize routes, poles, cables and other telecom infrastructure on the map.
-            </p>
+            <p className="text-sm text-gray-500 max-w-sm">Import GIS files to visualize routes, poles, cables and other telecom infrastructure on the map.</p>
           </div>
         </div>
       )}
-
-      {/* Layer Control Panel */}
       {mapReady && (
         <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[200px]">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Layers</h3>
             <div className="flex gap-1">
-              <button onClick={showAllLayers} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-1.5 py-0.5 rounded hover:bg-blue-50">
-                All
-              </button>
-              <button onClick={hideAllLayers} className="text-[10px] text-gray-500 hover:text-gray-700 font-medium px-1.5 py-0.5 rounded hover:bg-gray-100">
-                None
-              </button>
+              <button onClick={showAllLayers} className="text-[10px] text-blue-600 hover:text-blue-800 font-medium px-1.5 py-0.5 rounded hover:bg-blue-50">All</button>
+              <button onClick={hideAllLayers} className="text-[10px] text-gray-500 hover:text-gray-700 font-medium px-1.5 py-0.5 rounded hover:bg-gray-100">None</button>
             </div>
           </div>
           <div className="space-y-1">
@@ -652,32 +453,17 @@ export function GISMapView({
               const count = c || (key === 'assets' ? assets?.length || 0 : 0);
               return (
                 <label key={key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={visibility[layerKey]}
-                    onChange={() => toggleLayer(layerKey)}
-                    className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
+                  <input type="checkbox" checked={visibility[layerKey]} onChange={() => toggleLayer(layerKey)} className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
                   <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: LAYER_COLORS[key] }} />
-                  <span className="flex-1 text-xs text-gray-700 group-hover:text-gray-900">
-                    {LAYER_ICONS[key]} {LAYER_LABELS[key]}
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-medium">
-                    {count > 0 ? count : '-'}
-                  </span>
+                  <span className="flex-1 text-xs text-gray-700 group-hover:text-gray-900">{LAYER_ICONS[key]} {LAYER_LABELS[key]}</span>
+                  <span className="text-[10px] text-gray-400 font-medium">{count > 0 ? count : '-'}</span>
                 </label>
               );
             })}
           </div>
         </div>
       )}
-
-      {/* Map Container */}
-      <div
-        ref={mapContainerRef}
-        className="w-full h-full rounded-lg border border-gray-200"
-        style={{ minHeight: height }}
-      />
+      <div ref={mapContainerRef} className="w-full h-full rounded-lg border border-gray-200" style={{ minHeight: height }} />
     </div>
   );
 }

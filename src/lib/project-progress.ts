@@ -43,7 +43,8 @@ export async function calculateProjectProgress(projectId: string): Promise<numbe
   
   if (progress >= 100) {
     updateData.status = 'COMPLETED';
-    if (!project.actualEndDate) {
+    const p = project as any;
+    if (!p.actualEndDate) {
       updateData.actualEndDate = new Date();
     }
   } else if (progress > 0 && project.status === 'PLANNING') {
