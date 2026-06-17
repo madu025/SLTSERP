@@ -9,7 +9,7 @@ The Project Management Module in SLTSERP is designed to manage the full lifecycl
 - **Create/Edit Projects**: Capture project details like Name, Code, Type, Location (Region/Province), and OPMC.
 - **Project Types**: Supports Telecom-specific types: OSP_FTTH, OSP_COPPER, FIBER_BACKBONE, FIBER_ACCESS, TOWER_INSTALL, TOWER_REMOVE, TOWER_REPAIR, BUILDING_INDOOR, BUILDING_OUTDOOR, OSP_MAINTENANCE, OTHER.
 - **Team Assignment**: Assign Area Managers and Contractors to projects.
-- **Status Tracking**: Track project status (PLANNED, IN_PROGRESS, COMPLETED, ON_HOLD) and overall progress percentage.
+- **Status Tracking**: Track project status (PLANNING, APPROVED, IN_PROGRESS, ON_HOLD, COMPLETED, CANCELLED) and overall progress percentage.
 
 ### 2.2 Bill of Quantities (BOQ)
 - **Estimation**: Define required materials and services with estimated quantities and unit rates.
@@ -97,6 +97,13 @@ Standard tracking models for time and detailed costs.
 4. Submit Request (Status: PENDING).
 5. Admin clicks **Approve** to finalize transaction.
 
+### Returning Stock
+1. Go to **Material Issues** tab.
+2. Click **Return Material**.
+3. Select Project, Store, Items, and Reason.
+4. Submit Return Request (Status: PENDING).
+5. Admin clicks **Approve** (only GOOD-condition items restock).
+
 ## 5. API Endpoints
 
 | Endpoint | Method | Description |
@@ -108,7 +115,9 @@ Standard tracking models for time and detailed costs.
 | `/api/projects/stock-issue/approve` | POST | Approve Issue (Deduct Stock) |
 | `/api/projects/return` | POST, GET | Create Return Request / List Returns |
 | `/api/projects/return/approve` | POST | Approve Return (Restock) |
-
+| `/api/projects/[id]/workflow` | GET, POST | Get or initialize project workflow instance |
+| `/api/projects/[id]/workflow/stages` | POST | Transition workflow stage status |
+| `/api/projects/[id]/permits` | GET, POST | List or create project permits |
 ## 6. Future Roadmap
 - PDF Export for Project Reports.
 - Advanced Dashboard & Analytics for project KPIs.

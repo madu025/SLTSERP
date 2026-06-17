@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -126,13 +126,13 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
     const [showPODialog, setShowPODialog] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Counter for unique keys
-    let itemCounter = 0;
-    const nextKey = () => ++itemCounter;
+    // Counter for unique keys (useRef to persist across renders)
+    const itemCounterRef = useRef(1);
+    const nextKey = () => itemCounterRef.current++;
 
     // Form data
-    const [prForm, setPrForm] = useState<PRForm>({ items: [{ _key: nextKey(), itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
-    const [poForm, setPoForm] = useState<POForm>({ items: [{ _key: nextKey(), itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
+    const [prForm, setPrForm] = useState<PRForm>({ items: [{ _key: 0, itemCode: '', description: '', unit: 'NOS', quantity: 1, estimatedPrice: 0 }] });
+    const [poForm, setPoForm] = useState<POForm>({ items: [{ _key: 0, itemCode: '', description: '', unit: 'NOS', quantity: 1, unitPrice: 0 }] });
 
     // Track which items have inventory selected
     const [prItemInventory, setPrItemInventory] = useState<Record<number, InventoryItem | null>>({});
@@ -254,9 +254,9 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, status: 'APPROVED', approvedById: 'system' }),
         });
-        fetchRequisitions();
-        fetchPurchaseOrders();
-        fetchGoodsReceipts();
+        if (type === 'pr') { fetchRequisitions(); }
+        else if (type === 'po') { fetchPurchaseOrders(); }
+        else if (type === 'gr') { fetchGoodsReceipts(); }
         refreshProject();
     };
 

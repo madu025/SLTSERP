@@ -100,9 +100,11 @@ export default function ProjectMilestones({ project, refreshProject }: ProjectMi
         }
     };
 
-    const sortedMilestones = [...(project.milestones || [])].sort((a: any, b: any) =>
-        new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime()
-    );
+    const sortedMilestones = [...(project.milestones || [])].sort((a: any, b: any) => {
+        const aTime = a.targetDate ? new Date(a.targetDate).getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = b.targetDate ? new Date(b.targetDate).getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+    });
 
     return (
         <div className="space-y-6">

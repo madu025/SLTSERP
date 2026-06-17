@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { FileEdit, Plus, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 
@@ -15,6 +16,9 @@ interface ProjectVariationOrdersProps { project: any; }
 export default function ProjectVariationOrders({ project }: ProjectVariationOrdersProps) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', variationType: 'SCOPE_CHANGE', costImpact: 0, reason: '' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchOrders(); }, [project.id]);
 
@@ -31,6 +35,22 @@ export default function ProjectVariationOrders({ project }: ProjectVariationOrde
 
   const totalVariation = orders.reduce((sum: number, o: any) => sum + (o.costImpact || 0), 0);
 
+  const handleCreate = async () => {
+    if (!form.title) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/projects/${project.id}/variations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      setDialogOpen(false);
+      setForm({ title: '', description: '', variationType: 'SCOPE_CHANGE', costImpact: 0, reason: '' });
+      fetchOrders();
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -38,7 +58,7 @@ export default function ProjectVariationOrders({ project }: ProjectVariationOrde
           <h3 className="text-lg font-semibold">Variation Orders</h3>
           <p className="text-sm text-slate-500">Track deviation requests, cost impact, and approval workflow</p>
         </div>
-        <Button className="gap-2"><Plus className="w-4 h-4" /> New Variation Order</Button>
+        <Button onClick={() => setDialogOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> New Variation Order</Button>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -78,6 +98,49 @@ export default function ProjectVariationOrders({ project }: ProjectVariationOrde
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>New Variation Order</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input placeholder="Variation title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea placeholder="Describe the variation..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Textarea placeholder="Reason for variation..." value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={form.variationType} onValueChange={(v) => setForm({ ...form, variationType: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SCOPE_CHANGE">Scope Change</SelectItem>
+                    <SelectItem value="DESIGN_CHANGE">Design Change</SelectItem>
+                    <SelectItem value="MATERIAL_CHANGE">Material Change</SelectItem>
+                    <SelectItem value="SCHEDULE_CHANGE">Schedule Change</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Cost Impact (LKR)</Label>
+                <Input type="number" placeholder="0" value={form.costImpact || ''} onChange={(e) => setForm({ ...form, costImpact: parseFloat(e.target.value) || 0 })} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={saving || !form.title}>{saving ? 'Creating...' : 'Create'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

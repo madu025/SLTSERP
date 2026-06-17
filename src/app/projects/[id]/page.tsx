@@ -41,6 +41,7 @@ import ProjectEVM from '@/components/projects/ProjectEVM';
 import ProjectAssetRegister from '@/components/projects/ProjectAssetRegister';
 import ProjectVariationOrders from '@/components/projects/ProjectVariationOrders';
 import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
+import ProjectFieldTasks from '@/components/projects/ProjectFieldTasks';
 import { getTabsForStage, TabDefinition } from '@/config/stage-tab-mapping';
 
 // Map tab values to their components for dynamic rendering
@@ -72,6 +73,7 @@ const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
     procurement: ProjectProcurement,
     finance: ProjectFinance,
     closure: ProjectClosure,
+    'field-tasks': ProjectFieldTasks,
     guide: ProjectDocumentation,
 };
 

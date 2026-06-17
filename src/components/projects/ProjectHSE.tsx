@@ -18,6 +18,8 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filter, setFilter] = useState('ALL');
+  const [form, setForm] = useState({ logType: '', title: '', description: '', date: '', severity: 'LOW', blocksStage: false });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchLogs(); }, [project.id, filter]);
 
@@ -42,6 +44,27 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
     return severity ? <Badge className={colors[severity] || ''}>{severity}</Badge> : null;
   };
 
+  const handleCreate = async () => {
+    if (!form.logType || !form.title) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/projects/${project.id}/hse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, date: form.date || new Date().toISOString().split('T')[0] }),
+      });
+      setDialogOpen(false);
+      setForm({ logType: '', title: '', description: '', date: '', severity: 'LOW', blocksStage: false });
+      fetchLogs();
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
+  };
+
+  const openDialog = () => {
+    setForm({ logType: '', title: '', description: '', date: new Date().toISOString().split('T')[0], severity: 'LOW', blocksStage: false });
+    setDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -49,7 +72,7 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
           <h3 className="text-lg font-semibold">Health, Safety & Environment</h3>
           <p className="text-sm text-slate-500">Toolbox talks, incident reporting, PPE checklists, and environmental logs</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2"><Plus className="w-4 h-4" /> New Safety Log</Button>
+        <Button onClick={openDialog} className="gap-2"><Plus className="w-4 h-4" /> New Safety Log</Button>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -97,7 +120,7 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Log Type</Label>
-              <Select>
+              <Select value={form.logType} onValueChange={(v) => setForm({ ...form, logType: v })}>
                 <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="TOOLBOX_TALK">Toolbox Talk</SelectItem>
@@ -111,16 +134,34 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
             </div>
             <div className="space-y-2">
               <Label>Title</Label>
-              <Input placeholder="Safety log title" />
+              <Input placeholder="Safety log title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea placeholder="Describe the safety event..." />
+              <Textarea placeholder="Describe the safety event..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Severity</Label>
+                <Select value={form.severity} onValueChange={(v) => setForm({ ...form, severity: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select severity" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LOW">Low</SelectItem>
+                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button>Create Log</Button>
+            <Button onClick={handleCreate} disabled={saving || !form.logType || !form.title}>{saving ? 'Creating...' : 'Create Log'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

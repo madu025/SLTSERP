@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { "type": "Feature", "geometry": { "type": "LineString", "coordinates": [[79.8, 6.9], [79.9, 7.0]] }, "properties": { "layer": "CABLE", "type": "FIBER" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.81, 6.91] }, "properties": { "layer": "POLE", "type": "CONCRETE" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.82, 6.92] }, "properties": { "layer": "FDP", "code": "FDP-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.83, 6.93] }, "properties": { "layer": "FIBER_JOINT", "type": "DOME" } },
+    { "type": "Feature", "geometry": { "type": "LineString", "coordinates": [[79.8, 6.9], [79.85, 6.95]] }, "properties": { "layer": "ROAD_EOP", "name": "Main Road" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.84, 6.94] }, "properties": { "layer": "DUCT", "id": "D-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.85, 6.95] }, "properties": { "layer": "HANDHOLE", "id": "HH-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.86, 6.96] }, "properties": { "layer": "MANHOLE", "id": "MH-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.87, 6.97] }, "properties": { "layer": "ODF", "id": "ODF-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.88, 6.98] }, "properties": { "layer": "RISER", "id": "R-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.89, 6.99] }, "properties": { "layer": "FTC", "id": "FTC-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.90, 7.00] }, "properties": { "layer": "TEST_POINT", "id": "TP-01" } },
+    { "type": "Feature", "geometry": { "type": "Point", "coordinates": [79.91, 7.01] }, "properties": { "layer": "BUILDING", "id": "B-01" } }
+  ]
+}

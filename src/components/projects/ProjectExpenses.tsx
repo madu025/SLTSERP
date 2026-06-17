@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,30 @@ interface ProjectExpensesProps {
 export default function ProjectExpenses({ project, refreshProject }: ProjectExpensesProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [fetchLoading, setFetchLoading] = useState(true);
+
+    // Fetch expenses independently if not available on project object
+    useEffect(() => {
+        if (project.expenses?.length) {
+            setExpenses(project.expenses);
+            setFetchLoading(false);
+        } else {
+            fetchExpenses();
+        }
+    }, [project.id, project.expenses]);
+
+    const fetchExpenses = async () => {
+        try {
+            setFetchLoading(true);
+            const res = await fetch(`/api/projects/${project.id}/expenses`);
+            if (res.ok) {
+                const data = await res.json();
+                setExpenses(Array.isArray(data) ? data : []);
+            }
+        } catch (err) { console.error(err); }
+        finally { setFetchLoading(false); }
+    };
 
     const [formData, setFormData] = useState({
         type: 'MISC',
@@ -52,7 +76,10 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
         if (!confirm('Are you sure you want to delete this expense record?')) return;
         try {
             const res = await fetch(`/api/projects/expenses?id=${id}`, { method: 'DELETE' });
-            if (res.ok) refreshProject();
+            if (res.ok) {
+                refreshProject();
+                fetchExpenses();
+            }
         } catch (error) {
             console.error('Error:', error);
         }
@@ -75,6 +102,7 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
             if (res.ok) {
                 setIsDialogOpen(false);
                 refreshProject();
+                fetchExpenses();
             } else {
                 alert('Failed to add expense');
             }
@@ -85,7 +113,7 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
         }
     };
 
-    const totalExpenses = project.expenses?.reduce((sum: number, item: any) => sum + item.amount, 0) || 0;
+    const totalExpenses = expenses.reduce((sum: number, item: any) => sum + item.amount, 0);
 
     return (
         <div className="space-y-6">
@@ -120,8 +148,8 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
-                            {project.expenses?.length > 0 ? (
-                                project.expenses.map((expense: any) => (
+                            {expenses.length > 0 ? (
+                                expenses.map((expense: any) => (
                                     <tr key={expense.id} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 text-sm text-slate-600">
                                             {new Date(expense.date).toLocaleDateString()}
@@ -156,8 +184,7 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                             ) : (
                                 <tr>
                                     <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                        <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                                        No expenses recorded yet.
+                                        {fetchLoading ? <span>Loading...</span> : <><Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />No expenses recorded yet.</>}
                                     </td>
                                 </tr>
                             )}

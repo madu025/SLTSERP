@@ -113,23 +113,22 @@ System එකේ **Project Types (Workflows)** 3ක් තියෙනවා:
 | ✅ QA/QC Inspection | Quality check, commissioning |
 | 🏁 Handover & Closure | Project close, asset register |
 
-### 🏢 2. Cluster - Stages 11ක්
+### 🏢 2. Cluster - Stages 10ක්
 
 | Stage | Purpose |
 |-------|---------|
-| 📋 Survey & Route Planning | Route survey |
-| 🏗️ Detailed Engineering | Engineering designs, BOQ |
-| 📜 Permit & Access | Access permits |
-| 📦 Material Procurement | Procurement |
-| 🔧 Civil Works | Construction |
-| 🔧 Cabling & Splicing | Fiber cabling |
-| 🔧 Riser & Horizontal Cabling | Building riser cabling |
-| 🔧 Splicing & Termination | Fiber termination |
-| 📊 OTDR Testing | Fiber testing |
-| ✅ QA/QC & Commissioning | Quality + commissioning |
-| 🏁 Handover & Asset Registration | Handover + NOC |
+| 📋 Feasibility Study | Technical & commercial assessment |
+| 📏 Survey & Route Planning | Field survey, GIS route design |
+| 📜 Permit Management | Permits (RDA, LRA, etc.) |
+| 🏗️ Detailed Engineering | Engineering designs, final BOQ |
+| 📦 Material Procurement | Procurement, store receiving |
+| 🔧 Civil Works | Trenching, duct, chambers |
+| 🔧 Cabling & Splicing | Cable install, fusion splicing |
+| 📊 OTDR Testing | End-to-end fiber testing |
+| ✅ QA/QC & Commissioning | Quality inspection + commissioning |
+| 🏁 Handover & Asset Registration | Handover + NOC asset register |
 
-### 🏠 3. Building Fiber - Stages 7ක්
+### 🏠 3. Building Fiber - Stages 8ක්
 
 | Stage | Purpose |
 |-------|---------|
@@ -137,7 +136,8 @@ System එකේ **Project Types (Workflows)** 3ක් තියෙනවා:
 | 📜 Permit & Access | Building access permits |
 | 📦 Material Issuance | Materials for building |
 | 🔧 Riser & Horizontal Cabling | In-building cabling |
-| 📊 Testing | Fiber testing |
+| 🔧 Splicing & Termination | Fiber splicing, ODF termination |
+| 📊 Testing | Fiber testing & OTDR |
 | ✅ QA/QC | Quality inspection |
 | 🏁 Handover | Building handover |
 
@@ -263,7 +263,7 @@ Project details page එක open කළාම මේ info appear වෙනවා
 **Purpose:** Stage-gate workflow control - **වැදගත්ම tab එක** stages manage කරන්න.
 
 **Functions:**
-- 👁️ Visual pipeline එක - Stages 7ක් (SSD) / 11ක් (Cluster) visualize කරලා පෙන්වනවා
+- 👁️ Visual pipeline එක - Stages 7ක් (SSD) / 10ක් (Cluster) / 8ක් (Building Fiber) visualize කරලා පෙන්වනවා
 - ✅ **Current Stage** - Green color එකෙන් active stage එක mark කරලා
 - ⏳ **Pending Stages** - තාම කරන්න තියෙන stages
 - ✅ **Completed Stages** - Check mark එක්ක completed stages
@@ -805,7 +805,6 @@ Project details page එක open කළාම මේ info appear වෙනවා
 - **🔧 Commissioning**
 - **📊 KPIs**
 - **💰 Finance**
-- **📈 EVM**
 
 ---
 
@@ -897,7 +896,7 @@ PRJ-001-FDP-0001 (FDP)
 
 ---
 
-### 📈 EVM Tab
+### 📈 EVM Tab (typically in *Handover & Asset Registration*)
 
 **Purpose:** Earned Value Management - advanced project performance.
 
@@ -980,7 +979,7 @@ PRJ-001-FDP-0001 (FDP)
 | 22 | `approvals` | **Approvals** | Approval workflow | Permit, Engineering |
 | 23 | `risks` | **Risks** | Risk assessment & mitigation | Survey, Feasibility |
 | 24 | `finance` | **Finance** | Financial reconciliation | Handover, Procurement |
-| 25 | `evm` | **EVM** | Earned Value Management | Handover stage |
+| 25 | `evm` | **EVM** | Earned Value Management | Handover & Asset Registration stage (Cluster) |
 | 26 | `contractor-perf` | **Contractor Perf** | Contractor performance metrics | Always (via mapping) |
 | 27 | `variations` | **Variations** | Variation orders | Default tabs |
 | 28 | `milestones` | **Milestones** | Project milestone tracking | Default tabs |

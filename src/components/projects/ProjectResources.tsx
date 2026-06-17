@@ -49,6 +49,9 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
     const [allocationPercentage, setAllocationPercentage] = useState('100');
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [endDate, setEndDate] = useState(format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'));
+    const [savingResource, setSavingResource] = useState(false);
+    // Capture the matched resource name for the force-save flow
+    const [pendingMatch, setPendingMatch] = useState<{ name: string } | null>(null);
 
     useEffect(() => {
         fetchResources();
@@ -70,7 +73,7 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
         }
     };
 
-    const handleAllocate = async () => {
+    const doAllocate = async (forceOverAllocation = false) => {
         if (!selectedResourceId) {
             alert('Please select a resource');
             return;
@@ -81,6 +84,7 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
         const match = candidates.find(c => c.id === selectedResourceId);
         if (!match) return;
 
+        setSavingResource(true);
         try {
             const res = await fetch(`/api/projects/${project.id}/resources`, {
                 method: 'POST',
@@ -92,14 +96,16 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
                     role,
                     allocationPercentage: Number(allocationPercentage),
                     startDate,
-                    endDate
+                    endDate,
+                    forceOverAllocation,
                 })
             });
 
             if (res.ok) {
                 const data = await res.json();
-                if (data.warning) {
+                if (data.warning && !forceOverAllocation) {
                     setWarning(data.warning);
+                    setPendingMatch(match);
                 } else {
                     setIsDialogOpen(false);
                     resetForm();
@@ -111,8 +117,13 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
             }
         } catch (error) {
             console.error('Error allocating resource:', error);
+        } finally {
+            setSavingResource(false);
         }
     };
+
+    const handleAllocate = () => doAllocate(false);
+    const handleForceAllocate = () => doAllocate(true);
 
     const handleRemove = async (id: string) => {
         if (!confirm('Are you sure you want to remove this resource allocation?')) return;
@@ -137,6 +148,7 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
         setRole('');
         setAllocationPercentage('100');
         setWarning(null);
+        setPendingMatch(null);
     };
 
     return (
@@ -242,8 +254,8 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
                             </div>
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setWarning(null)}>Back to Edit</Button>
-                                <Button onClick={async () => { setIsDialogOpen(false); resetForm(); fetchResources(); }} className="bg-amber-600 hover:bg-amber-700">
-                                    Acknowledge & Save
+                                <Button onClick={handleForceAllocate} disabled={savingResource} className="bg-amber-600 hover:bg-amber-700">
+                                    {savingResource ? 'Saving...' : 'Acknowledge & Save'}
                                 </Button>
                             </DialogFooter>
                         </div>

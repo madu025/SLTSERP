@@ -162,7 +162,7 @@ export default function ProjectContractors({ project }: ProjectContractorsProps)
                             <Award className="w-5 h-5 text-emerald-600" />
                             <div>
                                 <span className="font-bold">Active SLA Score</span>
-                                <p className="text-[10px] text-emerald-600">Meets 94% of fiber deployment deadlines.</p>
+                                <p className="text-[10px] text-emerald-600">Based on recent evaluation scores and delivery compliance.</p>
                             </div>
                         </div>
                     </CardContent>

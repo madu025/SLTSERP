@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Cpu, Plus, ShieldCheck, Tag, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -173,10 +174,13 @@ export default function ProjectCommissioning({ project }: ProjectCommissioningPr
                             </div>
                             <div className="space-y-2">
                                 <Label>Commissioning State</Label>
-                                <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                                    <option value="COMMISSIONED">Commissioned (Pending verify)</option>
-                                    <option value="VERIFIED">Verified (Ready for Handover)</option>
-                                </select>
+                                <Select value={status} onValueChange={setStatus}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="COMMISSIONED">Commissioned (Pending verify)</SelectItem>
+                                        <SelectItem value="VERIFIED">Verified (Ready for Handover)</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <DialogFooter className="pt-4">
