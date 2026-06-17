@@ -247,6 +247,18 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
     ],
 };
 
+const STAGE_NAME_ALIASES: Record<string, string> = {
+    // Map simplified template stage names -> keys present in STAGE_TAB_MAPPING
+    feasibility: 'feasibility study',
+    permit: 'permit acquisition',
+    engineering: 'detailed engineering',
+    procurement: 'material procurement',
+    civil: 'civil works',
+    splicing: 'cabling & splicing',
+    otdr: 'otdr',
+    // Add more aliases as template stage names expand
+};
+
 /**
  * Get the tabs that should be visible for a given stage name.
  * Falls back to a default set if no mapping exists.
@@ -257,7 +269,8 @@ export function getTabsForStage(stageName: string | null | undefined): TabDefini
     }
 
     const key = stageName.toLowerCase().trim();
-    const mapped = STAGE_TAB_MAPPING[key];
+    const aliasedKey = STAGE_NAME_ALIASES[key] ?? key;
+    const mapped = STAGE_TAB_MAPPING[aliasedKey];
 
     if (mapped) {
         // Always include overview and workflow-pipeline
