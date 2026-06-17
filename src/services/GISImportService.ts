@@ -34,6 +34,7 @@ import type {
   ParsedFDPData,
   ParsedFiberJointData,
   ParsedRoadData,
+  ParsedPointAssetData,
 } from '@/types/gis';
 
 // ============================================================================
@@ -67,6 +68,15 @@ interface ParsedLayerMap {
   fdp?: ParsedFDPData;
   fiberJoint?: ParsedFiberJointData;
   road?: ParsedRoadData;
+  // New layer types - all stored as generic point assets
+  duct?: ParsedPointAssetData;
+  handhole?: ParsedPointAssetData;
+  manhole?: ParsedPointAssetData;
+  odf?: ParsedPointAssetData;
+  riser?: ParsedPointAssetData;
+  ftc?: ParsedPointAssetData;
+  testPoint?: ParsedPointAssetData;
+  building?: ParsedPointAssetData;
 }
 
 // ============================================================================
@@ -229,7 +239,12 @@ export class GISImportService {
         try {
           // Decode base64 content to raw GeoJSON string before parsing
           const rawContent = Buffer.from(file.content, 'base64').toString('utf-8');
-          const parsed = gisParser.autoParseLayer(file.fileName, rawContent);
+          // Pass the client-selected layer type override (stored in the session entry)
+          const parsed = gisParser.autoParseLayer(
+            file.fileName,
+            rawContent,
+            file.layerType
+          );
           const layerType = parsed.layerType;
 
           // Store parsed data by type
@@ -248,6 +263,30 @@ export class GISImportService {
               break;
             case 'ROAD_EOP':
               parsedLayers.road = parsed.parsedData as ParsedRoadData;
+              break;
+            case 'DUCT':
+              parsedLayers.duct = parsed.parsedData as ParsedPointAssetData;
+              break;
+            case 'HANDHOLE':
+              parsedLayers.handhole = parsed.parsedData as ParsedPointAssetData;
+              break;
+            case 'MANHOLE':
+              parsedLayers.manhole = parsed.parsedData as ParsedPointAssetData;
+              break;
+            case 'ODF':
+              parsedLayers.odf = parsed.parsedData as ParsedPointAssetData;
+              break;
+            case 'RISER':
+              parsedLayers.riser = parsed.parsedData as ParsedPointAssetData;
+              break;
+            case 'FTC':
+              parsedLayers.ftc = parsed.parsedData as ParsedPointAssetData;
+              break;
+            case 'TEST_POINT':
+              parsedLayers.testPoint = parsed.parsedData as ParsedPointAssetData;
+              break;
+            case 'BUILDING':
+              parsedLayers.building = parsed.parsedData as ParsedPointAssetData;
               break;
           }
 
@@ -307,6 +346,15 @@ export class GISImportService {
       if (parsedLayers.fdp) layersMap.set('FDP', parsedLayers.fdp);
       if (parsedLayers.fiberJoint) layersMap.set('FIBER_JOINT', parsedLayers.fiberJoint);
       if (parsedLayers.road) layersMap.set('ROAD_EOP', parsedLayers.road);
+      // New layer types
+      if (parsedLayers.duct) layersMap.set('DUCT', parsedLayers.duct);
+      if (parsedLayers.handhole) layersMap.set('HANDHOLE', parsedLayers.handhole);
+      if (parsedLayers.manhole) layersMap.set('MANHOLE', parsedLayers.manhole);
+      if (parsedLayers.odf) layersMap.set('ODF', parsedLayers.odf);
+      if (parsedLayers.riser) layersMap.set('RISER', parsedLayers.riser);
+      if (parsedLayers.ftc) layersMap.set('FTC', parsedLayers.ftc);
+      if (parsedLayers.testPoint) layersMap.set('TEST_POINT', parsedLayers.testPoint);
+      if (parsedLayers.building) layersMap.set('BUILDING', parsedLayers.building);
 
       const validationResult = gisValidator.validateAll(layersMap);
 

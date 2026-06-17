@@ -1,7 +1,8 @@
 // ============================================================================
 // SURVEY TASK GENERATOR - Auto-generate Survey Tasks from GIS Data
 // ============================================================================
-// Creates survey tasks for poles, FDPs, fiber joints, and road crossings
+// Creates survey tasks for poles, FDPs, fiber joints, road crossings,
+// and new point-asset layer types (duct, handhole, manhole, ODF, etc.)
 // ============================================================================
 
 import {
@@ -9,6 +10,7 @@ import {
   ParsedFDPData,
   ParsedFiberJointData,
   ParsedRoadData,
+  ParsedPointAssetData,
   GISLayerType,
 } from '@/types/gis';
 
@@ -173,6 +175,43 @@ export class SurveyGenerator {
             length: road.length,
             roadType: road.roadType,
             authority: road.authority,
+          },
+        });
+      });
+    }
+
+    // 6. Verification Tasks for New Point-Asset Layer Types
+    //    (DUCT, HANDHOLE, MANHOLE, ODF, RISER, FTC, TEST_POINT, BUILDING)
+    const pointAssetConfigs: Array<{ key: GISLayerType; label: string; taskType: string }> = [
+      { key: 'DUCT', label: 'Duct', taskType: 'DUCT_VERIFICATION' },
+      { key: 'HANDHOLE', label: 'Handhole', taskType: 'HANDHOLE_VERIFICATION' },
+      { key: 'MANHOLE', label: 'Manhole', taskType: 'MANHOLE_VERIFICATION' },
+      { key: 'ODF', label: 'ODF', taskType: 'ODF_VERIFICATION' },
+      { key: 'RISER', label: 'Riser', taskType: 'RISER_VERIFICATION' },
+      { key: 'FTC', label: 'FTC', taskType: 'FTC_VERIFICATION' },
+      { key: 'TEST_POINT', label: 'Test Point', taskType: 'TEST_POINT_VERIFICATION' },
+      { key: 'BUILDING', label: 'Building', taskType: 'BUILDING_VERIFICATION' },
+    ];
+
+    for (const cfg of pointAssetConfigs) {
+      const data = layers.get(cfg.key) as ParsedPointAssetData | undefined;
+      if (!data) continue;
+      const assets = (data as any).assets || [];
+      assets.forEach((asset: any, idx: number) => {
+        const longitude = asset.longitude ?? 0;
+        const latitude = asset.latitude ?? 0;
+        const name = asset.code || asset.type || `${cfg.label} ${idx + 1}`;
+
+        allTasks.push({
+          title: `${cfg.label} Verification - ${name}`,
+          description: `Verify ${cfg.label.toLowerCase()} location, condition, and surroundings at GPS coordinates.`,
+          taskType: cfg.taskType,
+          latitude,
+          longitude,
+          priority: 'MEDIUM',
+          metadata: {
+            assetIndex: asset.index ?? idx + 1,
+            rawProperties: asset.properties || {},
           },
         });
       });

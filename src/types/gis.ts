@@ -7,8 +7,22 @@
 /** Supported GIS file formats */
 export type GISFileFormat = 'GEOJSON' | 'QGIS' | 'SHP' | 'KML' | 'KMZ' | 'GEOPACKAGE';
 
-/** GIS Layer names as per Telecom OSP standards */
-export type GISLayerType = 'CABLE' | 'POLE' | 'FDP' | 'FIBER_JOINT' | 'ROAD_EOP' | 'BUILDING' | 'UNKNOWN';
+/** GIS Layer names as per Telecom OSP standards - supports all 12 SLT template layers */
+export type GISLayerType =
+  | 'CABLE'
+  | 'POLE'
+  | 'FDP'
+  | 'FIBER_JOINT'
+  | 'ROAD_EOP'
+  | 'DUCT'
+  | 'HANDHOLE'
+  | 'MANHOLE'
+  | 'ODF'
+  | 'RISER'
+  | 'FTC'
+  | 'TEST_POINT'
+  | 'BUILDING'
+  | 'UNKNOWN';
 
 /** Project types detected from GIS data */
 export type DetectedProjectType = 'SSD' | 'CLUSTER_DEVELOPMENT' | 'BUILDING_FIBER' | 'UNKNOWN';
@@ -135,6 +149,24 @@ export interface RoadSegmentItem {
   length: number; // meters
   roadType?: string;
   authority?: string;
+  properties: Record<string, any>;
+}
+
+/** Generic point asset data (for Duct, Handhole, Manhole, ODF, Riser, FTC, Test Point) */
+export interface ParsedPointAssetData {
+  layerName: string;
+  featureCount: number;
+  assetType: GISLayerType;
+  assets: PointAssetItem[];
+}
+
+export interface PointAssetItem {
+  index: number;
+  latitude: number;
+  longitude: number;
+  code?: string;
+  type?: string;
+  capacity?: number;
   properties: Record<string, any>;
 }
 
@@ -302,28 +334,101 @@ export interface PermitSegment {
 // ============================================================================
 
 export const LAYER_NAME_MAPPING: Record<string, GISLayerType> = {
+  // Cable layer
   'cables': 'CABLE',
   'Cables': 'CABLE',
   'CABLE': 'CABLE',
+  'slt_cables': 'CABLE',
+  // Pole layer
   'poles': 'POLE',
   'Poles': 'POLE',
   'POLE': 'POLE',
+  'slt_poles': 'POLE',
+  // FDP layer
   'fdp': 'FDP',
   'FDP': 'FDP',
   'FDPs': 'FDP',
   'fdps': 'FDP',
+  'slt_fdp': 'FDP',
+  // Fiber Joint layer
   'fj': 'FIBER_JOINT',
   'FJ': 'FIBER_JOINT',
   'fiber_joint': 'FIBER_JOINT',
   'FiberJoint': 'FIBER_JOINT',
   'fiber_joints': 'FIBER_JOINT',
+  'slt_fj': 'FIBER_JOINT',
+  // Road / EOP layer
   'road_eops': 'ROAD_EOP',
   'Road_EOPs': 'ROAD_EOP',
   'ROAD_EOP': 'ROAD_EOP',
   'roads': 'ROAD_EOP',
+  'slt_road_eops': 'ROAD_EOP',
+  'road': 'ROAD_EOP',
+  // Duct layer
+  'duct': 'DUCT',
+  'ducts': 'DUCT',
+  'DUCT': 'DUCT',
+  'slt_ducts': 'DUCT',
+  // Handhole layer
+  'handhole': 'HANDHOLE',
+  'handholes': 'HANDHOLE',
+  'hh': 'HANDHOLE',
+  'HH': 'HANDHOLE',
+  'slt_hh': 'HANDHOLE',
+  // Manhole layer
+  'manhole': 'MANHOLE',
+  'manholes': 'MANHOLE',
+  'mh': 'MANHOLE',
+  'MH': 'MANHOLE',
+  'slt_mh': 'MANHOLE',
+  // ODF layer
+  'odf': 'ODF',
+  'ODF': 'ODF',
+  'slt_odf': 'ODF',
+  // Riser layer
+  'riser': 'RISER',
+  'risers': 'RISER',
+  'RISER': 'RISER',
+  'slt_risers': 'RISER',
+  // FTC layer
+  'ftc': 'FTC',
+  'FTC': 'FTC',
+  'slt_ftc': 'FTC',
+  // Test Point layer
+  'test_point': 'TEST_POINT',
+  'testpoint': 'TEST_POINT',
+  'tp': 'TEST_POINT',
+  'TP': 'TEST_POINT',
+  'slt_tp': 'TEST_POINT',
+  // Building layer
   'building': 'BUILDING',
   'buildings': 'BUILDING',
 };
+
+/** Human-readable labels for each GIS layer type (for UI dropdowns) */
+export const LAYER_TYPE_LABELS: Record<GISLayerType, string> = {
+  'CABLE': 'Fiber Cable',
+  'POLE': 'Pole',
+  'FDP': 'Fiber Distribution Point (FDP)',
+  'FIBER_JOINT': 'Fiber Joint (Closure)',
+  'ROAD_EOP': 'Road / EOP',
+  'DUCT': 'Duct',
+  'HANDHOLE': 'Handhole',
+  'MANHOLE': 'Manhole',
+  'ODF': 'Optical Distribution Frame (ODF)',
+  'RISER': 'Riser',
+  'FTC': 'Fiber Termination Cabinet (FTC)',
+  'TEST_POINT': 'Test Point',
+  'BUILDING': 'Building',
+  'UNKNOWN': 'Unknown / Other',
+};
+
+/** All supported layer types for UI dropdowns (excluding UNKNOWN) */
+export const SELECTABLE_LAYER_TYPES: GISLayerType[] = [
+  'CABLE', 'POLE', 'FDP', 'FIBER_JOINT', 'ROAD_EOP',
+  'DUCT', 'HANDHOLE', 'MANHOLE', 'ODF', 'RISER', 'FTC', 'TEST_POINT',
+  'BUILDING',
+];
 
 // ============================================================================
 // Unit Rates for BOQ Calculation
@@ -337,6 +442,14 @@ export const BOQ_UNIT_RATES: Record<string, number> = {
   'WARNING_TAPE_PER_METER': 150,    // LKR per meter
   'ACCESSORIES_PERCENTAGE': 0.08,   // 8% of total material cost
   'ROAD_CROSSING': 85000,           // LKR per road crossing
+  // Additional layer unit rates
+  'DUCT_PER_METER': 1200,           // LKR per meter
+  'HANDHOLE': 18000,                // LKR per handhole
+  'MANHOLE': 85000,                 // LKR per manhole
+  'ODF': 120000,                    // LKR per ODF
+  'RISER': 8500,                    // LKR per riser
+  'FTC': 95000,                     // LKR per FTC
+  'TEST_POINT': 5000,               // LKR per test point
 };
 
 // ============================================================================

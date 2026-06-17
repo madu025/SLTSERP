@@ -2,17 +2,26 @@
 // GISUpload Component - Drag-and-drop GIS file upload
 // ============================================================================
 // Enterprise-grade component for uploading GIS files (GeoJSON, KML, SHP, etc.)
+// Supports per-file layer type detection and manual override for all 12 layers
 // ============================================================================
 
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  SELECTABLE_LAYER_TYPES,
+  LAYER_TYPE_LABELS,
+  LAYER_NAME_MAPPING,
+  type GISLayerType,
+} from '@/types/gis';
 
 interface UploadFileInfo {
   file: File;
   status: 'pending' | 'uploading' | 'uploaded' | 'error';
   error?: string;
+  layerType: GISLayerType; // detected or user-overridden
+  autoDetected: boolean; // true if auto-detected, false if user-overridden
 }
 
 interface UploadState {
@@ -21,6 +30,24 @@ interface UploadState {
   message?: string;
   error?: string;
   progress: number;
+}
+
+/**
+ * Client-side layer type detection from file name.
+ * Mirrors the server-side gisParser.detectLayerType logic.
+ */
+function detectLayerTypeFromFileName(fileName: string): GISLayerType {
+  const normalized = fileName
+    .replace(/\.(geojson|json|kml|kmz|shp|gpkg|qgz|qgs)$/i, '')
+    .replace(/^KL-SVK-\d+_/, '')
+    .replace(/^.*[\\/]/, '');
+
+  for (const [pattern, layerType] of Object.entries(LAYER_NAME_MAPPING)) {
+    if (normalized.toLowerCase().includes(pattern.toLowerCase())) {
+      return layerType;
+    }
+  }
+  return 'UNKNOWN';
 }
 
 export function GISUpload() {
@@ -37,15 +64,30 @@ export function GISUpload() {
   const [dragOver, setDragOver] = useState(false);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
-    const entries: UploadFileInfo[] = Array.from(newFiles).map((file) => ({
-      file,
-      status: 'pending' as const,
-    }));
+    const entries: UploadFileInfo[] = Array.from(newFiles).map((file) => {
+      const detected = detectLayerTypeFromFileName(file.name);
+      return {
+        file,
+        status: 'pending' as const,
+        layerType: detected,
+        autoDetected: true,
+      };
+    });
     setFiles((prev) => [...prev, ...entries]);
   }, []);
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleLayerTypeChange = useCallback((index: number, newType: GISLayerType) => {
+    setFiles((prev) =>
+      prev.map((f, i) =>
+        i === index
+          ? { ...f, layerType: newType, autoDetected: false }
+          : f
+      )
+    );
   }, []);
 
   const handleDrop = useCallback(
@@ -85,6 +127,11 @@ export function GISUpload() {
     try {
       const formData = new FormData();
       files.forEach((f) => formData.append('files', f.file));
+      // Pass per-file layer types as a parallel JSON array
+      formData.append(
+        'layerTypes',
+        JSON.stringify(files.map((f) => f.layerType))
+      );
 
       if (projectName) formData.append('projectName', projectName);
       if (region) formData.append('region', region);
@@ -238,41 +285,62 @@ export function GISUpload() {
           <p className="text-xs text-gray-500">
             GeoJSON, KML, KMZ, SHP, GeoPackage (Max 50MB per file)
           </p>
+          <p className="text-xs text-gray-400">
+            Supports all 12 SLT template layers: Cables, Poles, FDP, Fiber Joints, Roads/EOP, Ducts, Handholes, Manholes, ODF, Risers, FTC, Test Points, Buildings
+          </p>
         </div>
       </div>
 
-      {/* File List */}
+      {/* File List with Layer Type Override */}
       {files.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-gray-700">
-            Selected Files ({files.length})
+            Selected Files ({files.length}) — Layer types auto-detected, override if needed
           </h3>
-          <div className="max-h-48 overflow-y-auto space-y-1">
+          <div className="max-h-72 overflow-y-auto space-y-2">
             {files.map((f, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md text-sm"
+                className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-md text-sm gap-3"
               >
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 min-w-0 flex-1">
                   <span
-                    className={`w-2 h-2 rounded-full ${
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
                       isValidGeoJSON(f.file.name) ? 'bg-green-500' : 'bg-yellow-500'
                     }`}
                   />
-                  <span className="text-gray-700 truncate max-w-xs">
+                  <span className="text-gray-700 truncate max-w-xs" title={f.file.name}>
                     {f.file.name}
                   </span>
-                  <span className="text-gray-400 text-xs">
+                  <span className="text-gray-400 text-xs flex-shrink-0">
                     ({(f.file.size / 1024 / 1024).toFixed(2)} MB)
                   </span>
                 </div>
-                <button
-                  onClick={() => removeFile(idx)}
-                  className="text-red-500 hover:text-red-700 text-xs font-medium"
-                  disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
-                >
-                  Remove
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {f.autoDetected && f.layerType !== 'UNKNOWN' && (
+                    <span className="text-xs text-blue-500 italic">auto</span>
+                  )}
+                  <select
+                    value={f.layerType}
+                    onChange={(e) => handleLayerTypeChange(idx, e.target.value as GISLayerType)}
+                    className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+                  >
+                    <option value="UNKNOWN">— Auto / Unknown —</option>
+                    {SELECTABLE_LAYER_TYPES.map((lt) => (
+                      <option key={lt} value={lt}>
+                        {LAYER_TYPE_LABELS[lt]}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => removeFile(idx)}
+                    className="text-red-500 hover:text-red-700 text-xs font-medium"
+                    disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>

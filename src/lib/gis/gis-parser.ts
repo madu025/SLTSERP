@@ -18,6 +18,8 @@ import {
   FiberJointItem,
   ParsedRoadData,
   RoadSegmentItem,
+  ParsedPointAssetData,
+  PointAssetItem,
   GISLayerType,
   LAYER_NAME_MAPPING,
   GPS_CONSTANTS,
@@ -327,11 +329,63 @@ export class GISParser {
   }
 
   /**
+   * Parse a generic point-asset layer (Duct, Handhole, Manhole, ODF, Riser, FTC, Test Point, Building)
+   * These are all Point features with similar property structures.
+   */
+  parsePointAssetLayer(
+    features: GeoJSONFeature[],
+    layerName: string,
+    assetType: GISLayerType
+  ): ParsedPointAssetData {
+    const assets: PointAssetItem[] = [];
+
+    features.forEach((feature, index) => {
+      if (feature.geometry.type === 'Point') {
+        const [longitude, latitude] = feature.geometry.coordinates as [
+          number,
+          number
+        ];
+        assets.push({
+          index: index + 1,
+          latitude,
+          longitude,
+          code:
+            feature.properties?.code ||
+            feature.properties?.name ||
+            feature.properties?.id ||
+            feature.properties?.asset_code ||
+            undefined,
+          type:
+            feature.properties?.type ||
+            feature.properties?.asset_type ||
+            feature.properties?.subtype ||
+            undefined,
+          capacity:
+            Number(feature.properties?.capacity) ||
+            Number(feature.properties?.ports) ||
+            Number(feature.properties?.size) ||
+            undefined,
+          properties: feature.properties || {},
+        });
+      }
+    });
+
+    return {
+      layerName,
+      featureCount: assets.length,
+      assetType,
+      assets,
+    };
+  }
+
+  /**
    * Auto-detect and parse a layer based on file content and name
+   * Supports all 12 SLT template layer types
    */
   autoParseLayer(
     fileName: string,
-    fileContent: string | object
+    fileContent: string | object,
+    overrideLayerType?: GISLayerType
   ): {
     layerType: GISLayerType;
     parsedData:
@@ -339,9 +393,14 @@ export class GISParser {
       | ParsedPoleData
       | ParsedFDPData
       | ParsedFiberJointData
-      | ParsedRoadData;
+      | ParsedRoadData
+      | ParsedPointAssetData;
   } {
-    const layerType = this.detectLayerType(fileName);
+    // Use client-provided override if valid; otherwise detect from filename
+    const layerType =
+      overrideLayerType && overrideLayerType !== 'UNKNOWN'
+        ? overrideLayerType
+        : this.detectLayerType(fileName);
     const geoJSON = this.parseGeoJSON(fileContent);
 
     switch (layerType) {
@@ -369,6 +428,22 @@ export class GISParser {
         return {
           layerType,
           parsedData: this.parseRoadLayer(geoJSON.features, fileName),
+        };
+      case 'DUCT':
+      case 'HANDHOLE':
+      case 'MANHOLE':
+      case 'ODF':
+      case 'RISER':
+      case 'FTC':
+      case 'TEST_POINT':
+      case 'BUILDING':
+        return {
+          layerType,
+          parsedData: this.parsePointAssetLayer(
+            geoJSON.features,
+            fileName,
+            layerType
+          ),
         };
       default:
         // Try to detect by geometry type

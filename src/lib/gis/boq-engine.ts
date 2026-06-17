@@ -13,6 +13,7 @@ import {
   ParsedFDPData,
   ParsedFiberJointData,
   ParsedRoadData,
+  ParsedPointAssetData,
   GISLayerType,
 } from '@/types/gis';
 
@@ -67,6 +68,14 @@ export class BOQEngine {
     const fdpData = layers.get('FDP') as ParsedFDPData | undefined;
     const jointData = layers.get('FIBER_JOINT') as ParsedFiberJointData | undefined;
     const roadData = layers.get('ROAD_EOP') as ParsedRoadData | undefined;
+    // New layer types (all parsed as ParsedPointAssetData)
+    const ductData = layers.get('DUCT') as ParsedPointAssetData | undefined;
+    const handholeData = layers.get('HANDHOLE') as ParsedPointAssetData | undefined;
+    const manholeData = layers.get('MANHOLE') as ParsedPointAssetData | undefined;
+    const odfData = layers.get('ODF') as ParsedPointAssetData | undefined;
+    const riserData = layers.get('RISER') as ParsedPointAssetData | undefined;
+    const ftcData = layers.get('FTC') as ParsedPointAssetData | undefined;
+    const testPointData = layers.get('TEST_POINT') as ParsedPointAssetData | undefined;
 
     // ======================================================================
     // 1. Fiber Cable
@@ -150,6 +159,132 @@ export class BOQEngine {
         amount: Math.round(jointCost * 100) / 100,
       });
       totalEstimatedCost += jointCost;
+    }
+
+    // ======================================================================
+    // 4b. Ducts
+    // ======================================================================
+    if (ductData && ductData.featureCount > 0) {
+      const ductCount = ductData.featureCount;
+      const ductRate = (BOQ_UNIT_RATES['DUCT'] || 1500) * regionMultiplier;
+      const ductCost = ductCount * ductRate;
+      items.push({
+        category: 'DUCT',
+        description: `Ducts (${ductCount} units) - Supply & Installation`,
+        unit: 'Each',
+        quantity: ductCount,
+        unitRate: Math.round(ductRate * 100) / 100,
+        amount: Math.round(ductCost * 100) / 100,
+      });
+      totalEstimatedCost += ductCost;
+    }
+
+    // ======================================================================
+    // 4c. Handholes
+    // ======================================================================
+    if (handholeData && handholeData.featureCount > 0) {
+      const hhCount = handholeData.featureCount;
+      const hhRate = (BOQ_UNIT_RATES['HANDHOLE'] || 25000) * regionMultiplier;
+      const hhCost = hhCount * hhRate;
+      items.push({
+        category: 'HANDHOLE',
+        description: `Handholes (${hhCount} units) - Supply & Installation`,
+        unit: 'Each',
+        quantity: hhCount,
+        unitRate: Math.round(hhRate * 100) / 100,
+        amount: Math.round(hhCost * 100) / 100,
+      });
+      totalEstimatedCost += hhCost;
+    }
+
+    // ======================================================================
+    // 4d. Manholes
+    // ======================================================================
+    if (manholeData && manholeData.featureCount > 0) {
+      const mhCount = manholeData.featureCount;
+      const mhRate = (BOQ_UNIT_RATES['MANHOLE'] || 85000) * regionMultiplier;
+      const mhCost = mhCount * mhRate;
+      items.push({
+        category: 'MANHOLE',
+        description: `Manholes (${mhCount} units) - Supply & Installation`,
+        unit: 'Each',
+        quantity: mhCount,
+        unitRate: Math.round(mhRate * 100) / 100,
+        amount: Math.round(mhCost * 100) / 100,
+      });
+      totalEstimatedCost += mhCost;
+    }
+
+    // ======================================================================
+    // 4e. ODF (Optical Distribution Frame)
+    // ======================================================================
+    if (odfData && odfData.featureCount > 0) {
+      const odfCount = odfData.featureCount;
+      const odfRate = (BOQ_UNIT_RATES['ODF'] || 120000) * regionMultiplier;
+      const odfCost = odfCount * odfRate;
+      items.push({
+        category: 'ODF',
+        description: `Optical Distribution Frames (${odfCount} units) - Supply & Installation`,
+        unit: 'Each',
+        quantity: odfCount,
+        unitRate: Math.round(odfRate * 100) / 100,
+        amount: Math.round(odfCost * 100) / 100,
+      });
+      totalEstimatedCost += odfCost;
+    }
+
+    // ======================================================================
+    // 4f. Risers
+    // ======================================================================
+    if (riserData && riserData.featureCount > 0) {
+      const riserCount = riserData.featureCount;
+      const riserRate = (BOQ_UNIT_RATES['RISER'] || 18000) * regionMultiplier;
+      const riserCost = riserCount * riserRate;
+      items.push({
+        category: 'RISER',
+        description: `Risers (${riserCount} units) - Supply & Installation`,
+        unit: 'Each',
+        quantity: riserCount,
+        unitRate: Math.round(riserRate * 100) / 100,
+        amount: Math.round(riserCost * 100) / 100,
+      });
+      totalEstimatedCost += riserCost;
+    }
+
+    // ======================================================================
+    // 4g. FTC (Fiber Termination Cabinet)
+    // ======================================================================
+    if (ftcData && ftcData.featureCount > 0) {
+      const ftcCount = ftcData.featureCount;
+      const ftcRate = (BOQ_UNIT_RATES['FTC'] || 95000) * regionMultiplier;
+      const ftcCost = ftcCount * ftcRate;
+      items.push({
+        category: 'FTC',
+        description: `Fiber Termination Cabinets (${ftcCount} units) - Supply & Installation`,
+        unit: 'Each',
+        quantity: ftcCount,
+        unitRate: Math.round(ftcRate * 100) / 100,
+        amount: Math.round(ftcCost * 100) / 100,
+      });
+      totalEstimatedCost += ftcCost;
+    }
+
+    // ======================================================================
+    // 4h. Test Points
+    // ======================================================================
+    if (testPointData && testPointData.featureCount > 0) {
+      const tpCount = testPointData.featureCount;
+      const tpRate = (BOQ_UNIT_RATES['TEST_POINT'] || 5000) * regionMultiplier;
+      const tpCost = tpCount * tpRate;
+      items.push({
+        category: 'TEST_POINT',
+        description: `Test Points (${tpCount} units) - Supply & Installation`,
+        unit: 'Each',
+        quantity: tpCount,
+        unitRate: Math.round(tpRate * 100) / 100,
+        amount: Math.round(tpCost * 100) / 100,
+      });
+      totalEstimatedCost += tpCost;
     }
 
     // ======================================================================

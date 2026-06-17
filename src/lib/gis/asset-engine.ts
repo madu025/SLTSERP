@@ -9,6 +9,7 @@ import {
   ParsedPoleData,
   ParsedFDPData,
   ParsedFiberJointData,
+  ParsedPointAssetData,
   GISLayerType,
   AssetCategory,
 } from '@/types/gis';
@@ -54,6 +55,16 @@ export class AssetEngine {
     const fdpData = layers.get('FDP') as ParsedFDPData | undefined;
     const jointData = layers.get('FIBER_JOINT') as ParsedFiberJointData | undefined;
 
+    // New layer types (all parsed as ParsedPointAssetData)
+    const ductData = layers.get('DUCT') as ParsedPointAssetData | undefined;
+    const handholeData = layers.get('HANDHOLE') as ParsedPointAssetData | undefined;
+    const manholeData = layers.get('MANHOLE') as ParsedPointAssetData | undefined;
+    const odfData = layers.get('ODF') as ParsedPointAssetData | undefined;
+    const riserData = layers.get('RISER') as ParsedPointAssetData | undefined;
+    const ftcData = layers.get('FTC') as ParsedPointAssetData | undefined;
+    const testPointData = layers.get('TEST_POINT') as ParsedPointAssetData | undefined;
+    const buildingData = layers.get('BUILDING') as ParsedPointAssetData | undefined;
+
     // Generate Cable Assets
     if (cableData) {
       const cableAssets = this.generateCableAssets(cableData, projectCode);
@@ -77,6 +88,16 @@ export class AssetEngine {
       const jointAssets = this.generateJointAssets(jointData, projectCode);
       allAssets.push(...jointAssets);
     }
+
+    // Generate assets for new point-asset layer types
+    if (ductData) allAssets.push(...this.generatePointAssets(ductData, projectCode, 'DUCT', 'DCT'));
+    if (handholeData) allAssets.push(...this.generatePointAssets(handholeData, projectCode, 'HANDHOLE', 'HH'));
+    if (manholeData) allAssets.push(...this.generatePointAssets(manholeData, projectCode, 'MANHOLE', 'MH'));
+    if (odfData) allAssets.push(...this.generatePointAssets(odfData, projectCode, 'ODF', 'ODF'));
+    if (riserData) allAssets.push(...this.generatePointAssets(riserData, projectCode, 'RISER', 'RSR'));
+    if (ftcData) allAssets.push(...this.generatePointAssets(ftcData, projectCode, 'FTC', 'FTC'));
+    if (testPointData) allAssets.push(...this.generatePointAssets(testPointData, projectCode, 'TEST_POINT', 'TP'));
+    if (buildingData) allAssets.push(...this.generatePointAssets(buildingData, projectCode, 'BUILDING', 'BLD'));
 
     // Calculate category counts
     const categoryCounts: Record<string, number> = {};
@@ -252,8 +273,54 @@ export class AssetEngine {
   }
 
   /**
-   * Get next sequence number for an asset type
-   */
+    * Generate generic point assets for new layer types
+    * (DUCT, HANDHOLE, MANHOLE, ODF, RISER, FTC, TEST_POINT, BUILDING)
+    */
+  private generatePointAssets(
+    data: ParsedPointAssetData,
+    projectCode: string,
+    assetType: string,
+    codePrefix: string
+  ): GeneratedAsset[] {
+    const assets: GeneratedAsset[] = [];
+
+    // ParsedPointAssetData has a `features` array with point features
+    const features = (data as any).features || [];
+    features.forEach((feature: any, idx: number) => {
+      const seq = this.nextSeq(assetType);
+      const assetCode = `${projectCode}-${codePrefix}-${String(seq).padStart(4, '0')}`;
+
+      // Extract coordinates from the point feature
+      const coords = feature.geometry?.coordinates || feature.coordinates || [0, 0];
+      const longitude = Array.isArray(coords) ? coords[0] : 0;
+      const latitude = Array.isArray(coords) ? coords[1] : 0;
+
+      // Extract a name/identifier from properties
+      const props = feature.properties || {};
+      const name = props.name || props.code || props.id || `${assetType} ${idx + 1}`;
+
+      assets.push({
+        assetType,
+        assetCode,
+        assetName: `${assetType} ${name}`,
+        latitude,
+        longitude,
+        status: 'PLANNED',
+        installationStatus: 'NOT_INSTALLED',
+        sourceType: 'GIS_ROUTE',
+        metadata: {
+          featureIndex: idx + 1,
+          rawProperties: props,
+        },
+      });
+    });
+
+    return assets;
+  }
+
+  /**
+    * Get next sequence number for an asset type
+    */
   private nextSeq(type: string): number {
     this.assetCounter[type] = (this.assetCounter[type] || 0) + 1;
     return this.assetCounter[type];

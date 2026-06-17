@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GISImportService } from '@/services/GISImportService';
 import { logger } from '@/lib/logger';
-import type { GISUploadRequest } from '@/types/gis';
+import type { GISUploadRequest, GISLayerType } from '@/types/gis';
 
 export async function POST(request: NextRequest) {
   logger.info('[GIS-UPLOAD] Received GIS file upload request');
@@ -24,13 +24,35 @@ export async function POST(request: NextRequest) {
       const files: GISUploadRequest['files'] = [];
       const fileEntries = formData.getAll('files') as File[];
 
-      for (const file of fileEntries) {
+      // Parse the parallel layerTypes JSON array sent by the client
+      // (one layer type per file, in the same order as fileEntries)
+      const layerTypesRaw = formData.get('layerTypes') as string | null;
+      let clientLayerTypes: (GISLayerType | undefined)[] = [];
+      if (layerTypesRaw) {
+        try {
+          const parsed = JSON.parse(layerTypesRaw);
+          if (Array.isArray(parsed)) {
+            clientLayerTypes = parsed as (GISLayerType | undefined)[];
+          }
+        } catch {
+          logger.warn('[GIS-UPLOAD] Invalid layerTypes JSON, ignoring client overrides');
+        }
+      }
+
+      for (let i = 0; i < fileEntries.length; i++) {
+        const file = fileEntries[i];
         const buffer = Buffer.from(await file.arrayBuffer());
         const base64 = buffer.toString('base64');
 
+        const clientLayerType = clientLayerTypes[i];
         files.push({
           fileName: file.name,
           fileData: base64,
+          // Pass the client-selected layer type; service will auto-detect if undefined/UNKNOWN
+          layerType:
+            clientLayerType && clientLayerType !== 'UNKNOWN'
+              ? clientLayerType
+              : undefined,
         });
       }
 
