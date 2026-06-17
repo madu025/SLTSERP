@@ -14,15 +14,15 @@ const WORKSPACE = process.env.GEOSERVER_WORKSPACE || 'sltserp';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path?: string[] }> }
 ) {
   const { path } = await params;
   const searchParams = req.nextUrl.searchParams;
 
   // Build GeoServer target URL
-  const pathStr = path.join('/');
+  const pathStr = (path && path.length > 0) ? path.join('/') : '';
   const queryStr = searchParams.toString();
-  const targetUrl = `${GEOSERVER_BASE_URL}/${WORKSPACE}/${pathStr}${queryStr ? `?${queryStr}` : ''}`;
+  const targetUrl = `${GEOSERVER_BASE_URL}/${WORKSPACE}${pathStr ? `/${pathStr}` : ''}${queryStr ? `?${queryStr}` : ''}`;
 
   try {
     const headers: HeadersInit = {
@@ -74,14 +74,14 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path?: string[] }> }
 ) {
   const { path } = await params;
   const searchParams = req.nextUrl.searchParams;
 
-  const pathStr = path.join('/');
+  const pathStr = (path && path.length > 0) ? path.join('/') : '';
   const queryStr = searchParams.toString();
-  const targetUrl = `${GEOSERVER_BASE_URL}/${WORKSPACE}/${pathStr}${queryStr ? `?${queryStr}` : ''}`;
+  const targetUrl = `${GEOSERVER_BASE_URL}/${WORKSPACE}${pathStr ? `/${pathStr}` : ''}${queryStr ? `?${queryStr}` : ''}`;
 
   try {
     const body = await req.text();
