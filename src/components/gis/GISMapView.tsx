@@ -349,30 +349,54 @@ export function GISMapView({
       allExtents.push(geom.getExtent());
     }
 
+    // Helper: build cable popup HTML
+    function cablePopup(seg: any, route: any) {
+      return `
+        <div style="font-family: sans-serif; min-width: 200px;">
+          <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🔌 Cable Segment #${seg.segmentNumber || '?'}</h3>
+          <table style="width:100%; font-size: 12px; border-collapse: collapse;">
+            <tr><td style="padding: 2px 4px; color: #666;">Length</td><td style="padding: 2px 4px; font-weight: 500;">${seg.length ? seg.length.toFixed(2) + ' m' : 'N/A'}</td></tr>
+            <tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${seg.cableType || route.cableType || 'N/A'}</td></tr>
+            <tr><td style="padding: 2px 4px; color: #666;">Fiber Count</td><td style="padding: 2px 4px; font-weight: 500;">${seg.fiberCount || '?'}F</td></tr>
+            <tr><td style="padding: 2px 4px; color: #666;">Route</td><td style="padding: 2px 4px; font-weight: 500;">${route.name || 'N/A'}</td></tr>
+          </table>
+        </div>`;
+    }
+
     // Process routes
     for (const route of gisRoutes) {
-      // --- CABLES ---
+      // --- CABLES (with pole-reference fallback) ---
       if (route.cableSegments?.length) {
+        // Build pole coordinate lookup for rendering cables between poles
+        const poleCoordMap = new Map<string, [number, number]>();
+        if (route.poles) {
+          for (const p of route.poles) {
+            const lat = p.latitude ?? p.lat;
+            const lng = p.longitude ?? p.lon ?? p.lng;
+            if (lat != null && lng != null) poleCoordMap.set(p.id, [lng, lat]);
+          }
+        }
         for (const seg of route.cableSegments) {
+          let cableCoords: Array<[number, number]> | null = null;
+          // Priority 1: explicit coordinates array on segment
           if (seg.coordinates?.length) {
-            const coords = seg.coordinates.map((c: any) => fromLonLat([c[0], c[1]]));
+            cableCoords = seg.coordinates;
+          }
+          // Priority 2: fromPoleId / toPoleId references
+          else if (seg.fromPoleId && seg.toPoleId) {
+            const fromC = poleCoordMap.get(seg.fromPoleId);
+            const toC = poleCoordMap.get(seg.toPoleId);
+            if (fromC && toC) cableCoords = [fromC, toC];
+          }
+          if (cableCoords) {
+            const coords = cableCoords.map((c: any) => fromLonLat([c[0], c[1]]));
             const line = new LineString(coords);
-            const html = `
-              <div style="font-family: sans-serif; min-width: 200px;">
-                <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🔌 Cable Segment #${seg.segmentNumber || '?'}</h3>
-                <table style="width:100%; font-size: 12px; border-collapse: collapse;">
-                  <tr><td style="padding: 2px 4px; color: #666;">Length</td><td style="padding: 2px 4px; font-weight: 500;">${seg.length ? seg.length.toFixed(2) + ' m' : 'N/A'}</td></tr>
-                  <tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${seg.cableType || route.cableType || 'N/A'}</td></tr>
-                  <tr><td style="padding: 2px 4px; color: #666;">Fiber Count</td><td style="padding: 2px 4px; font-weight: 500;">${seg.fiberCount || '?'}F</td></tr>
-                  <tr><td style="padding: 2px 4px; color: #666;">Route</td><td style="padding: 2px 4px; font-weight: 500;">${route.name || 'N/A'}</td></tr>
-                </table>
-              </div>`;
-            addFeature('cables', line, html, 'cables');
+            addFeature('cables', line, cablePopup(seg, route), 'cables');
           }
         }
       }
 
-      // Geometry-based cables fallback
+      // Geometry-based cables fallback (route-level)
       if (route.geometry) {
         try {
           const geom = typeof route.geometry === 'string' ? JSON.parse(route.geometry) : route.geometry;

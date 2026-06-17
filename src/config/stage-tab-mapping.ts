@@ -27,6 +27,51 @@ export const ALWAYS_VISIBLE_TABS: TabDefinition[] = [
  * for work being done in that stage.
  */
 export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
+    // ===== Simple stage name aliases (matches DB stage names from simulation) =====
+    'survey': [
+        { value: 'survey', label: 'Survey', description: 'Site survey and field verification' },
+        { value: 'gis', label: 'GIS Route', description: 'GIS route planning and mapping' },
+        { value: 'documents', label: 'Documents', description: 'Survey reports and drawings' },
+        { value: 'risks', label: 'Risks', description: 'Risk assessment' },
+    ],
+    'permit': [
+        { value: 'permits', label: 'Permits', description: 'Permit and wayleave management' },
+        { value: 'documents', label: 'Documents', description: 'Permit documentation' },
+        { value: 'approvals', label: 'Approvals', description: 'Permit approvals' },
+    ],
+    'material': [
+        { value: 'boq', label: 'BOQ & Material', description: 'Bill of quantities and material management' },
+        { value: 'materials', label: 'Material Issues', description: 'Material issue tracking' },
+        { value: 'procurement', label: 'Procurement', description: 'Procurement and purchasing' },
+        { value: 'documents', label: 'Documents', description: 'Material and procurement documents' },
+    ],
+    'installation': [
+        { value: 'tasks', label: 'Tasks', description: 'Installation tasks' },
+        { value: 'resources', label: 'Resources', description: 'Resource allocation' },
+        { value: 'contractor', label: 'Contractor', description: 'Contractor management' },
+        { value: 'hse', label: 'HSE', description: 'Health, safety and environment' },
+        { value: 'expenses', label: 'Expenses', description: 'Installation expenses' },
+        { value: 'documents', label: 'Documents', description: 'Installation documents' },
+    ],
+    'otdr': [
+        { value: 'otdr', label: 'OTDR', description: 'OTDR testing and results' },
+        { value: 'qa', label: 'QA/QC', description: 'Quality control' },
+        { value: 'documents', label: 'Documents', description: 'Test reports and documentation' },
+    ],
+    'qa': [
+        { value: 'qa', label: 'QA/QC', description: 'Quality assurance and control' },
+        { value: 'kpis', label: 'KPIs', description: 'Quality and performance KPIs' },
+        { value: 'commissioning', label: 'Commissioning', description: 'Network commissioning' },
+        { value: 'documents', label: 'Documents', description: 'QA reports and documents' },
+    ],
+    'closure': [
+        { value: 'closure', label: 'Closure', description: 'Project closure and handover' },
+        { value: 'assets', label: 'Assets', description: 'Asset registration with NOC' },
+        { value: 'documents', label: 'Documents', description: 'Handover and as-built documents' },
+        { value: 'kpis', label: 'KPIs', description: 'Project completion KPIs' },
+        { value: 'finance', label: 'Finance', description: 'Final financial closeout' },
+    ],
+
     // ===== SSD / General Stages =====
     'survey & feasibility': [
         { value: 'survey', label: 'Survey', description: 'Site survey and feasibility assessment' },

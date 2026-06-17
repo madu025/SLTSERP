@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 /**
  * Calculate and update project progress based on workflow stage completion
  * Progress is calculated as: completed stages / total stages * 100
+ * Also auto-updates project status based on progress
  */
 export async function calculateProjectProgress(projectId: string): Promise<number> {
   // Get the project's workflow instance with all stages
@@ -37,10 +38,21 @@ export async function calculateProjectProgress(projectId: string): Promise<numbe
     (inProgressStages > 0 ? (1 / totalStages) * 50 : 0)
   ));
 
-  // Update the project progress
+  // Auto-sync project status based on progress
+  const updateData: any = { progress };
+  
+  if (progress >= 100) {
+    updateData.status = 'COMPLETED';
+    if (!project.actualEndDate) {
+      updateData.actualEndDate = new Date();
+    }
+  } else if (progress > 0 && project.status === 'PLANNING') {
+    updateData.status = 'IN_PROGRESS';
+  }
+
   await prisma.project.update({
     where: { id: projectId },
-    data: { progress }
+    data: updateData
   });
 
   return progress;
