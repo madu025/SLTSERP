@@ -425,6 +425,10 @@ export class GISImportService {
         type: projectType,
         status: 'PLANNING',
         location: session.region ? `${session.region}${session.district ? ` / ${session.district}` : ''}` : null,
+        budget: boq.totalEstimatedCost,
+        actualCost: 0,
+        startDate: new Date(),
+        estimatedDuration: 180,
       },
     });
 
