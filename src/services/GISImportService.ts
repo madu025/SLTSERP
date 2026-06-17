@@ -748,12 +748,46 @@ export class GISImportService {
         })),
       });
 
+      // Sync BOQ items to ProjectBOQItem for dashboard BOQ tab visibility
+      await prisma.projectBOQItem.createMany({
+        data: boq.items.map((item) => ({
+          projectId: project.id,
+          category: item.category,
+          itemCode: `BOQ-${projectCode}-${item.category.substring(0, 3)}`,
+          description: item.description,
+          unit: item.unit,
+          quantity: item.quantity,
+          unitRate: item.unitRate,
+          amount: item.amount,
+        })),
+      });
+
       auditLog.push({
         timestamp: new Date().toISOString(),
         action: 'BOQ_PERSISTED',
         entity: 'GISGeneratedBOQ',
         entityId: generatedBOQ.id,
-        details: `BOQ persisted with ${boq.items.length} items, total LKR ${boq.totalEstimatedCost.toLocaleString()}`,
+        details: `BOQ persisted with ${boq.items.length} items, total LKR ${boq.totalEstimatedCost.toLocaleString()} (synced to ProjectBOQItem)`,
+      });
+
+      // Create milestones from BOQ categories for dashboard milestone tab
+      const milestoneNames = [...new Set(boq.items.map((i) => i.category))];
+      await prisma.projectMilestone.createMany({
+        data: milestoneNames.map((cat, idx) => ({
+          projectId: project.id,
+          name: cat,
+          description: `GIS-generated milestone for ${cat}`,
+          targetDate: new Date(Date.now() + (idx + 1) * 30 * 86400000), // spaced every 30 days
+          status: 'PENDING',
+        })),
+      });
+
+      auditLog.push({
+        timestamp: new Date().toISOString(),
+        action: 'MILESTONES_CREATED',
+        entity: 'ProjectMilestone',
+        entityId: project.id,
+        details: `${milestoneNames.length} milestones created from BOQ categories`,
       });
     }
 

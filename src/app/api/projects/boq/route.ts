@@ -1,6 +1,44 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// GET list BOQ items for a project
+export async function GET(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const projectId = searchParams.get('projectId');
+
+        if (!projectId) {
+            return NextResponse.json(
+                { error: 'projectId query parameter is required' },
+                { status: 400 }
+            );
+        }
+
+        const boqItems = await prisma.projectBOQItem.findMany({
+            where: { projectId },
+            include: {
+                material: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        unit: true
+                    }
+                }
+            },
+            orderBy: { itemCode: 'asc' }
+        });
+
+        return NextResponse.json(boqItems);
+    } catch (error) {
+        console.error('Error fetching BOQ items:', error);
+        return NextResponse.json(
+            { error: 'Failed to fetch BOQ items' },
+            { status: 500 }
+        );
+    }
+}
+
 // POST create BOQ item
 export async function POST(request: Request) {
     try {
