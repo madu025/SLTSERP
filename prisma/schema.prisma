@@ -410,6 +410,7 @@ model ProjectBOQItem {
   unitRate       Float
   amount         Float
   category       String?
+  source         String         @default("NEW") // NEW = to procure, EXISTING = from inventory/stock
   actualQuantity Float          @default(0)
   actualCost     Float          @default(0)
   materialId     String?
@@ -421,6 +422,7 @@ model ProjectBOQItem {
 
   @@index([projectId])
   @@index([category])
+  @@index([source])
 }
 
 model ProjectMilestone {
@@ -3347,6 +3349,7 @@ model GISRoute {
 }
 
 model GISPole {
+  properties    Json?       // Raw QGIS/GeoJSON feature properties
   id            String    @id @default(cuid())
   routeId       String
   poleNumber    Int       // Sequential pole number
@@ -3390,6 +3393,7 @@ model GISChamber {
 }
 
 model GISClosure {
+  properties    Json?       // Raw QGIS/GeoJSON feature properties
   id            String    @id @default(cuid())
   routeId       String
   closureNumber Int
@@ -3408,6 +3412,7 @@ model GISClosure {
 }
 
 model GISCableSegment {
+  properties    Json?       // Raw QGIS/GeoJSON feature properties
   id            String    @id @default(cuid())
   routeId       String
   segmentNumber Int

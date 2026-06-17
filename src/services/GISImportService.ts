@@ -70,6 +70,42 @@ interface ParsedLayerMap {
 }
 
 // ============================================================================
+// Helper Functions — Default Checklist & Approval Templates
+// ============================================================================
+
+interface DefaultChecklistItem {
+  label: string;
+  isMandatory: boolean;
+}
+
+interface DefaultApprovalLevel {
+  level: number;
+  role: string;
+}
+
+function getDefaultChecklist(stageName: string, reqPhotos: boolean): DefaultChecklistItem[] {
+  const items: DefaultChecklistItem[] = [
+    { label: `${stageName} completed as per specification`, isMandatory: true },
+    { label: `${stageName} documentation completed`, isMandatory: true },
+    { label: `Safety compliance verified`, isMandatory: true },
+    { label: `Quality standards met`, isMandatory: true },
+    { label: `All measurements within tolerance`, isMandatory: false },
+  ];
+  if (reqPhotos) {
+    items.push({ label: `Photos uploaded and verified`, isMandatory: true });
+  }
+  return items;
+}
+
+function getDefaultApprovals(stageName: string): DefaultApprovalLevel[] {
+  // Standard 2-level approval flow
+  return [
+    { level: 1, role: 'SUPERVISOR' },
+    { level: 2, role: 'MANAGER' },
+  ];
+}
+
+// ============================================================================
 // GIS Import Service
 // ============================================================================
 
@@ -427,6 +463,7 @@ export class GISImportService {
         location: session.region ? `${session.region}${session.district ? ` / ${session.district}` : ''}` : null,
         budget: boq.totalEstimatedCost,
         actualCost: 0,
+        variance: boq.totalEstimatedCost,
         startDate: new Date(),
         estimatedDuration: 180,
       },
@@ -479,6 +516,7 @@ export class GISImportService {
             cableType: seg.cableType || parsedLayers.cable?.cableType,
             fiberCount: seg.fiberCount || parsedLayers.cable?.fiberCount,
             status: 'PLANNED',
+            properties: (seg as any)._properties || null,
           })),
         });
       }
@@ -497,6 +535,7 @@ export class GISImportService {
             poleType: pole.poleType || 'CONCRETE',
             height: pole.height || 9,
             status: 'PLANNED',
+            properties: (pole as any)._properties || null,
           })),
         });
 
@@ -523,6 +562,7 @@ export class GISImportService {
             capacity: fdp.portCount || 8,
             status: 'PLANNED',
             notes: `FDP ${fdp.fdpCode || fdp.index} - ${fdp.portCount || '?'} ports${fdp.splitters ? `, ${fdp.splitters} splitter(s)` : ''}`,
+            properties: (fdp as any)._properties || null,
           })),
         });
 
@@ -542,13 +582,14 @@ export class GISImportService {
         await prisma.gISClosure.createMany({
           data: parsedLayers.fiberJoint.joints.map((joint, idx) => ({
             routeId: route.id,
-            closureNumber: 100 + (joint.index || idx + 1), // Offset to avoid collision with FDPs
+            closureNumber: 100 + (joint.index || idx + 1),
             closureType: joint.jointType || 'DOME',
             latitude: joint.latitude,
             longitude: joint.longitude,
             capacity: joint.capacity || 48,
             status: 'PLANNED',
             notes: `Fiber Joint ${joint.index} - ${joint.jointType || 'DOME'} type, ${joint.capacity || 48}F capacity`,
+            properties: (joint as any)._properties || null,
           })),
         });
 
@@ -750,6 +791,70 @@ export class GISImportService {
 
       // Sync BOQ items to ProjectBOQItem for dashboard BOQ tab visibility
       // Track category counters to ensure unique item codes
+      // Fetch inventory items matching BOQ categories and their stock levels
+      const invItemsForBOQ = await prisma.inventoryItem.findMany({
+        where: {
+          OR: [
+            { code: { contains: "POLE", mode: "insensitive" } },
+            { code: { contains: "CBL", mode: "insensitive" } },
+            { name: { contains: "Pole", mode: "insensitive" } },
+            { name: { contains: "Fiber", mode: "insensitive" } },
+            { name: { contains: "Cable", mode: "insensitive" } },
+            { name: { contains: "Chamber", mode: "insensitive" } },
+            { name: { contains: "Closure", mode: "insensitive" } },
+            { name: { contains: "Splice", mode: "insensitive" } },
+            { name: { contains: "Manhole", mode: "insensitive" } },
+          ],
+        },
+        include: { stocks: true },
+        take: 50,
+      });
+
+      const findInvItem = (keywords: string[]) =>
+        invItemsForBOQ.find((item: any) =>
+          keywords.some(
+            (kw: string) =>
+              item.name?.toLowerCase().includes(kw.toLowerCase()) ||
+              item.code?.toLowerCase().includes(kw.toLowerCase())
+          )
+        );
+
+      // Build stock-by-category map (sum across all stores)
+      const stockByCat = new Map();
+      const poleMatch = findInvItem(["pole", "wooden", "concrete"]);
+      if (poleMatch) {
+        stockByCat.set("POLE", {
+          availableQty: poleMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
+          itemCode: poleMatch.code,
+          materialId: poleMatch.id,
+        });
+      }
+      const chamberMatch = findInvItem(["chamber", "manhole"]);
+      if (chamberMatch) {
+        stockByCat.set("CHAMBER", {
+          availableQty: chamberMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
+          itemCode: chamberMatch.code,
+          materialId: chamberMatch.id,
+        });
+      }
+      const closureMatch = findInvItem(["closure", "splice"]);
+      if (closureMatch) {
+        stockByCat.set("CLOSURE", {
+          availableQty: closureMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
+          itemCode: closureMatch.code,
+          materialId: closureMatch.id,
+        });
+      }
+      const cableMatch = findInvItem(["fiber", "cable"]);
+      if (cableMatch) {
+        stockByCat.set("CABLE", {
+          availableQty: cableMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
+          itemCode: cableMatch.code,
+          materialId: cableMatch.id,
+        });
+      }
+
+      // Track category counters to ensure unique item codes
       const categoryCounters: Record<string, number> = {};
       await prisma.projectBOQItem.createMany({
         data: boq.items.map((item) => {
@@ -758,6 +863,26 @@ export class GISImportService {
           const seq = String(categoryCounters[catKey]).padStart(2, '0');
           // Round amount to 2 decimal places to avoid floating point drift
           const roundedAmount = Math.round(item.amount * 100) / 100;
+
+          // Determine source (EXISTING vs NEW) based on stock availability
+          const stockInfo = stockByCat.get(item.category);
+          let source: "EXISTING" | "NEW" = "NEW";
+          let materialId: string | null = null;
+          let remarks: string | undefined;
+
+          if (stockInfo && stockInfo.availableQty >= item.quantity) {
+            source = "EXISTING";
+            materialId = stockInfo.materialId;
+            remarks = `GIS Import ${session.id} | Available in stock: ${stockInfo.availableQty} ${item.unit} (${stockInfo.itemCode})`;
+          } else if (stockInfo && stockInfo.availableQty > 0) {
+            source = "NEW";
+            materialId = stockInfo.materialId;
+            remarks = `GIS Import ${session.id} | Partial stock: ${stockInfo.availableQty}/${item.quantity} ${item.unit} available (${stockInfo.itemCode})`;
+          } else {
+            source = "NEW";
+            remarks = `GIS Import ${session.id} | No stock available — procurement required`;
+          }
+
           return {
             projectId: project.id,
             category: item.category,
@@ -767,6 +892,9 @@ export class GISImportService {
             quantity: item.quantity,
             unitRate: Math.round(item.unitRate * 100) / 100,
             amount: roundedAmount,
+            source,
+            materialId,
+            remarks,
           };
         }),
       });
@@ -869,16 +997,34 @@ export class GISImportService {
             },
           });
         }
+      }
 
-        // Only create stage templates if template is fresh (no stages yet)
-        const existingStages = await prisma.workflowStageTemplate.count({
+      // ============================================================
+      // BACKFILL: Ensure stage/checklist/approval templates exist
+      // This runs for BOTH existing and newly created templates to fix
+      // templates created by prior versions that omitted checklists/approvals
+      // ============================================================
+      {
+        const workflowDef = getWorkflowForProjectType(projectType);
+
+        // Fetch existing stage templates (may have been created in a prior run)
+        const existingStageTemplates = await prisma.workflowStageTemplate.findMany({
           where: { workflowTemplateId: template.id },
+          include: {
+            checklistTemplates: true,
+            approvalTemplates: true,
+          },
         });
 
-        if (existingStages === 0) {
-          // Create stage templates
-          for (const stageDef of workflowDef.stages) {
-            const stageTemplate = await prisma.workflowStageTemplate.create({
+        const stageTemplateMap = new Map(existingStageTemplates.map(s => [s.name, s]));
+
+        // Create stage templates if they don't exist, and backfill any missing sub-templates
+        for (const stageDef of workflowDef.stages) {
+          let stageTemplate = stageTemplateMap.get(stageDef.name);
+
+          if (!stageTemplate) {
+            // Create new stage template
+            stageTemplate = await prisma.workflowStageTemplate.create({
               data: {
                 name: stageDef.name,
                 description: `Stage ${stageDef.sequence}: ${stageDef.name}`,
@@ -891,9 +1037,13 @@ export class GISImportService {
                 reqOTDR: stageDef.reqOTDR,
                 reqGPS: stageDef.reqGPS,
               },
+              include: {
+                checklistTemplates: true,
+                approvalTemplates: true,
+              },
             });
 
-            // Create task templates for each stage
+            // Create task templates for the new stage
             for (const taskDef of stageDef.tasks) {
               await prisma.workflowTaskTemplate.create({
                 data: {
@@ -904,6 +1054,38 @@ export class GISImportService {
                 },
               });
             }
+          }
+
+          // Backfill checklist templates if stage requires checklist but has none
+          // This fixes templates created by prior versions that omitted checklists
+          if (stageDef.reqChecklist && stageTemplate.checklistTemplates.length === 0) {
+            const checklistItems = getDefaultChecklist(stageDef.name, stageDef.reqPhotos);
+            for (const clItem of checklistItems) {
+              await prisma.workflowChecklistTemplate.create({
+                data: {
+                  stageTemplateId: stageTemplate.id,
+                  label: clItem.label,
+                  isMandatory: clItem.isMandatory,
+                },
+              });
+            }
+            logger.info(`Backfilled ${checklistItems.length} checklist templates for stage "${stageDef.name}"`);
+          }
+
+          // Backfill approval templates if stage requires approval but has none
+          // This fixes templates created by prior versions that omitted approvals
+          if (stageDef.reqApproval && stageTemplate.approvalTemplates.length === 0) {
+            const approvalLevels = getDefaultApprovals(stageDef.name);
+            for (const apItem of approvalLevels) {
+              await prisma.workflowApprovalTemplate.create({
+                data: {
+                  stageTemplateId: stageTemplate.id,
+                  level: apItem.level,
+                  role: apItem.role,
+                },
+              });
+            }
+            logger.info(`Backfilled ${approvalLevels.length} approval templates for stage "${stageDef.name}"`);
           }
         }
       }

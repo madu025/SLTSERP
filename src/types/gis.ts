@@ -201,6 +201,9 @@ export interface BOQItem {
   quantity: number;
   unitRate: number;
   amount: number;
+  source?: 'NEW' | 'EXISTING'; // NEW = to procure, EXISTING = available in inventory
+  itemCode?: string;
+  materialId?: string;
 }
 
 export interface GISAuditEntry {

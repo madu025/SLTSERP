@@ -17,20 +17,50 @@ import {
 } from '@/types/gis';
 
 /**
+ * Inventory stock entry used to categorize BOQ items as NEW vs EXISTING.
+ * Maps a material category to its available quantity and inventory metadata.
+ */
+export interface InventoryStockEntry {
+  category: string;          // e.g., 'CABLE', 'POLE', 'FDP', 'FIBER_JOINT'
+  availableQty: number;      // available quantity in inventory
+  itemCode?: string;         // inventory item code
+  materialId?: string;       // inventory item record id
+  unit?: string;             // unit of measure
+}
+
+/**
  * Auto BOQ Engine
  * Calculates quantities and costs from GIS layer data
  */
 export class BOQEngine {
   /**
-   * Generate complete BOQ from all parsed GIS layers
-   */
+    * Generate complete BOQ from all parsed GIS layers.
+    *
+    * @param layers Parsed GIS layer data keyed by layer type
+    * @param region Optional region name for rate adjustments
+    * @param regionMultiplier Multiplier applied to base unit rates
+    * @param inventoryStock Optional inventory stock entries used to categorize
+    *                       items as EXISTING (available in inventory) or NEW
+    *                       (to procure). When provided, the engine will attempt
+    *                       to match each material category against available
+    *                       stock and split quantities accordingly.
+    */
   generateBOQ(
     layers: Map<GISLayerType, any>,
     region?: string,
-    regionMultiplier: number = 1.0
+    regionMultiplier: number = 1.0,
+    inventoryStock?: InventoryStockEntry[]
   ): BOQSummary {
     const items: BOQItem[] = [];
     let totalEstimatedCost = 0;
+
+    // Build a quick lookup of available stock by category (uppercase)
+    const stockByCategory = new Map<string, InventoryStockEntry>();
+    if (inventoryStock && inventoryStock.length > 0) {
+      for (const entry of inventoryStock) {
+        stockByCategory.set(entry.category.toUpperCase(), entry);
+      }
+    }
 
     const cableData = layers.get('CABLE') as ParsedCableData | undefined;
     const poleData = layers.get('POLE') as ParsedPoleData | undefined;
@@ -198,9 +228,57 @@ export class BOQEngine {
       totalEstimatedCost += laborCost;
     }
 
+    // ======================================================================
+    // POST-PROCESSING: Categorize items as NEW (to procure) or EXISTING
+    // (available in inventory) based on the provided inventory stock.
+    // Material categories (CABLE, POLE, FDP, FIBER_JOINT) are split into
+    // an EXISTING line (up to available stock) and a NEW line (remainder).
+    // Non-material items (LABOR, ROAD_CROSSING) default to 'NEW'.
+    // ======================================================================
+    const categorizedItems: BOQItem[] = [];
+
+    for (const item of items) {
+      const stockEntry = stockByCategory.get(item.category.toUpperCase());
+
+      if (
+        stockEntry &&
+        stockEntry.availableQty > 0 &&
+        item.quantity > 0 &&
+        item.category !== 'LABOR' &&
+        item.category !== 'ROAD_CROSSING'
+      ) {
+        const existingQty = Math.min(stockEntry.availableQty, item.quantity);
+        const newQty = item.quantity - existingQty;
+        const perUnitRate = item.unitRate;
+
+        if (existingQty > 0) {
+          categorizedItems.push({
+            ...item,
+            quantity: Math.round(existingQty * 100) / 100,
+            amount: Math.round(existingQty * perUnitRate * 100) / 100,
+            source: 'EXISTING',
+            itemCode: stockEntry.itemCode,
+            materialId: stockEntry.materialId,
+          });
+        }
+
+        if (newQty > 0) {
+          categorizedItems.push({
+            ...item,
+            quantity: Math.round(newQty * 100) / 100,
+            amount: Math.round(newQty * perUnitRate * 100) / 100,
+            source: 'NEW',
+          });
+        }
+      } else {
+        // No matching inventory stock — mark as NEW (default procurement)
+        categorizedItems.push({ ...item, source: 'NEW' });
+      }
+    }
+
     return {
       totalEstimatedCost: Math.round(totalEstimatedCost * 100) / 100,
-      items,
+      items: categorizedItems,
     };
   }
 

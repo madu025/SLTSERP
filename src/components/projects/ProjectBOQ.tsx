@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Package, ShoppingCart } from 'lucide-react';
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 interface ProjectBOQProps {
@@ -15,11 +15,14 @@ interface ProjectBOQProps {
     refreshProject: () => void;
 }
 
+type SourceFilter = 'ALL' | 'NEW' | 'EXISTING';
+
 export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
+    const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
 
     const [formData, setFormData] = useState({
         itemCode: '',
@@ -37,6 +40,18 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
             minimumFractionDigits: 2
         }).format(amount || 0);
     };
+
+    // Compute source-based summaries
+    const boqItems = project.boqItems || [];
+    const existingItems = useMemo(() => boqItems.filter((i: any) => i.source === 'EXISTING'), [boqItems]);
+    const newItems = useMemo(() => boqItems.filter((i: any) => i.source === 'NEW'), [boqItems]);
+    const existingValue = useMemo(() => existingItems.reduce((s: number, i: any) => s + i.amount, 0), [existingItems]);
+    const newValue = useMemo(() => newItems.reduce((s: number, i: any) => s + i.amount, 0), [newItems]);
+
+    const filteredItems = useMemo(() => {
+        if (sourceFilter === 'ALL') return boqItems;
+        return boqItems.filter((i: any) => i.source === sourceFilter);
+    }, [boqItems, sourceFilter]);
 
     const handleEdit = (item: any) => {
         setEditingItem(item);
@@ -136,8 +151,8 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
         }
     };
 
-    const totalBOQValue = project.boqItems?.reduce((sum: number, item: any) => sum + item.amount, 0) || 0;
-    const totalActualCost = project.boqItems?.reduce((sum: number, item: any) => sum + item.actualCost, 0) || 0;
+    const totalBOQValue = boqItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+    const totalActualCost = boqItems.reduce((sum: number, item: any) => sum + item.actualCost, 0);
 
     return (
         <div className="space-y-6">
@@ -158,6 +173,76 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                 </div>
             </div>
 
+            {/* Source Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="border-l-4 border-l-blue-500">
+                    <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-semibold">All Items</p>
+                            <p className="text-2xl font-bold text-slate-900">{boqItems.length}</p>
+                            <p className="text-sm text-slate-500">{formatCurrency(totalBOQValue)}</p>
+                        </div>
+                        <div className="bg-blue-100 p-3 rounded-full">
+                            <Plus className="w-6 h-6 text-blue-600" />
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-green-500">
+                    <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-semibold">In Stock (Existing)</p>
+                            <p className="text-2xl font-bold text-green-700">{existingItems.length}</p>
+                            <p className="text-sm text-slate-500">{formatCurrency(existingValue)}</p>
+                        </div>
+                        <div className="bg-green-100 p-3 rounded-full">
+                            <Package className="w-6 h-6 text-green-600" />
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-amber-500">
+                    <CardContent className="p-4 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-slate-500 uppercase font-semibold">To Procure (New)</p>
+                            <p className="text-2xl font-bold text-amber-700">{newItems.length}</p>
+                            <p className="text-sm text-slate-500">{formatCurrency(newValue)}</p>
+                        </div>
+                        <div className="bg-amber-100 p-3 rounded-full">
+                            <ShoppingCart className="w-6 h-6 text-amber-600" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Source Filter Tabs */}
+            <div className="flex gap-2 items-center">
+                <span className="text-sm text-slate-500 font-medium mr-2">Filter:</span>
+                <Button
+                    size="sm"
+                    variant={sourceFilter === 'ALL' ? 'default' : 'outline'}
+                    onClick={() => setSourceFilter('ALL')}
+                >
+                    All ({boqItems.length})
+                </Button>
+                <Button
+                    size="sm"
+                    variant={sourceFilter === 'EXISTING' ? 'default' : 'outline'}
+                    onClick={() => setSourceFilter('EXISTING')}
+                    className={sourceFilter === 'EXISTING' ? 'bg-green-600 hover:bg-green-700' : ''}
+                >
+                    <Package className="w-3.5 h-3.5 mr-1" />
+                    In Stock ({existingItems.length})
+                </Button>
+                <Button
+                    size="sm"
+                    variant={sourceFilter === 'NEW' ? 'default' : 'outline'}
+                    onClick={() => setSourceFilter('NEW')}
+                    className={sourceFilter === 'NEW' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                >
+                    <ShoppingCart className="w-3.5 h-3.5 mr-1" />
+                    To Procure ({newItems.length})
+                </Button>
+            </div>
+
             <Card>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200">
@@ -166,6 +251,7 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Code</th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
                                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Source</th>
                                 <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Unit</th>
                                 <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Qty</th>
                                 <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Rate</th>
@@ -175,19 +261,39 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200">
-                            {project.boqItems?.length > 0 ? (
-                                project.boqItems.map((item: any) => (
+                            {filteredItems.length > 0 ? (
+                                filteredItems.map((item: any) => (
                                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                                             {item.itemCode}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 max-w-md truncate" title={item.description}>
                                             {item.description}
+                                            {item.remarks && (
+                                                <p className="text-xs text-slate-400 truncate" title={item.remarks}>{item.remarks}</p>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <Badge variant="outline" className="text-xs bg-slate-50">
                                                 {item.category}
                                             </Badge>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {item.source === 'EXISTING' ? (
+                                                <Badge className="text-xs bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+                                                    <Package className="w-3 h-3 mr-1" />
+                                                    In Stock
+                                                </Badge>
+                                            ) : item.source === 'NEW' ? (
+                                                <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100">
+                                                    <ShoppingCart className="w-3 h-3 mr-1" />
+                                                    To Procure
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="text-xs bg-slate-50">
+                                                    —
+                                                </Badge>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-right">
                                             {item.unit}
@@ -222,18 +328,26 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
-                                        No BOQ items added yet. Click "Add Item" to start.
+                                    <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                                        {sourceFilter === 'ALL'
+                                            ? 'No BOQ items added yet. Click "Add Item" to start.'
+                                            : `No ${sourceFilter === 'EXISTING' ? 'in-stock' : 'to-procure'} items found.`}
                                     </td>
                                 </tr>
                             )}
                         </tbody>
-                        {project.boqItems?.length > 0 && (
+                        {filteredItems.length > 0 && (
                             <tfoot className="bg-slate-50 font-semibold">
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-right text-sm text-slate-900">Total</td>
-                                    <td className="px-6 py-4 text-right text-sm text-slate-900">{formatCurrency(totalBOQValue)}</td>
-                                    <td className="px-6 py-4 text-right text-sm text-slate-900">{formatCurrency(totalActualCost)}</td>
+                                    <td colSpan={7} className="px-6 py-4 text-right text-sm text-slate-900">
+                                        Total{sourceFilter !== 'ALL' ? ` (${sourceFilter})` : ''}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-sm text-slate-900">
+                                        {formatCurrency(filteredItems.reduce((s: number, i: any) => s + i.amount, 0))}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-sm text-slate-900">
+                                        {formatCurrency(filteredItems.reduce((s: number, i: any) => s + i.actualCost, 0))}
+                                    </td>
                                     <td></td>
                                 </tr>
                             </tfoot>

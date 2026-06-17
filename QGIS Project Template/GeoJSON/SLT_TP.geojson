@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "SLT_TP",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "TP_NAME": "Softlogic(Pvt)LTD", "LEA": "HK", "CUSTOMER NAME": "Softlogic(Pvt)LTD", "NO OF CORES TERMINATED": 4, "CUSTOMER PREMISESS ODF TYPE": null, "CUSTOMER TYPE": "Enterprise", "CUSTOMER SUB TYPE": "Building", "OPERATOR TO WHICH SERVICE PROVIDED": null, "TOWER OWNER": null, "TOWER": null, "TOWER OPERATOR": null, "BUILDING NAME": null, "TENANTS": null, "REMARKS": null, "LAC": null, "ADDRESS": null, "SITE ID": null, "SLT CCT NO": null, "SERVICE STATUS": "Active", "PE NUMBER": "PE2023987488965", "Existing_New": "New", "Longitute": 79.86146555000001, "Latitude": 6.889832348 }, "geometry": { "type": "Point", "coordinates": [ 79.86146555, 6.889832348 ] } },
+{ "type": "Feature", "properties": { "TP_NAME": "Dialog Axiata PLC", "LEA": "HK", "CUSTOMER NAME": "Dialog Axiata PLC", "NO OF CORES TERMINATED": 4, "CUSTOMER PREMISESS ODF TYPE": null, "CUSTOMER TYPE": "Enterprise", "CUSTOMER SUB TYPE": "Tower", "OPERATOR TO WHICH SERVICE PROVIDED": "Dialog", "TOWER OWNER": "Mobitel", "TOWER": "HK285", "TOWER OPERATOR": null, "BUILDING NAME": null, "TENANTS": null, "REMARKS": "Near Abans Showroom", "LAC": null, "ADDRESS": null, "SITE ID": null, "SLT CCT NO": null, "SERVICE STATUS": "Active", "PE NUMBER": "PE2023526541525", "Existing_New": "New", "Longitute": 79.864313, "Latitude": 6.903465 }, "geometry": { "type": "Point", "coordinates": [ 79.864313, 6.903465 ] } }
+]
+}

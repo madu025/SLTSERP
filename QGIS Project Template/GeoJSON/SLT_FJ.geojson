@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "SLT_FJ",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "FJ NAME": "HK-CJC-B003", "LEA": "HK", "TYPE": "Aerial", "Main Sheat Name": "HK#V-OPT::1=>256", "Extention_Sheat_Name_1": "GL#F-OPTE1::1=>24", "Extention_Sheat Name_2": "GL#F-OPTE2::1=>32", "Extention_Sheat Name_3": "HKL#V-OPTE3::1=>32", "Extention_Sheat Name_4": "HKL#V-OPTE4::1=>64", "Extention_Sheat Name_5": null, "Connected EQ Number": "HK-PTJ-MH-D-21", "REMARKS": "Near ", "Joint Number": "HK-CJC-B003", "LAC": "HK-PTJ-00286", "Exst_New": "New", "Longitute": 79.85195531, "Latitude": 6.904623861 }, "geometry": { "type": "Point", "coordinates": [ 79.85195531, 6.904623861 ] } }
+]
+}

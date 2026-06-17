@@ -1,0 +1,23 @@
+const fs = require('fs');
+let c = fs.readFileSync('prisma/schema.prisma', 'utf8');
+
+// Add properties Json? to GISPole
+c = c.replace(
+  /model GISPole \{/s,
+  'model GISPole {\n  properties    Json?       // Raw QGIS/GeoJSON feature properties'
+);
+
+// Add properties Json? to GISCableSegment
+c = c.replace(
+  /model GISCableSegment \{/s,
+  'model GISCableSegment {\n  properties    Json?       // Raw QGIS/GeoJSON feature properties'
+);
+
+// Add properties Json? to GISClosure
+c = c.replace(
+  /model GISClosure \{/s,
+  'model GISClosure {\n  properties    Json?       // Raw QGIS/GeoJSON feature properties'
+);
+
+fs.writeFileSync('prisma/schema.prisma', c);
+console.log('Schema updated: properties Json? added to GISPole, GISCableSegment, GISClosure');

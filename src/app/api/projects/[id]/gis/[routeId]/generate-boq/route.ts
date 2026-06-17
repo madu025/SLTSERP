@@ -54,6 +54,9 @@ export async function POST(
                     { name: { contains: "Manhole", mode: "insensitive" } },
                 ]
             },
+            include: {
+                stocks: true,
+            },
             take: 50
         });
 
@@ -67,6 +70,40 @@ export async function POST(
             );
             return match?.unitPrice || 0;
         };
+
+        // Helper to find a matching inventory item (with stock) by keywords
+        const findInventoryItem = (keywords: string[]) => {
+            return inventoryItems.find((item) =>
+                keywords.some((kw) =>
+                    item.name?.toLowerCase().includes(kw.toLowerCase()) ||
+                    item.code?.toLowerCase().includes(kw.toLowerCase())
+                )
+            );
+        };
+
+        // Build available stock map by BOQ category.
+        // Sums stock across all stores for each matched inventory item.
+        const stockByCategory = new Map<string, { availableQty: number; itemCode: string; materialId: string }>();
+        const poleInv = findInventoryItem(["pole", "wooden", "concrete"]);
+        if (poleInv) {
+            const qty = poleInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
+            stockByCategory.set("POLE", { availableQty: qty, itemCode: poleInv.code, materialId: poleInv.id });
+        }
+        const chamberInv = findInventoryItem(["chamber", "manhole"]);
+        if (chamberInv) {
+            const qty = chamberInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
+            stockByCategory.set("CHAMBER", { availableQty: qty, itemCode: chamberInv.code, materialId: chamberInv.id });
+        }
+        const closureInv = findInventoryItem(["closure", "splice"]);
+        if (closureInv) {
+            const qty = closureInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
+            stockByCategory.set("CLOSURE", { availableQty: qty, itemCode: closureInv.code, materialId: closureInv.id });
+        }
+        const cableInv = findInventoryItem(["fiber", "cable"]);
+        if (cableInv) {
+            const qty = cableInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
+            stockByCategory.set("CABLE", { availableQty: qty, itemCode: cableInv.code, materialId: cableInv.id });
+        }
 
         // ====================================================================
         // Build GISGeneratedBOQ items (for GIS tracking)
@@ -183,18 +220,49 @@ export async function POST(
 
         // ====================================================================
         // ALSO CREATE ProjectBOQItems so they appear in the BOQ tab & overview
+        // Categorize each item as EXISTING (in stock) or NEW (to procure) based
+        // on available inventory quantities.
         // ====================================================================
-        const projectBOQItems = gisItems.map((item, idx) => ({
-            projectId,
-            itemCode: `${item.itemCode}-${String(idx + 1).padStart(2, '0')}`,
-            description: item.description,
-            unit: item.unit,
-            quantity: item.quantity,
-            unitRate: item.unitRate,
-            amount: item.amount,
-            category: item.itemCategory,
-            remarks: item.sourceReference
-        }));
+        const projectBOQItems = gisItems.map((item, idx) => {
+            const stockInfo = stockByCategory.get(item.itemCategory);
+            let source: "EXISTING" | "NEW" = "NEW";
+            let materialId: string | undefined;
+            let remarks = item.sourceReference;
+
+            if (stockInfo && stockInfo.availableQty >= item.quantity) {
+                // Enough stock available in inventory — mark as EXISTING
+                source = "EXISTING";
+                materialId = stockInfo.materialId;
+                remarks = `${item.sourceReference} | Available in stock: ${stockInfo.availableQty} ${item.unit} (${stockInfo.itemCode})`;
+            } else if (stockInfo && stockInfo.availableQty > 0) {
+                // Partial stock — still NEW (procurement needed) but note partial availability
+                source = "NEW";
+                materialId = stockInfo.materialId;
+                remarks = `${item.sourceReference} | Partial stock: ${stockInfo.availableQty}/${item.quantity} ${item.unit} available (${stockInfo.itemCode})`;
+            } else {
+                // No stock — must procure
+                source = "NEW";
+                remarks = `${item.sourceReference} | No stock available — procurement required`;
+            }
+
+            return {
+                projectId,
+                itemCode: `${item.itemCode}-${String(idx + 1).padStart(2, '0')}`,
+                description: item.description,
+                unit: item.unit,
+                quantity: item.quantity,
+                unitRate: item.unitRate,
+                amount: item.amount,
+                category: item.itemCategory,
+                source,
+                materialId: materialId || null,
+                remarks
+            };
+        });
+
+        // Tally for response messaging
+        const existingCount = projectBOQItems.filter(i => i.source === "EXISTING").length;
+        const newCount = projectBOQItems.filter(i => i.source === "NEW").length;
 
         let boqItemsCreated = 0;
         if (projectBOQItems.length > 0) {
@@ -241,7 +309,8 @@ export async function POST(
         return NextResponse.json({
             ...boq,
             projectBOQItemsCreated: boqItemsCreated,
-            message: `BOQ generated: ${gisItems.length} GIS items, ${boqItemsCreated} project BOQ items synced`
+            sourceBreakdown: { existing: existingCount, new: newCount },
+            message: `BOQ generated: ${gisItems.length} GIS items, ${boqItemsCreated} project BOQ items synced (${existingCount} existing in stock, ${newCount} to procure)`
         }, { status: 201 });
     } catch (error) {
         console.error("Error generating BOQ from GIS route:", error);
