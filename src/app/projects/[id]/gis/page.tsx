@@ -183,12 +183,13 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
         {/* Main Content */}
         <div className={`${fullscreen ? 'flex-1 flex overflow-hidden' : 'flex flex-col lg:flex-row gap-6'}`}>
           {/* Map Section */}
-          <div className={`${fullscreen ? 'flex-1' : 'lg:flex-[3]'} min-h-[400px]`}>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className={`${fullscreen ? 'flex-1' : 'lg:flex-[3]'} min-h-[400px] ${fullscreen ? 'flex flex-col' : ''}`}>
+            <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${fullscreen ? 'flex-1' : ''}`}>
               <GISMapView
                 gisRoutes={gisData?.gisRoutes || []}
                 assets={gisData?.assets || []}
                 height={fullscreen ? '100%' : '600px'}
+                fullscreen={fullscreen}
               />
             </div>
           </div>

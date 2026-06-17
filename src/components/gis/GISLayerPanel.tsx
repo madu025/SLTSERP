@@ -3,6 +3,7 @@
 // ============================================================================
 // Side panel that displays detailed information about each GIS layer,
 // including feature counts, route statistics, and layer status indicators.
+// REDESIGN: Compact single data grid replacing 6 individual cards.
 // ============================================================================
 
 'use client';
@@ -31,60 +32,113 @@ interface GISLayerPanelProps {
 }
 
 // ============================================================================
-// Layer Summary Cards
+// Compact Layer Summary Grid — single table replacing 6 cards
 // ============================================================================
+const LAYER_COLORS: Record<string, string> = {
+  cables: '#2563eb',
+  poles: '#dc2626',
+  fdps: '#7c3aed',
+  fiberJoints: '#ca8a04',
+  roads: '#64748b',
+  assets: '#059669',
+};
 
-function LayerSummaryCard({
-  label,
-  icon,
-  count,
-  color,
-  details,
+const LAYER_ICONS: Record<string, string> = {
+  cables: '🔌',
+  poles: '📡',
+  fdps: '📦',
+  fiberJoints: '🔗',
+  roads: '🛣️',
+  assets: '📍',
+};
+
+const LAYER_LABELS: Record<string, string> = {
+  cables: 'Fiber Cables',
+  poles: 'Telecom Poles',
+  fdps: 'FDPs',
+  fiberJoints: 'Fiber Joints',
+  roads: 'Road Segments',
+  assets: 'Assets',
+};
+
+interface LayerRow {
+  key: string;
+  icon: string;
+  label: string;
+  color: string;
+  count: number;
+  metrics: { label: string; value: string }[];
+}
+
+function CompactLayerGrid({
+  layers,
   onViewDetails,
 }: {
-  label: string;
-  icon: string;
-  count: number;
-  color: string;
-  details: { label: string; value: string }[];
-  onViewDetails?: () => void;
+  layers: LayerRow[];
+  onViewDetails?: (section: string) => void;
 }) {
+  if (layers.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <p className="text-sm">No GIS layers available.</p>
+      </div>
+    );
+  }
+
   return (
-    <Card className={`border-l-4 overflow-hidden`} style={{ borderLeftColor: color }}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{icon}</span>
-            <CardTitle className="text-sm font-semibold">{label}</CardTitle>
-          </div>
-          <Badge
-            variant="secondary"
-            className="text-xs font-bold"
-            style={{ backgroundColor: color + '20', color }}
-          >
-            {count}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          {details.map((detail, idx) => (
-            <React.Fragment key={idx}>
-              <span className="text-gray-500">{detail.label}:</span>
-              <span className="font-medium text-gray-800 text-right">{detail.value}</span>
-            </React.Fragment>
+    <div className="overflow-hidden rounded-lg border border-gray-200">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-gray-50 border-b border-gray-200">
+            <th className="text-left py-2 px-3 font-semibold text-gray-500 uppercase w-8"></th>
+            <th className="text-left py-2 px-1 font-semibold text-gray-500 uppercase">Layer</th>
+            <th className="text-right py-2 px-2 font-semibold text-gray-500 uppercase">Count</th>
+            <th className="text-left py-2 px-2 font-semibold text-gray-500 uppercase">Key Metrics</th>
+          </tr>
+        </thead>
+        <tbody>
+          {layers.map((layer) => (
+            <tr
+              key={layer.key}
+              className="border-b border-gray-100 hover:bg-gray-50/50 cursor-pointer transition-colors"
+              onClick={() => onViewDetails?.(layer.key)}
+            >
+              <td className="py-2.5 px-3">
+                <span
+                  className="inline-block w-3 h-3 rounded-full ring-2 ring-offset-1"
+                  style={{ backgroundColor: layer.color }}
+                />
+              </td>
+              <td className="py-2.5 px-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{layer.icon}</span>
+                  <span className="font-medium text-gray-800">{layer.label}</span>
+                </div>
+              </td>
+              <td className="py-2.5 px-2 text-right">
+                <Badge
+                  variant="secondary"
+                  className="text-xs font-bold"
+                  style={{ backgroundColor: layer.color + '18', color: layer.color }}
+                >
+                  {layer.count > 0 ? layer.count : '-'}
+                </Badge>
+              </td>
+              <td className="py-2.5 px-2">
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                  {layer.metrics.map((m, idx) => (
+                    <span key={idx} className="text-gray-500">
+                      <span className="text-gray-400">{m.label}:</span>{' '}
+                      <span className="font-medium text-gray-700">{m.value}</span>
+                    </span>
+                  ))}
+                </div>
+              </td>
+            </tr>
           ))}
-        </div>
-        {onViewDetails && count > 0 && (
-          <button
-            onClick={onViewDetails}
-            className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
-          >
-            View Details →
-          </button>
-        )}
-      </CardContent>
-    </Card>
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -268,6 +322,78 @@ export function GISLayerPanel({
     };
   }, [gisRoutes, assets, boq, surveys, permits]);
 
+  // Build compact layer rows
+  const layerRows = useMemo<LayerRow[]>(() => [
+    {
+      key: 'cables',
+      icon: LAYER_ICONS.cables,
+      label: LAYER_LABELS.cables,
+      color: LAYER_COLORS.cables,
+      count: summary.totalCables,
+      metrics: [
+        { label: 'Routes', value: String(summary.routeCount) },
+        { label: 'Length', value: `${(summary.totalRouteLength / 1000).toFixed(2)} km` },
+      ],
+    },
+    {
+      key: 'poles',
+      icon: LAYER_ICONS.poles,
+      label: LAYER_LABELS.poles,
+      color: LAYER_COLORS.poles,
+      count: summary.totalPoles,
+      metrics: [
+        { label: 'Avg Spacing', value: summary.totalPoles > 0 && summary.totalRouteLength > 0
+          ? `${(summary.totalRouteLength / summary.totalPoles).toFixed(1)} m`
+          : '-'
+        },
+      ],
+    },
+    {
+      key: 'fdps',
+      icon: LAYER_ICONS.fdps,
+      label: LAYER_LABELS.fdps,
+      color: LAYER_COLORS.fdps,
+      count: summary.totalFdps,
+      metrics: [
+        { label: 'Closures', value: String(summary.totalClosures) },
+        { label: 'Density', value: summary.totalRouteLength > 0
+          ? `${(summary.totalFdps / (summary.totalRouteLength / 1000)).toFixed(1)} / km`
+          : '-'
+        },
+      ],
+    },
+    {
+      key: 'fiberJoints',
+      icon: LAYER_ICONS.fiberJoints,
+      label: LAYER_LABELS.fiberJoints,
+      color: LAYER_COLORS.fiberJoints,
+      count: summary.totalJoints,
+      metrics: [
+        { label: 'Total Closures', value: String(summary.totalClosures) },
+      ],
+    },
+    {
+      key: 'roads',
+      icon: LAYER_ICONS.roads,
+      label: LAYER_LABELS.roads,
+      color: LAYER_COLORS.roads,
+      count: summary.totalRoads,
+      metrics: [
+        { label: 'Permits Est.', value: String(Math.ceil(summary.totalRoads * 1.2)) },
+      ],
+    },
+    {
+      key: 'assets',
+      icon: LAYER_ICONS.assets,
+      label: LAYER_LABELS.assets,
+      color: LAYER_COLORS.assets,
+      count: summary.assetCount,
+      metrics: [
+        { label: 'From GIS Import', value: String(summary.assetCount > 0 ? 'Yes' : 'No') },
+      ],
+    },
+  ], [summary]);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -288,7 +414,7 @@ export function GISLayerPanel({
         )}
       </div>
 
-      {/* Summary Cards */}
+      {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
           <p className="text-2xl font-bold text-blue-700">
@@ -319,86 +445,15 @@ export function GISLayerPanel({
       {/* Tabbed Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-gray-100 border border-gray-200">
-          <TabsTrigger value="summary" className="text-xs">Layer Summary</TabsTrigger>
+          <TabsTrigger value="summary" className="text-xs">Layers</TabsTrigger>
           <TabsTrigger value="routes" className="text-xs">Routes</TabsTrigger>
           <TabsTrigger value="boq" className="text-xs">BOQ</TabsTrigger>
           <TabsTrigger value="surveys" className="text-xs">Surveys</TabsTrigger>
         </TabsList>
 
-        {/* Layer Summary Tab */}
-        <TabsContent value="summary" className="space-y-3 mt-3">
-          <LayerSummaryCard
-            label="Fiber Cables"
-            icon="🔌"
-            count={summary.totalCables}
-            color="#2563eb"
-            details={[
-              { label: 'Route Length', value: `${(summary.totalRouteLength / 1000).toFixed(2)} km` },
-              { label: 'Segments', value: String(summary.totalCables) },
-            ]}
-            onViewDetails={() => onViewDetails?.('cables')}
-          />
-          <LayerSummaryCard
-            label="Telecom Poles"
-            icon="📡"
-            count={summary.totalPoles}
-            color="#dc2626"
-            details={[
-              { label: 'Total', value: String(summary.totalPoles) },
-              { label: 'Avg Spacing', value: summary.totalPoles > 0 && summary.totalRouteLength > 0
-                  ? `${(summary.totalRouteLength / summary.totalPoles).toFixed(1)} m`
-                  : '-'
-              },
-            ]}
-            onViewDetails={() => onViewDetails?.('poles')}
-          />
-          <LayerSummaryCard
-            label="FDPs (Distribution Points)"
-            icon="📦"
-            count={summary.totalFdps}
-            color="#7c3aed"
-            details={[
-              { label: 'Terminal Closures', value: String(summary.totalFdps) },
-              { label: 'Density', value: summary.totalRouteLength > 0
-                  ? `${(summary.totalFdps / (summary.totalRouteLength / 1000)).toFixed(1)} / km`
-                  : '-'
-              },
-            ]}
-            onViewDetails={() => onViewDetails?.('fdps')}
-          />
-          <LayerSummaryCard
-            label="Fiber Joint Closures"
-            icon="🔗"
-            count={summary.totalJoints}
-            color="#ca8a04"
-            details={[
-              { label: 'Joint Closures', value: String(summary.totalJoints) },
-              { label: 'Total Closures', value: String(summary.totalClosures) },
-            ]}
-            onViewDetails={() => onViewDetails?.('joints')}
-          />
-          <LayerSummaryCard
-            label="Road Segments"
-            icon="🛣️"
-            count={summary.totalRoads}
-            color="#64748b"
-            details={[
-              { label: 'Crossings', value: String(summary.totalRoads) },
-              { label: 'Permits Required', value: String(Math.ceil(summary.totalRoads * 1.2)) },
-            ]}
-            onViewDetails={() => onViewDetails?.('roads')}
-          />
-          <LayerSummaryCard
-            label="Project Assets"
-            icon="📍"
-            count={summary.assetCount}
-            color="#059669"
-            details={[
-              { label: 'Auto-registered', value: String(summary.assetCount) },
-              { label: 'From GIS Import', value: String(Math.min(summary.assetCount, gisRoutes.length > 0 ? 1 : 0)) },
-            ]}
-            onViewDetails={() => onViewDetails?.('assets')}
-          />
+        {/* Layer Summary Tab — COMPACT GRID */}
+        <TabsContent value="summary" className="mt-3">
+          <CompactLayerGrid layers={layerRows} onViewDetails={onViewDetails} />
         </TabsContent>
 
         {/* Routes Tab */}

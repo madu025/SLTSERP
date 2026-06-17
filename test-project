@@ -1,0 +1,198 @@
+// Full end-to-end test: Create fresh project → Complete ALL workflow stages → Verify progress
+const BASE = 'http://localhost:3000';
+let COOKIE = '';
+
+async function api(method, path, body = null) {
+  const opts = { method, headers: {} };
+  if (COOKIE) opts.headers['Cookie'] = COOKIE;
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(`${BASE}${path}`, opts);
+  const cookies = res.headers.getSetCookie?.() || [];
+  for (const c of cookies) {
+    const parts = c.split(';')[0];
+    if (parts.startsWith('token=')) COOKIE = parts;
+  }
+  let data;
+  try { data = await res.json(); } catch { data = await res.text(); }
+  return { status: res.status, data };
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function main() {
+  console.log('══════════════════════════════════════════════');
+  console.log('  COMPLETE A-TO-Z WORKFLOW TEST - NEW PROJECT');
+  console.log('══════════════════════════════════════════════\n');
+
+  // STEP 1: Login
+  console.log('[1] Login...');
+  let r = await api('POST', '/api/login', { username: 'admin', password: 'Admin@123' });
+  if (r.status !== 200) throw new Error('Login failed');
+
+  // STEP 2: Get CLUSTER_DEVELOPMENT type
+  console.log('[2] Fetching project types...');
+  r = await api('GET', '/api/projects/types');
+  const clusterType = r.data.find(t => t.name === 'CLUSTER_DEVELOPMENT');
+  if (!clusterType) throw new Error('CLUSTER_DEVELOPMENT type not found');
+  console.log(`  → ${clusterType.name} (${clusterType.id})\n`);
+
+  // STEP 3: Create fresh project
+  const code = `FOSP_TEST_${Date.now().toString(36).toUpperCase().slice(-6)}`;
+  console.log(`[3] Creating project: ${code}...`);
+  r = await api('POST', '/api/projects', {
+    projectCode: code,
+    name: `KL-SVK-0567 Test ${code}`,
+    description: 'Full workflow test - cluster fiber development',
+    type: 'OSP_FTTH',
+    location: 'Kolonnawa',
+    budget: '5000000',
+    startDate: '2026-06-01',
+    endDate: '2026-12-31',
+    projectTypeId: clusterType.id,
+  });
+  if (r.status !== 201 && r.status !== 200) throw new Error('Create failed: ' + JSON.stringify(r.data));
+  const projectId = r.data.id;
+  console.log(`  → ${r.data.name} created (progress: ${r.data.progress}%)\n`);
+
+  // STEP 4: Fetch workflow (auto-initializes)
+  await sleep(500);
+  console.log('[4] Fetching workflow...');
+  r = await api('GET', `/api/projects/${projectId}/workflow`);
+  if (r.status !== 200) throw new Error('Workflow failed');
+  const workflow = r.data;
+  const stages = workflow.stages || [];
+  console.log(`  → ${stages.length} stages loaded\n`);
+  
+  let prevProgress = 0;
+  let gaps = [];
+
+  // STEP 5: Walk through every stage
+  for (let i = 0; i < stages.length; i++) {
+    // Re-fetch fresh workflow each time
+    r = await api('GET', `/api/projects/${projectId}/workflow`);
+    const freshStages = r.data.stages || [];
+    const stage = freshStages.find(s => s.sequence === i + 1);
+    if (!stage) { console.log(`  ⚠ Stage ${i+1} not found, skipping`); continue; }
+    if (stage.status === 'COMPLETED') { console.log(`  ✓ Stage ${i+1}: ${stage.name} (already COMPLETED)`); continue; }
+
+    console.log(`═══ STAGE ${stage.sequence}: ${stage.name} ═══`);
+    console.log(`  Gates: approval=${stage.reqApproval} checklist=${stage.reqChecklist} photos=${stage.reqPhotos} materials=${stage.reqMaterials} docs=${stage.reqDocuments} otdr=${stage.reqOTDR} gps=${stage.reqGPS}`);
+    console.log(`  Items: tasks=${stage.tasks?.length || 0} checklists=${stage.checklists?.length || 0} approvals=${stage.approvals?.length || 0}`);
+
+    // Check if stage has tasks/checklists but mismatched req flags
+    if (stage.reqChecklist && (!stage.checklists || stage.checklists.length === 0)) {
+      console.log(`  ⚠ GAP: reqChecklist=true but 0 checklist items created`);
+      gaps.push(`Stage ${stage.sequence} (${stage.name}): reqChecklist=true but no checklist templates`);
+    }
+    if (stage.reqApproval && (!stage.approvals || stage.approvals.length === 0)) {
+      console.log(`  ⚠ GAP: reqApproval=true but 0 approval items created`);
+      gaps.push(`Stage ${stage.sequence} (${stage.name}): reqApproval=true but no approval templates`);
+    }
+    if (stage.reqPhotos && (!stage.checklists || stage.checklists.every(c => !c.isMandatory))) {
+      console.log(`  ⚠ GAP: reqPhotos=true but no mandatory checklist with reqPhoto`);
+      gaps.push(`Stage ${stage.sequence} (${stage.name}): reqPhotos=true but no photo-required checklist`);
+    }
+
+    // Complete all tasks
+    if (stage.tasks?.length > 0) {
+      for (const task of stage.tasks) {
+        r = await api('POST', `/api/projects/${projectId}/workflow/tasks`, {
+          action: 'update_task', taskId: task.id, status: 'COMPLETED', progress: 100
+        });
+        if (r.status !== 200) console.log(`    ❌ Task: ${task.name} FAILED`);
+      }
+      console.log(`    ✅ ${stage.tasks.length} tasks completed`);
+    }
+
+    // Complete all mandatory checklists
+    if (stage.checklists?.length > 0) {
+      let done = 0;
+      for (const item of stage.checklists) {
+        const photo = stage.reqPhotos && item.isMandatory ? 'https://test/photo.jpg' : undefined;
+        r = await api('POST', `/api/projects/${projectId}/workflow/tasks`, {
+          action: 'update_checklist', checklistId: item.id, isCompleted: true, photoUrl: photo
+        });
+        if (r.status === 200) done++;
+      }
+      console.log(`    ✅ ${done}/${stage.checklists.length} checklists completed`);
+    }
+
+    // Approve all
+    if (stage.approvals?.length > 0) {
+      let done = 0;
+      for (const a of stage.approvals) {
+        r = await api('POST', `/api/projects/${projectId}/workflow/approvals`, {
+          approvalId: a.id, status: 'APPROVED', userId: 'test-user', comments: 'Approved'
+        });
+        if (r.status === 200) done++;
+      }
+      console.log(`    ✅ ${done}/${stage.approvals.length} approvals submitted`);
+    }
+
+    // Transition stage to COMPLETED
+    console.log(`  → Transitioning to COMPLETED...`);
+    r = await api('POST', `/api/projects/${projectId}/workflow/stages`, {
+      stageId: stage.id, status: 'COMPLETED', userId: 'test-user'
+    });
+    if (r.status === 200) {
+      console.log(`    ✅ Stage ${stage.sequence} → COMPLETED`);
+    } else {
+      console.log(`    ❌ Stage transition FAILED: ${JSON.stringify(r.data).substring(0,200)}`);
+      // Check why
+      const v = await api('GET', `/api/projects/${projectId}/workflow`);
+      const st = v.data?.stages?.find(s => s.id === stage.id);
+      if (st) {
+        const incTasks = st.tasks?.filter(t => t.status !== 'COMPLETED').length || 0;
+        const incChecks = st.checklists?.filter(c => c.isMandatory && !c.isCompleted).length || 0;
+        const unApproved = st.approvals?.filter(a => a.status !== 'APPROVED').length || 0;
+        console.log(`    Gate status: tasks=${incTasks} checklist=${incChecks} approvals=${unApproved}`);
+      }
+    }
+
+    // Check progress
+    await sleep(300);
+    r = await api('GET', `/api/projects/${projectId}`);
+    const progress = r.data?.progress ?? prevProgress;
+    if (progress > prevProgress) {
+      console.log(`    📊 Progress: ${prevProgress}% → ${progress}% (+${progress - prevProgress}%)\n`);
+      prevProgress = progress;
+    } else {
+      console.log(`    ⚠ GAP: Progress didn't change (${prevProgress}% → ${progress}%)\n`);
+      gaps.push(`Stage ${stage.sequence}: Progress stuck at ${progress}%`);
+    }
+  }
+
+  // FINAL VERIFICATION
+  console.log('══════════════════════════════════════════════');
+  console.log('  FINAL REPORT');
+  console.log('══════════════════════════════════════════════');
+  
+  r = await api('GET', `/api/projects/${projectId}`);
+  console.log(`  Project: ${r.data?.name}`);
+  console.log(`  Final Progress: ${r.data?.progress}%`);
+  
+  r = await api('GET', `/api/projects/${projectId}/workflow`);
+  const allStages = r.data?.stages || [];
+  const completed = allStages.filter(s => s.status === 'COMPLETED').length;
+  const inProg = allStages.filter(s => s.status === 'IN_PROGRESS').length;
+  const pending = allStages.filter(s => s.status === 'PENDING').length;
+  console.log(`\n  Stages: ${completed}/${allStages.length} completed, ${inProg} in-progress, ${pending} pending`);
+  allStages.forEach(s => {
+    const icon = s.status === 'COMPLETED' ? '✅' : s.status === 'IN_PROGRESS' ? '▶️' : '⏳';
+    console.log(`    ${icon} ${s.sequence}. ${s.name} [${s.status}]`);
+  });
+
+  if (gaps.length > 0) {
+    console.log(`\n  ⚠️ GAPS FOUND (${gaps.length}):`);
+    gaps.forEach((g, i) => console.log(`    ${i+1}. ${g}`));
+  } else {
+    console.log(`\n  ✅ No gaps - workflow complete!`);
+  }
+  
+  console.log('\n🧪 TEST COMPLETE');
+}
+
+main().catch(e => { console.error('FATAL:', e.message); process.exit(1); });

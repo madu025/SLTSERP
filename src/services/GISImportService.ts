@@ -73,9 +73,12 @@ interface ParsedLayerMap {
 // GIS Import Service
 // ============================================================================
 
+// Global session store using globalThis to survive Turbopack HMR
+const _global = globalThis as typeof globalThis & { __gisSessions?: Map<string, import('./GISImportService').GISUploadSession> };
+if (!_global.__gisSessions) _global.__gisSessions = new Map();
+
 export class GISImportService {
-  // In-memory session store (replace with Redis/cache in production)
-  private static sessions: Map<string, GISUploadSession> = new Map();
+  private static get sessions() { return _global.__gisSessions!; }
 
   /**
    * Generate a unique project code
@@ -188,7 +191,9 @@ export class GISImportService {
 
       for (const file of session.files) {
         try {
-          const parsed = gisParser.autoParseLayer(file.fileName, file.content);
+          // Decode base64 content to raw GeoJSON string before parsing
+          const rawContent = Buffer.from(file.content, 'base64').toString('utf-8');
+          const parsed = gisParser.autoParseLayer(file.fileName, rawContent);
           const layerType = parsed.layerType;
 
           // Store parsed data by type
@@ -789,45 +794,69 @@ export class GISImportService {
         where: { projectTypeId: projectTypeRecord.id, isActive: true },
       });
 
-      if (!existingTemplate) {
+      let template = existingTemplate;
+
+      if (!template) {
         // Create a workflow template from the definitions
         const workflowDef = getWorkflowForProjectType(projectType);
-        const template = await prisma.workflowTemplate.create({
-          data: {
-            name: `${workflowDef.templateName} - Auto Generated`,
-            description: `Auto-generated workflow template for ${projectType}`,
-            projectTypeId: projectTypeRecord.id,
-            isActive: true,
-          },
+        const templateName = `${workflowDef.templateName} - Auto Generated`;
+        
+        // Find by name first (may exist from previous run with different projectTypeId)
+        template = await prisma.workflowTemplate.findFirst({
+          where: { name: templateName }
         });
-
-        // Create stage templates
-        for (const stageDef of workflowDef.stages) {
-          const stageTemplate = await prisma.workflowStageTemplate.create({
+        
+        if (template) {
+          // Update to link to current project type
+          template = await prisma.workflowTemplate.update({
+            where: { id: template.id },
+            data: { projectTypeId: projectTypeRecord.id, isActive: true },
+          });
+        } else {
+          template = await prisma.workflowTemplate.create({
             data: {
-              name: stageDef.name,
-              description: `Stage ${stageDef.sequence}: ${stageDef.name}`,
-              sequence: stageDef.sequence,
-              workflowTemplateId: template.id,
-              reqApproval: stageDef.reqApproval,
-              reqChecklist: stageDef.reqChecklist,
-              reqPhotos: stageDef.reqPhotos,
-              reqDocuments: stageDef.reqDocuments,
-              reqOTDR: stageDef.reqOTDR,
-              reqGPS: stageDef.reqGPS,
+              name: templateName,
+              description: `Auto-generated workflow template for ${projectType}`,
+              projectTypeId: projectTypeRecord.id,
+              isActive: true,
             },
           });
+        }
 
-          // Create task templates for each stage
-          for (const taskDef of stageDef.tasks) {
-            await prisma.workflowTaskTemplate.create({
+        // Only create stage templates if template is fresh (no stages yet)
+        const existingStages = await prisma.workflowStageTemplate.count({
+          where: { workflowTemplateId: template.id },
+        });
+
+        if (existingStages === 0) {
+          // Create stage templates
+          for (const stageDef of workflowDef.stages) {
+            const stageTemplate = await prisma.workflowStageTemplate.create({
               data: {
-                name: taskDef,
-                description: `${stageDef.name} - ${taskDef}`,
-                priority: 'MEDIUM',
-                stageTemplateId: stageTemplate.id,
+                name: stageDef.name,
+                description: `Stage ${stageDef.sequence}: ${stageDef.name}`,
+                sequence: stageDef.sequence,
+                workflowTemplateId: template.id,
+                reqApproval: stageDef.reqApproval,
+                reqChecklist: stageDef.reqChecklist,
+                reqPhotos: stageDef.reqPhotos,
+                reqDocuments: stageDef.reqDocuments,
+                reqOTDR: stageDef.reqOTDR,
+                reqGPS: stageDef.reqGPS,
               },
             });
+
+            // Create task templates for each stage
+            for (const taskDef of stageDef.tasks) {
+              await prisma.workflowTaskTemplate.create({
+                data: {
+                  name: taskDef,
+                  description: `${stageDef.name} - ${taskDef}`,
+                  priority: 'MEDIUM',
+                  stageTemplateId: stageTemplate.id,
+                },
+              });
+            }
           }
         }
       }

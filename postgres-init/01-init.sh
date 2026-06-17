@@ -6,14 +6,21 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     -- Enable required extensions
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
     CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-    
+    CREATE EXTENSION IF NOT EXISTS "postgis";
+    CREATE EXTENSION IF NOT EXISTS "postgis_topology";
+    CREATE EXTENSION IF NOT EXISTS "fuzzystrmatch";
+    CREATE EXTENSION IF NOT EXISTS "postgis_tiger_geocoder";
+
+    -- Enable PostGIS raster support (large telecom fiber imagery)
+    CREATE EXTENSION IF NOT EXISTS "postgis_raster";
+
     -- Create read-only user for reporting (optional)
     CREATE USER readonly_user WITH PASSWORD 'readonly123';
     GRANT CONNECT ON DATABASE $POSTGRES_DB TO readonly_user;
     GRANT USAGE ON SCHEMA public TO readonly_user;
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_user;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly_user;
-    
+
     -- Performance tuning
     ALTER SYSTEM SET shared_buffers = '256MB';
     ALTER SYSTEM SET effective_cache_size = '1GB';
@@ -28,4 +35,4 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     ALTER SYSTEM SET max_wal_size = '4GB';
 EOSQL
 
-echo "Database initialization completed!"
+echo "PostgreSQL with PostGIS initialization completed!"
