@@ -1,0 +1,400 @@
+// ============================================================
+// Module: project-core
+// Models: Job, Project, ProjectBOQItem, ProjectMilestone, ProjectExpense, ProjectTask, TaskDependency, TaskProgressLog, Timesheet, ProjectResource, ProjectDocument, ProjectDocumentVersion, ProjectType, BOQRateConfig, BOQApproval, DailyProgress
+// ============================================================
+
+model Job {
+  id                String      @id @default(cuid())
+  jobCode           String      @unique
+  name              String
+  description       String?
+  customerName      String?
+  customerContact   String?
+  location          String?
+  region            String?
+  district          String?
+  status            String      @default("PENDING_SURVEY")
+  priority          String      @default("MEDIUM")
+  assignedToId      String?
+  projectId         String?     @unique
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  project           Project?    @relation(fields: [projectId], references: [id])
+  assignedTo        Staff?      @relation(fields: [assignedToId], references: [id])
+
+  @@index([status])
+  @@index([projectId])
+  @@index([assignedToId])
+}
+
+model Project {
+  id                String                  @id @default(cuid())
+  projectCode       String                  @unique
+  name              String
+  description       String?
+  type              String                  @default("OSP_FTTH")
+  location          String?
+  status            String                  @default("PLANNING")
+  progress          Float                   @default(0)
+  jobId             String?
+  job               Job?
+  budget            Float?
+  actualCost        Float                   @default(0)
+  variance          Float?
+  startDate         DateTime?
+  endDate           DateTime?
+  estimatedDuration Int?
+  actualDuration    Int?
+  areaManagerId     String?
+  contractorId      String?
+  opmcId            String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  invoices          Invoice[]
+  areaManager       Staff?                  @relation(fields: [areaManagerId], references: [id])
+  contractor        Contractor?             @relation(fields: [contractorId], references: [id])
+  opmc              OPMC?                   @relation(fields: [opmcId], references: [id])
+  boqItems          ProjectBOQItem[]
+  expenses          ProjectExpense[]
+  projectReturns    ProjectMaterialReturn[]
+  milestones        ProjectMilestone[]
+  stockIssues       StockIssue[]
+  tasks             ProjectTask[]
+  timesheets        Timesheet[]
+  requisitions      ProjectRequisition[]
+  purchaseOrders    ProjectPurchaseOrder[]
+  goodsReceipts     ProjectGoodsReceipt[]
+  projectInvoices   ProjectInvoice[]
+  paymentVouchers   PaymentVoucher[]
+  ldPenalties       ProjectLDPenalty[]
+  retentions        ProjectRetention[]
+  changeOrders      ProjectChangeOrder[]
+  resources         ProjectResource[]
+  documents         ProjectDocument[]
+  approvalRequests  ProjectApprovalRequest[]
+  risks             ProjectRisk[]
+  inspections       ProjectInspection[]
+  projectTypeId     String?
+  projectType       ProjectType?            @relation(fields: [projectTypeId], references: [id])
+  workflowInstance  ProjectWorkflowInstance?
+
+  // OSP Enhancement Relations
+  gisMapping        Json?                   // Maps "POLE", "CHAMBER", "CLOSURE", "CABLE" to inventory materialIds
+  permits           ProjectPermit[]
+  gisRoutes         GISRoute[]
+  generatedBOQs     GISGeneratedBOQ[]
+  surveys           SurveyRequest[]
+  contractorScores  ContractorPerformanceScore[]
+  fieldTasks        FieldTask[]
+  otdrTests         OTDRTest[]
+  hseSafetyLogs     HSESafetyLog[]
+  evm               ProjectEVM?
+  assets            ProjectAsset[]
+
+  // Phase Plan Relations (New)
+  routeType         String?                 // AERIAL, UNDERGROUND, HYBRID
+  routeFrom         String?                 // Route start point
+  routeTo           String?                 // Route end point
+  routeLength       Float?                  // Planned route length in meters
+  surveyLayers      String[]                @default([]) // Active QGIS survey layer IDs
+  supervisorAssignments ProjectSupervisorAssignment[]
+  surveySessions    MobileSurveySession[]
+  surveyPoints      SurveyPoint[]
+  boqApprovals      BOQApproval[]
+  boqRateConfigs    BOQRateConfig[]
+  dailyProgress     DailyProgress[]
+  changeRequests    ProjectChangeRequest[]
+  gisAuditLogs      GISAuditLog[]
+  patSessions       PATSession[]
+  projectPayments   ProjectPayment[]
+  aiPredictions     AiPrediction[]
+
+  @@index([status])
+  @@index([opmcId])
+  @@index([contractorId])
+}
+
+model ProjectBOQItem {
+  id             String         @id @default(cuid())
+  projectId      String
+  itemCode       String
+  description    String
+  unit           String
+  quantity       Float
+  unitRate       Float
+  amount         Float
+  category       String?
+  source         String         @default("NEW") // NEW = to procure, EXISTING = from inventory/stock
+  actualQuantity Float          @default(0)
+  actualCost     Float          @default(0)
+  materialId     String?
+  remarks        String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  material       InventoryItem? @relation("BOQMaterials", fields: [materialId], references: [id])
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([category])
+  @@index([source])
+}
+
+model ProjectMilestone {
+  id            String    @id @default(cuid())
+  projectId     String
+  name          String
+  description   String?
+  targetDate    DateTime
+  completedDate DateTime?
+  status        String    @default("PENDING")
+  progress      Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model ProjectExpense {
+  id          String   @id @default(cuid())
+  projectId   String
+  type        String
+  description String
+  amount      Float
+  date        DateTime @default(now())
+  invoiceRef  String?
+  remarks     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([type])
+  @@index([date])
+}
+
+model ProjectTask {
+  id                String              @id @default(cuid())
+  projectId         String
+  parentId          String?
+  wbsCode           String              // e.g., "1.1.1", "1.2"
+  name              String
+  description       String?
+  type              String              @default("TASK") // TASK, MILESTONE, PHASE
+  status            String              @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, DELAYED
+  priority          String              @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  plannedStartDate  DateTime?
+  plannedEndDate    DateTime?
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+  plannedDuration   Int?
+  actualDuration    Int?
+  plannedProgress   Float               @default(0)
+  actualProgress    Float               @default(0)
+  estimatedCost     Float?
+  actualCost        Float?
+  order             Int                 @default(0)
+  isCritical        Boolean             @default(false)
+  assigneeType      String?             // STAFF, CONTRACTOR, TEAM
+  assigneeId        String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent            ProjectTask?        @relation("TaskHierarchy", fields: [parentId], references: [id])
+  children          ProjectTask[]       @relation("TaskHierarchy")
+  dependencies      TaskDependency[]    @relation("TaskDependents")
+  dependsOn         TaskDependency[]    @relation("TaskPrerequisites")
+  progressLogs      TaskProgressLog[]
+  timesheets        Timesheet[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([status])
+  @@index([wbsCode])
+}
+
+model TaskDependency {
+  id                String      @id @default(cuid())
+  taskId            String      // dependent task
+  dependsOnTaskId   String      // predecessor task
+  type              String      @default("FINISH_TO_START") // FINISH_TO_START, START_TO_START, FINISH_TO_FINISH
+  lagDays           Int         @default(0)
+  createdAt         DateTime    @default(now())
+  task              ProjectTask @relation("TaskDependents", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn         ProjectTask @relation("TaskPrerequisites", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
+}
+
+model TaskProgressLog {
+  id                String      @id @default(cuid())
+  taskId            String
+  date              DateTime    @default(now())
+  progress          Float       @default(0) // percentage 0-100
+  description       String?
+  photoUrls         String[]    @default([])
+  gpsLatitude       Float?
+  gpsLongitude      Float?
+  loggedById        String?
+  createdAt         DateTime    @default(now())
+  task              ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([date])
+}
+
+model Timesheet {
+  id                String      @id @default(cuid())
+  projectId         String
+  taskId            String
+  staffId           String?
+  contractorId      String?
+  date              DateTime
+  hours             Float
+  description       String?
+  status            String      @default("PENDING") // PENDING, VERIFIED, APPROVED, REJECTED
+  verifiedById      String?
+  verifiedAt        DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  task              ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project           Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([taskId])
+  @@index([staffId])
+  @@index([date])
+}
+
+model ProjectResource {
+  id                   String      @id @default(cuid())
+  projectId            String
+  project              Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  resourceType         String      // STAFF, CONTRACTOR, TEAM, EQUIPMENT
+  resourceId           String      // Id referencing User/Staff, Contractor, ContractorTeam, or Equipment
+  name                 String
+  role                 String?     // e.g. "Lead Cable Splicer", "Excavator"
+  allocationPercentage Float       @default(100) // Resource Loading % (e.g. 50%)
+  
+  startDate            DateTime
+  endDate              DateTime
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@index([projectId])
+}
+
+model ProjectDocument {
+  id              String                  @id @default(cuid())
+  projectId       String
+  project         Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  category        String                  // DRAWING, BOQ, CONTRACT, SPECIFICATION, OTHER
+  status          String                  @default("DRAFT") // DRAFT, UNDER_REVIEW, APPROVED, REJECTED
+  currentVersion  Int                     @default(1)
+  fileUrl         String
+  uploadedById    String
+  uploadedBy      User                    @relation(fields: [uploadedById], references: [id])
+  
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  versions        ProjectDocumentVersion[]
+  approvals       ProjectApprovalRequest[]
+
+  @@index([projectId])
+}
+
+model ProjectDocumentVersion {
+  id              String          @id @default(cuid())
+  documentId      String
+  document        ProjectDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  versionNumber   Int
+  fileUrl         String
+  changeSummary   String?
+  uploadedById    String
+  createdAt       DateTime        @default(now())
+
+  @@index([documentId])
+}
+
+model ProjectType {
+  id                String             @id @default(cuid())
+  name              String             @unique // e.g., "Cluster Development", "SSD"
+  description       String?
+  workflowTemplates WorkflowTemplate[]
+  projects          Project[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model BOQRateConfig {
+  id            String    @id @default(cuid())
+  projectId     String?
+  itemCategory  String    // POLE, CHAMBER, CLOSURE, CABLE, DUCT, LABOR
+  itemCode      String    @unique
+  description   String?
+  unit          String    @default("UNIT")
+  unitRate      Float     @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  project       Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([itemCategory])
+  @@index([isActive])
+}
+
+model BOQApproval {
+  id                    String    @id @default(cuid())
+  boqId                 String
+  projectId             String
+  status                String    @default("PENDING")
+  currentStep           String    @default("SUPERVISOR")
+  supervisorId          String?
+  supervisorApprovedAt  DateTime?
+  pmId                  String?
+  pmApprovedAt          DateTime?
+  financeId             String?
+  financeApprovedAt     DateTime?
+  rejectionReason       String?
+  notes                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([boqId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model DailyProgress {
+  id                  String    @id @default(cuid())
+  projectId           String
+  reportDate          DateTime  @default(now())
+  polesErected        Int       @default(0)
+  cablePulled         Float     @default(0)
+  chambersInstalled   Int       @default(0)
+  closuresInstalled   Int       @default(0)
+  jointsCompleted     Int       @default(0)
+  fdpsInstalled       Int       @default(0)
+  teamSize            Int?
+  hoursWorked         Float?
+  laborCost           Float     @default(0)
+  photoUrls           String[]  @default([])
+  progressPct         Float     @default(0)
+  notes               String?
+  reportedById        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([reportDate])
+}

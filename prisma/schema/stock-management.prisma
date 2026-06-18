@@ -1,0 +1,407 @@
+// ============================================================
+// Module: stock-management
+// Models: ContractorBatchStock, StockRequest, StockRequestItem, GRN, GRNItem, MRN, MRNItem, ContractorMaterialIssue, ContractorMaterialIssueItem, ContractorMaterialReturn, ContractorMaterialReturnItem, ContractorWastage, ContractorWastageItem, ContractorMaterialBalanceSheet, ContractorBalanceSheetItem, StockIssue, StockIssueItem, ProjectMaterialReturn, ProjectMaterialReturnItem, StockMovement
+// ============================================================
+
+model ContractorBatchStock {
+  id           String         @id @default(cuid())
+  contractorId String
+  itemId       String
+  batchId      String
+  quantity     Float          @default(0)
+  updatedAt    DateTime       @updatedAt
+  batch        InventoryBatch @relation(fields: [batchId], references: [id])
+  contractor   Contractor     @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  item         InventoryItem  @relation(fields: [itemId], references: [id])
+
+  @@unique([contractorId, batchId])
+  @@index([contractorId])
+  @@index([itemId])
+  @@index([batchId])
+}
+
+model StockRequest {
+  id                        String             @id @default(cuid())
+  requestNr                 String             @unique @default(cuid())
+  fromStoreId               String?
+  toStoreId                 String?
+  status                    String             @default("PENDING")
+  requestedById             String
+  approvedById              String?
+  remarks                   String?
+  sltReferenceId            String?
+  priority                  String             @default("MEDIUM")
+  requiredDate              DateTime?
+  purpose                   String?
+  sourceType                String             @default("SLT")
+  projectTypes              String[]
+  maintenanceMonths         String?
+  workflowStage             String             @default("REQUEST")
+  procurementStatus         String             @default("PENDING")
+  poNumber                  String?
+  vendor                    String?
+  expectedDelivery          DateTime?
+  irNumber                  String?
+  isCoveringPO              Boolean            @default(false)
+  armAction                 String?
+  armDate                   DateTime?
+  armRemarks                String?
+  armApprovedById           String?
+  storesManagerAction       String?
+  storesManagerDate         DateTime?
+  storesManagerRemarks      String?
+  storesManagerApprovedById String?
+  hsOspAction               String?
+  hsOspDate                 DateTime?
+  managerAction             String?
+  managerDate               DateTime?
+  releasedById              String?
+  releasedDate              DateTime?
+  releasedRemarks           String?
+  receivedById              String?
+  receivedDate              DateTime?
+  receivedRemarks           String?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  grns                      GRN[]
+  approvedBy                User?              @relation("ApproveUser", fields: [approvedById], references: [id])
+  armApprovedBy             User?              @relation("ARMApprover", fields: [armApprovedById], references: [id])
+  fromStore                 InventoryStore?    @relation("RequestSource", fields: [fromStoreId], references: [id])
+  receivedBy                User?              @relation("ReceivedBy", fields: [receivedById], references: [id])
+  releasedBy                User?              @relation("ReleasedBy", fields: [releasedById], references: [id])
+  requestedBy               User               @relation("RequestUser", fields: [requestedById], references: [id])
+  storesManagerApprovedBy   User?              @relation("StoresManagerApprover", fields: [storesManagerApprovedById], references: [id])
+  toStore                   InventoryStore?    @relation("RequestTarget", fields: [toStoreId], references: [id])
+  items                     StockRequestItem[]
+
+  @@index([fromStoreId])
+  @@index([toStoreId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([workflowStage])
+  @@index([createdAt])
+}
+
+model StockRequestItem {
+  id              String        @id @default(cuid())
+  requestId       String
+  itemId          String
+  requestedQty    Float
+  approvedQty     Float         @default(0)
+  issuedQty       Float?
+  receivedQty     Float         @default(0)
+  remarks         String?
+  make            String?
+  model           String?
+  suggestedVendor String?
+  createdAt       DateTime      @default(now())
+  item            InventoryItem @relation(fields: [itemId], references: [id])
+  request         StockRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([itemId])
+}
+
+model GRN {
+  id           String           @id @default(cuid())
+  grnNumber    String           @unique
+  storeId      String
+  sourceType   String
+  supplier     String?
+  requestId    String?
+  receivedById String
+  reference    String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  receivedBy   User             @relation(fields: [receivedById], references: [id])
+  request      StockRequest?    @relation(fields: [requestId], references: [id])
+  store        InventoryStore   @relation(fields: [storeId], references: [id])
+  items        GRNItem[]
+  batches      InventoryBatch[]
+
+  @@index([storeId])
+  @@index([requestId])
+  @@index([grnNumber])
+}
+
+model GRNItem {
+  id        String          @id @default(cuid())
+  grnId     String
+  itemId    String
+  quantity  Float
+  batchId   String?         @unique
+  createdAt DateTime        @default(now())
+  batch     InventoryBatch? @relation(fields: [batchId], references: [id])
+  grn       GRN             @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  item      InventoryItem   @relation(fields: [itemId], references: [id])
+
+  @@index([grnId])
+  @@index([itemId])
+}
+
+model MRN {
+  id           String         @id @default(cuid())
+  mrnNumber    String         @unique
+  storeId      String
+  returnType   String
+  returnTo     String?
+  supplier     String?
+  reason       String?
+  grnId        String?
+  returnedById String
+  status       String         @default("PENDING")
+  approvedById String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  approvedBy   User?          @relation("MRNApprover", fields: [approvedById], references: [id])
+  returnedBy   User           @relation(fields: [returnedById], references: [id])
+  store        InventoryStore @relation(fields: [storeId], references: [id])
+  items        MRNItem[]
+
+  @@index([storeId])
+  @@index([status])
+  @@index([mrnNumber])
+}
+
+model MRNItem {
+  id        String        @id @default(cuid())
+  mrnId     String
+  itemId    String
+  quantity  Float
+  reason    String?
+  createdAt DateTime      @default(now())
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  mrn       MRN           @relation(fields: [mrnId], references: [id], onDelete: Cascade)
+
+  @@index([mrnId])
+  @@index([itemId])
+}
+
+model ContractorMaterialIssue {
+  id           String                        @id @default(cuid())
+  contractorId String
+  storeId      String
+  issueDate    DateTime                      @default(now())
+  month        String
+  issuedBy     String?
+  createdAt    DateTime                      @default(now())
+  contractor   Contractor                    @relation("MaterialIssues", fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore                @relation("MaterialIssues", fields: [storeId], references: [id])
+  items        ContractorMaterialIssueItem[]
+
+  @@index([contractorId, storeId, month])
+  @@index([month])
+}
+
+model ContractorMaterialIssueItem {
+  id       String                  @id @default(cuid())
+  issueId  String
+  itemId   String
+  quantity Float
+  unit     String
+  issue    ContractorMaterialIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item     InventoryItem           @relation("IssueItems", fields: [itemId], references: [id])
+
+  @@index([issueId])
+  @@index([itemId])
+}
+
+model ContractorMaterialReturn {
+  id             String                         @id @default(cuid())
+  contractorId   String
+  storeId        String
+  serviceOrderId String?                        // GAP 4 FIX: optional link to the SOD that triggered this return
+  returnDate     DateTime                       @default(now())
+  month          String
+  reason         String?
+  acceptedBy     String?
+  acceptedAt     DateTime?
+  status         String                         @default("PENDING")
+  createdAt      DateTime                       @default(now())
+  contractor     Contractor                     @relation("MaterialReturns", fields: [contractorId], references: [id], onDelete: Cascade)
+  store          InventoryStore                 @relation("MaterialReturns", fields: [storeId], references: [id])
+  serviceOrder   ServiceOrder?                  @relation("SODMaterialReturns", fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  items          ContractorMaterialReturnItem[]
+
+  @@index([contractorId, storeId, month])
+  @@index([status])
+  @@index([serviceOrderId])
+}
+
+model ContractorMaterialReturnItem {
+  id        String                   @id @default(cuid())
+  returnId  String
+  itemId    String
+  quantity  Float
+  unit      String
+  condition String                   @default("GOOD")
+  item      InventoryItem            @relation("ReturnItems", fields: [itemId], references: [id])
+  return    ContractorMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([itemId])
+}
+
+model ContractorWastage {
+  id           String                  @id @default(cuid())
+  contractorId String
+  storeId      String
+  date         DateTime                @default(now())
+  month        String
+  description  String?
+  status       String                  @default("APPROVED")
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime                @default(now())
+  contractor   Contractor              @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore          @relation(fields: [storeId], references: [id])
+  items        ContractorWastageItem[]
+
+  @@index([contractorId, storeId, month])
+  @@index([status])
+}
+
+model ContractorWastageItem {
+  id        String            @id @default(cuid())
+  wastageId String
+  itemId    String
+  quantity  Float
+  unit      String
+  item      InventoryItem     @relation(fields: [itemId], references: [id])
+  wastage   ContractorWastage @relation(fields: [wastageId], references: [id], onDelete: Cascade)
+
+  @@index([wastageId])
+  @@index([itemId])
+}
+
+model ContractorMaterialBalanceSheet {
+  id           String                       @id @default(cuid())
+  contractorId String
+  storeId      String
+  month        String
+  totalValue   Float?
+  usageRate    Float?
+  wastageRate  Float?
+  generatedAt  DateTime                     @default(now())
+  generatedBy  String?
+  items        ContractorBalanceSheetItem[]
+  contractor   Contractor                   @relation("BalanceSheets", fields: [contractorId], references: [id], onDelete: Cascade)
+  store        InventoryStore               @relation("BalanceSheets", fields: [storeId], references: [id])
+
+  @@unique([contractorId, storeId, month])
+  @@index([month])
+  @@index([contractorId])
+  @@index([storeId])
+}
+
+model ContractorBalanceSheetItem {
+  id             String                         @id @default(cuid())
+  balanceSheetId String
+  itemId         String
+  openingBalance Float
+  received       Float
+  returned       Float                          @default(0)
+  used           Float
+  wastage        Float
+  closingBalance Float
+  requiredNext   Float?
+  balanceSheet   ContractorMaterialBalanceSheet @relation(fields: [balanceSheetId], references: [id], onDelete: Cascade)
+  item           InventoryItem                  @relation("BalanceSheetItems", fields: [itemId], references: [id])
+
+  @@index([balanceSheetId])
+  @@index([itemId])
+}
+
+model StockIssue {
+  id            String           @id @default(cuid())
+  issueNumber   String           @unique
+  storeId       String
+  issuedById    String
+  issueType     String
+  projectId     String?
+  contractorId  String?
+  teamId        String?
+  recipientName String
+  remarks       String?
+  status        String           @default("PENDING")
+  approvedById  String?
+  approvedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  approvedBy    User?            @relation("IssueApprover", fields: [approvedById], references: [id])
+  contractor    Contractor?      @relation("ContractorIssues", fields: [contractorId], references: [id])
+  issuedBy      User             @relation("StockIssuer", fields: [issuedById], references: [id])
+  project       Project?         @relation(fields: [projectId], references: [id])
+  store         InventoryStore   @relation("StockIssues", fields: [storeId], references: [id])
+  items         StockIssueItem[]
+
+  @@index([storeId])
+  @@index([issueType])
+  @@index([status])
+}
+
+model StockIssueItem {
+  id        String        @id @default(cuid())
+  issueId   String
+  itemId    String
+  quantity  Float
+  remarks   String?
+  createdAt DateTime      @default(now())
+  issue     StockIssue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item      InventoryItem @relation("IssueItemsStock", fields: [itemId], references: [id])
+
+  @@index([issueId])
+  @@index([itemId])
+}
+
+model ProjectMaterialReturn {
+  id           String                      @id @default(cuid())
+  returnNumber String                      @unique
+  projectId    String
+  storeId      String
+  returnedById String
+  status       String                      @default("PENDING")
+  approvedById String?
+  approvedAt   DateTime?
+  reason       String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  approvedBy   User?                       @relation("ProjectReturnApprover", fields: [approvedById], references: [id])
+  project      Project                     @relation(fields: [projectId], references: [id])
+  returnedBy   User                        @relation("ProjectReturnUser", fields: [returnedById], references: [id])
+  store        InventoryStore              @relation(fields: [storeId], references: [id])
+  items        ProjectMaterialReturnItem[]
+
+  @@index([projectId])
+  @@index([storeId])
+  @@index([status])
+}
+
+model ProjectMaterialReturnItem {
+  id        String                @id @default(cuid())
+  returnId  String
+  itemId    String
+  quantity  Float
+  condition String                @default("GOOD")
+  remarks   String?
+  item      InventoryItem         @relation("ProjectReturnItems", fields: [itemId], references: [id])
+  return    ProjectMaterialReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([itemId])
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  storeId   String
+  itemId    String
+  type      String
+  quantity  Float
+  reference String?
+  remarks   String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+  @@index([itemId])
+  @@index([type])
+}

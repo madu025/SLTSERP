@@ -1,0 +1,235 @@
+// ============================================================
+// Module: contractor
+// Models: Contractor, ContractorStock, ContractorTeam, TeamStoreAssignment, TeamMember, ContractorPaymentConfig, ContractorPaymentTier, Penalty, ContractorPerformanceScore
+// ============================================================
+
+model Contractor {
+
+  id                      String                           @id @default(cuid())
+  name                    String
+  contactNumber           String?
+  email                   String?
+  nic                     String?
+  address                 String?
+  type                    ContractorType                   @default(SOD)
+  registrationNumber      String?                          @unique
+  brNumber                String?
+  status                  ContractorStatus                 @default(PENDING)
+  photoUrl                String?
+  nicFrontUrl             String?
+  nicBackUrl              String?
+  policeReportUrl         String?
+  gramaCertUrl            String?
+  registrationFeePaid     Boolean                          @default(false)
+  registrationFeeSlipUrl  String?                          // Registration Fee Payment Slip URL
+  agreementSigned         Boolean                          @default(false)
+  agreementDate           DateTime?
+  agreementDuration       Int?                             @default(1)
+  brCertUrl               String?
+  armApprovedAt           DateTime?
+  armApprovedById         String?
+  ospApprovedAt           DateTime?
+  ospApprovedById         String?
+  rejectionReason         String?
+  rejectionById           String?
+  rejectedAt              DateTime?
+  registrationToken       String?                          @unique
+  registrationTokenExpiry DateTime?
+  registrationStartedAt   DateTime?
+  registrationDraft       Json?
+  siteOfficeStaffId       String?
+  opmcId                  String?
+  bankName                String?
+  bankBranch              String?
+  bankAccountNumber       String?
+  bankPassbookUrl         String?
+  documentStatus          String                           @default("PENDING")
+  uploadToken             String?                          @unique
+  uploadTokenExpiry       DateTime?
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+  armApprovedBy           User?                            @relation("ContractorArmApproval", fields: [armApprovedById], references: [id])
+  opmc                    OPMC?                            @relation(fields: [opmcId], references: [id])
+  ospApprovedBy           User?                            @relation("ContractorOspApproval", fields: [ospApprovedById], references: [id])
+  rejectionBy             User?                            @relation("ContractorRejection", fields: [rejectionById], references: [id])
+  siteOfficeStaff         User?                            @relation("ContractorLinkGenerator", fields: [siteOfficeStaffId], references: [id])
+  batchStocks             ContractorBatchStock[]
+  balanceSheets           ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  materialIssues          ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns         ContractorMaterialReturn[]       @relation("MaterialReturns")
+  stock                   ContractorStock[]
+  teams                   ContractorTeam[]
+  wastageReports          ContractorWastage[]
+  invoices                Invoice[]
+  serials                 InventoryItemSerial[]
+  projects                Project[]
+  serviceOrders           ServiceOrder[]
+  stockIssues             StockIssue[]                     @relation("ContractorIssues")
+  teamMembers             TeamMember[]
+  performanceScores       ContractorPerformanceScore[]
+
+  @@index([status])
+  @@index([opmcId])
+  @@index([type])
+}
+
+model ContractorStock {
+  id           String        @id @default(cuid())
+  contractorId String
+  itemId       String
+  quantity     Float         @default(0)
+  updatedAt    DateTime      @updatedAt
+  contractor   Contractor    @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  item         InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@unique([contractorId, itemId])
+  @@index([contractorId])
+  @@index([itemId])
+}
+
+model ContractorTeam {
+  id               String                @id @default(cuid())
+  name             String
+  status           String                @default("ACTIVE")
+  contractorId     String
+  opmcId           String?
+  sltCode          String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  contractor       Contractor            @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  opmc             OPMC?                 @relation(fields: [opmcId], references: [id])
+  serviceOrders    ServiceOrder[]
+  members          TeamMember[]
+  storeAssignments TeamStoreAssignment[]
+}
+
+model TeamStoreAssignment {
+  id        String         @id @default(cuid())
+  teamId    String
+  storeId   String
+  isPrimary Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  store     InventoryStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  team      ContractorTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, storeId])
+  @@index([teamId])
+  @@index([storeId])
+}
+
+model TeamMember {
+  id                     String          @id @default(cuid())
+  name                   String
+  idCopyNumber           String?
+  contractorIdCopyNumber String?
+  nic                    String?
+  designation            String?
+  photoUrl               String?
+  nicUrl                 String?
+  policeReportUrl        String?
+  gramaCertUrl           String?
+  contactNumber          String?
+  address                String?
+  shoeSize               String?
+  tshirtSize             String?
+  passportPhotoUrl       String?
+  uploadToken            String?         @unique
+  uploadTokenExpiry      DateTime?
+  contractorId           String
+  teamId                 String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  contractor             Contractor      @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+  team                   ContractorTeam? @relation(fields: [teamId], references: [id])
+}
+
+model ContractorPaymentConfig {
+  id            String                  @id @default(cuid())
+  rtomId        String?
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+  isActive      Boolean                 @default(true)
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  rtom          OPMC?                   @relation(fields: [rtomId], references: [id], onDelete: Cascade)
+  tiers         ContractorPaymentTier[]
+
+  @@index([rtomId])
+  @@index([isActive])
+}
+
+model ContractorPaymentTier {
+  id          String                  @id @default(cuid())
+  configId    String
+  minDistance Float
+  maxDistance Float
+  amount      Float
+  config      ContractorPaymentConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId])
+}
+
+model Penalty {
+  id             String        @id @default(cuid())
+  amount         Float         @default(0)
+  reason         String        // QC_FAILURE, PAT_REJECT, MATERIAL_MISMATCH, MANUAL
+  description    String?
+  status         String        @default("PENDING") // PENDING, APPROVED, REJECTED
+  proposedBy     String?
+  invoiceId      String?
+  serviceOrderId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id])
+}
+
+model ContractorPerformanceScore {
+  id                  String    @id @default(cuid())
+  contractorId        String
+  projectId           String?
+  project             Project?                  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  evaluationMonth     String    // Format: "YYYY-MM"
+  score               Float     @default(0) // 0-100%
+  
+  // Component Scores
+  productivityScore   Float?    // 0-100
+  qualityScore        Float?    // 0-100
+  safetyScore         Float?    // 0-100
+  slaComplianceScore  Float?   // 0-100
+  scheduleScore       Float?    // 0-100
+  
+  // Metrics
+  ncrCount            Int       @default(0)
+  ncrClosedCount      Int       @default(0)
+  hseIncidentCount    Int       @default(0)
+  completedTasksCount Int       @default(0)
+  delayedTasksCount   Int       @default(0)
+  totalTasksAssigned  Int       @default(0)
+  
+  // Ratings
+  averageRating       Float?    // From inspection ratings
+  inspectionCount     Int       @default(0)
+  inspectionPassCount Int       @default(0)
+
+  // Auto-KPI Fields (Phase 17)
+  patPassPct          Float?    // Auto from PATSession pass rate
+  materialWastagePct  Float?    // Auto from material records
+  reworkCount         Int?      // Auto from PAT fine-tune count
+  timelineAdherencePct Float?   // Auto from task completion vs planned
+  autoCalculated      Boolean   @default(false) // true = calculated by KPI engine
+  
+  evaluatedById       String?
+  evaluatedAt         DateTime  @default(now())
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  contractor          Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  @@unique([contractorId, evaluationMonth])
+  @@index([contractorId])
+  @@index([evaluationMonth])
+  @@index([score])
+}

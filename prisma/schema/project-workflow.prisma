@@ -1,0 +1,243 @@
+// ============================================================
+// Module: project-workflow
+// Models: ProjectApprovalRequest, ProjectApprovalStep, WorkflowTemplate, WorkflowStageTemplate, WorkflowTaskTemplate, WorkflowChecklistTemplate, WorkflowApprovalTemplate, WorkflowConditionTemplate, ProjectWorkflowInstance, ProjectStageInstance, ProjectTaskInstance, ProjectChecklistInstance, ProjectApprovalInstance, WorkflowAuditLog, StageGateRule, ProjectSupervisorAssignment
+// ============================================================
+
+model ProjectApprovalRequest {
+  id              String            @id @default(cuid())
+  projectId       String
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  type            String            // BUDGET, MATERIAL, CHANGE_ORDER, DOCUMENT, INSPECTION
+  referenceId     String            // Id of the related entity (e.g. DocumentId, ChangeOrderId, etc.)
+  documentId      String?
+  document        ProjectDocument?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?
+  amount          Float?            // If applicable (e.g., Change Order value)
+  status          String            @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  steps           ProjectApprovalStep[]
+
+  @@index([projectId])
+  @@index([documentId])
+}
+
+model ProjectApprovalStep {
+  id              String                 @id @default(cuid())
+  requestId       String
+  request         ProjectApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  stepNumber      Int                    // e.g. Step 1 (Engineer), Step 2 (ARM), Step 3 (OPMC Manager)
+  roleRequired    String                 // Role name or User role enum (e.g. ENGINEER, OPMC_MANAGER, FINANCE_ADMIN)
+  assignedUserId  String?
+  assignedUser    User?                  @relation("StepAssignee", fields: [assignedUserId], references: [id])
+  
+  status          String                 @default("PENDING") // PENDING, APPROVED, REJECTED, SKIPPED
+  actionedById    String?
+  actionedBy      User?                  @relation("StepActioner", fields: [actionedById], references: [id])
+  actionedAt      DateTime?
+  comment         String?
+  
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([requestId])
+}
+
+model WorkflowTemplate {
+  id            String                  @id @default(cuid())
+  name          String                  @unique // e.g., "Cluster Dev Standard Workflow"
+  description   String?
+  projectTypeId String
+  projectType   ProjectType             @relation(fields: [projectTypeId], references: [id])
+  stages        WorkflowStageTemplate[]
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  isActive      Boolean                 @default(true)
+}
+
+model WorkflowStageTemplate {
+  id                 String                     @id @default(cuid())
+  name               String                     // e.g., "Splicing", "OTDR Testing"
+  description        String?
+  sequence           Int                        // Drag-and-drop order
+  workflowTemplateId String
+  workflowTemplate   WorkflowTemplate           @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+  
+  // Gates & Prerequisites Configurations
+  reqApproval        Boolean                    @default(false)
+  reqChecklist       Boolean                    @default(false)
+  reqPhotos          Boolean                    @default(false)
+  reqMaterials       Boolean                    @default(false)
+  reqDocuments       Boolean                    @default(false)
+  reqOTDR            Boolean                    @default(false)
+  reqGPS             Boolean                    @default(false)
+
+  // Sub-templates
+  taskTemplates      WorkflowTaskTemplate[]
+  checklistTemplates WorkflowChecklistTemplate[]
+  approvalTemplates  WorkflowApprovalTemplate[]
+  conditions         WorkflowConditionTemplate[]
+  
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@unique([workflowTemplateId, sequence])
+}
+
+model WorkflowTaskTemplate {
+  id              String                @id @default(cuid())
+  name            String
+  description     String?
+  priority        String                @default("MEDIUM") // LOW, MEDIUM, HIGH
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowChecklistTemplate {
+  id              String                @id @default(cuid())
+  label           String                // e.g., "Verify core alignment"
+  isMandatory     Boolean               @default(true)
+  reqPhoto        Boolean               @default(false)
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowApprovalTemplate {
+  id              String                @id @default(cuid())
+  level           Int                   @default(1) // Level 1, 2, 3
+  role            String                // e.g., "PROJECT_MANAGER", "OPMC_MANAGER"
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowConditionTemplate {
+  id              String                @id @default(cuid())
+  field           String                // e.g., "permitRequired" or "otdrRequired"
+  operator        String                // e.g., "EQUALS"
+  value           String                // e.g., "true"
+  action          String                // e.g., "SKIP" or "REQUIRE"
+  stageTemplateId String
+  stageTemplate   WorkflowStageTemplate @relation(fields: [stageTemplateId], references: [id], onDelete: Cascade)
+}
+
+model ProjectWorkflowInstance {
+  id             String                 @id @default(cuid())
+  projectId      String                 @unique
+  project        Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  currentStageId String?
+  stages         ProjectStageInstance[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+}
+
+model ProjectStageInstance {
+  id                        String                     @id @default(cuid())
+  name                      String
+  description               String?
+  sequence                  Int
+  status                    String                     @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  projectWorkflowInstanceId String
+  projectWorkflowInstance   ProjectWorkflowInstance    @relation(fields: [projectWorkflowInstanceId], references: [id], onDelete: Cascade)
+
+  // Cloned Gates & Prerequisites
+  reqApproval               Boolean
+  reqChecklist              Boolean
+  reqPhotos                 Boolean
+  reqMaterials              Boolean
+  reqDocuments              Boolean
+  reqOTDR                   Boolean
+  reqGPS                    Boolean
+
+  // Dynamic Content Instances
+  tasks                     ProjectTaskInstance[]
+  checklists                ProjectChecklistInstance[]
+  approvals                 ProjectApprovalInstance[]
+  
+  actualStart               DateTime?
+  actualFinish              DateTime?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+}
+
+model ProjectTaskInstance {
+  id             String               @id @default(cuid())
+  name           String
+  description    String?
+  priority       String               @default("MEDIUM")
+  status         String               @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+  assignedTeamId String?
+  assignedUserId String?
+  plannedStart   DateTime?
+  plannedFinish  DateTime?
+  actualStart    DateTime?
+  actualFinish   DateTime?
+  progress       Float                @default(0)
+  stageId        String
+  stage          ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model ProjectChecklistInstance {
+  id          String               @id @default(cuid())
+  label       String
+  isMandatory Boolean
+  isCompleted Boolean              @default(false)
+  photoUrl    String?
+  stageId     String
+  stage       ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model ProjectApprovalInstance {
+  id           String               @id @default(cuid())
+  level        Int
+  role         String
+  status       String               @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedById String?
+  approvedAt   DateTime?
+  comments     String?
+  stageId      String
+  stage        ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowAuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   // e.g., "STAGE_COMPLETE", "APPROVAL_SUBMITTED"
+  entityType String   // e.g., "ProjectStageInstance"
+  entityId   String
+  details    Json?    // Stores request IP, previous state, etc.
+  createdAt  DateTime @default(now())
+}
+
+model StageGateRule {
+  id                String        @id @default(cuid())
+  stageFrom         String        // Source stage identifier (e.g., "PERMIT_MANAGEMENT")
+  stageTo           String        // Target stage identifier (e.g., "GIS_ROUTE_DESIGN")
+  ruleType          String        // PERMIT_REQUIRED, SURVEY_REQUIRED, APPROVAL_REQUIRED, CHECKLIST_REQUIRED
+  description       String?
+  entityType        String?       // "ProjectPermit", "SurveyRequest", etc.
+  condition         String?       // JSON condition expression
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([stageFrom, stageTo])
+  @@index([ruleType])
+}
+
+model ProjectSupervisorAssignment {
+  id            String    @id @default(cuid())
+  projectId     String
+  supervisorId  String
+  role          String    @default("PRIMARY") // PRIMARY, ASSISTANT
+  status        String    @default("ASSIGNED") // ASSIGNED, REMOVED
+  assignedAt    DateTime  @default(now())
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supervisor    User      @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([supervisorId])
+}

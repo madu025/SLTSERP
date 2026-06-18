@@ -66,7 +66,28 @@ src/
 └── workers/               # Background job workers
 
 prisma/
-└── schema.prisma         # Database schema
+├── schema/                  # Multi-file schema (Prisma 6 native multi-schema)
+│   ├── _base.prisma         # generator + datasource ONLY
+│   ├── enums.prisma         # All enums (Role, ContractorStatus, VM* etc.)
+│   ├── user.prisma          # User, Staff, Notification, AuditLog
+│   ├── opmc.prisma          # OPMC
+│   ├── service-order.prisma # ServiceOrder, SOD*, PAT*, RestoreRequest
+│   ├── contractor.prisma    # Contractor, Teams, Members, Performance
+│   ├── inventory.prisma     # InventoryStore/Item/Stock/Batch/Serial
+│   ├── stock-management.prisma # StockRequest/Issue, GRN, MRN, Contractor materials
+│   ├── project-core.prisma  # Project, Job, BOQ, Tasks, Timesheets
+│   ├── project-finance.prisma  # Invoice, PO, GR, Payment, Vendors
+│   ├── project-workflow.prisma # Workflow engine models
+│   ├── project-advanced.prisma # EVM, Risks, AI Predictions, Assets
+│   ├── gis.prisma           # GISRoute, Pole, Chamber, Closure, Cable
+│   ├── survey.prisma        # Survey, Field Tasks, OTDR, HSE
+│   ├── permits.prisma       # AuthorityEntity, PermitType, ProjectPermit
+│   ├── vehicle-management.prisma # VM* models (21 models)
+│   └── system.prisma        # Section, SystemRole, SystemConfig, DashboardStat
+├── schema.prisma            # LEGACY — kept for reference, NOT active
+├── schema.prisma.bak        # Backup of original monolith
+├── migrations/              # Migration history (DB structure unchanged)
+└── seed.js                  # Seed data
 ```
 
 ### Core Services
@@ -185,24 +206,27 @@ The inventory system follows a **Service-Repository pattern** with the following
 
 ### Database Architecture
 
-**Key Models:**
-- `ServiceOrder` - Service order details with PAT tracking
-- `Contractor` - Contractor master data
-- `ContractorTeam` - Contractor teams
-- `ContractorTeamMember` - Team members
-- `InventoryItem` - Item master
-- `InventoryStore` - Warehouse/store locations
-- `InventoryBatch` - Batch tracking
-- `InventoryStock` - Stock levels by store and item
-- `InventoryBatchStock` - Stock levels by batch
-- `ContractorStock` - Contractor stock levels
-- `ContractorBatchStock` - Contractor batch stock
-- `GRN` - Goods receipt notes
-- `MRN` - Material return notes
-- `StockIssue` - Material issues
-- `StockRequest` - Stock requests with workflow
-- `SODMaterialUsage` - Service order material usage
-- `Notification` - User notifications
+**Schema is split into 17 module files** under `prisma/schema/`. Total: 176 models, 19 enums.
+
+| Module File | Domain | Key Models |
+|---|---|---|
+| `_base.prisma` | Config | generator, datasource |
+| `enums.prisma` | Enums | Role, ContractorStatus, VehicleTypeEnum… |
+| `user.prisma` | Users | User, Staff, Notification, AuditLog |
+| `opmc.prisma` | Org | OPMC |
+| `service-order.prisma` | SOD | ServiceOrder, SODForensicAudit, PATSession… |
+| `contractor.prisma` | Contractors | Contractor, ContractorTeam, TeamMember… |
+| `inventory.prisma` | Inventory | InventoryStore, InventoryItem, InventoryStock… |
+| `stock-management.prisma` | Stock flows | GRN, MRN, StockIssue, ContractorMaterial… |
+| `project-core.prisma` | Projects | Project, Job, ProjectBOQItem, ProjectTask… |
+| `project-finance.prisma` | Finance | Invoice, ProjectPurchaseOrder, PaymentVoucher… |
+| `project-workflow.prisma` | Workflows | WorkflowTemplate, ProjectStageInstance… |
+| `project-advanced.prisma` | Advanced | ProjectEVM, AiPrediction, ProjectRisk… |
+| `gis.prisma` | GIS | GISRoute, GISPole, GISChamber, GISCableSegment… |
+| `survey.prisma` | Field/Survey | SurveyRequest, FieldTask, OTDRTest, HSESafetyLog… |
+| `permits.prisma` | Permits | AuthorityEntity, PermitType, ProjectPermit… |
+| `vehicle-management.prisma` | Vehicles | VMVehicle, VMDriver, VMTrip, VMFuelLog… |
+| `system.prisma` | System | Section, SystemRole, SystemConfig, DashboardStat… |
 
 **Database Features:**
 - Streaming replication (Primary + Replica)
@@ -662,15 +686,26 @@ const mutation = useMutation({
    - Identify affected services and components
    - Check existing similar implementations
 
-2. **Design Database Schema:**
+2. **Design Database Schema (MULTI-FILE — IMPORTANT):**
    ```bash
-   # Edit prisma/schema.prisma
-   # Add new models or modify existing ones
+   # Schema is split into prisma/schema/ folder.
+   # DO NOT edit prisma/schema.prisma (legacy, inactive).
+   # Edit the correct module file:
+   #
+   #   New project feature?   → prisma/schema/project-core.prisma
+   #   New finance model?     → prisma/schema/project-finance.prisma
+   #   New inventory model?   → prisma/schema/inventory.prisma
+   #   New GIS model?         → prisma/schema/gis.prisma
+   #   New user/auth model?   → prisma/schema/user.prisma
+   #   New vehicle model?     → prisma/schema/vehicle-management.prisma
+   #   New enum?              → prisma/schema/enums.prisma
+   #   Completely new domain? → create prisma/schema/your-domain.prisma
    ```
 
 3. **Create Migration:**
    ```bash
    npx prisma migrate dev --name descriptive_migration_name
+   # Prisma automatically reads all files in prisma/schema/
    ```
 
 ### Step 2: Backend Development
@@ -809,30 +844,50 @@ const mutation = useMutation({
    npx eslint path/to/file.ts
    ```
 
-### Database Schema Changes
+### Database Schema Changes (MULTI-FILE SCHEMA)
 
-1. **Edit schema:**
+> CRITICAL: The schema is split across `prisma/schema/` module files.
+> Never edit the legacy `prisma/schema.prisma` — it is inactive.
+
+1. **Identify the correct module file** (see table in Database Architecture section)
+   and add/edit the model there:
    ```prisma
-   // prisma/schema.prisma
-   model NewModel {
+   // Example: prisma/schema/project-core.prisma
+   model NewProjectFeature {
        id        String   @id @default(cuid())
+       projectId String
        field1    String
        createdAt DateTime @default(now())
+       project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+       @@index([projectId])
    }
+   // Also add the relation back-reference in Project model within project-core.prisma
    ```
 
-2. **Create migration:**
+2. **Validate schema** (catches errors across all module files):
+   ```bash
+   npx prisma validate
+   # Expected: "The schemas at prisma\schema are valid"
+   ```
+
+3. **Create migration:**
    ```bash
    npx prisma migrate dev --name add_new_model
    ```
 
-3. **Sync both databases:**
+4. **Sync both databases:**
    ```bash
    # Primary
    npx prisma db push
-   
+
    # Replica
    $env:DATABASE_URL=$env:DIRECT_URL; npx prisma db push
+   ```
+
+5. **Regenerate Prisma Client:**
+   ```bash
+   npx prisma generate
    ```
 
 ## Code Quality Checklist
@@ -916,6 +971,24 @@ Before committing code, ensure:
    rm -rf .next
    npm run build
    ```
+
+5. **Schema validation error (multi-file):**
+   ```bash
+   npx prisma validate
+   # Pinpoints which module file and line has the error.
+   # Common cause: Added a relation field but forgot the back-reference
+   # in the related model (which may be in a DIFFERENT module file).
+   ```
+
+6. **Model not found / wrong module file:**
+   - Use the module table in the Database Architecture section to find
+     which `prisma/schema/*.prisma` file contains a given model.
+   - Cross-module relations are fully supported — Prisma merges all files
+     at migrate/generate time automatically.
+
+7. **`package.json#prisma` deprecation warning:**
+   - This is a Prisma 6→7 notice. It is harmless until Prisma 7.
+   - The `"schema": "prisma/schema"` config in `package.json` is correct and working.
 
 ## Resources
 

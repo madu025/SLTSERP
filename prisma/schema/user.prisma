@@ -1,0 +1,131 @@
+// ============================================================
+// Module: user
+// Models: User, Notification, AuditLog, Staff, NotificationPreference
+// ============================================================
+
+model User {
+  id                            String                   @id @default(cuid())
+  email                         String                   @unique
+  username                      String                   @unique
+  password                      String
+  name                          String?
+  role                          Role                     @default(ENGINEER)
+  staffId                       String?                  @unique
+  securityQuestion              String?
+  securityAnswer                String?
+  employeeId                    String?
+  supervisorId                  String?
+  assignedStoreId               String?
+  mustChangePassword            Boolean                  @default(false)
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  auditLogs                     AuditLog[]
+  armApprovedContractors        Contractor[]             @relation("ContractorArmApproval")
+  ospApprovedContractors        Contractor[]             @relation("ContractorOspApproval")
+  rejectedContractors           Contractor[]             @relation("ContractorRejection")
+  generatedContractorLinks      Contractor[]             @relation("ContractorLinkGenerator")
+  receivedGRNs                  GRN[]
+  managedStores                 InventoryStore[]
+  approvedMRNs                  MRN[]                    @relation("MRNApprover")
+  returnedMRNs                  MRN[]
+  notifications                 Notification[]
+  notificationPreferences       NotificationPreference[]
+  approvedProjectReturns        ProjectMaterialReturn[]  @relation("ProjectReturnApprover")
+  projectReturns                ProjectMaterialReturn[]  @relation("ProjectReturnUser")
+  approvedRestores              RestoreRequest[]         @relation("ApprovedRestores")
+  requestedRestores             RestoreRequest[]         @relation("RequestedRestores")
+  approvedIssues                StockIssue[]             @relation("IssueApprover")
+  stockIssues                   StockIssue[]             @relation("StockIssuer")
+  approvedStock                 StockRequest[]           @relation("ApproveUser")
+  armApprovedRequests           StockRequest[]           @relation("ARMApprover")
+  receivedRequests              StockRequest[]           @relation("ReceivedBy")
+  releasedRequests              StockRequest[]           @relation("ReleasedBy")
+  requestedStock                StockRequest[]           @relation("RequestUser")
+  storesManagerApprovedRequests StockRequest[]           @relation("StoresManagerApprover")
+  comments                      ServiceOrderComment[]    @relation("UserComments")
+  assignedStore                 InventoryStore?          @relation("UserAssignedStore", fields: [assignedStoreId], references: [id])
+  staff                         Staff?                   @relation(fields: [staffId], references: [id])
+  supervisor                    User?                    @relation("UserSupervisor", fields: [supervisorId], references: [id])
+  subordinates                  User[]                   @relation("UserSupervisor")
+  sectionAssignments            UserSectionAssignment[]
+  accessibleOpmcs               OPMC[]                   @relation("UserOpmcs")
+  uploadedDocuments             ProjectDocument[]
+  assignedApprovalSteps         ProjectApprovalStep[]     @relation("StepAssignee")
+  actionedApprovalSteps         ProjectApprovalStep[]     @relation("StepActioner")
+  supervisorAssignments         ProjectSupervisorAssignment[]
+
+  @@index([role])
+  @@index([supervisorId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  priority  String   @default("MEDIUM")
+  isRead    Boolean  @default(false)
+  link      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Staff {
+  id           String    @id @default(cuid())
+  name         String
+  employeeId   String    @unique
+  designation  Role
+  area         String?
+  opmcId       String?
+  reportsToId  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  projects     Project[]
+  jobs         Job[]
+  opmc         OPMC?     @relation(fields: [opmcId], references: [id])
+  reportsTo    Staff?    @relation("Hierarchy", fields: [reportsToId], references: [id])
+  subordinates Staff[]   @relation("Hierarchy")
+  user         User?
+
+  @@index([opmcId])
+  @@index([reportsToId])
+  @@index([designation])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+}

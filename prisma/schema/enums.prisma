@@ -1,0 +1,168 @@
+// ============================================================
+// Enums
+// ============================================================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  OSP_MANAGER
+  AREA_MANAGER
+  ENGINEER
+  ASSISTANT_ENGINEER
+  AREA_COORDINATOR
+  QC_OFFICER
+  OFFICE_ADMIN
+  OFFICE_ADMIN_ASSISTANT
+  SITE_OFFICE_STAFF
+  FINANCE_MANAGER
+  FINANCE_ASSISTANT
+  INVOICE_MANAGER
+  INVOICE_ASSISTANT
+  STORES_MANAGER
+  STORES_ASSISTANT
+  SA_MANAGER
+  SA_ASSISTANT
+  PROCUREMENT_OFFICER
+}
+
+enum ContractorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  ARM_PENDING
+  OSP_PENDING
+  REJECTED
+}
+
+enum ContractorType {
+  SOD
+  OSP
+}
+
+enum VehicleTypeEnum {
+  CAR
+  VAN
+  MINI_VAN
+  LORRY
+  CAB
+  DOUBLE_CAB
+  BOOM_TRUCK
+  TRUCK
+}
+
+enum OwnershipTypeEnum {
+  OWNED
+  RENTAL
+  HYBRID
+}
+
+enum VehicleStatusEnum {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  DECOMMISSIONED
+  RESERVED
+}
+
+enum TripStatusEnum {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentTypeEnum {
+  RENTAL
+  MAINTENANCE
+  INSURANCE_PREMIUM
+  FUEL
+  DRIVER_OT_SALARY
+  TOLL
+  PARKING
+  FINE
+  REGISTRATION
+  OTHER
+}
+
+enum PaymentStatusEnum {
+  PENDING
+  PARTIAL
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum InsuranceTypeEnum {
+  LIABILITY
+  COMPREHENSIVE
+  THIRD_PARTY
+  THEFT
+  ACCIDENT
+  DRIVER_COVER
+}
+
+enum InsuranceStatusEnum {
+  ACTIVE
+  EXPIRED
+  PENDING_RENEWAL
+  LAPSED
+}
+
+enum DriverOTStatusEnum {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PAID
+}
+
+enum EmploymentStatusEnum {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum MedicalFitnessStatusEnum {
+  PASS
+  FAIL
+  PENDING
+  EXPIRED
+}
+
+enum ComplianceTypeEnum {
+  MOT
+  ROAD_TAX
+  REGISTRATION
+  EMISSION
+  INSPECTION
+}
+
+enum DispatchOrderPriorityEnum {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaxTypeEnum {
+  VAT
+  GST
+  SALES_TAX
+  OTHER
+}
+
+enum FenceTypeEnum {
+  SITE
+  ZONE
+  DANGER_ZONE
+  RESTRICTED_AREA
+}
+
+enum SummaryStatusEnum {
+  DRAFT
+  SUBMITTED
+  CHECKED
+  RECOMMENDED
+  APPROVED
+  REJECTED
+}

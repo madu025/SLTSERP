@@ -1,0 +1,222 @@
+// ============================================================
+// Module: inventory
+// Models: InventoryStore, InventoryItem, InventoryStock, InventoryBatch, InventoryBatchStock, InventoryTransaction, InventoryTransactionItem, MaterialCategory, MaterialStandard, CurrentStock, InventoryItemSerial
+// ============================================================
+
+model InventoryStore {
+  id              String                           @id @default(cuid())
+  name            String
+  type            String                           @default("SUB")
+  location        String?
+  managerId       String?
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+  balanceSheets   ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
+  materialIssues  ContractorMaterialIssue[]        @relation("MaterialIssues")
+  materialReturns ContractorMaterialReturn[]       @relation("MaterialReturns")
+  wastageReports  ContractorWastage[]
+  grns            GRN[]
+  batchStocks     InventoryBatchStock[]
+  stocks          InventoryStock[]
+  manager         User?                            @relation(fields: [managerId], references: [id])
+  transactions    InventoryTransaction[]
+  mrns            MRN[]
+  opmcs           OPMC[]
+  projectReturns  ProjectMaterialReturn[]
+  stockIssues     StockIssue[]                     @relation("StockIssues")
+  outRequests     StockRequest[]                   @relation("RequestSource")
+  inRequests      StockRequest[]                   @relation("RequestTarget")
+  teamAssignments TeamStoreAssignment[]
+  assignedUsers   User[]                           @relation("UserAssignedStore")
+  serials         InventoryItemSerial[]
+
+  @@index([type])
+  @@index([managerId])
+}
+
+model InventoryItem {
+  id                    String                         @id @default(cuid())
+  code                  String                         @unique
+  name                  String
+  description           String?
+  unit                  String
+  type                  String                         @default("SLTS")
+  category              String                         @default("OTHERS")
+  minLevel              Float                          @default(0)
+  isWastageAllowed      Boolean                        @default(true)
+  maxWastagePercentage  Float                          @default(0)
+  hasSerial             Boolean                        @default(false)
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  source                String                         @default("SLT")
+  commonFor             String[]
+  unitPrice             Float?                         @default(0)
+  costPrice             Float?                         @default(0)
+  commonName            String?
+  sltCode               String?
+  isOspFtth             Boolean?                       @default(false)
+  importAliases         String[]
+  balanceSheetItems     ContractorBalanceSheetItem[]   @relation("BalanceSheetItems")
+  contractorBatchStocks ContractorBatchStock[]
+  issueItems            ContractorMaterialIssueItem[]  @relation("IssueItems")
+  returnItems           ContractorMaterialReturnItem[] @relation("ReturnItems")
+  contractorStock       ContractorStock[]
+  wastageItems          ContractorWastageItem[]
+  grnItems              GRNItem[]
+  batches               InventoryBatch[]
+  batchStocks           InventoryBatchStock[]
+  stocks                InventoryStock[]
+  transactionItems      InventoryTransactionItem[]
+  mrnItems              MRNItem[]
+  materialStandards     MaterialStandard[]             @relation("MaterialStandards")
+  boqItems              ProjectBOQItem[]               @relation("BOQMaterials")
+  projectReturnItems    ProjectMaterialReturnItem[]    @relation("ProjectReturnItems")
+  sodUsage              SODMaterialUsage[]             @relation("SODUsage")
+  stockIssueItems       StockIssueItem[]               @relation("IssueItemsStock")
+  requestItems          StockRequestItem[]
+  serials               InventoryItemSerial[]
+
+  @@index([code])
+  @@index([type])
+  @@index([category])
+  @@index([commonName])
+}
+
+model InventoryStock {
+  id        String         @id @default(cuid())
+  storeId   String
+  itemId    String
+  quantity  Float          @default(0)
+  minLevel  Float          @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  item      InventoryItem  @relation(fields: [itemId], references: [id])
+  store     InventoryStore @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, itemId])
+}
+
+model InventoryBatch {
+  id               String                     @id @default(cuid())
+  batchNumber      String?
+  itemId           String
+  grnId            String?
+  initialQty       Float
+  costPrice        Float                      @default(0)
+  unitPrice        Float                      @default(0)
+  createdAt        DateTime                   @default(now())
+  contractorStocks ContractorBatchStock[]
+  grnItem          GRNItem?
+  grn              GRN?                       @relation(fields: [grnId], references: [id])
+  item             InventoryItem              @relation(fields: [itemId], references: [id])
+  storeStocks      InventoryBatchStock[]
+  transactionItems InventoryTransactionItem[]
+  usageItems       SODMaterialUsage[]
+
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+model InventoryBatchStock {
+  id        String         @id @default(cuid())
+  storeId   String
+  itemId    String
+  batchId   String
+  quantity  Float          @default(0)
+  updatedAt DateTime       @updatedAt
+  batch     InventoryBatch @relation(fields: [batchId], references: [id])
+  item      InventoryItem  @relation(fields: [itemId], references: [id])
+  store     InventoryStore @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, batchId])
+  @@index([storeId])
+  @@index([itemId])
+  @@index([batchId])
+}
+
+model InventoryTransaction {
+  id          String                     @id @default(cuid())
+  type        String
+  storeId     String
+  referenceId String?
+  notes       String?
+  date        DateTime                   @default(now())
+  userId      String
+  store       InventoryStore             @relation(fields: [storeId], references: [id])
+  items       InventoryTransactionItem[]
+
+  @@index([storeId])
+  @@index([type])
+  @@index([date])
+}
+
+model InventoryTransactionItem {
+  id            String               @id @default(cuid())
+  transactionId String
+  itemId        String
+  quantity      Float
+  batchId       String?
+  batch         InventoryBatch?      @relation(fields: [batchId], references: [id])
+  item          InventoryItem        @relation(fields: [itemId], references: [id])
+  transaction   InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model MaterialCategory {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  standards   MaterialStandard[]
+}
+
+model MaterialStandard {
+  id             String           @id @default(cuid())
+  categoryId     String
+  packageType    String
+  itemId         String
+  standardQty    Float
+  maxQty         Float?
+  wastagePercent Float            @default(5)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  category       MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  item           InventoryItem    @relation("MaterialStandards", fields: [itemId], references: [id])
+
+  @@unique([categoryId, packageType, itemId])
+  @@index([packageType])
+}
+
+model CurrentStock {
+  id        String   @id @default(cuid())
+  storeId   String
+  itemId    String
+  quantity  Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, itemId])
+  @@index([storeId])
+  @@index([itemId])
+}
+
+model InventoryItemSerial {
+  id           String          @id @default(cuid())
+  itemId       String
+  serialNumber String          @unique
+  status       String          @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY
+  storeId      String?
+  contractorId String?
+  sodId        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  
+  item         InventoryItem   @relation(fields: [itemId], references: [id])
+  store        InventoryStore? @relation(fields: [storeId], references: [id])
+  contractor   Contractor?     @relation(fields: [contractorId], references: [id])
+
+  @@index([itemId])
+  @@index([storeId])
+  @@index([contractorId])
+  @@index([status])
+}

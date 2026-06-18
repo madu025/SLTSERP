@@ -1,0 +1,90 @@
+// ============================================================
+// Module: system
+// Models: TableColumnSettings, Section, SystemRole, UserSectionAssignment, SystemConfig, SystemSetting, DashboardStat
+// ============================================================
+
+model TableColumnSettings {
+  id        String   @id @default(cuid())
+  tableName String   @unique
+  columns   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Section {
+  id              String                  @id @default(cuid())
+  name            String                  @unique
+  code            String                  @unique
+  description     String?
+  icon            String?
+  color           String?
+  isActive        Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  roles           SystemRole[]
+  userAssignments UserSectionAssignment[]
+}
+
+model SystemRole {
+  id              String                  @id @default(cuid())
+  name            String
+  code            String                  @unique
+  sectionId       String
+  description     String?
+  level           Int                     @default(1)
+  isActive        Boolean                 @default(true)
+  permissions     String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  section         Section                 @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  userAssignments UserSectionAssignment[]
+
+  @@index([sectionId])
+}
+
+model UserSectionAssignment {
+  id        String     @id @default(cuid())
+  userId    String
+  sectionId String
+  roleId    String
+  isPrimary Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  role      SystemRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sectionId])
+  @@index([userId])
+  @@index([sectionId])
+  @@index([roleId])
+}
+
+model SystemConfig {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model DashboardStat {
+  id              String   @id @default(cuid())
+  opmcId          String   @unique
+  rtom            String
+  pending         Int      @default(0)
+  completed       Int      @default(0)
+  returned        Int      @default(0)
+  patPassed       Int      @default(0)
+  patRejected     Int      @default(0)
+  sltsPatRejected Int      @default(0)
+  lastUpdated     DateTime @updatedAt
+
+  @@index([opmcId])
+  @@index([rtom])
+}

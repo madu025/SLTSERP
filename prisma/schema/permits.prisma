@@ -1,0 +1,94 @@
+// ============================================================
+// Module: permits
+// Models: AuthorityEntity, PermitType, ProjectPermit, ProjectPermitDocument, PermitApprovalStep
+// ============================================================
+
+model AuthorityEntity {
+  id              String        @id @default(cuid())
+  name            String        // e.g., "Road Development Authority", "Municipal Council"
+  shortName       String?       // e.g., "RDA", "MC"
+  contactPerson   String?
+  contactNumber   String?
+  email           String?
+  address         String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  permitTypes     PermitType[]
+
+  @@index([isActive])
+}
+
+model PermitType {
+  id              String        @id @default(cuid())
+  name            String        // e.g., "Road Cutting Permit", "Wayleave Agreement"
+  code            String        @unique // e.g., "ROAD_CUTTING", "WAYLEAVE", "RAILWAY_CROSSING"
+  description     String?
+  authorityId     String
+  authority       AuthorityEntity @relation(fields: [authorityId], references: [id])
+  defaultDuration Int?          // Default validity days
+  requiresRenewal Boolean       @default(false)
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  permits         ProjectPermit[]
+
+  @@index([authorityId])
+  @@index([code])
+}
+
+model ProjectPermit {
+  id                String        @id @default(cuid())
+  projectId         String
+  permitTypeId      String
+  permitNumber      String?       // Official permit reference number
+  status            String        @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED, EXPIRED, CANCELLED
+  applicationDate   DateTime?
+  submittedDate     DateTime?
+  approvedDate      DateTime?
+  expiryDate        DateTime?
+  rejectionReason   String?
+  approvalDocument  String?       // URL to uploaded approval document
+  remarks           String?
+  appliedById       String?
+  approvedById      String?
+  cost              Float?        // Permit application fee
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  permitType        PermitType    @relation(fields: [permitTypeId], references: [id])
+  permitDocuments   ProjectPermitDocument[]
+  approvalSteps     PermitApprovalStep[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([expiryDate])
+}
+
+model ProjectPermitDocument {
+  id            String        @id @default(cuid())
+  permitId      String
+  documentType  String        // APPLICATION, APPROVAL_LETTER, PAYMENT_RECEIPT, OTHER
+  fileName      String
+  fileUrl       String
+  uploadedById  String
+  uploadedAt    DateTime      @default(now())
+  permit        ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+
+  @@index([permitId])
+}
+
+model PermitApprovalStep {
+  id            String        @id @default(cuid())
+  permitId      String
+  stepNumber    Int
+  roleRequired  String
+  assignedUserId String?
+  status        String        @default("PENDING") // PENDING, APPROVED, REJECTED, SKIPPED
+  actionedById  String?
+  actionedAt    DateTime?
+  comment       String?
+  permit        ProjectPermit @relation(fields: [permitId], references: [id], onDelete: Cascade)
+
+  @@index([permitId])
+}
