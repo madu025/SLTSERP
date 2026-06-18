@@ -384,6 +384,7 @@ model Project {
   workflowInstance  ProjectWorkflowInstance?
 
   // OSP Enhancement Relations
+  gisMapping        Json?                   // Maps "POLE", "CHAMBER", "CLOSURE", "CABLE" to inventory materialIds
   permits           ProjectPermit[]
   gisRoutes         GISRoute[]
   generatedBOQs     GISGeneratedBOQ[]

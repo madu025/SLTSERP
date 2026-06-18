@@ -39,40 +39,65 @@ export async function POST(
         const cableSegmentCount = gisRoute.cableSegments.length;
         const totalCableLength = gisRoute.cableSegments.reduce((sum, seg) => sum + (seg.length || 0), 0);
 
-        // Fetch inventory items for unit rates (try to find matching materials)
+        // ====================================================================
+        // LOAD PROJECT-LEVEL GIS MATERIAL MAPPING (if configured)
+        // ====================================================================
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { gisMapping: true }
+        });
+
+        type MappingEntry = {
+            materialId: string;
+            itemCode: string;
+            name: string;
+            unitPrice: number;
+        };
+        const gisMapping = (project?.gisMapping as Record<string, MappingEntry> | null) || {};
+
+        // Fetch inventory items for unit rates + stock (try explicit mappings first, fallback to keyword lookup)
+        const mappedMaterialIds = Object.values(gisMapping)
+            .map((m: MappingEntry) => m.materialId)
+            .filter(Boolean);
+
         const inventoryItems = await prisma.inventoryItem.findMany({
-            where: {
-                OR: [
-                    { code: { contains: "POLE", mode: "insensitive" } },
-                    { code: { contains: "CBL", mode: "insensitive" } },
-                    { name: { contains: "Pole", mode: "insensitive" } },
-                    { name: { contains: "Fiber", mode: "insensitive" } },
-                    { name: { contains: "Cable", mode: "insensitive" } },
-                    { name: { contains: "Chamber", mode: "insensitive" } },
-                    { name: { contains: "Closure", mode: "insensitive" } },
-                    { name: { contains: "Splice", mode: "insensitive" } },
-                    { name: { contains: "Manhole", mode: "insensitive" } },
-                ]
-            },
+            where: mappedMaterialIds.length > 0
+                ? { id: { in: mappedMaterialIds } }
+                : {
+                    OR: [
+                        { code: { contains: "POLE", mode: "insensitive" } },
+                        { code: { contains: "CBL", mode: "insensitive" } },
+                        { name: { contains: "Pole", mode: "insensitive" } },
+                        { name: { contains: "Fiber", mode: "insensitive" } },
+                        { name: { contains: "Cable", mode: "insensitive" } },
+                        { name: { contains: "Chamber", mode: "insensitive" } },
+                        { name: { contains: "Closure", mode: "insensitive" } },
+                        { name: { contains: "Splice", mode: "insensitive" } },
+                        { name: { contains: "Manhole", mode: "insensitive" } },
+                    ]
+                },
             include: {
                 stocks: true,
             },
             take: 50
         });
 
-        // Helper to find a matching rate from inventory
-        const findRate = (keywords: string[]): number => {
-            const match = inventoryItems.find((item) =>
-                keywords.some((kw) =>
-                    item.name?.toLowerCase().includes(kw.toLowerCase()) ||
-                    item.code?.toLowerCase().includes(kw.toLowerCase())
-                )
-            );
-            return match?.unitPrice || 0;
-        };
+        // Build a lookup map by materialId for fast access
+        const inventoryById = new Map(inventoryItems.map(i => [i.id, i]));
 
-        // Helper to find a matching inventory item (with stock) by keywords
-        const findInventoryItem = (keywords: string[]) => {
+        // Helper to get mapped inventory item for a category
+        const getMappedItem = (category: string): (typeof inventoryItems)[number] | undefined => {
+            const mapping = gisMapping[category] as MappingEntry | undefined;
+            if (mapping?.materialId) {
+                const item = inventoryById.get(mapping.materialId);
+                if (item) return item;
+            }
+            // Fallback: keyword search
+            const keywords = category === "POLE" ? ["pole", "wooden", "concrete"]
+                : category === "CHAMBER" ? ["chamber", "manhole"]
+                : category === "CLOSURE" ? ["closure", "splice"]
+                : category === "CABLE" ? ["fiber", "cable"]
+                : [];
             return inventoryItems.find((item) =>
                 keywords.some((kw) =>
                     item.name?.toLowerCase().includes(kw.toLowerCase()) ||
@@ -81,28 +106,21 @@ export async function POST(
             );
         };
 
+        // Helper to get unit rate from mapped item or fallback
+        const getRate = (category: string): number => {
+            const item = getMappedItem(category);
+            return item?.unitPrice || 0;
+        };
+
         // Build available stock map by BOQ category.
-        // Sums stock across all stores for each matched inventory item.
+        // Sums stock across all stores for each mapped/fallback inventory item.
         const stockByCategory = new Map<string, { availableQty: number; itemCode: string; materialId: string }>();
-        const poleInv = findInventoryItem(["pole", "wooden", "concrete"]);
-        if (poleInv) {
-            const qty = poleInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
-            stockByCategory.set("POLE", { availableQty: qty, itemCode: poleInv.code, materialId: poleInv.id });
-        }
-        const chamberInv = findInventoryItem(["chamber", "manhole"]);
-        if (chamberInv) {
-            const qty = chamberInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
-            stockByCategory.set("CHAMBER", { availableQty: qty, itemCode: chamberInv.code, materialId: chamberInv.id });
-        }
-        const closureInv = findInventoryItem(["closure", "splice"]);
-        if (closureInv) {
-            const qty = closureInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
-            stockByCategory.set("CLOSURE", { availableQty: qty, itemCode: closureInv.code, materialId: closureInv.id });
-        }
-        const cableInv = findInventoryItem(["fiber", "cable"]);
-        if (cableInv) {
-            const qty = cableInv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
-            stockByCategory.set("CABLE", { availableQty: qty, itemCode: cableInv.code, materialId: cableInv.id });
+        for (const category of ["POLE", "CHAMBER", "CLOSURE", "CABLE"]) {
+            const inv = getMappedItem(category);
+            if (inv) {
+                const qty = inv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
+                stockByCategory.set(category, { availableQty: qty, itemCode: inv.code, materialId: inv.id });
+            }
         }
 
         // ====================================================================
@@ -120,70 +138,88 @@ export async function POST(
             sourceReference: string;
         }> = [];
 
+        // Helper to build description from mapped item
+        const getDescription = (category: string, fallback: string): string => {
+            const mapping = gisMapping[category] as MappingEntry | undefined;
+            return mapping?.name || fallback;
+        };
+
+        // Helper to get itemCode from mapped item
+        const getItemCode = (category: string, fallback: string): string => {
+            const mapping = gisMapping[category] as MappingEntry | undefined;
+            return mapping?.itemCode || fallback;
+        };
+
+        // Helper to get unit from mapped item
+        const getUnit = (category: string, fallback: string): string => {
+            const item = getMappedItem(category);
+            return item?.unit || fallback;
+        };
+
         // Pole items
-        const poleRate = findRate(["pole", "wooden", "concrete"]);
+        const poleRate = getRate("POLE");
         if (poleCount > 0) {
             const amount = poleCount * poleRate;
             gisItems.push({
                 itemCategory: "POLE",
-                itemCode: "POLE-001",
-                description: "Fiber Optic Pole - Wooden/Concrete",
-                unit: "Nos",
+                itemCode: getItemCode("POLE", "POLE-001"),
+                description: getDescription("POLE", "Fiber Optic Pole - Wooden/Concrete"),
+                unit: getUnit("POLE", "Nos"),
                 quantity: poleCount,
                 unitRate: poleRate,
                 amount,
-                sourceType: "AUTO_CALCULATED",
+                sourceType: gisMapping["POLE"] ? "MAPPED" : "AUTO_CALCULATED",
                 sourceReference: `GIS auto-count: ${poleCount} poles`
             });
         }
 
         // Chamber items
-        const chamberRate = findRate(["chamber", "manhole"]);
+        const chamberRate = getRate("CHAMBER");
         if (chamberCount > 0) {
             const amount = chamberCount * chamberRate;
             gisItems.push({
                 itemCategory: "CHAMBER",
-                itemCode: "CHMB-001",
-                description: "Fiber Optic Chamber / Manhole",
-                unit: "Nos",
+                itemCode: getItemCode("CHAMBER", "CHMB-001"),
+                description: getDescription("CHAMBER", "Fiber Optic Chamber / Manhole"),
+                unit: getUnit("CHAMBER", "Nos"),
                 quantity: chamberCount,
                 unitRate: chamberRate,
                 amount,
-                sourceType: "AUTO_CALCULATED",
+                sourceType: gisMapping["CHAMBER"] ? "MAPPED" : "AUTO_CALCULATED",
                 sourceReference: `GIS auto-count: ${chamberCount} chambers`
             });
         }
 
         // Closure items
-        const closureRate = findRate(["closure", "splice"]);
+        const closureRate = getRate("CLOSURE");
         if (closureCount > 0) {
             const amount = closureCount * closureRate;
             gisItems.push({
                 itemCategory: "CLOSURE",
-                itemCode: "CLSR-001",
-                description: "Fiber Optic Splice Closure",
-                unit: "Nos",
+                itemCode: getItemCode("CLOSURE", "CLSR-001"),
+                description: getDescription("CLOSURE", "Fiber Optic Splice Closure"),
+                unit: getUnit("CLOSURE", "Nos"),
                 quantity: closureCount,
                 unitRate: closureRate,
                 amount,
-                sourceType: "AUTO_CALCULATED",
+                sourceType: gisMapping["CLOSURE"] ? "MAPPED" : "AUTO_CALCULATED",
                 sourceReference: `GIS auto-count: ${closureCount} closures`
             });
         }
 
         // Cable segment items
-        const cableRate = findRate(["fiber", "cable"]);
+        const cableRate = getRate("CABLE");
         if (cableSegmentCount > 0) {
             const amount = totalCableLength * cableRate;
             gisItems.push({
                 itemCategory: "CABLE",
-                itemCode: "CBL-001",
-                description: "Fiber Optic Cable",
-                unit: "Meters",
+                itemCode: getItemCode("CABLE", "CBL-001"),
+                description: getDescription("CABLE", "Fiber Optic Cable"),
+                unit: getUnit("CABLE", "Meters"),
                 quantity: totalCableLength,
                 unitRate: cableRate,
                 amount,
-                sourceType: "AUTO_CALCULATED",
+                sourceType: gisMapping["CABLE"] ? "MAPPED" : "AUTO_CALCULATED",
                 sourceReference: `GIS auto-sum: ${cableSegmentCount} segments totaling ${totalCableLength}m`
             });
         }
