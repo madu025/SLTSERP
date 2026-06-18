@@ -223,8 +223,9 @@ model User {
   sectionAssignments            UserSectionAssignment[]
   accessibleOpmcs               OPMC[]                   @relation("UserOpmcs")
   uploadedDocuments             ProjectDocument[]
-  assignedApprovalSteps         ProjectApprovalStep[]    @relation("StepAssignee")
-  actionedApprovalSteps         ProjectApprovalStep[]    @relation("StepActioner")
+  assignedApprovalSteps         ProjectApprovalStep[]     @relation("StepAssignee")
+  actionedApprovalSteps         ProjectApprovalStep[]     @relation("StepActioner")
+  supervisorAssignments         ProjectSupervisorAssignment[]
 
   @@index([role])
   @@index([supervisorId])
