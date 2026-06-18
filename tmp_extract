@@ -1,5 +1,0 @@
-const fs = require('fs');
-const c = fs.readFileSync('prisma/schema.prisma', 'utf8');
-const i = c.indexOf('model InventoryItem {');
-const j = c.indexOf('\n}', i);
-console.log(c.substring(i, j + 2));
