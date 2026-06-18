@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle, Loader2, X, BookOpen, Trash2 } from 'lucide-react';
 import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
 
+import { toast } from 'sonner';
 interface ProjectType {
     id: string;
     name: string;
@@ -76,8 +77,7 @@ export default function ProjectsPage() {
                 setProjectTypes(data);
             }
         } catch (error) {
-            console.error('Error fetching project types:', error);
-        }
+}
     };
 
     // Add New Project Type dialog state
@@ -93,7 +93,7 @@ export default function ProjectsPage() {
 
     const handleAddProjectType = async () => {
         if (!newTypeName.trim()) {
-            alert('Please enter a project type name');
+            toast.error('Please enter a project type name');
             return;
         }
         try {
@@ -108,7 +108,7 @@ export default function ProjectsPage() {
             });
             if (!res.ok) {
                 const error = await res.json();
-                alert(error.error || 'Failed to create project type');
+                toast.error(error.error || 'Failed to create project type');
                 return;
             }
             const created = await res.json();
@@ -118,8 +118,7 @@ export default function ProjectsPage() {
             setNewTypeDescription('');
             fetchProjectTypes();
         } catch (error) {
-            console.error('Error creating project type:', error);
-            alert('Failed to create project type');
+toast.error('Failed to create project type');
         } finally {
             setCreatingType(false);
         }
@@ -135,8 +134,7 @@ export default function ProjectsPage() {
             const data = await res.json();
             setProjects(data);
         } catch (error) {
-            console.error('Error:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
@@ -154,7 +152,7 @@ export default function ProjectsPage() {
 
             if (!res.ok) {
                 const error = await res.json();
-                alert(error.error || 'Failed to create project');
+                toast.error(error.error || 'Failed to create project');
                 return;
             }
 
@@ -172,8 +170,7 @@ export default function ProjectsPage() {
             });
             fetchProjects();
         } catch (error) {
-            console.error('Error:', error);
-            alert('Failed to create project');
+toast.error('Failed to create project');
         }
     };
 
@@ -187,7 +184,7 @@ export default function ProjectsPage() {
 
             if (!res.ok) {
                 const error = await res.json();
-                alert(error.error || 'Failed to delete project');
+                toast.error(error.error || 'Failed to delete project');
                 return;
             }
 
@@ -195,8 +192,7 @@ export default function ProjectsPage() {
             setProjectToDelete(null);
             fetchProjects();
         } catch (error) {
-            console.error('Error deleting project:', error);
-            alert('Failed to delete project');
+toast.error('Failed to delete project');
         } finally {
             setDeleting(false);
         }
@@ -216,7 +212,7 @@ export default function ProjectsPage() {
         return (
             <Badge className={className}>
                 <Icon className="w-3 h-3 mr-1" />
-                {status.replace('_', ' ')}
+                {status.replace(/_/g, ' ')}
             </Badge>
         );
     };
@@ -305,7 +301,7 @@ export default function ProjectsPage() {
                                     size="sm"
                                     onClick={() => setStatusFilter(status)}
                                 >
-                                    {status.replace('_', ' ')}
+                                    {status.replace(/_/g, ' ')}
                                 </Button>
                             ))}
                         </div>
@@ -345,7 +341,7 @@ export default function ProjectsPage() {
                                                 </td>
                                                 <td className="px-4 md:px-6 py-4">
                                                     <Badge variant="outline">
-                                                        {project.projectType?.name?.replace('_', ' ') || project.type?.replace('_', ' ') || 'N/A'}
+                                                        {project.projectType?.name?.replace(/_/g, ' ') || project.type?.replace(/_/g, ' ') || 'N/A'}
                                                     </Badge>
                                                 </td>
                                                 <td className="px-4 md:px-6 py-4">
@@ -446,7 +442,7 @@ export default function ProjectsPage() {
                                 <SelectContent>
                                     {projectTypes.map((pt) => (
                                         <SelectItem key={pt.id} value={pt.id}>
-                                            {pt.name.replace('_', ' ')}
+                                            {pt.name.replace(/_/g, ' ')}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -594,7 +590,7 @@ export default function ProjectsPage() {
                         <div className="py-2 space-y-1 bg-red-50 rounded-lg p-3 border border-red-200">
                             <p className="text-sm font-semibold text-slate-900">{projectToDelete.name}</p>
                             <p className="text-xs text-slate-500">Code: {projectToDelete.projectCode}</p>
-                            <p className="text-xs text-slate-500">Status: {projectToDelete.status?.replace('_', ' ')}</p>
+                            <p className="text-xs text-slate-500">Status: {projectToDelete.status?.replace(/_/g, ' ')}</p>
                         </div>
                     )}
                     <DialogFooter className="gap-2">

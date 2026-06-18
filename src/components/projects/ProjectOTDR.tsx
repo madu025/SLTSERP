@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +70,7 @@ export default function ProjectOTDR({ project }: ProjectOTDRProps) {
                   </TableCell>
                   <TableCell>{test.orl ? `${test.orl.toFixed(1)} dB` : '-'}</TableCell>
                   <TableCell>{test.autoResult ? getResultBadge(test.autoResult) : '-'}</TableCell>
-                  <TableCell><Badge variant="outline">{test.status?.replace('_', ' ')}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{test.status?.replace(/_/g, ' ')}</Badge></TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm"><Eye className="w-4 h-4" /></Button>
                   </TableCell>

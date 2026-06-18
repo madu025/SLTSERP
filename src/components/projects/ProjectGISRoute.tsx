@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { MapPin, Route, Upload, Calculator, CheckCircle2, Download, MapIcon, Settings, ShoppingCart } from 'lucide-react';
 
+import { toast } from 'sonner';
 interface ProjectGISRouteProps { project: any; }
 
 const GIS_CATEGORIES = [
@@ -101,7 +102,7 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
                 setMappingOpen(false);
             } else {
                 const err = await res.json();
-                alert(err.error || "Failed to save mappings");
+                toast.error(err.error || "Failed to save mappings");
             }
         } catch (err) { console.error("Failed to save mappings:", err); }
         finally { setSavingMapping(false); }
@@ -125,7 +126,7 @@ export default function ProjectGISRoute({ project }: ProjectGISRouteProps) {
             if (res.ok) {
                 setPrResult(prev => ({ ...prev, [routeId]: data }));
             } else {
-                alert(data.error || "Failed to generate PR");
+                toast.error(data.error || "Failed to generate PR");
             }
         } catch (err) { console.error("Failed to generate PR:", err); }
         finally { setGeneratingPR(prev => ({ ...prev, [routeId]: false })); }

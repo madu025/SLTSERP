@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ResponsiveTable from '@/components/ResponsiveTable';
 import { Plus, Trash2, Receipt, DollarSign } from 'lucide-react';
 
+import { toast } from 'sonner';
 interface ProjectExpensesProps {
     project: any;
     refreshProject: () => void;
@@ -81,13 +82,12 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                 fetchExpenses();
             }
         } catch (error) {
-            console.error('Error:', error);
-        }
+}
     };
 
     const handleSubmit = async () => {
         if (!formData.description || !formData.amount || !formData.date) {
-            alert('Please fill all required fields');
+            toast.error('Please fill all required fields');
             return;
         }
 
@@ -104,11 +104,10 @@ export default function ProjectExpenses({ project, refreshProject }: ProjectExpe
                 refreshProject();
                 fetchExpenses();
             } else {
-                alert('Failed to add expense');
+                toast.error('Failed to add expense');
             }
         } catch (error) {
-            console.error('Error:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };

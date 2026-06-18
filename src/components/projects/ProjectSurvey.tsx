@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
 
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = { PENDING: 'bg-yellow-100 text-yellow-700', ASSIGNED: 'bg-blue-100 text-blue-700', IN_PROGRESS: 'bg-purple-100 text-purple-700', COMPLETED: 'bg-green-100 text-green-700', APPROVED: 'bg-emerald-100 text-emerald-700' };
-    return <Badge className={colors[status] || 'bg-slate-100 text-slate-700'}>{status.replace('_', ' ')}</Badge>;
+    return <Badge className={colors[status] || 'bg-slate-100 text-slate-700'}>{status.replace(/_/g, ' ')}</Badge>;
   };
 
   return (

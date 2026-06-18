@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ShieldAlert, Plus, ShieldCheck, Edit2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
 }
@@ -60,15 +61,14 @@ export default function ProjectRisks({ project }: ProjectRisksProps) {
                 setRisks(data);
             }
         } catch (error) {
-            console.error('Error fetching risks:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
 
     const handleAddRisk = async () => {
         if (!title || !description) {
-            alert('Title and description are required');
+            toast.error('Title and description are required');
             return;
         }
 
@@ -91,11 +91,10 @@ export default function ProjectRisks({ project }: ProjectRisksProps) {
                 resetForm();
                 fetchRisks();
             } else {
-                alert('Failed to log risk');
+                toast.error('Failed to log risk');
             }
         } catch (error) {
-            console.error('Error logging risk:', error);
-        }
+}
     };
 
     const handleUpdateRisk = async (status?: string) => {
@@ -118,11 +117,10 @@ export default function ProjectRisks({ project }: ProjectRisksProps) {
                 setMitigationPlan('');
                 fetchRisks();
             } else {
-                alert('Failed to update risk');
+                toast.error('Failed to update risk');
             }
         } catch (error) {
-            console.error('Error updating risk:', error);
-        }
+}
     };
 
     const resetForm = () => {

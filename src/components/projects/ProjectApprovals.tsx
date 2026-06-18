@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CheckCircle2, XCircle, Clock, ArrowRight, ShieldAlert, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
     name: string;
@@ -65,8 +66,7 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
                 setApprovals(data);
             }
         } catch (error) {
-            console.error('Error fetching approvals:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
@@ -91,11 +91,10 @@ export default function ProjectApprovals({ project }: ProjectApprovalsProps) {
                 setComment('');
                 fetchApprovals();
             } else {
-                alert('Failed to process approval step');
+                toast.error('Failed to process approval step');
             }
         } catch (error) {
-            console.error('Error actioning approval:', error);
-        }
+}
     };
 
     const getStatusIcon = (status: string) => {

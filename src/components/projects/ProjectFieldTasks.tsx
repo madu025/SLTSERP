@@ -68,8 +68,7 @@ export default function ProjectFieldTasks({ project }: ProjectFieldTasksProps) {
         setTasks(Array.isArray(data) ? data : []);
       }
     } catch (err) {
-      console.error('Error fetching field tasks:', err);
-    } finally {
+} finally {
       setLoading(false);
     }
   }, [project.id]);
@@ -108,8 +107,7 @@ export default function ProjectFieldTasks({ project }: ProjectFieldTasksProps) {
         fetchTasks();
       }
     } catch (err) {
-      console.error('Error creating field task:', err);
-    } finally {
+} finally {
       setSaving(false);
     }
   };
@@ -126,8 +124,7 @@ export default function ProjectFieldTasks({ project }: ProjectFieldTasksProps) {
       });
       fetchTasks();
     } catch (err) {
-      console.error('Error updating field task:', err);
-    }
+}
   };
 
   const resetForm = () => {
@@ -147,7 +144,7 @@ export default function ProjectFieldTasks({ project }: ProjectFieldTasksProps) {
       COMPLETED: 'bg-green-100 text-green-700',
       VERIFIED: 'bg-emerald-100 text-emerald-700',
     };
-    return <Badge className={colors[status] || 'bg-slate-100 text-slate-700'}>{status.replace('_', ' ')}</Badge>;
+    return <Badge className={colors[status] || 'bg-slate-100 text-slate-700'}>{status.replace(/_/g, ' ')}</Badge>;
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -209,7 +206,7 @@ export default function ProjectFieldTasks({ project }: ProjectFieldTasksProps) {
             onClick={() => setStatusFilter(filter)}
             className="text-xs h-8"
           >
-            {filter === 'PENDING_SYNC' ? 'Need Sync' : filter === 'ALL' ? 'All' : filter.replace('_', ' ')}
+            {filter === 'PENDING_SYNC' ? 'Need Sync' : filter === 'ALL' ? 'All' : filter.replace(/_/g, ' ')}
           </Button>
         ))}
       </div>

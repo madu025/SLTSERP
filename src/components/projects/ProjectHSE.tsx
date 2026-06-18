@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,7 +78,7 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
       <div className="flex flex-wrap gap-2">
         {['ALL', 'TOOLBOX_TALK', 'INCIDENT', 'NEAR_MISS', 'PPE_CHECK', 'INSPECTION', 'ENVIRONMENTAL'].map(t => (
           <Button key={t} variant={filter === t ? 'default' : 'outline'} size="sm" onClick={() => setFilter(t)}>
-            {t.replace('_', ' ')}
+            {t.replace(/_/g, ' ')}
           </Button>
         ))}
       </div>
@@ -99,7 +99,7 @@ export default function ProjectHSE({ project }: ProjectHSEProps) {
             <TableBody>
               {logs.map((log: any) => (
                 <TableRow key={log.id}>
-                  <TableCell><Badge variant="outline" className="gap-1">{getTypeIcon(log.logType)}{log.logType?.replace('_', ' ')}</Badge></TableCell>
+                  <TableCell><Badge variant="outline" className="gap-1">{getTypeIcon(log.logType)}{log.logType?.replace(/_/g, ' ')}</Badge></TableCell>
                   <TableCell className="font-medium">{log.title}</TableCell>
                   <TableCell>{new Date(log.date).toLocaleDateString()}</TableCell>
                   <TableCell>{getSeverityBadge(log.severity)}</TableCell>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ClipboardCheck, Plus, CheckSquare, XCircle, AlertTriangle, AlertCircle, Camera, Check } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
 }
@@ -64,15 +65,14 @@ export default function ProjectQA({ project }: ProjectQAProps) {
                 setInspections(data);
             }
         } catch (error) {
-            console.error('Error fetching QA records:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
 
     const handleCreateInspection = async () => {
         if (!title) {
-            alert('Title is required');
+            toast.error('Title is required');
             return;
         }
 
@@ -96,11 +96,10 @@ export default function ProjectQA({ project }: ProjectQAProps) {
                 setChecklistItems(['Cabling Depth verified', 'Serial numbers of splitters logged', 'PAT Test results uploaded']);
                 fetchInspections();
             } else {
-                alert('Failed to log QA sheet');
+                toast.error('Failed to log QA sheet');
             }
         } catch (error) {
-            console.error('Error creating inspection:', error);
-        }
+}
     };
 
     const handleUpdateInspection = async (status: 'PASSED' | 'FAILED' | 'UNDER_CORRECTION') => {
@@ -126,11 +125,10 @@ export default function ProjectQA({ project }: ProjectQAProps) {
                 setPhotoUrlInput('');
                 fetchInspections();
             } else {
-                alert('Failed to update QA sign-off');
+                toast.error('Failed to update QA sign-off');
             }
         } catch (error) {
-            console.error('Error updating QA record:', error);
-        }
+}
     };
 
     const addChecklistItem = () => {
@@ -156,7 +154,7 @@ export default function ProjectQA({ project }: ProjectQAProps) {
             FAILED: 'bg-red-100 text-red-700 border-red-200',
             UNDER_CORRECTION: 'bg-amber-100 text-amber-700 border-amber-200'
         };
-        return <Badge variant="outline" className={`text-xs ${variants[status] || 'bg-slate-100'}`}>{status.replace('_', ' ')}</Badge>;
+        return <Badge variant="outline" className={`text-xs ${variants[status] || 'bg-slate-100'}`}>{status.replace(/_/g, ' ')}</Badge>;
     };
 
     return (

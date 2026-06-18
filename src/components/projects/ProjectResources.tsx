@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2, AlertTriangle, Users, HardHat, Calendar, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
     name: string;
@@ -67,15 +68,14 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
                 setAvailable(data.available);
             }
         } catch (error) {
-            console.error('Error fetching resources:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
 
     const doAllocate = async (forceOverAllocation = false) => {
         if (!selectedResourceId) {
-            alert('Please select a resource');
+            toast.error('Please select a resource');
             return;
         }
 
@@ -113,11 +113,10 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
                 }
             } else {
                 const error = await res.json();
-                alert(error.error || 'Failed to allocate resource');
+                toast.error(error.error || 'Failed to allocate resource');
             }
         } catch (error) {
-            console.error('Error allocating resource:', error);
-        } finally {
+} finally {
             setSavingResource(false);
         }
     };
@@ -136,11 +135,10 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
             if (res.ok) {
                 fetchResources();
             } else {
-                alert('Failed to remove resource allocation');
+                toast.error('Failed to remove resource allocation');
             }
         } catch (error) {
-            console.error('Error removing resource:', error);
-        }
+}
     };
 
     const resetForm = () => {

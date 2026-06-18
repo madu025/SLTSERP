@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import ResponsiveTable from '@/components/ResponsiveTable';
 import { Plus, Edit2, Trash2, Save, X, Package, ShoppingCart } from 'lucide-react';
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
+import { toast } from 'sonner';
 interface ProjectBOQProps {
     project: any;
     refreshProject: () => void;
@@ -105,16 +106,15 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
             if (res.ok) {
                 refreshProject();
             } else {
-                alert('Failed to delete item');
+                toast.error('Failed to delete item');
             }
         } catch (error) {
-            console.error('Error deleting item:', error);
-        }
+}
     };
 
     const handleSubmit = async () => {
         if (!formData.itemCode || !formData.description || !formData.quantity || !formData.unitRate) {
-            alert('Please fill all required fields');
+            toast.error('Please fill all required fields');
             return;
         }
 
@@ -142,11 +142,10 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                 refreshProject();
             } else {
                 const error = await res.json();
-                alert(error.error || 'Operation failed');
+                toast.error(error.error || 'Operation failed');
             }
         } catch (error) {
-            console.error('Error saving item:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };

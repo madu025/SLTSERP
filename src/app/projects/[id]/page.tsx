@@ -1,18 +1,20 @@
 "use client";
 
-import React, { use, useEffect, useState, useMemo } from 'react';
+import React, { use, useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow, BookOpen, Loader2, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow, BookOpen, Loader2, Edit2, HardHat } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+
 import ProjectOverview from '@/components/projects/ProjectOverview';
 import ProjectBOQ from '@/components/projects/ProjectBOQ';
 import ProjectMilestones from '@/components/projects/ProjectMilestones';
@@ -47,8 +49,97 @@ import ProjectPAT from '@/components/projects/ProjectPAT';
 import ProjectAIForecasting from '@/components/projects/ProjectAIForecasting';
 import { getTabsForStage, TabDefinition } from '@/config/stage-tab-mapping';
 
-// Map tab values to their components for dynamic rendering
-const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface ProjectStaff {
+    id: string;
+    name: string;
+}
+
+interface ProjectContractorRef {
+    id: string;
+    name: string;
+    contactNumber?: string;
+}
+
+interface ProjectTypeRef {
+    id: string;
+    name: string;
+}
+
+interface ProjectOPMC {
+    id: string;
+    rtom: string;
+    region?: string;
+}
+
+interface WorkflowStage {
+    id: string;
+    name: string;
+    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';
+}
+
+interface WorkflowInstance {
+    id: string;
+    stages: WorkflowStage[];
+}
+
+interface Project {
+    id: string;
+    projectCode: string;
+    name: string;
+    description?: string;
+    type: string;
+    location?: string;
+    status: string;
+    progress: number;
+    budget?: number;
+    actualCost: number;
+    startDate?: string;
+    endDate?: string;
+    estimatedDuration?: number;
+    actualDuration?: number;
+    opmcId?: string;
+    contractorId?: string;
+    areaManagerId?: string;
+    opmc?: ProjectOPMC;
+    contractor?: ProjectContractorRef;
+    areaManager?: ProjectStaff;
+    projectType?: ProjectTypeRef;
+    workflowInstance?: WorkflowInstance;
+}
+
+interface OPMCOption {
+    id: string;
+    rtom: string;
+    region: string;
+}
+
+interface ContractorOption {
+    id: string;
+    name: string;
+}
+
+interface EditFormState {
+    name: string;
+    projectCode: string;
+    description: string;
+    status: string;
+    progress: string;
+    startDate: string;
+    endDate: string;
+    location: string;
+    estimatedDuration: string;
+    actualDuration: string;
+}
+
+// Shared tab prop type — permissive at the map level; individual components enforce their own props
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyTabComponent = React.ComponentType<any>;
+
+// ─── Tab component map ────────────────────────────────────────────────────────
+
+const TAB_COMPONENTS: Record<string, AnyTabComponent> = {
     overview: ProjectOverview,
     'workflow-pipeline': ProjectWorkflowTracker,
     permits: ProjectPermits,
@@ -78,18 +169,60 @@ const TAB_COMPONENTS: Record<string, React.ComponentType<any>> = {
     closure: ProjectClosure,
     'field-tasks': ProjectFieldTasks,
     guide: ProjectDocumentation,
-    // Phase Plan New Tabs
     'survey-approval': ProjectSurveyApproval,
-    'pat': ProjectPAT,
+    pat: ProjectPAT,
     'ai-forecasting': ProjectAIForecasting,
 };
 
+// Tabs whose mutations require refreshing the parent project data
+const REFRESH_TABS = new Set([
+    'boq', 'materials', 'milestones', 'expenses',
+    'tasks', 'procurement', 'finance', 'closure',
+]);
+
 const PROJECT_STATUSES = ['PLANNING', 'APPROVED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED'];
+
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+
+class TabErrorBoundary extends React.Component<
+    { children: React.ReactNode; tabLabel: string },
+    { hasError: boolean }
+> {
+    constructor(props: { children: React.ReactNode; tabLabel: string }) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
+                    <p className="font-medium">Failed to load {this.props.tabLabel}</p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => this.setState({ hasError: false })}
+                    >
+                        Retry
+                    </Button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
     const { id } = use(params);
-    const [project, setProject] = useState<any>(null);
+
+    const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const [guideDialogOpen, setGuideDialogOpen] = useState(false);
@@ -97,7 +230,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     // Edit Details dialog state
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [editForm, setEditForm] = useState({
+    const [editForm, setEditForm] = useState<EditFormState>({
         name: '',
         projectCode: '',
         description: '',
@@ -110,72 +243,92 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         actualDuration: '',
     });
 
-    const [opmcs, setOpmcs] = useState<any[]>([]);
-    const [contractors, setContractors] = useState<any[]>([]);
+    const [opmcs, setOpmcs] = useState<OPMCOption[]>([]);
+    const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [editOpmcId, setEditOpmcId] = useState('');
     const [editContractorId, setEditContractorId] = useState('');
 
-    useEffect(() => {
-        fetchProjectDetails();
-    }, [id]);
+    // ── Data fetching ────────────────────────────────────────────────────────
 
-    const fetchProjectDetails = async () => {
+    const fetchProjectDetails = useCallback(async () => {
         try {
             const res = await fetch(`/api/projects/${id}`);
             if (!res.ok) throw new Error('Failed to fetch');
-            const data = await res.json();
+            const data: Project = await res.json();
             setProject(data);
-        } catch (error) {
-            console.error('Error fetching project:', error);
+        } catch {
+            toast.error('Failed to load project details');
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
-    // Open Edit Details dialog
-    const handleOpenEdit = async () => {
+    useEffect(() => {
+        fetchProjectDetails();
+    }, [fetchProjectDetails]);
+
+    // ── Stage-driven tab visibility ──────────────────────────────────────────
+
+    const currentStageName = useMemo(() => {
+        if (!project?.workflowInstance?.stages) return null;
+        const activeStage =
+            project.workflowInstance.stages.find((s) => s.status === 'IN_PROGRESS') ||
+            project.workflowInstance.stages.find((s) => s.status === 'PENDING');
+        return activeStage?.name ?? null;
+    }, [project]);
+
+    const visibleTabs = useMemo(() => getTabsForStage(currentStageName), [currentStageName]);
+
+    // Reset active tab if it's no longer visible after stage change
+    useEffect(() => {
+        if (visibleTabs.length > 0 && !visibleTabs.find((t) => t.value === activeTab)) {
+            setActiveTab(visibleTabs[0]?.value ?? 'overview');
+        }
+    }, [visibleTabs, activeTab]);
+
+    // ── Edit dialog ──────────────────────────────────────────────────────────
+
+    const handleOpenEdit = useCallback(async () => {
         if (!project) return;
         setEditForm({
-            name: project.name || '',
-            projectCode: project.projectCode || '',
-            description: project.description || '',
-            status: project.status || 'PLANNING',
-            progress: project.progress?.toString() || '0',
+            name: project.name ?? '',
+            projectCode: project.projectCode ?? '',
+            description: project.description ?? '',
+            status: project.status ?? 'PLANNING',
+            progress: project.progress?.toString() ?? '0',
             startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : '',
             endDate: project.endDate ? new Date(project.endDate).toISOString().split('T')[0] : '',
-            location: project.location || '',
-            estimatedDuration: project.estimatedDuration?.toString() || '',
-            actualDuration: project.actualDuration?.toString() || '',
+            location: project.location ?? '',
+            estimatedDuration: project.estimatedDuration?.toString() ?? '',
+            actualDuration: project.actualDuration?.toString() ?? '',
         });
-        setEditOpmcId(project.opmcId || '');
-        setEditContractorId(project.contractorId || '');
+        setEditOpmcId(project.opmcId ?? '');
+        setEditContractorId(project.contractorId ?? '');
 
-        // Fetch OPMCs and Contractors for dropdowns
         try {
             const [opmcRes, contractorRes] = await Promise.all([
                 fetch('/api/opmcs'),
-                fetch('/api/contractors')
+                fetch('/api/contractors'),
             ]);
             if (opmcRes.ok) setOpmcs(await opmcRes.json());
             if (contractorRes.ok) setContractors(await contractorRes.json());
-        } catch (err) {
-            console.error('Error fetching dropdown data:', err);
+        } catch {
+            toast.error('Failed to load dropdown options');
         }
 
         setEditDialogOpen(true);
-    };
+    }, [project]);
 
-    // Save updated project details
-    const handleSaveEdit = async () => {
-        if (!editForm.name) {
-            alert('Project name is required');
+    const handleSaveEdit = useCallback(async () => {
+        if (!editForm.name.trim()) {
+            toast.error('Project name is required');
             return;
         }
 
         setSaving(true);
         try {
-            const body: any = {
-                id: project.id,
+            const body = {
+                id: project?.id,
                 name: editForm.name,
                 projectCode: editForm.projectCode,
                 description: editForm.description,
@@ -193,56 +346,33 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             const res = await fetch('/api/projects', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
             });
 
             if (!res.ok) {
-                const error = await res.json();
-                alert(error.error || 'Failed to update project');
+                const err = await res.json();
+                toast.error(err.error || 'Failed to update project');
                 return;
             }
 
+            toast.success('Project updated successfully');
             setEditDialogOpen(false);
-            fetchProjectDetails(); // Refresh data
-        } catch (error) {
-            console.error('Error updating project:', error);
-            alert('Failed to update project');
+            fetchProjectDetails();
+        } catch {
+            toast.error('Failed to update project');
         } finally {
             setSaving(false);
         }
-    };
+    }, [editForm, editOpmcId, editContractorId, project?.id, fetchProjectDetails]);
 
-    // Determine the current stage name from the workflow instance
-    const currentStageName = useMemo(() => {
-        if (!project?.workflowInstance?.stages) return null;
-
-        const activeStage = project.workflowInstance.stages.find(
-            (s: any) => s.status === 'IN_PROGRESS'
-        ) || project.workflowInstance.stages.find(
-            (s: any) => s.status === 'PENDING'
-        );
-
-        return activeStage?.name || null;
-    }, [project]);
-
-    // Get the tabs visible for the current stage
-    const visibleTabs = useMemo(() => {
-        return getTabsForStage(currentStageName);
-    }, [currentStageName]);
-
-    // Reset active tab if it's no longer visible
-    useEffect(() => {
-        if (visibleTabs.length > 0 && !visibleTabs.find(t => t.value === activeTab)) {
-            setActiveTab(visibleTabs[0]?.value || 'overview');
-        }
-    }, [visibleTabs, activeTab]);
+    // ── Render states ────────────────────────────────────────────────────────
 
     if (loading) {
         return (
             <div className="min-h-screen flex bg-slate-50">
                 <Sidebar />
                 <main className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
+                    <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full" />
                 </main>
             </div>
         );
@@ -288,16 +418,20 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     <Badge variant="outline" className="text-sm border-slate-300">
                                         {project.projectCode}
                                     </Badge>
-                                    <Badge className={
-                                        project.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                                            project.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-yellow-100 text-yellow-700'
-                                    }>
-                                        {project.status.replace('_', ' ')}
+                                    <Badge
+                                        className={
+                                            project.status === 'COMPLETED'
+                                                ? 'bg-green-100 text-green-700'
+                                                : project.status === 'IN_PROGRESS'
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-yellow-100 text-yellow-700'
+                                        }
+                                    >
+                                        {project.status.replace(/_/g, ' ')}
                                     </Badge>
                                     {project.projectType && (
                                         <Badge variant="outline" className="text-sm border-blue-300 bg-blue-50 text-blue-700">
-                                            {project.projectType.name.replace('_', ' ')}
+                                            {project.projectType.name.replace(/_/g, ' ')}
                                         </Badge>
                                     )}
                                 </div>
@@ -309,7 +443,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     {project.projectType && (
                                         <div className="flex items-center gap-1.5">
                                             <Building2 className="w-4 h-4" />
-                                            {project.projectType.name.replace('_', ' ')}
+                                            {project.projectType.name.replace(/_/g, ' ')}
                                         </div>
                                     )}
                                     {project.opmc && (
@@ -353,7 +487,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                             </div>
                             <div className="flex items-start gap-3">
                                 <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-                                    <HardHatIcon className="w-5 h-5" />
+                                    <HardHat className="w-5 h-5" />
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold text-slate-500 uppercase">Contractor</p>
@@ -373,14 +507,14 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     <p className="text-xs font-semibold text-slate-500 uppercase">Timeline</p>
                                     <p className="text-sm font-medium text-slate-900 mt-0.5">
                                         {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'TBD'}
-                                        {' - '}
+                                        {' — '}
                                         {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'TBD'}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Stage Info Bar - shows current stage */}
+                        {/* Stage Info Bar */}
                         {currentStageName && (
                             <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-sm">
                                 <Workflow className="w-4 h-4 text-blue-500" />
@@ -396,7 +530,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     </div>
                 </div>
 
-                {/* Content Tabs - Dynamically Rendered Based on Stage */}
+                {/* Tab Content — Stage-driven */}
                 <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
                     <div className="max-w-7xl mx-auto">
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -408,23 +542,20 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 ))}
                             </TabsList>
 
-                            {/* Dynamically render tab content from the component map */}
                             {visibleTabs.map((tab: TabDefinition) => {
                                 const Component = TAB_COMPONENTS[tab.value];
                                 if (!Component) return null;
 
-                                const needsRefresh = ['boq', 'materials', 'milestones', 'expenses', 'tasks', 'procurement', 'finance', 'closure'].includes(tab.value);
-
                                 return (
                                     <TabsContent key={tab.value} value={tab.value}>
-                                        {tab.value === 'workflow-pipeline' ? (
-                                            <ProjectWorkflowTracker project={project} />
-                                        ) : (
+                                        <TabErrorBoundary tabLabel={tab.label}>
                                             <Component
                                                 project={project}
-                                                refreshProject={needsRefresh ? fetchProjectDetails : undefined}
+                                                refreshProject={
+                                                    REFRESH_TABS.has(tab.value) ? fetchProjectDetails : undefined
+                                                }
                                             />
-                                        )}
+                                        </TabErrorBoundary>
                                     </TabsContent>
                                 );
                             })}
@@ -433,16 +564,16 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 </div>
             </main>
 
-            {/* Guide Documentation Dialog */}
+            {/* Guide Documentation Dialog — lazy rendered */}
             <Dialog open={guideDialogOpen} onOpenChange={setGuideDialogOpen}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="text-xl">📖 Project Module Guide</DialogTitle>
+                        <DialogTitle className="text-xl">Project Module Guide</DialogTitle>
                         <DialogDescription>
                             Complete A-to-Z documentation for all project modules and features
                         </DialogDescription>
                     </DialogHeader>
-                    <ProjectDocumentation />
+                    {guideDialogOpen && <ProjectDocumentation project={project} />}
                 </DialogContent>
             </Dialog>
 
@@ -483,7 +614,9 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 </SelectTrigger>
                                 <SelectContent>
                                     {PROJECT_STATUSES.map((s) => (
-                                        <SelectItem key={s} value={s}>{s.replace('_', ' ')}</SelectItem>
+                                        <SelectItem key={s} value={s}>
+                                            {s.replace(/_/g, ' ')}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -548,8 +681,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     <SelectValue placeholder="Select OPMC" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {opmcs.map((o: any) => (
-                                        <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>
+                                    {opmcs.map((o) => (
+                                        <SelectItem key={o.id} value={o.id}>
+                                            {o.rtom} ({o.region})
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -561,8 +696,10 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     <SelectValue placeholder="Select Contractor" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {contractors.map((c: any) => (
-                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                    {contractors.map((c) => (
+                                        <SelectItem key={c.id} value={c.id}>
+                                            {c.name}
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -578,7 +715,9 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                            Cancel
+                        </Button>
                         <Button onClick={handleSaveEdit} disabled={saving}>
                             {saving ? (
                                 <>
@@ -594,27 +733,4 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             </Dialog>
         </div>
     );
-}
-
-// Simple SVG icon for HardHat (since it's not in lucide by default)
-function HardHatIcon(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3z" />
-            <path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
-            <path d="M4 15v-3a6 6 0 0 1 6-6h0" />
-            <path d="M14 6h0a6 6 0 0 1 6 6v3" />
-        </svg>
-    )
 }

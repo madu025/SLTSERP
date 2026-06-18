@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Cpu, Plus, ShieldCheck, Tag, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
 }
@@ -50,15 +51,14 @@ export default function ProjectCommissioning({ project }: ProjectCommissioningPr
                 setAssets(data);
             }
         } catch (error) {
-            console.error('Error fetching commissioned assets:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
 
     const handleCommission = async () => {
         if (!name || !serialNumber) {
-            alert('Asset Name and Serial Number are required');
+            toast.error('Asset Name and Serial Number are required');
             return;
         }
 
@@ -80,11 +80,10 @@ export default function ProjectCommissioning({ project }: ProjectCommissioningPr
                 setSerialNumber('');
                 fetchAssets();
             } else {
-                alert('Failed to commission asset');
+                toast.error('Failed to commission asset');
             }
         } catch (error) {
-            console.error('Error commissioning asset:', error);
-        }
+}
     };
 
     return (

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -81,11 +81,11 @@ export default function ProjectAssetRegister({ project }: ProjectAssetRegisterPr
             <TableBody>
               {assets.map((asset: any) => (
                 <TableRow key={asset.id}>
-                  <TableCell><Badge variant="outline">{getAssetIcon(asset.assetType)} {asset.assetType?.replace('_', ' ')}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{getAssetIcon(asset.assetType)} {asset.assetType?.replace(/_/g, ' ')}</Badge></TableCell>
                   <TableCell className="font-mono text-xs">{asset.assetCode || '-'}</TableCell>
                   <TableCell className="font-medium">{asset.assetName}</TableCell>
                   <TableCell><Badge className={asset.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100'}>{asset.status}</Badge></TableCell>
-                  <TableCell><span className="text-xs text-slate-500">{asset.sourceType?.replace('_', ' ') || '-'}</span></TableCell>
+                  <TableCell><span className="text-xs text-slate-500">{asset.sourceType?.replace(/_/g, ' ') || '-'}</span></TableCell>
                   <TableCell>
                     {asset.transferredToNOC ? (
                       <Badge className="bg-blue-100 text-blue-700"><CheckCircle2 className="w-3 h-3 mr-1" /> Transferred</Badge>

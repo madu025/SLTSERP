@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Star, HardHat, Phone, Mail, Award, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
 }
@@ -54,8 +55,7 @@ export default function ProjectContractors({ project }: ProjectContractorsProps)
                 setEvaluations(data.evaluations);
             }
         } catch (error) {
-            console.error('Error fetching contractor data:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
@@ -89,11 +89,10 @@ export default function ProjectContractors({ project }: ProjectContractorsProps)
                     }
                 ]);
             } else {
-                alert('Failed to log evaluation');
+                toast.error('Failed to log evaluation');
             }
         } catch (error) {
-            console.error('Error saving rating:', error);
-        }
+}
     };
 
     const renderStars = (count: number) => {

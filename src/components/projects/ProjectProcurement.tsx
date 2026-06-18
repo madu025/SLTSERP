@@ -272,7 +272,7 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
             FULLY_RECEIVED: 'bg-emerald-100 text-emerald-700',
             CLOSED: 'bg-slate-200 text-slate-700',
         };
-        return <Badge className={colors[status] || 'bg-slate-100'}>{status.replace('_', ' ')}</Badge>;
+        return <Badge className={colors[status] || 'bg-slate-100'}>{status.replace(/_/g, ' ')}</Badge>;
     };
 
     return (

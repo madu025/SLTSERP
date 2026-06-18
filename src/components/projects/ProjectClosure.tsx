@@ -17,6 +17,8 @@ import {
     AlertTriangle, DollarSign, Activity, ClipboardCheck,
     ThumbsUp, Ban, Hammer, Archive,
 } from 'lucide-react';
+import { toast } from 'sonner';
+
 
 interface Project {
     id: string;
@@ -172,11 +174,10 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
                 fetchChangeOrders();
             } else {
                 const err = await res.json();
-                alert(err.error || 'Failed to create change order');
+                toast.error(err.error || 'Failed to create change order');
             }
         } catch (e) {
-            console.error(e);
-            alert('Failed to create change order');
+toast.error('Failed to create change order');
         } finally {
             setSubmitting(false);
         }
@@ -189,7 +190,7 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
             const body: { id: string; action: string; rejectionReason?: string } = { id: selectedCO.id, action };
             if (action === 'REJECT') body.rejectionReason = actionReason;
             if (action === 'UPDATE') {
-                alert('Edit functionality via dialog coming soon. Use the API directly for now.');
+                toast.error('Edit functionality via dialog coming soon. Use the API directly for now.');
                 return;
             }
             const res = await fetch('/api/projects/change-orders', {
@@ -204,11 +205,10 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
                 fetchChangeOrders();
             } else {
                 const err = await res.json();
-                alert(err.error || 'Action failed');
+                toast.error(err.error || 'Action failed');
             }
         } catch (e) {
-            console.error(e);
-            alert('Action failed');
+toast.error('Action failed');
         } finally {
             setSubmitting(false);
         }
@@ -221,11 +221,10 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
             if (res.ok) fetchChangeOrders();
             else {
                 const err = await res.json();
-                alert(err.error || 'Delete failed');
+                toast.error(err.error || 'Delete failed');
             }
         } catch (e) {
-            console.error(e);
-        }
+}
     };
 
     const handleCloseProject = async () => {
@@ -241,11 +240,10 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
                 refreshProject();
             } else {
                 const err = await res.json();
-                alert(err.error || 'Failed to close project');
+                toast.error(err.error || 'Failed to close project');
             }
         } catch (e) {
-            console.error(e);
-            alert('Failed to close project');
+toast.error('Failed to close project');
         } finally {
             setClosing(false);
         }
@@ -305,7 +303,7 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
                                     project.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
                                         'bg-yellow-100 text-yellow-700'
                             }>
-                                {project.status?.replace('_', ' ') || 'N/A'}
+                                {project.status?.replace(/_/g, ' ') || 'N/A'}
                             </Badge>
                         </p>
                     </div>
@@ -593,7 +591,7 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
                                         {selectedCO.reason && (
                                             <div>
                                                 <span className="text-slate-500 font-medium">Reason</span>
-                                                <p className="text-slate-900 mt-0.5">{selectedCO.reason.replace('_', ' ')}</p>
+                                                <p className="text-slate-900 mt-0.5">{selectedCO.reason.replace(/_/g, ' ')}</p>
                                             </div>
                                         )}
                                         <div>

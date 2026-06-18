@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format } from 'date-fns';
 import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, Link2, Clock } from 'lucide-react';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
     projectCode: string;
@@ -102,8 +103,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 setTasks(data);
             }
         } catch (error) {
-            console.error('Error fetching tasks:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     }, [project.id]);
@@ -141,8 +141,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 setAllTasks(all);
             }
         } catch (error) {
-            console.error('Error fetching all tasks:', error);
-        }
+}
     }, [project.id]);
 
     useEffect(() => {
@@ -211,13 +210,12 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 refreshProject();
             }
         } catch (error) {
-            console.error('Error deleting task:', error);
-        }
+}
     };
 
     const handleSaveTask = async () => {
         if (!taskForm.name) {
-            alert('Task name is required');
+            toast.error('Task name is required');
             return;
         }
 
@@ -240,11 +238,10 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 refreshProject();
             } else {
                 const error = await res.json();
-                alert(error.error || 'Failed to save task');
+                toast.error(error.error || 'Failed to save task');
             }
         } catch (error) {
-            console.error('Error saving task:', error);
-        }
+}
     };
 
     const handleLogProgress = async () => {
@@ -271,16 +268,15 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 refreshProject();
             } else {
                 const error = await res.json();
-                alert(error.error || 'Failed to log progress');
+                toast.error(error.error || 'Failed to log progress');
             }
         } catch (error) {
-            console.error('Error logging progress:', error);
-        }
+}
     };
 
     const handleAddDependency = async () => {
         if (!selectedTask || !dependencyForm.dependsOnTaskId) {
-            alert('Please select a prerequisite task');
+            toast.error('Please select a prerequisite task');
             return;
         }
 
@@ -300,11 +296,10 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 fetchAllTasks();
             } else {
                 const error = await res.json();
-                alert(error.error || 'Failed to add dependency');
+                toast.error(error.error || 'Failed to add dependency');
             }
         } catch (error) {
-            console.error('Error adding dependency:', error);
-        }
+}
     };
 
     const handleRemoveDependency = async (depId: string) => {
@@ -315,8 +310,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 fetchAllTasks();
             }
         } catch (error) {
-            console.error('Error removing dependency:', error);
-        }
+}
     };
 
     const handleSaveTimesheet = async () => {
@@ -334,11 +328,10 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                 setIsTimesheetDialogOpen(false);
             } else {
                 const error = await res.json();
-                alert(error.error || 'Failed to save timesheet');
+                toast.error(error.error || 'Failed to save timesheet');
             }
         } catch (error) {
-            console.error('Error saving timesheet:', error);
-        }
+}
     };
 
     const getStatusBadge = (status: string) => {
@@ -381,7 +374,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                         <Badge className={`text-xs ${getStatusBadge(task.status)}`}>
-                            {task.status.replace('_', ' ')}
+                            {task.status.replace(/_/g, ' ')}
                         </Badge>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -874,8 +867,7 @@ function TimesheetView({ projectId }: { projectId: string }) {
                 setTimesheets(data);
             }
         } catch (error) {
-            console.error('Error fetching timesheets:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     }, [projectId]);

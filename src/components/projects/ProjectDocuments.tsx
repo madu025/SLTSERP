@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, History, Send, Eye, Download, FileText, CheckCircle2, Clock, XCircle, Users } from 'lucide-react';
 import { format } from 'date-fns';
 
+import { toast } from 'sonner';
 interface Project {
     id: string;
     name: string;
@@ -81,8 +82,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                 setDocuments(data);
             }
         } catch (error) {
-            console.error('Error fetching documents:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
@@ -111,7 +111,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
 
     const handleUpload = async () => {
         if (!title || !fileUrl || !uploadedById) {
-            alert('Title, File URL, and Uploaded By are required');
+            toast.error('Title, File URL, and Uploaded By are required');
             return;
         }
 
@@ -133,16 +133,15 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                 resetUploadForm();
                 fetchDocuments();
             } else {
-                alert('Failed to upload document');
+                toast.error('Failed to upload document');
             }
         } catch (error) {
-            console.error('Error uploading document:', error);
-        }
+}
     };
 
     const handleNewVersion = async () => {
         if (!selectedDoc || !newVersionFileUrl || !uploadedById) {
-            alert('File URL and Uploaded By are required');
+            toast.error('File URL and Uploaded By are required');
             return;
         }
 
@@ -164,11 +163,10 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
                 setChangeSummary('');
                 fetchDocuments();
             } else {
-                alert('Failed to save new version');
+                toast.error('Failed to save new version');
             }
         } catch (error) {
-            console.error('Error saving version:', error);
-        }
+}
     };
 
     const handleSubmitApproval = async (doc: ProjectDoc) => {
@@ -191,14 +189,13 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
             });
 
             if (res.ok) {
-                alert('Document submitted for approval workflow.');
+                toast.success('Document submitted for approval workflow.');
                 fetchDocuments();
             } else {
-                alert('Failed to submit approval request');
+                toast.error('Failed to submit approval request');
             }
         } catch (error) {
-            console.error('Error submitting approval:', error);
-        }
+}
     };
 
     const resetUploadForm = () => {
@@ -222,7 +219,7 @@ export default function ProjectDocuments({ project }: ProjectDocumentsProps) {
         return (
             <Badge className={`text-xs ${config.className}`}>
                 <Icon className="w-3 h-3 mr-1" />
-                {status.replace('_', ' ')}
+                {status.replace(/_/g, ' ')}
             </Badge>
         );
     };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -115,8 +115,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
         setActiveStage(current || null);
       }
     } catch (error) {
-      console.error('Error fetching workflow data:', error);
-    } finally {
+} finally {
       setLoading(false);
     }
   };
@@ -138,8 +137,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
         await fetchWorkflow();
       }
     } catch (error) {
-      console.error('Error starting stage:', error);
-    } finally {
+} finally {
       setSubmitting(false);
     }
   };
@@ -166,8 +164,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
         setIsErrorDialogOpen(true);
       }
     } catch (error) {
-      console.error('Error completing stage:', error);
-    } finally {
+} finally {
       setSubmitting(false);
     }
   };
@@ -194,8 +191,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
       });
       fetchWorkflow();
     } catch (error) {
-      console.error('Error updating checklist:', error);
-    }
+}
   };
 
   const handleTaskToggle = async (taskId: string, currentStatus: string) => {
@@ -213,8 +209,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
       });
       fetchWorkflow();
     } catch (error) {
-      console.error('Error updating task status:', error);
-    }
+}
   };
 
   const handleApprovalSubmit = async (approvalId: string, decision: 'APPROVED' | 'REJECTED') => {
@@ -235,8 +230,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
         fetchWorkflow();
       }
     } catch (error) {
-      console.error('Error actioning approval:', error);
-    } finally {
+} finally {
       setSubmitting(false);
     }
   };
@@ -350,7 +344,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
                       activeStage.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800 animate-pulse' :
                       'bg-slate-100 text-slate-800'
                     }>
-                      {activeStage.status.replace('_', ' ')}
+                      {activeStage.status.replace(/_/g, ' ')}
                     </Badge>
                   </div>
                 </div>
@@ -462,7 +456,7 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
                   activeStage.approvals.map(app => (
                     <div key={app.id} className="p-3.5 rounded-xl border bg-slate-50/60 space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-700">Level {app.level} ({app.role.replace('_', ' ')})</span>
+                        <span className="text-xs font-bold text-slate-700">Level {app.level} ({app.role.replace(/_/g, ' ')})</span>
                         <Badge className={
                           app.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
                           app.status === 'REJECTED' ? 'bg-red-100 text-red-800' :

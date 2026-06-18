@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 
+import { toast } from 'sonner';
 interface ProjectMilestonesProps {
     project: any;
     refreshProject: () => void;
@@ -53,14 +54,12 @@ export default function ProjectMilestones({ project, refreshProject }: ProjectMi
         try {
             const res = await fetch(`/api/projects/milestones?id=${id}`, { method: 'DELETE' });
             if (res.ok) refreshProject();
-        } catch (error) {
-            console.error('Error:', error);
-        }
+        } catch (error) {}
     };
 
     const handleSubmit = async () => {
         if (!formData.name || !formData.targetDate) {
-            alert('Name and Target Date are required');
+            toast.error('Name and Target Date are required');
             return;
         }
 
@@ -82,11 +81,9 @@ export default function ProjectMilestones({ project, refreshProject }: ProjectMi
                 setIsDialogOpen(false);
                 refreshProject();
             } else {
-                alert('Operation failed');
+                toast.error('Operation failed');
             }
-        } catch (error) {
-            console.error('Error:', error);
-        } finally {
+        } catch (error) {} finally {
             setLoading(false);
         }
     };
@@ -131,7 +128,7 @@ export default function ProjectMilestones({ project, refreshProject }: ProjectMi
                                     <div className="flex items-center gap-3">
                                         <h4 className="font-semibold text-slate-900">{milestone.name}</h4>
                                         <Badge variant="outline" className={getStatusColor(milestone.status)}>
-                                            {milestone.status.replace('_', ' ')}
+                                            {milestone.status.replace(/_/g, ' ')}
                                         </Badge>
                                     </div>
                                     <p className="text-sm text-slate-600 max-w-xl">{milestone.description}</p>

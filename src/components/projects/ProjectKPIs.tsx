@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, Coins, CalendarRange, Gauge, AlertCircle, ArrowUpRight } from 'lucide-react';
@@ -46,8 +46,7 @@ export default function ProjectKPIs({ project }: ProjectKPIsProps) {
                 setStatus(data.status);
             }
         } catch (error) {
-            console.error('Error fetching KPIs:', error);
-        } finally {
+} finally {
             setLoading(false);
         }
     };
