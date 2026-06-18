@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Params }) {
     const boqItems = await prisma.projectBOQItem.findMany({
       where: {
         projectId,
-        itemCategory: { in: ['MATERIAL', 'MATERIAL+LABOR', 'CABLE'] },
+        category: { in: ['MATERIAL', 'MATERIAL+LABOR', 'CABLE'] },
       },
     });
 
@@ -70,9 +70,9 @@ export async function POST(request: Request, { params }: { params: Params }) {
     const prNumber = `PR-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
 
     // Calculate totals by category
-    const materialItems = boqItems.filter((i) => i.itemCategory === 'MATERIAL');
-    const materialLaborItems = boqItems.filter((i) => i.itemCategory === 'MATERIAL+LABOR');
-    const cableItems = boqItems.filter((i) => i.itemCategory === 'CABLE');
+    const materialItems = boqItems.filter((i) => i.category === 'MATERIAL');
+    const materialLaborItems = boqItems.filter((i) => i.category === 'MATERIAL+LABOR');
+    const cableItems = boqItems.filter((i) => i.category === 'CABLE');
 
     const totalMaterial = materialItems.reduce((s, i) => s + i.amount, 0);
     const totalMaterialLabor = materialLaborItems.reduce((s, i) => s + i.amount, 0);
@@ -100,7 +100,7 @@ export async function POST(request: Request, { params }: { params: Params }) {
                 unitRate: item.unitRate,
                 amount: item.amount,
                 sourceType: 'AUTO_BOQ',
-                sourceReference: item.sourceReference,
+                sourceReference: item.remarks || item.sourceReference || item.source,
               })),
               ...materialLaborItems.map((item) => ({
                 itemCode: item.itemCode,
@@ -110,7 +110,7 @@ export async function POST(request: Request, { params }: { params: Params }) {
                 unitRate: item.unitRate,
                 amount: item.amount,
                 sourceType: 'AUTO_BOQ',
-                sourceReference: item.sourceReference,
+                sourceReference: item.remarks || item.sourceReference || item.source,
               })),
               ...cableItems.map((item) => ({
                 itemCode: item.itemCode,
@@ -120,7 +120,7 @@ export async function POST(request: Request, { params }: { params: Params }) {
                 unitRate: item.unitRate,
                 amount: item.amount,
                 sourceType: 'AUTO_BOQ',
-                sourceReference: item.sourceReference,
+                sourceReference: item.remarks || item.sourceReference || item.source,
               })),
             ],
           },
@@ -184,7 +184,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     ]);
 
     const materialItemsCount = await prisma.projectBOQItem.count({
-      where: { projectId, itemCategory: { in: ['MATERIAL', 'MATERIAL+LABOR', 'CABLE'] } },
+      where: { projectId, category: { in: ['MATERIAL', 'MATERIAL+LABOR', 'CABLE'] } },
     });
 
     return NextResponse.json({

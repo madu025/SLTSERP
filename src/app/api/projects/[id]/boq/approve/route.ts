@@ -19,16 +19,16 @@ export async function GET(_request: Request, { params }: { params: Params }) {
         where: { projectId },
         select: {
           id: true,
-          itemCategory: true,
+          category: true,
           itemCode: true,
           description: true,
           unit: true,
           quantity: true,
           unitRate: true,
           amount: true,
-          sourceType: true,
+          source: true,
         },
-        orderBy: [{ itemCategory: 'asc' }, { itemCode: 'asc' }],
+        orderBy: [{ category: 'asc' }, { itemCode: 'asc' }],
       }),
     ]);
 
@@ -36,7 +36,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     const categoryTotals: Record<string, number> = {};
     let grandTotal = 0;
     for (const item of boqItems) {
-      categoryTotals[item.itemCategory] = (categoryTotals[item.itemCategory] || 0) + item.amount;
+      categoryTotals[item.category || 'OTHER'] = (categoryTotals[item.category || 'OTHER'] || 0) + item.amount;
       grandTotal += item.amount;
     }
 
@@ -63,7 +63,7 @@ export async function POST(request: Request, { params }: { params: Params }) {
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { action, remarks } = body;
+    const { action, notes } = body;
 
     // ── Action: SUBMIT for approval ─────────────────────────────────────
     if (action === 'submit') {
@@ -91,19 +91,13 @@ export async function POST(request: Request, { params }: { params: Params }) {
         );
       }
 
-      const boqTotal = await prisma.projectBOQItem.aggregate({
-        where: { projectId },
-        _sum: { amount: true },
-      });
-
       const approval = await prisma.bOQApproval.create({
         data: {
+          boqId: projectId, // Use projectId as BOQ reference
           projectId,
           status: 'PENDING',
-          totalAmount: boqTotal._sum.amount ?? 0,
-          submittedById: userId,
-          submittedAt: new Date(),
-          remarks,
+          currentStep: 'SUPERVISOR',
+          notes: notes || null,
         },
       });
 
@@ -129,38 +123,59 @@ export async function POST(request: Request, { params }: { params: Params }) {
         return NextResponse.json({ error: 'No pending BOQ approval found' }, { status: 404 });
       }
 
+      // Determine which approval step this is
+      const step = approval.currentStep;
+      const updateData: Record<string, unknown> = {};
+
+      if (step === 'SUPERVISOR') {
+        updateData.currentStep = 'PROJECT_MANAGER';
+        updateData.supervisorId = userId;
+        updateData.supervisorApprovedAt = new Date();
+      } else if (step === 'PROJECT_MANAGER') {
+        updateData.currentStep = 'FINANCE';
+        updateData.pmId = userId;
+        updateData.pmApprovedAt = new Date();
+      } else if (step === 'FINANCE') {
+        updateData.status = 'APPROVED';
+        updateData.financeId = userId;
+        updateData.financeApprovedAt = new Date();
+      }
+
+      if (notes) updateData.notes = notes;
+
       const updated = await prisma.bOQApproval.update({
         where: { id: approval.id },
-        data: {
-          status: 'APPROVED',
-          approvedById: userId,
-          approvedAt: new Date(),
-          remarks: remarks || approval.remarks,
-        },
+        data: updateData,
       });
 
-      // Update project status and set budget from BOQ
-      const boqTotal = await prisma.projectBOQItem.aggregate({
-        where: { projectId },
-        _sum: { amount: true },
-      });
+      // If fully approved, set budget
+      if (updated.status === 'APPROVED') {
+        const boqTotal = await prisma.projectBOQItem.aggregate({
+          where: { projectId },
+          _sum: { amount: true },
+        });
 
-      await prisma.project.update({
-        where: { id: projectId },
-        data: {
-          status: 'BOQ_APPROVED',
-          budget: boqTotal._sum.amount ?? 0,
-        },
-      });
+        await prisma.project.update({
+          where: { id: projectId },
+          data: {
+            status: 'BOQ_APPROVED',
+            budget: boqTotal._sum.amount ?? 0,
+          },
+        });
+      }
 
-      return NextResponse.json({ message: 'BOQ approved', approval: updated });
+      return NextResponse.json({
+        message: `BOQ step ${step} approved`,
+        approval: updated,
+        nextStep: updated.status === 'APPROVED' ? null : updated.currentStep,
+      });
     }
 
     // ── Action: REJECT ───────────────────────────────────────────────────
     if (action === 'reject') {
-      if (!remarks) {
+      if (!notes) {
         return NextResponse.json(
-          { error: 'Remarks are required when rejecting BOQ' },
+          { error: 'Notes are required when rejecting BOQ' },
           { status: 400 }
         );
       }
@@ -177,9 +192,8 @@ export async function POST(request: Request, { params }: { params: Params }) {
         where: { id: approval.id },
         data: {
           status: 'REJECTED',
-          approvedById: userId,
-          approvedAt: new Date(),
-          remarks,
+          rejectionReason: notes,
+          notes,
         },
       });
 
@@ -215,19 +229,13 @@ export async function POST(request: Request, { params }: { params: Params }) {
         );
       }
 
-      const boqTotal = await prisma.projectBOQItem.aggregate({
-        where: { projectId },
-        _sum: { amount: true },
-      });
-
       const newApproval = await prisma.bOQApproval.create({
         data: {
+          boqId: projectId,
           projectId,
           status: 'PENDING',
-          totalAmount: boqTotal._sum.amount ?? 0,
-          submittedById: userId,
-          submittedAt: new Date(),
-          remarks: remarks || `Revised from rejection: ${approval.remarks}`,
+          currentStep: 'SUPERVISOR',
+          notes: notes || `Revised from rejection: ${approval.rejectionReason || approval.notes}`,
         },
       });
 
