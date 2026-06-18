@@ -14,28 +14,41 @@ export async function POST(request: Request) {
             );
         }
 
-        const expense = await prisma.projectExpense.create({
-            data: {
-                projectId,
-                type,
-                description: description || '',
-                amount: parseFloat(amount),
-                date: date ? new Date(date) : new Date(),
-                invoiceRef: invoiceRef || null,
-                remarks: remarks || null
+        let expense;
+
+        await prisma.$transaction(async (tx) => {
+            expense = await tx.projectExpense.create({
+                data: {
+                    projectId,
+                    type,
+                    description: description || '',
+                    amount: parseFloat(amount),
+                    date: date ? new Date(date) : new Date(),
+                    invoiceRef: invoiceRef || null,
+                    remarks: remarks || null
+                }
+            });
+
+            // Dynamically recalculate project actualCost and variance
+            const project = await tx.project.findUnique({
+                where: { id: projectId }
+            });
+
+            if (project) {
+                const newActualCost = (project.actualCost || 0) + parseFloat(amount);
+                const newVariance = project.budget !== null && project.budget !== undefined
+                    ? project.budget - newActualCost
+                    : null;
+
+                await tx.project.update({
+                    where: { id: projectId },
+                    data: {
+                        actualCost: newActualCost,
+                        variance: newVariance
+                    }
+                });
             }
         });
-
-        // Update Project Actual Cost (Trigger logic could be here, but simpler to just fetch sum)
-        // Optionally we could update the project.actualCost here directly:
-        /*
-        const totalExpenses = await prisma.projectExpense.aggregate({
-            where: { projectId },
-            _sum: { amount: true }
-        });
-        // We would also need to add BOQ Actuals to this sum... complex.
-        // Better to calc on the fly or distinct update route.
-        */
 
         return NextResponse.json(expense);
     } catch (error) {
@@ -60,8 +73,41 @@ export async function DELETE(request: Request) {
             );
         }
 
-        await prisma.projectExpense.delete({
-            where: { id }
+        await prisma.$transaction(async (tx) => {
+            const expense = await tx.projectExpense.findUnique({
+                where: { id }
+            });
+
+            if (!expense) {
+                throw new Error('Expense not found');
+            }
+
+            const projectId = expense.projectId;
+            const expenseAmount = expense.amount;
+
+            await tx.projectExpense.delete({
+                where: { id }
+            });
+
+            // Dynamically recalculate project actualCost and variance
+            const project = await tx.project.findUnique({
+                where: { id: projectId }
+            });
+
+            if (project) {
+                const newActualCost = Math.max(0, (project.actualCost || 0) - expenseAmount);
+                const newVariance = project.budget !== null && project.budget !== undefined
+                    ? project.budget - newActualCost
+                    : null;
+
+                await tx.project.update({
+                    where: { id: projectId },
+                    data: {
+                        actualCost: newActualCost,
+                        variance: newVariance
+                    }
+                });
+            }
         });
 
         return NextResponse.json({ success: true });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from '@/services/WorkflowEngine';
+import { calculateProjectProgress } from '@/lib/project-progress';
 
 // GET all projects
 export async function GET(request: Request) {
@@ -177,12 +178,42 @@ export async function PATCH(request: Request) {
             );
         }
 
+        const existingProject = await prisma.project.findUnique({
+            where: { id },
+            include: { workflowInstance: true }
+        });
+
+        if (!existingProject) {
+            return NextResponse.json(
+                { error: 'Project not found' },
+                { status: 404 }
+            );
+        }
+
+        const hasActiveWorkflow = !!existingProject.workflowInstance;
+
         // Process date and numeric fields (use !== undefined to allow 0/falsy values)
         if (updateData.startDate !== undefined && updateData.startDate !== null) updateData.startDate = new Date(updateData.startDate);
         if (updateData.endDate !== undefined && updateData.endDate !== null) updateData.endDate = new Date(updateData.endDate);
         if (updateData.budget !== undefined && updateData.budget !== null) updateData.budget = parseFloat(updateData.budget);
         if (updateData.actualCost !== undefined && updateData.actualCost !== null) updateData.actualCost = parseFloat(updateData.actualCost);
-        if (updateData.progress !== undefined && updateData.progress !== null) updateData.progress = parseFloat(updateData.progress);
+        
+        if (updateData.progress !== undefined && updateData.progress !== null) {
+            if (hasActiveWorkflow) {
+                console.warn(`Blocking manual progress write of ${updateData.progress}% for project ${id} because it has an active workflow.`);
+                delete updateData.progress;
+            } else {
+                updateData.progress = parseFloat(updateData.progress);
+            }
+        }
+        
+        if (updateData.status !== undefined && updateData.status !== null) {
+            if (hasActiveWorkflow) {
+                console.warn(`Blocking manual status write of ${updateData.status} for project ${id} because it has an active workflow.`);
+                delete updateData.status;
+            }
+        }
+
         if (updateData.estimatedDuration !== undefined && updateData.estimatedDuration !== null) updateData.estimatedDuration = parseInt(updateData.estimatedDuration);
         if (updateData.actualDuration !== undefined && updateData.actualDuration !== null) updateData.actualDuration = parseInt(updateData.actualDuration);
         // Handle location, description etc.
@@ -201,6 +232,21 @@ export async function PATCH(request: Request) {
                 contractor: true
             }
         });
+
+        // Trigger programmatic recalculation of progress and status if project has an active workflow
+        if (hasActiveWorkflow) {
+            await calculateProjectProgress(id);
+            // Re-fetch project to return updated progress/status
+            const updatedProject = await prisma.project.findUnique({
+                where: { id },
+                include: {
+                    opmc: true,
+                    areaManager: true,
+                    contractor: true
+                }
+            });
+            return NextResponse.json(updatedProject);
+        }
 
         return NextResponse.json(project);
     } catch (error) {

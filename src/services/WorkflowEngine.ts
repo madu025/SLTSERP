@@ -136,25 +136,48 @@ export class WorkflowEngine {
 
     // Check 2: Mandatory checklist items
     if (stage.reqChecklist) {
-      const incompleteChecklists = stage.checklists.filter(c => c.isMandatory && !c.isCompleted);
-      if (incompleteChecklists.length > 0) {
-        errors.push(`Incomplete mandatory checklist: ${incompleteChecklists.map(c => c.label).join(', ')}`);
+      if (stage.checklists.length === 0) {
+        errors.push('Checklist requirement is enabled for this stage, but no checklist items are configured.');
+      } else {
+        const incompleteChecklists = stage.checklists.filter(c => c.isMandatory && !c.isCompleted);
+        if (incompleteChecklists.length > 0) {
+          errors.push(`Incomplete mandatory checklist: ${incompleteChecklists.map(c => c.label).join(', ')}`);
+        }
       }
     }
 
     // Check 3: Photo upload proof requirements
     if (stage.reqPhotos) {
-      const missingPhotos = stage.checklists.filter(c => c.isMandatory && !c.photoUrl);
-      if (missingPhotos.length > 0) {
-        errors.push(`Photos required for checklist items: ${missingPhotos.map(c => c.label).join(', ')}`);
+      if (stage.checklists.length === 0) {
+        errors.push('Photo proof requirement is enabled for this stage, but no checklist items exist to attach photo proofs.');
+      } else {
+        const missingPhotos = stage.checklists.filter(c => {
+          if (c.isMandatory) {
+            // Strictly check for missing, empty, undefined, null, or placeholder URLs
+            return !c.photoUrl || 
+                   typeof c.photoUrl !== 'string' || 
+                   c.photoUrl.trim() === '' || 
+                   c.photoUrl === 'undefined' || 
+                   c.photoUrl === 'null' || 
+                   c.photoUrl.toLowerCase().includes('placeholder');
+          }
+          return false;
+        });
+        if (missingPhotos.length > 0) {
+          errors.push(`Valid photo proof required for mandatory checklist items: ${missingPhotos.map(c => c.label).join(', ')}`);
+        }
       }
     }
 
     // Check 4: Approvals signoff
     if (stage.reqApproval) {
-      const unapproved = stage.approvals.filter(a => a.status !== 'APPROVED');
-      if (unapproved.length > 0) {
-        errors.push(`Requires approval at Level ${unapproved.map(a => `${a.level} (${a.role})`).join(', ')}`);
+      if (stage.approvals.length === 0) {
+        errors.push('Approval requirement is enabled for this stage, but no approval flows have been configured or assigned.');
+      } else {
+        const unapproved = stage.approvals.filter(a => a.status !== 'APPROVED');
+        if (unapproved.length > 0) {
+          errors.push(`Requires approval at Level ${unapproved.map(a => `${a.level} (${a.role})`).join(', ')}`);
+        }
       }
     }
 

@@ -4,7 +4,14 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { issueId, approvedById } = body; // approvedById would come from session in real app
+        const { issueId } = body;
+        
+        // Extract authenticated User ID from middleware headers
+        const approvedById = request.headers.get('x-user-id') || body.approvedById;
+
+        if (!approvedById) {
+            return NextResponse.json({ error: 'User authentication required' }, { status: 401 });
+        }
 
         if (!issueId) {
             return NextResponse.json({ error: 'Issue ID required' }, { status: 400 });
@@ -80,10 +87,24 @@ export async function POST(request: Request) {
 
             // 3. Update Project Cost - Only if this is a project issue
             if (issue.projectId) {
-                await tx.project.update({
-                    where: { id: issue.projectId },
-                    data: { actualCost: { increment: totalIssueCost } }
+                const project = await tx.project.findUnique({
+                    where: { id: issue.projectId }
                 });
+                
+                if (project) {
+                    const newActualCost = (project.actualCost || 0) + totalIssueCost;
+                    const newVariance = project.budget !== null && project.budget !== undefined
+                        ? project.budget - newActualCost
+                        : null;
+
+                    await tx.project.update({
+                        where: { id: issue.projectId },
+                        data: {
+                            actualCost: newActualCost,
+                            variance: newVariance
+                        }
+                    });
+                }
             }
         });
 

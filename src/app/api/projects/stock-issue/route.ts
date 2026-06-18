@@ -6,9 +6,8 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { projectId, storeId, items, remarks, issueDate } = body;
 
-        // Mock User ID (Issuer)
-        const issuer = await prisma.user.findFirst();
-        const userId = issuer?.id;
+        // Extract authenticated User ID (Issuer) from middleware headers
+        const userId = request.headers.get('x-user-id');
 
         if (!projectId || !storeId || !items || !items.length || !userId) {
             return NextResponse.json(

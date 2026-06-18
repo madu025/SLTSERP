@@ -65,11 +65,27 @@ export async function POST(request: Request) {
                 }
             }
 
-            // 3. Credit Project Total Cost
-            await tx.project.update({
-                where: { id: returnReq.projectId },
-                data: { actualCost: { decrement: totalCredit } }
-            });
+            // 3. Credit Project Total Cost and update variance
+            if (returnReq.projectId) {
+                const project = await tx.project.findUnique({
+                    where: { id: returnReq.projectId }
+                });
+
+                if (project) {
+                    const newActualCost = Math.max(0, (project.actualCost || 0) - totalCredit);
+                    const newVariance = project.budget !== null && project.budget !== undefined
+                        ? project.budget - newActualCost
+                        : null;
+
+                    await tx.project.update({
+                        where: { id: returnReq.projectId },
+                        data: {
+                            actualCost: newActualCost,
+                            variance: newVariance
+                        }
+                    });
+                }
+            }
         });
 
         return NextResponse.json({ success: true });
