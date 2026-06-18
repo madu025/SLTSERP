@@ -51,7 +51,7 @@ export class RouteVersionService {
         versionType: input.versionType,
         changeRequestId: input.changeRequestId,
         isActive: true,
-        geojsonData: input.geojsonData ?? currentRoute.geojsonData,
+        geojsonData: (input.geojsonData ?? currentRoute.geojsonData ?? {}) as any,
         routeLength: currentRoute.routeLength,
         createdById: undefined, // Will be set by calling code
       },

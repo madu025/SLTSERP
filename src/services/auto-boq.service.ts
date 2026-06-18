@@ -54,7 +54,7 @@ export class AutoBOQService {
   static async generateBOQ(
     projectId: string,
     cableConfigOverride?: Partial<BOQConfig>
-  ): Promise<{ boq: BOQItem[]; summary: Record<string, number> }> {
+  ): Promise<{ boq: BOQItem[]; summary: Record<string, number>; cableConfig: BOQConfig }> {
     // Load BOQ rate configs for this project
     const rateConfigs = await prisma.bOQRateConfig.findMany({
       where: { OR: [{ projectId }, { projectId: null }], isActive: true },

@@ -40,10 +40,10 @@ export async function GET(_request: Request, { params }: { params: Params }) {
         where: { projectId, status: { not: 'COMPLETED' } },
       }),
       prisma.projectExpense.count({
-        where: { projectId, status: 'PENDING_APPROVAL' },
+        where: { projectId },
       }),
       prisma.projectMaterialReturn.count({
-        where: { projectId, status: 'PENDING' },
+        where: { projectId },
       }),
     ]);
 
@@ -116,7 +116,7 @@ export async function POST(request: Request, { params }: { params: Params }) {
       prisma.projectInvoice.count({ where: { projectId, status: { not: 'PAID' } } }),
       prisma.projectChangeRequest.count({ where: { projectId, status: { in: ['DRAFT', 'SUBMITTED'] } } }),
       prisma.projectTask.count({ where: { projectId, status: { not: 'COMPLETED' } } }),
-      prisma.projectExpense.count({ where: { projectId, status: 'PENDING_APPROVAL' } }),
+      prisma.projectExpense.count({ where: { projectId } }),
     ]);
 
     const totalOpen = openIssues.reduce((sum, count) => sum + count, 0);

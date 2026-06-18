@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
           status: true,
           totalAmount: true,
           paidAmount: true,
-          balance: true,
+          balanceAmount: true,
           type: true,
           invoiceDate: true,
           payments: {
@@ -52,7 +52,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
           releaseCondition: true,
           defectLiabilityPeriod: true,
           releases: {
-            select: { amount: true, status: true, releaseDate: true },
+            select: { releaseAmount: true, releaseDate: true },
             orderBy: { releaseDate: 'desc' },
           },
         },
@@ -74,7 +74,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     // 3-Level payment analysis
     const totalInvoiced = invoices.reduce((s, i) => s + i.totalAmount, 0);
     const totalPaid = invoices.reduce((s, i) => s + i.paidAmount, 0);
-    const totalBalance = invoices.reduce((s, i) => s + i.balance, 0);
+    const totalBalance = invoices.reduce((s, i) => s + i.balanceAmount, 0);
     const totalRetained = retentions
       .filter((r) => r.status === 'HELD')
       .reduce((s, r) => s + r.retentionAmount, 0);

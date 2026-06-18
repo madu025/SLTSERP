@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { itemCode, description, unit, unitRate, category, projectId, isActive } = body;
+    const { itemCode, description, unit, unitRate, itemCategory, projectId, isActive } = body;
 
     if (!itemCode || unitRate === undefined) {
       return NextResponse.json(
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
           description: description ?? existing.description,
           unit: unit ?? existing.unit,
           unitRate: parseFloat(unitRate),
-          category: category ?? existing.category,
+          itemCategory: itemCategory ?? existing.itemCategory,
           isActive: isActive !== undefined ? isActive : existing.isActive,
         },
       });
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
           description: description || itemCode,
           unit: unit || 'UNIT',
           unitRate: parseFloat(unitRate),
-          category: category || 'MATERIAL',
+          itemCategory: itemCategory || 'MATERIAL',
           projectId: projectId || null,
           isActive: isActive !== undefined ? isActive : true,
         },
@@ -113,7 +113,7 @@ export async function PATCH(request: Request) {
     }
 
     const results = await Promise.allSettled(
-      rates.map(async (r: { itemCode: string; unitRate: number; projectId?: string | null }) => {
+      rates.map(async (r: { itemCode: string; unitRate: number; projectId?: string | null; itemCategory?: string }) => {
         if (!r.itemCode || r.unitRate === undefined) {
           throw new Error(`Missing itemCode or unitRate for entry`);
         }
@@ -125,7 +125,10 @@ export async function PATCH(request: Request) {
         if (existing) {
           return prisma.bOQRateConfig.update({
             where: { id: existing.id },
-            data: { unitRate: parseFloat(String(r.unitRate)) },
+            data: { 
+              unitRate: parseFloat(String(r.unitRate)),
+              ...(r.itemCategory ? { itemCategory: r.itemCategory } : {})
+            },
           });
         }
 
@@ -134,6 +137,7 @@ export async function PATCH(request: Request) {
             itemCode: r.itemCode,
             unitRate: parseFloat(String(r.unitRate)),
             projectId: r.projectId || null,
+            itemCategory: r.itemCategory || 'MATERIAL',
           },
         });
       })
