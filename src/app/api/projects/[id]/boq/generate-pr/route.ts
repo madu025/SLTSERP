@@ -97,30 +97,27 @@ export async function POST(request: Request, { params }: { params: Params }) {
                 description: item.description,
                 unit: item.unit,
                 quantity: item.quantity,
-                unitRate: item.unitRate,
-                amount: item.amount,
-                sourceType: 'AUTO_BOQ',
-                sourceReference: item.remarks || item.sourceReference || item.source,
+                estimatedPrice: item.unitRate,
+                totalEstimated: item.amount,
+                notes: item.remarks || item.source,
               })),
               ...materialLaborItems.map((item) => ({
                 itemCode: item.itemCode,
                 description: item.description,
                 unit: item.unit,
                 quantity: item.quantity,
-                unitRate: item.unitRate,
-                amount: item.amount,
-                sourceType: 'AUTO_BOQ',
-                sourceReference: item.remarks || item.sourceReference || item.source,
+                estimatedPrice: item.unitRate,
+                totalEstimated: item.amount,
+                notes: item.remarks || item.source,
               })),
               ...cableItems.map((item) => ({
                 itemCode: item.itemCode,
                 description: item.description,
                 unit: item.unit,
                 quantity: item.quantity,
-                unitRate: item.unitRate,
-                amount: item.amount,
-                sourceType: 'AUTO_BOQ',
-                sourceReference: item.remarks || item.sourceReference || item.source,
+                estimatedPrice: item.unitRate,
+                totalEstimated: item.amount,
+                notes: item.remarks || item.source,
               })),
             ],
           },
@@ -174,7 +171,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     const [boqApproval, existingPR] = await Promise.all([
       prisma.bOQApproval.findFirst({
         where: { projectId, status: 'APPROVED' },
-        select: { id: true, totalAmount: true, approvedAt: true },
+        select: { id: true, financeApprovedAt: true },
       }),
       prisma.projectRequisition.findFirst({
         where: { projectId, status: { notIn: ['CANCELLED', 'REJECTED'] } },
@@ -190,7 +187,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     return NextResponse.json({
       canGenerate: !!boqApproval && !existingPR,
       boqApproved: !!boqApproval,
-      boqTotal: boqApproval?.totalAmount,
+      boqTotal: null as unknown as number | null, // Computed below
       materialItemsCount,
       existingPR,
     });
