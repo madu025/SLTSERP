@@ -23,8 +23,14 @@ import {
     Car,
     Route,
     Banknote,
-    BarChart3
+    BarChart3,
+    List,
+    BarChart2,
+    LineChart,
+    Truck,
+    ClipboardList,
 } from 'lucide-react';
+
 
 // Define Role Groups based on Department Categories
 export const ROLE_GROUPS = {
@@ -188,7 +194,39 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Projects',
         path: '/projects',
         icon: FolderKanban,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS],
+        submenu: [
+            {
+                title: 'All Projects',
+                path: '/projects',
+                icon: List,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+            },
+            {
+                title: 'PM Dashboard',
+                path: '/projects/dashboards/pm',
+                icon: BarChart2,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+            },
+            {
+                title: 'Finance Dashboard',
+                path: '/projects/dashboards/financials',
+                icon: LineChart,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER']
+            },
+            {
+                title: 'QA/QC Dashboard',
+                path: '/projects/dashboards/qaqc',
+                icon: ClipboardList,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+            },
+            {
+                title: 'Logistics Dashboard',
+                path: '/projects/dashboards/logistics',
+                icon: Truck,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
+            },
+        ]
     },
 
     {
