@@ -30,6 +30,7 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
     // ===== Simple stage name aliases (matches DB stage names from simulation) =====
     'survey': [
         { value: 'survey', label: 'Survey', description: 'Site survey and field verification' },
+        { value: 'survey-approval', label: 'Survey Approval', description: '12-layer QGIS survey point approval workflow' },
         { value: 'gis', label: 'GIS Route', description: 'GIS route planning and mapping' },
         { value: 'documents', label: 'Documents', description: 'Survey reports and drawings' },
         { value: 'risks', label: 'Risks', description: 'Risk assessment' },
@@ -60,6 +61,7 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
     ],
     'qa': [
         { value: 'qa', label: 'QA/QC', description: 'Quality assurance and control' },
+        { value: 'pat', label: 'PAT', description: 'Pre-Acceptance Testing sessions' },
         { value: 'kpis', label: 'KPIs', description: 'Quality and performance KPIs' },
         { value: 'commissioning', label: 'Commissioning', description: 'Network commissioning' },
         { value: 'documents', label: 'Documents', description: 'QA reports and documents' },
@@ -244,6 +246,7 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
         { value: 'contractor', label: 'Contractor' },
         { value: 'contractor-perf', label: 'Contractor Perf' },
         { value: 'kpis', label: 'KPIs' },
+        { value: 'ai-forecasting', label: 'AI Forecasting' },
     ],
 };
 
@@ -312,5 +315,10 @@ export function getDefaultTabs(): TabDefinition[] {
         { value: 'procurement', label: 'Procurement' },
         { value: 'finance', label: 'Finance' },
         { value: 'closure', label: 'Closure' },
+        { value: 'field-tasks', label: 'Field Tasks' },
+        // Phase Plan New Tabs
+        { value: 'survey-approval', label: 'Survey Approval' },
+        { value: 'pat', label: 'PAT' },
+        { value: 'ai-forecasting', label: 'AI Forecasting' },
     ];
 }

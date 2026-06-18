@@ -6,8 +6,8 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { issueId } = body;
         
-        // Extract authenticated User ID from middleware headers
-        const approvedById = request.headers.get('x-user-id') || body.approvedById;
+        // Extract authenticated User ID from middleware headers ONLY (no body bypass)
+        const approvedById = request.headers.get('x-user-id');
 
         if (!approvedById) {
             return NextResponse.json({ error: 'User authentication required' }, { status: 401 });

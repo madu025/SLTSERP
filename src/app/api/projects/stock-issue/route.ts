@@ -83,6 +83,12 @@ export async function POST(request: Request) {
 // GET Issues for a project
 export async function GET(request: Request) {
     try {
+        // Extract authenticated User ID from middleware headers
+        const userId = request.headers.get('x-user-id');
+        if (!userId) {
+            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get('projectId');
 

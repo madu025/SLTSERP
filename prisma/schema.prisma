@@ -396,6 +396,24 @@ model Project {
   evm               ProjectEVM?
   assets            ProjectAsset[]
 
+  // Phase Plan Relations (New)
+  routeType         String?                 // AERIAL, UNDERGROUND, HYBRID
+  routeFrom         String?                 // Route start point
+  routeTo           String?                 // Route end point
+  routeLength       Float?                  // Planned route length in meters
+  surveyLayers      String[]                @default([]) // Active QGIS survey layer IDs
+  supervisorAssignments ProjectSupervisorAssignment[]
+  surveySessions    MobileSurveySession[]
+  surveyPoints      SurveyPoint[]
+  boqApprovals      BOQApproval[]
+  boqRateConfigs    BOQRateConfig[]
+  dailyProgress     DailyProgress[]
+  changeRequests    ProjectChangeRequest[]
+  gisAuditLogs      GISAuditLog[]
+  patSessions       PATSession[]
+  projectPayments   ProjectPayment[]
+  aiPredictions     AiPrediction[]
+
   @@index([status])
   @@index([opmcId])
   @@index([contractorId])
@@ -3338,6 +3356,13 @@ model GISRoute {
   approvedAt      DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  // Route Versioning (Phase 14)
+  version         Int           @default(1)
+  parentVersionId String?       // Points to previous version
+  childVersionId  String?       // Points to next version (active)
+  versionType     String        @default("PLANNED") // PLANNED, FIELD_CHANGE, AS_BUILT
+  changeRequestId String?       // Linked change request
+  isActive        Boolean       @default(true)
   project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   poles           GISPole[]
   chambers        GISChamber[]
@@ -3347,6 +3372,8 @@ model GISRoute {
 
   @@index([projectId])
   @@index([status])
+  @@index([versionType])
+  @@index([isActive])
 }
 
 model GISPole {
@@ -3602,6 +3629,13 @@ model ContractorPerformanceScore {
   averageRating       Float?    // From inspection ratings
   inspectionCount     Int       @default(0)
   inspectionPassCount Int       @default(0)
+
+  // Auto-KPI Fields (Phase 17)
+  patPassPct          Float?    // Auto from PATSession pass rate
+  materialWastagePct  Float?    // Auto from material records
+  reworkCount         Int?      // Auto from PAT fine-tune count
+  timelineAdherencePct Float?   // Auto from task completion vs planned
+  autoCalculated      Boolean   @default(false) // true = calculated by KPI engine
   
   evaluatedById       String?
   evaluatedAt         DateTime  @default(now())
@@ -4036,7 +4070,319 @@ model StageGateRule {
 
 
 
+// ============================================================================
+// PHASE PLAN NEW MODELS (v2.1)
+// ============================================================================
 
+// Phase 1: Supervisor Assignment
+model ProjectSupervisorAssignment {
+  id            String    @id @default(cuid())
+  projectId     String
+  supervisorId  String
+  role          String    @default("PRIMARY") // PRIMARY, ASSISTANT
+  status        String    @default("ASSIGNED") // ASSIGNED, REMOVED
+  assignedAt    DateTime  @default(now())
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supervisor    User      @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
 
+  @@index([projectId])
+  @@index([supervisorId])
+}
 
+// Phase 2: QFieldCloud Sync Log
+model QFieldCloudSyncLog {
+  id            String    @id @default(cuid())
+  projectId     String
+  syncType      String    // FULL_SYNC, DELTA_SYNC
+  status        String    // STARTED, COMPLETED, FAILED
+  featuresCount Int       @default(0)
+  errorMessage  String?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
 
+  @@index([projectId])
+  @@index([status])
+}
+
+// Phase 5: Mobile Survey Session
+model MobileSurveySession {
+  id            String        @id @default(cuid())
+  projectId     String
+  supervisorId  String
+  status        String        @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, ABANDONED
+  pointsCount   Int           @default(0)
+  syncStatus    String        @default("PENDING") // PENDING, SYNCED, FAILED
+  notes         String?
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  surveyPoints  SurveyPoint[]
+
+  @@index([projectId])
+  @@index([supervisorId])
+  @@index([status])
+}
+
+// Phase 7: Survey Point with 3-Step Approval
+model SurveyPoint {
+  id                  String              @id @default(cuid())
+  sessionId           String
+  projectId           String
+  layerId             String
+  layerName           String
+  latitude            Float
+  longitude           Float
+  attributes          Json
+  photoUrls           String[]            @default([])
+  supervisorId        String?
+  verificationStatus  String              @default("PENDING_VERIFICATION")
+  verificationStep    String              @default("SUPERVISOR")
+  verifiedById        String?
+  verifiedAt          DateTime?
+  approvedById        String?
+  approvedAt          DateTime?
+  rejectionReason     String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  session             MobileSurveySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  project             Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([projectId])
+  @@index([layerId])
+  @@index([verificationStatus])
+}
+
+// Phase 8: BOQ Rate Configuration
+model BOQRateConfig {
+  id            String    @id @default(cuid())
+  projectId     String?
+  itemCategory  String    // POLE, CHAMBER, CLOSURE, CABLE, DUCT, LABOR
+  itemCode      String    @unique
+  description   String?
+  unit          String    @default("UNIT")
+  unitRate      Float     @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  project       Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([itemCategory])
+  @@index([isActive])
+}
+
+// Phase 8: BOQ Approval Workflow
+model BOQApproval {
+  id                    String    @id @default(cuid())
+  boqId                 String
+  projectId             String
+  status                String    @default("PENDING")
+  currentStep           String    @default("SUPERVISOR")
+  supervisorId          String?
+  supervisorApprovedAt  DateTime?
+  pmId                  String?
+  pmApprovedAt          DateTime?
+  financeId             String?
+  financeApprovedAt     DateTime?
+  rejectionReason       String?
+  notes                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([boqId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// Phase 12: Daily Construction Progress
+model DailyProgress {
+  id                  String    @id @default(cuid())
+  projectId           String
+  reportDate          DateTime  @default(now())
+  polesErected        Int       @default(0)
+  cablePulled         Float     @default(0)
+  chambersInstalled   Int       @default(0)
+  closuresInstalled   Int       @default(0)
+  jointsCompleted     Int       @default(0)
+  fdpsInstalled       Int       @default(0)
+  teamSize            Int?
+  hoursWorked         Float?
+  laborCost           Float     @default(0)
+  photoUrls           String[]  @default([])
+  progressPct         Float     @default(0)
+  notes               String?
+  reportedById        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([reportDate])
+}
+
+// Phase 13: Change Request Workflow
+model ProjectChangeRequest {
+  id              String          @id @default(cuid())
+  projectId       String
+  requestNumber   String          @unique
+  changeType      String          // SCOPE, ROUTE, MATERIAL, TIMELINE, BUDGET
+  title           String
+  description     String?
+  costImpact      Float?
+  timeImpact      Int?
+  routeChangeData Json?
+  status          String          @default("DRAFT")
+  requestedById   String?
+  submittedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  approvals       ChangeApproval[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([requestNumber])
+}
+
+model ChangeApproval {
+  id              String                @id @default(cuid())
+  changeRequestId String
+  stepOrder       Int                   @default(1)
+  role            String
+  status          String                @default("PENDING")
+  approverId      String?
+  approvedById    String?
+  approvedAt      DateTime?
+  remarks         String?
+  comment         String?
+  createdAt       DateTime              @default(now())
+  changeRequest   ProjectChangeRequest  @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+
+  @@index([changeRequestId])
+  @@index([status])
+}
+
+// Phase 15: GIS Audit Trail
+model GISAuditLog {
+  id              String    @id @default(cuid())
+  projectId       String
+  entityType      String
+  entityId        String
+  action          String
+  fieldChanges    Json?
+  locationBefore  Json?
+  locationAfter   Json?
+  performedById   String
+  performedAt     DateTime  @default(now())
+  routeVersion    Int?
+  source          String    @default("WEB_PORTAL")
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([entityType, entityId])
+  @@index([performedAt])
+}
+
+// Phase 16: PAT Sessions
+model PATSession {
+  id              String          @id @default(cuid())
+  projectId       String
+  patType         String          // PRE_PAT, SLT_PAT
+  status          String          @default("PENDING")
+  sltOfficers     Json?
+  fineTuneNeeded  Boolean         @default(false)
+  fineTuneDetails Json?
+  totalPoints     Int             @default(0)
+  passedPoints    Int             @default(0)
+  failedPoints    Int             @default(0)
+  passRate        Float?
+  conductedById   String?
+  conductedAt     DateTime?
+  completedAt     DateTime?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pointResults    PATPointResult[]
+
+  @@index([projectId])
+  @@index([patType])
+  @@index([status])
+}
+
+model PATPointResult {
+  id              String      @id @default(cuid())
+  patSessionId    String
+  pointReference  String
+  measuredPower   Float?
+  acceptedPower   Float?
+  powerStatus     String?     @default("PENDING")
+  verifiedLat     Float?
+  verifiedLng     Float?
+  fineTuneNeeded  Boolean     @default(false)
+  fineTuneType    String?
+  fineTuneNotes   String?
+  photoUrls       String[]    @default([])
+  createdAt       DateTime    @default(now())
+  patSession      PATSession  @relation(fields: [patSessionId], references: [id], onDelete: Cascade)
+
+  @@index([patSessionId])
+  @@index([powerStatus])
+}
+
+// Phase 19: 3-Level Payment Confirmation
+model ProjectPayment {
+  id              String    @id @default(cuid())
+  projectId       String
+  paymentNumber   String    @unique
+  amount          Float
+  description     String?
+  invoiceRef      String?
+  level1Status    String    @default("PENDING")
+  level1UserId    String?
+  level1At        DateTime?
+  level1Notes     String?
+  level2Status    String    @default("PENDING")
+  level2UserId    String?
+  level2At        DateTime?
+  level2Notes     String?
+  level3Status    String    @default("PENDING")
+  level3UserId    String?
+  level3At        DateTime?
+  level3Notes     String?
+  status          String    @default("PENDING")
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([paymentNumber])
+}
+
+// Phase 22: AI Predictions
+model AiPrediction {
+  id              String    @id @default(cuid())
+  projectId       String?
+  predictionType  String
+  riskLevel       String
+  probabilityPct  Float
+  predictedImpact String
+  currentMetrics  Json
+  rootCause       String?
+  recommendation  String?
+  confidenceScore Float?
+  isResolved      Boolean   @default(false)
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  project         Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([predictionType])
+  @@index([riskLevel])
+  @@index([isResolved])
+}
