@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -77,6 +77,9 @@ const DASHBOARDS = [
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(amount);
 
+// Computed once at module load — keeps renders pure/deterministic
+const TODAY_MS = Date.now();
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ProjectCard({ project, onDelete, onView }: {
@@ -85,10 +88,9 @@ function ProjectCard({ project, onDelete, onView }: {
     onDelete: (p: Project) => void;
 }) {
     const cfg = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.PLANNING;
-    const daysLeft = useMemo(() => {
-        if (!project.endDate) return null;
-        return Math.ceil((new Date(project.endDate).getTime() - Date.now()) / 86400000);
-    }, [project.endDate]);
+    const daysLeft = project.endDate
+        ? Math.ceil((new Date(project.endDate).getTime() - TODAY_MS) / 86400000)
+        : null;
 
     return (
         <div className="group bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col">
