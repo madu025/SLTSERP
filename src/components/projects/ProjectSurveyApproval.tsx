@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Badge } from '@/components/ui/badge';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -166,7 +166,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
   const fetchSummary = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${projectId}/survey/points?limit=1`);
-      const data = await res.json();
+      await res.json();
       // Fetch per-layer counts
       const layerSummary: Record<string, Record<string, number>> = {};
       await Promise.all(
@@ -607,6 +607,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
                   <p className="text-xs text-slate-500 mb-1">Photos</p>
                   <div className="grid grid-cols-3 gap-2">
                     {detailPoint.photoUrls.map((url, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key={i}
                         src={url}

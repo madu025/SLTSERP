@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -85,10 +85,10 @@ function ProjectCard({ project, onDelete, onView }: {
     onDelete: (p: Project) => void;
 }) {
     const cfg = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.PLANNING;
-    const StatusIcon = cfg.icon;
-    const daysLeft = project.endDate
-        ? Math.ceil((new Date(project.endDate).getTime() - Date.now()) / 86400000)
-        : null;
+    const daysLeft = useMemo(() => {
+        if (!project.endDate) return null;
+        return Math.ceil((new Date(project.endDate).getTime() - Date.now()) / 86400000);
+    }, [project.endDate]);
 
     return (
         <div className="group bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col">
@@ -272,7 +272,6 @@ export default function ProjectsPage() {
     );
 
     const totalBudget = projects.reduce((s, p) => s + (p.budget || 0), 0);
-    const totalActual = projects.reduce((s, p) => s + p.actualCost, 0);
     const avgProgress = projects.length > 0
         ? projects.reduce((s, p) => s + p.progress, 0) / projects.length : 0;
     const inProgressCount = projects.filter(p => p.status === 'IN_PROGRESS').length;

@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       orderBy: { reportDate: 'desc' },
     });
     return NextResponse.json(records);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch daily progress' }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     const { id: projectId } = await params;
     const predictions = await AiPredictionService.getSavedPredictions(projectId);
     return NextResponse.json(predictions);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch predictions' }, { status: 500 });
   }
 }

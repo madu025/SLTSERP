@@ -176,7 +176,7 @@ export default function ProjectClosure({ project, refreshProject }: ProjectClosu
                 const err = await res.json();
                 toast.error(err.error || 'Failed to create change order');
             }
-        } catch (e) {
+        } catch {
 toast.error('Failed to create change order');
         } finally {
             setSubmitting(false);
@@ -207,8 +207,8 @@ toast.error('Failed to create change order');
                 const err = await res.json();
                 toast.error(err.error || 'Action failed');
             }
-        } catch (e) {
-toast.error('Action failed');
+        } catch {
+            toast.error('Action failed');
         } finally {
             setSubmitting(false);
         }
@@ -223,8 +223,9 @@ toast.error('Action failed');
                 const err = await res.json();
                 toast.error(err.error || 'Delete failed');
             }
-        } catch (e) {
-}
+        } catch {
+            toast.error('Delete failed');
+        }
     };
 
     const handleCloseProject = async () => {
@@ -242,7 +243,7 @@ toast.error('Action failed');
                 const err = await res.json();
                 toast.error(err.error || 'Failed to close project');
             }
-        } catch (e) {
+        } catch {
 toast.error('Failed to close project');
         } finally {
             setClosing(false);

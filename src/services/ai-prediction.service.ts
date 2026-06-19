@@ -88,17 +88,13 @@ export class AiPredictionService {
    * Predict budget overrun risk
    */
   static async predictBudgetOverrun(projectId: string) {
-    const [project, changeRequests, boqTotal] = await Promise.all([
+    const [project, changeRequests] = await Promise.all([
       prisma.project.findUnique({
         where: { id: projectId },
         select: { budget: true, actualCost: true, variance: true, progress: true },
       }),
       prisma.projectChangeRequest.count({
         where: { projectId, status: { in: ['SUBMITTED', 'UNDER_REVIEW'] } },
-      }),
-      prisma.projectBOQItem.aggregate({
-        where: { projectId },
-        _sum: { amount: true },
       }),
     ]);
 

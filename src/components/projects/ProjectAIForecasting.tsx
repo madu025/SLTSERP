@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
+  TrendingDown, AlertTriangle, CheckCircle2,
   RefreshCw, Brain, BarChart3, Lightbulb, ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -129,8 +129,7 @@ export default function ProjectAIForecasting({ projectId }: Props) {
     return (order[a.riskLevel] ?? 4) - (order[b.riskLevel] ?? 4);
   });
 
-  const criticalCount = predictions.filter((p) => p.riskLevel === 'CRITICAL').length;
-  const highCount = predictions.filter((p) => p.riskLevel === 'HIGH').length;
+
 
   return (
     <div className="space-y-5">
@@ -183,7 +182,7 @@ export default function ProjectAIForecasting({ projectId }: Props) {
         <div className="flex flex-col items-center justify-center py-16 text-slate-400 rounded-xl border-2 border-dashed border-slate-200">
           <Brain className="h-12 w-12 mb-3 opacity-40" />
           <p className="text-sm font-medium">No predictions yet</p>
-          <p className="text-xs mt-1">Click "Run Analysis" to generate risk predictions</p>
+          <p className="text-xs mt-1">Click &quot;Run Analysis&quot; to generate risk predictions</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

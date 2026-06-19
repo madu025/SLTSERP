@@ -19,7 +19,6 @@ import {
     History as HistoryIcon,
     Terminal,
     RefreshCw,
-    Presentation,
     Car,
     Route,
     Banknote,
