@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: Fetch Earned Value Management metrics for a project
 export async function GET(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -22,9 +21,9 @@ export async function GET(
         if (!evm) {
             return NextResponse.json({
                 projectId,
-                plannedValue: 0,
-                earnedValue: 0,
-                actualCost: 0,
+                pvTotal: 0,
+                evTotal: 0,
+                acTotal: 0,
                 scheduleVariance: 0,
                 costVariance: 0,
                 spi: 1,
@@ -40,7 +39,6 @@ export async function GET(
     }
 }
 
-// POST: Initialize or update EVM baseline for a project
 export async function POST(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -48,19 +46,19 @@ export async function POST(
     try {
         const { id: projectId } = await params;
         const body = await request.json();
-        const { plannedValue, earnedValue, actualCost } = body;
+        const { pvTotal, evTotal, acTotal } = body;
 
-        const scheduleVariance = (earnedValue ?? 0) - (plannedValue ?? 0);
-        const costVariance = (earnedValue ?? 0) - (actualCost ?? 0);
-        const spi = (plannedValue ?? 0) > 0 ? (earnedValue ?? 0) / (plannedValue ?? 0) : 1;
-        const cpi = (actualCost ?? 0) > 0 ? (earnedValue ?? 0) / (actualCost ?? 0) : 1;
+        const scheduleVariance = (evTotal ?? 0) - (pvTotal ?? 0);
+        const costVariance = (evTotal ?? 0) - (acTotal ?? 0);
+        const spi = (pvTotal ?? 0) > 0 ? (evTotal ?? 0) / (pvTotal ?? 0) : 1;
+        const cpi = (acTotal ?? 0) > 0 ? (evTotal ?? 0) / (acTotal ?? 0) : 1;
 
         const evm = await prisma.projectEVM.upsert({
             where: { projectId },
             update: {
-                plannedValue: plannedValue ?? 0,
-                earnedValue: earnedValue ?? 0,
-                actualCost: actualCost ?? 0,
+                pvTotal: pvTotal ?? 0,
+                evTotal: evTotal ?? 0,
+                acTotal: acTotal ?? 0,
                 scheduleVariance,
                 costVariance,
                 spi,
@@ -68,9 +66,9 @@ export async function POST(
             },
             create: {
                 projectId,
-                plannedValue: plannedValue ?? 0,
-                earnedValue: earnedValue ?? 0,
-                actualCost: actualCost ?? 0,
+                pvTotal: pvTotal ?? 0,
+                evTotal: evTotal ?? 0,
+                acTotal: acTotal ?? 0,
                 scheduleVariance,
                 costVariance,
                 spi,

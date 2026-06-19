@@ -34,22 +34,24 @@ export async function POST(
     try {
         const { id: projectId } = await params;
         const body = await request.json();
-        const { assetType, assetCode, description, location, latitude, longitude, status } = body;
+        const { assetType, assetCode, assetName, description, address, latitude, longitude, status } = body;
 
-        if (!assetType || !assetCode) {
-            return NextResponse.json({ error: 'Missing required fields: assetType, assetCode' }, { status: 400 });
+        if (!assetType || !assetName) {
+            return NextResponse.json({ error: 'Missing required fields: assetType, assetName' }, { status: 400 });
         }
 
         const asset = await prisma.projectAsset.create({
             data: {
                 projectId,
                 assetType,
-                assetCode,
+                assetCode: assetCode || null,
+                assetName,
                 description: description || null,
-                location: location || null,
+                address: address || null,
                 latitude: latitude || null,
                 longitude: longitude || null,
-                status: status || 'ACTIVE'
+                status: status || 'ACTIVE',
+                createdById: 'system'
             },
             include: {
                 cables: true,

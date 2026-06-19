@@ -6,14 +6,23 @@ export async function GET(
     { params }: { params: Promise<{ id: string; routeId: string }> }
 ) {
     try {
-        const { id: projectId, routeId } = await params;
+        const { routeId } = await params;
+
         const route = await prisma.gISRoute.findUnique({
             where: { id: routeId },
-            include: { versions: { orderBy: { version: "desc" } } }
+            include: {
+                poles: true,
+                chambers: true,
+                closures: true,
+                cableSegments: true,
+                generatedBOQs: true
+            }
         });
-        if (!route || route.id !== routeId) {
+
+        if (!route) {
             return NextResponse.json({ error: "Route not found" }, { status: 404 });
         }
+
         return NextResponse.json(route);
     } catch (error) {
         console.error("Error fetching GIS route:", error);
@@ -28,17 +37,21 @@ export async function PATCH(
     try {
         const { routeId } = await params;
         const body = await request.json();
-        const { routeName, geoJson, length, description, isActive } = body;
+        const { name, description, routeLength, poleSpacing, status, geojsonData, isActive } = body;
+
         const route = await prisma.gISRoute.update({
             where: { id: routeId },
             data: {
-                routeName: routeName ?? undefined,
-                geoJson: geoJson ?? undefined,
-                length: length ?? undefined,
+                name: name ?? undefined,
                 description: description ?? undefined,
+                routeLength: routeLength ?? undefined,
+                poleSpacing: poleSpacing ?? undefined,
+                status: status ?? undefined,
+                geojsonData: geojsonData ?? undefined,
                 isActive: isActive ?? undefined
             }
         });
+
         return NextResponse.json(route);
     } catch (error) {
         console.error("Error updating GIS route:", error);

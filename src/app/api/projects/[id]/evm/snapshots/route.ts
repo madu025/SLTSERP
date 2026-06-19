@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// GET: Fetch EVM snapshots for a project (historical trend)
 export async function GET(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -24,7 +23,6 @@ export async function GET(
     }
 }
 
-// POST: Record a new EVM snapshot (daily tracking point)
 export async function POST(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -32,24 +30,24 @@ export async function POST(
     try {
         const { id: projectId } = await params;
         const body = await request.json();
-        const { plannedValue, earnedValue, actualCost, snapshotDate } = body;
+        const { pvCumulative, evCumulative, acCumulative, snapshotDate, periodLabel } = body;
 
-        // Find the project's EVM record
-        let evm = await prisma.projectEVM.findUnique({
-            where: { projectId }
-        });
+        let evm = await prisma.projectEVM.findUnique({ where: { projectId } });
 
         if (!evm) {
+            const pv = pvCumulative ?? 0;
+            const ev = evCumulative ?? 0;
+            const ac = acCumulative ?? 0;
             evm = await prisma.projectEVM.create({
                 data: {
                     projectId,
-                    plannedValue: plannedValue ?? 0,
-                    earnedValue: earnedValue ?? 0,
-                    actualCost: actualCost ?? 0,
-                    scheduleVariance: (earnedValue ?? 0) - (plannedValue ?? 0),
-                    costVariance: (earnedValue ?? 0) - (actualCost ?? 0),
-                    spi: (plannedValue ?? 0) > 0 ? (earnedValue ?? 0) / (plannedValue ?? 0) : 1,
-                    cpi: (actualCost ?? 0) > 0 ? (earnedValue ?? 0) / (actualCost ?? 0) : 1
+                    pvTotal: pv,
+                    evTotal: ev,
+                    acTotal: ac,
+                    scheduleVariance: ev - pv,
+                    costVariance: ev - ac,
+                    spi: pv > 0 ? ev / pv : 1,
+                    cpi: ac > 0 ? ev / ac : 1
                 }
             });
         }
@@ -57,26 +55,28 @@ export async function POST(
         const snapshot = await prisma.eVMSnapshot.create({
             data: {
                 evmId: evm.id,
-                plannedValue: plannedValue ?? 0,
-                earnedValue: earnedValue ?? 0,
-                actualCost: actualCost ?? 0,
-                scheduleVariance: (earnedValue ?? 0) - (plannedValue ?? 0),
-                costVariance: (earnedValue ?? 0) - (actualCost ?? 0),
-                snapshotDate: snapshotDate ? new Date(snapshotDate) : new Date()
+                pvCumulative: pvCumulative ?? 0,
+                evCumulative: evCumulative ?? 0,
+                acCumulative: acCumulative ?? 0,
+                spi: (pvCumulative ?? 0) > 0 ? (evCumulative ?? 0) / (pvCumulative ?? 0) : 1,
+                cpi: (acCumulative ?? 0) > 0 ? (evCumulative ?? 0) / (acCumulative ?? 0) : 1,
+                scheduleVariance: (evCumulative ?? 0) - (pvCumulative ?? 0),
+                costVariance: (evCumulative ?? 0) - (acCumulative ?? 0),
+                snapshotDate: snapshotDate ? new Date(snapshotDate) : new Date(),
+                periodLabel: periodLabel || new Date().toISOString().slice(0, 10)
             }
         });
 
-        // Update live EVM with latest values
         await prisma.projectEVM.update({
             where: { id: evm.id },
             data: {
-                plannedValue: plannedValue ?? 0,
-                earnedValue: earnedValue ?? 0,
-                actualCost: actualCost ?? 0,
-                scheduleVariance: (earnedValue ?? 0) - (plannedValue ?? 0),
-                costVariance: (earnedValue ?? 0) - (actualCost ?? 0),
-                spi: (plannedValue ?? 0) > 0 ? (earnedValue ?? 0) / (plannedValue ?? 0) : 1,
-                cpi: (actualCost ?? 0) > 0 ? (earnedValue ?? 0) / (actualCost ?? 0) : 1
+                pvTotal: pvCumulative ?? 0,
+                evTotal: evCumulative ?? 0,
+                acTotal: acCumulative ?? 0,
+                scheduleVariance: (evCumulative ?? 0) - (pvCumulative ?? 0),
+                costVariance: (evCumulative ?? 0) - (acCumulative ?? 0),
+                spi: (pvCumulative ?? 0) > 0 ? (evCumulative ?? 0) / (pvCumulative ?? 0) : 1,
+                cpi: (acCumulative ?? 0) > 0 ? (evCumulative ?? 0) / (acCumulative ?? 0) : 1
             }
         });
 

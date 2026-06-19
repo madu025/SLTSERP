@@ -1,47 +1,102 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
         const { id: projectId } = await params;
-        const variations = await prisma.projectVariationOrder.findMany({
+        const changeOrders = await prisma.projectChangeOrder.findMany({
             where: { projectId },
-            include: { items: true, approvals: true },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: "desc" }
         });
-        return NextResponse.json(variations);
+        return NextResponse.json(changeOrders);
     } catch (error) {
-        console.error('Error fetching variations:', error);
-        return NextResponse.json({ error: 'Failed to fetch variations' }, { status: 500 });
+        console.error("Error fetching change orders:", error);
+        return NextResponse.json(
+            { error: "Failed to fetch change orders" },
+            { status: 500 }
+        );
     }
 }
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
         const { id: projectId } = await params;
         const body = await request.json();
-        const { title, description, changeType, costImpact, timeImpact, reason, requestedById, items } = body;
-        if (!title || !changeType || !requestedById) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        const {
+            title,
+            description,
+            type,
+            reason,
+            costImpact,
+            timeImpact,
+            requestedById,
+            notes
+        } = body;
+        if (!title || !type || !requestedById) {
+            return NextResponse.json(
+                { error: "Missing required fields: title, type, requestedById" },
+                { status: 400 }
+            );
         }
-        const variation = await prisma.projectVariationOrder.create({
+        const co = await prisma.projectChangeOrder.create({
             data: {
                 projectId,
+                coNumber: `CO-${Date.now()}`,
                 title,
                 description: description || null,
-                changeType,
-                costImpact: costImpact || 0,
-                timeImpact: timeImpact || 0,
+                type: type || "SCOPE",
                 reason: reason || null,
+                costImpact: costImpact || 0,
+                timeImpact: timeImpact || null,
                 requestedById,
-                status: 'DRAFT',
-                items: items?.length ? { create: items.map((i: { description: string; quantity?: number; unitRate?: number; amount?: number }) => ({ description: i.description, quantity: i.quantity || 1, unitRate: i.unitRate || 0, amount: i.amount || (i.quantity || 1) * (i.unitRate || 0) })) } : undefined
-            },
-            include: { items: true, approvals: true }
+                notes: notes || null
+            }
         });
-        return NextResponse.json(variation, { status: 201 });
+        return NextResponse.json(co, { status: 201 });
     } catch (error) {
-        console.error('Error creating variation:', error);
-        return NextResponse.json({ error: 'Failed to create variation' }, { status: 500 });
+        console.error("Error creating change order:", error);
+        return NextResponse.json(
+            { error: "Failed to create change order" },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PATCH(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const body = await request.json();
+        const { coId, status, approvedById, rejectionReason } = body;
+        if (!coId) {
+            return NextResponse.json(
+                { error: "Change order ID is required" },
+                { status: 400 }
+            );
+        }
+        const updated = await prisma.projectChangeOrder.update({
+            where: { id: coId },
+            data: {
+                status: status ?? undefined,
+                approvedById: approvedById ?? undefined,
+                approvedAt:
+                    status === "APPROVED" ? new Date() : undefined,
+                rejectionReason: rejectionReason ?? undefined
+            }
+        });
+        return NextResponse.json(updated);
+    } catch (error) {
+        console.error("Error updating change order:", error);
+        return NextResponse.json(
+            { error: "Failed to update change order" },
+            { status: 500 }
+        );
     }
 }

@@ -37,15 +37,16 @@ export async function PATCH(
     try {
         const { assetId } = await params;
         const body = await request.json();
-        const { assetType, assetCode, description, location, latitude, longitude, status } = body;
+        const { assetType, assetCode, assetName, description, address, latitude, longitude, status } = body;
 
         const asset = await prisma.projectAsset.update({
             where: { id: assetId },
             data: {
                 assetType: assetType ?? undefined,
                 assetCode: assetCode ?? undefined,
+                assetName: assetName ?? undefined,
                 description: description ?? undefined,
-                location: location ?? undefined,
+                address: address ?? undefined,
                 latitude: latitude ?? undefined,
                 longitude: longitude ?? undefined,
                 status: status ?? undefined

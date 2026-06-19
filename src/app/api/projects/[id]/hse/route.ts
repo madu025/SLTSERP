@@ -9,20 +9,13 @@ export async function GET(
     try {
         const { id: projectId } = await params;
 
-        const [safetyLogs, toolboxTalks] = await Promise.all([
-            prisma.hSESafetyLog.findMany({
-                where: { projectId },
-                include: { attendees: true },
-                orderBy: { logDate: 'desc' }
-            }),
-            prisma.hSEAttendee.findMany({
-                where: { safetyLog: { projectId } },
-                orderBy: { attendedAt: 'desc' },
-                take: 100
-            })
-        ]);
+        const safetyLogs = await prisma.hSESafetyLog.findMany({
+            where: { projectId },
+            include: { attendees: true },
+            orderBy: { date: 'desc' }
+        });
 
-        return NextResponse.json({ safetyLogs, toolboxTalks });
+        return NextResponse.json({ safetyLogs });
     } catch (error) {
         console.error('Error fetching HSE data:', error);
         return NextResponse.json({ error: 'Failed to fetch HSE data' }, { status: 500 });
@@ -37,26 +30,26 @@ export async function POST(
     try {
         const { id: projectId } = await params;
         const body = await request.json();
-        const { logType, description, severity, location, latitude, longitude, reportedById, attendees } = body;
+        const { logType, title, description, severity, location, recordedById, attendees } = body;
 
-        if (!logType || !description || !reportedById) {
-            return NextResponse.json({ error: 'Missing required fields: logType, description, reportedById' }, { status: 400 });
+        if (!logType || !title || !recordedById) {
+            return NextResponse.json({ error: 'Missing required fields: logType, title, recordedById' }, { status: 400 });
         }
 
         const safetyLog = await prisma.hSESafetyLog.create({
             data: {
                 projectId,
                 logType,
-                description,
-                severity: severity || 'LOW',
+                title,
+                description: description || null,
+                severity: severity || null,
                 location: location || null,
-                latitude: latitude || null,
-                longitude: longitude || null,
-                reportedById,
+                recordedById,
                 attendees: attendees?.length ? {
-                    create: attendees.map((a: { userId: string; role?: string }) => ({
-                        userId: a.userId,
-                        role: a.role || 'ATTENDEE',
+                    create: attendees.map((a: { name: string; designation?: string; signatureUrl?: string }) => ({
+                        name: a.name,
+                        designation: a.designation || null,
+                        signatureUrl: a.signatureUrl || null,
                         attendedAt: new Date()
                     }))
                 } : undefined
@@ -78,7 +71,7 @@ export async function PATCH(
 ) {
     try {
         const body = await request.json();
-        const { logId, status, resolution, resolvedById } = body;
+        const { logId, status, correctiveAction, closedById } = body;
 
         if (!logId) {
             return NextResponse.json({ error: 'Log ID is required' }, { status: 400 });
@@ -88,9 +81,9 @@ export async function PATCH(
             where: { id: logId },
             data: {
                 status: status ?? undefined,
-                resolution: resolution ?? undefined,
-                resolvedById: resolvedById ?? undefined,
-                resolvedAt: status === 'CLOSED' ? new Date() : undefined
+                correctiveAction: correctiveAction ?? undefined,
+                closedById: closedById ?? undefined,
+                closedAt: status === 'CLOSED' ? new Date() : undefined
             },
             include: { attendees: true }
         });
