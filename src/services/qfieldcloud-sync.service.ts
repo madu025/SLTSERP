@@ -132,7 +132,7 @@ export class QFieldCloudSyncService {
               const geoJsonFormData = new FormData();
               geoJsonFormData.append('file', geoJsonBlob, file);
 
-              const geoJsonUploadRes = await fetch(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/GeoJSON/${file}/`, {
+              const geoJsonUploadRes = await fetch(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/${file}/`, {
                 method: 'POST',
                 headers: {
                   Authorization: `Token ${token}`,
