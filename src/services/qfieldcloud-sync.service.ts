@@ -118,6 +118,35 @@ export class QFieldCloudSyncService {
         } else {
           console.log('✅ QGIS project template file uploaded successfully to QFieldCloud.');
         }
+
+        // Upload companion GeoJSON files from QGIS Project Template/GeoJSON/
+        const templateDir = path.dirname(resolvedPath);
+        const geoJsonDir = path.join(templateDir, 'GeoJSON');
+        if (fs.existsSync(geoJsonDir)) {
+          const files = fs.readdirSync(geoJsonDir);
+          for (const file of files) {
+            if (file.endsWith('.geojson')) {
+              const geoJsonPath = path.join(geoJsonDir, file);
+              const geoJsonBuffer = fs.readFileSync(geoJsonPath);
+              const geoJsonBlob = new Blob([geoJsonBuffer], { type: 'application/json' });
+              const geoJsonFormData = new FormData();
+              geoJsonFormData.append('file', geoJsonBlob, file);
+
+              const geoJsonUploadRes = await fetch(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/GeoJSON/${file}/`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Token ${token}`,
+                },
+                body: geoJsonFormData,
+              });
+
+              if (!geoJsonUploadRes.ok) {
+                console.error(`Failed to upload GeoJSON file ${file}: ${geoJsonUploadRes.status}`);
+              }
+            }
+          }
+          console.log('✅ All GeoJSON template layers uploaded successfully to QFieldCloud.');
+        }
       } else {
         console.warn(`QGIS Template file not found at: ${resolvedPath}`);
       }
