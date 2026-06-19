@@ -83,7 +83,22 @@ const DEFAULT_PRESETS: QFieldFieldConfig[] = [
   { layerId: "SLT_FDP", fieldName: "Exst_New", options: ["Existing", "New"] },
   { layerId: "SLT_FDP", fieldName: "TYPE", options: ["Wall Mount", "Pole Mount", "Pedestal"] },
   { layerId: "SLT_FDP", fieldName: "SPLITTER TYPE", options: ["1:2", "1:4", "1:8", "1:16", "1:32"] },
-  { layerId: "SLT_TP", fieldName: "Existing_New", options: ["Existing", "New"] }
+  { layerId: "SLT_Ducts", fieldName: "TYPE", options: ["PVC", "PE", "GI"] },
+  { layerId: "SLT_Ducts", fieldName: "PROTECTION", options: ["Concrete Slab", "Warning Tape", "None"] },
+  { layerId: "SLT_Ducts", fieldName: "DAMAGE", options: ["None", "Minor Scratch", "Cracked", "Blocked"] },
+  { layerId: "SLT_FTC", fieldName: "Exst_New", options: ["Existing", "New"] },
+  { layerId: "SLT_FTC", fieldName: "TYPE", options: ["Primary Cabinet", "Secondary Cabinet"] },
+  { layerId: "SLT_FTC", fieldName: "CAPACITY", options: ["144F", "288F", "576F"] },
+  { layerId: "SLT_HH", fieldName: "Exist_New", options: ["Existing", "New"] },
+  { layerId: "SLT_HH", fieldName: "SUB TYPE", options: ["Type A", "Type B", "Type C"] },
+  { layerId: "SLT_HH", fieldName: "FRAME AND COVER STATUS", options: ["Good", "Broken", "Missing", "Needs Replacement"] },
+  { layerId: "SLT_MH", fieldName: "Exst_New", options: ["Existing", "New"] },
+  { layerId: "SLT_MH", fieldName: "SUB TYPE", options: ["Type 1", "Type 2", "Type 3", "Type 4"] },
+  { layerId: "SLT_MH", fieldName: "FRAME AND COVER STATUS", options: ["Good", "Broken", "Missing", "Needs Replacement"] },
+  { layerId: "SLT_ODF", fieldName: "Exst_New", options: ["Existing", "New"] },
+  { layerId: "SLT_ODF", fieldName: "MODEL", options: ["Rackmount 24F", "Rackmount 48F", "Rackmount 96F", "Wallmount 12F"] },
+  { layerId: "SLT_TP", fieldName: "Existing_New", options: ["Existing", "New"] },
+  { layerId: "SLT_TP", fieldName: "CUSTOMER TYPE", options: ["Retail", "Enterprise", "LTE Tower", "FTTH Distribution"] }
 ];
 
 export default function QFieldConfigForm({ projectId, projectCode, projectName }: QFieldConfigFormProps) {
@@ -106,7 +121,11 @@ export default function QFieldConfigForm({ projectId, projectCode, projectName }
         });
         if (res.ok) {
           const data = await res.json();
-          setConfigs(data.configs || []);
+          if (data.configs && data.configs.length > 0) {
+            setConfigs(data.configs);
+          } else {
+            setConfigs(DEFAULT_PRESETS);
+          }
         } else {
           toast.error("Failed to load existing configurations.");
         }
