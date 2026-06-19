@@ -71,6 +71,8 @@ export class QFieldCloudSyncService {
 
     if (!sltProject) throw new Error('SLTSERP project not found');
 
+    const cleanProjectName = `${sltProject.projectCode}_${sltProject.name}`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+
     const res = await fetch(`${this.baseUrl}/api/v1/projects/`, {
       method: 'POST',
       headers: {
@@ -78,7 +80,7 @@ export class QFieldCloudSyncService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: `[${sltProject.projectCode}] ${sltProject.name}`,
+        name: cleanProjectName,
         description: sltProject.description || 'OSP Fiber Optic Survey Project',
         is_public: false,
       }),
@@ -89,7 +91,41 @@ export class QFieldCloudSyncService {
       throw new Error(`Failed to create QField project: ${err}`);
     }
 
-    return res.json();
+    const qfieldProject = await res.json();
+
+    // Upload QGIS project template file if path exists
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const resolvedPath = path.resolve(qgisTemplatePath);
+
+      if (fs.existsSync(resolvedPath)) {
+        const fileBuffer = fs.readFileSync(resolvedPath);
+        const fileBlob = new Blob([fileBuffer], { type: 'application/octet-stream' });
+        const formData = new FormData();
+        formData.append('file', fileBlob, 'QGIS.qgz');
+
+        const uploadRes = await fetch(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/QGIS.qgz/`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          console.error(`Failed to upload QGIS template file: ${uploadRes.status} - ${await uploadRes.text()}`);
+        } else {
+          console.log('✅ QGIS project template file uploaded successfully to QFieldCloud.');
+        }
+      } else {
+        console.warn(`QGIS Template file not found at: ${resolvedPath}`);
+      }
+    } catch (err) {
+      console.error('Error uploading QGIS template during project creation:', err);
+    }
+
+    return qfieldProject;
   }
 
   /**
