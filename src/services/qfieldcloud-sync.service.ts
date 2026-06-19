@@ -94,13 +94,59 @@ export class QFieldCloudSyncService {
     const qfieldProject = await res.json();
 
     // Upload QGIS project template file if path exists
+    let tempDir: string | null = null;
     try {
       const fs = await import('fs');
       const path = await import('path');
       const resolvedPath = path.resolve(qgisTemplatePath);
 
       if (fs.existsSync(resolvedPath)) {
-        const fileBuffer = fs.readFileSync(resolvedPath);
+        let uploadFilePath = resolvedPath;
+
+        // Retrieve field configurations for project from the DB
+        const configs = await prisma.qFieldFieldConfig.findMany({
+          where: { projectId: sltProjectId },
+        });
+
+        if (configs.length > 0) {
+          try {
+            const { execSync } = await import('child_process');
+            tempDir = path.join(process.cwd(), 'tmp', `qfield-${sltProjectId}-${Date.now()}`);
+            fs.mkdirSync(tempDir, { recursive: true });
+
+            const tempQgzPath = path.join(tempDir, 'QGIS.qgz');
+            const tempConfigJsonPath = path.join(tempDir, 'config.json');
+
+            // Copy template
+            fs.copyFileSync(resolvedPath, tempQgzPath);
+
+            // Write JSON config
+            const configData: Record<string, Record<string, string[]>> = {};
+            for (const c of configs) {
+              if (!configData[c.layerId]) {
+                configData[c.layerId] = {};
+              }
+              configData[c.layerId][c.fieldName] = c.options;
+            }
+            fs.writeFileSync(tempConfigJsonPath, JSON.stringify(configData, null, 2), 'utf-8');
+
+            // Run script
+            const pythonCmd = process.platform === 'win32' ? 'py' : 'python3';
+            console.log(`Running dynamic widget patcher on template...`);
+            execSync(`"${pythonCmd}" scripts/patch-qgis-dynamic.py "${tempQgzPath}" "${tempConfigJsonPath}"`, {
+              cwd: process.cwd(),
+            });
+
+            uploadFilePath = tempQgzPath;
+            console.log('✅ Template patched with custom widget ValueMap configurations.');
+          } catch (patchErr) {
+            console.error('Error patching QGIS template:', patchErr);
+            // Fallback to original template in case of failure
+            uploadFilePath = resolvedPath;
+          }
+        }
+
+        const fileBuffer = fs.readFileSync(uploadFilePath);
         const fileBlob = new Blob([fileBuffer], { type: 'application/octet-stream' });
         const formData = new FormData();
         formData.append('file', fileBlob, 'QGIS.qgz');
@@ -152,6 +198,18 @@ export class QFieldCloudSyncService {
       }
     } catch (err) {
       console.error('Error uploading QGIS template during project creation:', err);
+    } finally {
+      if (tempDir) {
+        try {
+          const fs = await import('fs');
+          if (fs.existsSync(tempDir)) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+            console.log('✅ Temporary QGIS patching directory cleaned up.');
+          }
+        } catch (cleanupErr) {
+          console.error('Failed to cleanup temporary patching directory:', cleanupErr);
+        }
+      }
     }
 
     return qfieldProject;

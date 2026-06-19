@@ -1,8 +1,11 @@
 {
-"type": "FeatureCollection",
-"name": "SLT_Ducts",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { "Duct_No": "HK-DUCT-00101", "LENGTH": "168m", "PROTECTION": null, "DAMAGE": null, "DUCT_ENV": null, "NUM_WAYS": "4-V", "NUM_SUBDUC": "1", "SIZE": "100mm", "DUCT_END_1": "HK-PTJ-MH-D-12", "DUCT_END_2": "HK-PTJ-MH-D-13", "TYPE": null, "REMARKS": null }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 79.883101209805716, 6.768961932495628 ], [ 79.883184279164027, 6.76795270178435 ] ] ] } }
-]
+  "type": "FeatureCollection",
+  "name": "SLT_Ducts",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": []
 }

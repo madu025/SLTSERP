@@ -1,8 +1,11 @@
 {
-"type": "FeatureCollection",
-"name": "SLT_MH",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { "MH NAME": "HK-PTJ-MH-D-2", "LEA": "HK", "NUMBER OF WAYS": "4-V", "SUB TYPE": "S-1", "SIDE": "RHS", "ROAD NAME": "Galle Road", "START CHAIN": false, "ADJACENT PREVIOUS": "HK-PTJ-MH-D-1", "NUMBER OF RISERS": 2, "REMARK": "Near Pola Junction", "FRAME AND COVER STATUS": null, "LOCATION ADDRESS": null, "LAC": "HK-PTJ-00320", "Exst_New": "Existing", "Longitute": 79.85147837, "Latitude": 6.905515555 }, "geometry": { "type": "Point", "coordinates": [ 79.85147837, 6.905515555 ] } }
-]
+  "type": "FeatureCollection",
+  "name": "SLT_MH",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": []
 }

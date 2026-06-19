@@ -1,8 +1,11 @@
 {
-"type": "FeatureCollection",
-"name": "SLT_ODF",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { "ODF NAME": "HK-NODE-ODF-TX-002", "LEA": "HK", "BUILDING LOCATION": "C Building", "RACK NUMBER": "Rack-2", "SHEATH NAMES": "HK#V-OPT::1=>256", "NUM CORES TERMINATED": 256, "LAC": "HK-HK-00100", "REMARKS": "HK-NODE", "MODEL": "ZTE", "Exst_New": "New", "Longitute": 79.86134013, "Latitude": 6.888144328 }, "geometry": { "type": "Point", "coordinates": [ 79.86134013, 6.888144328 ] } }
-]
+  "type": "FeatureCollection",
+  "name": "SLT_ODF",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": []
 }

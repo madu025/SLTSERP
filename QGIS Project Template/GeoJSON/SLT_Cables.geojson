@@ -1,8 +1,11 @@
 {
-"type": "FeatureCollection",
-"name": "SLT_Cables",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { "LEA": "HK", "Cable_Type": "Aerial", "Main_Sheat": "HK#X-OPT::1=>288", "Ext_Sheath": "HK#X-OPTE2::1=>32", "CBL_END_1": "HK-CJC-X002", "CBL_END_2": "HK-CJA-X004", "Length": "653m", "Cores": "OF-32-1.3", "Duct": null, "PE_Number": "PE2023587965479", "Remarks": null, "SLT-REF": "2023-Mkt-197", "Desc": "Provision of OF connectivity to Softlogic(Pvt)Ltd, No-520, Reid Avenue, Colombo 7" }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 79.883081992267606, 6.76846289642525 ], [ 79.883103069567483, 6.768263281997098 ], [ 79.883126006629098, 6.768015313763368 ], [ 79.883145844087807, 6.767800201320607 ], [ 79.883166301467085, 6.767585088877848 ], [ 79.883199777178632, 6.767348279214636 ], [ 79.883244411460709, 6.767040798604812 ] ] ] } }
-]
+  "type": "FeatureCollection",
+  "name": "SLT_Cables",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": []
 }

@@ -1,8 +1,11 @@
 {
-"type": "FeatureCollection",
-"name": "SLT_Road_EOPs",
-"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": [
-{ "type": "Feature", "properties": { "id": null, "Road_Name": "Galle Road", "Remarks": "Junction Area" }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 79.882939901050534, 6.772273356785237 ], [ 79.882997176268233, 6.77190516203108 ], [ 79.883033350089917, 6.771530980082495 ], [ 79.883051437000759, 6.771237621231891 ], [ 79.883045408030483, 6.77090235375568 ], [ 79.882740945031259, 6.770857451843859 ], [ 79.882731901575838, 6.771396274509975 ], [ 79.882704771209561, 6.77183930602917 ], [ 79.882680655328414, 6.772183553212568 ], [ 79.882632423566179, 6.772333225824395 ] ] ] } }
-]
+  "type": "FeatureCollection",
+  "name": "SLT_Road_EOPs",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": []
 }

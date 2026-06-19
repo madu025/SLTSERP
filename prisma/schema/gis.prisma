@@ -255,3 +255,17 @@ model GISAuditLog {
   @@index([entityType, entityId])
   @@index([performedAt])
 }
+
+model QFieldFieldConfig {
+  id          String   @id @default(cuid())
+  projectId   String
+  layerId     String   // e.g. "SLT_Poles"
+  fieldName   String   // e.g. "POLE TYPE"
+  options     String[] // e.g. ["Concrete", "GI", "Spun", "Wood"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, layerId, fieldName])
+  @@index([projectId])
+}

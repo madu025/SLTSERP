@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 interface ProjectSurveyProps { project: any; }
 
 export default function ProjectSurvey({ project }: ProjectSurveyProps) {
+  const router = useRouter();
   const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -214,6 +216,15 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
                 Disconnected
               </Badge>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/projects/${project.id}/qfield-config`)}
+              className="h-8 gap-1 bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Configure Dropdowns
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 

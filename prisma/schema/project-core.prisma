@@ -108,6 +108,7 @@ model Project {
   patSessions       PATSession[]
   projectPayments   ProjectPayment[]
   aiPredictions     AiPrediction[]
+  qfieldConfigs     QFieldFieldConfig[]
 
   @@index([status])
   @@index([opmcId])
