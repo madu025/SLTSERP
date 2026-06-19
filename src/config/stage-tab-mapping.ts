@@ -259,7 +259,24 @@ const STAGE_NAME_ALIASES: Record<string, string> = {
     civil: 'civil works',
     splicing: 'cabling & splicing',
     otdr: 'otdr',
-    // Add more aliases as template stage names expand
+    
+    // Database lifecycle statuses mapped to appropriate generic stages
+    planning: 'survey',
+    survey_in_progress: 'survey',
+    survey_complete: 'survey',
+    boq_pending: 'material',
+    boq_approved: 'material',
+    material_requested: 'material',
+    material_issued: 'material',
+    installation_in_progress: 'installation',
+    installation_complete: 'installation',
+    pre_pat_pending: 'qa',
+    pre_pat_in_progress: 'qa',
+    pre_pat_passed: 'qa',
+    slt_pat_pending: 'qa',
+    slt_pat_in_progress: 'qa',
+    slt_pat_passed: 'qa',
+    completed: 'closure'
 };
 
 /**
