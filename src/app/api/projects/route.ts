@@ -12,7 +12,7 @@ export async function GET(request: Request) {
         const opmcId = searchParams.get('opmcId');
         const projectTypeId = searchParams.get('projectTypeId');
 
-        const where: any = {};
+        const where: Record<string, unknown> = {};
 
         if (status) where.status = status;
         if (type) where.type = type;
@@ -150,9 +150,9 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json(project);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating project:', error);
-        if (error.code === 'P2002') {
+        if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'P2002') {
             return NextResponse.json(
                 { error: 'Project code already exists' },
                 { status: 400 }
@@ -234,6 +234,7 @@ export async function PATCH(request: Request) {
         });
 
         // Trigger programmatic recalculation of progress and status if project has an active workflow
+        let finalProject = project;
         if (hasActiveWorkflow) {
             await calculateProjectProgress(id);
             // Re-fetch project to return updated progress/status
@@ -245,10 +246,26 @@ export async function PATCH(request: Request) {
                     contractor: true
                 }
             });
-            return NextResponse.json(updatedProject);
+            if (updatedProject) finalProject = updatedProject;
         }
 
-        return NextResponse.json(project);
+        // Automatically remove project from QFieldCloud if status is COMPLETED
+        if (finalProject.status === 'COMPLETED' && finalProject.gisMapping) {
+            const gisMapping = finalProject.gisMapping as Record<string, unknown>;
+            const qfieldProjectId = gisMapping?.qfieldProjectId as string;
+            if (qfieldProjectId) {
+                try {
+                    const { QFieldCloudSyncService } = await import('@/services/qfieldcloud-sync.service');
+                    const syncService = new QFieldCloudSyncService();
+                    await syncService.deleteQFieldProject(qfieldProjectId);
+                    console.log(`✅ Automatically removed QFieldCloud project ${qfieldProjectId} because project ${id} was marked as COMPLETED.`);
+                } catch (qfieldErr) {
+                    console.error('Failed to automatically remove QFieldCloud project for completed project:', qfieldErr);
+                }
+            }
+        }
+
+        return NextResponse.json(finalProject);
     } catch (error) {
         console.error('Error updating project:', error);
         return NextResponse.json(
@@ -269,6 +286,23 @@ export async function DELETE(request: Request) {
                 { error: 'Project ID required' },
                 { status: 400 }
             );
+        }
+
+        // Verify project exists and get gisMapping
+        const project = await prisma.project.findUnique({ where: { id } });
+        if (project && project.gisMapping) {
+            const gisMapping = project.gisMapping as Record<string, unknown>;
+            const qfieldProjectId = gisMapping?.qfieldProjectId as string;
+            if (qfieldProjectId) {
+                try {
+                    const { QFieldCloudSyncService } = await import('@/services/qfieldcloud-sync.service');
+                    const syncService = new QFieldCloudSyncService();
+                    await syncService.deleteQFieldProject(qfieldProjectId);
+                    console.log(`✅ Deleted QFieldCloud project ${qfieldProjectId} for deleted project ${id}`);
+                } catch (qfieldErr) {
+                    console.error('Failed to delete project from QFieldCloud:', qfieldErr);
+                }
+            }
         }
 
         await prisma.project.delete({

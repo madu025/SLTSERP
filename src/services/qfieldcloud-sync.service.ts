@@ -216,6 +216,25 @@ export class QFieldCloudSyncService {
   }
 
   /**
+   * Delete a project from QFieldCloud
+   */
+  async deleteQFieldProject(qfieldProjectId: string): Promise<void> {
+    const token = await this.authenticate();
+    const res = await fetch(`${this.baseUrl}/api/v1/projects/${qfieldProjectId}/`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+    });
+
+    if (!res.ok && res.status !== 404) {
+      const err = await res.text();
+      console.error(`Failed to delete QField project ${qfieldProjectId} from QFieldCloud: ${err}`);
+      throw new Error(`Failed to delete QFieldCloud project: ${err}`);
+    }
+  }
+
+  /**
    * Push survey layers to QFieldCloud project
    */
   async pushSurveyLayers(qfieldProjectId: string): Promise<void> {

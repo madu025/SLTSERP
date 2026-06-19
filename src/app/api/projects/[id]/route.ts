@@ -132,6 +132,23 @@ export async function DELETE(
             );
         }
 
+        // Delete from QFieldCloud if mapped
+        if (project.gisMapping) {
+            const gisMapping = project.gisMapping as Record<string, unknown>;
+            const qfieldProjectId = gisMapping?.qfieldProjectId as string;
+            if (qfieldProjectId) {
+                try {
+                    const { QFieldCloudSyncService } = await import('@/services/qfieldcloud-sync.service');
+                    const syncService = new QFieldCloudSyncService();
+                    await syncService.deleteQFieldProject(qfieldProjectId);
+                    console.log(`✅ Deleted QFieldCloud project ${qfieldProjectId} for deleted project ${id}`);
+                } catch (qfieldErr) {
+                    console.error('Failed to delete project from QFieldCloud:', qfieldErr);
+                    // Do not block local deletion if QFieldCloud server is offline or fails
+                }
+            }
+        }
+
         await prisma.project.delete({ where: { id } });
 
         return NextResponse.json({ success: true, message: 'Project deleted successfully' });
