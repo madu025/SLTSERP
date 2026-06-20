@@ -29,7 +29,11 @@
 | DB Init Script | PostGIS extensions + schema | `docker/qfieldcloud/init-qfield-db.sh` |
 | QFieldCloud Sync Service | Delta API, create project, push layers, pull features | `src/services/qfieldcloud-sync.service.ts` |
 | QFieldCloud Sync API | GET status / POST full_sync, push_layers, create_project | `src/app/api/projects/[id]/qfield-sync/route.ts` |
-| Sync Log Model | QFieldCloudSyncLog | `prisma/schema.prisma` (line ~4092) |
+| QField Config UI | Form Component & Page Router | `src/components/projects/QFieldConfigForm.tsx`, `src/app/projects/[id]/qfield-config/page.tsx` |
+| QField Config API | GET list / POST update configurations | `src/app/api/projects/[id]/qfield-config/route.ts` |
+| QField Patching Script | Python widget XML patcher utility | `scripts/patch-qgis-dynamic.py` |
+| Config DB Model | `QFieldFieldConfig` | `prisma/schema/gis.prisma` |
+| Sync Log Model | QFieldCloudSyncLog | `prisma/schema/gis.prisma` |
 | Deployment Guide | Local + Remote + Production | `docs/QFIELDCLOUD-DEPLOYMENT.md` |
 | Environment Config | QFieldCloud variables | `.env` (QFIELD_HOST, QFIELD_ALLOWED_HOSTS, etc.) |
 

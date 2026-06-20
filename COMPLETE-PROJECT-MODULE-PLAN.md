@@ -202,6 +202,13 @@ model QFieldCloudSyncLog {
 | 11 | survey_road_crossing | Road Crossing | road_type, crossing_method, duct_type |
 | 12 | survey_obstruction | Obstruction | type, severity, mitigation, mitigation_cost |
 
+### 4.1 Dynamic Dropdown Configurator (Value Map Widget Injector)
+To allow Project Managers to customize select choices for mobile survey forms:
+* **Prisma Model:** `QFieldFieldConfig` stores selected options for a project's target layer and field.
+* **Backend XML Engine:** `scripts/patch-qgis-dynamic.py` handles reading the project database options, unpacking `QGIS.qgz`, updating edit widgets in the `.qgs` XML configuration to `ValueMap`, and repacking.
+* **Sync Integration:** `QFieldCloudSyncService` fetches configurations from the DB during project creation, runs the patching script on the project archive, and uploads the customized QGIS package to QFieldCloud.
+* **Frontend Configurator:** `src/components/projects/QFieldConfigForm.tsx` provides the UI to manage select lists and load standard presets.
+
 ---
 
 ## 5. Phase 4: Mobile Survey (QField + QFieldCloud)

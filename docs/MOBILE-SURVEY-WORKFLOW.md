@@ -34,6 +34,19 @@ POST /api/projects/:id/qfield-sync { action: "create_project" }
 
 ## Step 3: Create QFieldCloud Project (Auto via API)
 
+Before running the project creation, Project Managers can customize dropdown selections (Value Map widgets) for different layers:
+
+### QField Dropdown Configuration (Value Map Widget Patcher)
+1. **Accessing the Configurator:**
+   * Go to the **Survey** tab in the project details view.
+   * Click **Configure Dropdowns** on the connection card.
+2. **Managing Field Selections:**
+   * Standard presets for poles, cables, ducts, cabinets, chambers, ODFs, and termination points are pre-loaded by default.
+   * PMs can add, edit, or remove options (e.g. adding a custom pole height `12.0m` or cable cores), then click **Save Configs**.
+3. **Dynamic Patching Engine:**
+   * When `createQFieldProject` is executed, the backend copies the QGIS project template, executes `scripts/patch-qgis-dynamic.py` to rewrite the QGS XML properties to `<editWidget type="ValueMap">` tags, repacks the `.qgz` archive, and uploads it.
+
+After configurations are set, execute:
 ```
 POST /api/projects/:id/qfield-sync
 Body: { "action": "create_project", "qgisTemplate": "QGIS Project Template/QGIS.qgz" }
@@ -62,7 +75,7 @@ Response:
 
 1. Select project from cloud list
 2. "Download Project" → 12 layers + QGIS template download
-3. Map view opens → all 12 layers visible
+3. Map view opens → all 12 layers visible. Configured dropdown values (e.g. customized pole types, cable capacities) appear automatically on form fields.
 4. GPS auto-tracks current location
 
 ---
@@ -124,6 +137,15 @@ Web Portal: `POST /api/projects/:id/qfield-sync { action: "full_sync" }`
 
 ---
 
+## Automatic QFieldCloud Project Cleanup
+
+To keep surveyors' mobile apps clean and secure, the system automatically deletes projects from the QFieldCloud server:
+1. **Completion:** When a project status changes to `COMPLETED` (either manually or via workflow progress), the API deletes the project from the QFieldCloud server.
+2. **Deletion:** Deleting a project from the SLTSERP dashboard triggers an API hook to remove the corresponding project from QFieldCloud.
+3. **Manual Cleanup:** Admins can run `npx tsx scripts/cleanup-qfieldcloud.ts` to identify and remove any orphaned projects from QFieldCloud.
+
+---
+
 ## Data Flow
 
 ```
@@ -133,7 +155,7 @@ QFieldCloud Server (Docker, port 8100)
   ↓ Delta API pull
 SLTSERP (Next.js, port 3000)
   ↓ Prisma
-PostgreSQL (SurveyPoint table)
+PostgreSQL/Supabase (SurveyPoint table)
   ↓
 Web Portal → View/Approve/BOQ
 ```
@@ -146,7 +168,8 @@ Web Portal → View/Approve/BOQ
 |------|-----|------|
 | Start QFieldCloud Docker | IT | 2 min |
 | Create project + assign supervisor | Manager | 5 min |
+| Configure custom dropdowns (Optional) | Manager | 2 min |
 | Create QFieldCloud project (API) | Auto | 30 sec |
 | Install QField app | Supervisor | 5 min |
 | Login + download project | Supervisor | 2 min |
-| **Total** | | **~15 min** |
+| **Total** | | **~17 min** |

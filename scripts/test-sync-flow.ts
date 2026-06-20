@@ -5,32 +5,21 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('Fetching or creating a test project in SLTSERP database...');
-  let project = await prisma.project.findFirst();
-
-  if (!project) {
-    console.log('No project found in database. Creating a temporary test project...');
-    project = await prisma.project.create({
-      data: {
-        projectCode: 'TEST-' + Math.floor(Math.random() * 10000),
-        name: 'QField Testing Project',
-        description: 'Temporary project for testing QFieldCloud sync integrations',
-        type: 'OSP',
-        status: 'PLANNING',
-        budget: 50000,
-        location: 'Colombo',
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
-    console.log(`Created test project ID: ${project.id} [${project.projectCode}]`);
-  } else {
-    console.log(`Found existing project ID: ${project.id} [${project.projectCode}]`);
-    // Clear mapping to force fresh creation
-    await prisma.project.update({
-      where: { id: project.id },
-      data: { gisMapping: {} }
-    });
-  }
+  console.log('Creating a temporary test project...');
+  const project = await prisma.project.create({
+    data: {
+      projectCode: 'TEST-' + Math.floor(Math.random() * 10000),
+      name: 'QField Testing Project',
+      description: 'Temporary project for testing QFieldCloud sync integrations',
+      type: 'OSP',
+      status: 'PLANNING',
+      budget: 50000,
+      location: 'Colombo',
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
+  console.log(`Created test project ID: ${project.id} [${project.projectCode}]`);
 
   const syncService = new QFieldCloudSyncService();
 
