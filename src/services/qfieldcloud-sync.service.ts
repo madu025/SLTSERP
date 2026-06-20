@@ -8,10 +8,24 @@ interface QFieldProject {
   qgisProjectFile?: string;
 }
 
-interface QFieldFeature {
-  type: string;
-  geometry: { type: string; coordinates: [number, number] };
-  properties: Record<string, unknown>;
+interface QFieldDeltaFeature {
+  uuid?: string;
+  sourceLayerId?: string;
+  localLayerId?: string;
+  geometry?: string | null;
+  method?: string;
+  new?: {
+    attributes?: Record<string, unknown>;
+  };
+}
+
+interface QFieldDelta {
+  id: string;
+  last_status?: string;
+  status?: string;
+  updated_at?: string;
+  created_at?: string;
+  content?: QFieldDeltaFeature;
 }
 
 interface SyncResult {
@@ -37,8 +51,8 @@ export class QFieldCloudSyncService {
   /**
    * Authenticate with QFieldCloud API
    */
-  private async authenticate(): Promise<string> {
-    if (this.authToken) return this.authToken;
+  private async authenticate(forceRefresh = false): Promise<string> {
+    if (this.authToken && !forceRefresh) return this.authToken;
 
     const res = await fetch(`${this.baseUrl}/api/v1/auth/login/`, {
       method: 'POST',
@@ -57,13 +71,32 @@ export class QFieldCloudSyncService {
   }
 
   /**
+   * Helper to perform fetch requests with automatic auth token injection and retry on 401
+   */
+  private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+    let token = await this.authenticate();
+    const headers = new Headers(options.headers);
+    headers.set('Authorization', `Token ${token}`);
+    
+    let res = await fetch(url, { ...options, headers });
+    
+    if (res.status === 401) {
+      console.log('QFieldCloud token expired or invalid, re-authenticating...');
+      token = await this.authenticate(true);
+      headers.set('Authorization', `Token ${token}`);
+      res = await fetch(url, { ...options, headers });
+    }
+    
+    return res;
+  }
+
+  /**
    * Create a new QFieldCloud project for SLTSERP project
    */
   async createQFieldProject(
     sltProjectId: string,
     qgisTemplatePath: string
   ): Promise<QFieldProject> {
-    const token = await this.authenticate();
     const sltProject = await prisma.project.findUnique({
       where: { id: sltProjectId },
       select: { name: true, projectCode: true, description: true },
@@ -73,10 +106,9 @@ export class QFieldCloudSyncService {
 
     const cleanProjectName = `${sltProject.projectCode}_${sltProject.name}`.replace(/[^a-zA-Z0-9_.-]/g, '_');
 
-    const res = await fetch(`${this.baseUrl}/api/v1/projects/`, {
+    const res = await this.fetchWithAuth(`${this.baseUrl}/api/v1/projects/`, {
       method: 'POST',
       headers: {
-        Authorization: `Token ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -110,7 +142,7 @@ export class QFieldCloudSyncService {
 
         if (configs.length > 0) {
           try {
-            const { execSync } = await import('child_process');
+            const { spawnSync } = await import('child_process');
             tempDir = path.join(process.cwd(), 'tmp', `qfield-${sltProjectId}-${Date.now()}`);
             fs.mkdirSync(tempDir, { recursive: true });
 
@@ -130,12 +162,20 @@ export class QFieldCloudSyncService {
             }
             fs.writeFileSync(tempConfigJsonPath, JSON.stringify(configData, null, 2), 'utf-8');
 
-            // Run script
+            // Run script securely
             const pythonCmd = process.platform === 'win32' ? 'py' : 'python3';
-            console.log(`Running dynamic widget patcher on template...`);
-            execSync(`"${pythonCmd}" scripts/patch-qgis-dynamic.py "${tempQgzPath}" "${tempConfigJsonPath}"`, {
+            console.log(`Running dynamic widget patcher on template securely...`);
+            const patchResult = spawnSync(pythonCmd, [
+              'scripts/patch-qgis-dynamic.py',
+              tempQgzPath,
+              tempConfigJsonPath,
+            ], {
               cwd: process.cwd(),
+              encoding: 'utf-8',
             });
+            if (patchResult.status !== 0) {
+              throw new Error(`Dynamic patcher exited with code ${patchResult.status}: ${patchResult.stderr || patchResult.stdout}`);
+            }
 
             uploadFilePath = tempQgzPath;
             console.log('✅ Template patched with custom widget ValueMap configurations.');
@@ -151,22 +191,46 @@ export class QFieldCloudSyncService {
         const formData = new FormData();
         formData.append('file', fileBlob, 'QGIS.qgz');
 
-        const uploadRes = await fetch(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/QGIS.qgz/`, {
+        const uploadRes = await this.fetchWithAuth(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/QGIS.qgz/`, {
           method: 'POST',
-          headers: {
-            Authorization: `Token ${token}`,
-          },
           body: formData,
         });
 
         if (!uploadRes.ok) {
-          console.error(`Failed to upload QGIS template file: ${uploadRes.status} - ${await uploadRes.text()}`);
+          console.error(`Failed to upload QGIS template file: ${uploadRes.status} - ${await res.text()}`);
         } else {
           console.log('✅ QGIS project template file uploaded successfully to QFieldCloud.');
         }
 
-        // Upload companion GeoJSON files from QGIS Project Template/GeoJSON/
+        const uploadPromises: Promise<void>[] = [];
+
+        // Upload companion GeoPackage files from QGIS Project Template/GeoPackage/
         const templateDir = path.dirname(resolvedPath);
+        const geoPackageDir = path.join(templateDir, 'GeoPackage');
+        if (fs.existsSync(geoPackageDir)) {
+          const files = fs.readdirSync(geoPackageDir);
+          for (const file of files) {
+            if (file.endsWith('.gpkg')) {
+              const gpkgPath = path.join(geoPackageDir, file);
+              const gpkgBuffer = fs.readFileSync(gpkgPath);
+              const gpkgBlob = new Blob([gpkgBuffer], { type: 'application/octet-stream' });
+              const gpkgFormData = new FormData();
+              gpkgFormData.append('file', gpkgBlob, file);
+
+              const uploadPromise = this.fetchWithAuth(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/GeoPackage/${file}/`, {
+                method: 'POST',
+                body: gpkgFormData,
+              }).then(async (res) => {
+                if (!res.ok) {
+                  console.error(`Failed to upload GeoPackage file ${file}: ${res.status} - ${await res.text()}`);
+                }
+              });
+              uploadPromises.push(uploadPromise);
+            }
+          }
+        }
+
+        // Upload companion GeoJSON files from QGIS Project Template/GeoJSON/
         const geoJsonDir = path.join(templateDir, 'GeoJSON');
         if (fs.existsSync(geoJsonDir)) {
           const files = fs.readdirSync(geoJsonDir);
@@ -178,21 +242,21 @@ export class QFieldCloudSyncService {
               const geoJsonFormData = new FormData();
               geoJsonFormData.append('file', geoJsonBlob, file);
 
-              const geoJsonUploadRes = await fetch(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/GeoJSON/${file}/`, {
+              const uploadPromise = this.fetchWithAuth(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/GeoJSON/${file}/`, {
                 method: 'POST',
-                headers: {
-                  Authorization: `Token ${token}`,
-                },
                 body: geoJsonFormData,
+              }).then(async (res) => {
+                if (!res.ok) {
+                  console.error(`Failed to upload GeoJSON file ${file}: ${res.status} - ${await res.text()}`);
+                }
               });
-
-              if (!geoJsonUploadRes.ok) {
-                console.error(`Failed to upload GeoJSON file ${file}: ${geoJsonUploadRes.status}`);
-              }
+              uploadPromises.push(uploadPromise);
             }
           }
-          console.log('✅ All GeoJSON template layers uploaded successfully to QFieldCloud.');
         }
+
+        await Promise.all(uploadPromises);
+        console.log('✅ All companion template layers uploaded successfully in parallel to QFieldCloud.');
       } else {
         console.warn(`QGIS Template file not found at: ${resolvedPath}`);
       }
@@ -270,17 +334,65 @@ export class QFieldCloudSyncService {
   }
 
   /**
+   * Helper to parse WKT geometries into coordinates and GeoJSON geometry objects
+   */
+  private parseWktGeometry(wkt: string | null): { lon: number; lat: number; geometry: Record<string, unknown> } | null {
+    if (!wkt) return null;
+
+    // Point: POINT (80.123 7.456)
+    const pointMatch = /POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i.exec(wkt);
+    if (pointMatch) {
+      const lon = parseFloat(pointMatch[1]);
+      const lat = parseFloat(pointMatch[2]);
+      return { lon, lat, geometry: { type: 'Point', coordinates: [lon, lat] } };
+    }
+
+    // LineString: LINESTRING (80.1 7.1, 80.2 7.2, ...)
+    const lineMatch = /LINESTRING\s*\(([^)]+)\)/i.exec(wkt);
+    if (lineMatch) {
+      const coordPairs = lineMatch[1].split(',').map((s) => s.trim());
+      const coordinates = coordPairs.map((pair) => {
+        const parts = pair.split(/\s+/);
+        return [parseFloat(parts[0]), parseFloat(parts[1])];
+      });
+      // Fallback: use first coordinate for representative latitude/longitude
+      const [lon, lat] = coordinates[0];
+      return { lon, lat, geometry: { type: 'LineString', coordinates } };
+    }
+
+    // MultiLineString: MULTILINESTRING (((80.1 7.1, ...)))
+    const multiLineMatch = /MULTILINESTRING\s*\(([^)]+)\)/i.exec(wkt);
+    if (multiLineMatch) {
+      const firstCoordsMatch = /([-\d.]+)\s+([-\d.]+)/.exec(multiLineMatch[1]);
+      if (firstCoordsMatch) {
+        const lon = parseFloat(firstCoordsMatch[1]);
+        const lat = parseFloat(firstCoordsMatch[2]);
+        return { lon, lat, geometry: { type: 'MultiLineString', wkt } };
+      }
+    }
+
+    // Fallback for other geometries: extract the first pair of numbers
+    const fallbackMatch = /([-\d.]+)\s+([-\d.]+)/.exec(wkt);
+    if (fallbackMatch) {
+      const lon = parseFloat(fallbackMatch[1]);
+      const lat = parseFloat(fallbackMatch[2]);
+      return { lon, lat, geometry: { type: 'Unknown', wkt } };
+    }
+
+    return null;
+  }
+
+  /**
    * Pull synced survey points from QFieldCloud (Delta API)
    */
   async pullSurveyPoints(sltProjectId: string, qfieldProjectId: string): Promise<SyncResult> {
-    const token = await this.authenticate();
     const errors: string[] = [];
     let syncedPoints = 0;
     let newPoints = 0;
     let updatedPoints = 0;
 
     try {
-      // Delta API: get features modified since last sync
+      // Get features modified since last sync
       const lastSync = await prisma.qFieldCloudSyncLog.findFirst({
         where: { projectId: sltProjectId, status: 'COMPLETED' },
         orderBy: { completedAt: 'desc' },
@@ -288,114 +400,197 @@ export class QFieldCloudSyncService {
       });
 
       const deltaParams = new URLSearchParams();
-      if (lastSync) {
-        deltaParams.set('modified_since', lastSync.completedAt!.toISOString());
-      }
-
-      const res = await fetch(
-        `${this.baseUrl}/api/v1/projects/${qfieldProjectId}/features/?${deltaParams}`,
-        {
-          headers: { Authorization: `Token ${token}` },
-        }
+      const res = await this.fetchWithAuth(
+        `${this.baseUrl}/api/v1/deltas/${qfieldProjectId}/?${deltaParams}`
       );
 
       if (!res.ok) {
-        errors.push(`Delta API returned ${res.status}`);
+        errors.push(`Deltas API returned ${res.status} - ${await res.text()}`);
         return { projectId: sltProjectId, syncedPoints, newPoints, updatedPoints, errors };
       }
 
-      const features: QFieldFeature[] = await res.json();
+      const resData = await res.json();
+      let deltas: QFieldDelta[] = [];
+      if (Array.isArray(resData)) {
+        deltas = resData as QFieldDelta[];
+      } else if (resData && typeof resData === 'object' && Array.isArray((resData as Record<string, unknown>).results)) {
+        deltas = (resData as Record<string, unknown>).results as QFieldDelta[];
+      }
 
-      // Find active in-progress session for this project
-      const activeSession = await prisma.mobileSurveySession.findFirst({
+      // Filter in-memory by modified_since and status applied
+      let filteredDeltas = deltas.filter(
+        (d) => d.last_status === 'applied' || d.status === 'STATUS_APPLIED'
+      );
+
+      if (lastSync && lastSync.completedAt) {
+        const lastSyncTime = lastSync.completedAt.getTime();
+        filteredDeltas = filteredDeltas.filter(
+          (d) => {
+            const targetTime = d.updated_at || d.created_at;
+            return targetTime ? new Date(targetTime).getTime() > lastSyncTime : false;
+          }
+        );
+      }
+
+      if (filteredDeltas.length === 0) {
+        console.log('No new applied deltas found to synchronize.');
+        return { projectId: sltProjectId, syncedPoints, newPoints, updatedPoints, errors };
+      }
+
+      // Find or auto-create active session to avoid foreign key errors
+      let activeSession = await prisma.mobileSurveySession.findFirst({
         where: { projectId: sltProjectId, status: 'IN_PROGRESS' },
         orderBy: { startedAt: 'desc' },
       });
 
-      for (const feature of features) {
-        const [lon, lat] = feature.geometry.coordinates;
-        const layerId = feature.properties.layerId as string;
-        const layerConfig = SURVEY_LAYERS.find((l) => l.id === layerId);
+      if (!activeSession) {
+        activeSession = await prisma.mobileSurveySession.create({
+          data: {
+            projectId: sltProjectId,
+            supervisorId: 'SYSTEM_SYNC',
+            status: 'COMPLETED',
+            notes: 'Auto-created during QFieldCloud Delta Sync',
+            syncStatus: 'SYNCED',
+          },
+        });
+      }
 
-        if (!layerConfig) {
-          errors.push(`Unknown layer: ${layerId}`);
-          continue;
-        }
+      // Process deltas within a Prisma transaction
+      await prisma.$transaction(async (tx) => {
+        // Fetch all existing points for this project to build an in-memory lookup map
+        const existingPoints = await tx.surveyPoint.findMany({
+          where: { projectId: sltProjectId },
+        });
 
-        // Extract only defined attributes (ignore QFieldCloud metadata)
-        const allKeys = [...layerConfig.requiredAttributes, ...layerConfig.optionalAttributes];
-        const attributes: Record<string, unknown> = {};
-        for (const key of allKeys) {
-          if (key in feature.properties) {
-            attributes[key] = feature.properties[key];
+        const existingPointsMap = new Map<string, typeof existingPoints[0]>();
+        for (const p of existingPoints) {
+          const attrs = p.attributes as { qfield_uuid?: string } | null;
+          const uuid = attrs?.qfield_uuid;
+          if (uuid) {
+            existingPointsMap.set(uuid, p);
           }
         }
 
-        // Check if point already exists (QFieldCloud UUID as pointReference)
-        const qfieldUuid = feature.properties.uuid || feature.properties.qfieldcloud_uuid;
+        for (const delta of filteredDeltas) {
+          const feature = delta.content;
+          if (!feature) continue;
 
-        if (qfieldUuid) {
-          const existing = await prisma.surveyPoint.findFirst({
-            where: {
-              projectId: sltProjectId,
-              attributes: { equals: { qfield_uuid: qfieldUuid } },
-            },
-          });
+          const qfieldUuid = feature.uuid;
+          if (!qfieldUuid) {
+            errors.push(`Delta ${delta.id} missing feature uuid.`);
+            continue;
+          }
+
+          // Match layer configuration
+          const layerId = feature.sourceLayerId || feature.localLayerId;
+          if (!layerId) {
+            errors.push(`Delta ${delta.id} missing layer ID.`);
+            continue;
+          }
+
+          const layerConfig = SURVEY_LAYERS.find((l) => layerId.startsWith(l.id));
+          if (!layerConfig) {
+            errors.push(`Unknown QGIS layer: ${layerId}`);
+            continue;
+          }
+
+          const existing = existingPointsMap.get(qfieldUuid);
+
+          // Handle DELETE method
+          if (feature.method === 'delete') {
+            if (existing) {
+              await tx.surveyPoint.delete({
+                where: { id: existing.id },
+              });
+              existingPointsMap.delete(qfieldUuid);
+              syncedPoints++;
+            }
+            continue;
+          }
+
+          // Parse geometry WKT
+          const geomData = this.parseWktGeometry(feature.geometry || null);
+          if (!geomData && feature.method === 'create') {
+            errors.push(`Feature ${qfieldUuid} missing valid geometry.`);
+            continue;
+          }
+
+          const lat = geomData ? geomData.lat : (existing?.latitude || 0);
+          const lon = geomData ? geomData.lon : (existing?.longitude || 0);
+
+          // Parse attributes
+          const deltaAttrs = feature.new?.attributes || {};
+          const allKeys = [...layerConfig.requiredAttributes, ...layerConfig.optionalAttributes];
+          const attributes: Record<string, unknown> = {};
+
+          for (const key of allKeys) {
+            if (key in deltaAttrs) {
+              attributes[key] = deltaAttrs[key];
+            } else if (existing) {
+              const oldAttrs = existing.attributes as Record<string, unknown> | null;
+              if (oldAttrs && key in oldAttrs) {
+                attributes[key] = oldAttrs[key];
+              }
+            }
+          }
+
+          // Parse photo URLs from attributes
+          const photoUrls: string[] = [];
+          for (const val of Object.values(attributes)) {
+            if (
+              typeof val === 'string' &&
+              (val.toLowerCase().endsWith('.jpg') ||
+                val.toLowerCase().endsWith('.png') ||
+                val.toLowerCase().endsWith('.jpeg'))
+            ) {
+              const cleanPath = val.replace(/^\.\//, '');
+              photoUrls.push(`${this.baseUrl}/api/v1/files/${qfieldProjectId}/${cleanPath}/`);
+            }
+          }
 
           if (existing) {
-            await prisma.surveyPoint.update({
+            // Handle UPDATE / PATCH method
+            const updated = await tx.surveyPoint.update({
               where: { id: existing.id },
               data: {
                 latitude: lat,
                 longitude: lon,
-                attributes: { ...(existing.attributes as object), ...attributes },
-                photoUrls: feature.properties.photo_urls
-                  ? (feature.properties.photo_urls as string[])
-                  : undefined,
+                attributes: {
+                  ...(existing.attributes as object),
+                  ...attributes,
+                  geometry: geomData ? geomData.geometry : undefined,
+                },
+                photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
               },
             });
+            existingPointsMap.set(qfieldUuid, updated);
             updatedPoints++;
             syncedPoints++;
-            continue;
+          } else {
+            // Handle CREATE method
+            const created = await tx.surveyPoint.create({
+              data: {
+                sessionId: activeSession.id,
+                projectId: sltProjectId,
+                layerId: layerConfig.id,
+                layerName: layerConfig.label,
+                latitude: lat,
+                longitude: lon,
+                attributes: {
+                  ...attributes,
+                  qfield_uuid: qfieldUuid,
+                  sync_source: 'QFIELD_CLOUD',
+                  geometry: geomData ? geomData.geometry : undefined,
+                },
+                photoUrls,
+                supervisorId: activeSession.supervisorId || undefined,
+              },
+            });
+            existingPointsMap.set(qfieldUuid, created);
+            newPoints++;
+            syncedPoints++;
           }
         }
-
-        // Create new survey point
-        await prisma.surveyPoint.create({
-          data: {
-            sessionId: activeSession?.id || 'SYNC_DIRECT',
-            projectId: sltProjectId,
-            layerId: layerId,
-            layerName: layerConfig.label,
-            latitude: lat,
-            longitude: lon,
-            attributes: {
-              ...attributes,
-              qfield_uuid: qfieldUuid,
-              sync_source: 'QFIELD_CLOUD',
-            },
-            photoUrls: feature.properties.photo_urls
-              ? (feature.properties.photo_urls as string[])
-              : [],
-            supervisorId: activeSession?.supervisorId,
-          },
-        });
-
-        newPoints++;
-        syncedPoints++;
-      }
-
-      // Log sync
-      await prisma.qFieldCloudSyncLog.create({
-        data: {
-          projectId: sltProjectId,
-          syncType: 'DELTA_SYNC',
-          status: errors.length > 0 ? 'COMPLETED' : 'COMPLETED',
-          featuresCount: features.length,
-          errorMessage: errors.length > 0 ? errors.join('; ') : null,
-          startedAt: lastSync?.completedAt || new Date(),
-          completedAt: new Date(),
-        },
       });
 
       // Update session points count
@@ -408,6 +603,19 @@ export class QFieldCloudSyncService {
           data: { pointsCount: totalPoints },
         });
       }
+
+      // Log sync completed
+      await prisma.qFieldCloudSyncLog.create({
+        data: {
+          projectId: sltProjectId,
+          syncType: 'DELTA_SYNC',
+          status: errors.length > 0 ? 'FAILED' : 'COMPLETED',
+          featuresCount: filteredDeltas.length,
+          errorMessage: errors.length > 0 ? errors.join('; ') : null,
+          startedAt: lastSync?.completedAt || new Date(),
+          completedAt: new Date(),
+        },
+      });
     } catch (error) {
       errors.push(error instanceof Error ? error.message : 'Unknown sync error');
     }
@@ -422,7 +630,7 @@ export class QFieldCloudSyncService {
     const service = new QFieldCloudSyncService();
 
     // Log sync start
-    await prisma.qFieldCloudSyncLog.create({
+    const syncLog = await prisma.qFieldCloudSyncLog.create({
       data: {
         projectId: sltProjectId,
         syncType: 'FULL_SYNC',
@@ -435,10 +643,10 @@ export class QFieldCloudSyncService {
       const result = await service.pullSurveyPoints(sltProjectId, qfieldProjectId);
 
       // Update log
-      await prisma.qFieldCloudSyncLog.updateMany({
-        where: { projectId: sltProjectId, status: 'STARTED', syncType: 'FULL_SYNC' },
+      await prisma.qFieldCloudSyncLog.update({
+        where: { id: syncLog.id },
         data: {
-          status: result.errors.length === 0 ? 'COMPLETED' : 'COMPLETED',
+          status: result.errors.length === 0 ? 'COMPLETED' : 'FAILED',
           featuresCount: result.syncedPoints,
           errorMessage: result.errors.join('; ') || null,
           completedAt: new Date(),
@@ -448,8 +656,8 @@ export class QFieldCloudSyncService {
       return result;
     } catch (error) {
       // Update log as failed
-      await prisma.qFieldCloudSyncLog.updateMany({
-        where: { projectId: sltProjectId, status: 'STARTED', syncType: 'FULL_SYNC' },
+      await prisma.qFieldCloudSyncLog.update({
+        where: { id: syncLog.id },
         data: {
           status: 'FAILED',
           errorMessage: error instanceof Error ? error.message : 'Full sync failed',
