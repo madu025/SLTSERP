@@ -125,10 +125,17 @@ export async function POST(
             };
         }
 
-        // Save to Project.gisMapping JSON field
+        // Save to Project.gisMapping JSON field — merge with existing to preserve qfieldProjectId
+        const existingProject = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { gisMapping: true }
+        });
+        const existingGisMapping = (existingProject?.gisMapping as Record<string, unknown> | null) || {};
+        const mergedMapping = { ...existingGisMapping, ...enrichedMappings };
+
         await prisma.project.update({
             where: { id: projectId },
-            data: { gisMapping: enrichedMappings }
+            data: { gisMapping: mergedMapping }
         });
 
         return NextResponse.json({

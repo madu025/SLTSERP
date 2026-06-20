@@ -102,7 +102,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
           id: project.id,
           name: project.name,
           projectCode: project.projectCode,
-          gisMapping: { qfieldProjectId: manualProjectId.trim() }
+          gisMapping: { ...project.gisMapping, qfieldProjectId: manualProjectId.trim() }
         })
       });
       if (res.ok) {

@@ -229,30 +229,7 @@ export class QFieldCloudSyncService {
           }
         }
 
-        // Upload companion GeoJSON files from QGIS Project Template/GeoJSON/
-        const geoJsonDir = path.join(templateDir, 'GeoJSON');
-        if (fs.existsSync(geoJsonDir)) {
-          const files = fs.readdirSync(geoJsonDir);
-          for (const file of files) {
-            if (file.endsWith('.geojson')) {
-              const geoJsonPath = path.join(geoJsonDir, file);
-              const geoJsonBuffer = fs.readFileSync(geoJsonPath);
-              const geoJsonBlob = new Blob([geoJsonBuffer], { type: 'application/json' });
-              const geoJsonFormData = new FormData();
-              geoJsonFormData.append('file', geoJsonBlob, file);
 
-              const uploadPromise = this.fetchWithAuth(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/GeoJSON/${file}/`, {
-                method: 'POST',
-                body: geoJsonFormData,
-              }).then(async (res) => {
-                if (!res.ok) {
-                  console.error(`Failed to upload GeoJSON file ${file}: ${res.status} - ${await res.text()}`);
-                }
-              });
-              uploadPromises.push(uploadPromise);
-            }
-          }
-        }
 
         await Promise.all(uploadPromises);
         console.log('✅ All companion template layers uploaded successfully in parallel to QFieldCloud.');

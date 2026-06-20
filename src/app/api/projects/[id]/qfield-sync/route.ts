@@ -136,11 +136,16 @@ export async function POST(request: Request, { params }: { params: Params }) {
       // Push layers after project creation
       await service.pushSurveyLayers(qfieldProject.id);
 
-      // Store QFieldCloud project reference
+      // Store QFieldCloud project reference — merge with existing gisMapping to preserve material mappings
+      const existingProject = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { gisMapping: true },
+      });
+      const existingGisMapping = (existingProject?.gisMapping as Record<string, unknown> | null) || {};
       await prisma.project.update({
         where: { id: projectId },
         data: {
-          gisMapping: { qfieldProjectId: qfieldProject.id },
+          gisMapping: { ...existingGisMapping, qfieldProjectId: qfieldProject.id },
         },
       });
 
