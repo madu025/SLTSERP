@@ -84,16 +84,16 @@ def fix_project_settings(root):
         proj_crs.remove(child)
         
     srs = ET.SubElement(proj_crs, 'spatialrefsys', {'nativeFormat': 'Wkt'})
-    ET.SubElement(srs, 'wkt').text = 'GEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],MEMBER["World Geodetic System 1984 (G2296)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["World."],BBOX[-90,-180,90,180]],ID["EPSG",4326]]'
-    ET.SubElement(srs, 'proj4').text = '+proj=longlat +datum=WGS84 +no_defs'
-    ET.SubElement(srs, 'srsid').text = '3452'
-    ET.SubElement(srs, 'srid').text = '4326'
-    ET.SubElement(srs, 'authid').text = 'EPSG:4326'
-    ET.SubElement(srs, 'description').text = 'WGS 84'
-    ET.SubElement(srs, 'projectionacronym').text = 'longlat'
+    ET.SubElement(srs, 'wkt').text = 'PROJCRS["WGS 84 / Pseudo-Mercator",BASEGEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],MEMBER["World Geodetic System 1984 (G2296)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],CONVERSION["Popular Visualisation Pseudo Mercator",METHOD["Popular Visualisation Pseudo Mercator",ID["EPSG",1024]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["False easting",0,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["easting (X)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing (Y)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Web mapping and visualisation."],AREA["World between 85.06 degrees S and 85.06 degrees N."],BBOX[-85.06,-180,85.06,180]],ID["EPSG",3857]]'
+    ET.SubElement(srs, 'proj4').text = '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs'
+    ET.SubElement(srs, 'srsid').text = '3857'
+    ET.SubElement(srs, 'srid').text = '3857'
+    ET.SubElement(srs, 'authid').text = 'EPSG:3857'
+    ET.SubElement(srs, 'description').text = 'WGS 84 / Pseudo-Mercator'
+    ET.SubElement(srs, 'projectionacronym').text = 'merc'
     ET.SubElement(srs, 'ellipsoidacronym').text = 'EPSG:7030'
-    ET.SubElement(srs, 'geographicflag').text = 'true'
-    print("  Fixed project CRS: set to EPSG:4326")
+    ET.SubElement(srs, 'geographicflag').text = 'false'
+    print("  Fixed project CRS: set to EPSG:3857")
     changes += 1
             
     # Set Map Canvas Extent to Sri Lanka bounds in degrees
@@ -101,28 +101,13 @@ def fix_project_settings(root):
     if mc is not None:
         extent = mc.find('extent')
         if extent is not None:
-            extent.find('xmin').text = '79.5'
-            extent.find('ymin').text = '5.9'
-            extent.find('xmax').text = '82.5'
-            extent.find('ymax').text = '9.9'
-            print("  Fixed map canvas extent: set to Sri Lanka bounds in degrees (79.5, 5.9, 82.5, 9.9)")
+            extent.find('xmin').text = '8849899'
+            extent.find('ymin').text = '657948'
+            extent.find('xmax').text = '9183857'
+            extent.find('ymax').text = '1107588'
+            print("  Fixed map canvas extent: set to Sri Lanka bounds in EPSG:3857 meters")
             changes += 1
 
-    # Fix zmax = 22 for XYZ tile layers to prevent black screen when zooming in
-    for layer in root.findall('.//maplayer'):
-        if layer.get('type') == 'raster':
-            datasource = layer.find('datasource')
-            layername_elem = layer.find('layername')
-            layername = layername_elem.text if layername_elem is not None else ''
-            if datasource is not None and datasource.text:
-                old_text = datasource.text
-                new_text = old_text.replace('zmax=18', 'zmax=22').replace('zmax=19', 'zmax=22')
-                new_text = new_text.replace('zmax%3D18', 'zmax%3D22').replace('zmax%3D19', 'zmax%3D22')
-                if new_text != old_text:
-                    datasource.text = new_text
-                    print(f"  Fixed raster layer '{layername}' datasource zmax to 22")
-                    changes += 1
-    
     # Fix transaction mode (must be AutomaticBuffered for QField editing)
     trans = root.find('transaction')
     if trans is not None and trans.get('mode') != 'AutomaticBuffered':
