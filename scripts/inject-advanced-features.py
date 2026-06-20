@@ -86,6 +86,21 @@ def inject_features():
                     ET.SubElement(defs, 'default', {'field': length_field, 'expression': '$length', 'applyOnUpdate': '1'})
                 print(f"Added Auto-Length to {layername}")
 
+        # 3. SMART LOCATION (AUTO-FILL ROAD NAME)
+        if layername in ['SLT_Poles', 'SLT_FDP', 'SLT_MH', 'SLT_HH', 'SLT_FTC']:
+            defs = layer.find('defaults')
+            if defs is not None:
+                road_def = defs.find("default[@field='ROAD NAME']")
+                # overlay_nearest returns an array of the nearest features. [0] gets the closest one.
+                # max_distance is in degrees (EPSG:4326). 0.002 degrees is approx 200 meters.
+                expr = "overlay_nearest('SLT_Road_EOPs', \"Road_Name\", limit:=1, max_distance:=0.002)[0]"
+                if road_def is not None:
+                    road_def.set('expression', expr)
+                    road_def.set('applyOnUpdate', '0')
+                else:
+                    ET.SubElement(defs, 'default', {'field': 'ROAD NAME', 'expression': expr, 'applyOnUpdate': '0'})
+                print(f"Added Smart Location (Road Name) to {layername}")
+
     tree.write(qgs_path, encoding='utf-8', xml_declaration=True)
 
     with zipfile.ZipFile(QGZ_PATH, 'w', zipfile.ZIP_DEFLATED) as z:
