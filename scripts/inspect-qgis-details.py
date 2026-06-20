@@ -8,22 +8,13 @@ with zipfile.ZipFile(qgz_path, 'r') as zip_ref:
         tree = ET.parse(xml_file)
         root = tree.getroot()
         
-        layer = root.find(".//maplayer[layername='SLT_Poles']")
-        if layer is not None:
-            print("Layer: SLT_Poles")
-            custom_props = layer.find('customproperties')
-            if custom_props is not None:
-                for child in custom_props:
-                    print(f"  Tag: {child.tag}, Attribs: {child.attrib}")
-                    # If it's a property, print key and value
-                    if child.tag == 'property':
-                        print(f"    Key: {child.get('key')} = {child.get('value')}")
-                    # If it's QGIS 3 Option
-                    elif child.tag == 'Option':
-                        print(f"    Option Name: {child.get('name')} = {child.get('value')}")
-                        for sub in child:
-                            print(f"      Sub: {sub.tag}, Attribs: {sub.attrib}")
-            else:
-                print("No customproperties found.")
-        else:
-            print("SLT_Poles layer not found.")
+        for name in ['SLT_FJ', 'SLT_Poles', 'SLT_MH', 'SLT_HH']:
+            layer = root.find(f".//maplayer[layername='{name}']")
+            if layer is not None:
+                print(f"Layer: {name}")
+                custom_props = layer.find('customproperties')
+                if custom_props is not None:
+                    print(ET.tostring(custom_props, encoding='utf-8').decode('utf-8'))
+                else:
+                    print("  No customproperties element!")
+                print("-" * 80)
