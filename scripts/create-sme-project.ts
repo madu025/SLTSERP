@@ -63,6 +63,31 @@ async function main() {
   });
   console.log(`✅ Project created in database. ID: ${project.id}`);
 
+  // Create some sample dropdown configs for demonstration
+  await prisma.qFieldFieldConfig.createMany({
+    data: [
+      {
+        projectId: project.id,
+        layerId: 'SLT_Poles',
+        fieldName: 'POLE_TYPE',
+        options: ['Concrete 7m', 'Concrete 8m', 'GI', 'Spun', 'Wood']
+      },
+      {
+        projectId: project.id,
+        layerId: 'SLT_Poles',
+        fieldName: 'CONDITION',
+        options: ['Good', 'Damaged', 'Leaning', 'Needs Replacement']
+      },
+      {
+        projectId: project.id,
+        layerId: 'SLT_FDT',
+        fieldName: 'CAPACITY',
+        options: ['12 Core', '24 Core', '48 Core', '96 Core']
+      }
+    ]
+  });
+  console.log(`✅ Added QFieldFieldConfig dropdown options for QField form.`);
+
   const syncService = new QFieldCloudSyncService();
 
   console.log('\nStep 1: Creating project in QFieldCloud...');

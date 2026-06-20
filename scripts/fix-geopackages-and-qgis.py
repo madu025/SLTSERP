@@ -254,6 +254,10 @@ def update_qgs_datasource(qgs_path, layers_info):
     root = tree.getroot()
     
     # Fix project CRS
+    # IMPORTANT: Do not change this to EPSG:3857! QField on mobile requires EPSG:4326 for accurate GPS 
+    # positioning and scale calculation in Sri Lanka. If this is changed to 3857, the map extent and scale 
+    # calculations on mobile will break, resulting in black screens when zooming in on XYZ tile layers 
+    # or sending the user to "Null Island".
     proj_crs = root.find('projectCrs')
     if proj_crs is None:
         proj_crs = ET.SubElement(root, 'projectCrs')
@@ -290,11 +294,14 @@ def update_qgs_datasource(qgs_path, layers_info):
             ymax = extent.find('ymax')
             if ymax is not None: ymax.text = '9.9'
             
+        # CRITICAL: If units is not 'degrees', the scale bar will read "1e+07 km" when zoomed into Sri Lanka
         units = mc.find('units')
         if units is None:
             units = ET.SubElement(mc, 'units')
         units.text = 'degrees'
         
+        # CRITICAL: destinationsrs MUST be explicitly set inside mapcanvas, otherwise QField will 
+        # crash/black-screen when trying to render EPSG:3857 basemaps on top of an EPSG:4326 project.
         dsrs = mc.find('destinationsrs')
         if dsrs is None:
             dsrs = ET.SubElement(mc, 'destinationsrs')
