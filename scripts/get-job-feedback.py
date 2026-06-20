@@ -24,7 +24,7 @@ except Exception as e:
     sys.exit(1)
 
 # We want to check the latest job for our project
-project_id = 'bba24532-a829-43e1-8f60-75487a37803b'
+project_id = sys.argv[1] if len(sys.argv) > 1 else '49036e4b-c0b0-42d4-8249-6354170b3ddc'
 print(f"Fetching latest package job for project: {project_id}")
 
 url = f"{base_url}/api/v1/jobs/?project_id={project_id}&type=package"
