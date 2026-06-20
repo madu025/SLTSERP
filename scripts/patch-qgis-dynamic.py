@@ -37,8 +37,14 @@ def fix_datasource_paths(root, target_dir=None):
         
         # Fix GeoJSON -> GeoPackage paths
         if 'GeoJSON' in old_src:
-            datasource.text = f'./{name}.gpkg|layername={name}'
+            datasource.text = f'{name}.gpkg|layername={name}'
             print(f"  Fixed datasource: {name} (GeoJSON -> GeoPackage)")
+            changes += 1
+        
+        # Remove leading ./ from datasource paths if present
+        if (datasource.text or '').startswith('./'):
+            datasource.text = (datasource.text or '').replace('./', '', 1)
+            print(f"  Stripped leading './' from datasource: {name}")
             changes += 1
         
         # Fix SLT_TP case: QFieldCloud/QGIS creates lowercase 'slt_tp'
@@ -52,8 +58,12 @@ def fix_datasource_paths(root, target_dir=None):
             if lt.get('name') == name:
                 lt_src = lt.get('source', '')
                 if 'GeoJSON' in lt_src:
-                    lt.set('source', f'./{name}.gpkg')
+                    lt.set('source', f'{name}.gpkg')
                     print(f"  Fixed layer-tree source: {name}")
+                    changes += 1
+                if lt_src.startswith('./'):
+                    lt.set('source', lt_src.replace('./', '', 1))
+                    print(f"  Stripped leading './' from layer-tree source: {name}")
                     changes += 1
                 if 'slt_tp' in lt_src:
                     lt.set('source', lt_src.replace('slt_tp', 'SLT_TP'))
@@ -64,25 +74,49 @@ def fix_project_settings(root):
     """Fix critical QField project settings"""
     changes = 0
     
-    # Fix project CRS (empty CRS causes QField to fail)
+    # Fix project CRS (always set to EPSG:4326 for WGS 84 coordinate consistency with GPS)
     proj_crs = root.find('projectCrs')
     if proj_crs is not None:
         srs = proj_crs.find('spatialrefsys')
         if srs is not None:
-            authid = srs.find('authid')
-            if authid is None or not authid.text:
-                # Set WGS 84 / EPSG:4326
-                srs.find('wkt').text = 'GEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["World."],BBOX[-90,-180,90,180]],ID["EPSG",4326]]'
-                srs.find('proj4').text = '+proj=longlat +datum=WGS84 +no_defs'
-                srs.find('srsid').text = '3452'
-                srs.find('srid').text = '4326'
-                srs.find('authid').text = 'EPSG:4326'
-                srs.find('description').text = 'WGS 84'
-                srs.find('projectionacronym').text = 'longlat'
-                srs.find('ellipsoidacronym').text = 'EPSG:7030'
-                srs.find('geographicflag').text = 'true'
-                print("  Fixed project CRS: set to EPSG:4326")
-                changes += 1
+            srs.find('wkt').text = 'GEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["World."],BBOX[-90,-180,90,180]],ID["EPSG",4326]]'
+            srs.find('proj4').text = '+proj=longlat +datum=WGS84 +no_defs'
+            srs.find('srsid').text = '3452'
+            srs.find('srid').text = '4326'
+            srs.find('authid').text = 'EPSG:4326'
+            srs.find('description').text = 'WGS 84'
+            srs.find('projectionacronym').text = 'longlat'
+            srs.find('ellipsoidacronym').text = 'EPSG:7030'
+            srs.find('geographicflag').text = 'true'
+            print("  Fixed project CRS: set to EPSG:4326")
+            changes += 1
+            
+    # Set Map Canvas Extent to Sri Lanka bounds in degrees
+    mc = root.find('.//mapcanvas')
+    if mc is not None:
+        extent = mc.find('extent')
+        if extent is not None:
+            extent.find('xmin').text = '79.5'
+            extent.find('ymin').text = '5.9'
+            extent.find('xmax').text = '82.5'
+            extent.find('ymax').text = '9.9'
+            print("  Fixed map canvas extent: set to Sri Lanka bounds in degrees (79.5, 5.9, 82.5, 9.9)")
+            changes += 1
+
+    # Fix zmax = 22 for XYZ tile layers to prevent black screen when zooming in
+    for layer in root.findall('.//maplayer'):
+        if layer.get('type') == 'raster':
+            datasource = layer.find('datasource')
+            layername_elem = layer.find('layername')
+            layername = layername_elem.text if layername_elem is not None else ''
+            if datasource is not None and datasource.text:
+                old_text = datasource.text
+                new_text = old_text.replace('zmax=18', 'zmax=22').replace('zmax=19', 'zmax=22')
+                new_text = new_text.replace('zmax%3D18', 'zmax%3D22').replace('zmax%3D19', 'zmax%3D22')
+                if new_text != old_text:
+                    datasource.text = new_text
+                    print(f"  Fixed raster layer '{layername}' datasource zmax to 22")
+                    changes += 1
     
     # Fix transaction mode (must be AutomaticBuffered for QField editing)
     trans = root.find('transaction')
