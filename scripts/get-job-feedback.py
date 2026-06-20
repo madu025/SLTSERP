@@ -24,7 +24,7 @@ except Exception as e:
     sys.exit(1)
 
 # We want to check the latest job for our project
-project_id = 'b39ded40-ee0c-47f4-ac1a-f7a94611e017'
+project_id = '609ad921-9203-42de-9577-aaaa2179a20b'
 print(f"Fetching latest package job for project: {project_id}")
 
 url = f"{base_url}/api/v1/jobs/?project_id={project_id}&type=package"
@@ -37,13 +37,15 @@ except Exception as e:
     print(f"Failed to fetch jobs: {e}")
     sys.exit(1)
 
-if not jobs:
-    print("No jobs found.")
+package_jobs = [j for j in jobs if j.get('type') == 'package']
+if not package_jobs:
+    print("No package jobs found.")
     sys.exit(0)
 
-# Get detailed job info
-latest_job_id = jobs[0]['id']
-print(f"Fetching detailed job info for job ID: {latest_job_id}")
+# Sort by created_at desc (latest first)
+package_jobs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+latest_job_id = package_jobs[0]['id']
+print(f"Fetching detailed job info for package job ID: {latest_job_id}")
 
 url = f"{base_url}/api/v1/jobs/{latest_job_id}/"
 req = urllib.request.Request(url, headers={"Authorization": f"Token {token}"})

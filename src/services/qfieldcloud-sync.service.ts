@@ -204,20 +204,19 @@ export class QFieldCloudSyncService {
 
         const uploadPromises: Promise<void>[] = [];
 
-        // Upload companion GeoPackage files from QGIS Project Template/GeoPackage/
+        // Upload companion GeoPackage files from template root directory
         const templateDir = path.dirname(resolvedPath);
-        const geoPackageDir = path.join(templateDir, 'GeoPackage');
-        if (fs.existsSync(geoPackageDir)) {
-          const files = fs.readdirSync(geoPackageDir);
+        if (fs.existsSync(templateDir)) {
+          const files = fs.readdirSync(templateDir);
           for (const file of files) {
             if (file.endsWith('.gpkg')) {
-              const gpkgPath = path.join(geoPackageDir, file);
+              const gpkgPath = path.join(templateDir, file);
               const gpkgBuffer = fs.readFileSync(gpkgPath);
               const gpkgBlob = new Blob([gpkgBuffer], { type: 'application/octet-stream' });
               const gpkgFormData = new FormData();
               gpkgFormData.append('file', gpkgBlob, file);
 
-              const uploadPromise = this.fetchWithAuth(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/GeoPackage/${file}/`, {
+              const uploadPromise = this.fetchWithAuth(`${this.baseUrl}/api/v1/files/${qfieldProject.id}/${file}/`, {
                 method: 'POST',
                 body: gpkgFormData,
               }).then(async (res) => {
