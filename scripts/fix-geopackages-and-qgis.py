@@ -255,18 +255,23 @@ def update_qgs_datasource(qgs_path, layers_info):
     
     # Fix project CRS
     proj_crs = root.find('projectCrs')
-    if proj_crs is not None:
-        srs = proj_crs.find('spatialrefsys')
-        if srs is not None:
-            srs.find('wkt').text = 'GEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["World."],BBOX[-90,-180,90,180]],ID["EPSG",4326]]'
-            srs.find('proj4').text = '+proj=longlat +datum=WGS84 +no_defs'
-            srs.find('srsid').text = '3452'
-            srs.find('srid').text = '4326'
-            srs.find('authid').text = 'EPSG:4326'
-            srs.find('description').text = 'WGS 84'
-            srs.find('projectionacronym').text = 'longlat'
-            srs.find('ellipsoidacronym').text = 'EPSG:7030'
-            srs.find('geographicflag').text = 'true'
+    if proj_crs is None:
+        proj_crs = ET.SubElement(root, 'projectCrs')
+    
+    # clear existing children
+    for child in list(proj_crs):
+        proj_crs.remove(child)
+        
+    srs = ET.SubElement(proj_crs, 'spatialrefsys', {'nativeFormat': 'Wkt'})
+    ET.SubElement(srs, 'wkt').text = 'GEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],MEMBER["World Geodetic System 1984 (G2296)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["Horizontal component of 3D system."],AREA["World."],BBOX[-90,-180,90,180]],ID["EPSG",4326]]'
+    ET.SubElement(srs, 'proj4').text = '+proj=longlat +datum=WGS84 +no_defs'
+    ET.SubElement(srs, 'srsid').text = '3452'
+    ET.SubElement(srs, 'srid').text = '4326'
+    ET.SubElement(srs, 'authid').text = 'EPSG:4326'
+    ET.SubElement(srs, 'description').text = 'WGS 84'
+    ET.SubElement(srs, 'projectionacronym').text = 'longlat'
+    ET.SubElement(srs, 'ellipsoidacronym').text = 'EPSG:7030'
+    ET.SubElement(srs, 'geographicflag').text = 'true'
     
     # Fix transaction mode
     trans = root.find('transaction')
