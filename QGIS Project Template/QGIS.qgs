@@ -44,7 +44,7 @@
       <customproperties>
         <Option/>
       </customproperties>
-      <layer-tree-layer legend_exp="" legend_split_behavior="0" patch_size="-1,-1" checked="Qt::Checked" providerKey="ogr" expanded="1" id="SLT_TP_466671f2_8aed_4f29_a2f3_884775181b01" name="SLT_TP" source="./GeoPackage/SLT_TP.gpkg|layername=SLT_TP">
+      <layer-tree-layer legend_exp="" legend_split_behavior="0" patch_size="-1,-1" checked="Qt::Checked" providerKey="ogr" expanded="1" id="SLT_TP_466671f2_8aed_4f29_a2f3_884775181b01" name="SLT_TP" source="./GeoPackage/SLT_TP.gpkg|layername=slt_tp">
         <customproperties>
           <Option type="Map">
             <Option type="int" name="showFeatureCount" value="1"/>
@@ -5644,7 +5644,7 @@
         <ymax>6.90346499999999974</ymax>
       </wgs84extent>
       <id>SLT_TP_466671f2_8aed_4f29_a2f3_884775181b01</id>
-      <datasource>./GeoPackage/SLT_TP.gpkg|layername=SLT_TP</datasource>
+      <datasource>./GeoPackage/SLT_TP.gpkg|layername=slt_tp</datasource>
       <layername>SLT_TP</layername>
       <srs>
         <spatialrefsys nativeFormat="Wkt">
