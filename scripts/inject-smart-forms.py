@@ -25,7 +25,7 @@ def inject_smart_forms():
             continue
             
         layername = layer.find('layername').text
-        if layername != 'SLT_Poles':
+        if layername not in ['SLT_Poles', 'SLT_FDP']:
             continue
 
         # 1. ADD NEW FIELDS
@@ -92,13 +92,22 @@ def inject_smart_forms():
             field_indexes[alias.get('field')] = alias.get('index')
 
         # Define Tab structure
-        tabs = {
-            "Basic Info": ['PL_Number', 'Exist_New', 'ROAD NAME', 'SIDE', 'LAC', 'LEA'],
-            "Technical": ['POLE TYPE', 'POLE MAKE', 'POLE HEIGHT', 'NUMBER OF RISERS', 'RISER PIPE', 'STAYS', 'STRUT', 'OVERHEAD GUY', 'BARBED', 'POWER ENCLOSURE', 'MOUNTED MSAN', 'DP COUNT', 'FDP COUNT', 'NO OF DROP WIRES(COPPER)', 'NO OF DROP WIRES(FIBER)', 'ADJACENT PREVIOUS', 'JOINT', 'REMARK'],
-            "Location & System": ['Latitude', 'Longitute', 'fid'],
-            "Condition & Damage": ['CONDITION', 'DAMAGE_DESC'],
-            "Photos": ['Photo']
-        }
+        if layername == 'SLT_Poles':
+            tabs = {
+                "Basic Info": ['PL_Number', 'Exist_New', 'ROAD NAME', 'SIDE', 'LAC', 'LEA'],
+                "Technical": ['POLE TYPE', 'POLE MAKE', 'POLE HEIGHT', 'NUMBER OF RISERS', 'RISER PIPE', 'STAYS', 'STRUT', 'OVERHEAD GUY', 'BARBED', 'POWER ENCLOSURE', 'MOUNTED MSAN', 'DP COUNT', 'FDP COUNT', 'NO OF DROP WIRES(COPPER)', 'NO OF DROP WIRES(FIBER)', 'ADJACENT PREVIOUS', 'JOINT', 'REMARK'],
+                "Location & System": ['Latitude', 'Longitute', 'fid'],
+                "Condition & Damage": ['CONDITION', 'DAMAGE_DESC'],
+                "Photos": ['Photo']
+            }
+        else: # SLT_FDP
+            tabs = {
+                "Basic Info": ['FDP NAME', 'Exst_New', 'ROAD NAME', 'LAC', 'LEA'],
+                "Technical": ['TYPE', 'NO OF SPLITTERS', 'SPLITTER TYPE', 'REMARKS'],
+                "Location & System": ['Latitude', 'Longitute', 'fid'],
+                "Condition & Damage": ['CONDITION', 'DAMAGE_DESC'],
+                "Photos": ['Photo']
+            }
 
         for tab_name, fields in tabs.items():
             tab = ET.SubElement(form, 'attributeEditorContainer', {

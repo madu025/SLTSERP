@@ -20,8 +20,8 @@ async function authenticate(): Promise<string> {
 }
 
 async function main() {
-  const projectCode = 'SME-0452';
-  const name = 'Cluster Development Project';
+  const projectCode = process.argv[2] || 'SME-0452';
+  const name = process.argv[3] || 'Cluster Development Project';
 
   console.log(`Checking if project ${projectCode} exists in database...`);
   const existingProject = await prisma.project.findUnique({
@@ -66,11 +66,24 @@ async function main() {
   // Create some sample dropdown configs for demonstration
   await prisma.qFieldFieldConfig.createMany({
     data: [
+      // SLT_Poles Dropdowns
       {
         projectId: project.id,
         layerId: 'SLT_Poles',
-        fieldName: 'POLE_TYPE',
+        fieldName: 'POLE TYPE', // FIXED: Space instead of underscore
         options: ['Concrete 7m', 'Concrete 8m', 'GI', 'Spun', 'Wood']
+      },
+      {
+        projectId: project.id,
+        layerId: 'SLT_Poles',
+        fieldName: 'POLE MAKE',
+        options: ['LTL', 'St. Anthony', 'Other']
+      },
+      {
+        projectId: project.id,
+        layerId: 'SLT_Poles',
+        fieldName: 'Exist_New',
+        options: ['Existing', 'New']
       },
       {
         projectId: project.id,
@@ -78,11 +91,31 @@ async function main() {
         fieldName: 'CONDITION',
         options: ['Good', 'Damaged', 'Leaning', 'Needs Replacement']
       },
+      // SLT_FDT Dropdowns
       {
         projectId: project.id,
         layerId: 'SLT_FDT',
         fieldName: 'CAPACITY',
         options: ['12 Core', '24 Core', '48 Core', '96 Core']
+      },
+      // SLT_FDP Dropdowns
+      {
+        projectId: project.id,
+        layerId: 'SLT_FDP',
+        fieldName: 'TYPE',
+        options: ['Indoor', 'Outdoor', 'Wall Mount', 'Pole Mount']
+      },
+      {
+        projectId: project.id,
+        layerId: 'SLT_FDP',
+        fieldName: 'SPLITTER TYPE',
+        options: ['1:2', '1:4', '1:8', '1:16']
+      },
+      {
+        projectId: project.id,
+        layerId: 'SLT_FDP',
+        fieldName: 'Exst_New',
+        options: ['Existing', 'New']
       }
     ]
   });
