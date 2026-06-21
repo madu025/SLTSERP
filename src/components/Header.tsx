@@ -7,6 +7,7 @@ import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import NotificationBell from "@/components/NotificationBell";
 import MobileNav from "@/components/MobileNav";
 import ExtensionStatus from "@/components/ExtensionStatus";
+import { Search } from 'lucide-react';
 
 interface User {
     name: string;
@@ -54,71 +55,69 @@ export default function Header() {
     };
 
     if (!mounted) {
-        return <header className="h-14 md:h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0 bg-background/50 backdrop-blur-md" />;
+        return <header className="h-10 border-b border-border flex items-center justify-between px-4 z-10 sticky top-0 bg-card text-foreground" />;
     }
 
     return (
-        <header className="h-14 md:h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-8 z-10 sticky top-0 bg-background/50 backdrop-blur-md">
-            <div className="flex items-center gap-3 flex-1">
-                {/* Mobile Navigation */}
-                <MobileNav />
+        <header className="h-10 border-b border-border flex items-center justify-between px-3 md:px-6 z-10 sticky top-0 bg-card text-foreground">
+            {/* Mobile Navigation */}
+            <MobileNav />
 
-                {/* Search Bar - Hidden on small mobile, visible on larger screens */}
-                <div className="relative max-w-md w-full hidden sm:block">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg className="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </span>
-                    <input
-                        className="block w-full pl-10 pr-3 py-2 border border-white/5 rounded-lg leading-5 bg-white/5 placeholder-slate-400 focus:outline-none focus:bg-white/10 focus:ring-1 focus:ring-primary focus:border-primary text-sm transition-all"
-                        placeholder="Search..."
-                        type="search"
-                    />
-                </div>
+            {/* Compact Search Bar */}
+            <div className="relative max-w-[280px] w-full hidden sm:block ml-4">
+                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                </span>
+                <input
+                    className="block w-full pl-8 pr-2.5 h-6.5 text-[11px] border border-border rounded bg-muted/30 placeholder-muted-foreground focus:outline-none focus:bg-muted/50 focus:ring-1 focus:ring-primary focus:border-primary transition-all text-foreground"
+                    placeholder="Search..."
+                    type="search"
+                />
             </div>
 
-            <div className="flex items-center space-x-2 md:space-x-4">
+            <div className="flex-1" />
+
+            <div className="flex items-center gap-1 md:gap-3">
                 <ExtensionStatus />
                 <NotificationBell />
 
                 <div className="relative profile-dropdown">
                     <button
                         onClick={() => setShowProfileMenu(!showProfileMenu)}
-                        className="flex items-center space-x-2 md:space-x-3 focus:outline-none cursor-pointer"
+                        className="flex items-center gap-1.5 md:gap-2 focus:outline-none cursor-pointer"
                     >
                         <div className="text-right hidden lg:block">
-                            <p className="text-sm font-semibold text-slate-200">{user?.name || 'User'}</p>
-                            <p className="text-xs text-slate-400 capitalize">{user?.role?.toLowerCase().replace('_', ' ') || 'Guest'}</p>
+                            <p className="text-xs font-semibold text-foreground leading-tight">{user?.name || 'User'}</p>
+                            <p className="text-[10px] text-muted-foreground capitalize leading-tight">{user?.role?.toLowerCase().replace('_', ' ') || 'Guest'}</p>
                         </div>
-                        <div className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold shadow-md text-sm">
+                        <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white font-bold text-[10px]">
                             {user?.name?.substring(0, 2).toUpperCase() || '??'}
                         </div>
-                        <svg className={`w-4 h-4 text-slate-400 transition-transform hidden md:block ${showProfileMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform hidden md:block ${showProfileMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
 
                     {showProfileMenu && (
-                        <div className="absolute right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-md rounded-xl shadow-lg border border-white/5 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="absolute right-0 mt-1 w-40 bg-card border border-border rounded-lg shadow-sm py-1 z-50">
                             <Link
                                 href="/profile"
-                                className="block px-4 py-2 text-sm text-slate-200 hover:bg-white/5 transition-colors"
+                                className="block px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
                                 onClick={() => setShowProfileMenu(false)}
                             >
                                 Your Profile
                             </Link>
                             <Link
                                 href="/admin/settings"
-                                className="block px-4 py-2 text-sm text-slate-200 hover:bg-white/5 transition-colors"
+                                className="block px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
                                 onClick={() => setShowProfileMenu(false)}
                             >
                                 Settings
                             </Link>
-                            <hr className="my-1 border-white/5" />
+                            <hr className="my-1 border-border" />
                             <button
                                 onClick={handleLogout}
-                                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-500/10 transition-colors cursor-pointer"
                             >
                                 Sign Out
                             </button>

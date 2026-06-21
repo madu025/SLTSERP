@@ -16,13 +16,27 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GISMapView } from '@/components/gis/GISMapView';
 import { GISLayerPanel } from '@/components/gis/GISLayerPanel';
 
+interface Project {
+  name?: string;
+  projectCode?: string;
+}
+interface GISData {
+  gisRoutes?: {
+    poles?: unknown[];
+    generatedBOQs?: unknown[];
+  }[];
+  assets?: unknown[];
+  surveys?: unknown[];
+  permits?: unknown[];
+}
+
 export default function ProjectGISMapPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [gisData, setGisData] = useState<any>(null);
-  const [project, setProject] = useState<any>(null);
+  const [gisData, setGisData] = useState<GISData | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -54,9 +68,10 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
       }
 
       setLastRefreshed(new Date());
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching GIS data:', err);
-      setError(err.message || 'Failed to load GIS data');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load GIS data';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -142,10 +157,10 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
                 </h1>
                 <p className="text-sm text-gray-500">
                   {projectName}
-                  {gisData?.gisRoutes?.length > 0 && (
+                  {gisData?.gisRoutes && gisData.gisRoutes.length > 0 && (
                     <span className="ml-2">
                       · {gisData.gisRoutes.length} route{gisData.gisRoutes.length !== 1 ? 's' : ''}
-                      · {(gisData.gisRoutes.reduce((sum: number, r: any) => sum + (r.poles?.length || 0), 0))} poles
+                      · {(gisData.gisRoutes.reduce((sum: number, r: { poles?: unknown[] }) => sum + (r.poles?.length || 0), 0))} poles
                     </span>
                   )}
                 </p>

@@ -1,45 +1,38 @@
 "use client";
-
+ 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
-
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-    Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle,
-    Loader2, BookOpen, Trash2, FolderKanban, DollarSign, BarChart2,
-    LineChart, ClipboardList, Truck, Search, MapPin, Building2,
-    Calendar, ArrowRight, Cloud,
+    Plus, Search, Loader2, Trash2, FolderKanban, TrendingUp, Clock,
+    CheckCircle2, AlertCircle, Eye, BookOpen, PlusCircle, ArrowRight,
 } from 'lucide-react';
 import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
 import { toast } from 'sonner';
-
+ 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
 interface ProjectType {
     id: string;
     name: string;
     description: string;
 }
-
 interface OPMCOption {
     id: string;
     rtom: string;
     region: string;
 }
-
 interface ContractorOption {
     id: string;
     name: string;
 }
-
 interface Project {
     id: string;
     projectCode: string;
@@ -56,181 +49,36 @@ interface Project {
     contractor?: { id: string; name: string };
     projectType?: { id: string; name: string; description: string };
     gisMapping?: { qfieldProjectId?: string } | null;
-    _count: {
-        boqItems: number;
-        milestones: number;
-        expenses: number;
-    };
+    _count: { boqItems: number; milestones: number; expenses: number };
 }
-
+ 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string; icon: React.ComponentType<{ className?: string }> }> = {
-    PLANNING: { label: 'Planning', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-400', icon: Clock },
-    APPROVED: { label: 'Approved', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-400', icon: CheckCircle2 },
-    IN_PROGRESS: { label: 'In Progress', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', icon: TrendingUp },
-    ON_HOLD: { label: 'On Hold', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-400', icon: AlertCircle },
-    COMPLETED: { label: 'Completed', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500', icon: CheckCircle2 },
-    CANCELLED: { label: 'Cancelled', bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-400', icon: AlertCircle },
+const STATUS_CONFIG: Record<string, { label: string; dot: string; icon: React.ComponentType<{ className?: string }> }> = {
+    PLANNING: { label: 'Planning', dot: 'bg-amber-400', icon: Clock },
+    APPROVED: { label: 'Approved', dot: 'bg-blue-400', icon: CheckCircle2 },
+    IN_PROGRESS: { label: 'In Progress', dot: 'bg-emerald-500', icon: TrendingUp },
+    ON_HOLD: { label: 'On Hold', dot: 'bg-orange-400', icon: AlertCircle },
+    COMPLETED: { label: 'Completed', dot: 'bg-green-500', icon: CheckCircle2 },
+    CANCELLED: { label: 'Cancelled', dot: 'bg-red-400', icon: AlertCircle },
 };
-
 const PROGRESS_COLOR = (p: number) =>
     p >= 80 ? 'bg-emerald-500' : p >= 50 ? 'bg-blue-500' : p >= 25 ? 'bg-amber-500' : 'bg-rose-500';
-
 const FILTER_STATUSES = ['ALL', 'PLANNING', 'APPROVED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED'];
-
-const DASHBOARDS = [
-    { label: 'PM Dashboard', path: '/projects/dashboards/pm', icon: BarChart2, color: 'text-blue-600 bg-blue-50' },
-    { label: 'Finance', path: '/projects/dashboards/financials', icon: LineChart, color: 'text-emerald-600 bg-emerald-50' },
-    { label: 'QA/QC', path: '/projects/dashboards/qaqc', icon: ClipboardList, color: 'text-purple-600 bg-purple-50' },
-    { label: 'Logistics', path: '/projects/dashboards/logistics', icon: Truck, color: 'text-orange-600 bg-orange-50' },
-];
-
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', minimumFractionDigits: 0 }).format(amount);
-
-// Computed once at module load — keeps renders pure/deterministic
+ 
 const TODAY_MS = Date.now();
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function ProjectCard({ project, onDelete, onView }: {
-    project: Project;
-    onView: (p: Project) => void;
-    onDelete: (p: Project) => void;
-}) {
-    const cfg = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.PLANNING;
-    const daysLeft = project.endDate
-        ? Math.ceil((new Date(project.endDate).getTime() - TODAY_MS) / 86400000)
-        : null;
-    const isQfieldReady = !!project.gisMapping?.qfieldProjectId;
-
-    return (
-        <div className="group bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col">
-            {/* Top color strip based on progress */}
-            <div className="h-1 w-full">
-                <div
-                    className={`h-full ${PROGRESS_COLOR(project.progress)} transition-all duration-500`}
-                    style={{ width: `${project.progress}%` }}
-                />
-            </div>
-
-            <div className="p-5 flex flex-col flex-1 gap-4">
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-                                {project.projectCode}
-                            </span>
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                                {cfg.label}
-                            </span>
-                        </div>
-                        <h3 className="text-base font-semibold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
-                            {project.name}
-                        </h3>
-                    </div>
-                </div>
-
-                {/* Meta info */}
-                <div className="space-y-2 text-sm text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    {project.location && (
-                        <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 shrink-0 text-slate-400" />
-                            <span className="truncate">{project.location}</span>
-                        </div>
-                    )}
-                    {(project.opmc || project.contractor) && (
-                        <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 shrink-0 text-slate-400" />
-                            <span className="truncate">
-                                {project.opmc?.rtom || 'No OPMC'} {project.contractor && `• ${project.contractor.name}`}
-                            </span>
-                        </div>
-                    )}
-                    {project.endDate && (
-                        <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 shrink-0 text-slate-400" />
-                            <span className={daysLeft !== null && daysLeft < 0 ? 'text-red-500 font-medium' : ''}>
-                                {daysLeft !== null && daysLeft < 0
-                                    ? `${Math.abs(daysLeft)}d overdue`
-                                    : daysLeft === 0 ? 'Due today'
-                                        : `${daysLeft}d remaining`}
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Progress bar */}
-                <div>
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                        <div className="flex items-center gap-2">
-                            <span className="text-slate-500 font-medium">Progress</span>
-                            {isQfieldReady && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
-                                    <Cloud className="w-3 h-3" /> QField Ready
-                                </span>
-                            )}
-                        </div>
-                        <span className="font-bold text-slate-800">{project.progress}%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-all duration-700 ${PROGRESS_COLOR(project.progress)}`}
-                            style={{ width: `${project.progress}%` }}
-                        />
-                    </div>
-                </div>
-
-                {/* Stats row */}
-                <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-slate-50 rounded-lg py-2">
-                        <p className="text-[10px] text-slate-400 font-medium uppercase">BOQ</p>
-                        <p className="text-sm font-bold text-slate-800">{project._count.boqItems}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg py-2">
-                        <p className="text-[10px] text-slate-400 font-medium uppercase">Miles</p>
-                        <p className="text-sm font-bold text-slate-800">{project._count.milestones}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg py-2">
-                        <p className="text-[10px] text-slate-400 font-medium uppercase">Budget</p>
-                        <p className="text-xs font-bold text-slate-800 truncate px-1">
-                            {project.budget ? `LKR ${(project.budget / 1_000_000).toFixed(1)}M` : 'N/A'}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex gap-2 mt-auto pt-1">
-                    <Button
-                        size="sm"
-                        className="flex-1 gap-1.5 text-xs h-8"
-                        onClick={() => onView(project)}
-                    >
-                        <Eye className="w-3.5 h-3.5" />
-                        Open
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200"
-                        onClick={() => onDelete(project)}
-                    >
-                        <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
+ 
+const DASHBOARDS = [
+    { label: 'PM', path: '/projects/dashboards/pm' },
+    { label: 'Finance', path: '/projects/dashboards/financials' },
+    { label: 'QA/QC', path: '/projects/dashboards/qaqc' },
+    { label: 'Logistics', path: '/projects/dashboards/logistics' },
+];
+ 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-
 export default function ProjectsPage() {
     const router = useRouter();
-
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -242,25 +90,19 @@ export default function ProjectsPage() {
     const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
     const [opmcs, setOpmcs] = useState<OPMCOption[]>([]);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
-
     const [newProject, setNewProject] = useState({
         projectCode: '', name: '', description: '', type: 'OSP_FTTH',
         location: '', budget: '', startDate: '', endDate: '', projectTypeId: '', opmcId: '', contractorId: ''
     });
-
-    // Add Project Type dialog
     const [newTypeDialogOpen, setNewTypeDialogOpen] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
     const [newTypeDescription, setNewTypeDescription] = useState('');
     const [creatingType, setCreatingType] = useState(false);
-
-    // Delete dialog
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
     const [deleting, setDeleting] = useState(false);
-
+ 
     // ── Data fetching ─────────────────────────────────────────────────────────
-
     const fetchProjectTypes = useCallback(async () => {
         try {
             const res = await fetch('/api/projects/types');
@@ -270,25 +112,19 @@ export default function ProjectsPage() {
             }
         } catch { /* silent */ }
     }, []);
-
+ 
     const fetchDropdowns = useCallback(async () => {
         try {
-            const [opmcRes, contractorRes] = await Promise.all([
-                fetch('/api/opmcs'),
-                fetch('/api/contractors'),
-            ]);
-            if (opmcRes.ok) {
-                const data = await opmcRes.json();
-                setOpmcs(Array.isArray(data) ? data : data.opmcs || data.data || []);
-            }
+            const [opmcRes, contractorRes] = await Promise.all([fetch('/api/opmcs'), fetch('/api/contractors')]);
+            if (opmcRes.ok) { const d = await opmcRes.json(); setOpmcs(Array.isArray(d) ? d : d.opmcs || d.data || []); }
             if (contractorRes.ok) {
-                const json = await contractorRes.json();
-                const actualData = json?.success && json?.data ? json.data : json;
-                setContractors(Array.isArray(actualData?.contractors) ? actualData.contractors : []);
+                const j = await contractorRes.json();
+                const actual = j?.success && j?.data ? j.data : j;
+                setContractors(Array.isArray(actual?.contractors) ? actual.contractors : []);
             }
         } catch { /* silent */ }
     }, []);
-
+ 
     const fetchProjects = useCallback(async () => {
         try {
             const params = new URLSearchParams();
@@ -299,380 +135,375 @@ export default function ProjectsPage() {
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
             setProjects(Array.isArray(data) ? data : data.projects || data.data || []);
-        } catch {
-            toast.error('Failed to load projects');
-        } finally {
-            setLoading(false);
-        }
+        } catch { toast.error('Failed to load projects'); }
+        finally { setLoading(false); }
     }, [statusFilter, opmcFilter, contractorFilter]);
-
+ 
     useEffect(() => { fetchProjects(); fetchProjectTypes(); fetchDropdowns(); }, [fetchProjects, fetchProjectTypes, fetchDropdowns]);
-
+ 
     // ── Derived data ──────────────────────────────────────────────────────────
-
     const filtered = projects.filter(p =>
-        !searchQuery ||
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.projectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.location?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
     const totalBudget = projects.reduce((s, p) => s + (p.budget || 0), 0);
-    const avgProgress = projects.length > 0
-        ? projects.reduce((s, p) => s + p.progress, 0) / projects.length : 0;
     const inProgressCount = projects.filter(p => p.status === 'IN_PROGRESS').length;
     const selectedProjectType = projectTypes.find(pt => pt.id === newProject.projectTypeId);
-
+ 
     // ── Handlers ──────────────────────────────────────────────────────────────
-
     const handleCreate = async () => {
-        if (!newProject.name.trim() || !newProject.projectCode.trim()) {
-            toast.error('Project Code and Name are required');
-            return;
-        }
+        if (!newProject.name.trim() || !newProject.projectCode.trim()) { toast.error('Project Code and Name are required'); return; }
         try {
-            const res = await fetch('/api/projects', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newProject),
-            });
-            if (!res.ok) {
-                const error = await res.json();
-                toast.error(error.error || 'Failed to create project');
-                return;
-            }
-            toast.success('Project created successfully');
+            const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newProject) });
+            if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
+            toast.success('Project created');
             setCreateDialogOpen(false);
             setNewProject({ projectCode: '', name: '', description: '', type: 'OSP_FTTH', location: '', budget: '', startDate: '', endDate: '', projectTypeId: '', opmcId: '', contractorId: '' });
             fetchProjects();
-        } catch {
-            toast.error('Failed to create project');
-        }
+        } catch { toast.error('Failed to create project'); }
     };
-
+ 
     const handleDelete = async () => {
         if (!projectToDelete) return;
         try {
             setDeleting(true);
             const res = await fetch(`/api/projects/${projectToDelete.id}`, { method: 'DELETE' });
-            if (!res.ok) {
-                const error = await res.json();
-                toast.error(error.error || 'Failed to delete project');
-                return;
-            }
+            if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
             toast.success('Project deleted');
-            setDeleteDialogOpen(false);
-            setProjectToDelete(null);
-            fetchProjects();
-        } catch {
-            toast.error('Failed to delete project');
-        } finally {
-            setDeleting(false);
-        }
+            setDeleteDialogOpen(false); setProjectToDelete(null); fetchProjects();
+        } catch { toast.error('Failed to delete project'); }
+        finally { setDeleting(false); }
     };
-
+ 
     const handleAddProjectType = async () => {
-        if (!newTypeName.trim()) { toast.error('Please enter a project type name'); return; }
+        if (!newTypeName.trim()) { toast.error('Enter a name'); return; }
         try {
             setCreatingType(true);
-            const res = await fetch('/api/projects/types', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newTypeName.trim(), description: newTypeDescription.trim() }),
-            });
-            if (!res.ok) {
-                const error = await res.json();
-                toast.error(error.error || 'Failed to create project type');
-                return;
-            }
+            const res = await fetch('/api/projects/types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTypeName.trim(), description: newTypeDescription.trim() }) });
+            if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
             const created = await res.json();
             setNewProject(prev => ({ ...prev, projectTypeId: created.id }));
-            setNewTypeDialogOpen(false);
-            setNewTypeName('');
-            setNewTypeDescription('');
-            fetchProjectTypes();
-        } catch {
-            toast.error('Failed to create project type');
-        } finally {
-            setCreatingType(false);
-        }
+            setNewTypeDialogOpen(false); setNewTypeName(''); setNewTypeDescription(''); fetchProjectTypes();
+        } catch { toast.error('Failed'); }
+        finally { setCreatingType(false); }
     };
-
+ 
     // ── Loading state ─────────────────────────────────────────────────────────
-
     if (loading) {
         return (
-            <div className="min-h-screen flex bg-slate-50">
+            <div className="min-h-screen flex bg-background text-foreground">
                 <Sidebar />
                 <main className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full" />
+                    <div className="animate-spin w-8 h-8 border-3 border-primary border-t-transparent rounded-full" />
                 </main>
             </div>
         );
     }
-
+ 
     return (
-        <div className="min-h-screen flex bg-white">
+        <div className="min-h-screen flex bg-background text-foreground">
             <Sidebar />
-            <main className="flex-1 flex flex-col min-w-0 bg-slate-50/60">
+            <main className="flex-1 flex flex-col min-w-0 bg-background">
                 <Header />
-
+ 
                 <div className="flex-1 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 space-y-6">
-
-                        {/* ── Page Header ── */}
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="max-w-7xl mx-auto px-3 md:px-4 lg:px-6 py-3 space-y-3">
+ 
+                        {/* Page Header */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                             <div>
-                                <h1 className="text-2xl font-bold text-slate-900">Project Management</h1>
-                                <p className="text-sm text-slate-500 mt-0.5">OSP construction projects — full lifecycle tracking</p>
+                                <h1 className="text-lg font-bold text-foreground">Projects</h1>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {projects.length} projects · {inProgressCount} in progress · {formatCurrency(totalBudget)} budget
+                                </p>
                             </div>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setGuideDialogOpen(true)} className="gap-1.5">
-                                    <BookOpen className="w-4 h-4" />
-                                    Guide
+                                <Button variant="outline" size="sm" onClick={() => setGuideDialogOpen(true)} className="gap-1.5 h-8 text-xs">
+                                    <BookOpen className="w-3.5 h-3.5" />Guide
                                 </Button>
-                                <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
-                                    <Plus className="w-4 h-4" />
-                                    New Project
+                                <Button onClick={() => setCreateDialogOpen(true)} className="gap-1.5 h-8 text-xs">
+                                    <Plus className="w-3.5 h-3.5" />New Project
                                 </Button>
                             </div>
                         </div>
-
-                        {/* ── KPI Stat Cards ── */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            {[
-                                { label: 'Total Projects', value: projects.length, icon: FolderKanban, color: 'text-blue-600 bg-blue-50' },
-                                { label: 'In Progress', value: inProgressCount, icon: TrendingUp, color: 'text-emerald-600 bg-emerald-50' },
-                                { label: 'Total Budget', value: formatCurrency(totalBudget), icon: DollarSign, color: 'text-violet-600 bg-violet-50' },
-                                { label: 'Avg Progress', value: `${avgProgress.toFixed(0)}%`, icon: BarChart2, color: 'text-amber-600 bg-amber-50' },
-                            ].map(({ label, value, icon: Icon, color }) => (
-                                <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3 shadow-sm">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-                                        <Icon className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
-                                        <p className="text-xl font-bold text-slate-900 mt-0.5">{value}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* ── Dashboard Quick-Links ── */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {DASHBOARDS.map(({ label, path, icon: Icon, color }) => (
-                                <Link
-                                    key={path}
-                                    href={path}
-                                    className="flex items-center gap-3 bg-white rounded-xl border border-slate-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition-all group"
-                                >
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}>
-                                        <Icon className="w-4 h-4" />
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">{label}</span>
-                                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 ml-auto group-hover:text-slate-600 transition-transform group-hover:translate-x-0.5" />
+ 
+                        {/* Dashboard Quick-Links */}
+                        <div className="flex gap-2 flex-wrap">
+                            {DASHBOARDS.map(({ label, path }) => (
+                                <Link key={path} href={path}
+                                    className="flex items-center gap-1.5 bg-card rounded border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:text-primary hover:bg-muted/50 transition-all shadow-xs">
+                                    {label}
+                                    <ArrowRight className="w-3 h-3" />
                                 </Link>
                             ))}
                         </div>
-
-                        {/* ── Filters + Search ── */}
-                        <div className="flex flex-col md:flex-row gap-3">
-                            <div className="relative flex-1 md:max-w-sm">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <Input
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search projects..."
-                                    className="pl-9 bg-white"
-                                />
+ 
+                        {/* Filters + Search */}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <div className="relative flex-1 sm:max-w-xs">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                                <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Search projects..." className="pl-8 h-8 text-xs bg-card border-border text-foreground" />
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap flex-1 md:justify-end">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                                 <Select value={opmcFilter} onValueChange={setOpmcFilter}>
-                                    <SelectTrigger className="w-[140px] bg-white"><SelectValue placeholder="All Regions" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ALL">All Regions</SelectItem>
-                                        {(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom}</SelectItem>)}
-                                    </SelectContent>
+                                    <SelectTrigger className="w-[120px] h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="All Regions" /></SelectTrigger>
+                                    <SelectContent>{['ALL', ...(opmcs || []).map(o => o.id)].map(id =>
+                                        <SelectItem key={id} value={id}>{id === 'ALL' ? 'All Regions' : opmcs.find(o => o.id === id)?.rtom}</SelectItem>
+                                    )}</SelectContent>
                                 </Select>
                                 <Select value={contractorFilter} onValueChange={setContractorFilter}>
-                                    <SelectTrigger className="w-[160px] bg-white"><SelectValue placeholder="All Contractors" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ALL">All Contractors</SelectItem>
-                                        {(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                    </SelectContent>
+                                    <SelectTrigger className="w-[130px] h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="All Contractors" /></SelectTrigger>
+                                    <SelectContent>{['ALL', ...(contractors || []).map(c => c.id)].map(id =>
+                                        <SelectItem key={id} value={id}>{id === 'ALL' ? 'All Contractors' : contractors.find(c => c.id === id)?.name}</SelectItem>
+                                    )}</SelectContent>
                                 </Select>
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-[140px] bg-white"><SelectValue placeholder="All Status" /></SelectTrigger>
-                                    <SelectContent>
-                                        {FILTER_STATUSES.map(s => <SelectItem key={s} value={s}>{s === 'ALL' ? 'All Status' : STATUS_CONFIG[s]?.label}</SelectItem>)}
-                                    </SelectContent>
+                                    <SelectTrigger className="w-[110px] h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="All Status" /></SelectTrigger>
+                                    <SelectContent>{FILTER_STATUSES.map(s =>
+                                        <SelectItem key={s} value={s}>{s === 'ALL' ? 'All Status' : STATUS_CONFIG[s]?.label}</SelectItem>
+                                    )}</SelectContent>
                                 </Select>
                             </div>
                         </div>
-
-                        {/* ── Project Cards Grid ── */}
+ 
+                        {/* Project Table */}
                         {filtered.length === 0 ? (
-                            <div className="bg-white rounded-2xl border border-slate-200 py-16 text-center">
-                                <FolderKanban className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                                <p className="text-slate-500 font-medium">No projects found</p>
-                                <p className="text-sm text-slate-400 mt-1">
-                                    {searchQuery ? 'Try a different search term' : 'Create a new project to get started'}
-                                </p>
+                            <div className="bg-card rounded-lg border border-border py-12 text-center shadow-xs">
+                                <FolderKanban className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                                <p className="text-sm text-foreground font-medium">No projects found</p>
+                                <p className="text-xs text-muted-foreground mt-1">{searchQuery ? 'Try a different search term' : 'Create a new project to get started'}</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {filtered.map((project) => (
-                                    <ProjectCard
-                                        key={project.id}
-                                        project={project}
-                                        onView={(p) => router.push(`/projects/${p.id}`)}
-                                        onDelete={(p) => { setProjectToDelete(p); setDeleteDialogOpen(true); }}
-                                    />
-                                ))}
+                            <div className="bg-card rounded-lg border border-border overflow-hidden shadow-sm">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="border-b border-border bg-muted/30">
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Project</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden md:table-cell">Location</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden lg:table-cell">OPMC</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden sm:table-cell">Progress</th>
+                                                <th className="text-right px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] hidden md:table-cell">Budget</th>
+                                                <th className="text-center px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] w-[80px]">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border/50">
+                                            {filtered.map((project) => {
+                                                const cfg = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.PLANNING;
+                                                const daysLeft = project.endDate
+                                                    ? Math.ceil((new Date(project.endDate).getTime() - TODAY_MS) / 86400000)
+                                                    : null;
+                                                const isQfieldReady = !!project.gisMapping?.qfieldProjectId;
+ 
+                                                return (
+                                                    <tr key={project.id}
+                                                        className="hover:bg-muted/40 transition-colors cursor-pointer"
+                                                        onClick={() => router.push(`/projects/${project.id}`)}>
+                                                        {/* Project Name + Code */}
+                                                        <td className="px-3 py-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded whitespace-nowrap">{project.projectCode}</span>
+                                                                <span className="font-medium text-foreground truncate max-w-[180px]">{project.name}</span>
+                                                            </div>
+                                                        </td>
+                                                        {/* Location */}
+                                                        <td className="px-3 py-2 text-muted-foreground truncate max-w-[150px] hidden md:table-cell">
+                                                            {project.location || '—'}
+                                                        </td>
+                                                        {/* OPMC */}
+                                                        <td className="px-3 py-2 hidden lg:table-cell">
+                                                            <span className="text-foreground">{project.opmc?.rtom || '—'}</span>
+                                                            {project.contractor && <span className="text-muted-foreground ml-1">· {project.contractor.name}</span>}
+                                                        </td>
+                                                        {/* Status */}
+                                                        <td className="px-3 py-2">
+                                                            <span className="inline-flex items-center gap-1">
+                                                                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                                                                <span className="text-muted-foreground">{cfg.label}</span>
+                                                            </span>
+                                                            {isQfieldReady && (
+                                                                <span className="ml-2 text-[10px] text-emerald-600 font-medium bg-emerald-500/10 px-1 py-0.5 rounded">QField</span>
+                                                            )}
+                                                        </td>
+                                                        {/* Progress */}
+                                                        <td className="px-3 py-2 hidden sm:table-cell">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                                                                    <div className={`h-full rounded-full ${PROGRESS_COLOR(project.progress)}`}
+                                                                        style={{ width: `${project.progress}%` }} />
+                                                                </div>
+                                                                <span className="text-[10px] font-medium text-muted-foreground">{project.progress}%</span>
+                                                            </div>
+                                                        </td>
+                                                        {/* Budget */}
+                                                        <td className="px-3 py-2 text-right font-medium text-foreground hidden md:table-cell">
+                                                            {project.budget ? `LKR ${(project.budget / 1_000_000).toFixed(1)}M` : 'N/A'}
+                                                            {daysLeft !== null && (
+                                                                <span className={`block text-[10px] ${daysLeft < 0 ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
+                                                                    {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        {/* Actions */}
+                                                        <td className="px-3 py-2 text-center">
+                                                            <div className="flex items-center justify-center gap-1"
+                                                                onClick={(e) => e.stopPropagation()}>
+                                                                <Button size="sm" variant="ghost"
+                                                                    onClick={() => router.push(`/projects/${project.id}`)}
+                                                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-primary hover:bg-muted"
+                                                                    title="Open">
+                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                                <Button size="sm" variant="ghost"
+                                                                    onClick={() => { setProjectToDelete(project); setDeleteDialogOpen(true); }}
+                                                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                                                                    title="Delete">
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
             </main>
-
+ 
             {/* ── Create Project Dialog ── */}
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Create New Project</DialogTitle>
-                        <DialogDescription>Enter project details below</DialogDescription>
+                        <DialogTitle className="text-lg">Create New Project</DialogTitle>
+                        <DialogDescription className="text-xs">Enter project details below</DialogDescription>
                     </DialogHeader>
-                    <div className="grid grid-cols-2 gap-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Project Code *</Label>
-                            <Input value={newProject.projectCode} onChange={(e) => setNewProject({ ...newProject, projectCode: e.target.value })} placeholder="PRJ-2026-001" />
+                    <div className="grid grid-cols-2 gap-3 py-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Project Code *</Label>
+                            <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.projectCode} onChange={(e) => setNewProject({ ...newProject, projectCode: e.target.value })} placeholder="PRJ-2026-001" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                                <Label>Project Type (Workflow)</Label>
-                                <button type="button" onClick={() => setNewTypeDialogOpen(true)} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                                    <PlusCircle className="w-3 h-3" />Add New
+                                <Label className="text-xs">Project Type</Label>
+                                <button type="button" onClick={() => setNewTypeDialogOpen(true)} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-0.5">
+                                    <PlusCircle className="w-3 h-3" />Add
                                 </button>
                             </div>
                             <Select value={newProject.projectTypeId || undefined} onValueChange={(v) => setNewProject({ ...newProject, projectTypeId: v })}>
-                                <SelectTrigger><SelectValue placeholder="Select project type..." /></SelectTrigger>
-                                <SelectContent>
-                                    {(projectTypes || []).map((pt) => (
-                                        <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>
-                                    ))}
-                                </SelectContent>
+                                <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select type..." /></SelectTrigger>
+                                <SelectContent>{(projectTypes || []).map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
                             </Select>
-                            {selectedProjectType && <p className="text-xs text-slate-500 mt-1">Workflow: {selectedProjectType.description}</p>}
+                            {selectedProjectType && <p className="text-[10px] text-muted-foreground mt-0.5">Workflow: {selectedProjectType.description}</p>}
                         </div>
-                        <div className="col-span-2 space-y-2">
-                            <Label>Project Name *</Label>
-                            <Input value={newProject.name} onChange={(e) => setNewProject({ ...newProject, name: e.target.value })} placeholder="Project name" />
+                        <div className="col-span-2 space-y-1.5">
+                            <Label className="text-xs">Project Name *</Label>
+                            <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.name} onChange={(e) => setNewProject({ ...newProject, name: e.target.value })} placeholder="Project name" />
                         </div>
-                        <div className="col-span-2 space-y-2">
-                            <Label>Description</Label>
-                            <Textarea value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} placeholder="Project description..." rows={3} />
+                        <div className="col-span-2 space-y-1.5">
+                            <Label className="text-xs">Description</Label>
+                            <Textarea className="text-xs bg-card border-border text-foreground" value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} placeholder="Project description..." rows={2} />
                         </div>
-                        <div className="col-span-2 space-y-2">
-                            <Label>Location</Label>
-                            <Input value={newProject.location} onChange={(e) => setNewProject({ ...newProject, location: e.target.value })} placeholder="Project location" />
+                        <div className="col-span-2 space-y-1.5">
+                            <Label className="text-xs">Location</Label>
+                            <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.location} onChange={(e) => setNewProject({ ...newProject, location: e.target.value })} placeholder="Project location" />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Budget (LKR)</Label>
-                            <Input type="number" value={newProject.budget} onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })} placeholder="0.00" />
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Budget (LKR)</Label>
+                            <Input className="h-8 text-xs bg-card border-border text-foreground" type="number" value={newProject.budget} onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })} placeholder="0.00" />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Start Date</Label>
-                            <Input type="date" value={newProject.startDate} onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })} />
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Start Date</Label>
+                            <Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={newProject.startDate} onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })} />
                         </div>
-                        <div className="space-y-2">
-                            <Label>End Date</Label>
-                            <Input type="date" value={newProject.endDate} onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })} />
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">End Date</Label>
+                            <Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={newProject.endDate} onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })} />
                         </div>
-                        <div className="space-y-2">
-                            <Label>OPMC (Region)</Label>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">OPMC</Label>
                             <Select value={newProject.opmcId || undefined} onValueChange={(v) => setNewProject({ ...newProject, opmcId: v })}>
-                                <SelectTrigger><SelectValue placeholder="Select OPMC" /></SelectTrigger>
-                                <SelectContent>
-                                    {(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}
-                                </SelectContent>
+                                <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
+                                <SelectContent>{(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label>Contractor</Label>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Contractor</Label>
                             <Select value={newProject.contractorId || undefined} onValueChange={(v) => setNewProject({ ...newProject, contractorId: v })}>
-                                <SelectTrigger><SelectValue placeholder="Select Contractor" /></SelectTrigger>
-                                <SelectContent>
-                                    {(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                </SelectContent>
+                                <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select Contractor" /></SelectTrigger>
+                                <SelectContent>{(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleCreate}>Create Project</Button>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+                        <Button size="sm" className="h-8 text-xs" onClick={handleCreate}>Create Project</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
+ 
             {/* ── Guide Dialog ── */}
             <Dialog open={guideDialogOpen} onOpenChange={setGuideDialogOpen}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="text-xl">Project Module Guide</DialogTitle>
-                        <DialogDescription>Complete A-to-Z documentation for all project modules</DialogDescription>
+                        <DialogTitle className="text-lg">Project Module Guide</DialogTitle>
+                        <DialogDescription className="text-xs">Complete documentation for all project modules</DialogDescription>
                     </DialogHeader>
                     {guideDialogOpen && <ProjectDocumentation project={undefined as never} />}
                 </DialogContent>
             </Dialog>
-
+ 
             {/* ── Add Project Type Dialog ── */}
             <Dialog open={newTypeDialogOpen} onOpenChange={setNewTypeDialogOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Add New Project Type</DialogTitle>
-                        <DialogDescription>Create a new workflow project type</DialogDescription>
+                        <DialogTitle className="text-lg">Add New Project Type</DialogTitle>
+                        <DialogDescription className="text-xs">Create a new workflow project type</DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Type Name *</Label>
-                            <Input value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="e.g., OSP_FTTH, FIBER_BACKBONE" />
+                    <div className="space-y-3 py-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Type Name *</Label>
+                            <Input className="h-8 text-xs bg-card border-border text-foreground" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} placeholder="e.g., OSP_FTTH" />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Description</Label>
-                            <Textarea value={newTypeDescription} onChange={(e) => setNewTypeDescription(e.target.value)} placeholder="Brief description..." rows={3} />
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Description</Label>
+                            <Textarea className="text-xs bg-card border-border text-foreground" value={newTypeDescription} onChange={(e) => setNewTypeDescription(e.target.value)} placeholder="Brief description..." rows={2} />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setNewTypeDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleAddProjectType} disabled={creatingType}>
-                            {creatingType ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</> : 'Create Type'}
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setNewTypeDialogOpen(false)}>Cancel</Button>
+                        <Button size="sm" className="h-8 text-xs" onClick={handleAddProjectType} disabled={creatingType}>
+                            {creatingType ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Creating...</> : 'Create Type'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            {/* ── Delete Confirmation Dialog ── */}
+ 
+            {/* ── Delete Dialog ── */}
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-red-600 flex items-center gap-2">
-                            <Trash2 className="w-5 h-5" />Delete Project
+                        <DialogTitle className="text-red-600 flex items-center gap-1.5 text-base">
+                            <Trash2 className="w-4 h-4" />Delete Project
                         </DialogTitle>
-                        <DialogDescription>
-                            This action cannot be undone. All BOQ items, milestones, expenses, documents, and workflow data will be permanently removed.
-                        </DialogDescription>
+                        <DialogDescription className="text-xs">This cannot be undone. All data will be permanently removed.</DialogDescription>
                     </DialogHeader>
                     {projectToDelete && (
-                        <div className="py-2 space-y-1 bg-red-50 rounded-lg p-3 border border-red-200">
-                            <p className="text-sm font-semibold text-slate-900">{projectToDelete.name}</p>
-                            <p className="text-xs text-slate-500">Code: {projectToDelete.projectCode}</p>
-                            <p className="text-xs text-slate-500">Status: {projectToDelete.status?.replace(/_/g, ' ')}</p>
+                        <div className="py-2 bg-destructive/10 text-destructive rounded border border-destructive/20 p-2 text-xs">
+                            <p className="font-semibold">{projectToDelete.name}</p>
+                            <p className="text-muted-foreground mt-0.5">Code: {projectToDelete.projectCode} · Status: {projectToDelete.status?.replace(/_/g, ' ')}</p>
                         </div>
                     )}
                     <DialogFooter className="gap-2">
-                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
-                        <Button variant="destructive" onClick={handleDelete} disabled={deleting} className="gap-2">
-                            {deleting ? <><Loader2 className="w-4 h-4 animate-spin" />Deleting...</> : <><Trash2 className="w-4 h-4" />Delete Project</>}
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
+                        <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={handleDelete} disabled={deleting}>
+                            {deleting ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Deleting...</> : <><Trash2 className="w-3.5 h-3.5 mr-1" />Delete</>}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -14,7 +14,6 @@ interface User {
     username: string;
 }
 
-// Role display label map
 const ROLE_LABELS: Record<string, string> = {
     SUPER_ADMIN: 'Super Administrator',
     ADMIN: 'Administrator',
@@ -57,7 +56,6 @@ export default function Sidebar() {
     }, []);
 
     useEffect(() => {
-        // Auto-expand menu if a child is active
         SIDEBAR_MENU.forEach(item => {
             if (item.submenu?.some(sub => pathname === sub.path || pathname.startsWith(sub.path + '/'))) {
                 setExpandedMenus(prev => {
@@ -79,43 +77,40 @@ export default function Sidebar() {
 
     return (
         <>
-            {/* Sidebar */}
             <aside
-                className={`${isCollapsed ? 'w-[72px]' : 'w-[260px]'} flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 z-40 transition-all duration-300 ease-in-out`}
+                className={`${isCollapsed ? 'w-[56px]' : 'w-[220px]'} flex-shrink-0 hidden md:flex flex-col h-screen sticky top-0 z-40 transition-all duration-300 ease-in-out`}
                 style={{
-                    background: 'linear-gradient(180deg, #0A1628 0%, #0D1F3C 40%, #0A1A30 100%)',
-                    borderRight: '1px solid rgba(0, 114, 187, 0.15)',
-                    boxShadow: '4px 0 24px rgba(0,0,0,0.35)',
+                    background: '#0D1B2A',
+                    borderRight: '1px solid rgba(0, 114, 187, 0.12)',
                 }}
             >
-                {/* ── TOP HEADER ── */}
+                {/* TOP HEADER */}
                 <div
-                    className={`flex items-center ${isCollapsed ? 'justify-center px-0 py-5' : 'justify-between px-5 py-4'} flex-shrink-0`}
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                    className={`flex items-center ${isCollapsed ? 'justify-center px-0 py-3' : 'justify-between px-3 py-2.5'} flex-shrink-0`}
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
                 >
                     {!isCollapsed && (
-                        <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="flex items-center gap-2 overflow-hidden">
                             <div className="relative flex-shrink-0">
                                 <div
-                                    className="w-9 h-9 rounded-xl flex items-center justify-center"
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center"
                                     style={{
                                         background: 'linear-gradient(135deg, #004A80, #0072BB)',
-                                        boxShadow: '0 4px 12px rgba(0,114,187,0.4)',
                                     }}
                                 >
                                     <Image
                                         src="/logo.png"
                                         alt="SLTS"
-                                        width={22}
-                                        height={22}
+                                        width={18}
+                                        height={18}
                                         className="object-contain"
                                         style={{ filter: 'brightness(0) invert(1)' }}
                                     />
                                 </div>
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-[15px] font-bold text-white leading-tight tracking-wide">SLTS Nexus</span>
-                                <span className="text-[9px] font-semibold uppercase tracking-[0.18em]" style={{ color: '#00AEEF' }}>
+                                <span className="text-[13px] font-bold text-white leading-tight tracking-wide">SLTS Nexus</span>
+                                <span className="text-[7px] font-semibold uppercase tracking-[0.16em]" style={{ color: '#00AEEF' }}>
                                     Workflow Management
                                 </span>
                             </div>
@@ -124,27 +119,25 @@ export default function Sidebar() {
 
                     {isCollapsed && (
                         <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center"
+                            className="w-7 h-7 rounded-lg flex items-center justify-center"
                             style={{
                                 background: 'linear-gradient(135deg, #004A80, #0072BB)',
-                                boxShadow: '0 4px 12px rgba(0,114,187,0.4)',
                             }}
                         >
                             <Image
                                 src="/logo.png"
                                 alt="SLTS"
-                                width={22}
-                                height={22}
+                                width={18}
+                                height={18}
                                 className="object-contain"
                                 style={{ filter: 'brightness(0) invert(1)' }}
                             />
                         </div>
                     )}
 
-                    {/* Collapse Toggle */}
                     <button
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200"
+                        className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded transition-all duration-200"
                         style={{
                             background: 'rgba(255,255,255,0.04)',
                             border: '1px solid rgba(255,255,255,0.08)',
@@ -170,20 +163,20 @@ export default function Sidebar() {
                     </button>
                 </div>
 
-                {/* ── NAVIGATION ── */}
-                <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3" style={{ scrollbarWidth: 'none' }}>
+                {/* NAVIGATION */}
+                <nav className="flex-1 overflow-y-auto overflow-x-hidden py-1.5" style={{ scrollbarWidth: 'none' }}>
                     {!isCollapsed && (
-                        <div className="px-5 pb-2 pt-1">
+                        <div className="px-3 pb-1.5 pt-1">
                             <span
-                                className="text-[9px] font-bold uppercase tracking-[0.2em]"
-                                style={{ color: 'rgba(0,174,239,0.5)' }}
+                                className="text-[8px] font-bold uppercase tracking-[0.18em]"
+                                style={{ color: 'rgba(0,174,239,0.4)' }}
                             >
                                 Navigation
                             </span>
                         </div>
                     )}
 
-                    <div className="px-2 space-y-0.5">
+                    <div className="px-1.5 space-y-0">
                         {mounted ? SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
                             const Icon = item.icon;
                             const hasSubmenu = item.submenu && item.submenu.length > 0;
@@ -205,74 +198,65 @@ export default function Sidebar() {
 
                             return (
                                 <div key={`menu-${item.title}-${item.path}`}>
-                                    {/* Menu Item */}
                                     <div className="relative group">
                                         <Link
                                             href={hasSubmenu ? '#' : item.path}
                                             onClick={handleMenuClick}
                                             onMouseEnter={() => setHoveredItem(item.title)}
                                             onMouseLeave={() => setHoveredItem(null)}
-                                            className="flex items-center justify-between rounded-xl transition-all duration-200 cursor-pointer"
+                                            className="flex items-center justify-between rounded-lg transition-all duration-150 cursor-pointer"
                                             style={{
-                                                padding: isCollapsed ? '0.625rem' : '0.55rem 0.75rem',
+                                                padding: isCollapsed ? '0.5rem' : '0.35rem 0.55rem',
                                                 justifyContent: isCollapsed ? 'center' : 'space-between',
                                                 background: isActive
-                                                    ? 'linear-gradient(135deg, rgba(0,114,187,0.25) 0%, rgba(0,174,239,0.1) 100%)'
+                                                    ? 'rgba(0,114,187,0.2)'
                                                     : isHovered
-                                                        ? 'rgba(255,255,255,0.05)'
+                                                        ? 'rgba(255,255,255,0.04)'
                                                         : 'transparent',
                                                 border: isActive
-                                                    ? '1px solid rgba(0,114,187,0.3)'
+                                                    ? '1px solid rgba(0,114,187,0.25)'
                                                     : '1px solid transparent',
-                                                boxShadow: isActive ? '0 2px 12px rgba(0,114,187,0.15)' : 'none',
                                             }}
                                             title={isCollapsed ? item.title : ''}
                                         >
-                                            {/* Active bar indicator */}
                                             {isActive && !isCollapsed && (
                                                 <div
                                                     className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full"
                                                     style={{
-                                                        height: '60%',
+                                                        height: '56%',
                                                         background: 'linear-gradient(180deg, #00AEEF, #0072BB)',
-                                                        boxShadow: '0 0 8px rgba(0,174,239,0.6)',
                                                     }}
                                                 />
                                             )}
 
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                {/* Icon */}
+                                            <div className="flex items-center gap-2 min-w-0">
                                                 <div
-                                                    className="flex-shrink-0 flex items-center justify-center rounded-lg transition-all duration-200"
+                                                    className="flex-shrink-0 flex items-center justify-center rounded transition-all duration-150"
                                                     style={{
-                                                        width: '32px',
-                                                        height: '32px',
+                                                        width: '28px',
+                                                        height: '28px',
                                                         background: isActive
-                                                            ? 'linear-gradient(135deg, rgba(0,114,187,0.35), rgba(0,174,239,0.2))'
-                                                            : 'rgba(255,255,255,0.04)',
+                                                            ? 'rgba(0,114,187,0.3)'
+                                                            : 'rgba(255,255,255,0.03)',
                                                         border: isActive
-                                                            ? '1px solid rgba(0,174,239,0.3)'
-                                                            : '1px solid rgba(255,255,255,0.06)',
-                                                        color: isActive ? '#00AEEF' : isHovered ? '#fff' : 'rgba(255,255,255,0.5)',
+                                                            ? '1px solid rgba(0,174,239,0.25)'
+                                                            : '1px solid rgba(255,255,255,0.04)',
+                                                        color: isActive ? '#00AEEF' : isHovered ? '#fff' : 'rgba(255,255,255,0.45)',
                                                     }}
                                                 >
-                                                    <Icon
-                                                        className="w-4 h-4 transition-colors"
-                                                    />
+                                                    <Icon className="w-3.5 h-3.5 transition-colors" />
                                                 </div>
 
-                                                {/* Label */}
                                                 {!isCollapsed && (
                                                     <span
-                                                        className="text-[13px] font-medium truncate transition-colors"
-                                                        style={{ color: isActive ? '#fff' : isHovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)' }}
+                                                        className="text-[11px] font-medium truncate transition-colors"
+                                                        style={{ color: isActive ? '#fff' : isHovered ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)' }}
                                                     >
                                                         {item.title}
                                                     </span>
                                                 )}
                                             </div>
 
-                                            {/* Chevron for submenu */}
                                             {!isCollapsed && hasSubmenu && (
                                                 <ChevronDown
                                                     className="w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200"
@@ -284,7 +268,6 @@ export default function Sidebar() {
                                             )}
                                         </Link>
 
-                                        {/* Tooltip for collapsed mode */}
                                         {isCollapsed && (
                                             <div
                                                 className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50"
@@ -303,11 +286,11 @@ export default function Sidebar() {
                                         )}
                                     </div>
 
-                                    {/* ── SUBMENU ── */}
+                                    {/* SUBMENU */}
                                     {!isCollapsed && hasSubmenu && isExpanded && (
                                         <div
-                                            className="mt-0.5 ml-4 pl-3 space-y-0.5"
-                                            style={{ borderLeft: '1px solid rgba(0,114,187,0.2)' }}
+                                            className="mt-0 ml-3 pl-2 space-y-0"
+                                            style={{ borderLeft: '1px solid rgba(0,114,187,0.15)' }}
                                         >
                                             {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => {
                                                 const isSubActive = pathname === sub.path || pathname.startsWith(sub.path + '/');
@@ -315,25 +298,24 @@ export default function Sidebar() {
                                                     <Link
                                                         key={sub.path}
                                                         href={sub.path}
-                                                        className="flex items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[12px] font-medium transition-all duration-150 group/sub"
+                                                        className="flex items-center gap-1.5 px-2 py-[4px] rounded text-[11px] font-medium transition-all duration-150 group/sub"
                                                         style={{
-                                                            color: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.45)',
-                                                            background: isSubActive ? 'rgba(0,114,187,0.12)' : 'transparent',
+                                                            color: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.4)',
+                                                            background: isSubActive ? 'rgba(0,114,187,0.1)' : 'transparent',
                                                         }}
                                                         onMouseEnter={e => {
                                                             if (!isSubActive) {
-                                                                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.85)';
-                                                                (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.04)';
+                                                                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.8)';
+                                                                (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.03)';
                                                             }
                                                         }}
                                                         onMouseLeave={e => {
                                                             if (!isSubActive) {
-                                                                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.45)';
+                                                                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.4)';
                                                                 (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
                                                             }
                                                         }}
                                                     >
-                                                        {/* Sub dot indicator */}
                                                         <div
                                                             className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all"
                                                             style={{
@@ -350,11 +332,10 @@ export default function Sidebar() {
                                 </div>
                             );
                         }) : (
-                            /* Loading skeleton */
-                            <div className="space-y-2 px-1 py-2">
+                            <div className="space-y-1.5 px-1 py-1.5">
                                 {[80, 65, 75, 55, 70].map((w, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-2 rounded-xl" style={{ animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }}>
-                                        <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: 'rgba(255,255,255,0.05)' }} />
+                                    <div key={i} className="flex items-center gap-2 p-1.5 rounded-lg" style={{ animation: 'pulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.1}s` }}>
+                                        <div className="w-7 h-7 rounded flex-shrink-0" style={{ background: 'rgba(255,255,255,0.05)' }} />
                                         {!isCollapsed && <div className="h-3 rounded-full flex-1" style={{ background: 'rgba(255,255,255,0.05)', maxWidth: `${w}%` }} />}
                                     </div>
                                 ))}
@@ -363,23 +344,22 @@ export default function Sidebar() {
                     </div>
                 </nav>
 
-                {/* ── SYNC STATUS (Admins only) ── */}
                 {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN']) && (
                     <SyncStatus isCollapsed={isCollapsed} />
                 )}
 
-                {/* ── USER PROFILE SECTION ── */}
+                {/* USER PROFILE SECTION */}
                 <div
                     className="flex-shrink-0"
-                    style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
                 >
                     <Link
                         href="/profile"
                         className="flex items-center transition-all duration-200 group/profile"
                         style={{
-                            padding: isCollapsed ? '0.875rem' : '0.875rem 1rem',
+                            padding: isCollapsed ? '0.65rem' : '0.6rem 0.75rem',
                             justifyContent: isCollapsed ? 'center' : 'flex-start',
-                            gap: '0.75rem',
+                            gap: '0.5rem',
                         }}
                         onMouseEnter={e => {
                             (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(0,114,187,0.08)';
@@ -388,50 +368,42 @@ export default function Sidebar() {
                             (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
                         }}
                     >
-                        {/* Avatar */}
                         <div
                             className="flex-shrink-0 relative"
-                            style={{ width: '36px', height: '36px' }}
+                            style={{ width: '28px', height: '28px' }}
                         >
                             <div
-                                className="w-full h-full rounded-full flex items-center justify-center text-xs font-bold text-white"
+                                className="w-full h-full rounded-full flex items-center justify-center text-[11px] font-bold text-white"
                                 style={{
                                     background: 'linear-gradient(135deg, #004A80, #0072BB)',
-                                    boxShadow: '0 0 0 2px rgba(0,114,187,0.3)',
-                                    fontSize: '13px',
-                                    letterSpacing: '0.04em',
                                 }}
                             >
                                 {userInitials}
                             </div>
-                            {/* Online dot */}
                             <div
-                                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full"
+                                className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full"
                                 style={{
                                     background: '#10b981',
-                                    border: '2px solid #0A1628',
-                                    boxShadow: '0 0 6px rgba(16,185,129,0.6)',
+                                    border: '1.5px solid #0D1B2A',
                                 }}
                             />
                         </div>
 
-                        {/* User info */}
                         {!isCollapsed && (
                             <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold text-white truncate leading-tight">
+                                <p className="text-[11px] font-semibold text-white truncate leading-tight">
                                     {user?.name || 'Loading...'}
                                 </p>
-                                <p className="text-[10px] truncate leading-tight mt-0.5" style={{ color: 'rgba(0,174,239,0.7)' }}>
+                                <p className="text-[9px] truncate leading-tight mt-0" style={{ color: 'rgba(0,174,239,0.6)' }}>
                                     {roleLabel}
                                 </p>
                             </div>
                         )}
 
-                        {/* Logout button */}
                         {!isCollapsed && (
                             <button
                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLogout(); }}
-                                className="flex-shrink-0 p-1.5 rounded-lg opacity-0 group-hover/profile:opacity-100 transition-all duration-200"
+                                className="flex-shrink-0 p-1 rounded opacity-0 group-hover/profile:opacity-100 transition-all duration-150"
                                 style={{
                                     color: 'rgba(239,68,68,0.7)',
                                     background: 'rgba(239,68,68,0.08)',
@@ -447,7 +419,7 @@ export default function Sidebar() {
                                 }}
                                 title="Sign Out"
                             >
-                                <LogOut className="w-3.5 h-3.5" />
+                                <LogOut className="w-3 h-3" />
                             </button>
                         )}
                     </Link>
