@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
     Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle,
     Loader2, BookOpen, Trash2, FolderKanban, DollarSign, BarChart2,
-    LineChart, ClipboardList, Truck, Search, Filter, MapPin, Building2,
+    LineChart, ClipboardList, Truck, Search, MapPin, Building2,
     Calendar, ArrowRight, Cloud,
 } from 'lucide-react';
 import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
@@ -55,7 +55,7 @@ interface Project {
     opmc?: { id: string; rtom: string };
     contractor?: { id: string; name: string };
     projectType?: { id: string; name: string; description: string };
-    gisMapping?: any;
+    gisMapping?: { qfieldProjectId?: string } | null;
     _count: {
         boqItems: number;
         milestones: number;
@@ -264,7 +264,10 @@ export default function ProjectsPage() {
     const fetchProjectTypes = useCallback(async () => {
         try {
             const res = await fetch('/api/projects/types');
-            if (res.ok) setProjectTypes(await res.json());
+            if (res.ok) {
+                const data = await res.json();
+                setProjectTypes(Array.isArray(data) ? data : data.types || data.data || []);
+            }
         } catch { /* silent */ }
     }, []);
 
@@ -274,8 +277,15 @@ export default function ProjectsPage() {
                 fetch('/api/opmcs'),
                 fetch('/api/contractors'),
             ]);
-            if (opmcRes.ok) setOpmcs(await opmcRes.json());
-            if (contractorRes.ok) setContractors(await contractorRes.json());
+            if (opmcRes.ok) {
+                const data = await opmcRes.json();
+                setOpmcs(Array.isArray(data) ? data : data.opmcs || data.data || []);
+            }
+            if (contractorRes.ok) {
+                const json = await contractorRes.json();
+                const actualData = json?.success && json?.data ? json.data : json;
+                setContractors(Array.isArray(actualData?.contractors) ? actualData.contractors : []);
+            }
         } catch { /* silent */ }
     }, []);
 
@@ -287,7 +297,8 @@ export default function ProjectsPage() {
             if (contractorFilter !== 'ALL') params.append('contractorId', contractorFilter);
             const res = await fetch(`/api/projects?${params}`);
             if (!res.ok) throw new Error('Failed to fetch');
-            setProjects(await res.json());
+            const data = await res.json();
+            setProjects(Array.isArray(data) ? data : data.projects || data.data || []);
         } catch {
             toast.error('Failed to load projects');
         } finally {
@@ -480,14 +491,14 @@ export default function ProjectsPage() {
                                     <SelectTrigger className="w-[140px] bg-white"><SelectValue placeholder="All Regions" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ALL">All Regions</SelectItem>
-                                        {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.rtom}</SelectItem>)}
+                                        {(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                 <Select value={contractorFilter} onValueChange={setContractorFilter}>
                                     <SelectTrigger className="w-[160px] bg-white"><SelectValue placeholder="All Contractors" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ALL">All Contractors</SelectItem>
-                                        {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                        {(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -543,10 +554,10 @@ export default function ProjectsPage() {
                                     <PlusCircle className="w-3 h-3" />Add New
                                 </button>
                             </div>
-                            <Select value={newProject.projectTypeId} onValueChange={(v) => setNewProject({ ...newProject, projectTypeId: v })}>
+                            <Select value={newProject.projectTypeId || undefined} onValueChange={(v) => setNewProject({ ...newProject, projectTypeId: v })}>
                                 <SelectTrigger><SelectValue placeholder="Select project type..." /></SelectTrigger>
                                 <SelectContent>
-                                    {projectTypes.map((pt) => (
+                                    {(projectTypes || []).map((pt) => (
                                         <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -579,19 +590,19 @@ export default function ProjectsPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>OPMC (Region)</Label>
-                            <Select value={newProject.opmcId} onValueChange={(v) => setNewProject({ ...newProject, opmcId: v })}>
+                            <Select value={newProject.opmcId || undefined} onValueChange={(v) => setNewProject({ ...newProject, opmcId: v })}>
                                 <SelectTrigger><SelectValue placeholder="Select OPMC" /></SelectTrigger>
                                 <SelectContent>
-                                    {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}
+                                    {(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                             <Label>Contractor</Label>
-                            <Select value={newProject.contractorId} onValueChange={(v) => setNewProject({ ...newProject, contractorId: v })}>
+                            <Select value={newProject.contractorId || undefined} onValueChange={(v) => setNewProject({ ...newProject, contractorId: v })}>
                                 <SelectTrigger><SelectValue placeholder="Select Contractor" /></SelectTrigger>
                                 <SelectContent>
-                                    {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                    {(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>

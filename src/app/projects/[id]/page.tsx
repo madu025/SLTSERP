@@ -329,8 +329,15 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 fetch('/api/opmcs'),
                 fetch('/api/contractors'),
             ]);
-            if (opmcRes.ok) setOpmcs(await opmcRes.json());
-            if (contractorRes.ok) setContractors(await contractorRes.json());
+            if (opmcRes.ok) {
+                const data = await opmcRes.json();
+                setOpmcs(Array.isArray(data) ? data : data.opmcs || data.data || []);
+            }
+            if (contractorRes.ok) {
+                const json = await contractorRes.json();
+                const actualData = json?.success && json?.data ? json.data : json;
+                setContractors(Array.isArray(actualData?.contractors) ? actualData.contractors : []);
+            }
         } catch {
             toast.error('Failed to load dropdown options');
         }
@@ -749,12 +756,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         </div>
                         <div className="space-y-2">
                             <Label>OPMC</Label>
-                            <Select value={editOpmcId} onValueChange={setEditOpmcId}>
+                            <Select value={editOpmcId || undefined} onValueChange={setEditOpmcId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select OPMC" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {opmcs.map((o) => (
+                                    {(opmcs || []).map((o) => (
                                         <SelectItem key={o.id} value={o.id}>
                                             {o.rtom} ({o.region})
                                         </SelectItem>
@@ -764,12 +771,12 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                         </div>
                         <div className="space-y-2">
                             <Label>Contractor</Label>
-                            <Select value={editContractorId} onValueChange={setEditContractorId}>
+                            <Select value={editContractorId || undefined} onValueChange={setEditContractorId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select Contractor" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {contractors.map((c) => (
+                                    {(contractors || []).map((c) => (
                                         <SelectItem key={c.id} value={c.id}>
                                             {c.name}
                                         </SelectItem>
