@@ -6,8 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow, BookOpen, Loader2, Edit2, HardHat } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Building2, User, Workflow, BookOpen, Loader2, Edit2, HardHat, Cloud, Download, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -286,6 +285,26 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         }
     }, [visibleTabs, activeTab]);
 
+    // Group tabs for sidebar
+    const groupedTabs = useMemo(() => {
+        const groups: Record<string, TabDefinition[]> = {
+            'Core': [],
+            'Field Operations': [],
+            'Finance & Resources': [],
+            'Quality & Closure': [],
+            'Other': []
+        };
+        visibleTabs.forEach(tab => {
+            const v = tab.value;
+            if (['overview', 'workflow-pipeline', 'guide'].includes(v)) groups['Core'].push(tab);
+            else if (['gis', 'survey', 'field-tasks', 'pat', 'otdr', 'hse', 'survey-approval', 'permits'].includes(v)) groups['Field Operations'].push(tab);
+            else if (['boq', 'materials', 'expenses', 'procurement', 'finance', 'resources', 'contractor', 'contractor-perf'].includes(v)) groups['Finance & Resources'].push(tab);
+            else if (['qa', 'commissioning', 'closure', 'milestones', 'tasks', 'kpis', 'ai-forecasting', 'variations', 'risks', 'assets'].includes(v)) groups['Quality & Closure'].push(tab);
+            else groups['Other'].push(tab);
+        });
+        return Object.entries(groups).filter(([_, tabs]) => tabs.length > 0);
+    }, [visibleTabs]);
+
     // ── Edit dialog ──────────────────────────────────────────────────────────
 
     const handleOpenEdit = useCallback(async () => {
@@ -455,7 +474,19 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                 </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800"
+                                >
+                                    <Cloud className="w-4 h-4" />
+                                    Sync to QField
+                                </Button>
+                                <Button variant="outline" size="sm" className="gap-1.5">
+                                    <Download className="w-4 h-4" />
+                                    Export
+                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -465,7 +496,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                                     <BookOpen className="w-4 h-4" />
                                     Guide
                                 </Button>
-                                <Button variant="outline" onClick={handleOpenEdit} className="gap-1.5">
+                                <Button variant="outline" size="sm" onClick={handleOpenEdit} className="gap-1.5">
                                     <Edit2 className="w-4 h-4" />
                                     Edit Details
                                 </Button>
@@ -530,38 +561,79 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                     </div>
                 </div>
 
-                {/* Tab Content — Stage-driven */}
-                <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                            <TabsList className="bg-white border border-slate-200 p-1 w-full md:w-auto overflow-x-auto flex justify-start h-auto">
-                                {visibleTabs.map((tab: TabDefinition) => (
-                                    <TabsTrigger key={tab.value} value={tab.value} className="px-4 py-2 text-xs">
-                                        {tab.label}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
+                {/* ── Sub-Sidebar Layout ── */}
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Left Navigation Sidebar */}
+                    <aside className="w-64 border-r border-slate-200 bg-white/50 overflow-y-auto flex-shrink-0 hidden md:block">
+                        <div className="p-4 space-y-6">
+                            {groupedTabs.map(([groupName, tabs]) => (
+                                <div key={groupName}>
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3">
+                                        {groupName}
+                                    </h3>
+                                    <div className="space-y-0.5">
+                                        {tabs.map((tab) => (
+                                            <button
+                                                key={tab.value}
+                                                onClick={() => setActiveTab(tab.value)}
+                                                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
+                                                    activeTab === tab.value
+                                                        ? 'bg-blue-50 text-blue-700 font-medium'
+                                                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                {tab.label}
+                                                {activeTab === tab.value && <ChevronRight className="w-4 h-4 text-blue-500" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </aside>
 
-                            {visibleTabs.map((tab: TabDefinition) => {
+                    {/* Main Content Area */}
+                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-slate-50/50">
+                        <div className="max-w-6xl mx-auto">
+                            {/* Mobile Tabs fallback (only visible on small screens) */}
+                            <div className="md:hidden mb-4 overflow-x-auto pb-2 flex gap-2">
+                                {visibleTabs.map((tab) => (
+                                    <button
+                                        key={tab.value}
+                                        onClick={() => setActiveTab(tab.value)}
+                                        className={`whitespace-nowrap px-4 py-2 text-sm rounded-full border transition-all ${
+                                            activeTab === tab.value
+                                                ? 'bg-slate-900 text-white border-slate-900'
+                                                : 'bg-white text-slate-600 border-slate-200'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Render active component */}
+                            {visibleTabs.map((tab) => {
+                                if (tab.value !== activeTab) return null;
                                 const Component = TAB_COMPONENTS[tab.value];
                                 if (!Component) return null;
 
                                 return (
-                                    <TabsContent key={tab.value} value={tab.value}>
-                                        <TabErrorBoundary tabLabel={tab.label}>
-                                            <Component
-                                                project={project}
-                                                projectId={project.id}
-                                                refreshProject={
-                                                    REFRESH_TABS.has(tab.value) ? fetchProjectDetails : undefined
-                                                }
-                                            />
-                                        </TabErrorBoundary>
-                                    </TabsContent>
+                                    <div key={tab.value} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                                            <TabErrorBoundary tabLabel={tab.label}>
+                                                <Component
+                                                    project={project}
+                                                    projectId={project.id}
+                                                    refreshProject={REFRESH_TABS.has(tab.value) ? fetchProjectDetails : undefined}
+                                                />
+                                            </TabErrorBoundary>
+                                        </div>
+                                    </div>
                                 );
                             })}
-                        </Tabs>
-                    </div>
+                        </div>
+                    </main>
                 </div>
             </main>
 

@@ -10,14 +10,16 @@ export async function GET(request: Request) {
         const status = searchParams.get('status');
         const type = searchParams.get('type');
         const opmcId = searchParams.get('opmcId');
+        const contractorId = searchParams.get('contractorId');
         const projectTypeId = searchParams.get('projectTypeId');
 
         const where: Record<string, unknown> = {};
 
-        if (status) where.status = status;
-        if (type) where.type = type;
-        if (opmcId) where.opmcId = opmcId;
-        if (projectTypeId) where.projectTypeId = projectTypeId;
+        if (status && status !== 'ALL') where.status = status;
+        if (type && type !== 'ALL') where.type = type;
+        if (opmcId && opmcId !== 'ALL') where.opmcId = opmcId;
+        if (contractorId && contractorId !== 'ALL') where.contractorId = contractorId;
+        if (projectTypeId && projectTypeId !== 'ALL') where.projectTypeId = projectTypeId;
 
         const projects = await prisma.project.findMany({
             where,

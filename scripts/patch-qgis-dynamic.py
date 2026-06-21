@@ -107,9 +107,22 @@ def patch_qgs(qgs_path, config_data):
                 
             # Add or update default expressions for Lat/Lon
             lat_default = defaults_elem.find("default[@field='Latitude']")
-            if lat_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Latitude', 'expression': '$y', 'applyOnUpdate': '0'})
+            if lat_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Latitude', 'expression': 'y(@geometry)', 'applyOnUpdate': '1'})
+            else: lat_default.set('expression', 'y(@geometry)'); lat_default.set('applyOnUpdate', '1')
+
             lon_default = defaults_elem.find("default[@field='Longitute']")
-            if lon_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Longitute', 'expression': '$x', 'applyOnUpdate': '0'})
+            if lon_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Longitute', 'expression': 'x(@geometry)', 'applyOnUpdate': '1'})
+            else: lon_default.set('expression', 'x(@geometry)'); lon_default.set('applyOnUpdate', '1')
+            changes += 1
+
+            # Make Lat/Lon read-only
+            editable_elem = layer.find('editable')
+            if editable_elem is None:
+                editable_elem = ET.SubElement(layer, 'editable')
+            for f_name in ['Latitude', 'Longitute']:
+                f_edit = editable_elem.find(f"field[@name='{f_name}']")
+                if f_edit is None: ET.SubElement(editable_elem, 'field', {'name': f_name, 'editable': '0'})
+                else: f_edit.set('editable', '0')
             changes += 1
 
             # Dynamic Symbology (Coloring based on Existing vs New)
@@ -169,7 +182,64 @@ def patch_qgs(qgs_path, config_data):
                 print(f"  Injected auto-labels for {layername} using field {field_to_label}")
                 changes += 1
 
-        # 2. Inject ValueMap Widgets
+        # 3. Inject UX Widgets (Checkboxes, Spinners, TextEdit)
+        field_config_elem = layer.find('.//fieldConfiguration')
+        if field_config_elem is not None:
+            # Checkbox fields
+            checkbox_fields = ['BARBED', 'STRUT', 'OVERHEAD GUY', 'RISER PIPE', 'POWER ENCLOSURE', 'MOUNTED MSAN']
+            for f_name in checkbox_fields:
+                f_elem = field_config_elem.find(f"./field[@name='{f_name}']")
+                if f_elem is not None:
+                    ew = f_elem.find('editWidget')
+                    if ew is not None: f_elem.remove(ew)
+                    ew = ET.SubElement(f_elem, 'editWidget', {'type': 'CheckBox'})
+                    config = ET.SubElement(ew, 'config')
+                    opt_map = ET.SubElement(config, 'Option', {'type': 'Map'})
+                    ET.SubElement(opt_map, 'Option', {'type': 'QString', 'name': 'CheckedState', 'value': 'Yes'})
+                    ET.SubElement(opt_map, 'Option', {'type': 'QString', 'name': 'UncheckedState', 'value': 'No'})
+                    changes += 1
+
+            # Spinner fields
+            spinner_fields = ['STAYS', 'NUMBER OF RISERS', 'NO OF DROP WIRES(COPPER)', 'NO OF DROP WIRES(FIBER)']
+            for f_name in spinner_fields:
+                f_elem = field_config_elem.find(f"./field[@name='{f_name}']")
+                if f_elem is not None:
+                    ew = f_elem.find('editWidget')
+                    if ew is not None: f_elem.remove(ew)
+                    ew = ET.SubElement(f_elem, 'editWidget', {'type': 'Range'})
+                    config = ET.SubElement(ew, 'config')
+                    opt_map = ET.SubElement(config, 'Option', {'type': 'Map'})
+                    ET.SubElement(opt_map, 'Option', {'type': 'double', 'name': 'Min', 'value': '0'})
+                    ET.SubElement(opt_map, 'Option', {'type': 'double', 'name': 'Max', 'value': '100'})
+                    ET.SubElement(opt_map, 'Option', {'type': 'double', 'name': 'Step', 'value': '1'})
+                    changes += 1
+
+            # Multi-line text fields for DP COUNT / FDP COUNT
+            multiline_fields = ['DP COUNT', 'FDP COUNT']
+            for f_name in multiline_fields:
+                f_elem = field_config_elem.find(f"./field[@name='{f_name}']")
+                if f_elem is not None:
+                    ew = f_elem.find('editWidget')
+                    if ew is not None: f_elem.remove(ew)
+                    ew = ET.SubElement(f_elem, 'editWidget', {'type': 'TextEdit'})
+                    config = ET.SubElement(ew, 'config')
+                    opt_map = ET.SubElement(config, 'Option', {'type': 'Map'})
+                    ET.SubElement(opt_map, 'Option', {'type': 'bool', 'name': 'IsMultiline', 'value': 'true'})
+                    changes += 1
+
+        # 4. Inject Aliases for DP COUNT / FDP COUNT
+        aliases_elem = layer.find('aliases')
+        if aliases_elem is not None:
+            dp_alias = aliases_elem.find("alias[@field='DP COUNT']")
+            if dp_alias is not None:
+                dp_alias.set('name', 'DP Numbers (e.g. DP1, DP2)')
+                changes += 1
+            fdp_alias = aliases_elem.find("alias[@field='FDP COUNT']")
+            if fdp_alias is not None:
+                fdp_alias.set('name', 'FDP Numbers/Names')
+                changes += 1
+
+        # 5. Inject ValueMap Widgets
         if config_data and layername in config_data:
             field_configs = config_data[layername]
             field_config_elem = layer.find('.//fieldConfiguration')

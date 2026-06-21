@@ -16,7 +16,7 @@ import {
     Plus, Eye, TrendingUp, Clock, CheckCircle2, AlertCircle, PlusCircle,
     Loader2, BookOpen, Trash2, FolderKanban, DollarSign, BarChart2,
     LineChart, ClipboardList, Truck, Search, Filter, MapPin, Building2,
-    Calendar, ArrowRight,
+    Calendar, ArrowRight, Cloud,
 } from 'lucide-react';
 import ProjectDocumentation from '@/components/projects/ProjectDocumentation';
 import { toast } from 'sonner';
@@ -27,6 +27,17 @@ interface ProjectType {
     id: string;
     name: string;
     description: string;
+}
+
+interface OPMCOption {
+    id: string;
+    rtom: string;
+    region: string;
+}
+
+interface ContractorOption {
+    id: string;
+    name: string;
 }
 
 interface Project {
@@ -44,6 +55,7 @@ interface Project {
     opmc?: { id: string; rtom: string };
     contractor?: { id: string; name: string };
     projectType?: { id: string; name: string; description: string };
+    gisMapping?: any;
     _count: {
         boqItems: number;
         milestones: number;
@@ -91,6 +103,7 @@ function ProjectCard({ project, onDelete, onView }: {
     const daysLeft = project.endDate
         ? Math.ceil((new Date(project.endDate).getTime() - TODAY_MS) / 86400000)
         : null;
+    const isQfieldReady = !!project.gisMapping?.qfieldProjectId;
 
     return (
         <div className="group bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col">
@@ -107,7 +120,7 @@ function ProjectCard({ project, onDelete, onView }: {
                 <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
                                 {project.projectCode}
                             </span>
                             <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
@@ -115,35 +128,31 @@ function ProjectCard({ project, onDelete, onView }: {
                                 {cfg.label}
                             </span>
                         </div>
-                        <h3 className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
+                        <h3 className="text-base font-semibold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">
                             {project.name}
                         </h3>
                     </div>
                 </div>
 
                 {/* Meta info */}
-                <div className="space-y-1.5 text-xs text-slate-500">
-                    {project.projectType && (
-                        <div className="flex items-center gap-1.5">
-                            <FolderKanban className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{project.projectType.name.replace(/_/g, ' ')}</span>
-                        </div>
-                    )}
+                <div className="space-y-2 text-sm text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-100">
                     {project.location && (
-                        <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 shrink-0 text-slate-400" />
                             <span className="truncate">{project.location}</span>
                         </div>
                     )}
-                    {project.opmc && (
-                        <div className="flex items-center gap-1.5">
-                            <Building2 className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{project.opmc.rtom}</span>
+                    {(project.opmc || project.contractor) && (
+                        <div className="flex items-center gap-2">
+                            <Building2 className="w-4 h-4 shrink-0 text-slate-400" />
+                            <span className="truncate">
+                                {project.opmc?.rtom || 'No OPMC'} {project.contractor && `• ${project.contractor.name}`}
+                            </span>
                         </div>
                     )}
                     {project.endDate && (
-                        <div className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 shrink-0 text-slate-400" />
                             <span className={daysLeft !== null && daysLeft < 0 ? 'text-red-500 font-medium' : ''}>
                                 {daysLeft !== null && daysLeft < 0
                                     ? `${Math.abs(daysLeft)}d overdue`
@@ -157,7 +166,14 @@ function ProjectCard({ project, onDelete, onView }: {
                 {/* Progress bar */}
                 <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="text-slate-500 font-medium">Progress</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-slate-500 font-medium">Progress</span>
+                            {isQfieldReady && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                                    <Cloud className="w-3 h-3" /> QField Ready
+                                </span>
+                            )}
+                        </div>
                         <span className="font-bold text-slate-800">{project.progress}%</span>
                     </div>
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -220,12 +236,16 @@ export default function ProjectsPage() {
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [guideDialogOpen, setGuideDialogOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [opmcFilter, setOpmcFilter] = useState('ALL');
+    const [contractorFilter, setContractorFilter] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
     const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
+    const [opmcs, setOpmcs] = useState<OPMCOption[]>([]);
+    const [contractors, setContractors] = useState<ContractorOption[]>([]);
 
     const [newProject, setNewProject] = useState({
         projectCode: '', name: '', description: '', type: 'OSP_FTTH',
-        location: '', budget: '', startDate: '', endDate: '', projectTypeId: ''
+        location: '', budget: '', startDate: '', endDate: '', projectTypeId: '', opmcId: '', contractorId: ''
     });
 
     // Add Project Type dialog
@@ -248,10 +268,23 @@ export default function ProjectsPage() {
         } catch { /* silent */ }
     }, []);
 
+    const fetchDropdowns = useCallback(async () => {
+        try {
+            const [opmcRes, contractorRes] = await Promise.all([
+                fetch('/api/opmcs'),
+                fetch('/api/contractors'),
+            ]);
+            if (opmcRes.ok) setOpmcs(await opmcRes.json());
+            if (contractorRes.ok) setContractors(await contractorRes.json());
+        } catch { /* silent */ }
+    }, []);
+
     const fetchProjects = useCallback(async () => {
         try {
             const params = new URLSearchParams();
             if (statusFilter !== 'ALL') params.append('status', statusFilter);
+            if (opmcFilter !== 'ALL') params.append('opmcId', opmcFilter);
+            if (contractorFilter !== 'ALL') params.append('contractorId', contractorFilter);
             const res = await fetch(`/api/projects?${params}`);
             if (!res.ok) throw new Error('Failed to fetch');
             setProjects(await res.json());
@@ -260,9 +293,9 @@ export default function ProjectsPage() {
         } finally {
             setLoading(false);
         }
-    }, [statusFilter]);
+    }, [statusFilter, opmcFilter, contractorFilter]);
 
-    useEffect(() => { fetchProjects(); fetchProjectTypes(); }, [fetchProjects, fetchProjectTypes]);
+    useEffect(() => { fetchProjects(); fetchProjectTypes(); fetchDropdowns(); }, [fetchProjects, fetchProjectTypes, fetchDropdowns]);
 
     // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -299,7 +332,7 @@ export default function ProjectsPage() {
             }
             toast.success('Project created successfully');
             setCreateDialogOpen(false);
-            setNewProject({ projectCode: '', name: '', description: '', type: 'OSP_FTTH', location: '', budget: '', startDate: '', endDate: '', projectTypeId: '' });
+            setNewProject({ projectCode: '', name: '', description: '', type: 'OSP_FTTH', location: '', budget: '', startDate: '', endDate: '', projectTypeId: '', opmcId: '', contractorId: '' });
             fetchProjects();
         } catch {
             toast.error('Failed to create project');
@@ -432,8 +465,8 @@ export default function ProjectsPage() {
                         </div>
 
                         {/* ── Filters + Search ── */}
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="relative flex-1 max-w-sm">
+                        <div className="flex flex-col md:flex-row gap-3">
+                            <div className="relative flex-1 md:max-w-sm">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                 <Input
                                     value={searchQuery}
@@ -442,23 +475,27 @@ export default function ProjectsPage() {
                                     className="pl-9 bg-white"
                                 />
                             </div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                                <Filter className="w-4 h-4 text-slate-400" />
-                                {FILTER_STATUSES.map((s) => {
-                                    const cfg = s === 'ALL' ? null : STATUS_CONFIG[s];
-                                    return (
-                                        <button
-                                            key={s}
-                                            onClick={() => setStatusFilter(s)}
-                                            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${statusFilter === s
-                                                ? 'bg-slate-900 text-white border-slate-900'
-                                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
-                                                }`}
-                                        >
-                                            {cfg ? cfg.label : 'All'}
-                                        </button>
-                                    );
-                                })}
+                            <div className="flex items-center gap-2 flex-wrap flex-1 md:justify-end">
+                                <Select value={opmcFilter} onValueChange={setOpmcFilter}>
+                                    <SelectTrigger className="w-[140px] bg-white"><SelectValue placeholder="All Regions" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">All Regions</SelectItem>
+                                        {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.rtom}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={contractorFilter} onValueChange={setContractorFilter}>
+                                    <SelectTrigger className="w-[160px] bg-white"><SelectValue placeholder="All Contractors" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">All Contractors</SelectItem>
+                                        {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger className="w-[140px] bg-white"><SelectValue placeholder="All Status" /></SelectTrigger>
+                                    <SelectContent>
+                                        {FILTER_STATUSES.map(s => <SelectItem key={s} value={s}>{s === 'ALL' ? 'All Status' : STATUS_CONFIG[s]?.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
@@ -539,6 +576,24 @@ export default function ProjectsPage() {
                         <div className="space-y-2">
                             <Label>End Date</Label>
                             <Input type="date" value={newProject.endDate} onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>OPMC (Region)</Label>
+                            <Select value={newProject.opmcId} onValueChange={(v) => setNewProject({ ...newProject, opmcId: v })}>
+                                <SelectTrigger><SelectValue placeholder="Select OPMC" /></SelectTrigger>
+                                <SelectContent>
+                                    {opmcs.map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Contractor</Label>
+                            <Select value={newProject.contractorId} onValueChange={(v) => setNewProject({ ...newProject, contractorId: v })}>
+                                <SelectTrigger><SelectValue placeholder="Select Contractor" /></SelectTrigger>
+                                <SelectContent>
+                                    {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <DialogFooter>
