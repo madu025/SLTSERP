@@ -276,7 +276,13 @@ const STAGE_NAME_ALIASES: Record<string, string> = {
     slt_pat_pending: 'qa',
     slt_pat_in_progress: 'qa',
     slt_pat_passed: 'qa',
-    completed: 'closure'
+    completed: 'closure',
+
+    // New database status mappings
+    approved: 'material',
+    in_progress: 'installation',
+    on_hold: 'installation',
+    cancelled: 'closure'
 };
 
 /**
@@ -307,35 +313,8 @@ export function getTabsForStage(stageName: string | null | undefined): TabDefini
 export function getDefaultTabs(): TabDefinition[] {
     return [
         ...ALWAYS_VISIBLE_TABS,
-        { value: 'permits', label: 'Permits' },
-        { value: 'gis', label: 'GIS Route' },
-        { value: 'survey', label: 'Survey' },
-        { value: 'otdr', label: 'OTDR' },
-        { value: 'hse', label: 'HSE' },
-        { value: 'contractor-perf', label: 'Contractor Perf' },
-        { value: 'evm', label: 'EVM' },
-        { value: 'assets', label: 'Assets' },
-        { value: 'variations', label: 'Variations' },
-        { value: 'boq', label: 'BOQ & Material' },
-        { value: 'materials', label: 'Material Issues' },
-        { value: 'milestones', label: 'Milestones' },
-        { value: 'expenses', label: 'Expenses' },
-        { value: 'tasks', label: 'Tasks' },
-        { value: 'resources', label: 'Resources' },
-        { value: 'documents', label: 'Documents' },
-        { value: 'approvals', label: 'Approvals' },
-        { value: 'risks', label: 'Risks' },
-        { value: 'qa', label: 'QA/QC' },
-        { value: 'contractor', label: 'Contractor' },
-        { value: 'commissioning', label: 'Commissioning' },
-        { value: 'kpis', label: 'KPIs' },
-        { value: 'procurement', label: 'Procurement' },
-        { value: 'finance', label: 'Finance' },
-        { value: 'closure', label: 'Closure' },
-        { value: 'field-tasks', label: 'Field Tasks' },
-        // Phase Plan New Tabs
-        { value: 'survey-approval', label: 'Survey Approval' },
-        { value: 'pat', label: 'PAT' },
-        { value: 'ai-forecasting', label: 'AI Forecasting' },
+        { value: 'tasks', label: 'Tasks', description: 'Project task list and tracking' },
+        { value: 'documents', label: 'Documents', description: 'Project files and documentation' },
+        { value: 'guide', label: 'Guide', description: 'Project module guide' }
     ];
 }

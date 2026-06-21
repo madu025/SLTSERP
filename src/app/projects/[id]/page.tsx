@@ -269,11 +269,13 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     // ── Stage-driven tab visibility ──────────────────────────────────────────
 
     const currentStageName = useMemo(() => {
-        if (!project?.workflowInstance?.stages) return null;
-        const activeStage =
-            project.workflowInstance.stages.find((s) => s.status === 'IN_PROGRESS') ||
-            project.workflowInstance.stages.find((s) => s.status === 'PENDING');
-        return activeStage?.name ?? null;
+        if (project?.workflowInstance?.stages) {
+            const activeStage =
+                project.workflowInstance.stages.find((s) => s.status === 'IN_PROGRESS') ||
+                project.workflowInstance.stages.find((s) => s.status === 'PENDING');
+            if (activeStage) return activeStage.name;
+        }
+        return project?.status ?? null;
     }, [project]);
 
     const visibleTabs = useMemo(() => getTabsForStage(currentStageName), [currentStageName]);
