@@ -196,6 +196,25 @@ Once you have finished the survey or completed the day's work:
 6. Notify your Project Manager to review and approve the survey points on the SLTSERP Web Dashboard.
 
 ---
+
+## 7. How to Open Projects in QGIS Desktop (Project by Project)
+
+To view the survey data from your office computer, there are two primary methods:
+
+### Method A (Easiest Method - QFieldSync Plugin)
+1. Open **QGIS Desktop** on your computer.
+2. Go to **Plugins** → **Manage and Install Plugins**. Search for and install the **"QFieldSync"** plugin.
+3. Log in to your QFieldCloud account using your credentials (Username and Password).
+4. The plugin will display the list of all projects on your cloud account (e.g., SME-0452, SME-0453, etc.).
+5. Click on the desired project and select **"Synchronize from Cloud"**. This will download the project and open all mapped points, cables, and photos directly in QGIS Desktop.
+
+### Method B (Direct Web Download)
+1. Log in to the **SLTSERP Web Dashboard**.
+2. Navigate to your project and download the configured project package as a ZIP file.
+3. Extract the ZIP file to a folder on your computer.
+4. Double-click the `QGIS.qgz` file inside the extracted folder to open it directly in QGIS Desktop.
+
+---
 ---
 
 # QField ජංගම දුරකථන සමීක්ෂණ පරිශීලක අත්පොත
@@ -378,3 +397,22 @@ Once you have finished the survey or completed the day's work:
 4. **Synchronize (Push Changes)** ක්ලික් කරන්න.
 5. සමමුහුර්තකරණය (Sync process) 100% අවසන් වන තෙක් රැඳී සිටින්න.
 6. ඉන්පසු වෙබ් අඩවියෙන් (SLTSERP Web Dashboard) දත්ත පරීක්ෂා කර අනුමත (Approve) කරන ලෙස ව්‍යාපෘති කළමනාකරුට දැනුම් දෙන්න.
+
+---
+
+## 7. QGIS Desktop එකෙන් මේවා Project by Project Open කරගන්නේ කොහොමද?
+
+ඔබට ඔෆිස් එකේ පරිගණකයෙන් මේවා බලන්න ප්‍රධාන ක්‍රම 2ක් තිබේ:
+
+### ක්‍රමය A (වඩාත් ලේසි ක්‍රමය - QFieldSync Plugin)
+1. ඔබේ පරිගණකයේ **QGIS Desktop** එක Open කරන්න.
+2. **Plugins** -> **Manage and Install Plugins** වලට ගිහින් **"QFieldSync"** කියන Plugin එක Install කරගන්න.
+3. ඒකෙන් ඔබේ QFieldCloud එකට (Username/Password දීලා) Log වෙන්න.
+4. එතකොට ඔබේ Cloud එකේ තියෙන Project ලැයිස්තුවම පෙන්නනවා (SME-0452, SME-0453 ආදී වශයෙන්).
+5. ඔබට ඕනේ Project එක උඩ Click කරලා **"Synchronize from Cloud"** දුන්නම, ඒ Project එකේ Field එකෙන් ගහපු හැම Point එකක්ම ඡායාරූපත් එක්කම කෙලින්ම ඔබේ QGIS Desktop එකේ Open වෙනවා.
+
+### ක්‍රමය B (වෙබ් අඩවියෙන් බාගත කිරීම - Download from Web Dashboard)
+1. **SLTSERP Web Dashboard** එකට Log වෙන්න.
+2. අදාළ ව්‍යාපෘතිය (Project) තෝරාගෙන එහි ඇති QGIS Project zip ගොනුව බාගත (Download) කරගන්න.
+3. එය පරිගණකයට Extract (දිග හැර) කරගන්න.
+4. එම folder එක තුළ ඇති `QGIS.qgz` (හෝ `QGIS.qgs`) file එක double click කර සාමාන්‍ය පරිදි QGIS Desktop එකෙන් විවෘත කරගන්න.
