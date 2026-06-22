@@ -94,6 +94,57 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
         taskId: '', date: format(new Date(), 'yyyy-MM-dd'), hours: '8', description: '', staffId: '', contractorId: ''
     });
 
+    // Assignee dropdown options
+    const [assigneeOptions, setAssigneeOptions] = useState<{ value: string; label: string }[]>([]);
+    const [loadingAssignees, setLoadingAssignees] = useState(false);
+
+    // Fetch assignee options when assigneeType changes
+    useEffect(() => {
+        if (!taskForm.assigneeType) {
+            setAssigneeOptions([]);
+            return;
+        }
+        const fetchAssignees = async () => {
+            setLoadingAssignees(true);
+            try {
+                let url = '';
+                if (taskForm.assigneeType === 'STAFF') {
+                    url = '/api/staff';
+                } else if (taskForm.assigneeType === 'CONTRACTOR') {
+                    url = '/api/contractors';
+                } else if (taskForm.assigneeType === 'TEAM') {
+                    url = '/api/contractors/teams';
+                }
+                if (!url) return;
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (taskForm.assigneeType === 'STAFF') {
+                        setAssigneeOptions(data.map((s: { id: string; name: string; designation: string; employeeId: string }) => ({
+                            value: s.id,
+                            label: `${s.name} (${s.designation} - ${s.employeeId})`
+                        })));
+                    } else if (taskForm.assigneeType === 'CONTRACTOR') {
+                        setAssigneeOptions(data.map((c: { id: string; name: string }) => ({
+                            value: c.id,
+                            label: c.name
+                        })));
+                    } else if (taskForm.assigneeType === 'TEAM') {
+                        setAssigneeOptions(data.map((t: { id: string; name: string; contractor?: { name: string } }) => ({
+                            value: t.id,
+                            label: t.contractor ? `${t.name} (${t.contractor.name})` : t.name
+                        })));
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch assignees:', err);
+            } finally {
+                setLoadingAssignees(false);
+            }
+        };
+        fetchAssignees();
+    }, [taskForm.assigneeType]);
+
     const fetchTasks = useCallback(async () => {
         try {
             setLoading(true);
@@ -673,7 +724,7 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                         </div>
                         <div className="col-span-1 space-y-2">
                             <Label>Assignee Type</Label>
-                            <Select value={taskForm.assigneeType} onValueChange={(val) => setTaskForm({ ...taskForm, assigneeType: val })}>
+                            <Select value={taskForm.assigneeType} onValueChange={(val) => setTaskForm({ ...taskForm, assigneeType: val, assigneeId: '' })}>
                                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="STAFF">Staff</SelectItem>
@@ -682,6 +733,27 @@ export default function ProjectTasks({ project, refreshProject }: ProjectTasksPr
                                 </SelectContent>
                             </Select>
                         </div>
+                        {taskForm.assigneeType && (
+                            <div className="col-span-1 space-y-2">
+                                <Label>
+                                    {taskForm.assigneeType === 'STAFF' ? 'Assign Staff' : taskForm.assigneeType === 'CONTRACTOR' ? 'Assign Contractor' : 'Assign Team'}
+                                </Label>
+                                <Select 
+                                    value={taskForm.assigneeId} 
+                                    onValueChange={(val) => setTaskForm({ ...taskForm, assigneeId: val })}
+                                    disabled={loadingAssignees}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={loadingAssignees ? 'Loading...' : `Select ${taskForm.assigneeType === 'STAFF' ? 'staff' : taskForm.assigneeType === 'CONTRACTOR' ? 'contractor' : 'team'}...`} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {assigneeOptions.map((opt) => (
+                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsTaskDialogOpen(false)}>Cancel</Button>

@@ -3,6 +3,11 @@
 // Models: SurveyRequest, SurveyCheckIn, SurveyPhoto, SurveyFinding, FieldTask, FieldPhoto, FieldChecklist, FieldSignature, OTDRTest, OTDRTestEvent, HSESafetyLog, HSEAttendee
 // ============================================================
 
+/// Polymorphic Assignment:
+/// - assignedToId: Staff.id (individual surveyor)
+/// - assignedTeamId: ContractorTeam.id (field team)
+/// Both are raw strings (no FK relations) to support polymorphic assignment.
+/// Use assignee lookup endpoints: GET /api/staff, GET /api/contractors/teams
 model SurveyRequest {
   id              String          @id @default(cuid())
   projectId       String

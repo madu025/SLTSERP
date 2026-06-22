@@ -175,6 +175,11 @@ model ProjectExpense {
   @@index([date])
 }
 
+/// Polymorphic Assignment:
+/// - assigneeType: Enum-like string (STAFF, CONTRACTOR, TEAM) indicating the type of entity assigned
+/// - assigneeId: Raw string pointing to Staff.id, Contractor.id, or ContractorTeam.id based on assigneeType
+/// Both are raw strings (no FK relations) to support polymorphic assignment across multiple entity types.
+/// Use assignee lookup endpoints: GET /api/staff, GET /api/contractors, GET /api/contractors/teams
 model ProjectTask {
   id                String              @id @default(cuid())
   projectId         String

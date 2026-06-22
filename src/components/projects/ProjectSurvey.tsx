@@ -20,7 +20,30 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
   const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newSurvey, setNewSurvey] = useState({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '' });
+  const [newSurvey, setNewSurvey] = useState({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '', assignedToId: '', assignedTeamId: '' });
+
+  // Staff and team lists for assignment dropdowns
+  const [staffList, setStaffList] = useState<{ id: string; name: string; designation: string; employeeId: string }[]>([]);
+  const [teamList, setTeamList] = useState<{ id: string; name: string; contractor?: { name: string } }[]>([]);
+
+  // Fetch staff and teams when dialog opens
+  useEffect(() => {
+    if (dialogOpen) {
+      const fetchAssignLists = async () => {
+        try {
+          const [staffRes, teamsRes] = await Promise.all([
+            fetch('/api/staff'),
+            fetch('/api/contractors/teams')
+          ]);
+          if (staffRes.ok) setStaffList(await staffRes.json());
+          if (teamsRes.ok) setTeamList(await teamsRes.json());
+        } catch (err) {
+          console.error('Failed to fetch assignment lists:', err);
+        }
+      };
+      fetchAssignLists();
+    }
+  }, [dialogOpen]);
 
   // QFieldCloud Sync States
   const [syncStatus, setSyncStatus] = useState<any>(null);
@@ -175,8 +198,18 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
 
   const handleCreate = async () => {
     try {
-      await fetch(`/api/projects/${project.id}/surveys`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSurvey) });
+      const payload = {
+        ...newSurvey,
+        assignedToId: newSurvey.assignedToId === 'none' ? null : newSurvey.assignedToId || null,
+        assignedTeamId: newSurvey.assignedTeamId === 'none' ? null : newSurvey.assignedTeamId || null
+      };
+      await fetch(`/api/projects/${project.id}/surveys`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(payload) 
+      });
       setDialogOpen(false);
+      setNewSurvey({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '', assignedToId: '', assignedTeamId: '' });
       fetchSurveys();
     } catch (err) { console.error(err); }
   };
@@ -467,6 +500,32 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
             <div className="space-y-2">
               <Label>Description</Label>
               <Textarea value={newSurvey.description} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewSurvey({ ...newSurvey, description: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Assigned Surveyor</Label>
+                <Select value={newSurvey.assignedToId} onValueChange={(v) => setNewSurvey({ ...newSurvey, assignedToId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select surveyor (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- None --</SelectItem>
+                    {staffList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name} ({s.designation} - {s.employeeId})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Assigned Team</Label>
+                <Select value={newSurvey.assignedTeamId} onValueChange={(v) => setNewSurvey({ ...newSurvey, assignedTeamId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select team (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- None --</SelectItem>
+                    {teamList.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.contractor ? `${t.name} (${t.contractor.name})` : t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
