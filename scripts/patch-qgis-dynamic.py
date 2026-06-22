@@ -107,12 +107,12 @@ def patch_qgs(qgs_path, config_data):
                 
             # Add or update default expressions for Lat/Lon
             lat_default = defaults_elem.find("default[@field='Latitude']")
-            if lat_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Latitude', 'expression': 'y(@geometry)', 'applyOnUpdate': '1'})
-            else: lat_default.set('expression', 'y(@geometry)'); lat_default.set('applyOnUpdate', '1')
+            if lat_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Latitude', 'expression': '$y', 'applyOnUpdate': '1'})
+            else: lat_default.set('expression', '$y'); lat_default.set('applyOnUpdate', '1')
 
             lon_default = defaults_elem.find("default[@field='Longitute']")
-            if lon_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Longitute', 'expression': 'x(@geometry)', 'applyOnUpdate': '1'})
-            else: lon_default.set('expression', 'x(@geometry)'); lon_default.set('applyOnUpdate', '1')
+            if lon_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Longitute', 'expression': '$x', 'applyOnUpdate': '1'})
+            else: lon_default.set('expression', '$x'); lon_default.set('applyOnUpdate', '1')
             changes += 1
 
             # Make Lat/Lon read-only
@@ -260,7 +260,8 @@ def patch_qgs(qgs_path, config_data):
                         
                         for opt in options:
                             option_map2 = ET.SubElement(option_list, 'Option', {'type': 'Map'})
-                            ET.SubElement(option_map2, 'Option', {'type': 'QString', 'name': str(opt), 'value': str(opt)})
+                            ET.SubElement(option_map2, 'Option', {'type': 'QString', 'name': 'label', 'value': str(opt)})
+                            ET.SubElement(option_map2, 'Option', {'type': 'QString', 'name': 'value', 'value': str(opt)})
                         
                         changes += 1
                         print(f"  Injected ValueMap for {layername}.{field_name} with {len(options)} options.")
