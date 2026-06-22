@@ -106,24 +106,43 @@ export class QFieldCloudSyncService {
 
     const cleanProjectName = `${sltProject.projectCode}_${sltProject.name}`.replace(/[^a-zA-Z0-9_.-]/g, '_');
 
-    const res = await this.fetchWithAuth(`${this.baseUrl}/api/v1/projects/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: cleanProjectName,
-        description: sltProject.description || 'OSP Fiber Optic Survey Project',
-        is_public: false,
-      }),
-    });
+    let qfieldProject: any = null;
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Failed to create QField project: ${err}`);
+    // Check if the project already exists in QFieldCloud
+    try {
+      const listRes = await this.fetchWithAuth(`${this.baseUrl}/api/v1/projects/`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const projects = Array.isArray(listData) ? listData : (listData.results || []);
+        qfieldProject = projects.find((p: any) => p.name === cleanProjectName);
+        if (qfieldProject) {
+          console.log(`ℹ️ Reusing existing QFieldCloud project: ${cleanProjectName} (ID: ${qfieldProject.id})`);
+        }
+      }
+    } catch (listErr) {
+      console.warn('Failed to query existing projects from QFieldCloud:', listErr);
     }
 
-    const qfieldProject = await res.json();
+    if (!qfieldProject) {
+      const res = await this.fetchWithAuth(`${this.baseUrl}/api/v1/projects/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: cleanProjectName,
+          description: sltProject.description || 'OSP Fiber Optic Survey Project',
+          is_public: false,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Failed to create QField project: ${err}`);
+      }
+
+      qfieldProject = await res.json();
+    }
 
     // Upload QGIS project template file if path exists
     let tempDir: string | null = null;
@@ -197,7 +216,7 @@ export class QFieldCloudSyncService {
         });
 
         if (!uploadRes.ok) {
-          console.error(`Failed to upload QGIS template file: ${uploadRes.status} - ${await res.text()}`);
+          console.error(`Failed to upload QGIS template file: ${uploadRes.status} - ${await uploadRes.text()}`);
         } else {
           console.log('✅ QGIS project template file uploaded successfully to QFieldCloud.');
         }

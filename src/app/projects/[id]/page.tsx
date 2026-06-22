@@ -85,7 +85,7 @@ const TAB_COMPONENTS: Record<string, AnyTabComponent> = {
     pat: ProjectPAT, 'ai-forecasting': ProjectAIForecasting,
 };
  
-const REFRESH_TABS = new Set(['boq', 'materials', 'milestones', 'expenses', 'tasks', 'procurement', 'finance', 'closure']);
+const REFRESH_TABS = new Set(['boq', 'materials', 'milestones', 'expenses', 'tasks', 'procurement', 'finance', 'closure', 'survey']);
 const PROJECT_STATUSES = ['PLANNING', 'APPROVED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED'];
  
 // ─── Error Boundary ───────────────────────────────────────────────────────────

@@ -98,35 +98,6 @@ export async function POST(request: Request, { params }: { params: Params }) {
     const body = await request.json();
     const { action, qfieldProjectId } = body;
 
-    if (!qfieldProjectId) {
-      return NextResponse.json(
-        { error: 'qfieldProjectId is required. Create a QFieldCloud project first.' },
-        { status: 400 }
-      );
-    }
-
-    // ── Action: FULL SYNC ────────────────────────────────────────────────
-    if (action === 'full_sync' || !action) {
-      const result = await QFieldCloudSyncService.fullSync(projectId, qfieldProjectId);
-
-      return NextResponse.json({
-        message: 'Full sync completed',
-        result,
-        surveyLayers: SURVEY_LAYERS,
-      });
-    }
-
-    // ── Action: PUSH LAYERS ──────────────────────────────────────────────
-    if (action === 'push_layers') {
-      const service = new QFieldCloudSyncService();
-      await service.pushSurveyLayers(qfieldProjectId);
-
-      return NextResponse.json({
-        message: 'Survey layers pushed to QFieldCloud',
-        layersCount: SURVEY_LAYERS.length,
-      });
-    }
-
     // ── Action: CREATE PROJECT ───────────────────────────────────────────
     if (action === 'create_project') {
       const service = new QFieldCloudSyncService();
@@ -157,6 +128,35 @@ export async function POST(request: Request, { params }: { params: Params }) {
         },
         { status: 201 }
       );
+    }
+
+    if (!qfieldProjectId) {
+      return NextResponse.json(
+        { error: 'qfieldProjectId is required. Create a QFieldCloud project first.' },
+        { status: 400 }
+      );
+    }
+
+    // ── Action: FULL SYNC ────────────────────────────────────────────────
+    if (action === 'full_sync' || !action) {
+      const result = await QFieldCloudSyncService.fullSync(projectId, qfieldProjectId);
+
+      return NextResponse.json({
+        message: 'Full sync completed',
+        result,
+        surveyLayers: SURVEY_LAYERS,
+      });
+    }
+
+    // ── Action: PUSH LAYERS ──────────────────────────────────────────────
+    if (action === 'push_layers') {
+      const service = new QFieldCloudSyncService();
+      await service.pushSurveyLayers(qfieldProjectId);
+
+      return NextResponse.json({
+        message: 'Survey layers pushed to QFieldCloud',
+        layersCount: SURVEY_LAYERS.length,
+      });
     }
 
     return NextResponse.json(

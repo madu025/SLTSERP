@@ -26,6 +26,7 @@ interface ProjectRef {
 
 interface ProjectSurveyProps {
   project: ProjectRef;
+  refreshProject?: () => void;
 }
 
 interface SurveyRequest {
@@ -59,7 +60,7 @@ interface SyncStatus {
   syncHistory?: SyncLog[];
 }
 
-export default function ProjectSurvey({ project }: ProjectSurveyProps) {
+export default function ProjectSurvey({ project, refreshProject }: ProjectSurveyProps) {
   const router = useRouter();
   const [surveys, setSurveys] = useState<SurveyRequest[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -148,7 +149,11 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
           const data = await res.json();
           if (res.ok) {
             toast.success(data.message || 'QFieldCloud project initialized automatically!');
-            fetchSyncStatus();
+            if (refreshProject) {
+              refreshProject();
+            } else {
+              fetchSyncStatus();
+            }
           } else {
             setAutoCreateFailed(true);
             toast.error(data.error || 'Failed to auto-initialize QFieldCloud workspace');
@@ -176,7 +181,11 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
       const data = await res.json();
       if (res.ok) {
         toast.success(data.message || 'QFieldCloud project created successfully!');
-        fetchSyncStatus();
+        if (refreshProject) {
+          refreshProject();
+        } else {
+          fetchSyncStatus();
+        }
       } else {
         toast.error(data.error || 'Failed to create QFieldCloud project');
       }
@@ -209,7 +218,11 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
       });
       if (res.ok) {
         toast.success('Successfully linked QFieldCloud Project ID!');
-        fetchSyncStatus();
+        if (refreshProject) {
+          refreshProject();
+        } else {
+          fetchSyncStatus();
+        }
       } else {
         const err = await res.json();
         toast.error(err.error || 'Failed to link project ID');
