@@ -8,10 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, XCircle, AlertTriangle, Eye, MapPin,
-  Layers, RefreshCw, Flag, ChevronDown, Search, Map, CheckSquare, ExternalLink
+  RefreshCw, Flag, ChevronDown, Search, Map, CheckSquare, ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
