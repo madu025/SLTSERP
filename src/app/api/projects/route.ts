@@ -81,12 +81,7 @@ export async function POST(request: Request) {
         const {
             projectCode,
             name,
-            description,
             type,
-            location,
-            budget,
-            startDate,
-            endDate,
             contractorId,
             opmcId,
             projectTypeId
@@ -116,12 +111,7 @@ export async function POST(request: Request) {
             data: {
                 projectCode,
                 name,
-                description: description || null,
                 type: type || 'FTTH',
-                location: location || null,
-                budget: budget ? parseFloat(budget) : null,
-                startDate: startDate ? new Date(startDate) : null,
-                endDate: endDate ? new Date(endDate) : null,
                 contractorId: contractorId || null,
                 opmcId: opmcId || null,
                 projectTypeId: projectTypeId || null,

@@ -4,13 +4,30 @@ async function main() {
   console.log('--- STARTING WIPE OF ALL PROJECTS AND DEPENDENT WORKFLOWS ---');
 
   const projects = await prisma.project.findMany({
-    select: { id: true, name: true, projectCode: true }
+    select: { id: true, name: true, projectCode: true, gisMapping: true }
   });
 
   console.log(`Found ${projects.length} projects to delete.`);
 
   for (const project of projects) {
     console.log(`\nDeleting project: ${project.name} (${project.projectCode}) [ID: ${project.id}]`);
+
+    // 1. Delete from QFieldCloud first if mapped
+    if (project.gisMapping) {
+      const gisMapping = project.gisMapping as Record<string, unknown>;
+      const qfieldProjectId = gisMapping?.qfieldProjectId as string;
+      if (qfieldProjectId) {
+        try {
+          const { QFieldCloudSyncService } = await import('../src/services/qfieldcloud-sync.service');
+          const syncService = new QFieldCloudSyncService();
+          await syncService.deleteQFieldProject(qfieldProjectId);
+          console.log(`✅ Deleted QFieldCloud project ${qfieldProjectId} from cloud server.`);
+        } catch (qfieldErr) {
+          const err = qfieldErr as Error;
+          console.error(`⚠️ Failed to delete QFieldCloud project ${qfieldProjectId}:`, err.message || err);
+        }
+      }
+    }
 
     try {
       await prisma.$transaction(async (tx) => {
