@@ -476,14 +476,39 @@ export class QFieldCloudSyncService {
             continue;
           }
 
-          // Match layer configuration
+          // Match layer configuration with smart fallback for template QGIS layers
           const layerId = feature.sourceLayerId || feature.localLayerId;
           if (!layerId) {
             errors.push(`Delta ${delta.id} missing layer ID.`);
             continue;
           }
 
-          const layerConfig = SURVEY_LAYERS.find((l) => layerId.startsWith(l.id));
+          let layerConfig = SURVEY_LAYERS.find((l) => layerId.startsWith(l.id));
+          if (!layerConfig) {
+            const normalized = layerId.toLowerCase();
+            const deltaAttrs = feature.new?.attributes || {};
+            if (normalized.includes('pole')) {
+              const isNew = String(deltaAttrs.exist_new || deltaAttrs.Exist_New || '').toLowerCase() === 'new';
+              layerConfig = SURVEY_LAYERS.find(l => l.id === (isNew ? 'survey_new_pole' : 'survey_existing_pole'));
+            } else if (normalized.includes('cable')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_cable_mid');
+            } else if (normalized.includes('fj') || normalized.includes('closure') || normalized.includes('joint')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_joint_closure');
+            } else if (normalized.includes('fdp')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_fdp');
+            } else if (normalized.includes('chamber') || normalized.includes('mh') || normalized.includes('hh') || normalized.includes('manhole') || normalized.includes('handhole')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_chamber');
+            } else if (normalized.includes('odf') || normalized.includes('ftc') || normalized.includes('enclosure')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_enclosure');
+            } else if (normalized.includes('road') || normalized.includes('crossing') || normalized.includes('eop')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_road_crossing');
+            } else if (normalized.includes('obstruction')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_obstruction');
+            } else if (normalized.includes('tp') || normalized.includes('termination') || normalized.includes('access')) {
+              layerConfig = SURVEY_LAYERS.find(l => l.id === 'survey_access_point');
+            }
+          }
+
           if (!layerConfig) {
             errors.push(`Unknown QGIS layer: ${layerId}`);
             continue;
@@ -504,7 +529,7 @@ export class QFieldCloudSyncService {
           }
 
           // Parse geometry WKT
-          const geomData = this.parseWktGeometry(feature.geometry || null);
+          const geomData = this.parseWktGeometry(feature.geometry || (feature.new as any)?.geometry || null);
           if (!geomData && feature.method === 'create') {
             errors.push(`Feature ${qfieldUuid} missing valid geometry.`);
             continue;
@@ -515,16 +540,21 @@ export class QFieldCloudSyncService {
 
           // Parse attributes
           const deltaAttrs = feature.new?.attributes || {};
-          const allKeys = [...layerConfig.requiredAttributes, ...layerConfig.optionalAttributes];
           const attributes: Record<string, unknown> = {};
 
-          for (const key of allKeys) {
-            if (key in deltaAttrs) {
-              attributes[key] = deltaAttrs[key];
-            } else if (existing) {
-              const oldAttrs = existing.attributes as Record<string, unknown> | null;
-              if (oldAttrs && key in oldAttrs) {
-                attributes[key] = oldAttrs[key];
+          // Copy all attributes from QField delta to prevent data loss
+          for (const key of Object.keys(deltaAttrs)) {
+            attributes[key] = deltaAttrs[key];
+          }
+
+          // Merge with existing properties
+          if (existing) {
+            const oldAttrs = existing.attributes as Record<string, unknown> | null;
+            if (oldAttrs) {
+              for (const key of Object.keys(oldAttrs)) {
+                if (!(key in attributes)) {
+                  attributes[key] = oldAttrs[key];
+                }
               }
             }
           }
