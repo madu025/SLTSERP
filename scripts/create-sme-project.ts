@@ -70,51 +70,51 @@ async function main() {
       {
         projectId: project.id,
         layerId: 'SLT_Poles',
-        fieldName: 'POLE TYPE', // FIXED: Space instead of underscore
+        fieldName: 'pole_type',
         options: ['Concrete 7m', 'Concrete 8m', 'GI', 'Spun', 'Wood']
       },
       {
         projectId: project.id,
         layerId: 'SLT_Poles',
-        fieldName: 'POLE MAKE',
+        fieldName: 'pole_make',
         options: ['LTL', 'St. Anthony', 'Other']
       },
       {
         projectId: project.id,
         layerId: 'SLT_Poles',
-        fieldName: 'Exist_New',
+        fieldName: 'exist_new',
         options: ['Existing', 'New']
       },
       {
         projectId: project.id,
         layerId: 'SLT_Poles',
-        fieldName: 'CONDITION',
+        fieldName: 'condition',
         options: ['Good', 'Damaged', 'Leaning', 'Needs Replacement']
       },
       // SLT_FDT Dropdowns
       {
         projectId: project.id,
         layerId: 'SLT_FDT',
-        fieldName: 'CAPACITY',
+        fieldName: 'capacity',
         options: ['12 Core', '24 Core', '48 Core', '96 Core']
       },
       // SLT_FDP Dropdowns
       {
         projectId: project.id,
         layerId: 'SLT_FDP',
-        fieldName: 'TYPE',
+        fieldName: 'type',
         options: ['Indoor', 'Outdoor', 'Wall Mount', 'Pole Mount']
       },
       {
         projectId: project.id,
         layerId: 'SLT_FDP',
-        fieldName: 'SPLITTER TYPE',
+        fieldName: 'splitter_type',
         options: ['1:2', '1:4', '1:8', '1:16']
       },
       {
         projectId: project.id,
         layerId: 'SLT_FDP',
-        fieldName: 'Exst_New',
+        fieldName: 'exst_new',
         options: ['Existing', 'New']
       }
     ]

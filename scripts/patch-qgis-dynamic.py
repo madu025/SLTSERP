@@ -81,15 +81,15 @@ def patch_qgs(qgs_path, config_data):
 
     # Map of layers to their primary label field
     label_fields = {
-        'SLT_Poles': 'PL_Number',
-        'SLT_FDP': 'FDP NAME',
-        'SLT_MH': 'MH NAME',
-        'SLT_HH': 'HH_NAME',
-        'SLT_ODF': 'ODF NAME',
-        'SLT_Cables': 'Cable_Type',
-        'SLT_Ducts': 'Duct_No',
-        'SLT_FTC': 'FTC NAME',
-        'SLT_FJ': 'FJ NAME'
+        'SLT_Poles': 'pl_number',
+        'SLT_FDP': 'fdp_name',
+        'SLT_MH': 'mh_name',
+        'SLT_HH': 'hh_name',
+        'SLT_ODF': 'odf_name',
+        'SLT_Cables': 'cable_type',
+        'SLT_Ducts': 'duct_no',
+        'SLT_FTC': 'ftc_name',
+        'SLT_FJ': 'fj_name'
     }
 
     # Inject ValueMap Widgets and Labels
@@ -106,12 +106,12 @@ def patch_qgs(qgs_path, config_data):
                 defaults_elem = ET.SubElement(layer, 'defaults')
                 
             # Add or update default expressions for Lat/Lon
-            lat_default = defaults_elem.find("default[@field='Latitude']")
-            if lat_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Latitude', 'expression': '$y', 'applyOnUpdate': '1'})
+            lat_default = defaults_elem.find("default[@field='latitude']")
+            if lat_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'latitude', 'expression': '$y', 'applyOnUpdate': '1'})
             else: lat_default.set('expression', '$y'); lat_default.set('applyOnUpdate', '1')
 
-            lon_default = defaults_elem.find("default[@field='Longitute']")
-            if lon_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'Longitute', 'expression': '$x', 'applyOnUpdate': '1'})
+            lon_default = defaults_elem.find("default[@field='longitude']")
+            if lon_default is None: ET.SubElement(defaults_elem, 'default', {'field': 'longitude', 'expression': '$x', 'applyOnUpdate': '1'})
             else: lon_default.set('expression', '$x'); lon_default.set('applyOnUpdate', '1')
             changes += 1
 
@@ -119,7 +119,7 @@ def patch_qgs(qgs_path, config_data):
             editable_elem = layer.find('editable')
             if editable_elem is None:
                 editable_elem = ET.SubElement(layer, 'editable')
-            for f_name in ['Latitude', 'Longitute']:
+            for f_name in ['latitude', 'longitude']:
                 f_edit = editable_elem.find(f"field[@name='{f_name}']")
                 if f_edit is None: ET.SubElement(editable_elem, 'field', {'name': f_name, 'editable': '0'})
                 else: f_edit.set('editable', '0')
@@ -147,7 +147,7 @@ def patch_qgs(qgs_path, config_data):
                     ET.SubElement(color_opt, 'Option', {'name': 'type', 'type': 'int', 'value': '3'})
                     
                     # Red for New, Green for Existing
-                    expr = "if( coalesce(\"Exist_New\", coalesce(\"Exst_New\", \"Existing_New\"))='New', '255,0,0', '0,255,0' )"
+                    expr = "if( coalesce(\"exist_new\", coalesce(\"Exist_New\", coalesce(\"Exst_New\", \"Existing_New\")))='New', '255,0,0', '0,255,0' )"
                     ET.SubElement(color_opt, 'Option', {'name': 'expression', 'type': 'QString', 'value': expr})
                     changes += 1
 
@@ -186,7 +186,8 @@ def patch_qgs(qgs_path, config_data):
         field_config_elem = layer.find('.//fieldConfiguration')
         if field_config_elem is not None:
             # Checkbox fields
-            checkbox_fields = ['BARBED', 'STRUT', 'OVERHEAD GUY', 'RISER PIPE', 'POWER ENCLOSURE', 'MOUNTED MSAN']
+            checkbox_fields = ['barbed', 'strut', 'overhead_guy', 'riser_pipe', 'power_enclosure', 'mounted_msan',
+                               'BARBED', 'STRUT', 'OVERHEAD GUY', 'RISER PIPE', 'POWER ENCLOSURE', 'MOUNTED MSAN']
             for f_name in checkbox_fields:
                 f_elem = field_config_elem.find(f"./field[@name='{f_name}']")
                 if f_elem is not None:
@@ -200,7 +201,8 @@ def patch_qgs(qgs_path, config_data):
                     changes += 1
 
             # Spinner fields
-            spinner_fields = ['STAYS', 'NUMBER OF RISERS', 'NO OF DROP WIRES(COPPER)', 'NO OF DROP WIRES(FIBER)']
+            spinner_fields = ['stays', 'number_of_risers', 'drop_wires_copper', 'drop_wires_fiber',
+                              'STAYS', 'NUMBER OF RISERS', 'NO OF DROP WIRES(COPPER)', 'NO OF DROP WIRES(FIBER)']
             for f_name in spinner_fields:
                 f_elem = field_config_elem.find(f"./field[@name='{f_name}']")
                 if f_elem is not None:
@@ -215,7 +217,7 @@ def patch_qgs(qgs_path, config_data):
                     changes += 1
 
             # Multi-line text fields for DP COUNT / FDP COUNT
-            multiline_fields = ['DP COUNT', 'FDP COUNT']
+            multiline_fields = ['dp_count', 'fdp_count', 'DP COUNT', 'FDP COUNT']
             for f_name in multiline_fields:
                 f_elem = field_config_elem.find(f"./field[@name='{f_name}']")
                 if f_elem is not None:
@@ -230,14 +232,16 @@ def patch_qgs(qgs_path, config_data):
         # 4. Inject Aliases for DP COUNT / FDP COUNT
         aliases_elem = layer.find('aliases')
         if aliases_elem is not None:
-            dp_alias = aliases_elem.find("alias[@field='DP COUNT']")
-            if dp_alias is not None:
-                dp_alias.set('name', 'DP Numbers (e.g. DP1, DP2)')
-                changes += 1
-            fdp_alias = aliases_elem.find("alias[@field='FDP COUNT']")
-            if fdp_alias is not None:
-                fdp_alias.set('name', 'FDP Numbers/Names')
-                changes += 1
+            for dp_field in ['dp_count', 'DP COUNT']:
+                dp_alias = aliases_elem.find(f"alias[@field='{dp_field}']")
+                if dp_alias is not None:
+                    dp_alias.set('name', 'DP Numbers (e.g. DP1, DP2)')
+                    changes += 1
+            for fdp_field in ['fdp_count', 'FDP COUNT']:
+                fdp_alias = aliases_elem.find(f"alias[@field='{fdp_field}']")
+                if fdp_alias is not None:
+                    fdp_alias.set('name', 'FDP Numbers/Names')
+                    changes += 1
 
         # 5. Inject ValueMap Widgets
         if config_data and layername in config_data:

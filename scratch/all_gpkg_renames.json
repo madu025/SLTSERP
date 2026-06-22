@@ -1,0 +1,199 @@
+{
+  "SLT_Cables.gpkg": {
+    "SLT_Cables": {
+      "LEA": "lea",
+      "Cable_Type": "cable_type",
+      "Main_Sheat": "main_sheat",
+      "Ext_Sheath": "ext_sheath",
+      "CBL_END_1": "cbl_end_1",
+      "CBL_END_2": "cbl_end_2",
+      "Length": "length",
+      "Cores": "cores",
+      "Duct": "duct",
+      "PE_Number": "pe_number",
+      "Remarks": "remarks",
+      "SLT-REF": "slt_ref",
+      "Desc": "desc",
+      "Photo": "photo"
+    }
+  },
+  "SLT_Ducts.gpkg": {
+    "SLT_Ducts": {
+      "Duct_No": "duct_no",
+      "LENGTH": "length",
+      "PROTECTION": "protection",
+      "DAMAGE": "damage",
+      "DUCT_ENV": "duct_env",
+      "NUM_WAYS": "num_ways",
+      "NUM_SUBDUC": "num_subduc",
+      "SIZE": "size",
+      "DUCT_END_1": "duct_end_1",
+      "DUCT_END_2": "duct_end_2",
+      "TYPE": "type",
+      "REMARKS": "remarks",
+      "Photo": "photo"
+    }
+  },
+  "SLT_FDP.gpkg": {
+    "SLT_FDP": {
+      "FDP NAME": "fdp_name",
+      "LEA": "lea",
+      "NO OF SPLITTERS": "no_of_splitters",
+      "SPLITTER TYPE": "splitter_type",
+      "ROAD NAME": "road_name",
+      "REMARKS": "remarks",
+      "TYPE": "type",
+      "LAC": "lac",
+      "Exst_New": "exst_new",
+      "Longitute": "longitude",
+      "Latitude": "latitude",
+      "Photo": "photo"
+    }
+  },
+  "SLT_FJ.gpkg": {
+    "SLT_FJ": {
+      "FJ NAME": "fj_name",
+      "LEA": "lea",
+      "TYPE": "type",
+      "Main Sheat Name": "main_sheat_name",
+      "Extention_Sheat_Name_1": "extention_sheat_name_1",
+      "Extention_Sheat Name_2": "extention_sheat_name_2",
+      "Extention_Sheat Name_3": "extention_sheat_name_3",
+      "Extention_Sheat Name_4": "extention_sheat_name_4",
+      "Extention_Sheat Name_5": "extention_sheat_name_5",
+      "Connected EQ Number": "connected_eq_number",
+      "REMARKS": "remarks",
+      "Joint Number": "joint_number",
+      "LAC": "lac",
+      "Exst_New": "exst_new",
+      "Longitute": "longitude",
+      "Latitude": "latitude",
+      "Photo": "photo"
+    }
+  },
+  "SLT_FTC.gpkg": {
+    "SLT_FTC": {
+      "FTC NAME": "ftc_name",
+      "LEA": "lea",
+      "ROAD NAME": "road_name",
+      "TYPE": "type",
+      "SIDE": "side",
+      "FEATURE": "feature",
+      "CAPACITY": "capacity",
+      "LAC": "lac",
+      "REMARKS": "remarks",
+      "Exst_New": "exst_new",
+      "Longitute": "longitude",
+      "Latitude": "latitude",
+      "Photo": "photo"
+    }
+  },
+  "SLT_HH.gpkg": {
+    "SLT_HH": {
+      "HH_NAME": "hh_name",
+      "LEA": "lea",
+      "NUMBER OF WAYS": "number_of_ways",
+      "SUB TYPE": "sub_type",
+      "SIDE": "side",
+      "ROAD NAME": "road_name",
+      "START CHAIN": "start_chain",
+      "ADJACENT PREVIOUS": "adjacent_previous",
+      "NUMBER OF RISERS": "number_of_risers",
+      "REMARK": "remark",
+      "FRAME AND COVER STATUS": "frame_and_cover_status",
+      "LOCATION ADDRESS": "location_address",
+      "LAC": "lac",
+      "Exist_New": "exist_new",
+      "Longitute": "longitude",
+      "Latitude": "latitude",
+      "Photo": "photo"
+    }
+  },
+  "SLT_MH.gpkg": {
+    "SLT_MH": {
+      "MH NAME": "mh_name",
+      "LEA": "lea",
+      "NUMBER OF WAYS": "number_of_ways",
+      "SUB TYPE": "sub_type",
+      "SIDE": "side",
+      "ROAD NAME": "road_name",
+      "START CHAIN": "start_chain",
+      "ADJACENT PREVIOUS": "adjacent_previous",
+      "NUMBER OF RISERS": "number_of_risers",
+      "REMARK": "remark",
+      "FRAME AND COVER STATUS": "frame_and_cover_status",
+      "LOCATION ADDRESS": "location_address",
+      "LAC": "lac",
+      "Exst_New": "exst_new",
+      "Longitute": "longitude",
+      "Latitude": "latitude",
+      "Photo": "photo"
+    }
+  },
+  "SLT_ODF.gpkg": {
+    "SLT_ODF": {
+      "ODF NAME": "odf_name",
+      "LEA": "lea",
+      "BUILDING LOCATION": "building_location",
+      "RACK NUMBER": "rack_number",
+      "SHEATH NAMES": "sheath_names",
+      "NUM CORES TERMINATED": "num_cores_terminated",
+      "LAC": "lac",
+      "REMARKS": "remarks",
+      "MODEL": "model",
+      "Exst_New": "exst_new",
+      "Longitute": "longitude",
+      "Latitude": "latitude",
+      "Photo": "photo"
+    }
+  },
+  "SLT_Risers.gpkg": {
+    "SLT_Risers": {
+      "RISER_NUM": "riser_num",
+      "MOUNT_TYPE": "mount_type",
+      "RISER TYPE": "riser_type",
+      "RISER_DIAM": "riser_diam",
+      "LENGTH": "length",
+      "NO OF RISE": "no_of_rise",
+      "RISER_END1": "riser_end1",
+      "RISER_END2": "riser_end2",
+      "REMARKS": "remarks",
+      "Photo": "photo"
+    }
+  },
+  "SLT_Road_EOPs.gpkg": {
+    "SLT_Road_EOPs": {
+      "Road_Name": "road_name",
+      "Remarks": "remarks",
+      "Photo": "photo"
+    }
+  },
+  "SLT_TP.gpkg": {
+    "SLT_TP": {
+      "TP_NAME": "tp_name",
+      "LEA": "lea",
+      "CUSTOMER NAME": "customer_name",
+      "NO OF CORES TERMINATED": "no_of_cores_terminated",
+      "CUSTOMER PREMISESS ODF TYPE": "customer_premisess_odf_type",
+      "CUSTOMER TYPE": "customer_type",
+      "CUSTOMER SUB TYPE": "customer_sub_type",
+      "OPERATOR TO WHICH SERVICE PROVIDED": "operator_to_which_service_provided",
+      "TOWER OWNER": "tower_owner",
+      "TOWER": "tower",
+      "TOWER OPERATOR": "tower_operator",
+      "BUILDING NAME": "building_name",
+      "TENANTS": "tenants",
+      "REMARKS": "remarks",
+      "LAC": "lac",
+      "ADDRESS": "address",
+      "SITE ID": "site_id",
+      "SLT CCT NO": "slt_cct_no",
+      "SERVICE STATUS": "service_status",
+      "PE NUMBER": "pe_number",
+      "Existing_New": "existing_new",
+      "Longitute": "longitude",
+      "Latitude": "latitude",
+      "Photo": "photo"
+    }
+  }
+}

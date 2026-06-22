@@ -28,77 +28,79 @@ interface QFieldConfigFormProps {
 const LAYER_FIELDS_MAP: Record<string, { label: string; fields: string[] }> = {
   SLT_Poles: {
     label: "Poles (SLT_Poles)",
-    fields: ["POLE TYPE", "POLE MAKE", "Exist_New", "POLE HEIGHT", "SIDE", "RISER PIPE", "STAYS", "STRUT", "OVERHEAD GUY", "JOINT"]
+    fields: ["pole_type", "pole_make", "exist_new", "pole_height", "side", "riser_pipe", "stays", "strut", "overhead_guy", "joint", "condition"]
   },
   SLT_Cables: {
     label: "Cables (SLT_Cables)",
-    fields: ["Cable_Type", "Main_Sheat", "Ext_Sheath"]
+    fields: ["cable_type", "main_sheat", "ext_sheath"]
   },
   SLT_FJ: {
     label: "Fiber Joint (SLT_FJ)",
-    fields: ["TYPE", "Exst_New", "Connected EQ Number"]
+    fields: ["type", "exst_new", "connected_eq_number"]
   },
   SLT_FDP: {
     label: "Distribution Point (SLT_FDP)",
-    fields: ["TYPE", "Exst_New", "SPLITTER TYPE"]
+    fields: ["type", "exst_new", "splitter_type"]
   },
   SLT_Ducts: {
     label: "Ducts (SLT_Ducts)",
-    fields: ["TYPE", "PROTECTION", "DAMAGE", "DUCT_ENV"]
+    fields: ["type", "protection", "damage", "duct_env"]
   },
   SLT_FTC: {
     label: "FTC Cabinet (SLT_FTC)",
-    fields: ["TYPE", "Exst_New", "CAPACITY", "SIDE"]
+    fields: ["type", "exst_new", "capacity", "side"]
   },
   SLT_HH: {
     label: "Hand Hole (SLT_HH)",
-    fields: ["Exist_New", "SUB TYPE", "FRAME AND COVER STATUS", "NUMBER OF WAYS"]
+    fields: ["exist_new", "sub_type", "frame_and_cover_status", "number_of_ways"]
   },
   SLT_MH: {
     label: "Man Hole (SLT_MH)",
-    fields: ["Exst_New", "SUB TYPE", "FRAME AND COVER STATUS", "NUMBER OF WAYS"]
+    fields: ["exst_new", "sub_type", "frame_and_cover_status", "number_of_ways"]
   },
   SLT_ODF: {
     label: "ODF Frame (SLT_ODF)",
-    fields: ["Exst_New", "MODEL"]
+    fields: ["exst_new", "model"]
   },
   SLT_Risers: {
     label: "Risers (SLT_Risers)",
-    fields: ["RISER TYPE", "MOUNT_TYPE"]
+    fields: ["riser_type", "mount_type"]
   },
   SLT_TP: {
     label: "Termination Point (SLT_TP)",
-    fields: ["PE NUMBER", "Existing_New", "CUSTOMER TYPE", "CUSTOMER SUB TYPE", "SERVICE STATUS"]
+    fields: ["pe_number", "existing_new", "customer_type", "customer_sub_type", "service_status"]
   }
 };
 
 // Preset default configs for rapid setup
 const DEFAULT_PRESETS: QFieldFieldConfig[] = [
-  { layerId: "SLT_Poles", fieldName: "Exist_New", options: ["Existing", "New", "Relocated"] },
-  { layerId: "SLT_Poles", fieldName: "POLE TYPE", options: ["Concrete", "GI", "Spun", "Wood"] },
-  { layerId: "SLT_Poles", fieldName: "POLE HEIGHT", options: ["7.5m", "8.0m", "9.0m", "10.0m"] },
-  { layerId: "SLT_Cables", fieldName: "Cable_Type", options: ["12F SM", "24F SM", "48F SM", "96F SM", "144F SM"] },
-  { layerId: "SLT_FJ", fieldName: "Exst_New", options: ["Existing", "New"] },
-  { layerId: "SLT_FJ", fieldName: "TYPE", options: ["Splice Joint", "T-Joint", "Branch Joint"] },
-  { layerId: "SLT_FDP", fieldName: "Exst_New", options: ["Existing", "New"] },
-  { layerId: "SLT_FDP", fieldName: "TYPE", options: ["Wall Mount", "Pole Mount", "Pedestal"] },
-  { layerId: "SLT_FDP", fieldName: "SPLITTER TYPE", options: ["1:2", "1:4", "1:8", "1:16", "1:32"] },
-  { layerId: "SLT_Ducts", fieldName: "TYPE", options: ["PVC", "PE", "GI"] },
-  { layerId: "SLT_Ducts", fieldName: "PROTECTION", options: ["Concrete Slab", "Warning Tape", "None"] },
-  { layerId: "SLT_Ducts", fieldName: "DAMAGE", options: ["None", "Minor Scratch", "Cracked", "Blocked"] },
-  { layerId: "SLT_FTC", fieldName: "Exst_New", options: ["Existing", "New"] },
-  { layerId: "SLT_FTC", fieldName: "TYPE", options: ["Primary Cabinet", "Secondary Cabinet"] },
-  { layerId: "SLT_FTC", fieldName: "CAPACITY", options: ["144F", "288F", "576F"] },
-  { layerId: "SLT_HH", fieldName: "Exist_New", options: ["Existing", "New"] },
-  { layerId: "SLT_HH", fieldName: "SUB TYPE", options: ["Type A", "Type B", "Type C"] },
-  { layerId: "SLT_HH", fieldName: "FRAME AND COVER STATUS", options: ["Good", "Broken", "Missing", "Needs Replacement"] },
-  { layerId: "SLT_MH", fieldName: "Exst_New", options: ["Existing", "New"] },
-  { layerId: "SLT_MH", fieldName: "SUB TYPE", options: ["Type 1", "Type 2", "Type 3", "Type 4"] },
-  { layerId: "SLT_MH", fieldName: "FRAME AND COVER STATUS", options: ["Good", "Broken", "Missing", "Needs Replacement"] },
-  { layerId: "SLT_ODF", fieldName: "Exst_New", options: ["Existing", "New"] },
-  { layerId: "SLT_ODF", fieldName: "MODEL", options: ["Rackmount 24F", "Rackmount 48F", "Rackmount 96F", "Wallmount 12F"] },
-  { layerId: "SLT_TP", fieldName: "Existing_New", options: ["Existing", "New"] },
-  { layerId: "SLT_TP", fieldName: "CUSTOMER TYPE", options: ["Retail", "Enterprise", "LTE Tower", "FTTH Distribution"] }
+  { layerId: "SLT_Poles", fieldName: "exist_new", options: ["Existing", "New", "Relocated"] },
+  { layerId: "SLT_Poles", fieldName: "pole_type", options: ["Concrete", "GI", "Spun", "Wood"] },
+  { layerId: "SLT_Poles", fieldName: "pole_height", options: ["7.5m", "8.0m", "9.0m", "10.0m"] },
+  { layerId: "SLT_Poles", fieldName: "condition", options: ["Good", "Damaged", "Leaning", "Needs Replacement"] },
+  { layerId: "SLT_Poles", fieldName: "pole_make", options: ["LTL", "St. Anthony", "Other"] },
+  { layerId: "SLT_Cables", fieldName: "cable_type", options: ["12F SM", "24F SM", "48F SM", "96F SM", "144F SM"] },
+  { layerId: "SLT_FJ", fieldName: "exst_new", options: ["Existing", "New"] },
+  { layerId: "SLT_FJ", fieldName: "type", options: ["Splice Joint", "T-Joint", "Branch Joint"] },
+  { layerId: "SLT_FDP", fieldName: "exst_new", options: ["Existing", "New"] },
+  { layerId: "SLT_FDP", fieldName: "type", options: ["Wall Mount", "Pole Mount", "Pedestal"] },
+  { layerId: "SLT_FDP", fieldName: "splitter_type", options: ["1:2", "1:4", "1:8", "1:16", "1:32"] },
+  { layerId: "SLT_Ducts", fieldName: "type", options: ["PVC", "PE", "GI"] },
+  { layerId: "SLT_Ducts", fieldName: "protection", options: ["Concrete Slab", "Warning Tape", "None"] },
+  { layerId: "SLT_Ducts", fieldName: "damage", options: ["None", "Minor Scratch", "Cracked", "Blocked"] },
+  { layerId: "SLT_FTC", fieldName: "exst_new", options: ["Existing", "New"] },
+  { layerId: "SLT_FTC", fieldName: "type", options: ["Primary Cabinet", "Secondary Cabinet"] },
+  { layerId: "SLT_FTC", fieldName: "capacity", options: ["144F", "288F", "576F"] },
+  { layerId: "SLT_HH", fieldName: "exist_new", options: ["Existing", "New"] },
+  { layerId: "SLT_HH", fieldName: "sub_type", options: ["Type A", "Type B", "Type C"] },
+  { layerId: "SLT_HH", fieldName: "frame_and_cover_status", options: ["Good", "Broken", "Missing", "Needs Replacement"] },
+  { layerId: "SLT_MH", fieldName: "exst_new", options: ["Existing", "New"] },
+  { layerId: "SLT_MH", fieldName: "sub_type", options: ["Type 1", "Type 2", "Type 3", "Type 4"] },
+  { layerId: "SLT_MH", fieldName: "frame_and_cover_status", options: ["Good", "Broken", "Missing", "Needs Replacement"] },
+  { layerId: "SLT_ODF", fieldName: "exst_new", options: ["Existing", "New"] },
+  { layerId: "SLT_ODF", fieldName: "model", options: ["Rackmount 24F", "Rackmount 48F", "Rackmount 96F", "Wallmount 12F"] },
+  { layerId: "SLT_TP", fieldName: "existing_new", options: ["Existing", "New"] },
+  { layerId: "SLT_TP", fieldName: "customer_type", options: ["Retail", "Enterprise", "LTE Tower", "FTTH Distribution"] }
 ];
 
 export default function QFieldConfigForm({ projectId, projectCode, projectName }: QFieldConfigFormProps) {
