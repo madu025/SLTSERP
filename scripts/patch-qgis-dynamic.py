@@ -260,11 +260,43 @@ def patch_qgs(qgs_path, config_data):
                         
                         for opt in options:
                             option_map2 = ET.SubElement(option_list, 'Option', {'type': 'Map'})
-                            ET.SubElement(option_map2, 'Option', {'type': 'QString', 'name': 'label', 'value': str(opt)})
-                            ET.SubElement(option_map2, 'Option', {'type': 'QString', 'name': 'value', 'value': str(opt)})
+                            ET.SubElement(option_map2, 'Option', {'type': 'QString', 'name': str(opt), 'value': str(opt)})
                         
                         changes += 1
                         print(f"  Injected ValueMap for {layername}.{field_name} with {len(options)} options.")
+
+    # 6. Auto-fix existing broken ValueMaps in the template project
+    print("Running global scan to auto-repair existing broken ValueMaps...")
+    for layer in root.findall('.//maplayer'):
+        layername_elem = layer.find('layername')
+        layername = layername_elem.text if layername_elem is not None else ""
+        for field in layer.findall('.//fieldConfiguration/field'):
+            field_name = field.get('name')
+            edit_widget = field.find('editWidget')
+            if edit_widget is not None and edit_widget.get('type') == 'ValueMap':
+                opt_list = edit_widget.find(".//Option[@type='List'][@name='map']")
+                if opt_list is not None:
+                    repaired_options = []
+                    has_broken = False
+                    for opt_map in opt_list.findall("Option[@type='Map']"):
+                        # Check if it has a child option named 'label'
+                        label_opt = opt_map.find("Option[@name='label']")
+                        if label_opt is not None:
+                            has_broken = True
+                            val = label_opt.get('value')
+                            repaired_options.append(val)
+                    
+                    if has_broken:
+                        # Clear old list and rebuild it correctly
+                        for opt_map in list(opt_list):
+                            opt_list.remove(opt_map)
+                        
+                        for val in repaired_options:
+                            option_map2 = ET.SubElement(opt_list, 'Option', {'type': 'Map'})
+                            ET.SubElement(option_map2, 'Option', {'type': 'QString', 'name': str(val), 'value': str(val)})
+                        
+                        changes += 1
+                        print(f"  🔧 Auto-repaired broken ValueMap on layer '{layername}' field '{field_name}' (options: {repaired_options})")
 
     if changes > 0:
         tree.write(qgs_path, encoding='utf-8', xml_declaration=True)
