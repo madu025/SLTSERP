@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ResponsiveTable from '@/components/ResponsiveTable';
-import { Plus, Edit2, Trash2, Save, X, Package, ShoppingCart } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Package, ShoppingCart, Wand2, Loader2 } from 'lucide-react';
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
 
 import { toast } from 'sonner';
@@ -24,6 +24,8 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
     const [loading, setLoading] = useState(false);
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
     const [sourceFilter, setSourceFilter] = useState<SourceFilter>('ALL');
+    const [autoBoqLoading, setAutoBoqLoading] = useState(false);
+
 
     const [formData, setFormData] = useState({
         itemCode: '',
@@ -81,6 +83,27 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
         });
         setIsDialogOpen(true);
     };
+
+    const handleAutoGenerateBOQ = async () => {
+        setAutoBoqLoading(true);
+        try {
+            const res = await fetch(`/api/projects/${project.id}/auto-boq`, {
+                method: 'POST',
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast.success(data.message || `BOQ generated: ${data.itemCount} items created.`);
+                refreshProject();
+            } else {
+                toast.error(data.error || data.message || 'Failed to generate BOQ');
+            }
+        } catch (error) {
+            toast.error('Auto-BOQ generation request failed');
+        } finally {
+            setAutoBoqLoading(false);
+        }
+    };
+
 
     const handleItemSelect = (item: InventoryItem | null) => {
         setSelectedInventoryItem(item);
@@ -165,10 +188,29 @@ export default function ProjectBOQ({ project, refreshProject }: ProjectBOQProps)
                         <p className="text-xs text-slate-500 uppercase font-semibold">Total Value</p>
                         <p className="text-lg font-bold text-slate-900">{formatCurrency(totalBOQValue)}</p>
                     </div>
-                    <Button onClick={handleAddNew} className="self-center gap-2">
-                        <Plus className="w-4 h-4" />
-                        Add Item
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button
+                            onClick={handleAutoGenerateBOQ}
+                            disabled={autoBoqLoading}
+                            className="self-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md shadow-indigo-200"
+                        >
+                            {autoBoqLoading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <Wand2 className="w-4 h-4" />
+                                    Auto-Generate from Survey
+                                </>
+                            )}
+                        </Button>
+                        <Button onClick={handleAddNew} className="self-center gap-2">
+                            <Plus className="w-4 h-4" />
+                            Add Item
+                        </Button>
+                    </div>
                 </div>
             </div>
 

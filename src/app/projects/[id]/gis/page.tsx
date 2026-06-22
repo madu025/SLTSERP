@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GISMapView } from '@/components/gis/GISMapView';
 import { GISLayerPanel } from '@/components/gis/GISLayerPanel';
+import { SurveyPointEditor } from '@/components/gis/SurveyPointEditor';
 
 interface Project {
   name?: string;
@@ -39,6 +40,7 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
   const [project, setProject] = useState<Project | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [activeTab, setActiveTab] = useState<'gis' | 'survey-edit'>('gis');
 
   const fetchGISData = useCallback(async () => {
     try {
@@ -152,9 +154,33 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
                 {fullscreen ? 'Exit Fullscreen' : 'Back to Project'}
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  GIS Map View
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold text-gray-900">
+                    GIS Map View
+                  </h1>
+                  <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                    <button
+                      onClick={() => setActiveTab('gis')}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                        activeTab === 'gis'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      🗺️ GIS Routes
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('survey-edit')}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                        activeTab === 'survey-edit'
+                          ? 'bg-indigo-50 text-indigo-700 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      ✏️ Point Editing
+                    </button>
+                  </div>
+                </div>
                 <p className="text-sm text-gray-500">
                   {projectName}
                   {gisData?.gisRoutes && gisData.gisRoutes.length > 0 && (
@@ -196,34 +222,43 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* Main Content */}
-        <div className={`${fullscreen ? 'flex-1 flex overflow-hidden' : 'flex flex-col lg:flex-row gap-6'}`}>
-          {/* Map Section */}
-          <div className={`${fullscreen ? 'flex-1' : 'lg:flex-[3]'} min-h-[400px] ${fullscreen ? 'flex flex-col' : ''}`}>
-            <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${fullscreen ? 'flex-1' : ''}`}>
-              <GISMapView
-                gisRoutes={gisData?.gisRoutes || []}
-                assets={gisData?.assets || []}
-                height={fullscreen ? '100%' : '600px'}
-                fullscreen={fullscreen}
-              />
+        {activeTab === 'gis' ? (
+          <div className={`${fullscreen ? 'flex-1 flex overflow-hidden' : 'flex flex-col lg:flex-row gap-6'}`}>
+            {/* Map Section */}
+            <div className={`${fullscreen ? 'flex-1' : 'lg:flex-[3]'} min-h-[400px] ${fullscreen ? 'flex flex-col' : ''}`}>
+              <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${fullscreen ? 'flex-1' : ''}`}>
+                <GISMapView
+                  gisRoutes={gisData?.gisRoutes || []}
+                  assets={gisData?.assets || []}
+                  height={fullscreen ? '100%' : '600px'}
+                  fullscreen={fullscreen}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Layer Panel Section */}
-          <div className={`${fullscreen ? 'w-96 overflow-y-auto border-l border-gray-200 bg-white' : 'lg:flex-1'}`}>
-            <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${fullscreen ? 'rounded-none border-0 h-full' : ''}`}>
-              <GISLayerPanel
-                gisRoutes={gisData?.gisRoutes || []}
-                assets={gisData?.assets || []}
-                boq={boq}
-                surveys={gisData?.surveys || []}
-                permits={gisData?.permits || []}
-                onImportMore={handleImportMore}
-                onViewDetails={handleViewDetails}
-              />
+            {/* Layer Panel Section */}
+            <div className={`${fullscreen ? 'w-96 overflow-y-auto border-l border-gray-200 bg-white' : 'lg:flex-1'}`}>
+              <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${fullscreen ? 'rounded-none border-0 h-full' : ''}`}>
+                <GISLayerPanel
+                  gisRoutes={gisData?.gisRoutes || []}
+                  assets={gisData?.assets || []}
+                  boq={boq}
+                  surveys={gisData?.surveys || []}
+                  permits={gisData?.permits || []}
+                  onImportMore={handleImportMore}
+                  onViewDetails={handleViewDetails}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className={fullscreen ? 'flex-1' : ''}>
+            <SurveyPointEditor
+              projectId={id}
+              height={fullscreen ? '100%' : '600px'}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ClipboardCheck, Map, Camera, AlertTriangle, Plus, RefreshCw, Cloud, Database, UploadCloud, CheckCircle2, Server, Clock, Activity, Settings } from 'lucide-react';
+import { ClipboardCheck, Map, Camera, AlertTriangle, Plus, RefreshCw, Cloud, Database, UploadCloud, CheckCircle2, Server, Clock, Activity, Settings, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ProjectSurveyProps { project: any; }
@@ -327,6 +327,23 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
                         Sync QFieldCloud
                       </>
                     )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = `/api/projects/${project.id}/export/gpkg`;
+                      link.download = '';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      toast.success('Downloading GeoPackage...');
+                    }}
+                    className="bg-white border-green-300 text-green-700 hover:bg-green-50"
+                  >
+                    <Download className="w-3.5 h-3.5 mr-2" />
+                    Export GPKG
                   </Button>
                 </div>
               </div>
