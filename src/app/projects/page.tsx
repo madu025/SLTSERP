@@ -91,8 +91,7 @@ export default function ProjectsPage() {
     const [opmcs, setOpmcs] = useState<OPMCOption[]>([]);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [newProject, setNewProject] = useState({
-        projectCode: '', name: '', description: '', type: 'OSP_FTTH',
-        location: '', budget: '', startDate: '', endDate: '', projectTypeId: '', opmcId: '', contractorId: ''
+        projectCode: '', name: '', projectTypeId: ''
     });
     const [newTypeDialogOpen, setNewTypeDialogOpen] = useState(false);
     const [newTypeName, setNewTypeName] = useState('');
@@ -159,7 +158,7 @@ export default function ProjectsPage() {
             if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed'); return; }
             toast.success('Project created');
             setCreateDialogOpen(false);
-            setNewProject({ projectCode: '', name: '', description: '', type: 'OSP_FTTH', location: '', budget: '', startDate: '', endDate: '', projectTypeId: '', opmcId: '', contractorId: '' });
+            setNewProject({ projectCode: '', name: '', projectTypeId: '' });
             fetchProjects();
         } catch { toast.error('Failed to create project'); }
     };
@@ -377,76 +376,42 @@ export default function ProjectsPage() {
                 </div>
             </main>
  
-            {/* ── Create Project Dialog ── */}
-            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="text-lg">Create New Project</DialogTitle>
-                        <DialogDescription className="text-xs">Enter project details below</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid grid-cols-2 gap-3 py-3">
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Project Code *</Label>
-                            <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.projectCode} onChange={(e) => setNewProject({ ...newProject, projectCode: e.target.value })} placeholder="PRJ-2026-001" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-xs">Project Type</Label>
-                                <button type="button" onClick={() => setNewTypeDialogOpen(true)} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-0.5">
-                                    <PlusCircle className="w-3 h-3" />Add
-                                </button>
-                            </div>
-                            <Select value={newProject.projectTypeId || undefined} onValueChange={(v) => setNewProject({ ...newProject, projectTypeId: v })}>
-                                <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select type..." /></SelectTrigger>
-                                <SelectContent>{(projectTypes || []).map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
-                            </Select>
-                            {selectedProjectType && <p className="text-[10px] text-muted-foreground mt-0.5">Workflow: {selectedProjectType.description}</p>}
-                        </div>
-                        <div className="col-span-2 space-y-1.5">
-                            <Label className="text-xs">Project Name *</Label>
-                            <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.name} onChange={(e) => setNewProject({ ...newProject, name: e.target.value })} placeholder="Project name" />
-                        </div>
-                        <div className="col-span-2 space-y-1.5">
-                            <Label className="text-xs">Description</Label>
-                            <Textarea className="text-xs bg-card border-border text-foreground" value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} placeholder="Project description..." rows={2} />
-                        </div>
-                        <div className="col-span-2 space-y-1.5">
-                            <Label className="text-xs">Location</Label>
-                            <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.location} onChange={(e) => setNewProject({ ...newProject, location: e.target.value })} placeholder="Project location" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Budget (LKR)</Label>
-                            <Input className="h-8 text-xs bg-card border-border text-foreground" type="number" value={newProject.budget} onChange={(e) => setNewProject({ ...newProject, budget: e.target.value })} placeholder="0.00" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Start Date</Label>
-                            <Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={newProject.startDate} onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">End Date</Label>
-                            <Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={newProject.endDate} onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">OPMC</Label>
-                            <Select value={newProject.opmcId || undefined} onValueChange={(v) => setNewProject({ ...newProject, opmcId: v })}>
-                                <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select OPMC" /></SelectTrigger>
-                                <SelectContent>{(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Contractor</Label>
-                            <Select value={newProject.contractorId || undefined} onValueChange={(v) => setNewProject({ ...newProject, contractorId: v })}>
-                                <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select Contractor" /></SelectTrigger>
-                                <SelectContent>{(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <DialogFooter className="gap-2">
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-                        <Button size="sm" className="h-8 text-xs" onClick={handleCreate}>Create Project</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+             {/* ── Create Project Dialog ── */}
+             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                 <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+                     <DialogHeader>
+                         <DialogTitle className="text-lg">Create New Project</DialogTitle>
+                         <DialogDescription className="text-xs">Enter project details below</DialogDescription>
+                     </DialogHeader>
+                     <div className="grid grid-cols-2 gap-3 py-3">
+                         <div className="space-y-1.5">
+                             <Label className="text-xs">Project Code *</Label>
+                             <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.projectCode} onChange={(e) => setNewProject({ ...newProject, projectCode: e.target.value })} placeholder="PRJ-2026-001" />
+                         </div>
+                         <div className="space-y-1.5">
+                             <div className="flex items-center justify-between">
+                                 <Label className="text-xs">Project Type</Label>
+                                 <button type="button" onClick={() => setNewTypeDialogOpen(true)} className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-0.5">
+                                     <PlusCircle className="w-3 h-3" />Add
+                                 </button>
+                             </div>
+                             <Select value={newProject.projectTypeId || undefined} onValueChange={(v) => setNewProject({ ...newProject, projectTypeId: v })}>
+                                 <SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select type..." /></SelectTrigger>
+                                 <SelectContent>{(projectTypes || []).map(pt => <SelectItem key={pt.id} value={pt.id}>{pt.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent>
+                             </Select>
+                             {selectedProjectType && <p className="text-[10px] text-muted-foreground mt-0.5">Workflow: {selectedProjectType.description}</p>}
+                         </div>
+                         <div className="col-span-2 space-y-1.5">
+                             <Label className="text-xs">Project Name *</Label>
+                             <Input className="h-8 text-xs bg-card border-border text-foreground" value={newProject.name} onChange={(e) => setNewProject({ ...newProject, name: e.target.value })} placeholder="Project name" />
+                         </div>
+                     </div>
+                     <DialogFooter className="gap-2">
+                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+                         <Button size="sm" className="h-8 text-xs" onClick={handleCreate}>Create Project</Button>
+                     </DialogFooter>
+                 </DialogContent>
+             </Dialog>
  
             {/* ── Guide Dialog ── */}
             <Dialog open={guideDialogOpen} onOpenChange={setGuideDialogOpen}>

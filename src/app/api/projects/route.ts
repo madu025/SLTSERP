@@ -87,8 +87,6 @@ export async function POST(request: Request) {
             budget,
             startDate,
             endDate,
-            estimatedDuration,
-            areaManagerId,
             contractorId,
             opmcId,
             projectTypeId
@@ -124,8 +122,6 @@ export async function POST(request: Request) {
                 budget: budget ? parseFloat(budget) : null,
                 startDate: startDate ? new Date(startDate) : null,
                 endDate: endDate ? new Date(endDate) : null,
-                estimatedDuration: estimatedDuration ? parseInt(estimatedDuration) : null,
-                areaManagerId: areaManagerId || null,
                 contractorId: contractorId || null,
                 opmcId: opmcId || null,
                 projectTypeId: projectTypeId || null,
