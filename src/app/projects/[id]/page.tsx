@@ -176,12 +176,52 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
         setEditDialogOpen(true);
     }, [project]);
  
+    const selectedOpmcObj = useMemo(() => {
+        return opmcs.find(o => o.id === editOpmcId);
+    }, [opmcs, editOpmcId]);
+
+    const calculatedEstDuration = useMemo(() => {
+        if (!editForm.startDate || !editForm.endDate) return 'TBD';
+        const start = new Date(editForm.startDate);
+        const end = new Date(editForm.endDate);
+        const diffTime = end.getTime() - start.getTime();
+        if (isNaN(diffTime)) return 'TBD';
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 ? `${diffDays} Days` : '0 Days';
+    }, [editForm.startDate, editForm.endDate]);
+
     const handleSaveEdit = useCallback(async () => {
         if (!editForm.name.trim()) { toast.error('Project name is required'); return; }
         setSaving(true);
+
+        let calculatedEst = null;
+        if (editForm.startDate && editForm.endDate) {
+            const start = new Date(editForm.startDate);
+            const end = new Date(editForm.endDate);
+            const diffTime = end.getTime() - start.getTime();
+            if (!isNaN(diffTime)) {
+                calculatedEst = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+            }
+        }
+
         try {
-            const res = await fetch('/api/projects', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: project?.id, name: editForm.name, projectCode: editForm.projectCode, description: editForm.description, status: editForm.status, progress: parseFloat(editForm.progress) || 0, location: editForm.location, startDate: editForm.startDate || null, endDate: editForm.endDate || null, estimatedDuration: editForm.estimatedDuration ? parseInt(editForm.estimatedDuration) : null, actualDuration: editForm.actualDuration ? parseInt(editForm.actualDuration) : null, opmcId: editOpmcId || null, contractorId: editContractorId || null }) });
+            const res = await fetch('/api/projects', { 
+                method: 'PATCH', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    id: project?.id, 
+                    name: editForm.name, 
+                    projectCode: editForm.projectCode, 
+                    description: editForm.description, 
+                    status: editForm.status, 
+                    location: editForm.location, 
+                    startDate: editForm.startDate || null, 
+                    endDate: editForm.endDate || null, 
+                    estimatedDuration: calculatedEst, 
+                    opmcId: editOpmcId || null, 
+                    contractorId: editContractorId || null 
+                }) 
+            });
             if (!res.ok) { const e = await res.json(); toast.error(e.error || 'Failed to update'); return; }
             toast.success('Project updated'); setEditDialogOpen(false); fetchProjectDetails();
         } catch { toast.error('Failed to update project'); }
@@ -335,20 +375,27 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader><DialogTitle className="text-lg">Edit Project Details</DialogTitle><DialogDescription className="text-xs">Update project details below</DialogDescription></DialogHeader>
-                    <div className="grid grid-cols-2 gap-3 py-3">
-                        <div className="space-y-1.5"><Label className="text-xs">Project Name *</Label><Input className="h-8 text-xs bg-card border-border text-foreground" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} placeholder="Project name" /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Project Code *</Label><Input className="h-8 text-xs bg-card border-border text-foreground" value={editForm.projectCode} onChange={e => setEditForm({ ...editForm, projectCode: e.target.value })} placeholder="FOSP_SLTS_2026_002" /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Status</Label><Select value={editForm.status} onValueChange={v => setEditForm({ ...editForm, status: v })}><SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue /></SelectTrigger><SelectContent>{PROJECT_STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Progress (%)</Label><Input className="h-8 text-xs bg-card border-border text-foreground" type="number" min="0" max="100" value={editForm.progress} onChange={e => setEditForm({ ...editForm, progress: e.target.value })} placeholder="0" /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Start Date</Label><Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={editForm.startDate} onChange={e => setEditForm({ ...editForm, startDate: e.target.value })} /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">End Date</Label><Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={editForm.endDate} onChange={e => setEditForm({ ...editForm, endDate: e.target.value })} /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Location</Label><Input className="h-8 text-xs bg-card border-border text-foreground" value={editForm.location} onChange={e => setEditForm({ ...editForm, location: e.target.value })} placeholder="Project location" /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Est. Duration (Days)</Label><Input className="h-8 text-xs bg-card border-border text-foreground" type="number" value={editForm.estimatedDuration} onChange={e => setEditForm({ ...editForm, estimatedDuration: e.target.value })} placeholder="Estimated" /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Actual Duration (Days)</Label><Input className="h-8 text-xs bg-card border-border text-foreground" type="number" value={editForm.actualDuration} onChange={e => setEditForm({ ...editForm, actualDuration: e.target.value })} placeholder="Actual" /></div>
-                        <div className="space-y-1.5"><Label className="text-xs">OPMC</Label><Select value={editOpmcId || undefined} onValueChange={setEditOpmcId}><SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select OPMC" /></SelectTrigger><SelectContent>{(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}</SelectContent></Select></div>
-                        <div className="space-y-1.5"><Label className="text-xs">Contractor</Label><Select value={editContractorId || undefined} onValueChange={setEditContractorId}><SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select Contractor" /></SelectTrigger><SelectContent>{(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-                        <div className="col-span-2 space-y-1.5"><Label className="text-xs">Description</Label><Textarea className="text-xs bg-card border-border text-foreground" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} placeholder="Project description..." rows={2} /></div>
-                    </div>
+                     <div className="grid grid-cols-2 gap-3 py-3">
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">Project Name *</Label><Input className="h-8 text-xs bg-card border-border text-foreground" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} placeholder="Project name" /></div>
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">Project Code *</Label><Input className="h-8 text-xs bg-card border-border text-foreground" value={editForm.projectCode} onChange={e => setEditForm({ ...editForm, projectCode: e.target.value })} placeholder="FOSP_SLTS_2026_002" /></div>
+                         
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">Status</Label><Select value={editForm.status} onValueChange={v => setEditForm({ ...editForm, status: v })}><SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue /></SelectTrigger><SelectContent>{PROJECT_STATUSES.map(s => <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select></div>
+                         <div className="space-y-1.5"><Label className="text-xs font-medium text-muted-foreground">Progress (Auto-calculated)</Label><div className="h-8 px-3 flex items-center text-xs font-semibold rounded-md border border-border bg-muted/30 text-foreground">{editForm.progress}%</div></div>
+                         
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">Start Date</Label><Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={editForm.startDate} onChange={e => setEditForm({ ...editForm, startDate: e.target.value })} /></div>
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">End Date</Label><Input className="h-8 text-xs bg-card border-border text-foreground" type="date" value={editForm.endDate} onChange={e => setEditForm({ ...editForm, endDate: e.target.value })} /></div>
+                         
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">LEA / Exchange (Location)</Label><Input className="h-8 text-xs bg-card border-border text-foreground" value={editForm.location} onChange={e => setEditForm({ ...editForm, location: e.target.value })} placeholder="e.g., Kaduwela Exchange" /></div>
+                         <div className="space-y-1.5"><Label className="text-xs font-medium text-muted-foreground">Est. Duration (Days)</Label><div className="h-8 px-3 flex items-center text-xs rounded-md border border-border bg-muted/30 text-muted-foreground font-medium">{calculatedEstDuration}</div></div>
+                         
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">OPMC</Label><Select value={editOpmcId || undefined} onValueChange={setEditOpmcId}><SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select OPMC" /></SelectTrigger><SelectContent>{(opmcs || []).map(o => <SelectItem key={o.id} value={o.id}>{o.rtom} ({o.region})</SelectItem>)}</SelectContent></Select></div>
+                         <div className="space-y-1.5"><Label className="text-xs font-medium text-muted-foreground">Region (Auto-fetched)</Label><div className="h-8 px-3 flex items-center text-xs rounded-md border border-border bg-muted/30 text-muted-foreground font-medium">{selectedOpmcObj ? selectedOpmcObj.region : 'Select OPMC to view'}</div></div>
+                         
+                         <div className="space-y-1.5"><Label className="text-xs font-medium">Contractor</Label><Select value={editContractorId || undefined} onValueChange={setEditContractorId}><SelectTrigger className="h-8 text-xs bg-card border-border text-foreground"><SelectValue placeholder="Select Contractor" /></SelectTrigger><SelectContent>{(contractors || []).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+                         <div className="space-y-1.5"><Label className="text-xs font-medium text-muted-foreground">Actual Duration (Days)</Label><div className="h-8 px-3 flex items-center text-xs rounded-md border border-border bg-muted/30 text-muted-foreground">{project.actualDuration ? `${project.actualDuration} Days` : 'TBD (Calculated at closure)'}</div></div>
+                         
+                         <div className="col-span-2 space-y-1.5"><Label className="text-xs font-medium">Description</Label><Textarea className="text-xs bg-card border-border text-foreground" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} placeholder="Project description..." rows={2} /></div>
+                     </div>
                     <DialogFooter className="gap-2">
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
                         <Button size="sm" className="h-8 text-xs" onClick={handleSaveEdit} disabled={saving}>{saving ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Saving...</> : 'Save'}</Button>

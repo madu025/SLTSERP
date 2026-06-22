@@ -10,15 +10,58 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ClipboardCheck, Map, Camera, AlertTriangle, Plus, RefreshCw, Cloud, Database, UploadCloud, CheckCircle2, Server, Clock, Activity, Settings, Download } from 'lucide-react';
+import { AlertTriangle, Plus, RefreshCw, Cloud, UploadCloud, Activity, Settings, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface ProjectSurveyProps { project: any; }
+// ─── Interfaces ──────────────────────────────────────────────────────────────
+interface ProjectRef {
+  id: string;
+  name: string;
+  projectCode: string;
+  gisMapping?: {
+    qfieldProjectId?: string;
+    [key: string]: unknown;
+  } | null;
+}
+
+interface ProjectSurveyProps {
+  project: ProjectRef;
+}
+
+interface SurveyRequest {
+  id: string;
+  requestNumber: string;
+  title: string;
+  surveyType: string;
+  status: string;
+  findings?: unknown[];
+  photos?: unknown[];
+  estimatedBOQ: number | null;
+}
+
+interface SyncLog {
+  id: string;
+  projectId?: string;
+  startedAt: string | Date;
+  syncType: string;
+  status: string;
+  featuresCount: number;
+  errorMessage: string | null;
+}
+
+interface SyncStatus {
+  projectId?: string;
+  summary?: {
+    lastSync: string | null;
+    lastSyncFeatures: number;
+    totalPoints: number;
+  };
+  syncHistory?: SyncLog[];
+}
 
 export default function ProjectSurvey({ project }: ProjectSurveyProps) {
   const router = useRouter();
-  const [surveys, setSurveys] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [surveys, setSurveys] = useState<SurveyRequest[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newSurvey, setNewSurvey] = useState({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '', assignedToId: '', assignedTeamId: '' });
 
@@ -46,20 +89,24 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
   }, [dialogOpen]);
 
   // QFieldCloud Sync States
-  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [syncLoading, setSyncLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [manualProjectId, setManualProjectId] = useState('');
   const [linking, setLinking] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [autoCreating, setAutoCreating] = useState(false);
+  const [autoCreateFailed, setAutoCreateFailed] = useState(false);
 
-  const fetchSurveys = async () => {
+  const fetchSurveys = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${project.id}/surveys`);
       const data = await res.json();
       setSurveys(data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+    } catch (err) {
+      console.error('Failed to fetch surveys:', err);
+    }
+  }, [project.id]);
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -80,12 +127,43 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
     } finally {
       setSyncLoading(false);
     }
-  }, [project.id, project.gisMapping?.qfieldProjectId]);
+  }, [project.id, project.gisMapping?.qfieldProjectId, manualProjectId]);
 
   useEffect(() => { 
     fetchSurveys(); 
     fetchSyncStatus();
-  }, [project.id, fetchSyncStatus]);
+  }, [fetchSurveys, fetchSyncStatus]);
+
+  // Auto-create QFieldCloud project if disconnected and not already creating/failed
+  useEffect(() => {
+    if (!syncLoading && !project.gisMapping?.qfieldProjectId && !autoCreating && !autoCreateFailed) {
+      const autoCreate = async () => {
+        setAutoCreating(true);
+        try {
+          const res = await fetch(`/api/projects/${project.id}/qfield-sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-user-id': 'system' },
+            body: JSON.stringify({ action: 'create_project' })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            toast.success(data.message || 'QFieldCloud project initialized automatically!');
+            fetchSyncStatus();
+          } else {
+            setAutoCreateFailed(true);
+            toast.error(data.error || 'Failed to auto-initialize QFieldCloud workspace');
+          }
+        } catch (err) {
+          setAutoCreateFailed(true);
+          console.error('Auto-creation error:', err);
+          toast.error('Failed to auto-create QFieldCloud project');
+        } finally {
+          setAutoCreating(false);
+        }
+      };
+      autoCreate();
+    }
+  }, [project.gisMapping?.qfieldProjectId, syncLoading, autoCreating, autoCreateFailed, project.id, fetchSyncStatus]);
 
   const handleCreateQFieldProject = async () => {
     setSyncing(true);
@@ -103,6 +181,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
         toast.error(data.error || 'Failed to create QFieldCloud project');
       }
     } catch (err) {
+      console.error('Create error:', err);
       toast.error('Sync request failed');
     } finally {
       setSyncing(false);
@@ -136,6 +215,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
         toast.error(err.error || 'Failed to link project ID');
       }
     } catch (err) {
+      console.error('Link error:', err);
       toast.error('Link request failed');
     } finally {
       setLinking(false);
@@ -163,6 +243,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
         toast.error(data.error || 'Sync failed');
       }
     } catch (err) {
+      console.error('Sync error:', err);
       toast.error('Sync operation failed');
     } finally {
       setSyncing(false);
@@ -190,6 +271,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
         toast.error(data.error || 'Failed to push layers');
       }
     } catch (err) {
+      console.error('Push error:', err);
       toast.error('Push operation failed');
     } finally {
       setSyncing(false);
@@ -211,7 +293,9 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
       setDialogOpen(false);
       setNewSurvey({ title: '', surveyType: 'ROUTE_SURVEY', priority: 'MEDIUM', description: '', assignedToId: '', assignedTeamId: '' });
       fetchSurveys();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error('Create survey request failed:', err);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -271,50 +355,79 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
         </CardHeader>
         <CardContent className="pt-4 space-y-4">
           {!project.gisMapping?.qfieldProjectId ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Option A: Auto-Create Project</h4>
-                <p className="text-xs text-slate-500">Create a new QFieldCloud project and push all 12 survey layer definitions automatically.</p>
-                <Button 
-                  size="sm" 
-                  onClick={handleCreateQFieldProject} 
-                  disabled={syncing}
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  {syncing ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Cloud className="w-3.5 h-3.5 mr-2" />
-                      Create QFieldCloud Project
-                    </>
-                  )}
-                </Button>
-              </div>
-              <div className="space-y-2 border-l border-slate-200 pl-4">
-                <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Option B: Link Existing Project</h4>
-                <p className="text-xs text-slate-500">Provide the UUID of an existing project on your self-hosted QFieldCloud server.</p>
-                <div className="flex gap-2">
-                  <Input 
-                    value={manualProjectId} 
-                    onChange={(e) => setManualProjectId(e.target.value)} 
-                    placeholder="QFieldCloud Project UUID" 
-                    className="h-8 text-xs bg-white"
-                  />
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={handleManualLinkProject} 
-                    disabled={linking}
-                    className="h-8 shrink-0 bg-white"
-                  >
-                    {linking ? "Linking..." : "Link Project"}
-                  </Button>
+            <div className="p-6 flex flex-col items-center justify-center text-center bg-white rounded-lg border border-dashed border-indigo-200">
+              {autoCreating ? (
+                <div className="space-y-3 py-4 max-w-md">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto text-indigo-600 animate-pulse">
+                    <Cloud className="w-6 h-6 animate-bounce" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">Auto-configuring QFieldCloud Project...</h4>
+                  <p className="text-xs text-slate-500">
+                    We are automatically creating a dedicated survey workspace and uploading the 12 fiber layout layers (poles, cables, closures) to your self-hosted QFieldCloud server.
+                  </p>
+                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-indigo-600 h-full animate-pulse rounded-full" style={{ width: '60%' }} />
+                  </div>
                 </div>
-              </div>
+              ) : autoCreateFailed ? (
+                <div className="space-y-3 py-2 max-w-md">
+                  <div className="w-10 h-10 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">QFieldCloud Workspace Initialization Failed</h4>
+                  <p className="text-xs text-slate-500">
+                    The system could not automatically set up the project on the QFieldCloud server. Please ensure the server is online and configure it manually below.
+                  </p>
+                  <div className="flex gap-2 justify-center pt-2">
+                    <Button size="sm" onClick={() => { setAutoCreateFailed(false); }} className="bg-indigo-600 hover:bg-indigo-700">
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Retry Auto-Create
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowManualForm(!showManualForm)} className="bg-white">
+                      <Settings className="w-3.5 h-3.5 mr-1.5" /> Manual Setup
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 py-4 max-w-md">
+                  <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center mx-auto text-amber-500">
+                    <Cloud className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">Disconnected from QFieldCloud</h4>
+                  <p className="text-xs text-slate-500">
+                    This project is not linked to any survey mapping workspace. Click below to initialize or paste a project ID.
+                  </p>
+                  <div className="flex gap-2 justify-center pt-2">
+                    <Button size="sm" onClick={handleCreateQFieldProject} className="bg-indigo-600 hover:bg-indigo-700">
+                      Create QFieldCloud Project
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowManualForm(!showManualForm)} className="bg-white">
+                      Link Manually
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {showManualForm && (
+                <div className="mt-4 pt-4 border-t border-slate-100 w-full max-w-lg text-left space-y-2">
+                  <Label className="text-xs font-semibold text-slate-600">Manual Project Link (Enter UUID)</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={manualProjectId} 
+                      onChange={(e) => setManualProjectId(e.target.value)} 
+                      placeholder="QFieldCloud Project UUID (e.g. 5915a97a-...)" 
+                      className="h-8 text-xs bg-white"
+                    />
+                    <Button 
+                      size="sm" 
+                      onClick={handleManualLinkProject} 
+                      disabled={linking}
+                      className="h-8 shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      {linking ? "Linking..." : "Link Project"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -382,7 +495,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
               </div>
 
               {/* Sync History Logs */}
-              {syncStatus?.syncHistory?.length > 0 && (
+              {syncStatus?.syncHistory && syncStatus.syncHistory.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1">
                     <Activity className="w-3.5 h-3.5 text-indigo-600" />
@@ -400,7 +513,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {syncStatus.syncHistory.slice(0, 5).map((log: any) => (
+                        {syncStatus?.syncHistory?.slice(0, 5).map((log: SyncLog) => (
                           <TableRow key={log.id} className="h-8 text-xs hover:bg-slate-50">
                             <TableCell className="py-1 font-mono text-[10px]">{new Date(log.startedAt).toLocaleString()}</TableCell>
                             <TableCell className="py-1">
@@ -416,7 +529,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
                               </Badge>
                             </TableCell>
                             <TableCell className="py-1">{log.featuresCount}</TableCell>
-                            <TableCell className="py-1 text-slate-500 max-w-[200px] truncate" title={log.errorMessage}>
+                            <TableCell className="py-1 text-slate-500 max-w-[200px] truncate" title={log.errorMessage || undefined}>
                               {log.errorMessage || 'Successful'}
                             </TableCell>
                           </TableRow>
@@ -435,7 +548,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Total Surveys</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{surveys.length}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">In Progress</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-purple-600">{surveys.filter(s => s.status === 'IN_PROGRESS' || s.status === 'ASSIGNED').length}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Completed</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-green-600">{surveys.filter(s => s.status === 'COMPLETED' || s.status === 'APPROVED').length}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Findings</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-orange-600">{surveys.reduce((sum: number, s: any) => sum + (s.findings?.length || 0), 0)}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-slate-500">Findings</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-orange-600">{surveys.reduce((sum: number, s: SurveyRequest) => sum + (s.findings?.length || 0), 0)}</p></CardContent></Card>
       </div>
 
       <Card>
@@ -445,7 +558,7 @@ export default function ProjectSurvey({ project }: ProjectSurveyProps) {
               <TableRow><TableHead>Request #</TableHead><TableHead>Title</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Findings</TableHead><TableHead>Photos</TableHead><TableHead>Est. BOQ</TableHead><TableHead>Actions</TableHead></TableRow>
             </TableHeader>
             <TableBody>
-              {surveys.map((survey: any) => (
+              {surveys.map((survey: SurveyRequest) => (
                 <TableRow key={survey.id}>
                   <TableCell className="font-mono text-xs">{survey.requestNumber}</TableCell>
                   <TableCell className="font-medium">{survey.title}</TableCell>
