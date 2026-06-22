@@ -52,17 +52,9 @@ async function main() {
             description: 'Site survey and technical feasibility assessment',
             sequence: 1,
             reqApproval: true,
-            reqChecklist: true,
-            reqPhotos: true,
+            reqChecklist: false,
+            reqPhotos: false,
             reqGPS: true,
-            checklistTemplates: {
-              create: [
-                { label: 'Customer premises accessible', isMandatory: true },
-                { label: 'Drop wire route identified', isMandatory: true },
-                { label: 'Pole/closure availability confirmed', isMandatory: true },
-                { label: 'Photo of proposed route captured', isMandatory: true, reqPhoto: true },
-              ],
-            },
             approvalTemplates: {
               create: [
                 { level: 1, role: 'ENGINEER' },
