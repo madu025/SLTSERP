@@ -63,28 +63,14 @@ async function main() {
             },
           },
           {
-            name: 'Permit Acquisition',
-            description: 'Obtain necessary permits and wayleave agreements',
-            sequence: 2,
-            reqApproval: true,
-            reqDocuments: true,
-            approvalTemplates: {
-              create: [
-                { level: 1, role: 'ENGINEER' },
-                { level: 2, role: 'AREA_MANAGER' },
-              ],
-            },
-          },
-          {
             name: 'Material Issuance',
             description: 'Issue materials from store to contractor',
-            sequence: 3,
+            sequence: 2,
             reqMaterials: true,
             reqChecklist: true,
             checklistTemplates: {
               create: [
                 { label: 'All materials verified against BOQ', isMandatory: true },
-                { label: 'Serial numbers recorded', isMandatory: false, reqPhoto: true },
                 { label: 'Material issued to contractor', isMandatory: true },
               ],
             },
@@ -92,47 +78,28 @@ async function main() {
           {
             name: 'Installation & Cabling',
             description: 'Field installation, cabling and splicing',
-            sequence: 4,
+            sequence: 3,
             reqPhotos: true,
             reqChecklist: true,
             reqGPS: true,
             checklistTemplates: {
               create: [
                 { label: 'Cable routed per design', isMandatory: true, reqPhoto: true },
-                { label: 'Splice closure properly sealed', isMandatory: true, reqPhoto: true },
-                { label: 'Drop wire installed securely', isMandatory: true },
                 { label: 'ONT installed at customer premises', isMandatory: true, reqPhoto: true },
               ],
             },
           },
           {
-            name: 'Testing & OTDR',
-            description: 'Fiber testing and OTDR acceptance',
-            sequence: 5,
+            name: 'Testing & QA/QC',
+            description: 'Fiber testing, OTDR acceptance, and quality inspection',
+            sequence: 4,
             reqOTDR: true,
-            reqChecklist: true,
-            approvalTemplates: {
-              create: [
-                { level: 1, role: 'QC_OFFICER' },
-              ],
-            },
-            conditions: {
-              create: [
-                { field: 'otdrRequired', operator: 'EQUALS', value: 'true', action: 'REQUIRE' },
-              ],
-            },
-          },
-          {
-            name: 'QA/QC Inspection',
-            description: 'Quality inspection and sign-off',
-            sequence: 6,
             reqApproval: true,
             reqChecklist: true,
-            reqPhotos: true,
             checklistTemplates: {
               create: [
+                { label: 'OTDR traces saved and within limits', isMandatory: true },
                 { label: 'Visual inspection passed', isMandatory: true, reqPhoto: true },
-                { label: 'All test results within limits', isMandatory: true },
                 { label: 'Site clean and tidy', isMandatory: true, reqPhoto: true },
               ],
             },
@@ -146,7 +113,7 @@ async function main() {
           {
             name: 'Handover & Closure',
             description: 'Project handover and closure documentation',
-            sequence: 7,
+            sequence: 5,
             reqApproval: true,
             reqDocuments: true,
             reqChecklist: true,
@@ -154,7 +121,6 @@ async function main() {
               create: [
                 { label: 'Customer acceptance signed', isMandatory: true },
                 { label: 'As-built documents submitted', isMandatory: true },
-                { label: 'All photos uploaded', isMandatory: true },
                 { label: 'Material reconciliation complete', isMandatory: true },
               ],
             },

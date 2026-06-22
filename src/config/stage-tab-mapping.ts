@@ -212,6 +212,14 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
         { value: 'boq', label: 'BOQ & Material', description: 'Final BOQ' },
         { value: 'documents', label: 'Documents', description: 'Test results' },
     ],
+    'testing & qa/qc': [
+        { value: 'otdr', label: 'OTDR', description: 'OTDR testing and results' },
+        { value: 'qa', label: 'QA/QC', description: 'Quality control' },
+        { value: 'commissioning', label: 'Commissioning', description: 'Network commissioning' },
+        { value: 'gis', label: 'GIS Route', description: 'Route verification' },
+        { value: 'boq', label: 'BOQ & Material', description: 'Final BOQ check' },
+        { value: 'documents', label: 'Documents', description: 'Test & QA reports' },
+    ],
 
     // ===== QA/QC Stages =====
     'qa/qc inspection': [
