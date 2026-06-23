@@ -5,8 +5,8 @@ import { MapApprovalService } from '@/services/map-approval.service';
 type Params = Promise<{ id: string; pointId: string }>;
 
 // PATCH /api/projects/[id]/survey/points/[pointId]
-// action: "verify" | "approve" | "reject" | "flag" | "update_coordinates"
-// When action="update_coordinates", body must include { latitude: number, longitude: number }
+// action: "verify" | "confirm" | "approve" | "reject" | "flag" | "update_coordinates"
+// Workflow: PENDING_VERIFICATION → verify → VERIFIED → confirm → PENDING_APPROVAL → approve → APPROVED
 export async function PATCH(request: Request, { params }: { params: Params }) {
   try {
     const { id: projectId, pointId } = await params;
@@ -23,6 +23,9 @@ export async function PATCH(request: Request, { params }: { params: Params }) {
     switch (action) {
       case 'verify':
         result = await MapApprovalService.verifyPoint({ pointId, userId });
+        break;
+      case 'confirm':
+        result = await MapApprovalService.confirmPoint({ pointId, userId });
         break;
       case 'approve':
         result = await MapApprovalService.approvePoint({ pointId, userId });
@@ -82,7 +85,7 @@ export async function PATCH(request: Request, { params }: { params: Params }) {
         return NextResponse.json(
           {
             error:
-              'Invalid action. Use: verify, approve, reject, flag, update_coordinates',
+              'Invalid action. Use: verify, confirm, approve, reject, flag, update_coordinates',
           },
           { status: 400 }
         );

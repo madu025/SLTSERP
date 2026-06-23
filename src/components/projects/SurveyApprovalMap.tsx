@@ -6,7 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, CheckCircle2, AlertTriangle, XCircle, Flag, MapPin, Eye, Pencil, Save, X } from 'lucide-react';
+import { Check, CheckCircle2, AlertTriangle, XCircle, Flag, MapPin, Eye, Pencil, Save, X, ZoomIn } from 'lucide-react';
 
 // Setup default marker icons fix
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -18,7 +18,7 @@ delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
 type VerificationStatus =
-  | 'PENDING_VERIFICATION' | 'VERIFIED' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
+  | 'PENDING_VERIFICATION' | 'VERIFIED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
 
 interface SurveyPoint {
   id: string;
@@ -67,6 +67,12 @@ const STATUS_CONFIG: Record<VerificationStatus, { label: string; bg: string; tex
     bg: 'bg-blue-500/10 border-blue-500/20',
     text: 'text-blue-600',
     icon: <CheckCircle2 className="h-3 w-3" />,
+  },
+  PENDING_APPROVAL: {
+    label: 'Pending Approval',
+    bg: 'bg-yellow-500/10 border-yellow-500/20',
+    text: 'text-yellow-600',
+    icon: <AlertTriangle className="h-3 w-3" />,
   },
   APPROVED: {
     label: 'Approved',
@@ -128,6 +134,16 @@ interface MapProps {
   onPointSelect: (point: SurveyPoint) => void;
   onAction?: (pointId: string, action: string) => void;
   onUpdateCoordinates?: (pointId: string, latitude: number, longitude: number) => Promise<void>;
+  /** Enable pre-approval map confirmation mode */
+  confirmMode?: boolean;
+  /** The point currently being confirmed */
+  confirmingPointId?: string | null;
+  /** Called when user clicks "Confirm on Map" for a VERIFIED point */
+  onConfirmPoint?: (pointId: string) => void;
+  /** Called when user clicks "Cancel Confirmation" */
+  onCancelConfirm?: () => void;
+  /** Whether a confirm action is in progress */
+  isConfirming?: boolean;
 }
 
 export default function SurveyApprovalMap({
@@ -136,6 +152,11 @@ export default function SurveyApprovalMap({
   onPointSelect,
   onAction,
   onUpdateCoordinates,
+  confirmMode = false,
+  confirmingPointId = null,
+  onConfirmPoint,
+  onCancelConfirm,
+  isConfirming = false,
 }: MapProps) {
   const [mapStyle, setMapStyle] = useState<'streets' | 'light' | 'satellite'>('light');
   const lastSelectedPointIdRef = useRef<string | null>(null);
@@ -210,6 +231,88 @@ export default function SurveyApprovalMap({
           </button>
         ))}
       </div>
+
+      {/* ─── Pre-Approval Confirmation Banner ──────────────────────────────── */}
+      {confirmMode && confirmingPointId && (() => {
+        const point = points.find(p => p.id === confirmingPointId);
+        if (!point) return null;
+        const layerDef = LAYER_MAP.get(point.layerId);
+        return (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] bg-white/95 backdrop-blur-xl border-2 border-yellow-400/60 shadow-2xl rounded-2xl px-5 py-4 max-w-[380px] w-full animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-yellow-100 border border-yellow-200 flex items-center justify-center flex-shrink-0">
+                <ZoomIn className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-slate-800 leading-tight">
+                  Confirm Point on Map
+                </p>
+                <p className="text-[10px] text-slate-500 font-medium truncate">
+                  Visually verify the location before approving
+                </p>
+              </div>
+            </div>
+
+            {/* Point info */}
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">{layerDef?.icon}</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-700 truncate">
+                    {layerDef?.name ?? point.layerName}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    #{point.id.substring(0, 8)}
+                  </p>
+                </div>
+                <Badge className="ml-auto flex items-center gap-1 px-1.5 py-0.5 border text-[10px] font-semibold bg-blue-500/10 text-blue-600 border-blue-500/20 flex-shrink-0">
+                  <CheckCircle2 className="h-3 w-3" />
+                  VERIFIED
+                </Badge>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-500">
+                <MapPin className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                <span className="font-mono font-semibold text-slate-700">
+                  {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 text-xs flex-1 text-slate-600 hover:bg-slate-50 border-slate-200 font-semibold"
+                onClick={onCancelConfirm}
+                disabled={isConfirming}
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="h-9 text-xs flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-bold shadow-lg shadow-yellow-500/20"
+                onClick={() => onConfirmPoint?.(point.id)}
+                disabled={isConfirming}
+              >
+                {isConfirming ? (
+                  <>Confirming...</>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                    Confirm & Approve
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <p className="text-[9px] text-slate-400 mt-2 text-center font-medium">
+              Drag the map to inspect the point location. You can also edit coordinates before confirming.
+            </p>
+          </div>
+        );
+      })()}
 
       <MapContainer
         center={center}
@@ -336,9 +439,61 @@ export default function SurveyApprovalMap({
           );
         })()}
 
+        {/* ─── Confirming Marker (animated glow ring for point being confirmed) ─── */}
+        {confirmingPointId && (() => {
+          const confirmingPoint = points.find(p => p.id === confirmingPointId);
+          if (!confirmingPoint) return null;
+          const layerDef = LAYER_MAP.get(confirmingPoint.layerId);
+          const color = layerDef?.color ?? '#eab308';
+          const iconSymbol = layerDef?.icon ?? '📍';
+
+          const confirmIcon = L.divIcon({
+            className: 'custom-leaflet-marker confirming',
+            html: `
+              <div class="relative flex items-center justify-center" style="width: 44px; height: 44px;">
+                <div class="absolute w-11 h-11 rounded-full animate-ping opacity-30" style="background-color: #eab308;"></div>
+                <div class="absolute w-11 h-11 rounded-full animate-pulse opacity-40" style="background-color: #eab308;"></div>
+                <div class="w-9 h-9 rounded-full flex items-center justify-center border-[3px] shadow-xl"
+                  style="
+                    background-color: ${color};
+                    border-color: #fef08a;
+                    transform: scale(1.3);
+                    box-shadow: 0 0 24px rgba(234,179,8,0.5), 0 4px 12px rgba(0,0,0,0.3);
+                  ">
+                  <span class="text-lg leading-none select-none">${iconSymbol}</span>
+                </div>
+                <div class="absolute w-2.5 h-2.5 rounded-full border-2 border-white shadow-md"
+                  style="
+                    background-color: ${color};
+                    bottom: -2px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                  ">
+                </div>
+              </div>
+            `,
+            iconSize: [44, 44],
+            iconAnchor: [22, 44],
+            popupAnchor: [0, -44],
+          });
+
+          // Skip the default marker for the confirming point
+          return (
+            <Marker
+              key={`confirm-${confirmingPointId}`}
+              position={[confirmingPoint.latitude, confirmingPoint.longitude]}
+              icon={confirmIcon}
+              eventHandlers={{
+                click: () => onPointSelect(confirmingPoint),
+              }}
+            />
+          );
+        })()}
+
         {points.map((point) => {
-          // Skip rendering the original marker for the point being edited
+          // Skip rendering the original marker for the point being edited or confirmed
           if (editingPointId === point.id) return null;
+          if (confirmingPointId === point.id) return null;
 
           const layerDef = LAYER_MAP.get(point.layerId);
           const color = layerDef?.color ?? '#6366f1';
@@ -482,7 +637,19 @@ export default function SurveyApprovalMap({
                         Verify
                       </Button>
                     )}
+                    {/* VERIFIED → Confirm on Map (pre-approval visual gate) */}
                     {onAction && point.verificationStatus === 'VERIFIED' && (
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold"
+                        onClick={() => onAction(point.id, 'confirm')}
+                      >
+                        <ZoomIn className="h-3 w-3 mr-1" />
+                        Confirm on Map
+                      </Button>
+                    )}
+                    {/* PENDING_APPROVAL → Approve (only after map confirmation) */}
+                    {onAction && point.verificationStatus === 'PENDING_APPROVAL' && (
                       <Button
                         size="sm"
                         className="h-7 text-xs flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"

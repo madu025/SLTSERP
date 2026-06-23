@@ -43,13 +43,50 @@ export class MapApprovalService {
   }
 
   /**
-   * GIS Engineer approves a verified survey point (Step 2 - ready for BOQ)
+   * GIS Engineer confirms a verified point visually on map (Step 2 - pre-approval gate)
+   * Point must be visually confirmed on the map before it can be approved.
+   */
+  static async confirmPoint({ pointId, userId }: SurveyPointApprovalInput) {
+    const point = await prisma.surveyPoint.findUnique({ where: { id: pointId } });
+    if (!point) throw new Error('Survey point not found');
+    if (point.verificationStatus !== 'VERIFIED') {
+      throw new Error(`Cannot confirm: point must be VERIFIED first, currently "${point.verificationStatus}"`);
+    }
+
+    const updated = await prisma.surveyPoint.update({
+      where: { id: pointId },
+      data: {
+        verificationStatus: 'PENDING_APPROVAL',
+        verificationStep: 'GIS_ENGINEER',
+        verifiedById: userId,
+        verifiedAt: new Date(),
+      },
+    });
+
+    // Log GIS audit for map visual confirmation
+    await prisma.gISAuditLog.create({
+      data: {
+        projectId: point.projectId,
+        entityType: 'SURVEY_POINT',
+        entityId: pointId,
+        action: 'MAP_CONFIRMED',
+        performedById: userId,
+        source: 'WEB_PORTAL',
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * GIS Engineer approves a confirmed survey point (Step 3 - ready for BOQ)
+   * Point must have been visually confirmed on the map first (PENDING_APPROVAL).
    */
   static async approvePoint({ pointId, userId }: SurveyPointApprovalInput) {
     const point = await prisma.surveyPoint.findUnique({ where: { id: pointId } });
     if (!point) throw new Error('Survey point not found');
-    if (point.verificationStatus !== 'VERIFIED') {
-      throw new Error(`Cannot approve: point must be VERIFIED first, currently "${point.verificationStatus}"`);
+    if (point.verificationStatus !== 'PENDING_APPROVAL') {
+      throw new Error(`Cannot approve: point must be visually confirmed on map first (PENDING_APPROVAL). Currently "${point.verificationStatus}"`);
     }
 
     const updated = await prisma.surveyPoint.update({

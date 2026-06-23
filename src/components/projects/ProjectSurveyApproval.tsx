@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
   CheckCircle2, XCircle, AlertTriangle, Eye, MapPin,
-  RefreshCw, Flag, ChevronDown, Search, Map, CheckSquare, ExternalLink
+  RefreshCw, Flag, ChevronDown, Search, Map, CheckSquare, ExternalLink, ZoomIn
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -42,7 +42,7 @@ const SURVEY_LAYERS = [
 ];
 
 type VerificationStatus =
-  | 'PENDING_VERIFICATION' | 'VERIFIED' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
+  | 'PENDING_VERIFICATION' | 'VERIFIED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'FLAGGED';
 
 interface SurveyPoint {
   id: string;
@@ -77,6 +77,11 @@ const STATUS_CONFIG: Record<VerificationStatus, { label: string; variant: string
     label: 'Verified',
     variant: 'bg-blue-500/10 text-blue-700 border-blue-200/50',
     icon: <CheckCircle2 className="h-3 w-3" />,
+  },
+  PENDING_APPROVAL: {
+    label: 'Pending Approval',
+    variant: 'bg-yellow-500/10 text-yellow-700 border-yellow-200/50',
+    icon: <AlertTriangle className="h-3 w-3" />,
   },
   APPROVED: {
     label: 'Approved',
@@ -128,6 +133,10 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isActioning, setIsActioning] = useState(false);
   const [detailPoint, setDetailPoint] = useState<SurveyPoint | null>(null);
+
+  // ─── Pre-Approval Map Confirmation State ──────────────────────────────
+  const [confirmingPointId, setConfirmingPointId] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -214,7 +223,30 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
         const err = await res.json();
         throw new Error(err.error);
       }
+      
+      // Handle "confirm" action: enters confirmation mode
+      if (action === 'confirm') {
+        // Find the point and enter confirmation mode
+        const targetPoint = points.find(p => p.id === pointId) ?? allPoints.find(p => p.id === pointId);
+        if (targetPoint) {
+          setSelectedPointOnMap(targetPoint);
+          setConfirmingPointId(pointId);
+          // Switch to active layer if needed
+          if (targetPoint.layerId !== activeLayer) {
+            setActiveLayer(targetPoint.layerId);
+          }
+        }
+        setIsActioning(false);
+        return; // Don't show toast yet — user needs to visually confirm
+      }
+
       toast.success(`Point ${action}d successfully`);
+      
+      // If this was the final "approve" action, clear confirmation mode
+      if (action === 'approve') {
+        setConfirmingPointId(null);
+      }
+
       fetchPoints();
       fetchSummary();
       if (showAllLayers) fetchAllPoints();
@@ -226,6 +258,8 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
           const updatedStatus: VerificationStatus =
             action === 'verify'
               ? 'VERIFIED'
+              : action === 'confirm'
+              ? 'PENDING_APPROVAL'
               : action === 'approve'
               ? 'APPROVED'
               : action === 'reject'
@@ -240,6 +274,43 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
       setIsActioning(false);
     }
   };
+
+  // ─── Confirm on Map Handler ──────────────────────────────────────────
+  const handleConfirmPoint = useCallback(async (pointId: string) => {
+    setIsConfirming(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/survey/points/${pointId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm' }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error);
+      }
+      toast.success('Point visually confirmed on map. Now pending approval.');
+      setConfirmingPointId(null);
+      fetchPoints();
+      fetchSummary();
+      if (showAllLayers) fetchAllPoints();
+      
+      // Update in-memory point status
+      setSelectedPointOnMap((prev) => {
+        if (!prev || prev.id !== pointId) return prev;
+        return { ...prev, verificationStatus: 'PENDING_APPROVAL' };
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to confirm point');
+    } finally {
+      setIsConfirming(false);
+    }
+  }, [projectId, fetchPoints, fetchSummary, showAllLayers, fetchAllPoints]);
+
+  // ─── Cancel Confirmation Handler ─────────────────────────────────────
+  const handleCancelConfirm = useCallback(() => {
+    setConfirmingPointId(null);
+    toast.info('Map confirmation cancelled. Point remains VERIFIED.');
+  }, []);
 
   const doBatchAction = async (action: string) => {
     if (!selectedPoints.size) return;
@@ -400,6 +471,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
                     onClick={() => {
                       setActiveLayer(layer.id);
                       setSelectedPointOnMap(null);
+                      setConfirmingPointId(null);
                     }}
                     className={cn(
                       "flex items-center justify-between p-2 cursor-pointer transition-colors",
@@ -477,6 +549,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
                   <DropdownMenuItem onClick={() => setStatusFilter('')}>All Status</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter('PENDING_VERIFICATION')}>Pending</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter('VERIFIED')}>Verified</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setStatusFilter('PENDING_APPROVAL')}>Pending Approval</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter('APPROVED')}>Approved</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter('REJECTED')}>Rejected</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setStatusFilter('FLAGGED')}>Flagged</DropdownMenuItem>
@@ -522,6 +595,15 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
               <Button
                 size="sm"
                 variant="outline"
+                className="h-6 text-[9px] bg-white text-yellow-600 border-yellow-200 hover:bg-yellow-50 font-bold"
+                onClick={() => doBatchAction('confirm')}
+                disabled={isActioning}
+              >
+                Bulk Confirm
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 className="h-6 text-[9px] bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50 font-bold"
                 onClick={() => doBatchAction('approve')}
                 disabled={isActioning}
@@ -551,13 +633,22 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
           ) : (
             filteredPoints.map((pt) => {
               const isSelected = selectedPointOnMap?.id === pt.id;
+              const isBeingConfirmed = confirmingPointId === pt.id;
               return (
                 <div
                   key={pt.id}
-                  onClick={() => setSelectedPointOnMap(pt)}
+                  onClick={() => {
+                    setSelectedPointOnMap(pt);
+                    // If point is VERIFIED and we click it, enter confirmation mode
+                    if (pt.verificationStatus === 'VERIFIED' && confirmingPointId !== pt.id) {
+                      setConfirmingPointId(pt.id);
+                    }
+                  }}
                   className={cn(
                     'p-3.5 hover:bg-slate-50/60 cursor-pointer transition-all duration-200 flex gap-2.5 items-start relative border-l-4',
-                    isSelected
+                    isBeingConfirmed
+                      ? 'bg-yellow-50/60 border-l-yellow-500 shadow-md ring-1 ring-yellow-200/50'
+                      : isSelected
                       ? 'bg-indigo-50/30 border-l-indigo-600 shadow-sm'
                       : 'border-l-transparent'
                   )}
@@ -633,7 +724,30 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
                         </Button>
                       )}
                       
+                      {/* VERIFIED → Confirm on Map (pre-approval visual gate) */}
                       {pt.verificationStatus === 'VERIFIED' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-yellow-600 hover:bg-yellow-50 text-[10px] font-bold flex items-center gap-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Enter confirmation mode
+                            setSelectedPointOnMap(pt);
+                            setConfirmingPointId(pt.id);
+                            if (pt.layerId !== activeLayer) {
+                              setActiveLayer(pt.layerId);
+                            }
+                          }}
+                          disabled={isActioning}
+                        >
+                          <ZoomIn className="h-3 w-3" />
+                          Confirm on Map
+                        </Button>
+                      )}
+
+                      {/* PENDING_APPROVAL → Approve (only after map visual confirmation) */}
+                      {pt.verificationStatus === 'PENDING_APPROVAL' && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -648,7 +762,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
                         </Button>
                       )}
 
-                      {['PENDING_VERIFICATION', 'VERIFIED'].includes(pt.verificationStatus) && (
+                      {['PENDING_VERIFICATION', 'VERIFIED', 'PENDING_APPROVAL'].includes(pt.verificationStatus) && (
                         <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="ghost"
@@ -709,6 +823,19 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
               Loading spatial data for all layers...
             </p>
           )}
+
+          {/* Confirmation Mode Indicator */}
+          {confirmingPointId && (
+            <div className="mt-2 pt-2 border-t border-yellow-200/50">
+              <p className="text-[10px] font-bold text-yellow-700 flex items-center gap-1.5">
+                <ZoomIn className="h-3 w-3" />
+                Map Confirmation Mode
+              </p>
+              <p className="text-[9px] text-slate-500 mt-0.5">
+                Visually inspect the highlighted point on the map before approving.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Floating Bottom Left Completion Overlay */}
@@ -738,6 +865,11 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
             onPointSelect={handlePointSelectFromMap}
             onAction={doAction}
             onUpdateCoordinates={handleUpdateCoordinates}
+            confirmMode={confirmingPointId !== null}
+            confirmingPointId={confirmingPointId}
+            onConfirmPoint={handleConfirmPoint}
+            onCancelConfirm={handleCancelConfirm}
+            isConfirming={isConfirming}
           />
         </div>
       </div>
