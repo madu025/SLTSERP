@@ -29,13 +29,14 @@ async function main() {
         completedAt: new Date(),
       }
     });
-  } catch (err: any) {
-    console.error("Sync failed:", err);
+  } catch (err) {
+    const error = err as Error;
+    console.error("Sync failed:", error);
     await prisma.qFieldCloudSyncLog.update({
       where: { id: log.id },
       data: {
         status: 'FAILED',
-        errorMessage: err.message || String(err),
+        errorMessage: error.message || String(error),
         completedAt: new Date(),
       }
     });

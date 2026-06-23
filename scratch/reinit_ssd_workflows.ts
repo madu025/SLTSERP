@@ -69,8 +69,8 @@ async function main() {
     try {
       const newWf = await WorkflowEngine.initializeProjectWorkflow(project.id, projectTypeId);
       console.log(`✅ Successfully initialized new 5-stage workflow for project! Instance ID: ${newWf.id}`);
-    } catch (err: any) {
-      console.error(`❌ Failed to initialize workflow: ${err.message}`);
+    } catch (err) {
+      console.error(`❌ Failed to initialize workflow: ${(err as Error).message}`);
     }
   }
 

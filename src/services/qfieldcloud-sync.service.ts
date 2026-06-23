@@ -106,15 +106,15 @@ export class QFieldCloudSyncService {
 
     const cleanProjectName = `${sltProject.projectCode}_${sltProject.name}`.replace(/[^a-zA-Z0-9_.-]/g, '_');
 
-    let qfieldProject: any = null;
+    let qfieldProject: QFieldProject | null = null;
 
     // Check if the project already exists in QFieldCloud
     try {
       const listRes = await this.fetchWithAuth(`${this.baseUrl}/api/v1/projects/`);
       if (listRes.ok) {
         const listData = await listRes.json();
-        const projects = Array.isArray(listData) ? listData : (listData.results || []);
-        qfieldProject = projects.find((p: any) => p.name === cleanProjectName);
+        const projects = (Array.isArray(listData) ? listData : (listData.results || [])) as QFieldProject[];
+        qfieldProject = projects.find((p) => p.name === cleanProjectName) || null;
         if (qfieldProject) {
           console.log(`ℹ️ Reusing existing QFieldCloud project: ${cleanProjectName} (ID: ${qfieldProject.id})`);
         }
@@ -142,6 +142,10 @@ export class QFieldCloudSyncService {
       }
 
       qfieldProject = await res.json();
+    }
+    
+    if (!qfieldProject) {
+      throw new Error('Failed to retrieve or create QFieldCloud project');
     }
 
     // Upload QGIS project template file if path exists
@@ -529,7 +533,7 @@ export class QFieldCloudSyncService {
           }
 
           // Parse geometry WKT
-          const geomData = this.parseWktGeometry(feature.geometry || (feature.new as any)?.geometry || null);
+          const geomData = this.parseWktGeometry(feature.geometry || ((feature.new as Record<string, unknown> | undefined)?.geometry as string | null) || null);
           if (!geomData && feature.method === 'create') {
             errors.push(`Feature ${qfieldUuid} missing valid geometry.`);
             continue;

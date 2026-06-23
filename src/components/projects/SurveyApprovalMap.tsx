@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, CheckCircle2, AlertTriangle, XCircle, Flag, MapPin, Eye } from 'lucide-react';
+import { Check, CheckCircle2, AlertTriangle, XCircle, Flag, MapPin, Eye, Pencil, Save, X } from 'lucide-react';
 
 // Setup default marker icons fix
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -104,7 +104,7 @@ function MapController({
   useEffect(() => {
     if (selectedPoint && selectedPoint.id !== lastSelectedPointIdRef.current) {
       lastSelectedPointIdRef.current = selectedPoint.id;
-      map.setView([selectedPoint.latitude, selectedPoint.longitude], 19, {
+      map.setView([selectedPoint.latitude, selectedPoint.longitude], 21, {
         animate: true,
         duration: 0.8,
       });
@@ -127,6 +127,7 @@ interface MapProps {
   selectedPoint: SurveyPoint | null;
   onPointSelect: (point: SurveyPoint) => void;
   onAction?: (pointId: string, action: string) => void;
+  onUpdateCoordinates?: (pointId: string, latitude: number, longitude: number) => Promise<void>;
 }
 
 export default function SurveyApprovalMap({
@@ -134,9 +135,46 @@ export default function SurveyApprovalMap({
   selectedPoint,
   onPointSelect,
   onAction,
+  onUpdateCoordinates,
 }: MapProps) {
   const [mapStyle, setMapStyle] = useState<'streets' | 'light' | 'satellite'>('light');
   const lastSelectedPointIdRef = useRef<string | null>(null);
+
+  // ─── Drag-and-Drop Editing States ─────────────────────────────────────
+  const [editingPointId, setEditingPointId] = useState<string | null>(null);
+  const [tempPosition, setTempPosition] = useState<[number, number] | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const originalPositionRef = useRef<[number, number] | null>(null);
+
+  // Enter edit mode for a specific point
+  const enterEditMode = useCallback((point: SurveyPoint) => {
+    setEditingPointId(point.id);
+    setTempPosition([point.latitude, point.longitude]);
+    originalPositionRef.current = [point.latitude, point.longitude];
+  }, []);
+
+  // Exit edit mode (cancel)
+  const cancelEditMode = useCallback(() => {
+    setEditingPointId(null);
+    setTempPosition(null);
+    originalPositionRef.current = null;
+  }, []);
+
+  // Save coordinates
+  const handleSaveLocation = useCallback(async () => {
+    if (!editingPointId || !tempPosition || !onUpdateCoordinates) return;
+    setIsSaving(true);
+    try {
+      await onUpdateCoordinates(editingPointId, tempPosition[0], tempPosition[1]);
+      setEditingPointId(null);
+      setTempPosition(null);
+      originalPositionRef.current = null;
+    } catch {
+      // error handled by parent
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editingPointId, tempPosition, onUpdateCoordinates]);
 
   const tileUrls = {
     streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -178,6 +216,7 @@ export default function SurveyApprovalMap({
         zoom={selectedPoint ? 18 : 13}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
+        maxZoom={22}
         className="z-0"
       >
         <TileLayer
@@ -187,6 +226,7 @@ export default function SurveyApprovalMap({
               : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           }
           url={tileUrls[mapStyle]}
+          maxNativeZoom={mapStyle === 'satellite' ? 18 : 19}
         />
 
         <MapController
@@ -195,7 +235,111 @@ export default function SurveyApprovalMap({
           lastSelectedPointIdRef={lastSelectedPointIdRef}
         />
 
+        {/* ─── Editing Marker (when in edit mode, render a separate draggable marker) ─── */}
+        {editingPointId && tempPosition && (() => {
+          const editingPoint = points.find(p => p.id === editingPointId);
+          if (!editingPoint) return null;
+          const layerDef = LAYER_MAP.get(editingPoint.layerId);
+          const color = layerDef?.color ?? '#6366f1';
+          const iconSymbol = layerDef?.icon ?? '📍';
+
+          const editIcon = L.divIcon({
+            className: 'custom-leaflet-marker editing',
+            html: `
+              <div class="relative flex items-center justify-center" style="width: 40px; height: 40px;">
+                <div class="absolute w-10 h-10 rounded-full bg-[${color}] opacity-25 animate-pulse" style="background-color: ${color};"></div>
+                <div class="w-9 h-9 rounded-full flex items-center justify-center border-[3px] shadow-lg"
+                  style="
+                    background-color: ${color};
+                    border-color: #ffffff;
+                    transform: scale(1.25);
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+                  ">
+                  <span class="text-base leading-none select-none">${iconSymbol}</span>
+                </div>
+                <div class="absolute -bottom-1 w-3 h-3 rounded-full border-2 border-white shadow-md"
+                  style="background-color: ${color}; left: 50%; transform: translateX(-50%);">
+                </div>
+              </div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 40],
+            popupAnchor: [0, -40],
+          });
+
+          return (
+            <Marker
+              key={`edit-${editingPointId}`}
+              position={tempPosition}
+              icon={editIcon}
+              draggable={true}
+              eventHandlers={{
+                dragend: (e) => {
+                  const marker = e.target;
+                  const pos = marker.getLatLng();
+                  setTempPosition([pos.lat, pos.lng]);
+                },
+              }}
+            >
+              <Popup className="premium-leaflet-popup">
+                <div className="w-[280px] p-0.5 font-sans">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">{iconSymbol}</span>
+                      <span className="font-bold text-sm text-slate-800">
+                        {layerDef?.name || editingPoint.layerName}
+                      </span>
+                    </div>
+                    <Badge className="flex items-center gap-1 px-1.5 py-0.5 border text-[10px] font-semibold bg-indigo-500/10 text-indigo-600 border-indigo-500/20">
+                      <Pencil className="h-3 w-3" />
+                      Editing
+                    </Badge>
+                  </div>
+
+                  <div className="text-xs text-slate-500 flex items-center gap-1 mb-2.5">
+                    <MapPin className="h-3 w-3 text-indigo-400" />
+                    <span className="font-mono font-semibold text-indigo-600">
+                      {tempPosition[0].toFixed(6)}, {tempPosition[1].toFixed(6)}
+                    </span>
+                  </div>
+
+                  {originalPositionRef.current && (
+                    <div className="text-[10px] text-slate-400 mb-3 flex items-center gap-1">
+                      <span>Original: {originalPositionRef.current[0].toFixed(6)}, {originalPositionRef.current[1].toFixed(6)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2 border-t border-slate-100">
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                      onClick={handleSaveLocation}
+                      disabled={isSaving}
+                    >
+                      <Save className="h-3.5 w-3.5 mr-1" />
+                      {isSaving ? 'Saving...' : 'Save Location'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs flex-1 text-slate-600 hover:bg-slate-50 border-slate-200"
+                      onClick={cancelEditMode}
+                      disabled={isSaving}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })()}
+
         {points.map((point) => {
+          // Skip rendering the original marker for the point being edited
+          if (editingPointId === point.id) return null;
+
           const layerDef = LAYER_MAP.get(point.layerId);
           const color = layerDef?.color ?? '#6366f1';
           const iconSymbol = layerDef?.icon ?? '📍';
@@ -266,6 +410,19 @@ export default function SurveyApprovalMap({
                   <div className="text-xs text-slate-500 flex items-center gap-1 mb-2.5">
                     <MapPin className="h-3 w-3 text-slate-400" />
                     <span>{point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}</span>
+                    {onUpdateCoordinates && (
+                      <button
+                        className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-[10px] font-semibold transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          enterEditMode(point);
+                        }}
+                        title="Edit Location"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit Location
+                      </button>
+                    )}
                   </div>
 
                   {/* Attributes Summary */}

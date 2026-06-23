@@ -332,7 +332,11 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
  
                     {/* Main Content */}
                     <main className="flex-1 p-3 md:p-4 lg:p-6 overflow-y-auto bg-background">
-                        <div className="max-w-6xl mx-auto">
+                        <div className={`${
+                            ['gis', 'survey-approval', 'survey', 'otdr'].includes(activeTab) 
+                                ? 'max-w-none w-full' 
+                                : 'max-w-7xl'
+                        } mx-auto w-full transition-all duration-300`}>
                             {/* Mobile Tabs */}
                             <div className="md:hidden mb-3 overflow-x-auto pb-1 flex gap-1.5">
                                 {visibleTabs.map(tab => (

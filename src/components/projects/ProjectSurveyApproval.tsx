@@ -307,6 +307,32 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
     }
   }, [activeLayer]);
 
+  // ─── Update Coordinates Handler ─────────────────────────────────────────
+  const handleUpdateCoordinates = useCallback(async (pointId: string, latitude: number, longitude: number) => {
+    const res = await fetch(`/api/projects/${projectId}/survey/points/${pointId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_coordinates', latitude, longitude }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update coordinates');
+    }
+    const data = await res.json();
+    toast.success('Coordinates updated successfully');
+
+    // Refresh all data views
+    fetchPoints();
+    fetchSummary();
+    if (showAllLayers) fetchAllPoints();
+
+    // Update the selected point marker with new coordinates
+    setSelectedPointOnMap((prev) => {
+      if (!prev || prev.id !== pointId) return prev;
+      return { ...prev, latitude: data.point.latitude, longitude: data.point.longitude };
+    });
+  }, [projectId, fetchPoints, fetchSummary, showAllLayers, fetchAllPoints]);
+
   // Client-side text search filter
   const filteredPoints = useMemo(() => {
     return points.filter((pt) => {
@@ -335,7 +361,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
   }, [summary]);
 
   return (
-    <div className="flex flex-col xl:flex-row gap-4 h-[750px] w-full min-h-[600px] bg-slate-50/50 p-1.5 rounded-2xl border border-slate-100">
+    <div className="flex flex-col xl:flex-row gap-4 h-[calc(100vh-230px)] min-h-[500px] w-full bg-slate-50/50 p-1.5 rounded-2xl border border-slate-100 transition-all duration-300">
       
       {/* ─── Left Pane: Survey Points Console & Layer Selector ─────────────────────────────────── */}
       <div className="w-full xl:w-[380px] shrink-0 flex flex-col h-full bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden p-3">
@@ -654,7 +680,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
       </div>
 
       {/* ─── Pane 3: Right Interactive Leaflet Map ───────────────────────────────── */}
-      <div className="flex-1 h-full flex flex-col bg-white rounded-xl border border-slate-200/60 p-2 shadow-sm relative overflow-hidden">
+      <div className="flex-1 h-full flex flex-col min-w-[300px] bg-white rounded-xl border border-slate-200/60 p-2 shadow-sm relative overflow-hidden">
         
         {/* Floating Top Left Control Box (Glassmorphic) */}
         <div className="absolute top-4 left-4 z-[1000] bg-white/80 backdrop-blur border border-slate-200/60 shadow-lg rounded-xl p-3 max-w-[280px]">
@@ -711,6 +737,7 @@ export default function ProjectSurveyApproval({ projectId }: Props) {
             selectedPoint={selectedPointOnMap}
             onPointSelect={handlePointSelectFromMap}
             onAction={doAction}
+            onUpdateCoordinates={handleUpdateCoordinates}
           />
         </div>
       </div>

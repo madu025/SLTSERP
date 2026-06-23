@@ -442,7 +442,9 @@ export class BOQEngine {
   }
 
   /**
-   * Approximate line intersection detection using bounding boxes
+   * True line segment intersection detection using CCW (counter-clockwise) orientation.
+   * Replaces the previous bounding-box-only approximation that caused false positives
+   * for long parallel cables and road segments whose bounding boxes merely overlapped.
    */
   private linesIntersectApprox(
     line1: [number, number][],
@@ -450,41 +452,86 @@ export class BOQEngine {
   ): boolean {
     if (line1.length < 2 || line2.length < 2) return false;
 
-    // Get bounding boxes
-    const bb1 = this.getBoundingBox(line1);
-    const bb2 = this.getBoundingBox(line2);
+    // Quick bounding-box rejection (performance shortcut)
+    if (!this.boundingBoxesIntersect(line1, line2)) return false;
 
-    // Check if bounding boxes overlap
-    const overlapLng =
-      bb1.maxLng >= bb2.minLng && bb2.maxLng >= bb1.minLng;
-    const overlapLat =
-      bb1.maxLat >= bb2.minLat && bb2.maxLat >= bb1.minLat;
+    // Check each segment of line1 against each segment of line2
+    for (let i = 0; i < line1.length - 1; i++) {
+      for (let j = 0; j < line2.length - 1; j++) {
+        if (this.segmentsIntersect(line1[i], line1[i + 1], line2[j], line2[j + 1])) {
+          return true;
+        }
+      }
+    }
 
-    return overlapLng && overlapLat;
+    return false;
   }
 
   /**
-   * Get bounding box for a set of coordinates
+   * Check if two line segments (p1→p2 and p3→p4) truly intersect.
+   * Uses the standard cross-product / CCW orientation test.
    */
-  private getBoundingBox(coords: [number, number][]): {
-    minLat: number;
-    maxLat: number;
-    minLng: number;
-    maxLng: number;
-  } {
-    let minLat = Infinity,
-      maxLat = -Infinity;
-    let minLng = Infinity,
-      maxLng = -Infinity;
+  private segmentsIntersect(
+    p1: [number, number],
+    p2: [number, number],
+    p3: [number, number],
+    p4: [number, number]
+  ): boolean {
+    const ccw = (a: [number, number], b: [number, number], c: [number, number]): number =>
+      (c[1] - a[1]) * (b[0] - a[0]) - (b[1] - a[1]) * (c[0] - a[0]);
 
-    for (const [lng, lat] of coords) {
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
+    const d1 = ccw(p1, p2, p3);
+    const d2 = ccw(p1, p2, p4);
+    const d3 = ccw(p3, p4, p1);
+    const d4 = ccw(p3, p4, p2);
+
+    // True intersection when orientations differ
+    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+        ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+      return true;
     }
 
-    return { minLat, maxLat, minLng, maxLng };
+    // Collinear edge case: check if a point lies on the segment
+    const onSegment = (a: [number, number], b: [number, number], c: [number, number]): boolean =>
+      Math.min(a[0], b[0]) <= c[0] && c[0] <= Math.max(a[0], b[0]) &&
+      Math.min(a[1], b[1]) <= c[1] && c[1] <= Math.max(a[1], b[1]);
+
+    if (d1 === 0 && onSegment(p1, p2, p3)) return true;
+    if (d2 === 0 && onSegment(p1, p2, p4)) return true;
+    if (d3 === 0 && onSegment(p3, p4, p1)) return true;
+    if (d4 === 0 && onSegment(p3, p4, p2)) return true;
+
+    return false;
+  }
+
+  /**
+   * Quick bounding-box overlap check for early rejection.
+   * Returns true if the bounding boxes of two coordinate arrays overlap.
+   */
+  private boundingBoxesIntersect(
+    line1: [number, number][],
+    line2: [number, number][]
+  ): boolean {
+    let minLng1 = Infinity, maxLng1 = -Infinity,
+        minLat1 = Infinity, maxLat1 = -Infinity;
+    for (const [lng, lat] of line1) {
+      if (lng < minLng1) minLng1 = lng;
+      if (lng > maxLng1) maxLng1 = lng;
+      if (lat < minLat1) minLat1 = lat;
+      if (lat > maxLat1) maxLat1 = lat;
+    }
+
+    let minLng2 = Infinity, maxLng2 = -Infinity,
+        minLat2 = Infinity, maxLat2 = -Infinity;
+    for (const [lng, lat] of line2) {
+      if (lng < minLng2) minLng2 = lng;
+      if (lng > maxLng2) maxLng2 = lng;
+      if (lat < minLat2) minLat2 = lat;
+      if (lat > maxLat2) maxLat2 = lat;
+    }
+
+    return maxLng1 >= minLng2 && maxLng2 >= minLng1 &&
+           maxLat1 >= minLat2 && maxLat2 >= minLat1;
   }
 }
 

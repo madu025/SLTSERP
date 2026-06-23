@@ -38,7 +38,7 @@ async function main() {
   }
 
   // --- SSD Standard Workflow (7 stages) ---
-  const ssdWorkflow = await prisma.workflowTemplate.upsert({
+  await prisma.workflowTemplate.upsert({
     where: { name: 'SSD Standard Workflow' },
     update: {},
     create: {

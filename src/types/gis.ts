@@ -302,6 +302,8 @@ export interface GISUploadRequest {
   district?: string;
   createdById: string;
   poleSpacing?: number;
+  /** When false (default), region multiplier is NOT applied (all regions use 1.0x base rates). When true, region-specific rate multipliers are applied. */
+  useRegionMultiplier?: boolean;
 }
 
 export interface GISUploadResponse {
@@ -451,6 +453,35 @@ export const BOQ_UNIT_RATES: Record<string, number> = {
   'FTC': 95000,                     // LKR per FTC
   'TEST_POINT': 5000,               // LKR per test point
 };
+
+// ============================================================================
+// Region Multipliers for BOQ Rate Adjustments
+// ============================================================================
+
+/** Multiplier applied to base unit rates based on deployment region */
+export const REGION_MULTIPLIERS: Record<string, number> = {
+  'Western': 1.0,
+  'Southern': 1.05,
+  'Central': 1.1,
+  'Sabaragamuwa': 1.1,
+  'Eastern': 1.15,
+  'North Western': 1.1,
+  'North Central': 1.12,
+  'Northern': 1.2,
+  'Uva': 1.12,
+};
+
+/**
+ * Resolve the region multiplier from a region name string.
+ * Matches case-insensitively against known regions; falls back to 1.0.
+ */
+export function resolveRegionMultiplier(region?: string): number {
+  if (!region) return 1.0;
+  const key = Object.keys(REGION_MULTIPLIERS).find(
+    (k) => k.toLowerCase() === region.toLowerCase()
+  );
+  return key ? REGION_MULTIPLIERS[key] : 1.0;
+}
 
 // ============================================================================
 // GPS Constants

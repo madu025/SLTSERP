@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import fetch from 'node-fetch';
+
 
 const prisma = new PrismaClient();
 const baseUrl = process.env.NEXT_PUBLIC_QFIELD_API_URL || 'http://localhost:8011';
@@ -15,8 +15,8 @@ async function authenticate(): Promise<string> {
   if (!res.ok) {
     throw new Error(`Authentication failed: ${res.status}`);
   }
-  const data: any = await res.json();
-  return data.token || data.access_token;
+  const data = (await res.json()) as { token?: string; access_token?: string };
+  return data.token || data.access_token || '';
 }
 
 async function main() {
@@ -33,7 +33,7 @@ async function main() {
     throw new Error(`Failed to fetch QField projects: ${projectsRes.statusText}`);
   }
   
-  const qfieldProjects: any = await projectsRes.json();
+  const qfieldProjects = (await projectsRes.json()) as Array<{ id: string; name: string }>;
   console.log(`Found ${qfieldProjects.length} projects on QFieldCloud.`);
 
   // 2. Delete each project from QFieldCloud
@@ -49,8 +49,9 @@ async function main() {
       } else {
         console.error(`❌ Failed to delete "${qfProj.name}": ${delRes.statusText}`);
       }
-    } catch (err: any) {
-      console.error(`❌ Error deleting "${qfProj.name}":`, err.message || err);
+    } catch (err) {
+      const error = err as Error;
+      console.error(`❌ Error deleting "${qfProj.name}":`, error.message || error);
     }
   }
 
@@ -75,7 +76,7 @@ async function main() {
       });
       console.log('✅ Deleted SME-0452.');
     } catch (err) {
-      console.log('Could not delete SME-0452 from DB (likely due to FK constraints), resetting its status to PLANNING instead...');
+      console.log('Could not delete SME-0452 from DB (likely due to FK constraints), resetting its status to PLANNING instead...', err);
       await prisma.project.update({
         where: { id: testProject.id },
         data: {

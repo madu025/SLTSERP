@@ -36,6 +36,8 @@ import type {
   ParsedRoadData,
   ParsedPointAssetData,
 } from '@/types/gis';
+import { resolveRegionMultiplier } from '@/types/gis';
+import type { InventoryStockEntry } from '@/lib/gis/boq-engine';
 
 // ============================================================================
 // Types
@@ -50,6 +52,7 @@ export interface GISUploadSession {
   createdById: string;
   files: UploadFileEntry[];
   status: 'UPLOADED' | 'PARSING' | 'PARSED' | 'VALIDATING' | 'VALIDATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  useRegionMultiplier?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -188,18 +191,19 @@ export class GISImportService {
       warnings: [],
     }));
 
-    // Create session
-    const session: GISUploadSession = {
-      id: importId,
-      projectName: request.projectName,
-      region: request.region,
-      district: request.district,
-      createdById: request.createdById,
-      files,
-      status: 'UPLOADED',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      // Create session
+      const session: GISUploadSession = {
+        id: importId,
+        projectName: request.projectName,
+        region: request.region,
+        district: request.district,
+        createdById: request.createdById,
+        files,
+        status: 'UPLOADED',
+        useRegionMultiplier: request.useRegionMultiplier ?? false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
     this.sessions.set(importId, session);
 
@@ -395,12 +399,94 @@ export class GISImportService {
       });
 
       // ====================================================================
-      // PHASE 4: Generate BOQ
+      // PHASE 4a: Load Inventory Stock (before BOQ generation)
       // ====================================================================
+      const inventoryStock: InventoryStockEntry[] = [];
+
+      const invItems = await prisma.inventoryItem.findMany({
+        where: {
+          OR: [
+            { code: { startsWith: 'POLE' } },
+            { code: { startsWith: 'CBL' } },
+            { code: { startsWith: 'FDP' } },
+            { code: { startsWith: 'CLO' } },
+            { code: { startsWith: 'DUCT' } },
+            { code: { startsWith: 'HH' } },
+            { code: { startsWith: 'MH' } },
+            { code: { startsWith: 'ODF' } },
+            { code: { startsWith: 'RISER' } },
+            { code: { startsWith: 'FTC' } },
+            { code: { startsWith: 'TP' } },
+            { name: { contains: 'Pole', mode: 'insensitive' } },
+            { name: { contains: 'Fiber', mode: 'insensitive' } },
+            { name: { contains: 'Cable', mode: 'insensitive' } },
+            { name: { contains: 'Chamber', mode: 'insensitive' } },
+            { name: { contains: 'Closure', mode: 'insensitive' } },
+            { name: { contains: 'Splice', mode: 'insensitive' } },
+            { name: { contains: 'Manhole', mode: 'insensitive' } },
+            { name: { contains: 'Duct', mode: 'insensitive' } },
+            { name: { contains: 'Handhole', mode: 'insensitive' } },
+            { name: { contains: 'ODF', mode: 'insensitive' } },
+            { name: { contains: 'Riser', mode: 'insensitive' } },
+            { name: { contains: 'FTC', mode: 'insensitive' } },
+            { name: { contains: 'Test Point', mode: 'insensitive' } },
+          ],
+        },
+        include: { stocks: true },
+      });
+
+      for (const item of invItems) {
+        const totalQty = item.stocks.reduce((s: number, st: any) => s + (st.quantity || 0), 0);
+        if (totalQty <= 0) continue;
+        const code = (item as any).code?.toUpperCase() || '';
+        const name = (item as any).name?.toUpperCase() || '';
+        let category = '';
+        if (code.startsWith('CBL') || name.includes('CABLE') || name.includes('FIBER')) category = 'CABLE';
+        else if (code.startsWith('POLE') || name.includes('POLE')) category = 'POLE';
+        else if (code.startsWith('FDP') || name.includes('FDP')) category = 'FDP';
+        else if (code.startsWith('CLO') || name.includes('CLOSURE') || name.includes('SPLICE') || name.includes('JOINT')) category = 'FIBER_JOINT';
+        else if (code.startsWith('DUCT') || name.includes('DUCT')) category = 'DUCT';
+        else if (code.startsWith('HH') || name.includes('HANDHOLE')) category = 'HANDHOLE';
+        else if (code.startsWith('MH') || name.includes('MANHOLE') || name.includes('CHAMBER')) category = 'MANHOLE';
+        else if (code.startsWith('ODF') || name.includes('ODF')) category = 'ODF';
+        else if (code.startsWith('RISER') || name.includes('RISER')) category = 'RISER';
+        else if (code.startsWith('FTC') || name.includes('FTC')) category = 'FTC';
+        else if (code.startsWith('TP') || name.includes('TEST POINT')) category = 'TEST_POINT';
+        else continue;
+        const existing = inventoryStock.find((e) => e.category === category);
+        if (existing) {
+          existing.availableQty += totalQty;
+        } else {
+          inventoryStock.push({
+            category,
+            availableQty: totalQty,
+            itemCode: (item as any).code || undefined,
+            materialId: (item as any).id,
+            unit: (item as any).unit || undefined,
+          });
+        }
+      }
+
+      auditLog.push({
+        timestamp: new Date().toISOString(),
+        action: 'INVENTORY_LOADED',
+        entity: 'InventoryItem',
+        entityId: importId,
+        details: `Loaded ${inventoryStock.length} inventory stock categories (${invItems.length} items) for BOQ sourcing`,
+      });
+
+      // ====================================================================
+      // PHASE 4b: Generate BOQ with inventory stock and region multiplier
+      // ====================================================================
+      // Only apply region multiplier if user has enabled it in the upload UI
+      const regionMultiplier = session.useRegionMultiplier
+        ? resolveRegionMultiplier(session.region)
+        : 1.0;
       const boq = boqEngine.generateBOQ(
         layersMap,
         session.region,
-        1.0
+        regionMultiplier,
+        inventoryStock
       );
 
       auditLog.push({
@@ -408,7 +494,7 @@ export class GISImportService {
         action: 'BOQ_GENERATED',
         entity: 'GISGeneratedBOQ',
         entityId: importId,
-        details: `BOQ generated: ${boq.items.length} items, total LKR ${boq.totalEstimatedCost.toLocaleString()}`,
+        details: `BOQ generated: ${boq.items.length} items, total LKR ${boq.totalEstimatedCost.toLocaleString()} (region multiplier: ${regionMultiplier}x, ${session.useRegionMultiplier ? 'enabled' : 'disabled'})`,
       });
 
       // ====================================================================
@@ -821,127 +907,54 @@ export class GISImportService {
         },
       });
 
-      // Create BOQ items
+      // Create BOQ items — use the engine's pre-computed source/materialId/itemCode
       await prisma.gISGeneratedBOQItem.createMany({
-        data: boq.items.map((item) => ({
+        data: boq.items.map((item, idx) => ({
           boqId: generatedBOQ.id,
           itemCategory: item.category,
-          itemCode: `BOQ-${projectCode}-${item.category.substring(0, 3)}`,
+          itemCode: item.itemCode || `BOQ-${projectCode}-${item.category.substring(0, 3)}-${String(idx + 1).padStart(2, '0')}`,
           description: item.description,
           unit: item.unit,
           quantity: item.quantity,
           unitRate: item.unitRate,
           amount: item.amount,
-          sourceType: 'AUTO_CALCULATED',
-          sourceReference: `GIS Import ${session.id}`,
+          sourceType: item.source === 'EXISTING' ? 'EXISTING_STOCK' : 'AUTO_CALCULATED',
+          sourceReference: item.materialId
+            ? `Inventory: ${item.materialId} (${item.itemCode || 'N/A'})`
+            : `GIS Import ${session.id}`,
         })),
       });
 
-      // Sync BOQ items to ProjectBOQItem for dashboard BOQ tab visibility
-      // Track category counters to ensure unique item codes
-      // Fetch inventory items matching BOQ categories and their stock levels
-      const invItemsForBOQ = await prisma.inventoryItem.findMany({
-        where: {
-          OR: [
-            { code: { contains: "POLE", mode: "insensitive" } },
-            { code: { contains: "CBL", mode: "insensitive" } },
-            { name: { contains: "Pole", mode: "insensitive" } },
-            { name: { contains: "Fiber", mode: "insensitive" } },
-            { name: { contains: "Cable", mode: "insensitive" } },
-            { name: { contains: "Chamber", mode: "insensitive" } },
-            { name: { contains: "Closure", mode: "insensitive" } },
-            { name: { contains: "Splice", mode: "insensitive" } },
-            { name: { contains: "Manhole", mode: "insensitive" } },
-          ],
-        },
-        include: { stocks: true },
-        take: 50,
-      });
-
-      const findInvItem = (keywords: string[]) =>
-        invItemsForBOQ.find((item: any) =>
-          keywords.some(
-            (kw: string) =>
-              item.name?.toLowerCase().includes(kw.toLowerCase()) ||
-              item.code?.toLowerCase().includes(kw.toLowerCase())
-          )
-        );
-
-      // Build stock-by-category map (sum across all stores)
-      const stockByCat = new Map();
-      const poleMatch = findInvItem(["pole", "wooden", "concrete"]);
-      if (poleMatch) {
-        stockByCat.set("POLE", {
-          availableQty: poleMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
-          itemCode: poleMatch.code,
-          materialId: poleMatch.id,
-        });
-      }
-      const chamberMatch = findInvItem(["chamber", "manhole"]);
-      if (chamberMatch) {
-        stockByCat.set("CHAMBER", {
-          availableQty: chamberMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
-          itemCode: chamberMatch.code,
-          materialId: chamberMatch.id,
-        });
-      }
-      const closureMatch = findInvItem(["closure", "splice"]);
-      if (closureMatch) {
-        stockByCat.set("CLOSURE", {
-          availableQty: closureMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
-          itemCode: closureMatch.code,
-          materialId: closureMatch.id,
-        });
-      }
-      const cableMatch = findInvItem(["fiber", "cable"]);
-      if (cableMatch) {
-        stockByCat.set("CABLE", {
-          availableQty: cableMatch.stocks.reduce((s, st) => s + (st.quantity || 0), 0),
-          itemCode: cableMatch.code,
-          materialId: cableMatch.id,
-        });
-      }
-
-      // Track category counters to ensure unique item codes
+      // Sync BOQ items to ProjectBOQItem for dashboard BOQ tab visibility.
+      // Now uses the boq engine's pre-computed source/materialId/itemCode directly
+      // instead of duplicating inventory logic.
       const categoryCounters: Record<string, number> = {};
       await prisma.projectBOQItem.createMany({
         data: boq.items.map((item) => {
           const catKey = item.category.substring(0, 3);
           categoryCounters[catKey] = (categoryCounters[catKey] || 0) + 1;
           const seq = String(categoryCounters[catKey]).padStart(2, '0');
-          // Round amount to 2 decimal places to avoid floating point drift
           const roundedAmount = Math.round(item.amount * 100) / 100;
+          const source: 'EXISTING' | 'NEW' = item.source || 'NEW';
 
-          // Determine source (EXISTING vs NEW) based on stock availability
-          const stockInfo = stockByCat.get(item.category);
-          let source: "EXISTING" | "NEW" = "NEW";
-          let materialId: string | null = null;
-          let remarks: string | undefined;
-
-          if (stockInfo && stockInfo.availableQty >= item.quantity) {
-            source = "EXISTING";
-            materialId = stockInfo.materialId;
-            remarks = `GIS Import ${session.id} | Available in stock: ${stockInfo.availableQty} ${item.unit} (${stockInfo.itemCode})`;
-          } else if (stockInfo && stockInfo.availableQty > 0) {
-            source = "NEW";
-            materialId = stockInfo.materialId;
-            remarks = `GIS Import ${session.id} | Partial stock: ${stockInfo.availableQty}/${item.quantity} ${item.unit} available (${stockInfo.itemCode})`;
+          let remarks = `GIS Import ${session.id}`;
+          if (source === 'EXISTING') {
+            remarks = `GIS Import ${session.id} | Available in stock (${item.itemCode || item.materialId})`;
           } else {
-            source = "NEW";
             remarks = `GIS Import ${session.id} | No stock available — procurement required`;
           }
 
           return {
             projectId: project.id,
             category: item.category,
-            itemCode: `BOQ-${projectCode}-${catKey}-${seq}`,
+            itemCode: item.itemCode || `BOQ-${projectCode}-${catKey}-${seq}`,
             description: item.description,
             unit: item.unit,
             quantity: item.quantity,
             unitRate: Math.round(item.unitRate * 100) / 100,
             amount: roundedAmount,
             source,
-            materialId,
+            materialId: item.materialId || null,
             remarks,
           };
         }),

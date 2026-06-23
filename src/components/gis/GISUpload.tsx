@@ -61,6 +61,7 @@ export function GISUpload() {
   const [projectName, setProjectName] = useState('');
   const [region, setRegion] = useState('');
   const [district, setDistrict] = useState('');
+  const [useRegionMultiplier, setUseRegionMultiplier] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
@@ -136,6 +137,7 @@ export function GISUpload() {
       if (projectName) formData.append('projectName', projectName);
       if (region) formData.append('region', region);
       if (district) formData.append('district', district);
+      formData.append('useRegionMultiplier', useRegionMultiplier ? 'true' : 'false');
       formData.append('createdById', 'current-user'); // Replace with actual user ID
 
       // Upload files
@@ -239,6 +241,19 @@ export function GISUpload() {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
           />
+        </div>
+        <div className="flex items-center gap-2 pt-6">
+          <input
+            type="checkbox"
+            id="useRegionMultiplier"
+            checked={useRegionMultiplier}
+            onChange={(e) => setUseRegionMultiplier(e.target.checked)}
+            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+          />
+          <label htmlFor="useRegionMultiplier" className="text-sm font-medium text-gray-700 cursor-pointer">
+            Apply Region Cost Multiplier (↑rates for distant regions)
+          </label>
         </div>
       </div>
 

@@ -48,7 +48,7 @@ async function main() {
   }
 
   const deltasData = await deltasRes.json();
-  let deltas = Array.isArray(deltasData) ? deltasData : (deltasData.results || []);
+  const deltas = Array.isArray(deltasData) ? deltasData : (deltasData.results || []);
   console.log(`Total QFieldCloud deltas: ${deltas.length}`);
 
   for (let idx = 0; idx < deltas.length; idx++) {

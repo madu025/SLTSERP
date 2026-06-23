@@ -168,7 +168,7 @@ export default function ProjectSurvey({ project, refreshProject }: ProjectSurvey
       };
       autoCreate();
     }
-  }, [project.gisMapping?.qfieldProjectId, syncLoading, autoCreating, autoCreateFailed, project.id, fetchSyncStatus]);
+  }, [project.gisMapping?.qfieldProjectId, syncLoading, autoCreating, autoCreateFailed, project.id, fetchSyncStatus, refreshProject]);
 
   const handleCreateQFieldProject = async () => {
     setSyncing(true);

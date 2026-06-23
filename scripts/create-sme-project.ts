@@ -15,8 +15,8 @@ async function authenticate(): Promise<string> {
   if (!res.ok) {
     throw new Error(`Authentication failed: ${res.status}`);
   }
-  const data: any = await res.json();
-  return data.token || data.access_token;
+  const data = (await res.json()) as { token?: string; access_token?: string };
+  return data.token || data.access_token || '';
 }
 
 async function main() {
@@ -31,7 +31,7 @@ async function main() {
   if (existingProject) {
     console.log(`Project ${projectCode} exists. Deleting it to start clean...`);
     // Delete mapping from QFieldCloud if present
-    const mapping = existingProject.gisMapping as any;
+    const mapping = existingProject.gisMapping as { qfieldProjectId?: string } | null;
     if (mapping && mapping.qfieldProjectId) {
       try {
         const syncService = new QFieldCloudSyncService();
@@ -135,7 +135,7 @@ async function main() {
       gisMapping: {
         qfieldProjectId: qfieldProject.id,
         created_at: new Date().toISOString()
-      } as any
+      } as Record<string, unknown>
     }
   });
   console.log('✅ Updated GIS mapping in SLTSERP database.');

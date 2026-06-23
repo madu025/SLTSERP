@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         region: (formData.get('region') as string) || undefined,
         district: (formData.get('district') as string) || undefined,
         createdById: (formData.get('createdById') as string) || 'system',
+        useRegionMultiplier: formData.get('useRegionMultiplier') === 'true',
       };
     } else {
       // Handle JSON body (API-to-API)

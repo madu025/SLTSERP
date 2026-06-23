@@ -113,7 +113,6 @@ export default function QFieldConfigForm({ projectId, projectCode, projectName }
   const [selectedLayer, setSelectedLayer] = useState<string>("SLT_Poles");
   const [selectedField, setSelectedField] = useState<string>("");
   const [customField, setCustomField] = useState<string>("");
-  const [newOptionVal, setNewOptionVal] = useState<string>("");
 
   useEffect(() => {
     async function fetchConfigs() {
