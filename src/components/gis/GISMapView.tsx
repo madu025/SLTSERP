@@ -2,7 +2,8 @@
 // GISMapView Component — OpenLayers map visualization for GIS layers
 // ============================================================================
 // Enterprise-grade interactive map displaying cables, poles, FDPs, fiber joints,
-// chambers, and road segments with popup info, layer controls, and auto-fit bounds.
+// chambers, and road segments with popup info, layer controls, auto-fit bounds,
+// and a distance measurement tool for pole-to-pole distance in meters.
 // Built on OpenLayers 10 for Vector Tiles, WMS/WFS, PostGIS-ready architecture.
 // ============================================================================
 
@@ -23,6 +24,28 @@ import LineString from 'ol/geom/LineString';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
 import { defaults as defaultControls, FullScreen } from 'ol/control';
+import { getDistance } from 'ol/sphere';
+
+// ─── Measurement tool types ────────────────────────────────────────────────
+interface MeasurePoint {
+  lonLat: [number, number]; // [lon, lat] in EPSG:4326
+  pixel: [number, number];
+}
+
+// ─── Distance measurement style helpers ────────────────────────────────────
+const MEASURE_STYLE = new Style({
+  fill: new Fill({ color: 'rgba(255, 255, 255, 0.2)' }),
+  stroke: new Stroke({ color: '#f59e0b', width: 3, lineDash: [8, 4] }),
+  image: new CircleStyle({
+    radius: 5,
+    fill: new Fill({ color: '#f59e0b' }),
+    stroke: new Stroke({ color: '#ffffff', width: 2 }),
+  }),
+});
+
+const MEASURE_SEGMENT_STYLE = new Style({
+  stroke: new Stroke({ color: '#f59e0b', width: 3, lineDash: [8, 4] }),
+});
 
 interface GISMapViewProps {
   gisRoutes?: any[];
@@ -140,6 +163,36 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     cables: true, poles: true, fdps: true, fiberJoints: true, chambers: true, roads: true, assets: true,
   });
 
+  // ─── Distance Measurement State ──────────────────────────────────────
+  const [measureActive, setMeasureActive] = useState(false);
+  const measurePointsRef = useRef<MeasurePoint[]>([]);
+  const measureSourceRef = useRef<VectorSource | null>(null);
+  const measureLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const measureTooltipRef = useRef<Overlay | null>(null);
+  const measureOverlayRef = useRef<HTMLDivElement | null>(null);
+  const [totalDistance, setTotalDistance] = useState<number | null>(null);
+  const lastSegmentDistanceRef = useRef<number | null>(null);
+
+    // ─── Clear measurement ────────────────────────────────────────────────
+  const clearMeasure = useCallback(() => {
+    measurePointsRef.current = [];
+    setTotalDistance(null);
+    lastSegmentDistanceRef.current = null;
+    if (measureSourceRef.current) measureSourceRef.current.clear();
+    if (measureTooltipRef.current) {
+      const el = measureTooltipRef.current.getElement();
+      if (el) el.style.display = 'none';
+    }
+  }, []);
+
+  // ─── Toggle measurement mode ──────────────────────────────────────────
+  const toggleMeasure = useCallback(() => {
+    setMeasureActive((prev) => {
+      if (prev) clearMeasure();
+      return !prev;
+    });
+  }, [clearMeasure]);
+
   const layerStyles = useMemo(() => ({
     cables: createPolylineStyle(LAYER_COLORS.cables, 3, 0.8),
     cablesHover: createHoverPolylineStyle(LAYER_COLORS.cables),
@@ -167,6 +220,27 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
       controls: defaultControls().extend([new FullScreen()]),
     });
     mapRef.current = map;
+
+    // ─── Initialize measurement layer ──────────────────────────────────
+    const mSource = new VectorSource();
+    measureSourceRef.current = mSource;
+    const mLayer = new VectorLayer({ source: mSource, style: MEASURE_STYLE, zIndex: 1000 });
+    measureLayerRef.current = mLayer;
+    map.addLayer(mLayer);
+
+    // ─── Measurement tooltip overlay ───────────────────────────────────
+    const tooltipEl = document.createElement('div');
+    tooltipEl.style.cssText = `
+      background: rgba(15, 23, 42, 0.92); color: #fbbf24; font-family: system-ui, sans-serif;
+      font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 8px;
+      border: 1.5px solid #f59e0b; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      white-space: nowrap; pointer-events: none; display: none;
+    `;
+    measureOverlayRef.current = tooltipEl;
+    const mTooltip = new Overlay({ element: tooltipEl, offset: [0, -20], positioning: 'bottom-center' });
+    measureTooltipRef.current = mTooltip;
+    map.addOverlay(mTooltip);
+
     setMapReady(true);
     requestAnimationFrame(() => map.updateSize());
     return () => { map.setTarget(undefined); mapRef.current = null; };
@@ -199,6 +273,138 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     mapRef.current.on('click', handleClick);
     return () => { mapRef.current?.un('click', handleClick); };
   }, [mapReady]);
+
+  // ─── Measurement click handler ───────────────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    const map = mapRef.current;
+
+    const handleMeasureClick = (evt: any) => {
+      if (!measureActive) return;
+      const lonLat = toLonLat(evt.coordinate) as [number, number];
+      const pixel = evt.pixel as [number, number];
+      const points = measurePointsRef.current;
+      const source = measureSourceRef.current;
+      if (!source) return;
+
+      points.push({ lonLat, pixel });
+
+      if (points.length === 1) {
+        // First point: show a marker
+        const pt = new Point(evt.coordinate);
+        const f = new Feature({ geometry: pt });
+        f.setStyle(MEASURE_STYLE);
+        source.addFeature(f);
+        // Show tooltip "Click next point"
+        if (measureOverlayRef.current && measureTooltipRef.current) {
+          measureOverlayRef.current.innerHTML = '📏 Click next point to measure';
+          measureOverlayRef.current.style.display = '';
+          measureTooltipRef.current.setPosition(evt.coordinate);
+        }
+      } else if (points.length >= 2) {
+        // Draw line segment
+        const prev = points[points.length - 2];
+        const prevCoord = fromLonLat(prev.lonLat);
+        const currCoord = evt.coordinate;
+        const lineStr = new LineString([prevCoord, currCoord]);
+        const segFeature = new Feature({ geometry: lineStr });
+        segFeature.setStyle(MEASURE_SEGMENT_STYLE);
+        source.addFeature(segFeature);
+
+        // Calculate distances
+        const segmentMeters = getDistance(prev.lonLat, lonLat);
+        lastSegmentDistanceRef.current = segmentMeters;
+
+        // Total distance
+        let total = 0;
+        for (let i = 1; i < points.length; i++) {
+          total += getDistance(points[i - 1].lonLat, points[i].lonLat);
+        }
+        setTotalDistance(total);
+
+        // Add end point marker
+        const pt = new Point(currCoord);
+        const f = new Feature({ geometry: pt });
+        f.setStyle(MEASURE_STYLE);
+        source.addFeature(f);
+
+        // Update tooltip with segment distance
+        if (measureOverlayRef.current && measureTooltipRef.current) {
+          measureOverlayRef.current.innerHTML = `📏 Seg: <b>${segmentMeters.toFixed(2)} m</b><br>📐 Total: <b>${total.toFixed(2)} m</b><br><span style="font-size:9px;opacity:0.7">Click to continue | Double-click to finish</span>`;
+          measureOverlayRef.current.style.display = '';
+          measureTooltipRef.current.setPosition(currCoord);
+        }
+      }
+    };
+
+    const handleMeasureDblClick = (evt: any) => {
+      if (!measureActive) return;
+      const points = measurePointsRef.current;
+      if (points.length < 2) return;
+
+      // Finalize measurement
+      setMeasureActive(false);
+      const source = measureSourceRef.current;
+      if (source) {
+        // Remove existing features and draw final consolidated line
+        source.clear();
+
+        const coords = points.map(p => fromLonLat(p.lonLat));
+        const finalLine = new LineString(coords);
+        const finalFeature = new Feature({ geometry: finalLine });
+        finalFeature.setStyle(new Style({
+          stroke: new Stroke({ color: '#f59e0b', width: 4, lineDash: [10, 5] }),
+          image: new CircleStyle({
+            radius: 5,
+            fill: new Fill({ color: '#f59e0b' }),
+            stroke: new Stroke({ color: '#ffffff', width: 2 }),
+          }),
+        }));
+        source.addFeature(finalLine);
+
+        // Add endpoint markers
+        if (points.length > 0) {
+          const startPt = new Point(fromLonLat(points[0].lonLat));
+          const startF = new Feature({ geometry: startPt });
+          startF.setStyle(MEASURE_STYLE);
+          source.addFeature(startF);
+
+          const endPt = new Point(fromLonLat(points[points.length - 1].lonLat));
+          const endF = new Feature({ geometry: endPt });
+          endF.setStyle(new Style({
+            image: new CircleStyle({
+              radius: 7,
+              fill: new Fill({ color: '#ef4444' }),
+              stroke: new Stroke({ color: '#ffffff', width: 2 }),
+            }),
+          }));
+          source.addFeature(endF);
+        }
+      }
+
+      // Show final tooltip
+      if (measureOverlayRef.current && measureTooltipRef.current && points.length > 0) {
+        const lastCoord = fromLonLat(points[points.length - 1].lonLat);
+        let total = 0;
+        for (let i = 1; i < points.length; i++) {
+          total += getDistance(points[i - 1].lonLat, points[i].lonLat);
+        }
+        measureOverlayRef.current.innerHTML = `📐 Total: <b>${total.toFixed(2)} m</b> (${points.length} points)`;
+        measureOverlayRef.current.style.display = '';
+        measureOverlayRef.current.style.background = 'rgba(15, 23, 42, 0.95)';
+        measureOverlayRef.current.style.border = '2px solid #ef4444';
+        measureTooltipRef.current.setPosition(lastCoord);
+      }
+    };
+
+    // Register measurement events
+    map.on('click', handleMeasureClick);
+    map.on('dblclick', handleMeasureDblClick);
+    return () => {
+      map.un('click', handleMeasureClick);
+      map.un('dblclick', handleMeasureDblClick);
+    };
+  }, [mapReady, measureActive]);
 
   // --- Hover (pointermove) for highlight ---
   const hoverFeatureRef = useRef<Feature | null>(null);
@@ -474,8 +680,9 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
           </div>
         </div>
       )}
+      {/* ─── Floating Controls Panel ──────────────────────────────────────── */}
       {mapReady && (
-        <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[200px]">
+        <div className="absolute top-3 right-3 z-[1000] bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[200px] max-w-[280px]">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Layers</h3>
             <div className="flex gap-1">
@@ -483,7 +690,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
               <button onClick={hideAllLayers} className="text-[10px] text-gray-500 hover:text-gray-700 font-medium px-1.5 py-0.5 rounded hover:bg-gray-100">None</button>
             </div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1 mb-3">
             {Object.keys(visibility).map((key) => {
               const layerKey = key as keyof LayerVisibility;
               const c = countFeatures[layerKey];
@@ -497,6 +704,56 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
                 </label>
               );
             })}
+          </div>
+
+          {/* ─── Distance Measurement Tool ─────────────────────────────────── */}
+          <div className="border-t border-gray-100 pt-2.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                📏 Distance Tool
+              </span>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={toggleMeasure}
+                className={`flex-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition-all ${
+                  measureActive
+                    ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
+                    : 'bg-gray-100 text-gray-600 hover:bg-amber-50 hover:text-amber-700'
+                }`}
+              >
+                {measureActive ? '📏 Measuring...' : '📏 Measure Distance'}
+              </button>
+              <button
+                onClick={clearMeasure}
+                className="text-[10px] font-semibold px-2 py-1.5 rounded-md bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                disabled={measureActive}
+              >
+                Clear
+              </button>
+            </div>
+            {measureActive && (
+              <p className="text-[9px] text-amber-600 font-medium mt-1.5 leading-tight">
+                Click points on the map to measure. Double-click to finish.
+              </p>
+            )}
+            {totalDistance !== null && !measureActive && (
+              <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-amber-800 font-bold">
+                  📐 Last Measurement: {totalDistance.toFixed(2)} m
+                </p>
+                {lastSegmentDistanceRef.current !== null && (
+                  <p className="text-[9px] text-amber-600 font-medium">
+                    Last segment: {lastSegmentDistanceRef.current.toFixed(2)} m
+                    {/* total pole count */}
+                    {measurePointsRef.current.length > 0 && ` · ${measurePointsRef.current.length} points`}
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="text-[9px] text-gray-400 mt-1.5 leading-tight">
+              Measure pole-to-pole or any point distances in meters for cable path planning.
+            </p>
           </div>
         </div>
       )}
