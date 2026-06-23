@@ -39,6 +39,7 @@ const LAYER_COLORS: Record<string, string> = {
   poles: '#dc2626',
   fdps: '#7c3aed',
   fiberJoints: '#ca8a04',
+  chambers: '#0891b2',
   roads: '#64748b',
   assets: '#059669',
 };
@@ -48,6 +49,7 @@ const LAYER_ICONS: Record<string, string> = {
   poles: '📡',
   fdps: '📦',
   fiberJoints: '🔗',
+  chambers: '⚫',
   roads: '🛣️',
   assets: '📍',
 };
@@ -57,6 +59,7 @@ const LAYER_LABELS: Record<string, string> = {
   poles: 'Telecom Poles',
   fdps: 'FDPs',
   fiberJoints: 'Fiber Joints',
+  chambers: 'Chambers',
   roads: 'Road Segments',
   assets: 'Assets',
 };
@@ -163,6 +166,7 @@ function RouteSummaryTable({ routes }: { routes: any[] }) {
             <th className="text-left py-2 px-2 font-semibold text-gray-500 uppercase">Route Name</th>
             <th className="text-right py-2 px-2 font-semibold text-gray-500 uppercase">Length (km)</th>
             <th className="text-right py-2 px-2 font-semibold text-gray-500 uppercase">Poles</th>
+            <th className="text-right py-2 px-2 font-semibold text-gray-500 uppercase">Chambers</th>
             <th className="text-right py-2 px-2 font-semibold text-gray-500 uppercase">Closures</th>
             <th className="text-right py-2 px-2 font-semibold text-gray-500 uppercase">Cables</th>
             <th className="text-right py-2 px-2 font-semibold text-gray-500 uppercase">Status</th>
@@ -179,6 +183,9 @@ function RouteSummaryTable({ routes }: { routes: any[] }) {
               </td>
               <td className="py-2 px-2 text-right text-gray-700">
                 {route.poles?.length || '-'}
+              </td>
+              <td className="py-2 px-2 text-right text-gray-700">
+                {route.chambers?.length || '-'}
               </td>
               <td className="py-2 px-2 text-right text-gray-700">
                 {route.closures?.length || '-'}
@@ -281,6 +288,7 @@ export function GISLayerPanel({
     let totalJoints = 0;
     let totalCables = 0;
     let totalRoads = 0;
+    let totalChambers = 0;
     let totalRouteLength = 0;
     let totalBOQCost = 0;
 
@@ -289,6 +297,7 @@ export function GISLayerPanel({
       totalClosures += route.closures?.length || 0;
       totalCables += route.cableSegments?.length || 0;
       totalRoads += route.roadSegments?.length || 0;
+      totalChambers += route.chambers?.length || 0;
       totalRouteLength += route.routeLength || 0;
 
       // Count FDPs vs joints from closures
@@ -313,6 +322,7 @@ export function GISLayerPanel({
       totalJoints,
       totalCables,
       totalRoads,
+      totalChambers,
       totalRouteLength,
       totalBOQCost,
       routeCount: gisRoutes.length,
@@ -370,6 +380,19 @@ export function GISLayerPanel({
       count: summary.totalJoints,
       metrics: [
         { label: 'Total Closures', value: String(summary.totalClosures) },
+      ],
+    },
+    {
+      key: 'chambers',
+      icon: LAYER_ICONS.chambers,
+      label: LAYER_LABELS.chambers,
+      color: LAYER_COLORS.chambers,
+      count: summary.totalChambers,
+      metrics: [
+        { label: 'Route Access', value: summary.totalRouteLength > 0
+          ? `${(summary.totalChambers / (summary.totalRouteLength / 1000)).toFixed(1)} / km`
+          : '-'
+        },
       ],
     },
     {

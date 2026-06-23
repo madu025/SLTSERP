@@ -2,7 +2,7 @@
 // GISMapView Component — OpenLayers map visualization for GIS layers
 // ============================================================================
 // Enterprise-grade interactive map displaying cables, poles, FDPs, fiber joints,
-// and road segments with popup info, layer controls, and auto-fit bounds.
+// chambers, and road segments with popup info, layer controls, and auto-fit bounds.
 // Built on OpenLayers 10 for Vector Tiles, WMS/WFS, PostGIS-ready architecture.
 // ============================================================================
 
@@ -37,6 +37,7 @@ interface LayerVisibility {
   poles: boolean;
   fdps: boolean;
   fiberJoints: boolean;
+  chambers: boolean;
   roads: boolean;
   assets: boolean;
 }
@@ -46,6 +47,7 @@ const LAYER_COLORS: Record<string, string> = {
   poles: '#dc2626',
   fdps: '#7c3aed',
   fiberJoints: '#ca8a04',
+  chambers: '#0891b2',
   roads: '#64748b',
   assets: '#059669',
 };
@@ -55,6 +57,7 @@ const LAYER_LABELS: Record<string, string> = {
   poles: 'Telecom Poles',
   fdps: 'FDPs (Distribution Points)',
   fiberJoints: 'Fiber Joint Closures',
+  chambers: 'Chambers (MH/HH)',
   roads: 'Road Segments',
   assets: 'Project Assets',
 };
@@ -64,6 +67,7 @@ const LAYER_ICONS: Record<string, string> = {
   poles: '📡',
   fdps: '📦',
   fiberJoints: '🔗',
+  chambers: '⚫',
   roads: '🛣️',
   assets: '📍',
 };
@@ -133,7 +137,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
   const vectorLayersRef = useRef<Record<string, VectorLayer<VectorSource>>>({});
   const [mapReady, setMapReady] = useState(false);
   const [visibility, setVisibility] = useState<LayerVisibility>({
-    cables: true, poles: true, fdps: true, fiberJoints: true, roads: true, assets: true,
+    cables: true, poles: true, fdps: true, fiberJoints: true, chambers: true, roads: true, assets: true,
   });
 
   const layerStyles = useMemo(() => ({
@@ -145,6 +149,8 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     fdpsHover: createHoverCircleStyle(LAYER_COLORS.fdps, 12),
     fiberJoints: createCircleStyle(LAYER_COLORS.fiberJoints, 7, 0.6),
     fiberJointsHover: createHoverCircleStyle(LAYER_COLORS.fiberJoints, 9),
+    chambers: createCircleStyle(LAYER_COLORS.chambers, 6, 0.7, '2,2'),
+    chambersHover: createHoverCircleStyle(LAYER_COLORS.chambers, 8),
     roads: createPolylineStyle(LAYER_COLORS.roads, 2, 0.5, '8,6'),
     roadsHover: createHoverPolylineStyle(LAYER_COLORS.roads),
     assets: createCircleStyle(LAYER_COLORS.assets, 6, 0.7, '2,2'),
@@ -232,7 +238,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
 
     const sources: Record<string, VectorSource> = {
       cables: new VectorSource(), poles: new VectorSource(), fdps: new VectorSource(),
-      fiberJoints: new VectorSource(), roads: new VectorSource(), assets: new VectorSource(),
+      fiberJoints: new VectorSource(), chambers: new VectorSource(), roads: new VectorSource(), assets: new VectorSource(),
     };
     const allExtents: any[] = [];
     layerSourcesRef.current = sources;
@@ -259,23 +265,41 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     }
 
     for (const route of gisRoutes) {
-      // --- CABLES (with pole-reference fallback) ---
+      // --- CABLES (with unified node map fallback: poles + chambers + closures) ---
       if (route.cableSegments?.length) {
-        const poleCoordMap: Record<string, [number, number]> = {};
+        // Build unified node coordinate map
+        const nodeCoordMap: Record<string, [number, number]> = {};
         if (route.poles) {
           for (const p of route.poles) {
             const lat = p.latitude ?? p.lat;
             const lng = p.longitude ?? p.lon ?? p.lng;
-            if (lat != null && lng != null) poleCoordMap[p.id] = [lng, lat];
+            if (lat != null && lng != null) nodeCoordMap[p.id] = [lng, lat];
+          }
+        }
+        if (route.chambers) {
+          for (const ch of route.chambers) {
+            const lat = ch.latitude ?? ch.lat;
+            const lng = ch.longitude ?? ch.lon ?? ch.lng;
+            if (lat != null && lng != null) nodeCoordMap[ch.id] = [lng, lat];
+          }
+        }
+        if (route.closures) {
+          for (const cl of route.closures) {
+            const lat = cl.latitude ?? cl.lat;
+            const lng = cl.longitude ?? cl.lon ?? cl.lng;
+            if (lat != null && lng != null) nodeCoordMap[cl.id] = [lng, lat];
           }
         }
         for (const seg of route.cableSegments) {
           let cableCoords: Array<[number, number]> | null = null;
-          if (seg.coordinates?.length) {
+          // Try properties.coordinates first (from ingestion serialization)
+          if (Array.isArray(seg.properties?.coordinates) && seg.properties.coordinates.length >= 2) {
+            cableCoords = seg.properties.coordinates;
+          } else if (Array.isArray(seg.coordinates) && seg.coordinates.length >= 2) {
             cableCoords = seg.coordinates;
           } else if (seg.fromPoleId && seg.toPoleId) {
-            const fromC = poleCoordMap[seg.fromPoleId];
-            const toC = poleCoordMap[seg.toPoleId];
+            const fromC = nodeCoordMap[seg.fromPoleId];
+            const toC = nodeCoordMap[seg.toPoleId];
             if (fromC && toC) cableCoords = [fromC, toC];
           }
           if (cableCoords) {
@@ -327,6 +351,18 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
         }
       }
 
+      // --- CHAMBERS ---
+      if (route.chambers?.length) {
+        for (const ch of route.chambers) {
+          const lat = ch.latitude ?? ch.lat;
+          const lng = ch.longitude ?? ch.lon ?? ch.lng;
+          if (lat == null || lng == null) continue;
+          const point = new Point(fromLonLat([lng, lat]));
+          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">⚫ Chamber #${ch.chamberNumber || '?'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${ch.chamberType || 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Status</td><td style="padding: 2px 4px; font-weight: 500;">${ch.status || 'PLANNED'}</td></tr><tr><td style="padding: 2px 4px; color: #666; max-width: 150px; word-break: break-word;">Notes</td><td style="padding: 2px 4px; font-weight: 500;">${ch.notes || '-'}</td></tr></table></div>`;
+          addFeature('chambers', point, html, 'chambers');
+        }
+      }
+
       // --- ROADS ---
       if (route.roadSegments?.length) {
         for (const road of route.roadSegments) {
@@ -363,7 +399,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     const layerDefs: { key: string; style: any }[] = [
       { key: 'cables', style: layerStyles.cables }, { key: 'poles', style: layerStyles.poles },
       { key: 'fdps', style: layerStyles.fdps }, { key: 'fiberJoints', style: layerStyles.fiberJoints },
-      { key: 'roads', style: layerStyles.roads },
+      { key: 'chambers', style: layerStyles.chambers }, { key: 'roads', style: layerStyles.roads },
     ];
     for (const { key, style } of layerDefs) {
       const vl = new VectorLayer({ source: sources[key], style, visible: visibility[key as keyof LayerVisibility] });
@@ -404,6 +440,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     return {
       cables: sources.cables?.getFeatures().length || 0, poles: sources.poles?.getFeatures().length || 0,
       fdps: sources.fdps?.getFeatures().length || 0, fiberJoints: sources.fiberJoints?.getFeatures().length || 0,
+      chambers: sources.chambers?.getFeatures().length || 0,
       roads: sources.roads?.getFeatures().length || 0, assets: sources.assets?.getFeatures().length || 0,
     };
   }, [gisRoutes, assets]);
@@ -412,10 +449,10 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     setVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }));
   }, []);
   const showAllLayers = useCallback(() => {
-    setVisibility({ cables: true, poles: true, fdps: true, fiberJoints: true, roads: true, assets: true });
+    setVisibility({ cables: true, poles: true, fdps: true, fiberJoints: true, chambers: true, roads: true, assets: true });
   }, []);
   const hideAllLayers = useCallback(() => {
-    setVisibility({ cables: false, poles: false, fdps: false, fiberJoints: false, roads: false, assets: false });
+    setVisibility({ cables: false, poles: false, fdps: false, fiberJoints: false, chambers: false, roads: false, assets: false });
   }, []);
 
   return (

@@ -106,15 +106,16 @@ export class GISParser {
         if (!cableType && segmentCableType) cableType = segmentCableType;
         if (segmentFiberCount > fiberCount) fiberCount = segmentFiberCount;
 
-        segments.push({
-          index: index + 1,
-          coordinates: coords,
-          length,
-          cableType: segmentCableType,
-          fiberCount: segmentFiberCount,
-          fromPoint: coords[0],
-          toPoint: coords[coords.length - 1],
-        });
+         segments.push({
+           index: index + 1,
+           coordinates: coords,
+           length,
+           cableType: segmentCableType,
+           fiberCount: segmentFiberCount,
+           fromPoint: coords[0],
+           toPoint: coords[coords.length - 1],
+           properties: feature.properties || {},
+         });
       }
     });
 

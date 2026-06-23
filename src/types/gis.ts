@@ -86,6 +86,7 @@ export interface CableSegment {
   fiberCount?: number;
   fromPoint?: [number, number];
   toPoint?: [number, number];
+  properties?: Record<string, any>;
 }
 
 export interface ParsedPoleData {

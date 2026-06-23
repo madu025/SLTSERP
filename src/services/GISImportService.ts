@@ -191,19 +191,19 @@ export class GISImportService {
       warnings: [],
     }));
 
-      // Create session
-      const session: GISUploadSession = {
-        id: importId,
-        projectName: request.projectName,
-        region: request.region,
-        district: request.district,
-        createdById: request.createdById,
-        files,
-        status: 'UPLOADED',
-        useRegionMultiplier: request.useRegionMultiplier ?? false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    // Create session
+    const session: GISUploadSession = {
+      id: importId,
+      projectName: request.projectName,
+      region: request.region,
+      district: request.district,
+      createdById: request.createdById,
+      files,
+      status: 'UPLOADED',
+      useRegionMultiplier: request.useRegionMultiplier ?? false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
     this.sessions.set(importId, session);
 
@@ -650,7 +650,10 @@ export class GISImportService {
             cableType: seg.cableType || parsedLayers.cable?.cableType,
             fiberCount: seg.fiberCount || parsedLayers.cable?.fiberCount,
             status: 'PLANNED',
-            properties: (seg as any)._properties || null,
+            properties: {
+              ...((seg as any).properties || {}),
+              coordinates: seg.coordinates || [],
+            },
           })),
         });
       }
@@ -669,7 +672,7 @@ export class GISImportService {
             poleType: pole.poleType || 'CONCRETE',
             height: pole.height || 9,
             status: 'PLANNED',
-            properties: (pole as any)._properties || null,
+            properties: (pole as any).properties || null,
           })),
         });
 
@@ -696,7 +699,7 @@ export class GISImportService {
             capacity: fdp.portCount || 8,
             status: 'PLANNED',
             notes: `FDP ${fdp.fdpCode || fdp.index} - ${fdp.portCount || '?'} ports${fdp.splitters ? `, ${fdp.splitters} splitter(s)` : ''}`,
-            properties: (fdp as any)._properties || null,
+            properties: (fdp as any).properties || null,
           })),
         });
 
@@ -723,7 +726,7 @@ export class GISImportService {
             capacity: joint.capacity || 48,
             status: 'PLANNED',
             notes: `Fiber Joint ${joint.index} - ${joint.jointType || 'DOME'} type, ${joint.capacity || 48}F capacity`,
-            properties: (joint as any)._properties || null,
+            properties: (joint as any).properties || null,
           })),
         });
 
@@ -733,6 +736,56 @@ export class GISImportService {
           entity: 'GISClosure',
           entityId: route.id,
           details: `${parsedLayers.fiberJoint.joints.length} fiber joints created as closures`,
+        });
+      }
+
+      // ====================================================================
+      // 2e. CREATE CHAMBERS (GISChamber)
+      // ====================================================================
+      const chambersToCreate: any[] = [];
+      let chamberSeq = 1;
+
+      if (parsedLayers.manhole?.assets?.length) {
+        for (const mh of parsedLayers.manhole.assets) {
+          chambersToCreate.push({
+            routeId: route.id,
+            chamberNumber: chamberSeq++,
+            chamberType: (mh as any).type || 'MANHOLE',
+            latitude: mh.latitude,
+            longitude: mh.longitude,
+            status: 'PLANNED',
+            notes: (mh as any).code ? `Manhole Code: ${(mh as any).code}` : undefined,
+            properties: (mh as any).properties || null,
+          });
+        }
+      }
+
+      if (parsedLayers.handhole?.assets?.length) {
+        for (const hh of parsedLayers.handhole.assets) {
+          chambersToCreate.push({
+            routeId: route.id,
+            chamberNumber: chamberSeq++,
+            chamberType: (hh as any).type || 'HANDHOLE',
+            latitude: hh.latitude,
+            longitude: hh.longitude,
+            status: 'PLANNED',
+            notes: (hh as any).code ? `Handhole Code: ${(hh as any).code}` : undefined,
+            properties: (hh as any).properties || null,
+          });
+        }
+      }
+
+      if (chambersToCreate.length > 0) {
+        await prisma.gISChamber.createMany({
+          data: chambersToCreate,
+        });
+
+        auditLog.push({
+          timestamp: new Date().toISOString(),
+          action: 'CHAMBERS_CREATED',
+          entity: 'GISChamber',
+          entityId: route.id,
+          details: `${chambersToCreate.length} chambers created (manholes + handholes)`,
         });
       }
     }

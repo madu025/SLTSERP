@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
         include: {
           poles: true,
           closures: true,
+          chambers: true,
           cableSegments: true,
           generatedBOQs: {
             include: { items: true },
