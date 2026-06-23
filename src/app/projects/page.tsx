@@ -87,6 +87,12 @@ export default function ProjectsPage() {
     const [opmcFilter, setOpmcFilter] = useState('ALL');
     const [contractorFilter, setContractorFilter] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [limit] = useState(25);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+
     const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
     const [opmcs, setOpmcs] = useState<OPMCOption[]>([]);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
@@ -101,6 +107,20 @@ export default function ProjectsPage() {
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
     const [deleting, setDeleting] = useState(false);
  
+    // Debounce search query to prevent excessive API calls
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchQuery]);
+
+    // Reset to page 1 when status, region, or contractor filters change
+    useEffect(() => {
+        setPage(1);
+    }, [statusFilter, opmcFilter, contractorFilter]);
+
     // ── Data fetching ─────────────────────────────────────────────────────────
     const fetchProjectTypes = useCallback(async () => {
         try {
@@ -126,17 +146,35 @@ export default function ProjectsPage() {
  
     const fetchProjects = useCallback(async () => {
         try {
+            setLoading(true);
             const params = new URLSearchParams();
             if (statusFilter !== 'ALL') params.append('status', statusFilter);
             if (opmcFilter !== 'ALL') params.append('opmcId', opmcFilter);
             if (contractorFilter !== 'ALL') params.append('contractorId', contractorFilter);
+            params.append('page', page.toString());
+            params.append('limit', limit.toString());
+            if (debouncedSearch) params.append('search', debouncedSearch);
+
             const res = await fetch(`/api/projects?${params}`);
             if (!res.ok) throw new Error('Failed to fetch');
             const data = await res.json();
-            setProjects(Array.isArray(data) ? data : data.projects || data.data || []);
-        } catch { toast.error('Failed to load projects'); }
-        finally { setLoading(false); }
-    }, [statusFilter, opmcFilter, contractorFilter]);
+
+            if (data && typeof data === 'object' && 'projects' in data) {
+                setProjects(data.projects || []);
+                setTotalPages(data.totalPages || 1);
+                setTotalCount(data.total || 0);
+            } else {
+                const arr = Array.isArray(data) ? data : data.projects || data.data || [];
+                setProjects(arr);
+                setTotalPages(1);
+                setTotalCount(arr.length);
+            }
+        } catch { 
+            toast.error('Failed to load projects'); 
+        } finally { 
+            setLoading(false); 
+        }
+    }, [statusFilter, opmcFilter, contractorFilter, page, limit, debouncedSearch]);
  
     useEffect(() => { fetchProjects(); fetchProjectTypes(); fetchDropdowns(); }, [fetchProjects, fetchProjectTypes, fetchDropdowns]);
  
@@ -214,7 +252,7 @@ export default function ProjectsPage() {
                             <div>
                                 <h1 className="text-lg font-bold text-foreground">Projects</h1>
                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                    {projects.length} projects · {inProgressCount} in progress · {formatCurrency(totalBudget)} budget
+                                    {totalCount} projects · Page {page} of {totalPages}
                                 </p>
                             </div>
                             <div className="flex gap-2">
@@ -370,6 +408,33 @@ export default function ProjectsPage() {
                                         </tbody>
                                     </table>
                                 </div>
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-between px-4 py-3 bg-muted/10 border-t border-border text-xs">
+                                        <div className="text-muted-foreground">
+                                            Showing page <strong>{page}</strong> of <strong>{totalPages}</strong> (<strong>{totalCount}</strong> total projects)
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-xs bg-card"
+                                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                                disabled={page === 1}
+                                            >
+                                                Previous
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-xs bg-card"
+                                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                                disabled={page === totalPages}
+                                            >
+                                                Next
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

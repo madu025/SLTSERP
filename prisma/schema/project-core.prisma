@@ -113,6 +113,8 @@ model Project {
   @@index([status])
   @@index([opmcId])
   @@index([contractorId])
+  @@index([projectTypeId])
+  @@index([areaManagerId])
 }
 
 model ProjectBOQItem {
@@ -138,6 +140,7 @@ model ProjectBOQItem {
   @@index([projectId])
   @@index([category])
   @@index([source])
+  @@index([materialId])
 }
 
 model ProjectMilestone {
@@ -218,6 +221,7 @@ model ProjectTask {
   @@index([parentId])
   @@index([status])
   @@index([wbsCode])
+  @@index([assigneeId])
 }
 
 model TaskDependency {

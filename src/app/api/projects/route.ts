@@ -12,8 +12,13 @@ export async function GET(request: Request) {
         const opmcId = searchParams.get('opmcId');
         const contractorId = searchParams.get('contractorId');
         const projectTypeId = searchParams.get('projectTypeId');
+        const search = searchParams.get('search') || searchParams.get('q') || '';
 
-        const where: Record<string, unknown> = {};
+        const page = parseInt(searchParams.get('page') || '1', 10);
+        const limit = parseInt(searchParams.get('limit') || '50', 10);
+        const skip = (page - 1) * limit;
+
+        const where: any = {};
 
         if (status && status !== 'ALL') where.status = status;
         if (type && type !== 'ALL') where.type = type;
@@ -21,48 +26,73 @@ export async function GET(request: Request) {
         if (contractorId && contractorId !== 'ALL') where.contractorId = contractorId;
         if (projectTypeId && projectTypeId !== 'ALL') where.projectTypeId = projectTypeId;
 
-        const projects = await prisma.project.findMany({
-            where,
-            include: {
-                opmc: {
-                    select: {
-                        id: true,
-                        rtom: true,
-                        region: true
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { projectCode: { contains: search, mode: 'insensitive' } },
+                { location: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        const isPaginated = searchParams.has('page') || searchParams.has('limit');
+
+        const [projects, total] = await Promise.all([
+            prisma.project.findMany({
+                where,
+                skip: isPaginated ? skip : undefined,
+                take: isPaginated ? limit : 100, // safety cap to prevent database lockups
+                include: {
+                    opmc: {
+                        select: {
+                            id: true,
+                            rtom: true,
+                            region: true
+                        }
+                    },
+                    areaManager: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    },
+                    contractor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            contactNumber: true
+                        }
+                    },
+                    projectType: {
+                        select: {
+                            id: true,
+                            name: true,
+                            description: true
+                        }
+                    },
+                    _count: {
+                        select: {
+                            boqItems: true,
+                            milestones: true,
+                            expenses: true
+                        }
                     }
                 },
-                areaManager: {
-                    select: {
-                        id: true,
-                        name: true
-                    }
-                },
-                contractor: {
-                    select: {
-                        id: true,
-                        name: true,
-                        contactNumber: true
-                    }
-                },
-                projectType: {
-                    select: {
-                        id: true,
-                        name: true,
-                        description: true
-                    }
-                },
-                _count: {
-                    select: {
-                        boqItems: true,
-                        milestones: true,
-                        expenses: true
-                    }
+                orderBy: {
+                    createdAt: 'desc'
                 }
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
-        });
+            }),
+            prisma.project.count({ where })
+        ]);
+
+        if (isPaginated) {
+            return NextResponse.json({
+                projects,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            });
+        }
 
         return NextResponse.json(projects);
     } catch (error) {
