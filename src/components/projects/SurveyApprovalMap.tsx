@@ -128,6 +128,35 @@ function MapController({
   return null;
 }
 
+// ─── Map Resize Handler to prevent grey map/disappearance ─────────────────────
+function MapResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+    if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      const container = map.getContainer();
+      if (container) {
+        resizeObserver.observe(container);
+      }
+      return () => {
+        clearTimeout(timer);
+        resizeObserver.disconnect();
+      };
+    }
+
+    return () => clearTimeout(timer);
+  }, [map]);
+
+  return null;
+}
+
 interface MapProps {
   points: SurveyPoint[];
   selectedPoint: SurveyPoint | null;
@@ -330,6 +359,7 @@ export default function SurveyApprovalMap({
           }
           url={tileUrls[mapStyle]}
           maxNativeZoom={mapStyle === 'satellite' ? 18 : 19}
+          maxZoom={22}
         />
 
         <MapController
@@ -337,6 +367,8 @@ export default function SurveyApprovalMap({
           selectedPoint={selectedPoint}
           lastSelectedPointIdRef={lastSelectedPointIdRef}
         />
+
+        <MapResizeHandler />
 
         {/* ─── Editing Marker (when in edit mode, render a separate draggable marker) ─── */}
         {editingPointId && tempPosition && (() => {

@@ -85,12 +85,14 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
     // ===== SSD / General Stages =====
     'survey & feasibility': [
         { value: 'survey', label: 'Survey', description: 'Site survey and feasibility assessment' },
+        { value: 'survey-approval', label: 'Survey Approval', description: 'Map-based QField data approval workflow' },
         { value: 'gis', label: 'GIS Route', description: 'GIS route planning and mapping' },
         { value: 'documents', label: 'Documents', description: 'Survey reports and drawings' },
         { value: 'risks', label: 'Risks', description: 'Risk assessment' },
     ],
     'feasibility study': [
         { value: 'survey', label: 'Survey', description: 'Feasibility survey' },
+        { value: 'survey-approval', label: 'Survey Approval', description: 'Map-based QField data approval workflow' },
         { value: 'gis', label: 'GIS Route', description: 'Route feasibility mapping' },
         { value: 'documents', label: 'Documents', description: 'Feasibility reports' },
         { value: 'risks', label: 'Risks', description: 'Feasibility risk assessment' },
@@ -98,12 +100,15 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
     ],
     'survey & route planning': [
         { value: 'survey', label: 'Survey', description: 'Detailed field survey' },
+        { value: 'survey-approval', label: 'Survey Approval', description: 'Map-based QField data approval workflow' },
         { value: 'gis', label: 'GIS Route', description: 'Route design and planning' },
         { value: 'documents', label: 'Documents', description: 'Survey and route documents' },
         { value: 'risks', label: 'Risks', description: 'Route risk assessment' },
     ],
     'building survey': [
         { value: 'survey', label: 'Survey', description: 'Building assessment survey' },
+        { value: 'survey-approval', label: 'Survey Approval', description: 'Map-based QField data approval workflow' },
+        { value: 'gis', label: 'GIS Route', description: 'Building GIS route mapping' },
         { value: 'documents', label: 'Documents', description: 'Building survey documents' },
         { value: 'risks', label: 'Risks', description: 'Building risk assessment' },
     ],
@@ -252,6 +257,7 @@ export const STAGE_TAB_MAPPING: Record<string, TabDefinition[]> = {
     // ===== Detailed Engineering =====
     'detailed engineering': [
         { value: 'survey', label: 'Survey', description: 'Engineering survey data' },
+        { value: 'survey-approval', label: 'Survey Approval', description: 'Map-based QField data approval workflow' },
         { value: 'gis', label: 'GIS Route', description: 'Detailed GIS design' },
         { value: 'boq', label: 'BOQ & Material', description: 'Engineering BOQ' },
         { value: 'documents', label: 'Documents', description: 'Engineering drawings' },
