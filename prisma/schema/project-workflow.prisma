@@ -161,6 +161,8 @@ model ProjectStageInstance {
   actualFinish              DateTime?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
+
+  @@index([projectWorkflowInstanceId])
 }
 
 model ProjectTaskInstance {
@@ -178,6 +180,8 @@ model ProjectTaskInstance {
   progress       Float                @default(0)
   stageId        String
   stage          ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([stageId])
 }
 
 model ProjectChecklistInstance {
@@ -188,6 +192,8 @@ model ProjectChecklistInstance {
   photoUrl    String?
   stageId     String
   stage       ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([stageId])
 }
 
 model ProjectApprovalInstance {
@@ -200,6 +206,8 @@ model ProjectApprovalInstance {
   comments     String?
   stageId      String
   stage        ProjectStageInstance @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@index([stageId])
 }
 
 model WorkflowAuditLog {

@@ -25,10 +25,13 @@ model Invoice {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   contractor    Contractor     @relation(fields: [contractorId], references: [id])
-  project       Project?       @relation(fields: [projectId], references: [id])
-  sods          ServiceOrder[]
-  penalties     Penalty[]
-}
+   project       Project?       @relation(fields: [projectId], references: [id])
+   sods          ServiceOrder[]
+   penalties     Penalty[]
+
+   @@index([projectId])
+   @@index([contractorId])
+ }
 
 model Bank {
   id        String       @id @default(cuid())
