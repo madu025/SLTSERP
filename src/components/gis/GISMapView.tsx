@@ -360,7 +360,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
             stroke: new Stroke({ color: '#ffffff', width: 2 }),
           }),
         }));
-        source.addFeature(finalLine);
+        source.addFeature(finalFeature);
 
         // Add endpoint markers
         if (points.length > 0) {
