@@ -67,6 +67,24 @@ export default function PresentationPage() {
         setTimeout(() => setIsTransitioning(false), 350);
     }, [isTransitioning]);
 
+    // Expose a global navigation function for slides (e.g. Slide 1 Explore button)
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            (window as any).__sltserp_navigate = (index: number) => {
+                goToSlide(index);
+            };
+        }
+        return () => {
+            if (typeof window !== "undefined") {
+                try {
+                    delete (window as any).__sltserp_navigate;
+                } catch (e) {
+                    (window as any).__sltserp_navigate = undefined;
+                }
+            }
+        };
+    }, [goToSlide]);
+
     const handleNext = useCallback(() => {
         goToSlide((currentSlide + 1) % slidesLength);
     }, [currentSlide, slidesLength, goToSlide]);
@@ -270,9 +288,9 @@ export default function PresentationPage() {
                     </span>
                     <div>
                         <h1 className="text-[10px] sm:text-xs font-black tracking-widest uppercase bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                            SLTSERP
+                            SLTS Nexus
                         </h1>
-                        <p className="text-[9px] text-slate-500 uppercase tracking-tight font-semibold">Features Showcase</p>
+                        <p className="text-[9px] text-slate-500 uppercase tracking-tight font-semibold">Workflow Management System</p>
                     </div>
                 </div>
 
@@ -296,9 +314,9 @@ export default function PresentationPage() {
                             }
                         }}
                         className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 font-bold text-xs uppercase px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-1 focus:ring-offset-slate-900"
-                        aria-label="Open ERP Portal"
+                        aria-label="Open SLTS Nexus"
                     >
-                        <span>ERP Portal</span>
+                        <span>SLTS Nexus</span>
                         <ExternalLink className="w-3.5 h-3.5" />
                     </button>
                 </div>

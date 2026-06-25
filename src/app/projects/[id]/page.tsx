@@ -46,6 +46,10 @@ import ProjectFieldTasks from '@/components/projects/ProjectFieldTasks';
 import ProjectSurveyApproval from '@/components/projects/ProjectSurveyApproval';
 import ProjectPAT from '@/components/projects/ProjectPAT';
 import ProjectAIForecasting from '@/components/projects/ProjectAIForecasting';
+import ProjectBudgetTracking from '@/components/projects/ProjectBudgetTracking';
+import ProjectChangeRequests from '@/components/projects/ProjectChangeRequests';
+import ProjectGISAudit from '@/components/projects/ProjectGISAudit';
+import ProjectAsBuilt from '@/components/projects/ProjectAsBuilt';
 import { getTabsForStage, TabDefinition } from '@/config/stage-tab-mapping';
  
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -83,9 +87,11 @@ const TAB_COMPONENTS: Record<string, AnyTabComponent> = {
     kpis: ProjectKPIs, procurement: ProjectProcurement, finance: ProjectFinance, closure: ProjectClosure,
     'field-tasks': ProjectFieldTasks, guide: ProjectDocumentation, 'survey-approval': ProjectSurveyApproval,
     pat: ProjectPAT, 'ai-forecasting': ProjectAIForecasting,
+    budget: ProjectBudgetTracking, 'change-requests': ProjectChangeRequests,
+    'gis-audit': ProjectGISAudit, 'as-built': ProjectAsBuilt,
 };
  
-const REFRESH_TABS = new Set(['boq', 'materials', 'milestones', 'expenses', 'tasks', 'procurement', 'finance', 'closure', 'survey']);
+const REFRESH_TABS = new Set(['boq', 'materials', 'milestones', 'expenses', 'tasks', 'procurement', 'finance', 'closure', 'survey', 'budget']);
 const PROJECT_STATUSES = ['PLANNING', 'APPROVED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED'];
  
 // ─── Error Boundary ───────────────────────────────────────────────────────────
