@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, RefreshCw, Save, CheckCircle2, AlertTriangle, FileText, ShoppingCart } from 'lucide-react';
+import { Loader2, RefreshCw, Save, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Project {
@@ -249,7 +249,7 @@ export default function ProjectBOQAnalysis({ project, refreshProject }: { projec
                                                 {isMatch ? (
                                                     <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                                                 ) : (
-                                                    <AlertTriangle className="w-5 h-5 text-amber-500" title="Source mismatch" />
+                                                    <span title="Source mismatch - Apply Recommendations to fix"><AlertTriangle className="w-5 h-5 text-amber-500" /></span>
                                                 )}
                                             </TableCell>
                                         </TableRow>
