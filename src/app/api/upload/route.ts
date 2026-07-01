@@ -23,10 +23,22 @@ export async function POST(request: NextRequest) {
             type: file.type
         });
 
+        // Backend security checks: File type whitelisting and size limiting
+        const ext = (path.extname(file.name) || '.jpg').toLowerCase();
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.doc', '.docx', '.svg'];
+        if (!allowedExtensions.includes(ext)) {
+            console.error("[UPLOAD-API] Blocked forbidden file extension:", ext);
+            return NextResponse.json({ error: "Forbidden file type. Only images, PDFs, and document files are allowed." }, { status: 400 });
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            console.error("[UPLOAD-API] Blocked oversized file:", file.size);
+            return NextResponse.json({ error: "File size exceeds maximum allowed limit of 10MB." }, { status: 400 });
+        }
+
         // Generate unique filename
         const timestamp = Date.now();
         const randomString = Math.random().toString(36).substring(7);
-        const ext = path.extname(file.name) || '.jpg';
         const filename = `${timestamp}-${randomString}${ext}`;
 
         // Resolve path to /app/uploads/contractors (MUCH MORE SECURE)
@@ -43,8 +55,9 @@ export async function POST(request: NextRequest) {
                 await mkdir(uploadDir, { recursive: true });
                 console.log("[UPLOAD-API] Directory structure created successfully");
             }
-        } catch (dirError: any) {
-            console.error("[UPLOAD-API] Failed to create directory:", dirError.message);
+        } catch (dirError: unknown) {
+            const err = dirError as { message?: string };
+            console.error("[UPLOAD-API] Failed to create directory:", err.message);
             // We don't throw here, we'll try to write anyway in case it was a race condition 
             // where folder exists but existsSync failed
         }
@@ -68,12 +81,13 @@ export async function POST(request: NextRequest) {
             size: file.size,
             type: file.type
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[UPLOAD-API] Fatal error during upload:", error);
+        const err = error as { message?: string; code?: string };
         return NextResponse.json({
             error: "Upload failed",
-            details: error.message,
-            code: error.code
+            details: err.message,
+            code: err.code
         }, { status: 500 });
     }
 }

@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 interface NexusAction {
-    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY';
+    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER';
     itemId?: string;
     itemCode?: string;
     itemName?: string;
@@ -37,6 +37,11 @@ interface NexusAction {
     staffId?: string;
     staffName?: string;
     quantity?: number;
+    username?: string;
+    password?: string;
+    role?: string;
+    rtomCode?: string;
+    opmcId?: string;
 }
 
 interface Message {
@@ -174,19 +179,29 @@ export default function NexusAgent() {
                 })
             });
 
-            if (!response.ok) throw new Error("Execution failed");
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.message || "Failed to execute request.";
+                setCompletedActions(prev => ({
+                    ...prev,
+                    [key]: `❌ Access Denied: ${errMsg}`
+                }));
+                toast.error(errMsg);
+                return;
+            }
 
             const json = await response.json();
-            toast.success("Action executed successfully!");
             setCompletedActions(prev => ({
                 ...prev,
-                [key]: json.result?.requestNr 
-                    ? `Replenishment complete! Stock request ${json.result.requestNr} generated.` 
-                    : 'Custody assignment successfully updated in database.'
+                [key]: action.type === 'CREATE_USER'
+                    ? `User registration complete! User "${action.username}" created successfully.`
+                    : json.result?.requestNr 
+                        ? `Replenishment complete! Stock request ${json.result.requestNr} generated.` 
+                        : 'Custody assignment successfully updated in database.'
             }));
             fetchAlerts(); // Refresh alerts
         } catch {
-            toast.error("Failed to execute request.");
+            toast.error("Failed to execute request due to network error.");
         } finally {
             setExecutingActionIdx(null);
         }
@@ -362,7 +377,7 @@ export default function NexusAgent() {
                                                 >
                                                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
                                                         <span className="text-[9px] font-bold text-sky-400 uppercase tracking-wide">
-                                                            {action.type === 'STOCK_HEAL' ? '⚡ Autonomous Replenish' : action.type === 'STOCK_TRANSFER' ? '🔄 Stock Move' : '💻 Custody Transfer'}
+                                                            {action.type === 'STOCK_HEAL' ? '⚡ Autonomous Replenish' : action.type === 'STOCK_TRANSFER' ? '🔄 Stock Move' : action.type === 'CREATE_USER' ? '👤 Register User' : '💻 Custody Transfer'}
                                                         </span>
                                                         <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] h-3.5 px-1 py-0">Recommended</Badge>
                                                     </div>
@@ -372,6 +387,16 @@ export default function NexusAgent() {
                                                             <p><span className="text-slate-500">Asset:</span> {action.itemName}</p>
                                                             <p><span className="text-slate-500">Serial:</span> {action.serialNumber}</p>
                                                             <p><span className="text-slate-500">Assign To:</span> {action.staffName}</p>
+                                                        </div>
+                                                    )}
+
+                                                    {action.type === 'CREATE_USER' && (
+                                                        <div className="space-y-1 font-mono text-[10px] text-slate-300 font-sans">
+                                                            <p><span className="text-slate-500">Username:</span> {action.username}</p>
+                                                            <p><span className="text-slate-500">Full Name:</span> {action.itemName}</p>
+                                                            <p><span className="text-slate-500">Password:</span> {action.password}</p>
+                                                            <p><span className="text-slate-500">Role:</span> {action.role}</p>
+                                                            <p><span className="text-slate-500">OPMC Code:</span> {action.rtomCode || 'Default'}</p>
                                                         </div>
                                                     )}
 
@@ -396,8 +421,8 @@ export default function NexusAgent() {
                                                     )}
 
                                                     {isCompleted ? (
-                                                        <div className="flex items-center gap-1.5 text-emerald-400 font-sans text-[10px] pt-1">
-                                                            <CheckCircle className="w-3.5 h-3.5" />
+                                                        <div className={`flex items-start gap-1.5 font-sans text-[10px] pt-1 ${completedActions[actionKey].startsWith('❌') ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                            {!completedActions[actionKey].startsWith('❌') && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
                                                             <span>{completedActions[actionKey]}</span>
                                                         </div>
                                                     ) : (

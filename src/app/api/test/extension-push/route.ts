@@ -1,5 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { verifyJWT } from '@/lib/auth';
+import { cookies } from 'next/headers';
+
+async function checkAdminAuth() {
+    try {
+        const cookieStore = await cookies();
+        const token = cookieStore.get('token')?.value;
+        if (!token) return false;
+        const verified = await verifyJWT(token);
+        return !!verified && (verified.role === 'ADMIN' || verified.role === 'SUPER_ADMIN');
+    } catch {
+        return false;
+    }
+}
 
 export async function OPTIONS() {
     return new NextResponse(null, {
@@ -7,13 +21,30 @@ export async function OPTIONS() {
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role',
+            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role, x-extension-key',
         },
     });
 }
 
 export async function POST(request: Request) {
     try {
+        const authHeader = request.headers.get('x-extension-key');
+        const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
+        
+        let isAuthorized = false;
+        if (authHeader === extensionSecret) {
+            isAuthorized = true;
+        } else {
+            isAuthorized = await checkAdminAuth();
+        }
+
+        if (!isAuthorized) {
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized: Missing or invalid credentials' },
+                { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } }
+            );
+        }
+
         const body = await request.json();
         const soNum = body.soNum;
 
@@ -95,6 +126,9 @@ export async function POST(request: Request) {
 
 export async function GET() {
     try {
+        if (!await checkAdminAuth()) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const logs = await (prisma as any).extensionRawData.findMany({
             orderBy: { updatedAt: 'desc' }, // Show most recently updated first
@@ -113,6 +147,9 @@ export async function GET() {
 
 export async function DELETE() {
     try {
+        if (!await checkAdminAuth()) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (prisma as any).extensionRawData.deleteMany({});
         return NextResponse.json({ success: true, message: 'All logs cleared' });

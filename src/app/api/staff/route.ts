@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server';
 import { StaffService } from '@/services/staff.service';
 
 // GET all staff with hierarchy info and linked users
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const role = request.headers.get('x-user-role');
+        if (!role) {
+            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+        }
         const staff = await StaffService.getStaff();
         return NextResponse.json(staff);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ message: 'Error fetching staff' }, { status: 500 });
     }
 }
@@ -25,9 +29,10 @@ export async function POST(request: Request) {
         const body = await request.json();
         const staff = await StaffService.createStaff(body);
         return NextResponse.json(staff);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Staff Creation Error:', error);
-        if (error.code === 'P2002') {
+        const err = error as { code?: string };
+        if (err.code === 'P2002') {
             return NextResponse.json({ message: 'Employee ID already exists' }, { status: 400 });
         }
         return NextResponse.json({ message: 'Error creating staff' }, { status: 500 });
@@ -50,9 +55,10 @@ export async function PUT(request: Request) {
 
         const updatedStaff = await StaffService.updateStaff(id, updateFields);
         return NextResponse.json(updatedStaff);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Staff Update Error:', error);
-        if (error.message === 'CANNOT_REPORT_TO_SELF') {
+        const err = error as { message?: string };
+        if (err.message === 'CANNOT_REPORT_TO_SELF') {
             return NextResponse.json({ message: 'Cannot report to self' }, { status: 400 });
         }
         return NextResponse.json({ message: 'Error updating staff' }, { status: 500 });
@@ -79,9 +85,10 @@ export async function DELETE(request: Request) {
 
         await StaffService.deleteStaff(id);
         return NextResponse.json({ message: 'Staff deleted successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Staff Deletion Error:', error);
-        const msg = error.message;
+        const err = error as { message?: string };
+        const msg = err.message;
         if (msg && msg.startsWith('HAS_SUBORDINATES_')) {
             const count = msg.replace('HAS_SUBORDINATES_', '');
             return NextResponse.json({

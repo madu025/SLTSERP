@@ -4,7 +4,7 @@ import { StockRequestService } from './inventory/stock-request.service';
 import { NexusContextService } from './nexus-context.service';
 
 export interface NexusAction {
-    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY';
+    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER';
     itemId?: string;
     itemCode?: string;
     itemName?: string;
@@ -17,6 +17,12 @@ export interface NexusAction {
     staffId?: string;
     staffName?: string;
     quantity?: number;
+    // User creation params
+    username?: string;
+    password?: string;
+    role?: string;
+    rtomCode?: string;
+    opmcId?: string;
 }
 
 export class NexusAgentService {
@@ -95,6 +101,10 @@ export class NexusAgentService {
                     remarks: 'Replenishment proposal accepted'
                 }]
             });
+        }
+
+        if (action.type === 'CREATE_USER') {
+            throw new Error("SECURITY_VIOLATION: Direct user creation via AI is disabled for security reasons. Please register new users manually through the User Management Dashboard.");
         }
 
         throw new Error("UNKNOWN_ACTION_TYPE");
@@ -177,6 +187,47 @@ export class NexusAgentService {
         }
     }
 
+    static async lookupCreateUser(username: string, name: string, password: string, role: string, rtomCode?: string): Promise<NexusAction | null> {
+        try {
+            let opmcId = undefined;
+            if (rtomCode) {
+                const opmc = await prisma.oPMC.findFirst({
+                    where: {
+                        OR: [
+                            { rtom: { equals: rtomCode, mode: 'insensitive' } },
+                            { name: { contains: rtomCode, mode: 'insensitive' } }
+                        ]
+                    }
+                });
+                if (opmc) {
+                    opmcId = opmc.id;
+                }
+            }
+
+            // Normalize Role to match Prisma Role enum
+            let normalizedRole = 'ENGINEER';
+            const upperRole = role.toUpperCase();
+            if (upperRole.includes('ADMIN')) {
+                normalizedRole = 'ADMIN';
+            } else if (upperRole.includes('MANAGER')) {
+                normalizedRole = 'STORES_MANAGER'; // or OPMC_MANAGER/etc depending on context, using STORES_MANAGER as safe fallback
+            }
+
+            return {
+                type: 'CREATE_USER',
+                username,
+                itemName: name,
+                password,
+                role: normalizedRole,
+                rtomCode,
+                opmcId
+            };
+        } catch (e) {
+            console.error("Lookup create user failed:", e);
+            return null;
+        }
+    }
+
     /**
      * Process user query using Google Gemini API or fallback matching
      */
@@ -194,7 +245,7 @@ export class NexusAgentService {
         // System prompt outlining agent personality & live statistics context
         const systemPrompt = `
 You are "Nexus Agent", the intelligent global AI assistant of SLTS Nexus ERP.
-Your task is to help the user manage inventory, track assets, see low stock, check expiring batches, check payment vouchers, track project status, and run database operations.
+Your task is to help the user manage inventory, track assets, see low stock, check expiring batches, check payment vouchers, track project status, manage users, and run database operations.
 You must be fully compatible with all ERP modules.
 
 Current Live ERP Database Context:
@@ -275,6 +326,21 @@ Rules:
                                                 },
                                                 required: ["itemCodeOrName", "fromStoreName", "toStoreName", "quantity"]
                                             }
+                                        },
+                                        {
+                                            name: "create_user",
+                                            description: "Create a new ERP user in the system with username, name, password, role, and OPMC/RTOM code",
+                                            parameters: {
+                                                type: "OBJECT",
+                                                properties: {
+                                                    username: { type: "STRING", description: "Desired unique username" },
+                                                    name: { type: "STRING", description: "User's full display name" },
+                                                    password: { type: "STRING", description: "Initial login password" },
+                                                    role: { type: "STRING", description: "User role, e.g. ADMIN, ENGINEER" },
+                                                    rtomCode: { type: "STRING", description: "RTOM code like MD, Galle" }
+                                                },
+                                                required: ["username", "name", "password", "role"]
+                                            }
                                         }
                                     ]
                                 }
@@ -329,6 +395,19 @@ Rules:
                                 return {
                                     response: responseMsg,
                                     actions: []
+                                };
+                            }
+                        }
+
+                        if (name === "create_user") {
+                            const action = await this.lookupCreateUser(args.username, args.name, args.password, args.role, args.rtomCode);
+                            if (action) {
+                                const responseMsg = `I have prepared a proposal to create a new user "${action.username}" (${action.itemName}) as ${action.role} at OPMC ${action.rtomCode || 'Default'}. Click confirm below to register.`;
+                                await NexusMemoryService.saveMessage(userId, 'user', message);
+                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
+                                return {
+                                    response: responseMsg,
+                                    actions: [action]
                                 };
                             }
                         }

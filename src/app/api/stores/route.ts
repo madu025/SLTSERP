@@ -13,9 +13,10 @@ export async function GET(request: Request) {
 
         const stores = await InventoryService.getAccessibleStores(userId, userRole);
         return NextResponse.json(stores);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching stores:', error);
-        if (error.message === 'USER_NOT_FOUND') {
+        const err = error as { message?: string };
+        if (err.message === 'USER_NOT_FOUND') {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -25,6 +26,14 @@ export async function GET(request: Request) {
 // POST - Create new store
 export async function POST(request: Request) {
     try {
+        const role = request.headers.get('x-user-role');
+        if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+            return NextResponse.json(
+                { error: 'Forbidden: Insufficient Permissions' },
+                { status: 403 }
+            );
+        }
+
         const body = await request.json();
 
         if (!body.name) {

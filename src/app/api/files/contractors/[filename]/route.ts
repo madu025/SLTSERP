@@ -9,10 +9,11 @@ export async function GET(
 ) {
     try {
         const { filename } = await context.params;
+        const safeFilename = path.basename(filename);
         
         // Resolve path to the secure uploads directory
         const rootDir = process.cwd();
-        const filePath = path.join(rootDir, "uploads", "contractors", filename);
+        const filePath = path.join(rootDir, "uploads", "contractors", safeFilename);
 
         console.log("[FILES-API] Attempting to serve file:", filePath);
 
@@ -42,7 +43,7 @@ export async function GET(
                 "Cache-Control": "public, max-age=31536000, immutable",
             },
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[FILES-API] Error serving file:", error);
         return new NextResponse("Internal Server Error", { status: 500 });
     }
