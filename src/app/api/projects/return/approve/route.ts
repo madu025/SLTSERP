@@ -3,7 +3,12 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
     try {
-        const { returnId, approvedById } = await request.json();
+        const { returnId } = await request.json();
+        const approvedById = request.headers.get('x-user-id');
+
+        if (!approvedById) {
+            return NextResponse.json({ error: 'User authentication required' }, { status: 401 });
+        }
 
         if (!returnId) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
@@ -28,6 +33,8 @@ export async function POST(request: Request) {
             });
 
             let totalCredit = 0;
+            const transferInItems: { itemId: string; quantity: number }[] = [];
+            const wastageItems: { itemId: string; quantity: number }[] = [];
 
             // 2. Process Items
             for (const item of returnReq.items) {
@@ -38,13 +45,10 @@ export async function POST(request: Request) {
                         create: { storeId: returnReq.storeId, itemId: item.itemId, quantity: item.quantity },
                         update: { quantity: { increment: item.quantity } }
                     });
+                    transferInItems.push({ itemId: item.itemId, quantity: item.quantity });
                 } else {
-                    // Decide what to do with DAMAGED? Maybe just log it. 
-                    // For now, we don't add damaged items to main stock, or add to a 'Damaged' pile?
-                    // User requirement implies "return to stores", usually implies good stock or tracking.
-                    // I will add it to stock but maybe we need a 'condition' field in stock?
-                    // InventoryStock doesn't have condition. 
-                    // Let's assume ONLY GOOD items are returned to usable stock.
+                    // Log as wastage (not added back to usable stock)
+                    wastageItems.push({ itemId: item.itemId, quantity: item.quantity });
                 }
 
                 // Credit Project BOQ
@@ -63,6 +67,43 @@ export async function POST(request: Request) {
                     });
                     totalCredit += credit;
                 }
+            }
+
+            // Create InventoryTransaction records for tracing
+            if (transferInItems.length > 0) {
+                await tx.inventoryTransaction.create({
+                    data: {
+                        type: 'TRANSFER_IN',
+                        storeId: returnReq.storeId,
+                        referenceId: returnReq.id,
+                        notes: `Project Return Approved (GOOD items) - Ref ${returnReq.returnNumber}`,
+                        userId: approvedById,
+                        items: {
+                            create: transferInItems.map(i => ({
+                                itemId: i.itemId,
+                                quantity: i.quantity
+                            }))
+                        }
+                    }
+                });
+            }
+
+            if (wastageItems.length > 0) {
+                await tx.inventoryTransaction.create({
+                    data: {
+                        type: 'WASTAGE',
+                        storeId: returnReq.storeId,
+                        referenceId: returnReq.id,
+                        notes: `Project Return Approved (DAMAGED items) - Ref ${returnReq.returnNumber}`,
+                        userId: approvedById,
+                        items: {
+                            create: wastageItems.map(i => ({
+                                itemId: i.itemId,
+                                quantity: i.quantity
+                            }))
+                        }
+                    }
+                });
             }
 
             // 3. Credit Project Total Cost and update variance
@@ -90,7 +131,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error(error);
         return NextResponse.json({ error: 'Failed' }, { status: 500 });
     }

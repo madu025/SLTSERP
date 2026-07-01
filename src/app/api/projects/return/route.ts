@@ -7,12 +7,10 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { projectId, storeId, items, reason } = body;
 
-        // Mock User
-        const user = await prisma.user.findFirst();
-        const userId = user?.id;
+        const userId = request.headers.get('x-user-id');
 
         if (!projectId || !storeId || !items || !userId) {
-            return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Missing fields or unauthorized' }, { status: 400 });
         }
 
         const count = await prisma.projectMaterialReturn.count();

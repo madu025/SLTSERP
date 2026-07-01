@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { StockService } from '@/services/inventory/stock.service';
+import { TransactionClient } from '@/services/inventory/types';
 
 export async function POST(request: Request) {
     try {
@@ -46,16 +48,43 @@ export async function POST(request: Request) {
                 where: { id: issueId },
                 data: {
                     status: 'APPROVED',
-                    approvedById: approvedById, // In real app, from session
+                    approvedById: approvedById,
                     approvedAt: new Date()
                 }
             });
 
             let totalIssueCost = 0;
+            const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
 
             // 2. Process Items
             for (const item of issue.items) {
-                // Deduct Stock
+                // Deduct Batch Stock using FIFO
+                const pickedBatches = await StockService.pickStoreBatchesFIFO(
+                    tx as TransactionClient,
+                    issue.storeId,
+                    item.itemId,
+                    item.quantity
+                );
+
+                for (const picked of pickedBatches) {
+                    await tx.inventoryBatchStock.update({
+                        where: {
+                            storeId_batchId: {
+                                storeId: issue.storeId,
+                                batchId: picked.batchId!
+                            }
+                        },
+                        data: { quantity: { decrement: picked.quantity } }
+                    });
+
+                    transactionItems.push({
+                        itemId: item.itemId,
+                        batchId: picked.batchId!,
+                        quantity: -picked.quantity
+                    });
+                }
+
+                // Deduct Summary Stock
                 await tx.inventoryStock.update({
                     where: { storeId_itemId: { storeId: issue.storeId, itemId: item.itemId } },
                     data: { quantity: { decrement: item.quantity } }
@@ -82,6 +111,26 @@ export async function POST(request: Request) {
                         totalIssueCost += cost;
                     }
                 }
+            }
+
+            // Create InventoryTransaction for tracking
+            if (transactionItems.length > 0) {
+                await tx.inventoryTransaction.create({
+                    data: {
+                        type: 'TRANSFER_OUT',
+                        storeId: issue.storeId,
+                        referenceId: issue.id,
+                        notes: `Project Stock Issue Approved - Ref ${issue.issueNumber}`,
+                        userId: approvedById,
+                        items: {
+                            create: transactionItems.map(i => ({
+                                itemId: i.itemId,
+                                batchId: i.batchId,
+                                quantity: i.quantity
+                            }))
+                        }
+                    }
+                });
             }
 
             // 3. Update Project Cost - Only if this is a project issue
