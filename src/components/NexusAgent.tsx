@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { 
     Sparkles, 
     X, 
@@ -63,6 +64,7 @@ interface NexusAlert {
 }
 
 export default function NexusAgent() {
+    const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'chat' | 'alerts'>('chat');
     const [messages, setMessages] = useState<Message[]>([]);
@@ -72,6 +74,15 @@ export default function NexusAgent() {
     const [executingActionIdx, setExecutingActionIdx] = useState<string | null>(null);
     const [completedActions, setCompletedActions] = useState<Record<string, string>>({});
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Hide NexusAgent on public/unauthenticated pages
+    const isPublicPath = pathname === '/login' || 
+                         pathname === '/' ||
+                         pathname.startsWith('/contractor-') || 
+                         pathname.startsWith('/team-upload') || 
+                         pathname.startsWith('/presentation');
+
+
 
     // Fetch alerts count & alert registry
     const fetchAlerts = async () => {
@@ -129,6 +140,10 @@ export default function NexusAgent() {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages, isOpen, activeTab]);
+
+    if (isPublicPath) {
+        return null;
+    }
 
     const handleSendMessage = async (textToSend: string) => {
         if (!textToSend.trim() || isLoading) return;
