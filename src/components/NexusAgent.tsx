@@ -8,8 +8,8 @@ import {
     Send, 
     Bot, 
     User, 
+    Building,
     AlertTriangle, 
-    Calendar, 
     Laptop, 
     Loader2,
     ArrowRight,
@@ -18,7 +18,9 @@ import {
     Trash,
     ExternalLink,
     Check,
-    MessageSquare
+    MessageSquare,
+    ThumbsUp,
+    ThumbsDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,10 +48,14 @@ interface NexusAction {
 }
 
 interface Message {
+    id: string;
     sender: 'user' | 'agent';
     text: string;
     timestamp: Date;
     actions?: NexusAction[];
+    intent?: string;
+    query?: string;
+    feedbackStatus?: 'UP' | 'DOWN' | null;
 }
 
 interface NexusAlert {
@@ -104,7 +110,8 @@ export default function NexusAgent() {
             if (res.ok) {
                 const data = await res.json();
                 if (data && data.length > 0) {
-                    const formatted = data.map((msg: { role: string; parts?: { text: string }[] }) => ({
+                    const formatted = data.map((msg: { role: string; parts?: { text: string }[] }, i: number) => ({
+                        id: `hist-${i}`,
                         sender: msg.role === 'user' ? 'user' : 'agent',
                         text: msg.parts?.[0]?.text || '',
                         timestamp: new Date()
@@ -113,6 +120,7 @@ export default function NexusAgent() {
                 } else {
                     setMessages([
                         {
+                            id: 'welcome',
                             sender: 'agent',
                             text: 'ආයුබෝවන්! මම Nexus AI Agent. SLTS Nexus ERP පද්ධතියට අදාළ ඕනෑම තොරතුරක් (Low Stock, Expiry Dates, Asset Custody, Invoices) මා හරහා විමසිය හැක.',
                             timestamp: new Date()
@@ -134,6 +142,25 @@ export default function NexusAgent() {
         return () => clearInterval(timer);
     }, []);
 
+    const handleFeedback = async (messageId: string, rating: 'UP' | 'DOWN', intent?: string, query?: string) => {
+        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, feedbackStatus: rating } : msg));
+        
+        if (!intent || intent === 'UNKNOWN' || !query) return;
+
+        try {
+            const res = await fetch('/api/ai/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rating, intent, query })
+            });
+            if (res.ok && rating === 'UP') {
+                toast.success('Thanks! Model retrained with feedback.', { icon: <Sparkles className="w-4 h-4 text-emerald-400" /> });
+            }
+        } catch (e) {
+            console.error('Failed to submit feedback', e);
+        }
+    };
+
     // Auto-scroll to bottom of messages
     useEffect(() => {
         if (messagesEndRef.current) {
@@ -150,7 +177,7 @@ export default function NexusAgent() {
 
         const userMsg = textToSend.trim();
         setInput('');
-        setMessages(prev => [...prev, { sender: 'user', text: userMsg, timestamp: new Date() }]);
+        setMessages(prev => [...prev, { id: Date.now() + 'u', sender: 'user', text: userMsg, timestamp: new Date() }]);
         setIsLoading(true);
 
         try {
@@ -164,13 +191,17 @@ export default function NexusAgent() {
 
             const json = await response.json();
             setMessages(prev => [...prev, { 
+                id: Date.now() + 'a',
                 sender: 'agent', 
                 text: json.response || 'සමාවන්න, ප්‍රතිචාරයක් ලබා ගැනීමට නොහැකි විය.', 
                 actions: json.actions || undefined,
+                intent: json.intent,
+                query: json.query,
                 timestamp: new Date() 
             }]);
         } catch {
             setMessages(prev => [...prev, { 
+                id: Date.now() + 'e',
                 sender: 'agent', 
                 text: 'සමාවන්න, සේවා සම්බන්ධතාවයේ බිඳ වැටීමක් සිදු විය. නැවත උත්සාහ කරන්න.', 
                 timestamp: new Date() 
@@ -233,6 +264,7 @@ export default function NexusAgent() {
                 toast.success("Chat history cleared");
                 setMessages([
                     {
+                        id: 'clear',
                         sender: 'agent',
                         text: 'Chat history cleared. How can I assist you today?',
                         timestamp: new Date()
@@ -370,12 +402,37 @@ export default function NexusAgent() {
                                             }`}>
                                                 {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
                                             </div>
-                                            <div className={`p-3 rounded-2xl text-[11px] leading-relaxed shadow-sm whitespace-pre-line ${
-                                                msg.sender === 'user'
-                                                    ? 'bg-sky-600 text-white rounded-tr-none'
-                                                    : 'bg-[#1E293B] border border-slate-700/50 text-slate-200 rounded-tl-none'
-                                            }`}>
-                                                {msg.text}
+                                            <div className="flex flex-col gap-1 max-w-[90%]">
+                                                <div className={`p-3 rounded-2xl text-[11px] leading-relaxed shadow-sm whitespace-pre-line ${
+                                                    msg.sender === 'user'
+                                                        ? 'bg-sky-600 text-white rounded-tr-none'
+                                                        : 'bg-[#1E293B] border border-slate-700/50 text-slate-200 rounded-tl-none'
+                                                }`}>
+                                                    {msg.text}
+                                                </div>
+                                                
+                                                {/* Feedback Buttons */}
+                                                {msg.sender === 'agent' && msg.intent && msg.intent !== 'UNKNOWN' && (
+                                                    <div className="flex items-center gap-2 mt-0.5 ml-1">
+                                                        <button 
+                                                            onClick={() => handleFeedback(msg.id, 'UP', msg.intent, msg.query)}
+                                                            className={`p-1 rounded transition-colors ${msg.feedbackStatus === 'UP' ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10'}`}
+                                                            disabled={msg.feedbackStatus !== undefined && msg.feedbackStatus !== null}
+                                                            title="Accurate - Retrain Model"
+                                                        >
+                                                            <ThumbsUp className="w-3 h-3" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleFeedback(msg.id, 'DOWN', msg.intent, msg.query)}
+                                                            className={`p-1 rounded transition-colors ${msg.feedbackStatus === 'DOWN' ? 'text-red-400 bg-red-400/10' : 'text-slate-500 hover:text-red-400 hover:bg-red-400/10'}`}
+                                                            disabled={msg.feedbackStatus !== undefined && msg.feedbackStatus !== null}
+                                                            title="Inaccurate"
+                                                        >
+                                                            <ThumbsDown className="w-3 h-3" />
+                                                        </button>
+                                                        {msg.feedbackStatus === 'UP' && <span className="text-[9px] text-emerald-400/70">Learned!</span>}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -481,17 +538,38 @@ export default function NexusAgent() {
                                     Low Stock
                                 </button>
                                 <button 
-                                    onClick={() => handleSendMessage("Expiring batches thiyeda?")}
+                                    onClick={() => handleSendMessage("how many registered contractors?")}
                                     className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
                                 >
-                                    <Calendar className="w-3 h-3 text-rose-500" />
-                                    Expiry Warnings
+                                    <User className="w-3 h-3 text-emerald-500" />
+                                    Contractors
+                                </button>
+                                <button 
+                                    onClick={() => handleSendMessage("gabadu gana kiyada?")}
+                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Building className="w-3 h-3 text-amber-400" />
+                                    Stores
+                                </button>
+                                <button 
+                                    onClick={() => handleSendMessage("total materials info danna?")}
+                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Sparkles className="w-3 h-3 text-indigo-400" />
+                                    Items Count
+                                </button>
+                                <button 
+                                    onClick={() => handleSendMessage("pending requisitions kiyada?")}
+                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
+                                >
+                                    <MessageSquare className="w-3 h-3 text-sky-400" />
+                                    Procurement
                                 </button>
                                 <button 
                                     onClick={() => handleSendMessage("Pending Payment Vouchers monawada?")}
                                     className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
                                 >
-                                    <Laptop className="w-3 h-3 text-sky-400" />
+                                    <Laptop className="w-3 h-3 text-rose-400" />
                                     Pending Vouchers
                                 </button>
                             </div>

@@ -2,6 +2,15 @@ import { primaryClient as prisma } from '@/lib/prisma';
 import { AssetCustodyService } from './inventory/asset-custody.service';
 import { StockRequestService } from './inventory/stock-request.service';
 import { NexusContextService } from './nexus-context.service';
+import { NexusClassifierService } from './nexus-classifier.service';
+
+// Trigger background model training asynchronously on load
+NexusClassifierService.train().then(() => {
+    // Start continuous retraining loop every 1 hour (3600000 ms)
+    NexusClassifierService.startContinuousTraining(3600000);
+}).catch(err => {
+    console.error("[CLASSIFIER-INIT] Background model training failed:", err);
+});
 
 export interface NexusAction {
     type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER';
@@ -23,6 +32,13 @@ export interface NexusAction {
     role?: string;
     rtomCode?: string;
     opmcId?: string;
+}
+
+export interface NexusResponse {
+    response: string;
+    actions?: NexusAction[];
+    intent?: string;
+    query?: string;
 }
 
 export class NexusAgentService {
@@ -231,7 +247,7 @@ export class NexusAgentService {
     /**
      * Process user query using Google Gemini API or fallback matching
      */
-    static async ask(message: string, userId: string): Promise<{ response: string; actions?: NexusAction[] }> {
+    static async ask(message: string, userId: string): Promise<NexusResponse> {
         const context = await this.getSystemContext();
         const apiKey = process.env.GEMINI_API_KEY;
         const { NexusMemoryService } = await import('./nexus-memory.service');
@@ -428,29 +444,31 @@ Rules:
             }
         }
 
-        // --- FALLBACK INTERPRETER ---
-        const query = message.toLowerCase();
+        // --- FALLBACK INTERPRETER (Built-in Local AI Classifier) ---
+        const intent = NexusClassifierService.predict(message);
 
         // 1. Finance outstanding queries
-        if (query.includes('outstanding') || query.includes('invoice') || query.includes('payables') || query.includes('ඉන්වොයිසි')) {
+        if (intent === 'FINANCE') {
             return {
+                intent, query: message,
                 response: `පද්ධතියේ දැනට පවතින මුළු හිඟ Contractor Invoices වටිනාකම **LKR ${context.finance.outstandingInvoicesSum.toLocaleString()}** කි. පූර්ණ අනුමැතිය ලැබෙන තෙක් බලාපොරොත්තුවෙන් පවතින Payment Vouchers ගණන **${context.finance.pendingPVsCount}** කි.`,
                 actions
             };
         }
 
         // 2. Project delays queries
-        if (query.includes('project') || query.includes('overdue') || query.includes('delay') || query.includes('ප්‍රමාද')) {
+        if (intent === 'PROJECTS') {
             return {
+                intent, query: message,
                 response: `ක්‍රියාත්මක වන ව්‍යාපෘති ගණන **${context.projects.activeProjectsCount}** කි. ඒ අතරින් දැනට නියමිත දින ඉක්මවා ප්‍රමාද වී ඇති Tasks ප්‍රමාණය **${context.projects.overdueTasksCount}** කි.`,
                 actions
             };
         }
 
         // 3. Low stock queries
-        if (query.includes('low') || query.includes('stok') || query.includes('stock') || query.includes('අඩු')) {
+        if (intent === 'INVENTORY_LOW') {
             if (context.inventory.lowStock.length === 0) {
-                return { response: `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`, actions };
+                return { intent, query: message, response: `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`, actions };
             }
             const itemsList = context.inventory.lowStock
                 .map((s: any) => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min: ${s.min})`)
@@ -464,14 +482,62 @@ Rules:
             }
 
             return {
+                intent, query: message,
                 response: `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ ලැයිස්තුව (Low Stock):\n\n${itemsList}${selfHealText}`,
                 actions
             };
         }
 
+        // 4. Contractors count queries
+        if (intent === 'CONTRACTORS') {
+            return {
+                intent, query: message,
+                response: `පද්ධතියේ දැනට ලියාපදිංචි වී ඇති මුළු කොන්ත්‍රාත්කරුවන් (Contractors) ගණන **${(context as any).contractorsCount}** කි.`,
+                actions
+            };
+        }
+
+        // 5. Stores queries
+        if (intent === 'STORES') {
+            return {
+                intent, query: message,
+                response: `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන **${context.inventory.storesCount}** කි.`,
+                actions
+            };
+        }
+
+        // 6. Items / Materials queries
+        if (intent === 'INVENTORY_ITEMS') {
+            return {
+                intent, query: message,
+                response: `පද්ධතියේ ලියාපදිංචි කර ඇති මුළු ද්‍රව්‍ය/උපකරණ වර්ග (Inventory Items) ගණන **${context.inventory.itemsCount}** කි.`,
+                actions
+            };
+        }
+
+        // 7. Procurement queries
+        if (intent === 'PROCUREMENT') {
+            return {
+                intent, query: message,
+                response: `Procurement Module තත්ත්වය:\n- කෙටුම්පත් මට්ටමේ පවතින Requisitions (PR) ගණන: **${context.procurement.pendingPRsCount}**\n- අනුමැතිය බලාපොරොත්තුවෙන් පවතින Purchase Orders (PO) ගණන: **${context.procurement.pendingPOsCount}**\n- ලැබීමට නියමිත Goods Receipts (GRN) ගණන: **${context.procurement.pendingGRNsCount}**`,
+                actions
+            };
+        }
+
+        // 8. Payment Vouchers queries
+        if (intent === 'VOUCHERS') {
+            return {
+                intent, query: message,
+                response: `දැනට අනුමැතිය සඳහා බලාපොරොත්තුවෙන් පවතින මුළු Payment Vouchers (PV) ගණන **${context.finance.pendingPVsCount}** කි.`,
+                actions
+            };
+        }
+
         return {
+            intent: 'UNKNOWN', query: message,
             response: `ආයුබෝවන්! මම **Nexus AI Agent**. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම metric දත්ත ලබා දිය හැක. උදාහරණ: 
 - "low stock items මොනවාද?"
+- "how many registered contractors?"
 - "pending payment vouchers කොච්චර තියෙනවද?"
 - "overdue tasks මොනවාද?"`,
             actions

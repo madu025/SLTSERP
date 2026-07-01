@@ -29,7 +29,8 @@ export class NexusContextService {
       // Procurement metrics
       pendingPRs,
       pendingPOs,
-      pendingGRNs
+      pendingGRNs,
+      contractorsCount
     ] = await Promise.all([
       // 1. Inventory Items & Stores
       prisma.inventoryItem.count(),
@@ -98,7 +99,10 @@ export class NexusContextService {
       }),
       prisma.projectGoodsReceipt.count({
         where: { status: 'PENDING' }
-      })
+      }),
+
+      // 5. Contractors
+      prisma.contractor.count()
     ]);
 
     return {
@@ -142,7 +146,8 @@ export class NexusContextService {
         pendingPRsCount: pendingPRs,
         pendingPOsCount: pendingPOs,
         pendingGRNsCount: pendingGRNs
-      }
+      },
+      contractorsCount: contractorsCount
     };
   }
 }
