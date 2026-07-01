@@ -424,7 +424,7 @@ export default function NexusAgent() {
                                                         ? 'bg-sky-600 text-white rounded-tr-none'
                                                         : 'bg-[#1E293B] border border-slate-700/50 text-slate-200 rounded-tl-none'
                                                 }`}>
-                                                    {msg.text}
+                                                    {renderMessageText(msg.text)}
                                                 </div>
                                                 
                                                 {/* Feedback Buttons */}
@@ -649,4 +649,38 @@ export default function NexusAgent() {
             )}
         </div>
     );
+}
+
+// Utility to parse markdown style links: [Text](URL) into clickable anchor tags
+function renderMessageText(text: string) {
+  if (!text) return '';
+  const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const parts: (React.ReactNode | string)[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const matchIndex = match.index;
+    if (matchIndex > lastIndex) {
+      parts.push(text.substring(lastIndex, matchIndex));
+    }
+    const linkText = match[1];
+    const linkUrl = match[2];
+    parts.push(
+      <a 
+        key={matchIndex} 
+        href={linkUrl} 
+        className="text-sky-400 font-bold underline hover:text-sky-300 transition-colors mx-1 inline-flex items-center"
+      >
+        {linkText}
+      </a>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
 }

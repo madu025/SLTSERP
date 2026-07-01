@@ -241,9 +241,14 @@ export class NexusContextService {
   static async getStoresContext() {
     const [storesCount, stores] = await Promise.all([
       prisma.inventoryStore.count(),
-      prisma.inventoryStore.findMany({ select: { name: true, type: true }, take: 5 })
+      prisma.inventoryStore.findMany({ 
+        select: { name: true, type: true, location: true } 
+      })
     ]);
-    return { storesCount, list: stores.map(s => `${s.name} (${s.type})`) };
+    return { 
+      storesCount, 
+      list: stores.map(s => `${s.name} (${s.type}) - Location: ${s.location || 'Unknown'}`) 
+    };
   }
 
   static async getInventoryItemsContext() {

@@ -366,6 +366,13 @@ CRITICAL INSTRUCTION:
   ]
 }
 4. IMPORTANT: In your "reply" text, DO NOT wrap numbers or values in double asterisks (**). Output clean, plain numbers and text to maintain a professional look.
+5. REDIRECTION LINKS: When mentioning projects, reports, stock levels, or vehicles, always provide markdown-style links so the user can navigate to them directly.
+   - For Projects: [Project Code or Name](/projects/ProjectID) (e.g., "... can view the [Project Details](/projects/cldn9018401) ...")
+   - For Reports: [Executive Reports](/reports/manager) or [Area Performance](/reports/arm)
+   - For National GIS Map: [National GIS Map](/gis/map)
+   - For Inventory Stock: [Stock Levels](/inventory/stock)
+   - For Vehicles: [Vehicle Details](/vehicles/VehicleID)
+   This is critical to let the user navigate directly to resources.
 Do not return any markdown wrapping or other text outside this JSON object.
 
 Complete Live ERP System Context:
@@ -474,7 +481,29 @@ ${healingPrompt}
             ];
         } else if (intent === 'STORES') {
             const stores = await NexusContextService.getStoresContext();
-            response = `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන ${stores.storesCount} කි.\n\nප්‍රධාන ගබඩා ලැයිස්තුව:\n${stores.list.map((s: string) => `- ${s}`).join('\n')}`;
+            const queryLower = message.toLowerCase();
+            
+            // Search for specific location query terms
+            const words = queryLower.split(/[\s,?.!]+/);
+            const locationKeywords = ['anuradhapura', 'kaduwela', 'homagama', 'nittambuwa', 'nuwaraeliya', 'colombo', 'jaffna', 'galle', 'matara', 'kandy'];
+            const hasLocationTerm = words.some(w => locationKeywords.includes(w) || w.length > 4);
+
+            if (hasLocationTerm) {
+                // Filter stores that match any query word (length > 3)
+                const filtered = stores.list.filter(s => {
+                    const cleanStore = s.toLowerCase();
+                    return words.some(w => w.length > 3 && cleanStore.includes(w));
+                });
+
+                if (filtered.length > 0) {
+                    response = `පද්ධතියේ ඔබ විමසූ ප්‍රදේශයට අදාළව සක්‍රීයව පවතින ගබඩා (Stores) ගණන ${filtered.length} කි.\n\nඅදාළ ගබඩා ලැයිස්තුව:\n${filtered.map((s: string) => `- ${s}`).join('\n')}`;
+                } else {
+                    response = `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන ${stores.storesCount} කි.\n\nප්‍රධාන ගබඩා ලැයිස්තුව:\n${stores.list.slice(0, 5).map((s: string) => `- ${s}`).join('\n')}`;
+                }
+            } else {
+                response = `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන ${stores.storesCount} කි.\n\nප්‍රධාන ගබඩා ලැයිස්තුව:\n${stores.list.slice(0, 5).map((s: string) => `- ${s}`).join('\n')}`;
+            }
+            
             suggestions = [
                 "total materials info danna?",
                 "how many registered contractors?",

@@ -35,7 +35,7 @@ export class GISValidator {
    * Validate all parsed layers and return aggregated results
    */
   validateAll(
-    layers: Map<GISLayerType, any>
+    layers: Map<GISLayerType, unknown>
   ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -43,11 +43,12 @@ export class GISValidator {
 
     // Validate each layer type if present
     if (layers.has('CABLE')) {
-      const result = this.validateCableLayer(layers.get('CABLE'));
+      const data = layers.get('CABLE') as ParsedCableData & { layerName?: string };
+      const result = this.validateCableLayer(data);
       layerResults.push({
-        layerName: layers.get('CABLE').layerName || 'cables',
+        layerName: data.layerName || 'cables',
         layerType: 'CABLE',
-        featureCount: layers.get('CABLE').featureCount || 0,
+        featureCount: data.featureCount || 0,
         ...result,
       });
       errors.push(...result.errors.map(e => `Cable: ${e}`));
@@ -55,11 +56,12 @@ export class GISValidator {
     }
 
     if (layers.has('POLE')) {
-      const result = this.validatePoleLayer(layers.get('POLE'));
+      const data = layers.get('POLE') as ParsedPoleData & { layerName?: string };
+      const result = this.validatePoleLayer(data);
       layerResults.push({
-        layerName: layers.get('POLE').layerName || 'poles',
+        layerName: data.layerName || 'poles',
         layerType: 'POLE',
-        featureCount: layers.get('POLE').featureCount || 0,
+        featureCount: data.featureCount || 0,
         ...result,
       });
       errors.push(...result.errors.map(e => `Pole: ${e}`));
@@ -67,11 +69,12 @@ export class GISValidator {
     }
 
     if (layers.has('FDP')) {
-      const result = this.validateFDPLayer(layers.get('FDP'));
+      const data = layers.get('FDP') as ParsedFDPData & { layerName?: string };
+      const result = this.validateFDPLayer(data);
       layerResults.push({
-        layerName: layers.get('FDP').layerName || 'fdps',
+        layerName: data.layerName || 'fdps',
         layerType: 'FDP',
-        featureCount: layers.get('FDP').featureCount || 0,
+        featureCount: data.featureCount || 0,
         ...result,
       });
       errors.push(...result.errors.map(e => `FDP: ${e}`));
@@ -79,11 +82,12 @@ export class GISValidator {
     }
 
     if (layers.has('FIBER_JOINT')) {
-      const result = this.validateFiberJointLayer(layers.get('FIBER_JOINT'));
+      const data = layers.get('FIBER_JOINT') as ParsedFiberJointData & { layerName?: string };
+      const result = this.validateFiberJointLayer(data);
       layerResults.push({
-        layerName: layers.get('FIBER_JOINT').layerName || 'fiber_joints',
+        layerName: data.layerName || 'fiber_joints',
         layerType: 'FIBER_JOINT',
-        featureCount: layers.get('FIBER_JOINT').featureCount || 0,
+        featureCount: data.featureCount || 0,
         ...result,
       });
       errors.push(...result.errors.map(e => `FiberJoint: ${e}`));
@@ -91,11 +95,12 @@ export class GISValidator {
     }
 
     if (layers.has('ROAD_EOP')) {
-      const result = this.validateRoadLayer(layers.get('ROAD_EOP'));
+      const data = layers.get('ROAD_EOP') as ParsedRoadData & { layerName?: string };
+      const result = this.validateRoadLayer(data);
       layerResults.push({
-        layerName: layers.get('ROAD_EOP').layerName || 'roads',
+        layerName: data.layerName || 'roads',
         layerType: 'ROAD_EOP',
-        featureCount: layers.get('ROAD_EOP').featureCount || 0,
+        featureCount: data.featureCount || 0,
         ...result,
       });
       errors.push(...result.errors.map(e => `Road: ${e}`));
@@ -138,7 +143,7 @@ export class GISValidator {
     }
 
     // Validate individual segments
-    data.segments.forEach((seg, i) => {
+    data.segments.forEach((seg) => {
       if (seg.coordinates.length < 2) {
         warnings.push(`Segment ${seg.index}: Less than 2 coordinates (length: ${seg.length}m)`);
       }
@@ -170,7 +175,7 @@ export class GISValidator {
     }
 
     // Validate individual poles
-    data.poles.forEach((pole, i) => {
+    data.poles.forEach((pole) => {
       if (!pole.latitude || !pole.longitude) {
         errors.push(`Pole ${pole.index}: Missing GPS coordinates`);
       }
