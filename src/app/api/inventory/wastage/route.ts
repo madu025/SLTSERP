@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
         if (result.success) {
             return NextResponse.json({ success: true, data: result.data });
         } else {
+            console.error("WASTAGE API ERROR:", result.error);
             return NextResponse.json({ success: false, error: result.error }, { status: 400 });
         }
     } catch (error) {

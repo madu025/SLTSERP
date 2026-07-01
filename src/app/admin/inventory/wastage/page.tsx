@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Plus, AlertTriangle, History, FilePlus, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Trash, Plus, AlertTriangle, History, FilePlus, CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,9 +103,16 @@ export default function WastageReportPage() {
 
     // Auth Helper
     const getAuthHeaders = () => {
-        const userId = localStorage.getItem("erp_user_id") || "";
-        const role = localStorage.getItem("erp_user_role") || "";
-        return { 'x-user-id': userId, 'x-user-role': role };
+        if (typeof window === 'undefined') return { 'x-user-id': '', 'x-user-role': '' };
+        try {
+            const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+            return {
+                'x-user-id': userObj.id || '',
+                'x-user-role': userObj.role || ''
+            };
+        } catch {
+            return { 'x-user-id': '', 'x-user-role': '' };
+        }
     };
 
     // --- FETCH DATA ---
@@ -175,18 +182,18 @@ export default function WastageReportPage() {
         onError: (err) => toast.error(err.message)
     });
 
-    const approveMutation = useMutation<ApproveMutationResponse, Error, string>({
-        mutationFn: async (id) => {
+    const approveMutation = useMutation<ApproveMutationResponse, Error, { id: string; action: 'APPROVE' | 'REJECT' }>({
+        mutationFn: async ({ id, action }) => {
             const res = await fetch('/api/inventory/wastage/approve', {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
+                body: JSON.stringify({ id, action })
             });
-            if (!res.ok) throw new Error('Approval failed');
+            if (!res.ok) throw new Error(action === 'REJECT' ? 'Rejection failed' : 'Approval failed');
             return res.json();
         },
-        onSuccess: () => {
-            toast.success("Wastage approved and stock adjusted.");
+        onSuccess: (_, variables) => {
+            toast.success(variables.action === 'REJECT' ? "Wastage record rejected." : "Wastage approved and stock adjusted.");
             queryClient.invalidateQueries({ queryKey: ['wastage-history'] });
         },
         onError: (err) => toast.error(err.message)
@@ -227,7 +234,14 @@ export default function WastageReportPage() {
         });
     };
 
-    const isPrivileged = typeof window !== 'undefined' ? ['OSP_MANAGER', 'SUPER_ADMIN', 'ADMIN'].includes(localStorage.getItem("erp_user_role") || "") : false;
+    const isPrivileged = typeof window !== 'undefined' ? (() => {
+        try {
+            const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+            return ['OSP_MANAGER', 'SUPER_ADMIN', 'ADMIN'].includes(userObj.role || '');
+        } catch {
+            return false;
+        }
+    })() : false;
 
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
@@ -420,14 +434,25 @@ export default function WastageReportPage() {
                                                         </TableCell>
                                                         <TableCell className="text-right py-2">
                                                             {log.status === 'PENDING' && isPrivileged && (
-                                                                <Button 
-                                                                    size="sm" 
-                                                                    className="h-6 px-3 bg-emerald-600 hover:bg-emerald-700 text-[10px] font-bold gap-1"
-                                                                    onClick={() => approveMutation.mutate(log.id)}
-                                                                    disabled={approveMutation.isPending}
-                                                                >
-                                                                    <ShieldCheck className="w-3.5 h-3.5" /> Approve
-                                                                </Button>
+                                                                <div className="flex justify-end gap-1.5">
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        className="h-6 px-3 bg-emerald-600 hover:bg-emerald-700 text-[10px] font-bold gap-1"
+                                                                        onClick={() => approveMutation.mutate({ id: log.id, action: 'APPROVE' })}
+                                                                        disabled={approveMutation.isPending}
+                                                                    >
+                                                                        <ShieldCheck className="w-3.5 h-3.5" /> Approve
+                                                                    </Button>
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        variant="destructive"
+                                                                        className="h-6 px-3 text-[10px] font-bold gap-1"
+                                                                        onClick={() => approveMutation.mutate({ id: log.id, action: 'REJECT' })}
+                                                                        disabled={approveMutation.isPending}
+                                                                    >
+                                                                        <XCircle className="w-3.5 h-3.5" /> Reject
+                                                                    </Button>
+                                                                </div>
                                                             )}
                                                         </TableCell>
                                                     </TableRow>

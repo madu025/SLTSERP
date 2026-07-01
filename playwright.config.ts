@@ -35,6 +35,14 @@ export default defineConfig({
       },
     },
     {
+      name: 'inventory-module',
+      dependencies: ['setup'],
+      testMatch: /inventory-module\.spec\.ts/,
+      use: {
+        storageState: '.auth/user.json',
+      },
+    },
+    {
       name: 'gis-import',
       dependencies: ['setup'],
       testMatch: /gis-upload-sanity\.spec\.ts|gis-import\.spec\.ts/,

@@ -156,7 +156,7 @@ export class WastageService {
                     id: wastage.id,
                     status
                 };
-            });
+            }, { timeout: 20000 });
         }
 
         // SCENARIO 2: Store Wastage
@@ -231,7 +231,7 @@ export class WastageService {
             }
 
             return { ...txRecord, status };
-        });
+        }, { timeout: 20000 });
     }
 
     /**

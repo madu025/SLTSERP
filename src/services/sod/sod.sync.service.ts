@@ -639,16 +639,89 @@ export class SODSyncService {
         
         if (serviceOrder) {
             const isReturning = (dataToUpdate.sltsStatus === 'RETURN' && oldStatus !== 'RETURN');
+            const isCompleting = (dataToUpdate.sltsStatus === 'COMPLETED' && oldStatus !== 'COMPLETED');
             syncedOrder = await prisma.$transaction(async (tx) => {
                 const updated = await tx.serviceOrder.update({
                     where: { id: serviceOrder.id },
                     data: dataToUpdate
                 });
+
                 if (isReturning) {
                     await SODMaterialService.rollbackMaterialUsage(tx, serviceOrder.id, 'BRIDGE_SYNC');
                     await LedgerService.rollbackSodTransaction(tx, serviceOrder.id);
                 }
+
+                if (isCompleting || (updated.sltsStatus === 'COMPLETED' && materialDetails.length > 0)) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const usagesInput: any[] = [];
+                    for (const mat of materialDetails) {
+                        const code = mat.CODE || mat.TYPE;
+                        const name = mat.NAME;
+                        const qty = parseFloat(String(mat.QTY || "0"));
+
+                        if (qty > 0 && (code || name)) {
+                            let item = await tx.inventoryItem.findFirst({
+                                where: {
+                                    OR: [
+                                        { code: { equals: code, mode: 'insensitive' } },
+                                        { name: { equals: name, mode: 'insensitive' } },
+                                        { importAliases: { has: code || "" } },
+                                        { importAliases: { has: name || "" } }
+                                    ]
+                                }
+                            });
+
+                            if (!item) {
+                                const searchKey = (name || code || "").toUpperCase();
+                                let mappedCode = null;
+                                for (const [key, val] of Object.entries(MATERIAL_MAP)) {
+                                    if (searchKey.includes(key)) { mappedCode = val; break; }
+                                }
+                                if (mappedCode) item = await tx.inventoryItem.findFirst({ where: { code: mappedCode } });
+                            }
+
+                            const matSerial = mat.SERIAL || (mat.RAW ? (mat.RAW['SERIAL'] || mat.RAW['SERIAL NUMBER'] || mat.RAW['ONT_ROUTER_SERIAL_NUMBER_']) : null);
+                            if (item) {
+                                usagesInput.push({
+                                    itemId: item.id,
+                                    quantity: qty,
+                                    usageType: 'PORTAL_SYNC',
+                                    serialNumber: matSerial || null,
+                                    comment: `Auto-synced from Portal`
+                                });
+                            }
+                        }
+                    }
+
+                    if (usagesInput.length > 0) {
+                        const { InventoryService } = await import('../inventory');
+                        await SODMaterialService.processMaterialUsage(
+                            tx,
+                            updated.id,
+                            updated.opmcId,
+                            updated.contractorId,
+                            usagesInput,
+                            InventoryService,
+                            payload.currentUser || 'BRIDGE_SYNC'
+                        );
+
+                        const updatedWithUsages = await tx.serviceOrder.findUnique({
+                            where: { id: updated.id },
+                            include: { materialUsage: true }
+                        });
+                        const usages = updatedWithUsages?.materialUsage || [];
+                        const totalSodMaterialCost = usages.reduce((sum, u) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
+                        await LedgerService.logSodConsumption(tx, updated.id, totalSodMaterialCost);
+                    }
+
+                    if (updated.revenueAmount) {
+                        await LedgerService.logSodRevenue(tx, updated.id, Number(updated.revenueAmount));
+                    }
+                }
+
                 return updated;
+            }, {
+                timeout: 20000
             });
         } else {
             syncedOrder = await prisma.serviceOrder.create({
@@ -691,7 +764,7 @@ export class SODSyncService {
             });
         }
 
-        if (materialDetails.length > 0 && syncedOrder) {
+        if (materialDetails.length > 0 && syncedOrder && syncedOrder.sltsStatus !== 'COMPLETED') {
             await prisma.sODMaterialUsage.deleteMany({
                 where: { serviceOrderId: syncedOrder.id, usageType: 'PORTAL_SYNC' }
             });

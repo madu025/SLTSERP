@@ -93,10 +93,18 @@ export class ServiceOrderService {
             }
 
             // Material usage processing (only on COMPLETED, not on RETURN)
-            if (data.materialUsage && Array.isArray(data.materialUsage) && !isTransitioningToReturn) {
+            const isCompletedState = (data.status === 'COMPLETED' || updateData.sltsStatus === 'COMPLETED' || oldOrder.sltsStatus === 'COMPLETED');
+            const hasMaterialUpdate = (data.materialUsage && Array.isArray(data.materialUsage));
+
+            if (hasMaterialUpdate && !isTransitioningToReturn) {
                 const { InventoryService } = await import('../inventory');
                 const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
                 
+                // Rollback old GL consumption if the order was already completed
+                if (oldOrder.sltsStatus === 'COMPLETED') {
+                    await LedgerService.rollbackSodTransaction(tx, id, `Reversal for Material Adjustment on SOD: ${id}`);
+                }
+
                 const materialUpdate = await SODMaterialService.processMaterialUsage(
                     tx, id, oldOrder.opmcId, contractorId, data.materialUsage!, InventoryService, userId
                 );
@@ -106,18 +114,28 @@ export class ServiceOrderService {
             // Database update via Repository (Single Update)
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
 
-            // Log material consumption & revenue in General Ledger on completion
-            if (isCompleting) {
-                const usages = await tx.sODMaterialUsage.findMany({
-                    where: { serviceOrderId: id }
+            console.log("=== SOD DEBUG STATE ===");
+            console.log("updatedOrder.sltsStatus:", updatedOrder.sltsStatus);
+            console.log("oldOrder.sltsStatus:", oldOrder.sltsStatus);
+            console.log("hasMaterialUpdate:", hasMaterialUpdate);
+
+            // Log material consumption & revenue in General Ledger on completion or adjustment
+            const isCompletingNow = (updatedOrder.sltsStatus === 'COMPLETED' && oldOrder.sltsStatus !== 'COMPLETED');
+            const isCompletedAdjustment = (updatedOrder.sltsStatus === 'COMPLETED' && oldOrder.sltsStatus === 'COMPLETED' && hasMaterialUpdate);
+
+            if (isCompletingNow || isCompletedAdjustment) {
+                const updatedWithUsages = await tx.serviceOrder.findUnique({
+                    where: { id },
+                    include: { materialUsage: true }
                 });
+                const usages = updatedWithUsages?.materialUsage || [];
                 const totalSodMaterialCost = usages.reduce((sum, u) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
                 
                 // DR COGS, CR Inventory
                 await LedgerService.logSodConsumption(tx, id, totalSodMaterialCost);
                 
-                // DR Accrued Billing, CR Recognized Revenue
-                if (updatedOrder.revenueAmount) {
+                // Only post revenue once on transition to Completed
+                if (isCompletingNow && updatedOrder.revenueAmount) {
                     await LedgerService.logSodRevenue(tx, id, Number(updatedOrder.revenueAmount));
                 }
             }
