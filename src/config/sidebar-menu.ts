@@ -280,13 +280,13 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
-                title: 'Bulk Import',
+                title: 'Bulk Import Materials',
                 path: '/inventory/items/import',
-                icon: FileText,
+                icon: Upload,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN']
             },
             {
-                title: 'Initial Stock',
+                title: 'Initial Stock Setup',
                 path: '/admin/inventory/initial',
                 icon: Warehouse,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
@@ -299,28 +299,17 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             },
             {
-                title: 'Stock Requests',
+                // Merged: Stock Requests + Material Request + My Requests → single hub
+                title: 'Material Requests',
                 path: '/inventory/requests',
-                icon: ClipboardCheck,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
+                icon: ClipboardList,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER']
             },
-            {
-                title: 'Material Request',
-                path: '/admin/inventory/requests/create',
-                icon: ClipboardCheck,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
-            },
-            {
-                title: 'My Requests',
-                path: '/admin/inventory/requests/my-requests',
-                icon: ClipboardCheck,
-                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
-            },
-            // 3. Status & Outflow
+            // 3. Stock Outflow
             {
                 title: 'Stock Levels',
                 path: '/inventory/stock',
-                icon: Warehouse,
+                icon: BarChart3,
                 allowedRoles: ROLE_GROUPS.STORES
             },
             {
@@ -338,14 +327,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 title: 'Wastage Reports',
                 path: '/admin/inventory/wastage',
-                icon: PackageMinus,
+                icon: ClipboardCheck,   // was PackageMinus — conflicted with Stock Issue
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER']
             },
             // 4. Returns & Reconciliation
             {
                 title: 'MRN (Material Return)',
                 path: '/admin/inventory/mrns',
-                icon: Receipt,
+                icon: RefreshCw,        // was Receipt — conflicted with GRN
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
@@ -368,15 +357,15 @@ export const SIDEBAR_MENU: MenuItem[] = [
             },
             // 5. Analytics & History
             {
-                title: 'Dashboard',
-                path: '/inventory',
+                title: 'Inventory Dashboard',
+                path: '/inventory/dashboard',   // was /inventory — same as parent, caused active-state conflict
                 icon: LayoutDashboard,
                 allowedRoles: ROLE_GROUPS.STORES
             },
             {
                 title: 'Transaction History',
                 path: '/inventory/reports/cardex',
-                icon: FileText,
+                icon: HistoryIcon,      // was FileText — conflicted with Material Registration
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
             }
         ]
