@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export interface CreateVendorInput {
   name: string;
@@ -23,7 +24,7 @@ export class VendorService {
    * List all vendors with optional search query
    */
   static async getVendors(search?: string | null) {
-    const where: any = {};
+    const where: Prisma.VendorWhereInput = {};
 
     if (search) {
       where.OR = [
@@ -94,6 +95,51 @@ export class VendorService {
         rating: data.rating != null ? parseInt(String(data.rating), 10) : null,
         notes: data.notes || null,
       },
+    });
+  }
+
+  /**
+   * Get vendor details by ID
+   */
+  static async getVendorById(id: string) {
+    return prisma.vendor.findUnique({
+      where: { id },
+    });
+  }
+
+  /**
+   * Update vendor details
+   */
+  static async updateVendor(id: string, data: Partial<CreateVendorInput>) {
+    return prisma.vendor.update({
+      where: { id },
+      data: {
+        name: data.name ? data.name.trim() : undefined,
+        contactPerson: data.contactPerson !== undefined ? data.contactPerson : undefined,
+        email: data.email !== undefined ? data.email : undefined,
+        phone: data.phone !== undefined ? data.phone : undefined,
+        address: data.address !== undefined ? data.address : undefined,
+        registrationNo: data.registrationNo !== undefined ? data.registrationNo : undefined,
+        brNumber: data.brNumber !== undefined ? data.brNumber : undefined,
+        bankName: data.bankName !== undefined ? data.bankName : undefined,
+        bankBranch: data.bankBranch !== undefined ? data.bankBranch : undefined,
+        bankAccountNo: data.bankAccountNo !== undefined ? data.bankAccountNo : undefined,
+        status: data.status !== undefined ? data.status : undefined,
+        type: data.type !== undefined ? data.type : undefined,
+        paymentTerms: data.paymentTerms !== undefined ? data.paymentTerms : undefined,
+        rating: data.rating !== undefined && data.rating !== null ? parseInt(String(data.rating), 10) : undefined,
+        notes: data.notes !== undefined ? data.notes : undefined,
+      },
+    });
+  }
+
+  /**
+   * Soft delete / deactivate vendor
+   */
+  static async deleteVendor(id: string) {
+    return prisma.vendor.update({
+      where: { id },
+      data: { status: 'INACTIVE' },
     });
   }
 }

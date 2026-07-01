@@ -1,6 +1,7 @@
 import { primaryClient as prisma } from '@/lib/prisma';
 import { AssetCustodyService } from './inventory/asset-custody.service';
 import { StockRequestService } from './inventory/stock-request.service';
+import { NexusContextService } from './nexus-context.service';
 
 export interface NexusAction {
     type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY';
@@ -20,73 +21,10 @@ export interface NexusAction {
 
 export class NexusAgentService {
     /**
-     * Gather real-time system context/metrics for the AI engine
+     * Unified system context helper
      */
     static async getSystemContext() {
-        const [
-            itemsCount,
-            storesCount,
-            projectsCount,
-            activeUsersCount,
-            lowStockItems,
-            expiringBatches,
-            custodyAssets,
-            contractorsCount
-        ] = await Promise.all([
-            prisma.inventoryItem.count(),
-            prisma.inventoryStore.count(),
-            prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
-            prisma.user.count(),
-            // Low stock check
-            (prisma.inventoryStock as any).findMany({
-                where: { quantity: { lte: 10 } }, // Simple low stock heuristic
-                include: { item: true, store: true },
-                take: 10
-            }),
-            // Expiring batches (within 30 days)
-            (prisma.inventoryBatch as any).findMany({
-                where: {
-                    expiryDate: {
-                        lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                        gt: new Date()
-                    }
-                },
-                include: { item: true },
-                take: 10
-            }),
-            // Serial custody assets
-            (prisma.inventoryItemSerial as any).findMany({
-                where: { status: 'ASSIGNED' },
-                include: { assignedStaff: true, item: true },
-                take: 10
-            }),
-            prisma.contractor.count()
-        ]);
-
-        return {
-            itemsCount,
-            storesCount,
-            projectsCount,
-            activeUsersCount,
-            contractorsCount,
-            lowStock: lowStockItems.map((s: any) => ({
-                itemName: s.item?.name || 'Unknown',
-                itemCode: s.item?.code || '',
-                storeName: s.store?.name || '',
-                qty: Number(s.quantity),
-                min: Number(s.minLevel)
-            })),
-            expiringBatches: expiringBatches.map((b: any) => ({
-                batchNumber: b.batchNumber,
-                itemName: b.item?.name || 'Unknown',
-                expiry: b.expiryDate?.toLocaleDateString() || 'N/A'
-            })),
-            custodyAssets: custodyAssets.map((c: any) => ({
-                serialNumber: c.serialNumber,
-                itemName: c.item?.name || 'Unknown',
-                staffName: c.assignedStaff?.name || 'Unknown'
-            }))
-        };
+        return NexusContextService.getContext();
     }
 
     /**
@@ -129,85 +67,7 @@ export class NexusAgentService {
     }
 
     /**
-     * Parse natural language ChatOps commands for writing/updating the database
-     */
-    static async parseChatOps(message: string): Promise<NexusAction | null> {
-        const words = message.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, " ").split(/\s+/).filter(Boolean);
-        if (words.length === 0) return null;
-
-        // 1. Search for a matching registered serial number
-        const serials = await prisma.inventoryItemSerial.findMany({
-            where: {
-                serialNumber: { in: words }
-            },
-            include: { item: true }
-        });
-
-        // 2. Search for a matching staff member
-        const staffList = await prisma.staff.findMany({
-            where: {
-                OR: [
-                    { employeeId: { in: words } },
-                    { name: { in: words } }
-                ]
-            }
-        });
-
-        if (serials.length > 0 && staffList.length > 0) {
-            const serial = serials[0];
-            const staff = staffList[0];
-            return {
-                type: 'ASSIGN_CUSTODY',
-                serialId: serial.id,
-                serialNumber: serial.serialNumber,
-                itemName: serial.item.name,
-                staffId: staff.id,
-                staffName: staff.name
-            };
-        }
-
-        // 3. Search for stock transfer commands (quantity, two stores, and item name/code)
-        const numbers = words.map(w => parseFloat(w)).filter(n => !isNaN(n));
-        const qty = numbers.find(n => n > 0);
-
-        if (qty) {
-            const stores = await prisma.inventoryStore.findMany();
-            const matchedStores = [];
-            for (const store of stores) {
-                if (message.toLowerCase().includes(store.name.toLowerCase())) {
-                    matchedStores.push(store);
-                }
-            }
-
-            const items = await prisma.inventoryItem.findMany();
-            let matchedItem = null;
-            for (const item of items) {
-                if (message.toLowerCase().includes(item.name.toLowerCase()) || message.toLowerCase().includes(item.code.toLowerCase())) {
-                    matchedItem = item;
-                    break;
-                }
-            }
-
-            if (matchedStores.length >= 2 && matchedItem) {
-                return {
-                    type: 'STOCK_TRANSFER',
-                    itemId: matchedItem.id,
-                    itemCode: matchedItem.code,
-                    itemName: matchedItem.name,
-                    fromStoreId: matchedStores[0].id,
-                    fromStoreName: matchedStores[0].name,
-                    toStoreId: matchedStores[1].id,
-                    toStoreName: matchedStores[1].name,
-                    quantity: qty
-                };
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Execute an autonomous action on behalf of the user safely (with full ERP audit logging)
+     * Execute an autonomous action on behalf of the user safely
      */
     static async executeAction(action: NexusAction, userId: string) {
         if (action.type === 'ASSIGN_CUSTODY') {
@@ -241,43 +101,131 @@ export class NexusAgentService {
     }
 
     /**
-     * Process user query using either Google Gemini 2.5 Flash API or intelligent pattern matching
+     * Lookup Database details for Gemini Function Call arguments to map string inputs to relational DB IDs
      */
-    static async ask(message: string): Promise<{ response: string; actions?: NexusAction[] }> {
+    static async lookupAssetCustody(serialNumber: string, staffNameOrCode: string): Promise<NexusAction | null> {
+        try {
+            const serial = await prisma.inventoryItemSerial.findFirst({
+                where: { serialNumber: { equals: serialNumber, mode: 'insensitive' } },
+                include: { item: true }
+            });
+
+            if (!serial) return null;
+
+            const staff = await prisma.staff.findFirst({
+                where: {
+                    OR: [
+                        { employeeId: { equals: staffNameOrCode, mode: 'insensitive' } },
+                        { name: { contains: staffNameOrCode, mode: 'insensitive' } }
+                    ]
+                }
+            });
+
+            if (!staff) return null;
+
+            return {
+                type: 'ASSIGN_CUSTODY',
+                serialId: serial.id,
+                serialNumber: serial.serialNumber,
+                itemName: serial.item.name,
+                staffId: staff.id,
+                staffName: staff.name
+            };
+        } catch (e) {
+            console.error("Lookup asset custody failed:", e);
+            return null;
+        }
+    }
+
+    static async lookupStockTransfer(itemCodeOrName: string, fromStoreName: string, toStoreName: string, quantity: number): Promise<NexusAction | null> {
+        try {
+            const item = await prisma.inventoryItem.findFirst({
+                where: {
+                    OR: [
+                        { code: { equals: itemCodeOrName, mode: 'insensitive' } },
+                        { name: { contains: itemCodeOrName, mode: 'insensitive' } }
+                    ]
+                }
+            });
+
+            if (!item) return null;
+
+            const fromStore = await prisma.inventoryStore.findFirst({
+                where: { name: { contains: fromStoreName, mode: 'insensitive' } }
+            });
+
+            const toStore = await prisma.inventoryStore.findFirst({
+                where: { name: { contains: toStoreName, mode: 'insensitive' } }
+            });
+
+            if (!fromStore || !toStore) return null;
+
+            return {
+                type: 'STOCK_TRANSFER',
+                itemId: item.id,
+                itemCode: item.code,
+                itemName: item.name,
+                fromStoreId: fromStore.id,
+                fromStoreName: fromStore.name,
+                toStoreId: toStore.id,
+                toStoreName: toStore.name,
+                quantity: quantity
+            };
+        } catch (e) {
+            console.error("Lookup stock transfer failed:", e);
+            return null;
+        }
+    }
+
+    /**
+     * Process user query using Google Gemini API or fallback matching
+     */
+    static async ask(message: string, userId: string): Promise<{ response: string; actions?: NexusAction[] }> {
         const context = await this.getSystemContext();
         const apiKey = process.env.GEMINI_API_KEY;
+        const { NexusMemoryService } = await import('./nexus-memory.service');
 
-        // Run proactive analysis
         const selfHealing = await this.getSelfHealingProposals();
-        const chatOps = await this.parseChatOps(message);
+        const actions: NexusAction[] = [];
 
-        // Formulate agent prompts
+        // Load conversation history
+        const history = await NexusMemoryService.getConversation(userId);
+
+        // System prompt outlining agent personality & live statistics context
         const systemPrompt = `
 You are "Nexus Agent", the intelligent global AI assistant of SLTS Nexus ERP.
-Your task is to help the user manage inventory, track assets, see low stock, check expiring batches, and run database ChatOps.
+Your task is to help the user manage inventory, track assets, see low stock, check expiring batches, check payment vouchers, track project status, and run database operations.
 You must be fully compatible with all ERP modules.
 
 Current Live ERP Database Context:
-- Total Items Registered: ${context.itemsCount}
-- Active Stores: ${context.storesCount}
-- Active Projects: ${context.projectsCount}
-- Active Users: ${context.activeUsersCount}
-- Low Stock Items detected: ${JSON.stringify(context.lowStock)}
-- Expiring Batches (within 30 days): ${JSON.stringify(context.expiringBatches)}
-- Serialized IT/Admin assets under staff custody: ${JSON.stringify(context.custodyAssets)}
-- Self-Healing Virtual Stock Replenishment Proposals: ${JSON.stringify(selfHealing)}
-- Identified ChatOps write action from user: ${chatOps ? JSON.stringify(chatOps) : 'None'}
+- Inventory:
+  * Total Items: ${context.inventory.itemsCount}
+  * Active Stores: ${context.inventory.storesCount}
+  * Low Stock detected: ${JSON.stringify(context.inventory.lowStock)}
+  * Expiring Batches: ${JSON.stringify(context.inventory.expiringBatches)}
+  * Serialized Assets: ${JSON.stringify(context.inventory.custodyAssets)}
+- Projects:
+  * Active Projects: ${context.projects.activeProjectsCount}
+  * Overdue Tasks Count: ${context.projects.overdueTasksCount}
+  * Active Progress details: ${JSON.stringify(context.projects.atRiskProjects)}
+- Finance:
+  * Total Outstanding Contractor Invoices: LKR ${context.finance.outstandingInvoicesSum.toLocaleString()}
+  * Payment Vouchers pending approval count: ${context.finance.pendingPVsCount}
+  * Retention HELD: LKR ${context.finance.totalRetentionHeld.toLocaleString()}
+  * Levied Active Penalties: LKR ${context.finance.activePenaltiesSum.toLocaleString()}
+- Procurement:
+  * Open PRs count: ${context.procurement.pendingPRsCount}
+  * Pending PO Approvals count: ${context.procurement.pendingPOsCount}
+  * Pending GRNs count: ${context.procurement.pendingGRNsCount}
+
+Self-Healing Stock Proposals (If any store has low stock and another has excess, recommend a transfer):
+${JSON.stringify(selfHealing)}
 
 Rules:
 1. Always be polite, professional, and clear.
 2. If the user asks in Sinhala, reply in natural Sinhala. If in English, reply in English.
-3. If the user wants to assign a serial or transfer stock, and we parsed it, confirm details and tell them they can execute it with one click!
-4. If there is a stock shortage, highlight the self-healing transfer proposal.
-        `;
-
-        const actions: NexusAction[] = [];
-        if (chatOps) actions.push(chatOps);
-        if (selfHealing.length > 0) actions.push(...selfHealing.slice(0, 2));
+3. Highlight any critical stats (overdue invoices, pending voucher approvals, or overdue tasks) if they ask about the overall state.
+`;
 
         if (apiKey) {
             try {
@@ -287,12 +235,47 @@ Rules:
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
+                            systemInstruction: {
+                                parts: [{ text: systemPrompt }]
+                            },
                             contents: [
+                                ...history,
                                 {
                                     role: 'user',
                                     parts: [
-                                        { text: systemPrompt },
-                                        { text: `User Question/Command: "${message}"` }
+                                        { text: message }
+                                    ]
+                                }
+                            ],
+                            tools: [
+                                {
+                                    functionDeclarations: [
+                                        {
+                                            name: "assign_asset_custody",
+                                            description: "Assign custody of a serialized item (e.g. laptop, mobile) to a staff member by name/code and serial number",
+                                            parameters: {
+                                                type: "OBJECT",
+                                                properties: {
+                                                    serialNumber: { type: "STRING", description: "The exact serial number of the asset" },
+                                                    staffNameOrCode: { type: "STRING", description: "Staff member's name or employee code" }
+                                                },
+                                                required: ["serialNumber", "staffNameOrCode"]
+                                            }
+                                        },
+                                        {
+                                            name: "propose_stock_transfer",
+                                            description: "Move/transfer inventory item stock between two stores",
+                                            parameters: {
+                                                type: "OBJECT",
+                                                properties: {
+                                                    itemCodeOrName: { type: "STRING", description: "The inventory item name or item code" },
+                                                    fromStoreName: { type: "STRING", description: "Source inventory store name" },
+                                                    toStoreName: { type: "STRING", description: "Destination inventory store name" },
+                                                    quantity: { type: "NUMBER", description: "Quantity of items to transfer" }
+                                                },
+                                                required: ["itemCodeOrName", "fromStoreName", "toStoreName", "quantity"]
+                                            }
+                                        }
                                     ]
                                 }
                             ]
@@ -302,8 +285,62 @@ Rules:
 
                 if (response.ok) {
                     const json = await response.json();
-                    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const candidate = json.candidates?.[0];
+                    const functionCall = candidate?.content?.parts?.[0]?.functionCall;
+
+                    if (functionCall) {
+                        const { name, args } = functionCall;
+
+                        if (name === "assign_asset_custody") {
+                            const action = await this.lookupAssetCustody(args.serialNumber, args.staffNameOrCode);
+                            if (action) {
+                                const responseMsg = `I found the asset ${action.itemName} (${action.serialNumber}) and staff member ${action.staffName}. Click confirm below to assign custody.`;
+                                await NexusMemoryService.saveMessage(userId, 'user', message);
+                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
+                                return {
+                                    response: responseMsg,
+                                    actions: [action]
+                                };
+                            } else {
+                                const responseMsg = `I attempted to assign custody for serial "${args.serialNumber}" to "${args.staffNameOrCode}", but could not locate them in the database. Please verify details.`;
+                                await NexusMemoryService.saveMessage(userId, 'user', message);
+                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
+                                return {
+                                    response: responseMsg,
+                                    actions: []
+                                };
+                            }
+                        }
+
+                        if (name === "propose_stock_transfer") {
+                            const action = await this.lookupStockTransfer(args.itemCodeOrName, args.fromStoreName, args.toStoreName, args.quantity);
+                            if (action) {
+                                const responseMsg = `I have prepared a proposal to transfer ${action.quantity} units of ${action.itemName} from ${action.fromStoreName} to ${action.toStoreName}. Click confirm below to request transfer.`;
+                                await NexusMemoryService.saveMessage(userId, 'user', message);
+                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
+                                return {
+                                    response: responseMsg,
+                                    actions: [action]
+                                };
+                            } else {
+                                const responseMsg = `I was unable to propose a stock transfer for "${args.itemCodeOrName}" from "${args.fromStoreName}" to "${args.toStoreName}". Please check item and store names.`;
+                                await NexusMemoryService.saveMessage(userId, 'user', message);
+                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
+                                return {
+                                    response: responseMsg,
+                                    actions: []
+                                };
+                            }
+                        }
+                    }
+
+                    const text = candidate?.content?.parts?.[0]?.text;
                     if (text) {
+                        if (selfHealing.length > 0) {
+                            actions.push(...selfHealing.slice(0, 2));
+                        }
+                        await NexusMemoryService.saveMessage(userId, 'user', message);
+                        await NexusMemoryService.saveMessage(userId, 'model', text);
                         return { response: text, actions };
                     }
                 }
@@ -312,74 +349,37 @@ Rules:
             }
         }
 
-        // --- FALLBACK: DYNAMIC CONTEXTUAL RESPONSE GENERATOR ---
-        if (chatOps) {
-            if (chatOps.type === 'ASSIGN_CUSTODY') {
-                return {
-                    response: `මට පෙනෙන විදිහට ඔබට අවශ්‍ය වන්නේ ${chatOps.itemName} (Serial: ${chatOps.serialNumber}) උපකරණය ${chatOps.staffName} හට පැවරීමටයි. පහත Confirm බොත්තම මඟින් ඔබට මෙය සෘජුවම සිදු කළ හැක.`,
-                    actions
-                };
-            }
-            if (chatOps.type === 'STOCK_TRANSFER') {
-                return {
-                    response: `මට පෙනෙන විදිහට ඔබට අවශ්‍ය වන්නේ ${chatOps.fromStoreName} සිට ${chatOps.toStoreName} දක්වා ${chatOps.quantity} ${chatOps.itemName} මාරු කිරීමටයි. පහත Confirm බොත්තම මඟින් මෙය සෘජුවම සිදු කළ හැක.`,
-                    actions
-                };
-            }
-        }
-
+        // --- FALLBACK INTERPRETER ---
         const query = message.toLowerCase();
 
-        // 1. Match contractors count queries
-        if (query.includes('contractor') || query.includes('pravishtha') || query.includes('koththra') || query.includes('කොන්ත්‍රාත්')) {
+        // 1. Finance outstanding queries
+        if (query.includes('outstanding') || query.includes('invoice') || query.includes('payables') || query.includes('ඉන්වොයිසි')) {
             return {
-                response: `පද්ධතියේ දැනට ලියාපදිංචි කොන්ත්‍රාත්කරුවන් (Contractors) **${context.contractorsCount}** දෙනෙකු සිටී.\n\nThere are currently **${context.contractorsCount}** contractors registered in the system.`,
+                response: `පද්ධතියේ දැනට පවතින මුළු හිඟ Contractor Invoices වටිනාකම **LKR ${context.finance.outstandingInvoicesSum.toLocaleString()}** කි. පූර්ණ අනුමැතිය ලැබෙන තෙක් බලාපොරොත්තුවෙන් පවතින Payment Vouchers ගණන **${context.finance.pendingPVsCount}** කි.`,
                 actions
             };
         }
 
-        // 2. Match active projects count queries
-        if (query.includes('project') || query.includes('wiyapa') || query.includes('ව්‍යාපෘති')) {
+        // 2. Project delays queries
+        if (query.includes('project') || query.includes('overdue') || query.includes('delay') || query.includes('ප්‍රමාද')) {
             return {
-                response: `පද්ධතියේ දැනට ක්‍රියාත්මක සක්‍රීය ව්‍යාපෘති (Active Projects) **${context.projectsCount}** ක් ඇත.\n\nThere are currently **${context.projectsCount}** active projects in progress.`,
+                response: `ක්‍රියාත්මක වන ව්‍යාපෘති ගණන **${context.projects.activeProjectsCount}** කි. ඒ අතරින් දැනට නියමිත දින ඉක්මවා ප්‍රමාද වී ඇති Tasks ප්‍රමාණය **${context.projects.overdueTasksCount}** කි.`,
                 actions
             };
         }
 
-        // 3. Match users count queries
-        if (query.includes('user') || query.includes('pariharaka') || query.includes('පරිශීලක')) {
-            return {
-                response: `පද්ධතියේ දැනට ලියාපදිංචි පරිශීලකයින් (Users) **${context.activeUsersCount}** දෙනෙකු සිටී.\n\nThere are currently **${context.activeUsersCount}** registered users on the platform.`,
-                actions
-            };
-        }
-
-        // 4. Match stores count queries
-        if (query.includes('store') || query.includes('gabad') || query.includes('ගබඩා')) {
-            return {
-                response: `පද්ධතියේ දැනට සක්‍රීය ගබඩා (Active Stores) **${context.storesCount}** ක් ඇත.\n\nThere are currently **${context.storesCount}** active stores configured.`,
-                actions
-            };
-        }
-
-        // 5. Match items count queries
-        if (query.includes('item') || query.includes('bada') || query.includes('උපකරණ') || query.includes('භාණ්ඩ')) {
-            return {
-                response: `පද්ධතියේ දැනට ලියාපදිංචි භාණ්ඩ/උපකරණ වර්ග (Inventory Items) **${context.itemsCount}** ක් ඇත.\n\nThere are currently **${context.itemsCount}** registered inventory items.`,
-                actions
-            };
-        }
-
-        if (query.includes('low') || query.includes('stok') || query.includes('adu') || query.includes('stock')) {
-            if (context.lowStock.length === 0) {
+        // 3. Low stock queries
+        if (query.includes('low') || query.includes('stok') || query.includes('stock') || query.includes('අඩු')) {
+            if (context.inventory.lowStock.length === 0) {
                 return { response: `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`, actions };
             }
-            const itemsList = context.lowStock
-                .map((s: any) => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min Limit: ${s.min})`)
+            const itemsList = context.inventory.lowStock
+                .map((s: any) => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min: ${s.min})`)
                 .join('\n');
             
             let selfHealText = '';
             if (selfHealing.length > 0) {
+                actions.push(...selfHealing.slice(0, 2));
                 selfHealText = `\n\n💡 **ස්වයං-සුවපත් කිරීමේ යෝජනාව (Self-Healing Proposal):**\n` + 
                     selfHealing.map(p => `- ${p.fromStoreName} හි අතිරික්තයෙන් ${p.quantity} ක් ${p.toStoreName} වෙත මාරු කර ${p.itemName} හිඟය පියවිය හැක.`).join('\n');
             }
@@ -390,29 +390,11 @@ Rules:
             };
         }
 
-        if (query.includes('expire') || query.includes('expiry') || query.includes('kalkuth') || query.includes('date')) {
-            if (context.expiringBatches.length === 0) {
-                return { response: `ඉදිරි දින 30ක් ඇතුළත කල් ඉකුත්වීමට ආසන්න කිසිදු batch එකක් නොමැත.`, actions };
-            }
-            const expiringList = context.expiringBatches
-                .map((b: any) => `- Batch ${b.batchNumber}: ${b.itemName} (Expiry Date: ${b.expiry})`)
-                .join('\n');
-            return {
-                response: `කල් ඉකුත්වීමට ආසන්න batches ලැයිස්තුව:\n\n${expiringList}`,
-                actions
-            };
-        }
-
         return {
-            response: `ආයුබෝවන්! මම **Nexus Agent**, ඔබගේ සහය සහායකයා. 
-
-මගෙන් ඔබට:
-1. **අඩු තොග අනතුරු ඇඟවීම් සහ ස්වයං-සුවපත් කිරීමේ මාරු කිරීම් (Self-Healing Transfers)**
-2. **කල් ඉකුත්වන ද්‍රව්‍ය (Batch Expiry/FEFO Warnings)**
-3. **සෘජු විධාන මඟින් ගනුදෙනු කිරීම් (ChatOps Assignment & Transfers)**
-පිළිබඳව live තොරතුරු ලබාගෙන ඒවා සෘජුවම ක්‍රියාත්මක කළ හැක.
-
-ඔබට දැනගැනීමට අවශ්‍ය කුමක්ද?`,
+            response: `ආයුබෝවන්! මම **Nexus AI Agent**. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම metric දත්ත ලබා දිය හැක. උදාහරණ: 
+- "low stock items මොනවාද?"
+- "pending payment vouchers කොච්චර තියෙනවද?"
+- "overdue tasks මොනවාද?"`,
             actions
         };
     }

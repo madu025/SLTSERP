@@ -28,6 +28,9 @@ import {
     LineChart,
     Truck,
     ClipboardList,
+    Building,
+    Landmark,
+    ShieldAlert
 } from 'lucide-react';
 
 
@@ -222,6 +225,36 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: Banknote,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE, 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
         submenu: [
+            {
+                title: 'Vendor Registry',
+                path: '/admin/finance/vendors',
+                icon: Building,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+            },
+            {
+                title: 'Bank Registry',
+                path: '/admin/finance/banks',
+                icon: Landmark,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+            },
+            {
+                title: 'Payment Vouchers',
+                path: '/admin/finance/payments',
+                icon: Receipt,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+            },
+            {
+                title: 'Retention Management',
+                path: '/admin/finance/retention',
+                icon: Shield,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+            },
+            {
+                title: 'LD Penalties',
+                path: '/admin/finance/ld-penalties',
+                icon: ShieldAlert,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+            },
             {
                 title: 'Contractor Invoices',
                 path: '/invoices',

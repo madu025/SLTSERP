@@ -1,0 +1,26 @@
+// ============================================================
+// Module: nexus-ai
+// Models: NexusConversation, NexusAlert
+// ============================================================
+
+model NexusConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  messages  Json     // JSON array of chat history: [{role: "user"|"model", parts: [{text: string}]}]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model NexusAlert {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  type      String   // e.g., "LOW_STOCK", "OVERDUE_INVOICE", "OVERDUE_TASK", "EXPIRY"
+  priority  String   // e.g., "MEDIUM", "HIGH", "CRITICAL"
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
