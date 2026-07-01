@@ -262,6 +262,13 @@ export class NexusAgentService {
         const apiKey = process.env.GEMINI_API_KEY;
         const { NexusMemoryService } = await import('./nexus-memory.service');
 
+        // Fetch user name to personalize AI greetings
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true }
+        });
+        const userName = user?.name || "User";
+
         // 1. Predictive Intent Classification
         const intent = NexusClassifierService.predict(message);
         const actions: NexusAction[] = [];
@@ -347,16 +354,18 @@ Your task is to answer the user's question accurately using the complete live ER
 Since you have a unified, cross-functional view of the entire ERP (Inventory, Projects, Finance, Procurement, Contractors), you can answer complex cross-module queries.
 
 CRITICAL INSTRUCTION:
-1. Your response MUST be a valid JSON object matching the following structure:
+1. PERSONALIZED GREETING: You MUST greet the user by their name: ${userName} in the beginning of your response. (e.g. "Hello ${userName}!", "Good morning ${userName}!", "ආයුබෝවන් ${userName}!").
+2. LANGUAGE DYNAMICS: Answer in the language of the user's choice. If they ask in Sinhala, respond in natural Sinhala. If they ask in English, respond in English. If they ask in Singlish (Sinhala written in English letters, e.g. "gabadu gana kiyada"), respond in natural Sinhala or Singlish.
+3. Your response MUST be a valid JSON object matching the following structure:
 {
-  "reply": "Your natural language response here (in Sinhala if the user asked in Sinhala, or English if in English)...",
+  "reply": "Your natural language response here...",
   "suggestions": [
      "A relevant follow-up question the user might want to ask next based on your reply",
      "Another relevant follow-up question",
      "A third relevant follow-up question"
   ]
 }
-2. IMPORTANT: In your "reply" text, DO NOT wrap numbers or values in double asterisks (**). Output clean, plain numbers and text to maintain a professional look.
+4. IMPORTANT: In your "reply" text, DO NOT wrap numbers or values in double asterisks (**). Output clean, plain numbers and text to maintain a professional look.
 Do not return any markdown wrapping or other text outside this JSON object.
 
 Complete Live ERP System Context:

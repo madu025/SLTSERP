@@ -8,9 +8,6 @@ import {
     Send, 
     Bot, 
     User, 
-    Building,
-    AlertTriangle, 
-    Laptop, 
     Loader2,
     ArrowRight,
     CheckCircle,
@@ -117,8 +114,16 @@ export default function NexusAgent() {
             const res = await fetch('/api/ai/copilot');
             if (res.ok) {
                 const data = await res.json();
-                if (data && data.length > 0) {
-                    const formatted = data.map((msg: { role: string; parts?: { text: string }[] }, i: number) => ({
+                const historyArray = data.history || [];
+                const userName = data.userName || "User";
+                const serverSuggestions = data.suggestions || [];
+                
+                if (serverSuggestions.length > 0) {
+                    setSuggestions(serverSuggestions);
+                }
+
+                if (historyArray.length > 0) {
+                    const formatted = historyArray.map((msg: { role: string; parts?: { text: string }[] }, i: number) => ({
                         id: `hist-${i}`,
                         sender: msg.role === 'user' ? 'user' : 'agent',
                         text: msg.parts?.[0]?.text || '',
@@ -126,19 +131,11 @@ export default function NexusAgent() {
                     }));
                     setMessages(formatted);
                 } else {
-                    setSuggestions([
-                        "Low stock materials monawada?",
-                        "how many registered contractors?",
-                        "gabadu gana kiyada?",
-                        "total materials info danna?",
-                        "pending requisitions kiyada?",
-                        "Pending Payment Vouchers monawada?"
-                    ]);
                     setMessages([
                         {
                             id: 'welcome',
                             sender: 'agent',
-                            text: 'ආයුබෝවන්! මම Nexus AI Agent. SLTS Nexus ERP පද්ධතියට අදාළ ඕනෑම තොරතුරක් (Low Stock, Expiry Dates, Asset Custody, Invoices) මා හරහා විමසිය හැක.',
+                            text: `ආයුබෝවන් ${userName}! මම Nexus AI Agent. SLTS Nexus ERP පද්ධතියට අදාළ ඕනෑම තොරතුරක් (Low Stock, Expiry Dates, Asset Custody, Invoices) මා හරහා විමසිය හැක.`,
                             timestamp: new Date()
                         }
                     ]);

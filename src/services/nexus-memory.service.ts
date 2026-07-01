@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -41,7 +42,7 @@ export class NexusMemoryService {
       return prisma.nexusConversation.update({
         where: { id: record.id },
         data: {
-          messages: prunedHistory as any,
+          messages: prunedHistory as unknown as Prisma.InputJsonValue,
           updatedAt: new Date()
         }
       });
@@ -49,7 +50,7 @@ export class NexusMemoryService {
       return prisma.nexusConversation.create({
         data: {
           userId,
-          messages: prunedHistory as any
+          messages: prunedHistory as unknown as Prisma.InputJsonValue
         }
       });
     }
@@ -68,5 +69,35 @@ export class NexusMemoryService {
         where: { id: record.id }
       });
     }
+  }
+
+  /**
+   * Extract user's most frequent or recent queries to build dynamic suggestion buttons
+   */
+  static async getFrequentSuggestions(userId: string): Promise<string[]> {
+    const history = await this.getConversation(userId);
+    const userQueries = history
+      .filter(m => m.role === 'user')
+      .map(m => m.parts?.[0]?.text?.trim())
+      .filter((text): text is string => typeof text === 'string' && text.length > 0);
+
+    const counts: Record<string, number> = {};
+    for (const q of userQueries) {
+      counts[q] = (counts[q] || 0) + 1;
+    }
+
+    const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+    const defaults = [
+      "Low stock materials monawada?",
+      "how many registered contractors?",
+      "gabadu gana kiyada?",
+      "total materials info danna?",
+      "pending requisitions kiyada?",
+      "Pending Payment Vouchers monawada?"
+    ];
+
+    const combined = Array.from(new Set([...sorted, ...defaults]));
+    return combined.slice(0, 5);
   }
 }

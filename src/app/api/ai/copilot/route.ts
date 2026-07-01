@@ -5,14 +5,22 @@ import { requireAuth } from '@/lib/server-utils';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/ai/copilot - Fetch chat history for user securely
-export async function GET(_request: Request) {
+export async function GET() {
     try {
         // Enforce session check
         const user = await requireAuth();
 
         const { NexusMemoryService } = await import('@/services/nexus-memory.service');
-        const history = await NexusMemoryService.getConversation(user.id);
-        return NextResponse.json(history);
+        const [history, suggestions] = await Promise.all([
+            NexusMemoryService.getConversation(user.id),
+            NexusMemoryService.getFrequentSuggestions(user.id)
+        ]);
+
+        return NextResponse.json({
+            history,
+            userName: user.name || "User",
+            suggestions
+        });
     } catch (error) {
         return handleApiError(error);
     }
