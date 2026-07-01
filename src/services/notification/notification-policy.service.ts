@@ -1,4 +1,5 @@
 import { NotificationService, NotificationPriority } from '../notification.service';
+import { EmailService } from './email.service';
 
 export class NotificationPolicyService {
     
@@ -98,8 +99,36 @@ export class NotificationPolicyService {
             link: '/admin/inventory/stock'
         });
 
-        // Simulate sending a real-time email alert to system supervisors
-        console.log(`[EMAIL-ALERT] Dispatching Low Stock warning to Stores Manager & Admins. Item: ${itemName}, Store: ${storeName}, Level: ${currentQty}`);
+        // Trigger real email alerts to active admins/managers
+        try {
+            const prisma = (await import('@/lib/prisma')).primaryClient;
+            const admins = await prisma.user.findMany({
+                where: {
+                    role: { in: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] as any }
+                },
+                select: { email: true }
+            });
+
+            const emails = admins.map(a => a.email).filter(Boolean) as string[];
+            if (emails.length > 0) {
+                await EmailService.sendMail({
+                    to: emails.join(','),
+                    subject: `[SLTS NEXUS Alert] Critical Low Stock: ${itemName} in ${storeName}`,
+                    text: `Low stock detected for item: ${itemName} in ${storeName}.\nCurrent stock level: ${currentQty}\nMinimum safety stock level: ${minLevel}\n\nPlease take immediate replenishment action.`,
+                    html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #e2e8f0;border-radius:8px;">
+                        <h2 style="color:#e11d48;margin-top:0;">⚠️ Low Stock Replenishment Required</h2>
+                        <p><strong>Material Name:</strong> ${itemName}</p>
+                        <p><strong>Storage Store:</strong> ${storeName}</p>
+                        <p><strong>In Hand Quantity:</strong> <span style="color:#e11d48;font-weight:bold;">${currentQty}</span></p>
+                        <p><strong>Configured Min Level:</strong> ${minLevel}</p>
+                        <hr style="border:0;border-top:1px solid #e2e8f0;margin:20px 0;" />
+                        <p style="font-size:12px;color:#64748b;">This is an automated production alert from SLTS Nexus ERP.</p>
+                    </div>`
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send low stock emails:", err);
+        }
     }
 
     static async notifyStockRequestCreated(req: { id: string; requestNr: string; fromStoreName: string; opmcId?: string; type: string }, stage: string) {
@@ -236,6 +265,34 @@ export class NotificationPolicyService {
                     link: '/inventory/assets',
                     metadata: { batchId: batch.id, expiryDate: batch.expiryDate }
                 });
+
+                // Send email alert for expiring batch
+                try {
+                    const admins = await (await import('@/lib/prisma')).primaryClient.user.findMany({
+                        where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'] as any } },
+                        select: { email: true }
+                    });
+                    const emails = admins.map(a => a.email).filter(Boolean) as string[];
+                    if (emails.length > 0) {
+                        await EmailService.sendMail({
+                            to: emails.join(','),
+                            subject: `[SLTS NEXUS FEFO Alert] Batch Expiration: ${batch.item.name}`,
+                            text: message,
+                            html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #fecaca;border-radius:8px;background-color:#fff5f5;">
+                                <h2 style="color:#dc2626;margin-top:0;">⏳ FEFO Compliance: Batch Expiry Warning</h2>
+                                <p><strong>Material:</strong> ${batch.item.name} (${batch.item.code})</p>
+                                <p><strong>Batch Number:</strong> ${batch.batchNumber || 'N/A'}</p>
+                                <p><strong>Store Location:</strong> ${bs.store.name}</p>
+                                <p><strong>Remaining Qty:</strong> <span style="font-weight:bold;">${bs.quantity}</span></p>
+                                <p><strong>Expiry Date:</strong> <span style="color:#dc2626;font-weight:bold;">${batch.expiryDate?.toLocaleDateString()}</span></p>
+                                <hr style="border:0;border-top:1px solid #fecaca;margin:20px 0;" />
+                                <p style="font-size:11px;color:#7f1d1d;">Please prioritize issuing this batch to avoid financial write-offs.</p>
+                            </div>`
+                        });
+                    }
+                } catch (e) {
+                    console.error("Failed to send batch expiry email:", e);
+                }
 
                 results.push({
                     batchNumber: batch.batchNumber,

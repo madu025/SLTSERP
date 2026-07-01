@@ -10,15 +10,35 @@ import {
     AlertTriangle, 
     Calendar, 
     Laptop, 
-    Loader2
+    Loader2,
+    ArrowRight,
+    CheckCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+
+interface NexusAction {
+    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY';
+    itemId?: string;
+    itemCode?: string;
+    itemName?: string;
+    fromStoreId?: string;
+    fromStoreName?: string;
+    toStoreId?: string;
+    toStoreName?: string;
+    serialId?: string;
+    serialNumber?: string;
+    staffId?: string;
+    staffName?: string;
+    quantity?: number;
+}
 
 interface Message {
     sender: 'user' | 'agent';
     text: string;
     timestamp: Date;
+    actions?: NexusAction[];
 }
 
 export default function NexusAgent() {
@@ -32,6 +52,8 @@ export default function NexusAgent() {
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [executingActionIdx, setExecutingActionIdx] = useState<string | null>(null);
+    const [completedActions, setCompletedActions] = useState<Record<string, string>>({});
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll to bottom of messages
@@ -62,6 +84,7 @@ export default function NexusAgent() {
             setMessages(prev => [...prev, { 
                 sender: 'agent', 
                 text: json.response || 'සමාවන්න, ප්‍රතිචාරයක් ලබා ගැනීමට නොහැකි විය.', 
+                actions: json.actions || undefined,
                 timestamp: new Date() 
             }]);
         } catch (err) {
@@ -72,6 +95,37 @@ export default function NexusAgent() {
             }]);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleExecuteAction = async (action: NexusAction, messageIdx: number, actionIdx: number) => {
+        const key = `${messageIdx}-${actionIdx}`;
+        setExecutingActionIdx(key);
+
+        try {
+            const response = await fetch('/api/ai/copilot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    execute: true,
+                    action
+                })
+            });
+
+            if (!response.ok) throw new Error("Execution failed");
+
+            const json = await response.json();
+            toast.success("Action executed successfully!");
+            setCompletedActions(prev => ({
+                ...prev,
+                [key]: json.result?.requestNr 
+                    ? `Replenishment complete! Stock request ${json.result.requestNr} generated.` 
+                    : 'Custody assignment successfully updated in database.'
+            }));
+        } catch (err) {
+            toast.error("Failed to execute request.");
+        } finally {
+            setExecutingActionIdx(null);
         }
     };
 
@@ -95,7 +149,7 @@ export default function NexusAgent() {
             {/* CHAT DRAWER */}
             {isOpen && (
                 <div 
-                    className="w-[350px] md:w-[400px] h-[550px] bg-[#1E293B] border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform scale-100"
+                    className="w-[360px] md:w-[420px] h-[580px] bg-[#1E293B] border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform scale-100"
                     style={{
                         boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5)'
                     }}
@@ -109,9 +163,9 @@ export default function NexusAgent() {
                             <div>
                                 <h3 className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
                                     Nexus Agent
-                                    <Badge className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[8px] h-3.5 font-bold px-1.5 py-0">AI Copilot</Badge>
+                                    <Badge className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[8px] h-3.5 font-bold px-1.5 py-0">Autonomous AI</Badge>
                                 </h3>
-                                <p className="text-[10px] text-slate-500">Active & Context Aware</p>
+                                <p className="text-[10px] text-slate-500">Global ERP Control Center</p>
                             </div>
                         </div>
                         <button 
@@ -124,25 +178,95 @@ export default function NexusAgent() {
 
                     {/* Messages Body */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-[#0F172A]/40">
-                        {messages.map((msg, index) => (
+                        {messages.map((msg, msgIdx) => (
                             <div 
-                                key={index} 
-                                className={`flex gap-2 max-w-[85%] ${msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
+                                key={msgIdx} 
+                                className={`flex flex-col gap-2 max-w-[88%] ${msg.sender === 'user' ? 'ml-auto items-end' : 'items-start'}`}
                             >
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs border ${
-                                    msg.sender === 'user' 
-                                        ? 'bg-slate-700 border-slate-600 text-slate-200' 
-                                        : 'bg-sky-950 border-sky-800/40 text-sky-400'
-                                }`}>
-                                    {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+                                <div className={`flex gap-2 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs border ${
+                                        msg.sender === 'user' 
+                                            ? 'bg-slate-700 border-slate-600 text-slate-200' 
+                                            : 'bg-sky-950 border-sky-800/40 text-sky-400'
+                                    }`}>
+                                        {msg.sender === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+                                    </div>
+                                    <div className={`p-3 rounded-2xl text-[11px] leading-relaxed shadow-sm whitespace-pre-line ${
+                                        msg.sender === 'user'
+                                            ? 'bg-sky-600 text-white rounded-tr-none'
+                                            : 'bg-[#1E293B] border border-slate-700/50 text-slate-200 rounded-tl-none'
+                                    }`}>
+                                        {msg.text}
+                                    </div>
                                 </div>
-                                <div className={`p-3 rounded-2xl text-[11px] leading-relaxed shadow-sm whitespace-pre-line ${
-                                    msg.sender === 'user'
-                                        ? 'bg-sky-600 text-white rounded-tr-none'
-                                        : 'bg-[#1E293B] border border-slate-700/50 text-slate-200 rounded-tl-none'
-                                }`}>
-                                    {msg.text}
-                                </div>
+
+                                {/* Render Proactive Action Cards */}
+                                {msg.actions && msg.actions.map((action, actionIdx) => {
+                                    const actionKey = `${msgIdx}-${actionIdx}`;
+                                    const isCompleted = completedActions[actionKey];
+                                    const isExecuting = executingActionIdx === actionKey;
+
+                                    return (
+                                        <div 
+                                            key={actionIdx} 
+                                            className="ml-9 mt-1 p-3 bg-[#0F172A] border border-slate-700/80 rounded-xl space-y-2 text-xs w-[280px] md:w-[320px] shadow-md"
+                                        >
+                                            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                                                <span className="text-[9px] font-bold text-sky-400 uppercase tracking-wide">
+                                                    {action.type === 'STOCK_HEAL' ? '⚡ Autonomous Replenish' : action.type === 'STOCK_TRANSFER' ? '🔄 Stock Move' : '💻 Custody Transfer'}
+                                                </span>
+                                                <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] h-3.5 px-1 py-0">Recommended</Badge>
+                                            </div>
+
+                                            {action.type === 'ASSIGN_CUSTODY' && (
+                                                <div className="space-y-1 font-mono text-[10px] text-slate-300">
+                                                    <p><span className="text-slate-500">Asset:</span> {action.itemName}</p>
+                                                    <p><span className="text-slate-500">Serial:</span> {action.serialNumber}</p>
+                                                    <p><span className="text-slate-500">Assign To:</span> {action.staffName}</p>
+                                                </div>
+                                            )}
+
+                                            {(action.type === 'STOCK_HEAL' || action.type === 'STOCK_TRANSFER') && (
+                                                <div className="space-y-2">
+                                                    <p className="text-[10px] text-slate-300"><span className="text-slate-500">Item:</span> {action.itemName} ({action.itemCode})</p>
+                                                    <div className="flex items-center justify-between bg-slate-900/50 p-2 rounded border border-slate-800/80 text-[9px] font-mono">
+                                                        <div className="text-center">
+                                                            <p className="text-slate-500">Source Store</p>
+                                                            <p className="text-slate-300 font-semibold">{action.fromStoreName}</p>
+                                                        </div>
+                                                        <div className="text-sky-400 flex flex-col items-center">
+                                                            <span>{action.quantity} Qty</span>
+                                                            <ArrowRight className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-slate-500">Dest Store</p>
+                                                            <p className="text-slate-300 font-semibold">{action.toStoreName}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {isCompleted ? (
+                                                <div className="flex items-center gap-1.5 text-emerald-400 font-sans text-[10px] pt-1">
+                                                    <CheckCircle className="w-3.5 h-3.5" />
+                                                    <span>{completedActions[actionKey]}</span>
+                                                </div>
+                                            ) : (
+                                                <Button 
+                                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-[10px] h-7 gap-1 font-sans mt-1"
+                                                    onClick={() => handleExecuteAction(action, msgIdx, actionIdx)}
+                                                    disabled={!!executingActionIdx}
+                                                >
+                                                    {isExecuting ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                        'Approve & Execute Action'
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         ))}
                         {isLoading && (
@@ -161,7 +285,7 @@ export default function NexusAgent() {
                     {/* Suggestions Box */}
                     <div className="px-4 py-2 border-t border-slate-700/30 flex gap-2 overflow-x-auto no-scrollbar bg-[#0F172A]/10">
                         <button 
-                            onClick={() => handleSendMessage("Low stock items monawada?")}
+                            onClick={() => handleSendMessage("Low stock materials monawada?")}
                             className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
                         >
                             <AlertTriangle className="w-3 h-3 text-amber-500" />

@@ -37,7 +37,7 @@ export class SODLifecycleService {
                 throw new Error('INVALID_STATUS');
             }
             updateData.sltsStatus = sltsStatus;
-            if ((sltsStatus === 'COMPLETED' || sltsStatus === 'RETURN') && !completedDate) {
+            if (sltsStatus === 'COMPLETED' && !completedDate) {
                 throw new Error('COMPLETED_DATE_REQUIRED');
             }
 

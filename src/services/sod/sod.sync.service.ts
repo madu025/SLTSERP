@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '../slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
+import { SODMaterialService } from './sod.material.service';
 
 interface SyncStats {
     queuedCount: number;
@@ -325,7 +326,14 @@ export class SODSyncService {
                 try {
                     const statusDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE) || new Date();
                     const completionStatuses = ['INSTALL_CLOSED'];
-                    const initialSltsStatus = completionStatuses.includes(item.CON_STATUS) ? 'COMPLETED' : 'INPROGRESS';
+                    const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+                    
+                    let initialSltsStatus = 'INPROGRESS';
+                    if (completionStatuses.includes(item.CON_STATUS)) {
+                        initialSltsStatus = 'COMPLETED';
+                    } else if (returnStatuses.includes((item.CON_STATUS || '').toUpperCase())) {
+                        initialSltsStatus = 'RETURN';
+                    }
 
                     const existing = existingMap.get(item.SO_NUM);
                     const updatePayload: Prisma.ServiceOrderUncheckedUpdateInput = {
@@ -349,21 +357,30 @@ export class SODSyncService {
                         phonePurchase: item.CON_PHN_PURCH,
                         sales: item.CON_SALES,
                         completedDate: initialSltsStatus === 'COMPLETED' ? statusDate : undefined,
-                        sltsStatus: initialSltsStatus
+                        sltsStatus: initialSltsStatus,
+                        returnReason: initialSltsStatus === 'RETURN' ? (item.CON_STATUS || 'Returned in external portal') : undefined
                     };
 
                     if (existing) {
                         const isRestoring = (existing.sltsStatus === 'RETURN' && initialSltsStatus === 'INPROGRESS');
-                        await prisma.serviceOrder.update({
-                            where: { id: existing.id },
-                            data: {
-                                ...updatePayload,
-                                sltsStatus: isRestoring ? 'INPROGRESS' : (updatePayload.sltsStatus as string),
-                                receivedDate: isRestoring ? new Date() : undefined,
-                                comments: isRestoring
-                                    ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
-                                    : undefined,
-                                returnReason: isRestoring ? null : undefined
+                        const isReturning = (initialSltsStatus === 'RETURN' && existing.sltsStatus !== 'RETURN');
+                        
+                        await prisma.$transaction(async (tx) => {
+                            await tx.serviceOrder.update({
+                                where: { id: existing.id },
+                                data: {
+                                    ...updatePayload,
+                                    sltsStatus: isRestoring ? 'INPROGRESS' : (updatePayload.sltsStatus as string),
+                                    receivedDate: isRestoring ? new Date() : undefined,
+                                    comments: isRestoring
+                                        ? (existing.comments ? `${existing.comments}\n[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}` : `[AUTO-RESTORE] Prev Return: ${existing.returnReason || existing.status}`)
+                                        : undefined,
+                                    returnReason: isRestoring ? null : undefined
+                                }
+                            });
+                            
+                            if (isReturning) {
+                                await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
                             }
                         });
                         updated++;
@@ -584,11 +601,18 @@ export class SODSyncService {
         const stDate = safeParseDate(masterData['STATUS DATE'] || this.deepParse(masterData)['STATUS DATE']);
         if (stDate) dataToUpdate.statusDate = stDate;
 
+        const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+        const statusStr = typeof mapping.status === 'string' ? mapping.status : '';
+        const currentStatus = statusStr.toUpperCase();
+
         if (mapping.status === 'COMPLETED' || mapping.status === 'INSTALL_CLOSED' || mapping.status === 'PROV_CLOSED') {
             if (!mapping.sltsStatus) dataToUpdate.sltsStatus = 'COMPLETED';
             const d = safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
             if (d) dataToUpdate.completedDate = d;
             if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = 'COMPLETED';
+        } else if (returnStatuses.includes(currentStatus)) {
+            dataToUpdate.sltsStatus = 'RETURN';
+            dataToUpdate.returnReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
         }
 
         const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;
@@ -610,10 +634,18 @@ export class SODSyncService {
 
         const oldStatus = serviceOrder?.sltsStatus || null;
         let syncedOrder: ServiceOrder | null = null;
+        
         if (serviceOrder) {
-            syncedOrder = await prisma.serviceOrder.update({
-                where: { id: serviceOrder.id },
-                data: dataToUpdate
+            const isReturning = (dataToUpdate.sltsStatus === 'RETURN' && oldStatus !== 'RETURN');
+            syncedOrder = await prisma.$transaction(async (tx) => {
+                const updated = await tx.serviceOrder.update({
+                    where: { id: serviceOrder.id },
+                    data: dataToUpdate
+                });
+                if (isReturning) {
+                    await SODMaterialService.rollbackMaterialUsage(tx, serviceOrder.id, 'BRIDGE_SYNC');
+                }
+                return updated;
             });
         } else {
             syncedOrder = await prisma.serviceOrder.create({
@@ -621,7 +653,7 @@ export class SODSyncService {
                     ...(dataToUpdate as Prisma.ServiceOrderUncheckedCreateInput),
                     soNum: soNum || "",
                     status: (dataToUpdate.status as string) || 'PENDING',
-                    sltsStatus: 'INPROGRESS'
+                    sltsStatus: (dataToUpdate.sltsStatus as string) || 'INPROGRESS'
                 }
             });
         }

@@ -1,4 +1,22 @@
 import { primaryClient as prisma } from '@/lib/prisma';
+import { AssetCustodyService } from './inventory/asset-custody.service';
+import { StockRequestService } from './inventory/stock-request.service';
+
+export interface NexusAction {
+    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY';
+    itemId?: string;
+    itemCode?: string;
+    itemName?: string;
+    fromStoreId?: string;
+    fromStoreName?: string;
+    toStoreId?: string;
+    toStoreName?: string;
+    serialId?: string;
+    serialNumber?: string;
+    staffId?: string;
+    staffName?: string;
+    quantity?: number;
+}
 
 export class NexusAgentService {
     /**
@@ -69,16 +87,173 @@ export class NexusAgentService {
     }
 
     /**
-     * Process user query using either Google Gemini API or intelligent pattern matching
+     * Autonomous Stock Self-Healing: Search for stores with excess stock to cover low-stock stores
      */
-    static async ask(message: string): Promise<string> {
+    static async getSelfHealingProposals(): Promise<NexusAction[]> {
+        const stocks = await prisma.inventoryStock.findMany({
+            include: { item: true, store: true }
+        });
+
+        const lowStock = stocks.filter(s => Number(s.quantity) <= Number(s.minLevel));
+        const proposals: NexusAction[] = [];
+
+        for (const ls of lowStock) {
+            const shortageQty = Math.ceil(Number(ls.minLevel) - Number(ls.quantity) + 10);
+            
+            // Find a store holding the same item with surplus stock
+            const excessStock = stocks.find(s => 
+                s.itemId === ls.itemId && 
+                s.storeId !== ls.storeId && 
+                Number(s.quantity) > (Number(s.minLevel) + shortageQty + 20)
+            );
+
+            if (excessStock) {
+                proposals.push({
+                    type: 'STOCK_HEAL',
+                    itemId: ls.itemId,
+                    itemCode: ls.item.code,
+                    itemName: ls.item.name,
+                    fromStoreId: excessStock.storeId,
+                    fromStoreName: excessStock.store.name,
+                    toStoreId: ls.storeId,
+                    toStoreName: ls.store.name,
+                    quantity: shortageQty
+                });
+            }
+        }
+
+        return proposals;
+    }
+
+    /**
+     * Parse natural language ChatOps commands for writing/updating the database
+     */
+    static async parseChatOps(message: string): Promise<NexusAction | null> {
+        const words = message.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, " ").split(/\s+/).filter(Boolean);
+        if (words.length === 0) return null;
+
+        // 1. Search for a matching registered serial number
+        const serials = await prisma.inventoryItemSerial.findMany({
+            where: {
+                serialNumber: { in: words }
+            },
+            include: { item: true }
+        });
+
+        // 2. Search for a matching staff member
+        const staffList = await prisma.staff.findMany({
+            where: {
+                OR: [
+                    { employeeId: { in: words } },
+                    { name: { in: words } }
+                ]
+            }
+        });
+
+        if (serials.length > 0 && staffList.length > 0) {
+            const serial = serials[0];
+            const staff = staffList[0];
+            return {
+                type: 'ASSIGN_CUSTODY',
+                serialId: serial.id,
+                serialNumber: serial.serialNumber,
+                itemName: serial.item.name,
+                staffId: staff.id,
+                staffName: staff.name
+            };
+        }
+
+        // 3. Search for stock transfer commands (quantity, two stores, and item name/code)
+        const numbers = words.map(w => parseFloat(w)).filter(n => !isNaN(n));
+        const qty = numbers.find(n => n > 0);
+
+        if (qty) {
+            const stores = await prisma.inventoryStore.findMany();
+            const matchedStores = [];
+            for (const store of stores) {
+                if (message.toLowerCase().includes(store.name.toLowerCase())) {
+                    matchedStores.push(store);
+                }
+            }
+
+            const items = await prisma.inventoryItem.findMany();
+            let matchedItem = null;
+            for (const item of items) {
+                if (message.toLowerCase().includes(item.name.toLowerCase()) || message.toLowerCase().includes(item.code.toLowerCase())) {
+                    matchedItem = item;
+                    break;
+                }
+            }
+
+            if (matchedStores.length >= 2 && matchedItem) {
+                return {
+                    type: 'STOCK_TRANSFER',
+                    itemId: matchedItem.id,
+                    itemCode: matchedItem.code,
+                    itemName: matchedItem.name,
+                    fromStoreId: matchedStores[0].id,
+                    fromStoreName: matchedStores[0].name,
+                    toStoreId: matchedStores[1].id,
+                    toStoreName: matchedStores[1].name,
+                    quantity: qty
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Execute an autonomous action on behalf of the user safely (with full ERP audit logging)
+     */
+    static async executeAction(action: NexusAction, userId: string) {
+        if (action.type === 'ASSIGN_CUSTODY') {
+            if (!action.serialNumber || !action.staffId) throw new Error("MISSING_PARAMS");
+            return await AssetCustodyService.assignAsset(
+                action.serialNumber,
+                action.staffId,
+                userId
+            );
+        }
+
+        if (action.type === 'STOCK_HEAL' || action.type === 'STOCK_TRANSFER') {
+            if (!action.itemId || !action.fromStoreId || !action.toStoreId || !action.quantity) {
+                throw new Error("MISSING_PARAMS");
+            }
+            return await StockRequestService.createStockRequest({
+                fromStoreId: action.toStoreId, // Target store requests it
+                toStoreId: action.fromStoreId, // Source store issues it
+                requestedById: userId,
+                priority: 'HIGH',
+                purpose: 'Autonomous self-healing stock replenishment via Nexus Agent',
+                items: [{
+                    itemId: action.itemId,
+                    requestedQty: action.quantity,
+                    remarks: 'Replenishment proposal accepted'
+                }]
+            });
+        }
+
+        throw new Error("UNKNOWN_ACTION_TYPE");
+    }
+
+    /**
+     * Process user query using either Google Gemini 2.5 Flash API or intelligent pattern matching
+     */
+    static async ask(message: string): Promise<{ response: string; actions?: NexusAction[] }> {
         const context = await this.getSystemContext();
         const apiKey = process.env.GEMINI_API_KEY;
 
+        // Run proactive analysis
+        const selfHealing = await this.getSelfHealingProposals();
+        const chatOps = await this.parseChatOps(message);
+
+        // Formulate agent prompts
         const systemPrompt = `
 You are "Nexus Agent", the intelligent global AI assistant of SLTS Nexus ERP.
-Your task is to help the user manage inventory, track assets, see low stock, check expiring batches, and understand the system.
+Your task is to help the user manage inventory, track assets, see low stock, check expiring batches, and run database ChatOps.
 You must be fully compatible with all ERP modules.
+
 Current Live ERP Database Context:
 - Total Items Registered: ${context.itemsCount}
 - Active Stores: ${context.storesCount}
@@ -87,13 +262,19 @@ Current Live ERP Database Context:
 - Low Stock Items detected: ${JSON.stringify(context.lowStock)}
 - Expiring Batches (within 30 days): ${JSON.stringify(context.expiringBatches)}
 - Serialized IT/Admin assets under staff custody: ${JSON.stringify(context.custodyAssets)}
+- Self-Healing Virtual Stock Replenishment Proposals: ${JSON.stringify(selfHealing)}
+- Identified ChatOps write action from user: ${chatOps ? JSON.stringify(chatOps) : 'None'}
 
 Rules:
 1. Always be polite, professional, and clear.
 2. If the user asks in Sinhala, reply in natural Sinhala. If in English, reply in English.
-3. Use the Live ERP Context above to answer questions about stock level, expiring batches, and asset custody.
-4. If a question is outside ERP context, politely guide the user back.
+3. If the user wants to assign a serial or transfer stock, and we parsed it, confirm details and tell them they can execute it with one click!
+4. If there is a stock shortage, highlight the self-healing transfer proposal.
         `;
+
+        const actions: NexusAction[] = [];
+        if (chatOps) actions.push(chatOps);
+        if (selfHealing.length > 0) actions.push(...selfHealing.slice(0, 2));
 
         if (apiKey) {
             try {
@@ -108,7 +289,7 @@ Rules:
                                     role: 'user',
                                     parts: [
                                         { text: systemPrompt },
-                                        { text: `User Question: "${message}"` }
+                                        { text: `User Question/Command: "${message}"` }
                                     ]
                                 }
                             ]
@@ -119,54 +300,77 @@ Rules:
                 if (response.ok) {
                     const json = await response.json();
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) return text;
+                    if (text) {
+                        return { response: text, actions };
+                    }
                 }
             } catch (err) {
                 console.error("Gemini API call failed:", err);
             }
         }
 
-        // --- FALLBACK: INTELLIGENT RULE-BASED NATURAL LANGUAGE HANDLER ---
+        // --- FALLBACK: DYNAMIC CONTEXTUAL RESPONSE GENERATOR ---
+        if (chatOps) {
+            if (chatOps.type === 'ASSIGN_CUSTODY') {
+                return {
+                    response: `මට පෙනෙන විදිහට ඔබට අවශ්‍ය වන්නේ ${chatOps.itemName} (Serial: ${chatOps.serialNumber}) උපකරණය ${chatOps.staffName} හට පැවරීමටයි. පහත Confirm බොත්තම මඟින් ඔබට මෙය සෘජුවම සිදු කළ හැක.`,
+                    actions
+                };
+            }
+            if (chatOps.type === 'STOCK_TRANSFER') {
+                return {
+                    response: `මට පෙනෙන විදිහට ඔබට අවශ්‍ය වන්නේ ${chatOps.fromStoreName} සිට ${chatOps.toStoreName} දක්වා ${chatOps.quantity} ${chatOps.itemName} මාරු කිරීමටයි. පහත Confirm බොත්තම මඟින් මෙය සෘජුවම සිදු කළ හැක.`,
+                    actions
+                };
+            }
+        }
+
         const query = message.toLowerCase();
 
         if (query.includes('low') || query.includes('stok') || query.includes('adu') || query.includes('stock')) {
             if (context.lowStock.length === 0) {
-                return `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත. (No low stock items found).`;
+                return { response: `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`, actions };
             }
             const itemsList = context.lowStock
                 .map(s => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min Limit: ${s.min})`)
                 .join('\n');
-            return `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ ලැයිස්තුව මෙසේය (Low Stock Items):\n\n${itemsList}\n\nකරුණාකර මේවා සඳහා නව Purchase Request එකක් හෝ virtual transfer එකක් සිදු කරන්න.`;
+            
+            let selfHealText = '';
+            if (selfHealing.length > 0) {
+                selfHealText = `\n\n💡 **ස්වයං-සුවපත් කිරීමේ යෝජනාව (Self-Healing Proposal):**\n` + 
+                    selfHealing.map(p => `- ${p.fromStoreName} හි අතිරික්තයෙන් ${p.quantity} ක් ${p.toStoreName} වෙත මාරු කර ${p.itemName} හිඟය පියවිය හැක.`).join('\n');
+            }
+
+            return {
+                response: `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ ලැයිස්තුව (Low Stock):\n\n${itemsList}${selfHealText}`,
+                actions
+            };
         }
 
         if (query.includes('expire') || query.includes('expiry') || query.includes('kalkuth') || query.includes('date')) {
             if (context.expiringBatches.length === 0) {
-                return `ඉදිරි දින 30ක් ඇතුළත කල් ඉකුත්වීමට ආසන්න කිසිදු batch එකක් හඳුනාගෙන නොමැත. (No expiring batches found).`;
+                return { response: `ඉදිරි දින 30ක් ඇතුළත කල් ඉකුත්වීමට ආසන්න කිසිදු batch එකක් නොමැත.`, actions };
             }
             const expiringList = context.expiringBatches
                 .map(b => `- Batch ${b.batchNumber}: ${b.itemName} (Expiry Date: ${b.expiry})`)
                 .join('\n');
-            return `කල් ඉකුත්වීමට ආසන්න batches ලැයිස්තුව (Expiring soon):\n\n${expiringList}\n\nFEFO නීතියට අනුව, මෙම batches පළමුවෙන්ම නිකුත් කිරීමට (Stock Issue) පියවර ගන්න.`;
+            return {
+                response: `කල් ඉකුත්වීමට ආසන්න batches ලැයිස්තුව:\n\n${expiringList}`,
+                actions
+            };
         }
 
-        if (query.includes('custody') || query.includes('bhara') || query.includes('assign') || query.includes('laptop') || query.includes('serial')) {
-            if (context.custodyAssets.length === 0) {
-                return `දැනට සේවකයින්ට පවරා ඇති (Assigned) කිසිදු IT/Admin serialized උපකරණයක් නොමැත. (No serialized assets assigned).`;
-            }
-            const custodyList = context.custodyAssets
-                .map(c => `- Serial ${c.serialNumber}: ${c.itemName} -> Assigned to: ${c.staffName}`)
-                .join('\n');
-            return `දැනට සේවකයින් භාරයේ පවතින උපකරණ සහ සන්තකය (Asset Custody Directory):\n\n${custodyList}\n\nනව මාරුවීමක් සිදුකිරීමට "Asset Custody" UI පිටුව භාවිතා කරන්න.`;
-        }
-
-        return `ආයුබෝවන්! මම **Nexus Agent**, ඔබගේ සහය සහායකයා. 
+        return {
+            response: `ආයුබෝවන්! මම **Nexus Agent**, ඔබගේ සහය සහායකයා. 
 
 මගෙන් ඔබට:
-1. **අඩු තොග අනතුරු ඇඟවීම් (Low Stock Alerts)**
+1. **අඩු තොග අනතුරු ඇඟවීම් සහ ස්වයං-සුවපත් කිරීමේ මාරු කිරීම් (Self-Healing Transfers)**
 2. **කල් ඉකුත්වන ද්‍රව්‍ය (Batch Expiry/FEFO Warnings)**
-3. **සේවක වත්කම් සන්තකය (Asset Custody/Laptop Handovers)**
-පිළිබඳව live තොරතුරු ලබාගත හැක.
+3. **සෘජු විධාන මඟින් ගනුදෙනු කිරීම් (ChatOps Assignment & Transfers)**
+පිළිබඳව live තොරතුරු ලබාගෙන ඒවා සෘජුවම ක්‍රියාත්මක කළ හැක.
 
-ඔබට දැනගැනීමට අවශ්‍ය කුමක්ද?`;
+ඔබට දැනගැනීමට අවශ්‍ය කුමක්ද?`,
+            actions
+        };
     }
 }

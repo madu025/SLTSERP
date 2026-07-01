@@ -47,7 +47,10 @@ async function runTests() {
         console.log(`\nUser: "${q}"`);
         try {
             const reply = await NexusAgentService.ask(q);
-            console.log(`Nexus Agent:\n"${reply}"`);
+            console.log(`Nexus Agent:\n"${reply.response}"`);
+            if (reply.actions && reply.actions.length > 0) {
+                console.log(`Suggested Actions: ${JSON.stringify(reply.actions, null, 2)}`);
+            }
         } catch (err) {
             console.error(`Nexus Agent failed for query "${q}":`, err);
         }
