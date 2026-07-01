@@ -125,6 +125,7 @@ model InventoryBatchStock {
   itemId    String
   batchId   String
   quantity  Decimal        @default(0)
+  locator   String?        // Warehouse Locator (Rack, Bin, Zone)
   updatedAt DateTime       @updatedAt
   batch     InventoryBatch @relation(fields: [batchId], references: [id])
   item      InventoryItem  @relation(fields: [itemId], references: [id])
@@ -211,6 +212,7 @@ model InventoryItemSerial {
   contractorId    String?
   sodId           String?
   assignedStaffId String?
+  locator         String?         // Warehouse Locator (Rack, Bin, Zone)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { GRN } from '@prisma/client';
+import { GRN, Prisma } from '@prisma/client';
 import { NotificationService } from '../notification.service';
 import { emitSystemEvent } from '@/lib/events';
 import { CreateGRNData, TransactionClient } from './types';
@@ -107,7 +107,8 @@ export class GRNService {
                         storeId,
                         batchId: batch.id,
                         itemId: item.itemId,
-                        quantity: qty
+                        quantity: qty,
+                        locator: item.locator || null
                     }
                 });
 
@@ -152,8 +153,9 @@ export class GRNService {
                                     status: 'IN_STORE',
                                     storeId,
                                     contractorId: null,
-                                    sodId: null
-                                }
+                                    sodId: null,
+                                    locator: item.locator || null
+                                } as Prisma.InventoryItemSerialUncheckedUpdateInput
                             });
                         } else {
                             await tx.inventoryItemSerial.create({
@@ -161,8 +163,9 @@ export class GRNService {
                                     itemId: item.itemId,
                                     serialNumber: serialNum,
                                     status: 'IN_STORE',
-                                    storeId
-                                }
+                                    storeId,
+                                    locator: item.locator || null
+                                } as Prisma.InventoryItemSerialUncheckedCreateInput
                             });
                         }
                     }

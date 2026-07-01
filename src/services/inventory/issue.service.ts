@@ -28,7 +28,7 @@ export class IssueService {
         contractorId: string;
         storeId: string;
         month: string;
-        items: { itemId: string; quantity: string | number; unit?: string }[];
+        items: { itemId: string; quantity: string | number; unit?: string; serials?: string[] }[];
         userId?: string;
     }, tx?: TransactionClient) {
         const { contractorId, storeId, month, items, userId } = data;
@@ -108,6 +108,24 @@ export class IssueService {
                     update: { quantity: { increment: qty } },
                     create: { contractorId, itemId: item.itemId, quantity: qty }
                 });
+
+                // F. Update serials status if issued and serials are provided
+                if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
+                    for (const sn of item.serials) {
+                        const serialNum = sn.trim();
+                        if (!serialNum) continue;
+
+                        await transaction.inventoryItemSerial.update({
+                            where: { serialNumber: serialNum },
+                            data: {
+                                status: 'ISSUED',
+                                contractorId: contractorId,
+                                storeId: null,
+                                sodId: null
+                            }
+                        });
+                    }
+                }
             }
 
             // 3. Log Transfer-Out Transaction

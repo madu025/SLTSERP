@@ -49,6 +49,7 @@ export interface GRNItemInput {
     quantity: string | number;
     serials?: string[];
     expiryDate?: string | Date;
+    locator?: string;
 }
 
 export interface CreateGRNData {

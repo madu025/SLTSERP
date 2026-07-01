@@ -80,16 +80,24 @@ export class InvoiceService {
                     if (dropWireDistance > 0) {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const hasDropwireMaterial = (sod as any).materialUsage?.some((mu: any) => {
-                            const code = mu.item?.code || '';
-                            const name = mu.item?.name || '';
-                            return code.toUpperCase().includes('F-1') || 
-                                   code.toUpperCase().includes('G-1') || 
-                                   name.toUpperCase().includes('F-1') || 
-                                   name.toUpperCase().includes('G-1');
+                            const code = (mu.item?.code || '').toUpperCase();
+                            const name = (mu.item?.name || '').toUpperCase();
+                            return code.includes('F-1') || 
+                                   code.includes('G-1') || 
+                                   code.includes('F1') || 
+                                   code.includes('G1') || 
+                                   code.includes('DW') || 
+                                   name.includes('F-1') || 
+                                   name.includes('G-1') || 
+                                   name.includes('F1') || 
+                                   name.includes('G1') || 
+                                   name.includes('DROP WIRE') || 
+                                   name.includes('DROPWIRE') || 
+                                   name.includes('DW');
                         });
                         if (!hasDropwireMaterial) {
                             materialMismatch = true;
-                            mismatchReason = `Recorded drop-wire distance of ${dropWireDistance}m but no F-1/G-1 material logged.`;
+                            mismatchReason = `Recorded drop-wire distance of ${dropWireDistance}m but no drop-wire material logged.`;
                         }
                     }
 

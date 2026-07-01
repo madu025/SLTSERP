@@ -47,8 +47,8 @@ export class SODMaterialService {
             }
 
             if (isDecrementingUsage) {
-                // If allowShortage is true in pick, it returns a null-batch record for the remainder
-                const allowShortage = true; 
+                // Enforce strict stock levels (no negative balances allowed)
+                const allowShortage = false; 
                 const pickedBatches = contractorId 
                     ? await inventoryService.pickContractorBatchesFIFO(tx, contractorId, m.itemId, qty, allowShortage)
                     : await inventoryService.pickStoreBatchesFIFO(tx, storeId!, m.itemId, qty, allowShortage);

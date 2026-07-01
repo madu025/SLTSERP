@@ -17,10 +17,18 @@ export class SODImportService {
                 const soNum = String(item['SO Number'] || item['SO_NUM'] || item['SOD'] || '').trim();
                 if (!soNum) continue;
 
-                // Simple check for completion in Excel
+                const existing = await prisma.serviceOrder.findUnique({
+                    where: { soNum },
+                    select: { id: true, sltsStatus: true }
+                });
+
                 const excelStatus = String(item['Status'] || item['CON_STATUS'] || '');
                 const completionStatuses = ['INSTALL_CLOSED', 'COMPLETED', 'FINISHED'];
-                const isCompleted = completionStatuses.includes(excelStatus.toUpperCase());
+                const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
+                const excelStatusUpper = excelStatus.toUpperCase();
+                const isCompleted = completionStatuses.includes(excelStatusUpper);
+                const isReturned = returnStatuses.includes(excelStatusUpper);
+                const sltsStatusVal = isCompleted ? 'COMPLETED' : (isReturned ? 'RETURN' : 'INPROGRESS');
 
                 const voiceNumber = String(item['Voice Number'] || item['VOICENUMBER'] || item['CIRCUIT'] || '');
                 const orderType = String(item['Order Type'] || item['ORDER_TYPE'] || item['TASK_TYPE'] || '');
@@ -34,45 +42,63 @@ export class SODImportService {
                 const techContact = String(item['Tech Contact'] || item['TECH_NO'] || '');
                 const sales = String(item['Sales'] || item['SALES_PERSON'] || '');
 
-                await prisma.serviceOrder.upsert({
-                    where: { soNum },
-                    create: {
-                        soNum,
-                        rtom: rtom,
-                        opmcId: opmcId,
-                        status: excelStatus,
-                        sltsStatus: isCompleted ? 'COMPLETED' : 'INPROGRESS',
-                        voiceNumber,
-                        orderType,
-                        serviceType,
-                        customerName,
-                        address,
-                        dp,
-                        package: pkg,
-                        lea,
-                        woroTaskName,
-                        techContact,
-                        sales,
-                        receivedDate: new Date(),
-                        completedDate: isCompleted ? new Date() : null,
-                    },
-                    update: {
-                        status: excelStatus,
-                        sltsStatus: isCompleted ? 'COMPLETED' : undefined,
-                        completedDate: isCompleted ? new Date() : undefined,
-                        voiceNumber,
-                        orderType,
-                        serviceType,
-                        customerName,
-                        address,
-                        dp,
-                        package: pkg,
-                        lea,
-                        woroTaskName,
-                        techContact,
-                        sales,
-                    }
-                });
+                const createData = {
+                    soNum,
+                    rtom: rtom,
+                    opmcId: opmcId,
+                    status: excelStatus,
+                    sltsStatus: sltsStatusVal,
+                    voiceNumber,
+                    orderType,
+                    serviceType,
+                    customerName,
+                    address,
+                    dp,
+                    package: pkg,
+                    lea,
+                    woroTaskName,
+                    techContact,
+                    sales,
+                    receivedDate: new Date(),
+                    completedDate: isCompleted ? new Date() : null,
+                    returnReason: isReturned ? (excelStatus || 'Returned in Excel Import') : null
+                };
+
+                const updateData = {
+                    status: excelStatus,
+                    sltsStatus: sltsStatusVal,
+                    completedDate: isCompleted ? new Date() : (isReturned ? null : undefined),
+                    returnReason: isReturned ? (excelStatus || 'Returned in Excel Import') : (isCompleted ? null : undefined),
+                    voiceNumber,
+                    orderType,
+                    serviceType,
+                    customerName,
+                    address,
+                    dp,
+                    package: pkg,
+                    lea,
+                    woroTaskName,
+                    techContact,
+                    sales,
+                };
+
+                if (existing) {
+                    const isReturning = (sltsStatusVal === 'RETURN' && existing.sltsStatus !== 'RETURN');
+                    await prisma.$transaction(async (tx) => {
+                        await tx.serviceOrder.update({
+                            where: { id: existing.id },
+                            data: updateData
+                        });
+                        if (isReturning) {
+                            const { SODMaterialService } = await import('./sod.material.service');
+                            await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'EXCEL_IMPORT');
+                        }
+                    });
+                } else {
+                    await prisma.serviceOrder.create({
+                        data: createData
+                    });
+                }
                 created++;
             } catch (err) {
                 failed++;

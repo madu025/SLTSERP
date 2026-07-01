@@ -135,7 +135,18 @@ export class StockRequestService {
      * Main action dispatcher for Stock Requests
      */
     static async processStockRequestAction(data: StockRequestActionData) {
-        const { action } = data;
+        const { action, requestId, userId } = data;
+
+        // Segregation of Duties (SoD) enforcement: Request creator cannot approve/release/process their own request
+        if (['ARM_APPROVE', 'STORES_MANAGER_APPROVE', 'APPROVE', 'RELEASE'].includes(action)) {
+            const stockReq = await prisma.stockRequest.findUnique({
+                where: { id: requestId },
+                select: { requestedById: true }
+            });
+            if (stockReq && stockReq.requestedById === userId) {
+                throw new Error("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
+            }
+        }
 
         switch (action) {
             case 'ARM_APPROVE':
