@@ -22,17 +22,18 @@ export async function POST(request: Request, { params }: { params: Params }) {
       );
     }
 
-    // Get all BOQ items that require material (isNewMaterial layers)
+    // Get all BOQ items that require material (isNewMaterial layers) AND are marked as NEW (shortfall)
     const boqItems = await prisma.projectBOQItem.findMany({
       where: {
         projectId,
         category: { in: ['MATERIAL', 'MATERIAL+LABOR', 'CABLE'] },
+        source: 'NEW' // CRITICAL FIX: Only procure items that are marked as NEW (out of stock)
       },
     });
 
     if (boqItems.length === 0) {
       return NextResponse.json(
-        { message: 'No material items found in BOQ. Labor-only project — no PR needed.' },
+        { message: 'No shortfall material items found in BOQ. All materials are either in stock or labor-only.' },
         { status: 200 }
       );
     }

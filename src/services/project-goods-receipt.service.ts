@@ -186,12 +186,65 @@ export class ProjectGoodsReceiptService {
             updateData.approvedAt = new Date();
         }
 
-        const goodsReceipt = await prisma.projectGoodsReceipt.update({
-            where: { id },
-            data: updateData,
-            include: { items: true },
-        });
+        if (status === 'APPROVED') {
+            const goodsReceipt = await prisma.$transaction(async (tx) => {
+                const grn = await tx.projectGoodsReceipt.update({
+                    where: { id },
+                    data: updateData,
+                    include: { items: true, project: true },
+                });
 
-        return goodsReceipt;
+                // Find appropriate store to deposit goods
+                let store = null;
+                if (grn.project.opmcId) {
+                    store = await tx.inventoryStore.findFirst({
+                        where: { opmcs: { some: { id: grn.project.opmcId } } }
+                    });
+                }
+                if (!store) {
+                    store = await tx.inventoryStore.findFirst({ where: { type: 'MAIN' } });
+                }
+
+                if (store) {
+                    // Update stocks
+                    for (const item of grn.items) {
+                        const invItem = await tx.inventoryItem.findUnique({ where: { code: item.itemCode }});
+                        if (invItem) {
+                            await tx.inventoryStock.upsert({
+                                where: { storeId_itemId: { storeId: store.id, itemId: invItem.id } },
+                                update: { quantity: { increment: item.quantityReceived } },
+                                create: { storeId: store.id, itemId: invItem.id, quantity: item.quantityReceived, minLevel: 0 }
+                            });
+                            
+                            // Create transaction record
+                            await tx.inventoryTransaction.create({
+                                data: {
+                                    storeId: store.id,
+                                    type: 'IN',
+                                    referenceId: grn.grnNumber,
+                                    userId: approvedById || 'system',
+                                    items: {
+                                        create: [{
+                                            itemId: invItem.id,
+                                            quantity: item.quantityReceived
+                                        }]
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+
+                return grn;
+            });
+            return goodsReceipt;
+        } else {
+            const goodsReceipt = await prisma.projectGoodsReceipt.update({
+                where: { id },
+                data: updateData,
+                include: { items: true, project: true },
+            });
+            return goodsReceipt;
+        }
     }
 }

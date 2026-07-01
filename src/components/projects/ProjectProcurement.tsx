@@ -16,6 +16,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import SearchableItemSelect, { InventoryItem } from '@/components/shared/SearchableItemSelect';
+import ProjectBOQAnalysis from './ProjectBOQAnalysis';
 
 interface Project {
     id: string;
@@ -115,7 +116,7 @@ interface ProjectProcurementProps {
 }
 
 export default function ProjectProcurement({ project, refreshProject }: ProjectProcurementProps) {
-    const [activeTab, setActiveTab] = useState('requisitions');
+    const [activeTab, setActiveTab] = useState('boq-analysis');
     const [requisitions, setRequisitions] = useState<Requisition[]>([]);
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
     const [goodsReceipts, setGoodsReceipts] = useState<GoodsReceipt[]>([]);
@@ -279,6 +280,9 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
         <div className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="bg-white border border-slate-200 p-1">
+                    <TabsTrigger value="boq-analysis" className="flex items-center gap-2">
+                        <FileText className="w-4 h-4" /> BOQ Analysis
+                    </TabsTrigger>
                     <TabsTrigger value="requisitions" className="flex items-center gap-2">
                         <FileText className="w-4 h-4" /> Requisitions
                     </TabsTrigger>
@@ -289,6 +293,11 @@ export default function ProjectProcurement({ project, refreshProject }: ProjectP
                         <Package className="w-4 h-4" /> Goods Receipts
                     </TabsTrigger>
                 </TabsList>
+
+                {/* BOQ ANALYSIS TAB */}
+                <TabsContent value="boq-analysis" className="space-y-4 mt-4">
+                    <ProjectBOQAnalysis project={project} refreshProject={refreshProject} />
+                </TabsContent>
 
                 {/* REQUISITIONS TAB */}
                 <TabsContent value="requisitions" className="space-y-4 mt-4">

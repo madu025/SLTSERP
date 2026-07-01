@@ -250,6 +250,18 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/sod-revenue',
                 icon: Receipt,
                 allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'Vendor Upload (HO)',
+                path: '/admin/finance/vendors/import',
+                icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'Bank Upload (HO)',
+                path: '/admin/finance/banks/import',
+                icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
             }
         ]
     },
