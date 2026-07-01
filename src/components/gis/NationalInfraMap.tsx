@@ -14,7 +14,7 @@ import {
   Activity, 
   Filter 
 } from 'lucide-react';
-import { GISAIService, GISAnomaly } from '@/services/gis/gis-ai.service';
+import { GISValidatorService, GISAnomaly } from '@/lib/gis/gis-ai-validator';
 
 interface GISRouteData {
   id: string;
@@ -90,7 +90,7 @@ export default function NationalInfraMap() {
     
     // Anomaly AI check
     if (route.geojsonData) {
-      const detected = GISAIService.detectGISAnomalies(route.geojsonData);
+      const detected = GISValidatorService.detectGISAnomalies(route.geojsonData);
       setAnomalies(detected);
 
       // Find first coordinate to center map
