@@ -4,6 +4,7 @@ import { sltApiService, SLTServiceOrderData, SLTPATData } from '../slt-api.servi
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
+import { SODReturnClassifierService } from './sod-return-classifier.service';
 
 interface SyncStats {
     queuedCount: number;
@@ -553,8 +554,13 @@ export class SODSyncService {
 
         if (isServiceReturn) {
             mapping.sltsStatus = 'RETURN';
-            mapping.returnReason = masterData['RTRESONALL_HIDDEN'] || masterData['SOD RETURN'] || masterData['RETURN REASON'] || 'CUSTOMER NOT READY';
-            mapping.comments = masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || 'Customer delays';
+            const rawReason = masterData['RTRESONALL_HIDDEN'] || masterData['SOD RETURN'] || masterData['RETURN REASON'] || 'CUSTOMER NOT READY';
+            const classification = SODReturnClassifierService.classify(rawReason);
+            mapping.returnReason = classification.category;
+            
+            const rawComment = masterData['RTCMTALL_HIDDEN'] || masterData['RETURN COMMENT'] || '';
+            const combinedComment = `[AI_CLASSIFIED] Reason: ${rawReason}${rawComment ? ` | Comment: ${rawComment}` : ''}`;
+            mapping.comments = serviceOrder?.comments ? `${serviceOrder.comments}\n${combinedComment}` : combinedComment;
             if (!serviceOrder?.completedDate) mapping.completedDate = new Date();
         }
 
@@ -614,7 +620,12 @@ export class SODSyncService {
             if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = 'COMPLETED';
         } else if (returnStatuses.includes(currentStatus)) {
             dataToUpdate.sltsStatus = 'RETURN';
-            dataToUpdate.returnReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
+            const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
+            const classification = SODReturnClassifierService.classify(rawReason);
+            dataToUpdate.returnReason = classification.category;
+            dataToUpdate.comments = serviceOrder?.comments 
+                ? `${serviceOrder.comments}\n[AI_CLASSIFIED] Reason: ${rawReason}`
+                : `[AI_CLASSIFIED] Reason: ${rawReason}`;
         }
 
         const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;

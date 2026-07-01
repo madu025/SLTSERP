@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { addJob, statsUpdateQueue } from '../../lib/queue';
+import { SODReturnClassifierService } from './sod-return-classifier.service';
 
 export class SODImportService {
     /**
@@ -19,7 +20,7 @@ export class SODImportService {
 
                 const existing = await prisma.serviceOrder.findUnique({
                     where: { soNum },
-                    select: { id: true, sltsStatus: true }
+                    select: { id: true, sltsStatus: true, comments: true }
                 });
 
                 const excelStatus = String(item['Status'] || item['CON_STATUS'] || '');
@@ -61,14 +62,16 @@ export class SODImportService {
                     sales,
                     receivedDate: new Date(),
                     completedDate: isCompleted ? new Date() : null,
-                    returnReason: isReturned ? (excelStatus || 'Returned in Excel Import') : null
+                    returnReason: isReturned ? SODReturnClassifierService.classify(excelStatus || 'Returned in Excel Import').category : null,
+                    comments: isReturned ? `[AI_CLASSIFIED] Reason: ${excelStatus || 'Returned in Excel Import'}` : null
                 };
 
                 const updateData = {
                     status: excelStatus,
                     sltsStatus: sltsStatusVal,
                     completedDate: isCompleted ? new Date() : (isReturned ? null : undefined),
-                    returnReason: isReturned ? (excelStatus || 'Returned in Excel Import') : (isCompleted ? null : undefined),
+                    returnReason: isReturned ? SODReturnClassifierService.classify(excelStatus || 'Returned in Excel Import').category : (isCompleted ? null : undefined),
+                    comments: isReturned ? (existing?.comments ? `${existing.comments}\n[AI_CLASSIFIED] Reason: ${excelStatus || 'Returned in Excel Import'}` : `[AI_CLASSIFIED] Reason: ${excelStatus || 'Returned in Excel Import'}`) : undefined,
                     voiceNumber,
                     orderType,
                     serviceType,

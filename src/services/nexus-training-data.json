@@ -1,82 +1,1802 @@
 [
   {
-    "intent": "FINANCE",
-    "text": "higa pvs monawada thiyenne"
-  },
-  {
-    "intent": "FINANCE",
-    "text": "outstanding value eka keeyada"
-  },
-  {
-    "intent": "FINANCE",
-    "text": "contractor payments kiyak thiyeda outstanding"
-  },
-  {
-    "intent": "PROJECTS",
-    "text": "overdue wada kiyak thiyeda"
-  },
-  {
-    "intent": "PROJECTS",
-    "text": "delayed tasks details laba denna"
-  },
-  {
-    "intent": "PROJECTS",
-    "text": "active projects details monawada"
-  },
-  {
-    "intent": "INVENTORY_LOW",
-    "text": "adu stock badu list eka"
-  },
-  {
-    "intent": "INVENTORY_LOW",
-    "text": "stock aduma items monawada"
-  },
-  {
-    "intent": "INVENTORY_LOW",
-    "text": "low stock warnings"
-  },
-  {
-    "intent": "CONTRACTORS",
-    "text": "liyapadinchi contractorla pramanya"
-  },
-  {
-    "intent": "CONTRACTORS",
-    "text": "registered contractors la keeyak innavada"
-  },
-  {
-    "intent": "STORES",
-    "text": "gabadawal kiyak active da"
-  },
-  {
-    "intent": "STORES",
-    "text": "stores pramanya search karanna"
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada products thiyeda"
   },
   {
     "intent": "INVENTORY_ITEMS",
-    "text": "muluku items pramanya"
+    "text": "total muluku dravya"
   },
   {
     "intent": "INVENTORY_ITEMS",
-    "text": "total inventory materials kiyada"
+    "text": "kiyada muluku dravya"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of dravya pramanya"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show projects status thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many products pramanya"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko pramada wada"
   },
   {
     "intent": "PROCUREMENT",
-    "text": "pending requisitions list eka"
+    "text": "show pending grn count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of adu wela thiyena items badu"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many active contractors innavada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of contractors count"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna contractors count"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna balance amount eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko finance details amount eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna active contractors"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list low stock please"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many gabadu gana kiyada"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of dravya please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me outstanding invoices eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total items list thiyeda"
   },
   {
     "intent": "PROCUREMENT",
-    "text": "purchase orders status"
+    "text": "list requisitions list thiyeda"
   },
   {
-    "intent": "PROCUREMENT",
-    "text": "pending grns count"
+    "intent": "PROJECTS",
+    "text": "details of running projects"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko adu badu eka"
   },
   {
     "intent": "VOUCHERS",
-    "text": "vouchers keeyak approve karanna thiyeda"
+    "text": "ko approve karanna thiyena pv"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna wada karana contractors innavada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko pramada wada danna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko finance details"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of reorder level eke thiyena"
+  },
+  {
+    "intent": "STORES",
+    "text": "kiyada warehouses gana kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show project delays danna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of higa mudal"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "mata kiyanna reorder level eke thiyena items"
   },
   {
     "intent": "VOUCHERS",
-    "text": "pending payment vouchers count"
+    "text": "show pending payment vouchers count"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada active contractors kiyada"
+  },
+  {
+    "intent": "STORES",
+    "text": "kiyada gabadawal please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list requisitions list please"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many gabadawal pramanya"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show approve karanna thiyena pv eka"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada adu wela thiyena items"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many gabadu please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of delayed tasks please"
+  },
+  {
+    "intent": "STORES",
+    "text": "kiyada active stores gana kiyada"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada inventory items"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada pv pramanya count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many pending po eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me balance amount eka"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of active stores pramanya"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "list overdue wada please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada inventory items gana"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show adu badu list eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada goods receipt thiyeda"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many delayed tasks tiyenne"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada goods receipt eka"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "ko approve karanna thiyena pv eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada total outstanding please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada requisitions list count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list stock aduma list eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "ko wada karana contractors please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "list active projects"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna liyapadinchi contractors please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada contractor payments danna"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko reorder level eke thiyena list eka"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "how many payment voucher list eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "mata pennanna overdue wada tiyenne"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "ko pvs please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list adu wela thiyena items eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list purchase orders eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many muluku dravya thiyeda"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada running projects count"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko active projects please"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of registered contractors gana"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list purchase orders status"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "list overdue wada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of payables kiyada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada contractors count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list po list status"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me outstanding invoices please"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada approve karanna thiyena pv thiyeda"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the contractor payments danna"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show requisitions list please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada higa mudal please"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of active stores gana kiyada"
+  },
+  {
+    "intent": "STORES",
+    "text": "list of active stores pramanya"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko inventory items gana"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show low stock"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna contractor payments danna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada contractor payments kiyada"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many purchase orders thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many items list pramanya"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many materials eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me payables danna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko balance eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada pramada wada tiyenne"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list reorder level eke thiyena badu"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada items list pramanya"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show goods receipt thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada muluku dravya please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko dravya pramanya"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada outstanding invoices eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total badu jathi pramanya"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show pramada wada count"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "ko pv pramanya please"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of gabadawal tiyenne"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me finance details danna"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show adu badu badu"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of wada karana contractors pramanya"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many active stores tiyenne"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada total outstanding danna"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show inventory alerts items"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list pending requisitions count"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the contractor payments amount eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of liyapadinchi contractors pramanya"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna higa mudal amount eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada running projects thiyeda"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list adu wela thiyena items items"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada requisitions list please"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "ko vouchers eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada registered contractors kiyada"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada pv pramanya"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show stock aduma"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of adu badu eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many items list please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of balance eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me higa invoice kiyada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "mata kiyanna reorder level eke thiyena please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada overdue wada tiyenne"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of project delays please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko inventory items pramanya"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many registered contractors kiyada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko low materials list eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada goods receipt count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko adu wela thiyena items eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna wada karana contractors"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "mata pennanna pramada wada thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of inventory items pramanya"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada pvs"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna outstanding invoices kiyada"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show pending requisitions please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show pending requisitions status"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko delayed tasks count"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of overdue wada danna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of total outstanding please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko dravya please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko higa invoice"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada pramada wada please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of badu jathi thiyeda"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of contractorla kiyada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of wada karana contractors innavada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "ko registered contractors kiyada"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many warehouses"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me outstanding invoices amount eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many active contractors gana"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "ko registered contractors"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada payment voucher list thiyeda"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of gabadawal pramanya"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko po list please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko reorder level eke thiyena badu"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada pv pramanya eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the total outstanding"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list po list count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko goods receipt eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many wada karana contractors please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko stock aduma eka"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list reorder level eke thiyena eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "list active projects count"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "mata pennanna running projects thiyeda"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna active contractors kiyada"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko requisitions list thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of badu jathi"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me higa mudal kiyada"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada payment voucher list eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada contractors count kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of projects status"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list stock aduma please"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada pending payment vouchers count"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total products pramanya"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna finance details kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "mata pennanna projects status count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada low materials eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna wada karana contractors kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada pramada wada count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list pending requisitions status"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna total outstanding please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "mata kiyanna reorder level eke thiyena eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show delayed tasks"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of payables danna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada higa mudal"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show po list eka"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada pending payment vouchers thiyeda"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list low materials eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada contractor payments please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the outstanding invoices please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of stock aduma please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many running projects tiyenne"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show reorder level eke thiyena badu"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me balance kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of active projects count"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many running projects thiyeda"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list pending grn count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada purchase orders count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada low stock"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko project delays"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna balance kiyada"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show payment voucher list thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total items list please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many pramada wada please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many pending grn status"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total products thiyeda"
+  },
+  {
+    "intent": "STORES",
+    "text": "kiyada gabadu gana kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many active projects please"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many active warehouses"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show pv pramanya count"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "ko wada karana contractors innavada"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko pending grn count"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of active contractors gana"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko inventory items thiyeda"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada balance eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of contractorla gana"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many goods receipt status"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "ko wada karana contractors kiyada"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada pv pramanya eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada total outstanding eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list po list please"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show adu badu"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada reorder level eke thiyena badu"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show pramada wada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show reorder level eke thiyena please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total inventory items eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending po"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show vouchers please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of adu wela thiyena items eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna higa mudal kiyada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada low materials badu"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko materials gana"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "ko payment voucher list thiyeda"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "ko pv pramanya thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total inventory items please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show requisitions list thiyeda"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "how many pending payment vouchers eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna registered contractors please"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many warehouses pramanya"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many pending pr please"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada wada karana contractors pramanya"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada payment voucher list thiyeda"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many liyapadinchi contractors kiyada"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total inventory items thiyeda"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of overdue wada count"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada total outstanding"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "mata pennanna overdue wada please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko purchase orders count"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna total outstanding eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of contractor payments please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada products gana"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "mata pennanna active projects count"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada payment voucher list count"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada contractorla innavada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "ko contractorla"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show pending payment vouchers please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of items list"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show goods receipt eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of items list pramanya"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko materials pramanya"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list low materials please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show low materials items"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada pvs count"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko higa invoice eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me outstanding invoices danna"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko active projects thiyeda"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of adu wela thiyena items please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada badu jathi eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko goods receipt"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the outstanding invoices kiyada"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many gabadu pramanya"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending pr eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna contractor payments eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko requisitions list eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many badu jathi please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko adu badu list eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna contractor payments amount eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada higa mudal amount eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total muluku dravya please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada balance please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna higa invoice amount eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show pending requisitions eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of materials gana"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many contractorla kiyada"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending grn"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of finance details kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna outstanding invoices amount eka"
+  },
+  {
+    "intent": "STORES",
+    "text": "kiyada store count pramanya"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me higa invoice amount eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the higa mudal kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "list projects status count"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko pramada wada tiyenne"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of higa invoice please"
+  },
+  {
+    "intent": "STORES",
+    "text": "kiyada warehouses"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko pending requisitions status"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of reorder level eke thiyena please"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many warehouses gana kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of active projects thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total dravya"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada stock aduma list eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the balance please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending grn thiyeda"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show pvs"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko total outstanding"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada payment voucher list eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "list running projects tiyenne"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list inventory alerts please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me payables amount eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of active contractors kiyada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada liyapadinchi contractors pramanya"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of contractors count kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the contractor payments kiyada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list reorder level eke thiyena please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show adu wela thiyena items eka"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many dravya pramanya"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show delayed tasks please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many pending grn count"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna liyapadinchi contractors kiyada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many active contractors kiyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me higa invoice danna"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of contractorla please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko badu jathi please"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "ko pending payment vouchers eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show overdue wada thiyeda"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko po list count"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show approve karanna thiyena pv"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of inventory alerts"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me balance eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko delayed tasks please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna higa invoice amount eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending pr thiyeda"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko goods receipt count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "mata kiyanna inventory alerts items"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko items list"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "ko badu jathi"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna total outstanding please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada running projects"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of active stores tiyenne"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many products eka"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada reorder level eke thiyena"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada wada karana contractors"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me contractor payments"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko po list eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko pending po please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending pr count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending grn please"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many contractorla pramanya"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of active warehouses tiyenne"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many requisitions list"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of inventory alerts badu"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many pending requisitions please"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna active contractors innavada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of registered contractors"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada payables amount eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the higa mudal amount eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko contractor payments eka"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada adu badu items"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total badu jathi eka"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada payment voucher list"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show vouchers thiyeda"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many requisitions list thiyeda"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko running projects tiyenne"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada inventory items please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the outstanding invoices"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada items list please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "what is the balance kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada project delays"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna total outstanding eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "list running projects count"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko higa mudal kiyada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko adu wela thiyena items badu"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "count of dravya eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko higa invoice amount eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me higa mudal eka"
+  },
+  {
+    "intent": "STORES",
+    "text": "list of active warehouses tiyenne"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "mata kiyanna adu wela thiyena items"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total inventory items"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "details of adu badu badu"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna contractorla please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada purchase orders"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "kiyada pramada wada danna"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada outstanding invoices please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many requisitions list please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many pramada wada tiyenne"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada wada karana contractors innavada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko running projects"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "mata kiyanna finance details please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada payables eka"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko active projects count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "show pending po thiyeda"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "kiyada contractors count pramanya"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of higa mudal kiyada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "ko contractorla kiyada"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of liyapadinchi contractors gana"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "how many items list gana"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "ko pending pr eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna contractors count pramanya"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada pending payment vouchers thiyeda"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "mata kiyanna contractorla"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many goods receipt please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "show running projects thiyeda"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of warehouses please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "show me finance details eka"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "how many pending payment vouchers thiyeda"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of active projects please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "mata pennanna active projects danna"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada pending payment vouchers please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "details of pramada wada please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show reorder level eke thiyena eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada outstanding invoices kiyada"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show vouchers"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "how many contractors count kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko overdue wada tiyenne"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada pending requisitions please"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "list low stock"
+  },
+  {
+    "intent": "STORES",
+    "text": "how many active warehouses gana kiyada"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko running projects count"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada purchase orders please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many projects status tiyenne"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "kiyada vouchers thiyeda"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "how many payment voucher list thiyeda"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "kiyada dravya eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "pennanna higa invoice eka"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "show stock aduma list eka"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of wada karana contractors please"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "ko payables please"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "kiyada requisitions list thiyeda"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada reorder level eke thiyena please"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "how many vouchers count"
+  },
+  {
+    "intent": "STORES",
+    "text": "count of warehouses"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "list purchase orders please"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko active projects tiyenne"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many projects status count"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total dravya thiyeda"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many purchase orders please"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total items list pramanya"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "monawada vouchers"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total materials eka"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "details of outstanding invoices please"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "count of contractorla"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "show pvs count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "monawada inventory alerts list eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "how many po list count"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "how many running projects count"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "ko stock aduma badu"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "kiyada payables"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "ko project delays count"
   }
 ]

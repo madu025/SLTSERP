@@ -47,13 +47,15 @@ export class SODMaterialService {
             }
 
             if (isDecrementingUsage) {
-                // Enforce strict stock levels (no negative balances allowed)
-                const allowShortage = false; 
+                // Allow shortage during bridge sync to avoid crashing the pipeline (Auto-Reconciliation)
+                const allowShortage = true; 
                 const pickedBatches = contractorId 
                     ? await inventoryService.pickContractorBatchesFIFO(tx, contractorId, m.itemId, qty, allowShortage)
                     : await inventoryService.pickStoreBatchesFIFO(tx, storeId!, m.itemId, qty, allowShortage);
 
                 for (const picked of pickedBatches) {
+                    const isShortage = picked.batchId === null;
+                    
                     if (picked.batchId) {
                         if (contractorId) {
                             await ContractorRepository.updateBatchStock(contractorId, picked.batchId, -picked.quantity, tx);
@@ -63,7 +65,12 @@ export class SODMaterialService {
                         transactionItems.push({ itemId: m.itemId, batchId: picked.batchId, quantity: -picked.quantity });
                     }
                     
-                    finalUsageRecords.push(this.mapToUsageRecord(m, picked.quantity, picked.batchId, picked.batch));
+                    const record = this.mapToUsageRecord(m, picked.quantity, picked.batchId, picked.batch);
+                    if (isShortage) {
+                        record.exceedsLimit = true;
+                        record.comment = `[AI_RECON] Material shortage detected: Sync requested ${qty} but stock was unavailable.`;
+                    }
+                    finalUsageRecords.push(record);
                 }
 
                 // Update Summary Stock (Global Stock for OPMC/Contractor)

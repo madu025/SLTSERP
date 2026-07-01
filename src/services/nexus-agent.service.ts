@@ -4,6 +4,16 @@ import { StockRequestService } from './inventory/stock-request.service';
 import { NexusContextService } from './nexus-context.service';
 import { NexusClassifierService } from './nexus-classifier.service';
 
+interface GeminiResponse {
+    candidates?: {
+        content?: {
+            parts?: {
+                text?: string;
+            }[];
+        };
+    }[];
+}
+
 // Trigger background model training asynchronously on load
 NexusClassifierService.train().then(() => {
     // Start continuous retraining loop every 1 hour (3600000 ms)
@@ -248,53 +258,85 @@ export class NexusAgentService {
      * Process user query using Google Gemini API or fallback matching
      */
     static async ask(message: string, userId: string): Promise<NexusResponse> {
-        const context = await this.getSystemContext();
         const apiKey = process.env.GEMINI_API_KEY;
         const { NexusMemoryService } = await import('./nexus-memory.service');
 
-        const selfHealing = await this.getSelfHealingProposals();
+        // 1. Predictive Intent Classification
+        const intent = NexusClassifierService.predict(message);
         const actions: NexusAction[] = [];
+        
+        // 2. Fetch Modular Context (Only what is needed!)
+        let contextText = '';
+        let selfHealText = '';
+        
+        switch(intent) {
+            case 'FINANCE': {
+                const fin = await NexusContextService.getFinanceContext();
+                contextText = `Outstanding Invoices: LKR ${fin.outstandingInvoicesSum.toLocaleString()}\nPending PVs: ${fin.pendingPVsCount}`;
+                break;
+            }
+            case 'PROJECTS': {
+                const proj = await NexusContextService.getProjectsContext();
+                contextText = `Active Projects: ${proj.activeProjectsCount}\nOverdue Tasks: ${proj.overdueTasksCount}`;
+                break;
+            }
+            case 'INVENTORY_LOW': {
+                const low = await NexusContextService.getInventoryLowStockContext();
+                if (low.lowStock.length > 0) {
+                    contextText = `Low Stock detected:\n` + low.lowStock.map(s => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min: ${s.min})`).join('\n');
+                    const selfHealing = await this.getSelfHealingProposals();
+                    if (selfHealing.length > 0) {
+                        actions.push(...selfHealing.slice(0, 2));
+                        selfHealText = `\n\n💡 **ස්වයං-සුවපත් කිරීමේ යෝජනාව (Self-Healing Proposal):**\n` + 
+                            selfHealing.map(p => `- ${p.fromStoreName} හි අතිරික්තයෙන් ${p.quantity} ක් ${p.toStoreName} වෙත මාරු කර ${p.itemName} හිඟය පියවිය හැක.`).join('\n');
+                    }
+                } else {
+                    contextText = "No low stock items detected.";
+                }
+                break;
+            }
+            case 'CONTRACTORS': {
+                const cont = await NexusContextService.getContractorsContext();
+                contextText = `Registered Contractors: ${cont.contractorsCount}`;
+                break;
+            }
+            case 'STORES': {
+                const stores = await NexusContextService.getStoresContext();
+                contextText = `Active Stores: ${stores.storesCount}`;
+                break;
+            }
+            case 'INVENTORY_ITEMS': {
+                const items = await NexusContextService.getInventoryItemsContext();
+                contextText = `Total Inventory Items: ${items.itemsCount}`;
+                break;
+            }
+            case 'PROCUREMENT': {
+                const proc = await NexusContextService.getProcurementContext();
+                contextText = `Pending PRs: ${proc.pendingPRsCount}\nPending POs: ${proc.pendingPOsCount}\nPending GRNs: ${proc.pendingGRNsCount}`;
+                break;
+            }
+            case 'VOUCHERS': {
+                const vouchers = await NexusContextService.getVouchersContext();
+                contextText = `Pending PVs: ${vouchers.pendingPVsCount}`;
+                break;
+            }
+            default:
+                contextText = "General queries mapping context.";
+                break;
+        }
 
-        // Load conversation history
-        const history = await NexusMemoryService.getConversation(userId);
-
-        // System prompt outlining agent personality & live statistics context
-        const systemPrompt = `
-You are "Nexus Agent", the intelligent global AI assistant of SLTS Nexus ERP.
-Your task is to help the user manage inventory, track assets, see low stock, check expiring batches, check payment vouchers, track project status, manage users, and run database operations.
-You must be fully compatible with all ERP modules.
-
-Current Live ERP Database Context:
-- Inventory:
-  * Total Items: ${context.inventory.itemsCount}
-  * Active Stores: ${context.inventory.storesCount}
-  * Low Stock detected: ${JSON.stringify(context.inventory.lowStock)}
-  * Expiring Batches: ${JSON.stringify(context.inventory.expiringBatches)}
-  * Serialized Assets: ${JSON.stringify(context.inventory.custodyAssets)}
-- Projects:
-  * Active Projects: ${context.projects.activeProjectsCount}
-  * Overdue Tasks Count: ${context.projects.overdueTasksCount}
-  * Active Progress details: ${JSON.stringify(context.projects.atRiskProjects)}
-- Finance:
-  * Total Outstanding Contractor Invoices: LKR ${context.finance.outstandingInvoicesSum.toLocaleString()}
-  * Payment Vouchers pending approval count: ${context.finance.pendingPVsCount}
-  * Retention HELD: LKR ${context.finance.totalRetentionHeld.toLocaleString()}
-  * Levied Active Penalties: LKR ${context.finance.activePenaltiesSum.toLocaleString()}
-- Procurement:
-  * Open PRs count: ${context.procurement.pendingPRsCount}
-  * Pending PO Approvals count: ${context.procurement.pendingPOsCount}
-  * Pending GRNs count: ${context.procurement.pendingGRNsCount}
-
-Self-Healing Stock Proposals (If any store has low stock and another has excess, recommend a transfer):
-${JSON.stringify(selfHealing)}
-
-Rules:
-1. Always be polite, professional, and clear.
-2. If the user asks in Sinhala, reply in natural Sinhala. If in English, reply in English.
-3. Highlight any critical stats (overdue invoices, pending voucher approvals, or overdue tasks) if they ask about the overall state.
-`;
-
+        // 3. Gemini Generation (if API key available)
         if (apiKey) {
+            const history = await NexusMemoryService.getConversation(userId);
+            const systemPrompt = `You are "Nexus Agent", the intelligent global AI assistant of SLTS Nexus ERP.
+Your task is to answer the user's question accurately using the targeted live context provided.
+If the user asks in Sinhala, reply in natural Sinhala. If in English, reply in English.
+Be concise. Do not guess data.
+
+Live Intent Database Context:
+${contextText}
+${selfHealText}
+`;
             try {
                 const response = await fetch(
                     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -302,245 +344,62 @@ Rules:
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            systemInstruction: {
-                                parts: [{ text: systemPrompt }]
-                            },
+                            system_instruction: { parts: [{ text: systemPrompt }] },
                             contents: [
                                 ...history,
-                                {
-                                    role: 'user',
-                                    parts: [
-                                        { text: message }
-                                    ]
-                                }
-                            ],
-                            tools: [
-                                {
-                                    functionDeclarations: [
-                                        {
-                                            name: "assign_asset_custody",
-                                            description: "Assign custody of a serialized item (e.g. laptop, mobile) to a staff member by name/code and serial number",
-                                            parameters: {
-                                                type: "OBJECT",
-                                                properties: {
-                                                    serialNumber: { type: "STRING", description: "The exact serial number of the asset" },
-                                                    staffNameOrCode: { type: "STRING", description: "Staff member's name or employee code" }
-                                                },
-                                                required: ["serialNumber", "staffNameOrCode"]
-                                            }
-                                        },
-                                        {
-                                            name: "propose_stock_transfer",
-                                            description: "Move/transfer inventory item stock between two stores",
-                                            parameters: {
-                                                type: "OBJECT",
-                                                properties: {
-                                                    itemCodeOrName: { type: "STRING", description: "The inventory item name or item code" },
-                                                    fromStoreName: { type: "STRING", description: "Source inventory store name" },
-                                                    toStoreName: { type: "STRING", description: "Destination inventory store name" },
-                                                    quantity: { type: "NUMBER", description: "Quantity of items to transfer" }
-                                                },
-                                                required: ["itemCodeOrName", "fromStoreName", "toStoreName", "quantity"]
-                                            }
-                                        },
-                                        {
-                                            name: "create_user",
-                                            description: "Create a new ERP user in the system with username, name, password, role, and OPMC/RTOM code",
-                                            parameters: {
-                                                type: "OBJECT",
-                                                properties: {
-                                                    username: { type: "STRING", description: "Desired unique username" },
-                                                    name: { type: "STRING", description: "User's full display name" },
-                                                    password: { type: "STRING", description: "Initial login password" },
-                                                    role: { type: "STRING", description: "User role, e.g. ADMIN, ENGINEER" },
-                                                    rtomCode: { type: "STRING", description: "RTOM code like MD, Galle" }
-                                                },
-                                                required: ["username", "name", "password", "role"]
-                                            }
-                                        }
-                                    ]
-                                }
+                                { role: 'user', parts: [{ text: message }] }
                             ]
                         })
                     }
                 );
-
+                
                 if (response.ok) {
-                    const json = await response.json();
-                    const candidate = json.candidates?.[0];
-                    const functionCall = candidate?.content?.parts?.[0]?.functionCall;
-
-                    if (functionCall) {
-                        const { name, args } = functionCall;
-
-                        if (name === "assign_asset_custody") {
-                            const action = await this.lookupAssetCustody(args.serialNumber, args.staffNameOrCode);
-                            if (action) {
-                                const responseMsg = `I found the asset ${action.itemName} (${action.serialNumber}) and staff member ${action.staffName}. Click confirm below to assign custody.`;
-                                await NexusMemoryService.saveMessage(userId, 'user', message);
-                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
-                                return {
-                                    response: responseMsg,
-                                    actions: [action]
-                                };
-                            } else {
-                                const responseMsg = `I attempted to assign custody for serial "${args.serialNumber}" to "${args.staffNameOrCode}", but could not locate them in the database. Please verify details.`;
-                                await NexusMemoryService.saveMessage(userId, 'user', message);
-                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
-                                return {
-                                    response: responseMsg,
-                                    actions: []
-                                };
-                            }
-                        }
-
-                        if (name === "propose_stock_transfer") {
-                            const action = await this.lookupStockTransfer(args.itemCodeOrName, args.fromStoreName, args.toStoreName, args.quantity);
-                            if (action) {
-                                const responseMsg = `I have prepared a proposal to transfer ${action.quantity} units of ${action.itemName} from ${action.fromStoreName} to ${action.toStoreName}. Click confirm below to request transfer.`;
-                                await NexusMemoryService.saveMessage(userId, 'user', message);
-                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
-                                return {
-                                    response: responseMsg,
-                                    actions: [action]
-                                };
-                            } else {
-                                const responseMsg = `I was unable to propose a stock transfer for "${args.itemCodeOrName}" from "${args.fromStoreName}" to "${args.toStoreName}". Please check item and store names.`;
-                                await NexusMemoryService.saveMessage(userId, 'user', message);
-                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
-                                return {
-                                    response: responseMsg,
-                                    actions: []
-                                };
-                            }
-                        }
-
-                        if (name === "create_user") {
-                            const action = await this.lookupCreateUser(args.username, args.name, args.password, args.role, args.rtomCode);
-                            if (action) {
-                                const responseMsg = `I have prepared a proposal to create a new user "${action.username}" (${action.itemName}) as ${action.role} at OPMC ${action.rtomCode || 'Default'}. Click confirm below to register.`;
-                                await NexusMemoryService.saveMessage(userId, 'user', message);
-                                await NexusMemoryService.saveMessage(userId, 'model', responseMsg);
-                                return {
-                                    response: responseMsg,
-                                    actions: [action]
-                                };
-                            }
-                        }
-                    }
-
-                    const text = candidate?.content?.parts?.[0]?.text;
-                    if (text) {
-                        if (selfHealing.length > 0) {
-                            actions.push(...selfHealing.slice(0, 2));
-                        }
-                        await NexusMemoryService.saveMessage(userId, 'user', message);
-                        await NexusMemoryService.saveMessage(userId, 'model', text);
-                        return { response: text, actions };
-                    }
+                    const data = (await response.json()) as GeminiResponse;
+                    const textReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
+                    return { intent, query: message, response: textReply, actions };
                 }
             } catch (err) {
                 console.error("Gemini API call failed:", err);
             }
         }
 
-        // --- FALLBACK INTERPRETER (Built-in Local AI Classifier) ---
-        const intent = NexusClassifierService.predict(message);
-
-        // 1. Finance outstanding queries
+        // 4. Built-in Offline Fallback Generator (If no Gemini or Gemini failed)
+        let response = '';
         if (intent === 'FINANCE') {
-            return {
-                intent, query: message,
-                response: `පද්ධතියේ දැනට පවතින මුළු හිඟ Contractor Invoices වටිනාකම **LKR ${context.finance.outstandingInvoicesSum.toLocaleString()}** කි. පූර්ණ අනුමැතිය ලැබෙන තෙක් බලාපොරොත්තුවෙන් පවතින Payment Vouchers ගණන **${context.finance.pendingPVsCount}** කි.`,
-                actions
-            };
-        }
-
-        // 2. Project delays queries
-        if (intent === 'PROJECTS') {
-            return {
-                intent, query: message,
-                response: `ක්‍රියාත්මක වන ව්‍යාපෘති ගණන **${context.projects.activeProjectsCount}** කි. ඒ අතරින් දැනට නියමිත දින ඉක්මවා ප්‍රමාද වී ඇති Tasks ප්‍රමාණය **${context.projects.overdueTasksCount}** කි.`,
-                actions
-            };
-        }
-
-        // 3. Low stock queries
-        if (intent === 'INVENTORY_LOW') {
-            if (context.inventory.lowStock.length === 0) {
-                return { intent, query: message, response: `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`, actions };
+            const fin = await NexusContextService.getFinanceContext();
+            let retentionText = '';
+            if (fin.releasableRetentionsCount > 0) {
+                retentionText = `\n\n💡 **AI Retention Release Alert (10% Split):**\nනිදහස් කිරීමට සුදුසු (Head Office PAT Passed) Invoices **${fin.releasableRetentionsCount}** ක් හඳුනාගෙන ඇත. එහි මුළු වටිනාකම **LKR ${fin.releasableRetentionsSum.toLocaleString()}** කි. \nනිදහස් කිරීමට නිර්දේශිත Invoices:\n${fin.releasableInvoicesList.map((i: string) => `- ${i}`).join('\n')}`;
             }
-            const itemsList = context.inventory.lowStock
-                .map((s: any) => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min: ${s.min})`)
-                .join('\n');
-            
-            let selfHealText = '';
-            if (selfHealing.length > 0) {
-                actions.push(...selfHealing.slice(0, 2));
-                selfHealText = `\n\n💡 **ස්වයං-සුවපත් කිරීමේ යෝජනාව (Self-Healing Proposal):**\n` + 
-                    selfHealing.map(p => `- ${p.fromStoreName} හි අතිරික්තයෙන් ${p.quantity} ක් ${p.toStoreName} වෙත මාරු කර ${p.itemName} හිඟය පියවිය හැක.`).join('\n');
+            response = `පද්ධතියේ දැනට පවතින මුළු හිඟ Contractor Invoices වටිනාකම **LKR ${fin.outstandingInvoicesSum.toLocaleString()}** කි. පූර්ණ අනුමැතිය ලැබෙන තෙක් බලාපොරොත්තුවෙන් පවතින Payment Vouchers ගණන **${fin.pendingPVsCount}** කි.${retentionText}`;
+        } else if (intent === 'PROJECTS') {
+            const proj = await NexusContextService.getProjectsContext();
+            response = `ක්‍රියාත්මක වන ව්‍යාපෘති ගණන **${proj.activeProjectsCount}** කි. ඒ අතරින් දැනට නියමිත දින ඉක්මවා ප්‍රමාද වී ඇති Tasks ප්‍රමාණය **${proj.overdueTasksCount}** කි.`;
+        } else if (intent === 'INVENTORY_LOW') {
+            if (!selfHealText) {
+                response = `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`;
+            } else {
+                response = `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ ලැයිස්තුව (Low Stock):\n\n${contextText}${selfHealText}`;
             }
-
-            return {
-                intent, query: message,
-                response: `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ ලැයිස්තුව (Low Stock):\n\n${itemsList}${selfHealText}`,
-                actions
-            };
+        } else if (intent === 'CONTRACTORS') {
+            const cont = await NexusContextService.getContractorsContext();
+            response = `පද්ධතියේ දැනට ලියාපදිංචි වී ඇති මුළු කොන්ත්‍රාත්කරුවන් (Contractors) ගණන **${cont.contractorsCount}** කි.`;
+        } else if (intent === 'STORES') {
+            const stores = await NexusContextService.getStoresContext();
+            response = `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන **${stores.storesCount}** කි.`;
+        } else if (intent === 'INVENTORY_ITEMS') {
+            const items = await NexusContextService.getInventoryItemsContext();
+            response = `පද්ධතියේ ලියාපදිංචි කර ඇති මුළු ද්‍රව්‍ය/උපකරණ වර්ග (Inventory Items) ගණන **${items.itemsCount}** කි.`;
+        } else if (intent === 'PROCUREMENT') {
+            const proc = await NexusContextService.getProcurementContext();
+            response = `Procurement Module තත්ත්වය:\n- කෙටුම්පත් මට්ටමේ පවතින Requisitions (PR) ගණන: **${proc.pendingPRsCount}**\n- අනුමැතිය බලාපොරොත්තුවෙන් පවතින Purchase Orders (PO) ගණන: **${proc.pendingPOsCount}**\n- ලැබීමට නියමිත Goods Receipts (GRN) ගණන: **${proc.pendingGRNsCount}**`;
+        } else if (intent === 'VOUCHERS') {
+            const vouchers = await NexusContextService.getVouchersContext();
+            response = `දැනට අනුමැතිය සඳහා බලාපොරොත්තුවෙන් පවතින මුළු Payment Vouchers (PV) ගණන **${vouchers.pendingPVsCount}** කි.`;
+        } else {
+            response = `ආයුබෝවන්! මම **Nexus AI Agent**. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම දත්ත ලබා දිය හැක. උදාහරණ:\n- "low stock items මොනවාද?"\n- "how many registered contractors?"`;
         }
 
-        // 4. Contractors count queries
-        if (intent === 'CONTRACTORS') {
-            return {
-                intent, query: message,
-                response: `පද්ධතියේ දැනට ලියාපදිංචි වී ඇති මුළු කොන්ත්‍රාත්කරුවන් (Contractors) ගණන **${(context as any).contractorsCount}** කි.`,
-                actions
-            };
-        }
-
-        // 5. Stores queries
-        if (intent === 'STORES') {
-            return {
-                intent, query: message,
-                response: `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන **${context.inventory.storesCount}** කි.`,
-                actions
-            };
-        }
-
-        // 6. Items / Materials queries
-        if (intent === 'INVENTORY_ITEMS') {
-            return {
-                intent, query: message,
-                response: `පද්ධතියේ ලියාපදිංචි කර ඇති මුළු ද්‍රව්‍ය/උපකරණ වර්ග (Inventory Items) ගණන **${context.inventory.itemsCount}** කි.`,
-                actions
-            };
-        }
-
-        // 7. Procurement queries
-        if (intent === 'PROCUREMENT') {
-            return {
-                intent, query: message,
-                response: `Procurement Module තත්ත්වය:\n- කෙටුම්පත් මට්ටමේ පවතින Requisitions (PR) ගණන: **${context.procurement.pendingPRsCount}**\n- අනුමැතිය බලාපොරොත්තුවෙන් පවතින Purchase Orders (PO) ගණන: **${context.procurement.pendingPOsCount}**\n- ලැබීමට නියමිත Goods Receipts (GRN) ගණන: **${context.procurement.pendingGRNsCount}**`,
-                actions
-            };
-        }
-
-        // 8. Payment Vouchers queries
-        if (intent === 'VOUCHERS') {
-            return {
-                intent, query: message,
-                response: `දැනට අනුමැතිය සඳහා බලාපොරොත්තුවෙන් පවතින මුළු Payment Vouchers (PV) ගණන **${context.finance.pendingPVsCount}** කි.`,
-                actions
-            };
-        }
-
-        return {
-            intent: 'UNKNOWN', query: message,
-            response: `ආයුබෝවන්! මම **Nexus AI Agent**. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම metric දත්ත ලබා දිය හැක. උදාහරණ: 
-- "low stock items මොනවාද?"
-- "how many registered contractors?"
-- "pending payment vouchers කොච්චර තියෙනවද?"
-- "overdue tasks මොනවාද?"`,
-            actions
-        };
+        return { intent, query: message, response, actions };
     }
 }

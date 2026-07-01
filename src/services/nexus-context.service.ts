@@ -1,38 +1,32 @@
-import { prisma } from '@/lib/prisma';
+import { primaryClient as prisma } from '@/lib/prisma';
 
 export class NexusContextService {
   /**
    * Generates a unified, multi-module context object for the Gemini model prompt.
+   * NOTE: This is kept for backward compatibility and for full LLM passes. 
+   * Local intent fallbacks should use the modular fetchers below.
    */
   static async getContext() {
     const today = new Date();
 
     const [
-      // Inventory metrics
       itemsCount,
       storesCount,
       lowStockItems,
       expiringBatches,
       custodyAssets,
-      
-      // Projects metrics
       activeProjectsCount,
       overdueTasksCount,
       atRiskProjects,
-      
-      // Finance metrics
       outstandingInvoices,
       pendingPVs,
       totalRetentionHeld,
       activePenalties,
-      
-      // Procurement metrics
       pendingPRs,
       pendingPOs,
       pendingGRNs,
       contractorsCount
     ] = await Promise.all([
-      // 1. Inventory Items & Stores
       prisma.inventoryItem.count(),
       prisma.inventoryStore.count(),
       prisma.inventoryStock.findMany({
@@ -42,10 +36,7 @@ export class NexusContextService {
       }),
       prisma.inventoryBatch.findMany({
         where: {
-          expiryDate: {
-            lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            gt: today
-          }
+          expiryDate: { lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), gt: today }
         },
         include: { item: true },
         take: 5
@@ -55,32 +46,20 @@ export class NexusContextService {
         include: { assignedStaff: true, item: true },
         take: 5
       }),
-
-      // 2. Projects & Tasks
       prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
       prisma.projectTask.count({
-        where: {
-          status: { in: ['PENDING', 'IN_PROGRESS'] },
-          plannedEndDate: { lt: today }
-        }
+        where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today } }
       }),
       prisma.project.findMany({
-        where: {
-          status: 'IN_PROGRESS',
-          actualCost: { gt: 0 } // simple indicator of cost activity
-        },
+        where: { status: 'IN_PROGRESS', actualCost: { gt: 0 } },
         select: { id: true, name: true, projectCode: true, progress: true },
         take: 3
       }),
-
-      // 3. Finance
       prisma.invoice.aggregate({
         _sum: { totalAmount: true },
         where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } }
       }),
-      prisma.paymentVoucher.count({
-        where: { status: 'PENDING_APPROVAL' }
-      }),
+      prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } }),
       prisma.projectRetention.aggregate({
         _sum: { balanceAmount: true },
         where: { status: { not: 'FULLY_RELEASED' } }
@@ -89,19 +68,9 @@ export class NexusContextService {
         _sum: { netAmount: true },
         where: { status: 'APPROVED' }
       }),
-
-      // 4. Procurement
-      prisma.projectRequisition.count({
-        where: { status: 'DRAFT' } // PRs drafted but not approved
-      }),
-      prisma.projectPurchaseOrder.count({
-        where: { status: 'PENDING_APPROVAL' }
-      }),
-      prisma.projectGoodsReceipt.count({
-        where: { status: 'PENDING' }
-      }),
-
-      // 5. Contractors
+      prisma.projectRequisition.count({ where: { status: 'DRAFT' } }),
+      prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } }),
       prisma.contractor.count()
     ]);
 
@@ -149,5 +118,105 @@ export class NexusContextService {
       },
       contractorsCount: contractorsCount
     };
+  }
+
+  // --- MODULAR INTENT-DRIVEN QUERY FUNCTIONS ---
+
+  static async getFinanceContext() {
+    const [outstandingInvoices, pendingPVs, releasableInvoices] = await Promise.all([
+      prisma.invoice.aggregate({
+        _sum: { totalAmount: true },
+        where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } }
+      }),
+      prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.invoice.findMany({
+        where: {
+          statusB: 'HOLD',
+          sods: {
+            every: {
+              hoPatStatus: 'PAT_PASSED'
+            }
+          }
+        },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          amountB: true
+        }
+      })
+    ]);
+
+    const releasableTotal = releasableInvoices.reduce((sum, inv) => sum + Number(inv.amountB || 0), 0);
+
+    return {
+      outstandingInvoicesSum: outstandingInvoices._sum.totalAmount || 0,
+      pendingPVsCount: pendingPVs,
+      releasableRetentionsCount: releasableInvoices.length,
+      releasableRetentionsSum: releasableTotal,
+      releasableInvoicesList: releasableInvoices.map(i => `${i.invoiceNumber} (LKR ${Number(i.amountB).toLocaleString()})`)
+    };
+  }
+
+  static async getProjectsContext() {
+    const today = new Date();
+    const [activeProjectsCount, overdueTasksCount] = await Promise.all([
+      prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
+      prisma.projectTask.count({
+        where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today } }
+      })
+    ]);
+    return { activeProjectsCount, overdueTasksCount };
+  }
+
+  static async getInventoryLowStockContext() {
+    const lowStockItems = await prisma.inventoryStock.findMany({
+      where: { quantity: { lte: 10 } }, // Alternatively, use minLevel checks if available
+      include: { item: true, store: true },
+      take: 20
+    });
+    return {
+      lowStock: lowStockItems.map(s => ({
+        itemId: s.itemId,
+        storeId: s.storeId,
+        itemName: s.item?.name || 'Unknown',
+        itemCode: s.item?.code || '',
+        storeName: s.store?.name || '',
+        qty: Number(s.quantity),
+        min: Number(s.minLevel || 10)
+      }))
+    };
+  }
+
+  static async getContractorsContext() {
+    const contractorsCount = await prisma.contractor.count();
+    return { contractorsCount };
+  }
+
+  static async getStoresContext() {
+    const storesCount = await prisma.inventoryStore.count();
+    return { storesCount };
+  }
+
+  static async getInventoryItemsContext() {
+    const itemsCount = await prisma.inventoryItem.count();
+    return { itemsCount };
+  }
+
+  static async getProcurementContext() {
+    const [pendingPRs, pendingPOs, pendingGRNs] = await Promise.all([
+      prisma.projectRequisition.count({ where: { status: 'DRAFT' } }),
+      prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } })
+    ]);
+    return {
+      pendingPRsCount: pendingPRs,
+      pendingPOsCount: pendingPOs,
+      pendingGRNsCount: pendingGRNs
+    };
+  }
+
+  static async getVouchersContext() {
+    const pendingPVs = await prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } });
+    return { pendingPVsCount: pendingPVs };
   }
 }

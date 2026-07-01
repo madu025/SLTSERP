@@ -95,14 +95,38 @@ const DYNAMIC_TRAINING_PATH = path.join(process.cwd(), 'src/services/nexus-train
 
 export class NexusClassifierService {
   /**
-   * Tokenize text into words
+   * Suffix stemming to map word variations to root tokens
+   */
+  private static stem(word: string): string {
+    // English rules
+    if (word.endsWith('ing')) word = word.slice(0, -3);
+    else if (word.endsWith('ed')) word = word.slice(0, -2);
+    else if (word.endsWith('es')) word = word.slice(0, -2);
+    else if (word.endsWith('s') && word.length > 2) word = word.slice(0, -1);
+    
+    // Singlish/Sinhala plural/suffix stripping rules
+    if (word.endsWith('la')) word = word.slice(0, -2);
+    else if (word.endsWith('wal')) word = word.slice(0, -3);
+    else if (word.endsWith('val')) word = word.slice(0, -3);
+    else if (word.endsWith('da')) word = word.slice(0, -2);
+    else if (word.endsWith('ta')) word = word.slice(0, -2);
+    else if (word.endsWith('ewade')) word = word.slice(0, -5);
+    else if (word.endsWith('thiyeda')) word = word.slice(0, -7);
+    else if (word.endsWith('thiyenne')) word = word.slice(0, -8);
+    
+    return word;
+  }
+
+  /**
+   * Tokenize text into words and stem them
    */
   private static tokenize(text: string): string[] {
     return text
       .toLowerCase()
       .replace(/[^\w\s\u0d80-\u0dff]/g, '') // strip punctuation keeping English/Sinhala characters
       .split(/\s+/)
-      .filter(w => w.length > 0);
+      .filter(w => w.length > 0)
+      .map(w => this.stem(w));
   }
 
   /**
@@ -121,7 +145,7 @@ export class NexusClassifierService {
   }
 
   /**
-   * Adds a new example to the dynamic dataset and triggers retraining
+   * Adds a new example to the dynamic dataset and triggers retraining atomically
    */
   static async addTrainingExample(intent: string, text: string): Promise<void> {
     let dynamicData: { intent: string; text: string }[] = [];
@@ -129,13 +153,30 @@ export class NexusClassifierService {
       if (fs.existsSync(DYNAMIC_TRAINING_PATH)) {
         dynamicData = JSON.parse(await fs.promises.readFile(DYNAMIC_TRAINING_PATH, 'utf-8'));
       }
-    } catch (e) {}
+    } catch {}
 
     // Avoid exact duplicate reinforcement 
     if (!dynamicData.find(d => d.text === text && d.intent === intent) && !TRAINING_DATA.find(d => d.text === text && d.intent === intent)) {
         dynamicData.push({ intent, text });
-        await fs.promises.writeFile(DYNAMIC_TRAINING_PATH, JSON.stringify(dynamicData, null, 2), 'utf-8');
-        await this.train();
+        
+        const tmpPath = `${DYNAMIC_TRAINING_PATH}.tmp`;
+        try {
+            // Write to temporary file
+            await fs.promises.writeFile(tmpPath, JSON.stringify(dynamicData, null, 2), 'utf-8');
+            
+            // Read back & validate parse to prevent file corruption
+            const check = await fs.promises.readFile(tmpPath, 'utf-8');
+            JSON.parse(check);
+            
+            // Swap temp file to actual file
+            await fs.promises.rename(tmpPath, DYNAMIC_TRAINING_PATH);
+            await this.train();
+        } catch (err) {
+            console.error("[CLASSIFIER] Atomic training data persistence failed, aborting write:", err);
+            if (fs.existsSync(tmpPath)) {
+                try { fs.unlinkSync(tmpPath); } catch {}
+            }
+        }
     }
   }
 
