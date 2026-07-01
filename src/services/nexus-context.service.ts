@@ -1,4 +1,5 @@
 import { primaryClient as prisma } from '@/lib/prisma';
+import { ProjectAIService } from './project/project-ai.service';
 
 export class NexusContextService {
   /**
@@ -25,7 +26,9 @@ export class NexusContextService {
       pendingPRs,
       pendingPOs,
       pendingGRNs,
-      contractorsCount
+      contractorsCount,
+      releasableInvoices,
+      activeProjects
     ] = await Promise.all([
       prisma.inventoryItem.count(),
       prisma.inventoryStore.count(),
@@ -71,8 +74,30 @@ export class NexusContextService {
       prisma.projectRequisition.count({ where: { status: 'DRAFT' } }),
       prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } }),
       prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } }),
-      prisma.contractor.count()
+      prisma.contractor.count(),
+      prisma.invoice.findMany({
+        where: {
+          statusB: 'HOLD',
+          sods: { every: { hoPatStatus: 'PAT_PASSED' } }
+        },
+        select: { invoiceNumber: true, amountB: true }
+      }),
+      prisma.project.findMany({
+        where: { status: 'IN_PROGRESS' },
+        select: { id: true, name: true },
+        take: 5
+      })
     ]);
+
+    const projectRisks = [];
+    for (const p of activeProjects) {
+        const risk = await ProjectAIService.predictProjectRisks(p.id);
+        if (risk.risks.length > 0) {
+            projectRisks.push({ name: p.name, risks: risk.risks });
+        }
+    }
+
+    const releasableTotal = releasableInvoices.reduce((sum, inv) => sum + Number(inv.amountB || 0), 0);
 
     return {
       inventory: {
@@ -103,13 +128,17 @@ export class NexusContextService {
           code: p.projectCode,
           name: p.name,
           progress: Number(p.progress || 0)
-        }))
+        })),
+        projectRisks
       },
       finance: {
         outstandingInvoicesSum: outstandingInvoices._sum.totalAmount || 0,
         pendingPVsCount: pendingPVs,
         totalRetentionHeld: totalRetentionHeld._sum.balanceAmount || 0,
-        activePenaltiesSum: activePenalties._sum.netAmount || 0
+        activePenaltiesSum: activePenalties._sum.netAmount || 0,
+        releasableRetentionsCount: releasableInvoices.length,
+        releasableRetentionsSum: releasableTotal,
+        releasableInvoicesList: releasableInvoices.map(i => `${i.invoiceNumber} (LKR ${Number(i.amountB).toLocaleString()})`)
       },
       procurement: {
         pendingPRsCount: pendingPRs,
@@ -159,13 +188,27 @@ export class NexusContextService {
 
   static async getProjectsContext() {
     const today = new Date();
-    const [activeProjectsCount, overdueTasksCount] = await Promise.all([
+    const [activeProjectsCount, overdueTasksCount, activeProjects] = await Promise.all([
       prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
       prisma.projectTask.count({
         where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today } }
+      }),
+      prisma.project.findMany({
+        where: { status: 'IN_PROGRESS' },
+        select: { id: true, name: true },
+        take: 5
       })
     ]);
-    return { activeProjectsCount, overdueTasksCount };
+
+    const projectRisks = [];
+    for (const p of activeProjects) {
+        const risk = await ProjectAIService.predictProjectRisks(p.id);
+        if (risk.risks.length > 0) {
+            projectRisks.push({ name: p.name, risks: risk.risks });
+        }
+    }
+
+    return { activeProjectsCount, overdueTasksCount, projectRisks };
   }
 
   static async getInventoryLowStockContext() {
@@ -188,18 +231,27 @@ export class NexusContextService {
   }
 
   static async getContractorsContext() {
-    const contractorsCount = await prisma.contractor.count();
-    return { contractorsCount };
+    const [contractorsCount, contractors] = await Promise.all([
+      prisma.contractor.count(),
+      prisma.contractor.findMany({ select: { name: true, type: true }, take: 5 })
+    ]);
+    return { contractorsCount, list: contractors.map(c => `${c.name} (${c.type})`) };
   }
 
   static async getStoresContext() {
-    const storesCount = await prisma.inventoryStore.count();
-    return { storesCount };
+    const [storesCount, stores] = await Promise.all([
+      prisma.inventoryStore.count(),
+      prisma.inventoryStore.findMany({ select: { name: true, type: true }, take: 5 })
+    ]);
+    return { storesCount, list: stores.map(s => `${s.name} (${s.type})`) };
   }
 
   static async getInventoryItemsContext() {
-    const itemsCount = await prisma.inventoryItem.count();
-    return { itemsCount };
+    const [itemsCount, items] = await Promise.all([
+      prisma.inventoryItem.count(),
+      prisma.inventoryItem.findMany({ select: { name: true, code: true }, take: 5 })
+    ]);
+    return { itemsCount, list: items.map(i => `${i.name} [${i.code}]`) };
   }
 
   static async getProcurementContext() {

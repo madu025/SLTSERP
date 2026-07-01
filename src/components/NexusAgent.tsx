@@ -79,6 +79,14 @@ export default function NexusAgent() {
     const [isLoading, setIsLoading] = useState(false);
     const [executingActionIdx, setExecutingActionIdx] = useState<string | null>(null);
     const [completedActions, setCompletedActions] = useState<Record<string, string>>({});
+    const [suggestions, setSuggestions] = useState<string[]>([
+        "Low stock materials monawada?",
+        "how many registered contractors?",
+        "gabadu gana kiyada?",
+        "total materials info danna?",
+        "pending requisitions kiyada?",
+        "Pending Payment Vouchers monawada?"
+    ]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Hide NexusAgent on public/unauthenticated pages
@@ -118,6 +126,14 @@ export default function NexusAgent() {
                     }));
                     setMessages(formatted);
                 } else {
+                    setSuggestions([
+                        "Low stock materials monawada?",
+                        "how many registered contractors?",
+                        "gabadu gana kiyada?",
+                        "total materials info danna?",
+                        "pending requisitions kiyada?",
+                        "Pending Payment Vouchers monawada?"
+                    ]);
                     setMessages([
                         {
                             id: 'welcome',
@@ -199,6 +215,9 @@ export default function NexusAgent() {
                 query: json.query,
                 timestamp: new Date() 
             }]);
+            if (json.suggestions && Array.isArray(json.suggestions)) {
+                setSuggestions(json.suggestions);
+            }
         } catch {
             setMessages(prev => [...prev, { 
                 id: Date.now() + 'e',
@@ -529,50 +548,20 @@ export default function NexusAgent() {
                             </div>
 
                             {/* Suggestions Box */}
-                            <div className="px-4 py-2 border-t border-slate-700/30 flex gap-2 overflow-x-auto no-scrollbar bg-[#0F172A]/10">
-                                <button 
-                                    onClick={() => handleSendMessage("Low stock materials monawada?")}
-                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
-                                >
-                                    <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                    Low Stock
-                                </button>
-                                <button 
-                                    onClick={() => handleSendMessage("how many registered contractors?")}
-                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
-                                >
-                                    <User className="w-3 h-3 text-emerald-500" />
-                                    Contractors
-                                </button>
-                                <button 
-                                    onClick={() => handleSendMessage("gabadu gana kiyada?")}
-                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
-                                >
-                                    <Building className="w-3 h-3 text-amber-400" />
-                                    Stores
-                                </button>
-                                <button 
-                                    onClick={() => handleSendMessage("total materials info danna?")}
-                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
-                                >
-                                    <Sparkles className="w-3 h-3 text-indigo-400" />
-                                    Items Count
-                                </button>
-                                <button 
-                                    onClick={() => handleSendMessage("pending requisitions kiyada?")}
-                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
-                                >
-                                    <MessageSquare className="w-3 h-3 text-sky-400" />
-                                    Procurement
-                                </button>
-                                <button 
-                                    onClick={() => handleSendMessage("Pending Payment Vouchers monawada?")}
-                                    className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer"
-                                >
-                                    <Laptop className="w-3 h-3 text-rose-400" />
-                                    Pending Vouchers
-                                </button>
-                            </div>
+                            {suggestions.length > 0 && (
+                                <div className="px-4 py-2 border-t border-slate-700/30 flex gap-2 overflow-x-auto no-scrollbar bg-[#0F172A]/10 scroll-smooth">
+                                    {suggestions.map((suggestion, idx) => (
+                                        <button 
+                                            key={idx}
+                                            onClick={() => handleSendMessage(suggestion)}
+                                            className="bg-[#1E293B] hover:bg-slate-800 border border-slate-700/50 text-[10px] text-slate-300 font-sans px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1 cursor-pointer transition-all duration-200"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                                            {suggestion}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
 
                             {/* Footer Input */}
                             <div className="p-3 bg-[#0F172A] border-t border-slate-700/50 flex gap-2">

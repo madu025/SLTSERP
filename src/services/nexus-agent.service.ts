@@ -49,6 +49,7 @@ export interface NexusResponse {
     actions?: NexusAction[];
     intent?: string;
     query?: string;
+    suggestions?: string[];
 }
 
 export class NexusAgentService {
@@ -278,6 +279,9 @@ export class NexusAgentService {
             case 'PROJECTS': {
                 const proj = await NexusContextService.getProjectsContext();
                 contextText = `Active Projects: ${proj.activeProjectsCount}\nOverdue Tasks: ${proj.overdueTasksCount}`;
+                if (proj.projectRisks && proj.projectRisks.length > 0) {
+                    contextText += `\nHigh Risk Projects:\n` + proj.projectRisks.map(p => `- ${p.name}: ${p.risks.join(', ')}`).join('\n');
+                }
                 break;
             }
             case 'INVENTORY_LOW': {
@@ -328,14 +332,36 @@ export class NexusAgentService {
         // 3. Gemini Generation (if API key available)
         if (apiKey) {
             const history = await NexusMemoryService.getConversation(userId);
-            const systemPrompt = `You are "Nexus Agent", the intelligent global AI assistant of SLTS Nexus ERP.
-Your task is to answer the user's question accurately using the targeted live context provided.
-If the user asks in Sinhala, reply in natural Sinhala. If in English, reply in English.
-Be concise. Do not guess data.
+            
+            // Fetch Unified complete system context so Gemini has global cross-module understanding
+            const fullContext = await NexusContextService.getContext();
+            const selfHealing = await this.getSelfHealingProposals();
+            let healingPrompt = '';
+            if (selfHealing.length > 0) {
+                healingPrompt = `\n💡 Stock Self-Healing Recommendations:\n` + 
+                    selfHealing.map(p => `- Transfer ${p.quantity} of ${p.itemName} from ${p.fromStoreName} to ${p.toStoreName}`).join('\n');
+            }
 
-Live Intent Database Context:
-${contextText}
-${selfHealText}
+            const systemPrompt = `You are "Nexus Agent", the intelligent global AI assistant of SLTS Nexus ERP.
+Your task is to answer the user's question accurately using the complete live ERP system context provided below.
+Since you have a unified, cross-functional view of the entire ERP (Inventory, Projects, Finance, Procurement, Contractors), you can answer complex cross-module queries.
+
+CRITICAL INSTRUCTION:
+1. Your response MUST be a valid JSON object matching the following structure:
+{
+  "reply": "Your natural language response here (in Sinhala if the user asked in Sinhala, or English if in English)...",
+  "suggestions": [
+     "A relevant follow-up question the user might want to ask next based on your reply",
+     "Another relevant follow-up question",
+     "A third relevant follow-up question"
+  ]
+}
+2. IMPORTANT: In your "reply" text, DO NOT wrap numbers or values in double asterisks (**). Output clean, plain numbers and text to maintain a professional look.
+Do not return any markdown wrapping or other text outside this JSON object.
+
+Complete Live ERP System Context:
+${JSON.stringify(fullContext, null, 2)}
+${healingPrompt}
 `;
             try {
                 const response = await fetch(
@@ -356,7 +382,30 @@ ${selfHealText}
                 if (response.ok) {
                     const data = (await response.json()) as GeminiResponse;
                     const textReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
-                    return { intent, query: message, response: textReply, actions };
+                    
+                    let parsedReply = textReply;
+                    let suggestions: string[] = [
+                        "Show active projects status",
+                        "List current low stock items",
+                        "What is our outstanding invoice sum?"
+                    ];
+                    
+                    try {
+                        const firstBrace = textReply.indexOf('{');
+                        const lastBrace = textReply.lastIndexOf('}');
+                        if (firstBrace !== -1 && lastBrace !== -1) {
+                            const jsonStr = textReply.substring(firstBrace, lastBrace + 1);
+                            const parsed = JSON.parse(jsonStr);
+                            parsedReply = parsed.reply || parsed.response || textReply;
+                            if (Array.isArray(parsed.suggestions)) {
+                                suggestions = parsed.suggestions;
+                            }
+                        }
+                    } catch {
+                        // Fail gracefully
+                    }
+
+                    return { intent, query: message, response: parsedReply, actions, suggestions };
                 }
             } catch (err) {
                 console.error("Gemini API call failed:", err);
@@ -365,41 +414,91 @@ ${selfHealText}
 
         // 4. Built-in Offline Fallback Generator (If no Gemini or Gemini failed)
         let response = '';
+        let suggestions: string[] = [
+            "gabadu gana kiyada?",
+            "total materials info danna?",
+            "how many registered contractors?"
+        ];
+
         if (intent === 'FINANCE') {
             const fin = await NexusContextService.getFinanceContext();
             let retentionText = '';
             if (fin.releasableRetentionsCount > 0) {
-                retentionText = `\n\n💡 **AI Retention Release Alert (10% Split):**\nනිදහස් කිරීමට සුදුසු (Head Office PAT Passed) Invoices **${fin.releasableRetentionsCount}** ක් හඳුනාගෙන ඇත. එහි මුළු වටිනාකම **LKR ${fin.releasableRetentionsSum.toLocaleString()}** කි. \nනිදහස් කිරීමට නිර්දේශිත Invoices:\n${fin.releasableInvoicesList.map((i: string) => `- ${i}`).join('\n')}`;
+                retentionText = `\n\n💡 AI Retention Release Alert (10% Split):\nනිදහස් කිරීමට සුදුසු (Head Office PAT Passed) Invoices ${fin.releasableRetentionsCount} ක් හඳුනාගෙන ඇත. එහි මුළු වටිනාකම LKR ${fin.releasableRetentionsSum.toLocaleString()} කි. \nනිදහස් කිරීමට නිර්දේශිත Invoices:\n${fin.releasableInvoicesList.map((i: string) => `- ${i}`).join('\n')}`;
             }
-            response = `පද්ධතියේ දැනට පවතින මුළු හිඟ Contractor Invoices වටිනාකම **LKR ${fin.outstandingInvoicesSum.toLocaleString()}** කි. පූර්ණ අනුමැතිය ලැබෙන තෙක් බලාපොරොත්තුවෙන් පවතින Payment Vouchers ගණන **${fin.pendingPVsCount}** කි.${retentionText}`;
+            response = `පද්ධතියේ දැනට පවතින මුළු හිඟ Contractor Invoices වටිනාකම LKR ${fin.outstandingInvoicesSum.toLocaleString()} කි. පූර්ණ අනුමැතිය ලැබෙන තෙක් බලාපොරොත්තුවෙන් පවතින Payment Vouchers ගණන ${fin.pendingPVsCount} කි.${retentionText}`;
+            suggestions = [
+                "Pending Payment Vouchers monawada?",
+                "how many registered contractors?",
+                "total materials info danna?"
+            ];
         } else if (intent === 'PROJECTS') {
             const proj = await NexusContextService.getProjectsContext();
-            response = `ක්‍රියාත්මක වන ව්‍යාපෘති ගණන **${proj.activeProjectsCount}** කි. ඒ අතරින් දැනට නියමිත දින ඉක්මවා ප්‍රමාද වී ඇති Tasks ප්‍රමාණය **${proj.overdueTasksCount}** කි.`;
+            let riskText = '';
+            if (proj.projectRisks && proj.projectRisks.length > 0) {
+                riskText = `\n\n⚠️ AI Project Risk Warnings:\n` + proj.projectRisks.map(p => `${p.name}\n${p.risks.map((r: string) => `  - ${r}`).join('\n')}`).join('\n\n');
+            }
+            response = `ක්‍රියාත්මක වන ව්‍යාපෘති ගණන ${proj.activeProjectsCount} කි. ඒ අතරින් දැනට නියමිත දින ඉක්මවා ප්‍රමාද වී ඇති Tasks ප්‍රමාණය ${proj.overdueTasksCount} කි.${riskText}`;
+            suggestions = [
+                "pending requisitions kiyada?",
+                "gabadu gana kiyada?",
+                "how many registered contractors?"
+            ];
         } else if (intent === 'INVENTORY_LOW') {
             if (!selfHealText) {
                 response = `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`;
             } else {
-                response = `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ ලැයිස්තුව (Low Stock):\n\n${contextText}${selfHealText}`;
+                response = `දැනට පද්ධතියේ හඳුනාගත් අවම මට්ටමේ පවතින උපකරණ ලැයිස්තුව (Low Stock):\n\n${contextText.replace(/\*\*/g, '')}${selfHealText.replace(/\*\*/g, '')}`;
             }
+            suggestions = [
+                "gabadu gana kiyada?",
+                "total materials info danna?",
+                "Pending Payment Vouchers monawada?"
+            ];
         } else if (intent === 'CONTRACTORS') {
             const cont = await NexusContextService.getContractorsContext();
-            response = `පද්ධතියේ දැනට ලියාපදිංචි වී ඇති මුළු කොන්ත්‍රාත්කරුවන් (Contractors) ගණන **${cont.contractorsCount}** කි.`;
+            response = `පද්ධතියේ දැනට ලියාපදිංචි වී ඇති මුළු කොන්ත්‍රාත්කරුවන් (Contractors) ගණන ${cont.contractorsCount} කි.\n\nලියාපදිංචි ප්‍රධාන කොන්ත්‍රාත්කරුවන් කිහිපදෙනෙක්:\n${cont.list.map((c: string) => `- ${c}`).join('\n')}`;
+            suggestions = [
+                "gabadu gana kiyada?",
+                "pending requisitions kiyada?",
+                "Pending Payment Vouchers monawada?"
+            ];
         } else if (intent === 'STORES') {
             const stores = await NexusContextService.getStoresContext();
-            response = `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන **${stores.storesCount}** කි.`;
+            response = `පද්ධතියේ දැනට සක්‍රීයව පවතින මුළු ගබඩා (Active Stores) ගණන ${stores.storesCount} කි.\n\nප්‍රධාන ගබඩා ලැයිස්තුව:\n${stores.list.map((s: string) => `- ${s}`).join('\n')}`;
+            suggestions = [
+                "total materials info danna?",
+                "how many registered contractors?",
+                "pending requisitions kiyada?"
+            ];
         } else if (intent === 'INVENTORY_ITEMS') {
             const items = await NexusContextService.getInventoryItemsContext();
-            response = `පද්ධතියේ ලියාපදිංචි කර ඇති මුළු ද්‍රව්‍ය/උපකරණ වර්ග (Inventory Items) ගණන **${items.itemsCount}** කි.`;
+            response = `පද්ධතියේ ලියාපදිංචි කර ඇති මුළු ද්‍රව්‍ය/උපකරණ වර්ග (Inventory Items) ගණන ${items.itemsCount} කි.\n\nප්‍රධාන ද්‍රව්‍ය කිහිපයක්:\n${items.list.map((i: string) => `- ${i}`).join('\n')}`;
+            suggestions = [
+                "gabadu gana kiyada?",
+                "how many registered contractors?",
+                "Pending Payment Vouchers monawada?"
+            ];
         } else if (intent === 'PROCUREMENT') {
             const proc = await NexusContextService.getProcurementContext();
-            response = `Procurement Module තත්ත්වය:\n- කෙටුම්පත් මට්ටමේ පවතින Requisitions (PR) ගණන: **${proc.pendingPRsCount}**\n- අනුමැතිය බලාපොරොත්තුවෙන් පවතින Purchase Orders (PO) ගණන: **${proc.pendingPOsCount}**\n- ලැබීමට නියමිත Goods Receipts (GRN) ගණන: **${proc.pendingGRNsCount}**`;
+            response = `Procurement Module තත්ත්වය:\n- කෙටුම්පත් මට්ටමේ පවතින Requisitions (PR) ගණන: ${proc.pendingPRsCount}\n- අනුමැතිය බලාපොරොත්තුවෙන් පවතින Purchase Orders (PO) ගණන: ${proc.pendingPOsCount}\n- ලැබීමට නියමිත Goods Receipts (GRN) ගණන: ${proc.pendingGRNsCount}`;
+            suggestions = [
+                "how many registered contractors?",
+                "gabadu gana kiyada?",
+                "Pending Payment Vouchers monawada?"
+            ];
         } else if (intent === 'VOUCHERS') {
             const vouchers = await NexusContextService.getVouchersContext();
-            response = `දැනට අනුමැතිය සඳහා බලාපොරොත්තුවෙන් පවතින මුළු Payment Vouchers (PV) ගණන **${vouchers.pendingPVsCount}** කි.`;
+            response = `දැනට අනුමැතිය සඳහා බලාපොරොත්තුවෙන් පවතින මුළු Payment Vouchers (PV) ගණන ${vouchers.pendingPVsCount} කි.`;
+            suggestions = [
+                "how many registered contractors?",
+                "gabadu gana kiyada?",
+                "pending requisitions kiyada?"
+            ];
         } else {
-            response = `ආයුබෝවන්! මම **Nexus AI Agent**. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම දත්ත ලබා දිය හැක. උදාහරණ:\n- "low stock items මොනවාද?"\n- "how many registered contractors?"`;
+            response = `ආයුබෝවන්! මම Nexus AI Agent. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම දත්ත ලබා දිය හැක. උදාහරණ:\n- "low stock items මොනවාද?"\n- "how many registered contractors?"`;
         }
 
-        return { intent, query: message, response, actions };
+        return { intent, query: message, response, actions, suggestions };
     }
 }
