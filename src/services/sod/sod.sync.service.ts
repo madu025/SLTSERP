@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '../slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 
@@ -10,6 +10,16 @@ interface SyncStats {
     created: number;
     updated: number;
     failed: number;
+}
+
+interface MaterialDetailInput {
+    CODE?: string;
+    TYPE?: string;
+    NAME?: string;
+    QTY?: string | number;
+    qty?: string | number;
+    SERIAL?: string;
+    RAW?: Record<string, string>;
 }
 
 export class SODSyncService {
@@ -430,7 +440,16 @@ export class SODSyncService {
     /**
      * Process bridge sync from chrome extension
      */
-    static async bridgeSync(payload: any) {
+    static async bridgeSync(payload: {
+        soNum?: string;
+        allTabs?: Record<string, Record<string, string>>;
+        teamDetails?: Record<string, string>;
+        forensicAudit?: unknown[];
+        materialDetails?: MaterialDetailInput[];
+        currentUser?: string;
+        activeTab?: string;
+        url?: string;
+    }) {
         const { soNum, allTabs, teamDetails, forensicAudit } = payload;
         const MATERIAL_MAP: Record<string, string> = {
             'DROP WIRE': 'OSPFTA003',
@@ -450,7 +469,7 @@ export class SODSyncService {
 
         const masterData: Record<string, string> = {};
         if (allTabs) {
-            Object.values(allTabs).forEach((tabData: any) => {
+            Object.values(allTabs).forEach((tabData) => {
                 if (tabData && typeof tabData === 'object') {
                     Object.assign(masterData, tabData);
                 }
@@ -521,13 +540,13 @@ export class SODSyncService {
         }
 
         const materialDetails = payload.materialDetails || [];
-        const dropWireItem = materialDetails.find((m: any) => {
+        const dropWireItem = materialDetails.find((m: MaterialDetailInput) => {
             const type = (m.TYPE || m.NAME || "").toUpperCase();
             return type && (type.includes('DROP WIRE') || type.includes('DWIRE') || type.includes('DW'));
         });
 
-        if (dropWireItem && (dropWireItem.QTY || dropWireItem.qty)) {
-            const qty = parseFloat(dropWireItem.QTY || String(dropWireItem.qty));
+        if (dropWireItem && (dropWireItem.QTY !== undefined || dropWireItem.qty !== undefined)) {
+            const qty = parseFloat(String(dropWireItem.QTY ?? dropWireItem.qty));
             if (!isNaN(qty)) mapping.dropWireDistance = qty;
         }
 
@@ -560,16 +579,16 @@ export class SODSyncService {
         };
 
         const rcvDate = safeParseDate(masterData['RECEIVED DATE'] || this.deepParse(masterData)['RECEIVED DATE']);
-        if (rcvDate) (dataToUpdate as any).receivedDate = rcvDate;
+        if (rcvDate) dataToUpdate.receivedDate = rcvDate;
 
         const stDate = safeParseDate(masterData['STATUS DATE'] || this.deepParse(masterData)['STATUS DATE']);
-        if (stDate) (dataToUpdate as any).statusDate = stDate;
+        if (stDate) dataToUpdate.statusDate = stDate;
 
         if (mapping.status === 'COMPLETED' || mapping.status === 'INSTALL_CLOSED' || mapping.status === 'PROV_CLOSED') {
-            if (!mapping.sltsStatus) (dataToUpdate as any).sltsStatus = 'COMPLETED';
+            if (!mapping.sltsStatus) dataToUpdate.sltsStatus = 'COMPLETED';
             const d = safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
-            if (d) (dataToUpdate as any).completedDate = d;
-            if (dataToUpdate.completedDate) (dataToUpdate as any).sltsStatus = 'COMPLETED';
+            if (d) dataToUpdate.completedDate = d;
+            if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = 'COMPLETED';
         }
 
         const teamName = (teamDetails?.['SELECTED TEAM'] || masterData['MOBILE_TEAM_DETAILS'] || masterData['TEAM_DETAILS'] || masterData['ASSIGNED_TEAM']) as string | undefined;
@@ -590,7 +609,7 @@ export class SODSyncService {
         }
 
         const oldStatus = serviceOrder?.sltsStatus || null;
-        let syncedOrder: any = null;
+        let syncedOrder: ServiceOrder | null = null;
         if (serviceOrder) {
             syncedOrder = await prisma.serviceOrder.update({
                 where: { id: serviceOrder.id },
@@ -600,7 +619,7 @@ export class SODSyncService {
             syncedOrder = await prisma.serviceOrder.create({
                 data: {
                     ...(dataToUpdate as Prisma.ServiceOrderUncheckedCreateInput),
-                    soNum,
+                    soNum: soNum || "",
                     status: (dataToUpdate.status as string) || 'PENDING',
                     sltsStatus: 'INPROGRESS'
                 }
@@ -629,15 +648,12 @@ export class SODSyncService {
         }
 
         const voiceStatus = masterData['VOICE_TEST_RESULT'] || masterData['VOICE TEST'] || null;
-        if (forensicAudit && forensicAudit.length > 0) {
-            const forensicModel = (prisma as any).sODForensicAudit;
-            if (forensicModel) {
-                await forensicModel.upsert({
-                    where: { soNum },
-                    update: { auditData: forensicAudit, voiceTestStatus: voiceStatus, updatedAt: new Date() },
-                    create: { soNum, auditData: forensicAudit, voiceTestStatus: voiceStatus }
-                });
-            }
+        if (forensicAudit && forensicAudit.length > 0 && soNum) {
+            await prisma.sODForensicAudit.upsert({
+                where: { soNum },
+                update: { auditData: forensicAudit as Prisma.InputJsonValue, voiceTestStatus: voiceStatus, updatedAt: new Date() },
+                create: { soNum, auditData: forensicAudit as Prisma.InputJsonValue, voiceTestStatus: voiceStatus }
+            });
         }
 
         if (materialDetails.length > 0 && syncedOrder) {
@@ -648,7 +664,7 @@ export class SODSyncService {
             for (const mat of materialDetails) {
                 const code = mat.CODE || mat.TYPE;
                 const name = mat.NAME;
-                const qty = parseFloat(mat.QTY || "0");
+                const qty = parseFloat(String(mat.QTY || "0"));
 
                 if (qty > 0 && (code || name)) {
                     let item = await prisma.inventoryItem.findFirst({
@@ -681,8 +697,8 @@ export class SODSyncService {
                                 unit: item.unit || "Nos",
                                 usageType: 'PORTAL_SYNC',
                                 serialNumber: matSerial || null,
-                                unitPrice: item.unitPrice || 0,
-                                costPrice: item.costPrice || 0,
+                                unitPrice: item.unitPrice ? Number(item.unitPrice) : 0,
+                                costPrice: item.costPrice ? Number(item.costPrice) : 0,
                                 comment: `Auto-synced from Portal`
                             }
                         });
@@ -692,13 +708,32 @@ export class SODSyncService {
         }
 
         try {
-            const monitorModel = (prisma as any).extensionRawData;
-            if (monitorModel) {
-                await monitorModel.upsert({
-                    where: { soNum },
-                    update: { sltUser: payload.currentUser || null, activeTab: payload.activeTab || 'SYNC_PUSH', url: payload.url || null, scrapedData: payload, updatedAt: new Date() },
-                    create: { soNum, sltUser: payload.currentUser || null, activeTab: payload.activeTab || 'SYNC_PUSH', url: payload.url || null, scrapedData: payload }
+            if (soNum) {
+                const existing = await prisma.extensionRawData.findFirst({
+                    where: { soNum }
                 });
+                if (existing) {
+                    await prisma.extensionRawData.update({
+                        where: { id: existing.id },
+                        data: {
+                            sltUser: payload.currentUser || null,
+                            activeTab: payload.activeTab || 'SYNC_PUSH',
+                            url: payload.url || null,
+                            scrapedData: payload as unknown as Prisma.InputJsonValue,
+                            updatedAt: new Date()
+                        }
+                    });
+                } else {
+                    await prisma.extensionRawData.create({
+                        data: {
+                            soNum,
+                            sltUser: payload.currentUser || null,
+                            activeTab: payload.activeTab || 'SYNC_PUSH',
+                            url: payload.url || null,
+                            scrapedData: payload as unknown as Prisma.InputJsonValue
+                        }
+                    });
+                }
             }
         } catch { /* ignore */ }
 

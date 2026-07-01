@@ -192,19 +192,19 @@ export function ItemTable({
                                                         <span className="inline-flex items-center px-1.5 py-0.25 rounded text-[9px] font-medium bg-purple-50 text-purple-700 border border-purple-100">SLTS</span>
                                                     )}
                                                 </div>
-                                                {item.minLevel ? (
-                                                    <div className={`flex items-center gap-1 text-[9px] font-medium ${Number(item.minLevel) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                                                        <AlertTriangle className="w-2.5 h-2.5" /> min: {item.minLevel}
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                        </td>
-                                        <td className="px-3 py-1.5 text-right font-mono">
-                                            <div className="space-y-0.5">
-                                                <p className="font-semibold text-slate-900">LKR {item.unitPrice?.toLocaleString()}</p>
-                                                <p className="text-[9px] text-slate-400">Cost: {item.costPrice?.toLocaleString()}</p>
-                                            </div>
-                                        </td>
+                                                 {item.minLevel ? (
+                                                     <div className={`flex items-center gap-1 text-[9px] font-medium ${Number(item.minLevel) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                         <AlertTriangle className="w-2.5 h-2.5" /> min: {Number(item.minLevel)}
+                                                     </div>
+                                                 ) : null}
+                                             </div>
+                                         </td>
+                                         <td className="px-3 py-1.5 text-right font-mono">
+                                             <div className="space-y-0.5">
+                                                 <p className="font-semibold text-slate-900">LKR {Number(item.unitPrice)?.toLocaleString()}</p>
+                                                 <p className="text-[9px] text-slate-400">Cost: {Number(item.costPrice)?.toLocaleString()}</p>
+                                             </div>
+                                         </td>
                                         <td className="px-4 py-1.5 text-right">
                                             <div className="flex justify-end items-center gap-1">
                                                 <Button size="icon" variant="ghost" onClick={() => onEdit(item)} className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md">

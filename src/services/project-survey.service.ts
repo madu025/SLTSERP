@@ -9,7 +9,7 @@ interface CreateSurveyPointInput {
   layerName?: string;
   latitude: number;
   longitude: number;
-  attributes?: any;
+  attributes?: Record<string, unknown>;
   photoUrls?: string[];
   supervisorId: string;
 }
@@ -288,9 +288,9 @@ export class ProjectSurveyService {
         take: 50
       });
 
-      const findRate = (keywords: string[]) => {
+      const findRate = (keywords: string[]): number => {
         const m = inventoryItems.find(i => keywords.some(k => i.name?.toLowerCase().includes(k.toLowerCase())));
-        return m?.unitPrice || 0;
+        return m?.unitPrice ? Number(m.unitPrice) : 0;
       };
 
       const items = [];
@@ -362,7 +362,7 @@ export class ProjectSurveyService {
 
       const totalEstimated = items.reduce((s, i) => s + i.amount, 0);
 
-      const boq = await prisma.gISGeneratedBOQ.create({
+      await prisma.gISGeneratedBOQ.create({
         data: {
           routeId: gisRoute.id,
           projectId,

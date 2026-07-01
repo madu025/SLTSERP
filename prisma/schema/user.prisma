@@ -111,6 +111,7 @@ model Staff {
   reportsTo    Staff?    @relation("Hierarchy", fields: [reportsToId], references: [id])
   subordinates Staff[]   @relation("Hierarchy")
   user         User?
+  serials      InventoryItemSerial[]
 
   @@index([opmcId])
   @@index([reportsToId])

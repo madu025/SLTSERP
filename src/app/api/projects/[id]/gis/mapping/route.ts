@@ -120,7 +120,7 @@ export async function POST(
                 materialId: m.materialId,
                 itemCode: item?.code || "",
                 name: item?.name || "",
-                unitPrice: item?.unitPrice || 0,
+                unitPrice: item?.unitPrice ? Number(item.unitPrice) : 0,
                 updatedAt: new Date().toISOString()
             };
         }

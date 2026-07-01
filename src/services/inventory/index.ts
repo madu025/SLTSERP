@@ -8,6 +8,8 @@ import { WastageService } from './wastage.service';
 import { StockRequestService } from './stock-request.service';
 import { TransactionService } from './transaction.service';
 import { VirtualSwapService } from './virtual-swap.service';
+import { AssetCustodyService } from './asset-custody.service';
+import { ForecastService } from './forecast.service';
 
 /**
  * InventoryService Facade
@@ -29,6 +31,7 @@ export class InventoryService {
     static deleteItem = ItemService.deleteItem;
 
     // --- STORE MANAGEMENT ---
+    static getAccessibleStores = StoreService.getAccessibleStores;
     static getStores = StoreService.getStores;
     static createStore = StoreService.createStore;
     static updateStore = StoreService.updateStore;
@@ -82,4 +85,13 @@ export class InventoryService {
     static getTransitionPreview = VirtualSwapService.getTransitionPreview;
     static getInHandStock = VirtualSwapService.getInHandStock;
     static executeBulkSwap = VirtualSwapService.executeBulkSwap;
+
+    // --- ASSET CUSTODY MANAGEMENT ---
+    static assignAsset = AssetCustodyService.assignAsset;
+    static handoverAsset = AssetCustodyService.handoverAsset;
+    static retireAsset = AssetCustodyService.retireAsset;
+
+    // --- FORECAST MANAGEMENT ---
+    static getMaterialForecast = ForecastService.getMaterialForecast;
+    static generateDraftPO = ForecastService.generateDraftPO;
 }

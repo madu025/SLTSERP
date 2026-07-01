@@ -28,6 +28,8 @@ export class WastageService {
         });
 
         let requiresApproval = false;
+        let totalWastageValue = 0;
+
         for (const item of items) {
             const meta = itemMetas.find(m => m.id === item.itemId);
             if (!meta) continue;
@@ -35,11 +37,18 @@ export class WastageService {
             // Trigger approval flow if wastage is not generally allowed for this item
             if (!meta.isWastageAllowed) {
                 requiresApproval = true;
-                break;
             }
 
-            // Optional: Percentage check could be added here if we had total issued data
-            // For now, respect the isWastageAllowed flag
+            // Calculate total financial value of the wastage
+            const price = meta.costPrice ? Number(meta.costPrice) : (meta.unitPrice ? Number(meta.unitPrice) : 0);
+            const qty = parseFloat(item.quantity.toString()) || 0;
+            totalWastageValue += qty * price;
+        }
+
+        // Value-based approval threshold (e.g. 10,000 LKR)
+        const VALUE_APPROVAL_THRESHOLD = 10000;
+        if (totalWastageValue > VALUE_APPROVAL_THRESHOLD) {
+            requiresApproval = true;
         }
 
         const status = requiresApproval ? 'PENDING' : 'APPROVED';

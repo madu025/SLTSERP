@@ -69,13 +69,13 @@ export class InventoryRepository {
      * Find available batches for an item (FIFO order)
      */
     static async findAvailableBatches(storeId: string, itemId: string, tx: any) {
-        // Lock rows for update to prevent concurrent picking
-        await (tx as any).$executeRaw`SELECT id FROM "InventoryBatchStock" WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND "quantity" > 0 FOR UPDATE`;
-        
         return (tx as any).inventoryBatchStock.findMany({
             where: { storeId, itemId, quantity: { gt: 0 } },
             include: { batch: true },
-            orderBy: { batch: { createdAt: 'asc' } }
+            orderBy: [
+                { batch: { expiryDate: { sort: 'asc', nulls: 'last' } } },
+                { batch: { createdAt: 'asc' } }
+            ]
         });
     }
 
@@ -216,6 +216,11 @@ export class InventoryRepository {
     static async findStores(args: Prisma.InventoryStoreFindManyArgs, tx?: any) {
         const client = tx || prisma;
         return (client as any).inventoryStore.findMany(args);
+    }
+
+    static async findFirstStore(args: Prisma.InventoryStoreFindFirstArgs, tx?: any) {
+        const client = tx || prisma;
+        return (client as any).inventoryStore.findFirst(args);
     }
 
     static async findStoreWithDetails(id: string, include?: any, tx?: any) {

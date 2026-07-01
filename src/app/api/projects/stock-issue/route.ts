@@ -32,7 +32,7 @@ export async function POST(request: Request) {
                 include: { item: true }
             });
 
-            if (!stock || stock.quantity < parseFloat(item.quantity)) {
+            if (!stock || Number(stock.quantity) < parseFloat(item.quantity)) {
                 return NextResponse.json(
                     { error: `Insufficient stock for item: ${stock?.item.name || item.itemId}` },
                     { status: 400 }

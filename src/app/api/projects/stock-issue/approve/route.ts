@@ -30,12 +30,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Issue is not in PENDING state' }, { status: 400 });
         }
 
-        // Verify Stock Levels Again
         for (const item of issue.items) {
             const stock = await prisma.inventoryStock.findUnique({
                 where: { storeId_itemId: { storeId: issue.storeId, itemId: item.itemId } }
             });
-            if (!stock || stock.quantity < item.quantity) {
+            if (!stock || Number(stock.quantity) < item.quantity) {
                 return NextResponse.json({ error: `Insufficient stock for item ID: ${item.itemId}` }, { status: 400 });
             }
         }

@@ -73,6 +73,9 @@ interface WastageMutationResponse {
     success: boolean;
     status?: string;
     message?: string;
+    data?: {
+        status?: string;
+    };
 }
 
 interface ApproveMutationResponse {
@@ -159,7 +162,8 @@ export default function WastageReportPage() {
             return res.json();
         },
         onSuccess: (data) => {
-            if (data.status === 'PENDING') {
+            const status = data.data?.status || data.status;
+            if (status === 'PENDING') {
                 toast.info("Record saved. High-value materials require manager approval.");
             } else {
                 toast.success("Wastage reported and stock updated!");

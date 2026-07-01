@@ -42,16 +42,16 @@ model InventoryItem {
   unit                  String
   type                  String                         @default("SLTS")
   category              String                         @default("OTHERS")
-  minLevel              Float                          @default(0)
+  minLevel              Decimal                        @default(0)
   isWastageAllowed      Boolean                        @default(true)
-  maxWastagePercentage  Float                          @default(0)
+  maxWastagePercentage  Decimal                        @default(0)
   hasSerial             Boolean                        @default(false)
   createdAt             DateTime                       @default(now())
   updatedAt             DateTime                       @updatedAt
   source                String                         @default("SLT")
   commonFor             String[]
-  unitPrice             Float?                         @default(0)
-  costPrice             Float?                         @default(0)
+  unitPrice             Decimal?                       @default(0)
+  costPrice             Decimal?                       @default(0)
   commonName            String?
   sltCode               String?
   isOspFtth             Boolean?                       @default(false)
@@ -86,8 +86,8 @@ model InventoryStock {
   id        String         @id @default(cuid())
   storeId   String
   itemId    String
-  quantity  Float          @default(0)
-  minLevel  Float          @default(0)
+  quantity  Decimal        @default(0)
+  minLevel  Decimal        @default(0)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   item      InventoryItem  @relation(fields: [itemId], references: [id])
@@ -101,9 +101,10 @@ model InventoryBatch {
   batchNumber      String?
   itemId           String
   grnId            String?
-  initialQty       Float
-  costPrice        Float                      @default(0)
-  unitPrice        Float                      @default(0)
+  initialQty       Decimal
+  costPrice        Decimal                    @default(0)
+  unitPrice        Decimal                    @default(0)
+  expiryDate       DateTime?
   createdAt        DateTime                   @default(now())
   contractorStocks ContractorBatchStock[]
   grnItem          GRNItem?
@@ -115,6 +116,7 @@ model InventoryBatch {
 
   @@index([itemId])
   @@index([createdAt])
+  @@index([expiryDate])
 }
 
 model InventoryBatchStock {
@@ -122,7 +124,7 @@ model InventoryBatchStock {
   storeId   String
   itemId    String
   batchId   String
-  quantity  Float          @default(0)
+  quantity  Decimal        @default(0)
   updatedAt DateTime       @updatedAt
   batch     InventoryBatch @relation(fields: [batchId], references: [id])
   item      InventoryItem  @relation(fields: [itemId], references: [id])
@@ -154,7 +156,7 @@ model InventoryTransactionItem {
   id            String               @id @default(cuid())
   transactionId String
   itemId        String
-  quantity      Float
+  quantity      Decimal
   batchId       String?
   batch         InventoryBatch?      @relation(fields: [batchId], references: [id])
   item          InventoryItem        @relation(fields: [itemId], references: [id])
@@ -175,9 +177,9 @@ model MaterialStandard {
   categoryId     String
   packageType    String
   itemId         String
-  standardQty    Float
-  maxQty         Float?
-  wastagePercent Float            @default(5)
+  standardQty    Decimal
+  maxQty         Decimal?
+  wastagePercent Decimal          @default(5)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   category       MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -191,7 +193,7 @@ model CurrentStock {
   id        String   @id @default(cuid())
   storeId   String
   itemId    String
-  quantity  Float    @default(0)
+  quantity  Decimal  @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -201,22 +203,25 @@ model CurrentStock {
 }
 
 model InventoryItemSerial {
-  id           String          @id @default(cuid())
-  itemId       String
-  serialNumber String          @unique
-  status       String          @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY
-  storeId      String?
-  contractorId String?
-  sodId        String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  itemId          String
+  serialNumber    String          @unique
+  status          String          @default("IN_STORE") // IN_STORE, ISSUED, INSTALLED, FAULTY, ASSIGNED
+  storeId         String?
+  contractorId    String?
+  sodId           String?
+  assignedStaffId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
   
-  item         InventoryItem   @relation(fields: [itemId], references: [id])
-  store        InventoryStore? @relation(fields: [storeId], references: [id])
-  contractor   Contractor?     @relation(fields: [contractorId], references: [id])
+  item            InventoryItem   @relation(fields: [itemId], references: [id])
+  store           InventoryStore? @relation(fields: [storeId], references: [id])
+  contractor      Contractor?     @relation(fields: [contractorId], references: [id])
+  assignedStaff   Staff?          @relation(fields: [assignedStaffId], references: [id])
 
   @@index([itemId])
   @@index([storeId])
   @@index([contractorId])
+  @@index([assignedStaffId])
   @@index([status])
 }

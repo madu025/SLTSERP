@@ -1,9 +1,56 @@
 import { InventoryRepository } from '@/repositories/inventory.repository';
 import { InventoryStore, Prisma } from '@prisma/client';
 import { eventBus } from '@/lib/events/event-bus';
+import { prisma } from '@/lib/prisma';
 import { StoreWithDetails } from './types';
 
 export class StoreService {
+    static async getAccessibleStores(userId: string, userRole: string): Promise<StoreWithDetails[]> {
+        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+        let whereClause: Prisma.InventoryStoreWhereInput = {};
+
+        if (!isAdmin) {
+            const dbUser = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { accessibleOpmcs: true }
+            });
+
+            if (!dbUser) {
+                throw new Error('USER_NOT_FOUND');
+            }
+
+            const accessibleOpmcIds = dbUser.accessibleOpmcs.map(o => o.id);
+
+            const baseWhere: Prisma.InventoryStoreWhereInput = {
+                OR: [
+                    { managerId: userId },
+                    { opmcs: { some: { id: { in: accessibleOpmcIds } } } }
+                ]
+            };
+
+            const isStoreStaff = userRole === 'STORES_MANAGER' || userRole === 'STORES_ASSISTANT';
+
+            if (isStoreStaff) {
+                const hasMainAccess = await InventoryRepository.findFirstStore({
+                    where: {
+                        ...baseWhere,
+                        type: 'MAIN'
+                    }
+                });
+
+                if (hasMainAccess) {
+                    whereClause = {};
+                } else {
+                    whereClause = baseWhere;
+                }
+            } else {
+                whereClause = baseWhere;
+            }
+        }
+
+        return this.getStores(whereClause);
+    }
+
     static async getStores(where: Prisma.InventoryStoreWhereInput = {}): Promise<StoreWithDetails[]> {
         return await InventoryRepository.findStores({
             where,

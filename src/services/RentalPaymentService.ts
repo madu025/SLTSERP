@@ -582,6 +582,22 @@ class RentalPaymentService {
 
     return (await prisma.vMRentedVehicleMonthlySummary.delete({ where: { id } })) as DbMonthlySummary;
   }
+
+  /**
+   * Fetch a rental vehicle by vehicle registration ID
+   */
+  async getRentalVehicleByVehicleId(vehicleId: string): Promise<DbRentalVehicle | null> {
+    return (await prisma.vMRentalVehicle.findUnique({
+      where: { vehicle_id: vehicleId },
+      include: {
+        vehicle: {
+          include: {
+            site: true,
+          },
+        },
+      },
+    })) as DbRentalVehicle | null;
+  }
 }
 
 export const rentalPaymentService = new RentalPaymentService();

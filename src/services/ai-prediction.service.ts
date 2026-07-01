@@ -255,7 +255,7 @@ export class AiPredictionService {
       });
 
       const required = (demand._sum.quantity ?? 0) - (demand._sum.actualQuantity ?? 0);
-      const available = stockLevel._sum.quantity ?? 0;
+      const available = stockLevel._sum.quantity ? Number(stockLevel._sum.quantity) : 0;
       const shortfall = required - available;
 
       if (shortfall > 0) {

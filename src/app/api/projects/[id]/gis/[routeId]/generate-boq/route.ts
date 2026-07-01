@@ -109,7 +109,7 @@ export async function POST(
         // Helper to get unit rate from mapped item or fallback
         const getRate = (category: string): number => {
             const item = getMappedItem(category);
-            return item?.unitPrice || 0;
+            return item?.unitPrice ? Number(item.unitPrice) : 0;
         };
 
         // Build available stock map by BOQ category.
@@ -118,7 +118,7 @@ export async function POST(
         for (const category of ["POLE", "CHAMBER", "CLOSURE", "CABLE"]) {
             const inv = getMappedItem(category);
             if (inv) {
-                const qty = inv.stocks.reduce((s, st) => s + (st.quantity || 0), 0);
+                const qty = inv.stocks.reduce((s, st) => s + (st.quantity ? Number(st.quantity) : 0), 0);
                 stockByCategory.set(category, { availableQty: qty, itemCode: inv.code, materialId: inv.id });
             }
         }

@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import Providers from "@/components/Providers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SessionManager from "@/components/SessionManager";
+import NexusAgent from "@/components/NexusAgent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,6 +59,7 @@ export default function RootLayout({
             <ThemeProvider>
               <SessionManager />
               {children}
+              <NexusAgent />
             </ThemeProvider>
           </Providers>
         </ErrorBoundary>

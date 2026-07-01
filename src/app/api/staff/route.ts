@@ -1,29 +1,10 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { StaffService } from '@/services/staff.service';
 
 // GET all staff with hierarchy info and linked users
 export async function GET() {
     try {
-        const staff = await prisma.staff.findMany({
-            select: {
-                id: true,
-                name: true,
-                employeeId: true,
-                designation: true,
-                reportsToId: true,
-                opmcId: true,
-                opmc: { select: { rtom: true, name: true } },
-                user: {
-                    select: {
-                        id: true,
-                        username: true,
-                        name: true,
-                        role: true
-                    }
-                }
-            },
-            orderBy: { name: 'asc' }
-        });
+        const staff = await StaffService.getStaff();
         return NextResponse.json(staff);
     } catch (error) {
         return NextResponse.json({ message: 'Error fetching staff' }, { status: 500 });
@@ -42,30 +23,11 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { name, employeeId, designation, reportsToId, opmcId, userId } = body;
-
-        const staff = await prisma.staff.create({
-            data: {
-                name,
-                employeeId,
-                designation,
-                reportsToId: reportsToId || null,
-                opmcId: opmcId || null
-            }
-        });
-
-        // If userId provided, link user to this staff
-        if (userId) {
-            await prisma.user.update({
-                where: { id: userId },
-                data: { staffId: staff.id }
-            });
-        }
-
+        const staff = await StaffService.createStaff(body);
         return NextResponse.json(staff);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Staff Creation Error:', error);
-        if ((error as any).code === 'P2002') {
+        if (error.code === 'P2002') {
             return NextResponse.json({ message: 'Employee ID already exists' }, { status: 400 });
         }
         return NextResponse.json({ message: 'Error creating staff' }, { status: 500 });
@@ -84,44 +46,15 @@ export async function PUT(request: Request) {
         }
 
         const body = await request.json();
-        const { id, name, designation, reportsToId, opmcId, userId } = body;
+        const { id, ...updateFields } = body;
 
-        // Validation for circular dependency
-        if (id === reportsToId) {
+        const updatedStaff = await StaffService.updateStaff(id, updateFields);
+        return NextResponse.json(updatedStaff);
+    } catch (error: any) {
+        console.error('Staff Update Error:', error);
+        if (error.message === 'CANNOT_REPORT_TO_SELF') {
             return NextResponse.json({ message: 'Cannot report to self' }, { status: 400 });
         }
-
-        const updateData: any = {};
-        if (name !== undefined) updateData.name = name;
-        if (designation !== undefined) updateData.designation = designation;
-        if (reportsToId !== undefined) updateData.reportsToId = reportsToId;
-        if (opmcId !== undefined) updateData.opmcId = opmcId;
-
-        const updatedStaff = await prisma.staff.update({
-            where: { id },
-            data: updateData
-        });
-
-        // Handle user assignment/unassignment
-        if (userId !== undefined) {
-            if (userId === null) {
-                // Unlink any user from this staff
-                await prisma.user.updateMany({
-                    where: { staffId: id },
-                    data: { staffId: null }
-                });
-            } else {
-                // Link user to this staff
-                await prisma.user.update({
-                    where: { id: userId },
-                    data: { staffId: id }
-                });
-            }
-        }
-
-        return NextResponse.json(updatedStaff);
-    } catch (error) {
-        console.error('Staff Update Error:', error);
         return NextResponse.json({ message: 'Error updating staff' }, { status: 500 });
     }
 }
@@ -144,31 +77,22 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ message: 'Staff ID required' }, { status: 400 });
         }
 
-        // Check if staff has subordinates
-        const subordinates = await prisma.staff.count({
-            where: { reportsToId: id }
-        });
-
-        if (subordinates > 0) {
+        await StaffService.deleteStaff(id);
+        return NextResponse.json({ message: 'Staff deleted successfully' });
+    } catch (error: any) {
+        console.error('Staff Deletion Error:', error);
+        const msg = error.message;
+        if (msg && msg.startsWith('HAS_SUBORDINATES_')) {
+            const count = msg.replace('HAS_SUBORDINATES_', '');
             return NextResponse.json({
-                message: `Cannot delete staff member with ${subordinates} subordinates. Reassign them first.`
+                message: `Cannot delete staff member with ${count} subordinates. Reassign them first.`
             }, { status: 400 });
         }
-
-        // Check if staff has linked user
-        const linkedUser = await prisma.user.findFirst({
-            where: { staffId: id }
-        });
-
-        if (linkedUser) {
+        if (msg === 'HAS_LINKED_USER') {
             return NextResponse.json({
                 message: 'Cannot delete staff with linked user. Unlink the user first.'
             }, { status: 400 });
         }
-
-        await prisma.staff.delete({ where: { id } });
-        return NextResponse.json({ message: 'Staff deleted successfully' });
-    } catch (error) {
         return NextResponse.json({ message: 'Error deleting staff' }, { status: 500 });
     }
 }

@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
+import { TeamMemberService } from '@/services/team-member.service';
 
 export async function POST(request: Request) {
     try {
@@ -11,18 +10,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Member ID is required" }, { status: 400 });
         }
 
-        const token = Math.random().toString(36).substring(2, 12).toUpperCase();
-        const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-        await prisma.teamMember.update({
-            where: { id: memberId },
-            data: {
-                uploadToken: token,
-                uploadTokenExpiry: expiry
-            }
-        });
-
-        const link = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/team-upload/${token}`;
+        const link = await TeamMemberService.generateUploadLink(memberId);
 
         return NextResponse.json({ link });
     } catch (error) {

@@ -21,6 +21,7 @@ interface GRNItem {
     remarks: string;
     serials?: string[];
     hasSerial?: boolean;
+    expiryDate?: string;
 }
 
 interface InventoryRequest {
@@ -118,7 +119,8 @@ export default function GRNPage() {
                 receivedQty: reqQty, // Default to requested qty
                 remarks: '',
                 hasSerial: item.item?.hasSerial || false,
-                serials: Array(Math.ceil(reqQty)).fill('')
+                serials: Array(Math.ceil(reqQty)).fill(''),
+                expiryDate: ''
             };
         });
         setReceivedItems(items);
@@ -166,7 +168,8 @@ export default function GRNPage() {
             items: receivedItems.map(item => ({
                 itemId: item.itemId,
                 quantity: parseFloat(item.receivedQty.toString()),
-                serials: item.hasSerial ? (item.serials || []).filter(s => s && s.trim() !== '') : undefined
+                serials: item.hasSerial ? (item.serials || []).filter(s => s && s.trim() !== '') : undefined,
+                expiryDate: item.expiryDate || undefined
             }))
         };
 
@@ -388,13 +391,26 @@ export default function GRNPage() {
                                                                 onChange={e => updateReceivedQty(idx, e.target.value)}
                                                             />
                                                         </td>
-                                                        <td className="px-3 py-2 flex flex-col gap-1">
+                                                        <td className="px-3 py-2 flex flex-col gap-2">
                                                             <Input
                                                                 className="h-8 text-xs font-mono"
                                                                 placeholder="Batch ID (optional)"
                                                                 value={item.remarks}
                                                                 onChange={e => updateItemRemarks(idx, e.target.value)}
                                                             />
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Expiry Date (optional)</span>
+                                                                <Input
+                                                                    type="date"
+                                                                    className="h-8 text-xs font-mono"
+                                                                    value={item.expiryDate || ''}
+                                                                    onChange={e => {
+                                                                        const updated = [...receivedItems];
+                                                                        updated[idx].expiryDate = e.target.value;
+                                                                        setReceivedItems(updated);
+                                                                    }}
+                                                                />
+                                                            </div>
                                                             {item.hasSerial && (
                                                                 <div className="mt-2 space-y-1 bg-slate-50 p-2 rounded border border-slate-200">
                                                                     <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Serial Numbers Required:</label>

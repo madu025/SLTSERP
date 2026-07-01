@@ -292,6 +292,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT']
             },
             {
+                title: 'Asset Custody',
+                path: '/inventory/assets',
+                icon: HardHat,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER']
+            },
+            {
                 title: 'Wastage Reports',
                 path: '/admin/inventory/wastage',
                 icon: PackageMinus,
@@ -372,6 +378,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 title: 'Purchase Orders',
                 path: '/procurement/orders',
+                icon: FileText,
+                allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES]
+            },
+            {
+                title: 'AI Forecast & PO Builder',
+                path: '/procurement/forecast',
                 icon: FileText,
                 allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES]
             }

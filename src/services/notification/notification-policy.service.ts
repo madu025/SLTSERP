@@ -97,6 +97,9 @@ export class NotificationPolicyService {
             priority: 'HIGH',
             link: '/admin/inventory/stock'
         });
+
+        // Simulate sending a real-time email alert to system supervisors
+        console.log(`[EMAIL-ALERT] Dispatching Low Stock warning to Stores Manager & Admins. Item: ${itemName}, Store: ${storeName}, Level: ${currentQty}`);
     }
 
     static async notifyStockRequestCreated(req: { id: string; requestNr: string; fromStoreName: string; opmcId?: string; type: string }, stage: string) {
@@ -191,5 +194,58 @@ export class NotificationPolicyService {
             priority,
             link: '/admin/inventory/requests'
         });
+    }
+
+    /**
+     * Check expiring inventory batches and trigger alerts
+     */
+    static async checkBatchExpirations() {
+        const prisma = (await import('@/lib/prisma')).prisma;
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+        const expiringBatches = await prisma.inventoryBatch.findMany({
+            where: {
+                expiryDate: {
+                    lte: thirtyDaysFromNow,
+                    gt: new Date()
+                }
+            },
+            include: {
+                item: true,
+                storeStocks: {
+                    where: { quantity: { gt: 0 } },
+                    include: {
+                        store: true
+                    }
+                }
+            }
+        });
+
+        const results = [];
+        for (const batch of expiringBatches) {
+            for (const bs of batch.storeStocks) {
+                const message = `Batch "${batch.batchNumber}" of item "${batch.item.name}" in store "${bs.store.name}" is expiring on ${batch.expiryDate?.toLocaleDateString()}! Quantity remaining: ${bs.quantity}.`;
+                
+                await NotificationService.notifyByRole({
+                    roles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER'],
+                    title: 'Batch Expiry Warning (FEFO)',
+                    message,
+                    type: 'INVENTORY',
+                    priority: 'CRITICAL',
+                    link: '/inventory/assets',
+                    metadata: { batchId: batch.id, expiryDate: batch.expiryDate }
+                });
+
+                results.push({
+                    batchNumber: batch.batchNumber,
+                    itemName: batch.item.name,
+                    storeName: bs.store.name,
+                    quantity: Number(bs.quantity),
+                    expiryDate: batch.expiryDate
+                });
+            }
+        }
+        return results;
     }
 }

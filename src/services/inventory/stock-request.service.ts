@@ -262,6 +262,24 @@ export class StockRequestService {
         return updated;
     }
 
+    private static async getOrCreateTransitStore(tx: TransactionClient): Promise<string> {
+        const prismaTx = tx as unknown as typeof prisma;
+        let transit = await prismaTx.inventoryStore.findFirst({
+            where: { type: 'TRANSIT' }
+        });
+
+        if (!transit) {
+            transit = await prismaTx.inventoryStore.create({
+                data: {
+                    name: 'Central Transit Store',
+                    type: 'TRANSIT',
+                    location: 'In-Transit'
+                }
+            });
+        }
+        return transit.id;
+    }
+
     private static async handleMainStoreRelease(data: StockRequestActionData) {
         const { requestId, userId, remarks, items } = data;
         return await prisma.$transaction(async (tx: TransactionClient) => {
@@ -271,6 +289,9 @@ export class StockRequestService {
 
             if (!stockReq) throw new Error("REQUEST_NOT_FOUND");
             if (stockReq.workflowStage !== 'MAIN_STORE_RELEASE') throw new Error("INVALID_WORKFLOW_STAGE");
+
+            const transitStoreId = await this.getOrCreateTransitStore(tx);
+            const prismaTx = tx as unknown as typeof prisma;
 
             for (const item of items || []) {
                 const issuedQty = StockService.round(item.issuedQty || 0);
@@ -285,23 +306,55 @@ export class StockRequestService {
 
                 for (const picked of pickedBatches) {
                     if (picked.batchId) {
+                        // Decrement from Main Store batch stock
                         await InventoryRepository.updateBatchStock(stockReq.toStoreId!, picked.batchId, -picked.quantity, tx);
+
+                        // Increment in Transit Store batch stock
+                        await prismaTx.inventoryBatchStock.upsert({
+                            where: { storeId_batchId: { storeId: transitStoreId, batchId: picked.batchId } },
+                            update: { quantity: { increment: picked.quantity } },
+                            create: {
+                                storeId: transitStoreId,
+                                batchId: picked.batchId,
+                                itemId: reqItem.itemId,
+                                quantity: picked.quantity
+                            }
+                        });
                     }
                 }
 
+                // Decrement from Main Store, Increment into Transit Store
                 await InventoryRepository.upsertStock(stockReq.toStoreId!, reqItem.itemId, -issuedQty, tx);
+                await InventoryRepository.upsertStock(transitStoreId, reqItem.itemId, issuedQty, tx);
 
+                // Main Store TRANSFER_OUT Transaction
                 await InventoryRepository.createTransaction({
                     type: 'TRANSFER_OUT',
                     storeId: stockReq.toStoreId!,
                     referenceId: stockReq.requestNr,
                     userId: userId || 'SYSTEM',
-                    notes: `Released to ${stockReq.fromStore?.name} - Request ${stockReq.requestNr}`,
+                    notes: `Released to Transit - Request ${stockReq.requestNr}`,
                     items: {
                         create: pickedBatches.map((p) => ({
                             itemId: reqItem.itemId,
                             batchId: p.batchId,
                             quantity: -p.quantity
+                        }))
+                    }
+                }, tx);
+
+                // Transit Store TRANSFER_IN Transaction
+                await InventoryRepository.createTransaction({
+                    type: 'TRANSFER_IN',
+                    storeId: transitStoreId,
+                    referenceId: stockReq.requestNr,
+                    userId: userId || 'SYSTEM',
+                    notes: `Transit incoming from Main Store - Request ${stockReq.requestNr}`,
+                    items: {
+                        create: pickedBatches.map((p) => ({
+                            itemId: reqItem.itemId,
+                            batchId: p.batchId,
+                            quantity: p.quantity
                         }))
                     }
                 }, tx);
@@ -329,6 +382,9 @@ export class StockRequestService {
             if (!stockReq) throw new Error("REQUEST_NOT_FOUND");
             if (stockReq.workflowStage !== 'SUB_STORE_RECEIVE') throw new Error("INVALID_WORKFLOW_STAGE");
 
+            const transitStoreId = await this.getOrCreateTransitStore(tx);
+            const prismaTx = tx as unknown as typeof prisma;
+
             let totalIssued = 0;
             let totalReceived = 0;
 
@@ -344,20 +400,27 @@ export class StockRequestService {
 
                 await StockRequestRepository.updateItem(reqItem.id, { receivedQty }, tx);
 
-                const movements = await StockRequestRepository.findTransactionItems(stockReq.requestNr, stockReq.toStoreId!, reqItem.itemId, tx);
+                // Query movements from the Transit Store instead of Main Store
+                const movements = await StockRequestRepository.findTransactionItems(stockReq.requestNr, transitStoreId, reqItem.itemId, tx);
 
                 const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
                 let remainingToReceive = receivedQty;
 
                 for (const m of movements) {
                     if (remainingToReceive <= 0) break;
-                    const issuedForThisBatch = Math.abs(m.quantity);
+                    const issuedForThisBatch = Math.abs(Number(m.quantity));
                     const take = Math.min(issuedForThisBatch, remainingToReceive);
                     const batchId = m.batchId;
 
                     if (!batchId) continue;
 
-                    const prismaTx = tx as unknown as typeof prisma;
+                    // Decrement from Transit Store batch stock
+                    await prismaTx.inventoryBatchStock.update({
+                        where: { storeId_batchId: { storeId: transitStoreId, batchId } },
+                        data: { quantity: { decrement: take } }
+                    });
+
+                    // Increment in Destination store batch stock
                     await prismaTx.inventoryBatchStock.upsert({
                         where: { storeId_batchId: { storeId: stockReq.fromStoreId!, batchId } },
                         update: { quantity: { increment: take } },
@@ -373,14 +436,33 @@ export class StockRequestService {
                     remainingToReceive = StockService.round(remainingToReceive - take);
                 }
 
+                // Decrement from Transit Store, Increment into Destination Store
+                await InventoryRepository.upsertStock(transitStoreId, reqItem.itemId, -receivedQty, tx);
                 await InventoryRepository.upsertStock(stockReq.fromStoreId!, reqItem.itemId, receivedQty, tx);
 
+                // Transit Store TRANSFER_OUT Transaction
+                await InventoryRepository.createTransaction({
+                    type: 'TRANSFER_OUT',
+                    storeId: transitStoreId,
+                    referenceId: stockReq.requestNr,
+                    userId: userId || 'SYSTEM',
+                    notes: `Transit outgoing to Sub Store - Request ${stockReq.requestNr}`,
+                    items: {
+                        create: transactionItems.map((ti) => ({
+                            itemId: ti.itemId,
+                            batchId: ti.batchId,
+                            quantity: -ti.quantity
+                        }))
+                    }
+                }, tx);
+
+                // Destination Store TRANSFER_IN Transaction
                 await InventoryRepository.createTransaction({
                     type: 'TRANSFER_IN',
                     storeId: stockReq.fromStoreId!,
                     referenceId: stockReq.requestNr,
                     userId: userId || 'SYSTEM',
-                    notes: `Received from Main Store - Request ${stockReq.requestNr}`,
+                    notes: `Received from Transit - Request ${stockReq.requestNr}`,
                     items: {
                         create: transactionItems
                     }

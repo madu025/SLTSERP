@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rentalPaymentService } from '@/services/RentalPaymentService';
-import { prisma as db } from '@/lib/prisma';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-interface CustomPrismaClient {
-  vMRentalVehicle: {
-    findUnique(args: unknown): Promise<unknown>;
-  };
-}
-
-const prisma = db as unknown as CustomPrismaClient;
-
-interface DbRentalVehicle {
-  id: string;
-  vehicle_id: string;
-  rental_cost_monthly: number | null;
-  rental_cost_daily: number;
 }
 
 interface RequestBody {
@@ -45,10 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!, 10) : undefined;
     const month = searchParams.get('month') ? parseInt(searchParams.get('month')!, 10) : undefined;
 
-    const rentalVehicle = (await prisma.vMRentalVehicle.findUnique({
-      where: { vehicle_id: id },
-      include: { vehicle: { include: { site: true } } },
-    })) as DbRentalVehicle | null;
+    const rentalVehicle = await rentalPaymentService.getRentalVehicleByVehicleId(id);
 
     if (!rentalVehicle) {
       return NextResponse.json(
@@ -109,9 +90,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = (await request.json()) as RequestBody;
     const { action, year, month, userId, userName, remarks } = body;
 
-    const rentalVehicle = (await prisma.vMRentalVehicle.findUnique({
-      where: { vehicle_id: id },
-    })) as DbRentalVehicle | null;
+    const rentalVehicle = await rentalPaymentService.getRentalVehicleByVehicleId(id);
 
     if (!rentalVehicle) {
       return NextResponse.json(

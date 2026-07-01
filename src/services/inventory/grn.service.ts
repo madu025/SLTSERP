@@ -85,6 +85,7 @@ export class GRNService {
                         initialQty: qty,
                         costPrice: costPrice,
                         unitPrice: unitPrice,
+                        expiryDate: item.expiryDate ? new Date(item.expiryDate) : null
                     }
                 });
 
