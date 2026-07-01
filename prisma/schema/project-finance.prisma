@@ -522,3 +522,33 @@ model ProjectPayment {
   @@index([status])
   @@index([paymentNumber])
 }
+
+model CostAllocationMemo {
+  id                String                   @id @default(cuid())
+  memoNumber        String                   @unique
+  title             String
+  description       String?
+  allocationTarget  String?                  // e.g. OPMC region, IT department, HQ, etc.
+  approvedAt        DateTime?
+  receivedAt        DateTime?
+  documentUrl       String?                  // link/path to uploaded document
+  totalCost         Float                    @default(0)
+  journalEntryId    String?                  // Reference to the ledger entry
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  items             CostAllocationMemoItem[]
+
+  @@index([memoNumber])
+}
+
+model CostAllocationMemoItem {
+  id         String             @id @default(cuid())
+  memoId     String
+  itemName   String
+  quantity   Int                @default(1)
+  unitCost   Float              @default(0)
+  totalCost  Float              @default(0)
+  memo       CostAllocationMemo @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  @@index([memoId])
+}

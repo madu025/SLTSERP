@@ -30,20 +30,21 @@ export class NexusAgentService {
             activeUsersCount,
             lowStockItems,
             expiringBatches,
-            custodyAssets
+            custodyAssets,
+            contractorsCount
         ] = await Promise.all([
             prisma.inventoryItem.count(),
             prisma.inventoryStore.count(),
             prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
             prisma.user.count(),
             // Low stock check
-            prisma.inventoryStock.findMany({
+            (prisma.inventoryStock as any).findMany({
                 where: { quantity: { lte: 10 } }, // Simple low stock heuristic
                 include: { item: true, store: true },
                 take: 10
             }),
             // Expiring batches (within 30 days)
-            prisma.inventoryBatch.findMany({
+            (prisma.inventoryBatch as any).findMany({
                 where: {
                     expiryDate: {
                         lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -54,11 +55,12 @@ export class NexusAgentService {
                 take: 10
             }),
             // Serial custody assets
-            prisma.inventoryItemSerial.findMany({
+            (prisma.inventoryItemSerial as any).findMany({
                 where: { status: 'ASSIGNED' },
                 include: { assignedStaff: true, item: true },
                 take: 10
-            })
+            }),
+            prisma.contractor.count()
         ]);
 
         return {
@@ -66,21 +68,22 @@ export class NexusAgentService {
             storesCount,
             projectsCount,
             activeUsersCount,
-            lowStock: lowStockItems.map(s => ({
-                itemName: s.item.name,
-                itemCode: s.item.code,
-                storeName: s.store.name,
+            contractorsCount,
+            lowStock: lowStockItems.map((s: any) => ({
+                itemName: s.item?.name || 'Unknown',
+                itemCode: s.item?.code || '',
+                storeName: s.store?.name || '',
                 qty: Number(s.quantity),
                 min: Number(s.minLevel)
             })),
-            expiringBatches: expiringBatches.map(b => ({
+            expiringBatches: expiringBatches.map((b: any) => ({
                 batchNumber: b.batchNumber,
-                itemName: b.item.name,
-                expiry: b.expiryDate?.toLocaleDateString()
+                itemName: b.item?.name || 'Unknown',
+                expiry: b.expiryDate?.toLocaleDateString() || 'N/A'
             })),
-            custodyAssets: custodyAssets.map(c => ({
+            custodyAssets: custodyAssets.map((c: any) => ({
                 serialNumber: c.serialNumber,
-                itemName: c.item.name,
+                itemName: c.item?.name || 'Unknown',
                 staffName: c.assignedStaff?.name || 'Unknown'
             }))
         };
@@ -327,12 +330,52 @@ Rules:
 
         const query = message.toLowerCase();
 
+        // 1. Match contractors count queries
+        if (query.includes('contractor') || query.includes('pravishtha') || query.includes('koththra') || query.includes('කොන්ත්‍රාත්')) {
+            return {
+                response: `පද්ධතියේ දැනට ලියාපදිංචි කොන්ත්‍රාත්කරුවන් (Contractors) **${context.contractorsCount}** දෙනෙකු සිටී.\n\nThere are currently **${context.contractorsCount}** contractors registered in the system.`,
+                actions
+            };
+        }
+
+        // 2. Match active projects count queries
+        if (query.includes('project') || query.includes('wiyapa') || query.includes('ව්‍යාපෘති')) {
+            return {
+                response: `පද්ධතියේ දැනට ක්‍රියාත්මක සක්‍රීය ව්‍යාපෘති (Active Projects) **${context.projectsCount}** ක් ඇත.\n\nThere are currently **${context.projectsCount}** active projects in progress.`,
+                actions
+            };
+        }
+
+        // 3. Match users count queries
+        if (query.includes('user') || query.includes('pariharaka') || query.includes('පරිශීලක')) {
+            return {
+                response: `පද්ධතියේ දැනට ලියාපදිංචි පරිශීලකයින් (Users) **${context.activeUsersCount}** දෙනෙකු සිටී.\n\nThere are currently **${context.activeUsersCount}** registered users on the platform.`,
+                actions
+            };
+        }
+
+        // 4. Match stores count queries
+        if (query.includes('store') || query.includes('gabad') || query.includes('ගබඩා')) {
+            return {
+                response: `පද්ධතියේ දැනට සක්‍රීය ගබඩා (Active Stores) **${context.storesCount}** ක් ඇත.\n\nThere are currently **${context.storesCount}** active stores configured.`,
+                actions
+            };
+        }
+
+        // 5. Match items count queries
+        if (query.includes('item') || query.includes('bada') || query.includes('උපකරණ') || query.includes('භාණ්ඩ')) {
+            return {
+                response: `පද්ධතියේ දැනට ලියාපදිංචි භාණ්ඩ/උපකරණ වර්ග (Inventory Items) **${context.itemsCount}** ක් ඇත.\n\nThere are currently **${context.itemsCount}** registered inventory items.`,
+                actions
+            };
+        }
+
         if (query.includes('low') || query.includes('stok') || query.includes('adu') || query.includes('stock')) {
             if (context.lowStock.length === 0) {
                 return { response: `ගබඩාවේ දැනට අවම සීමාවට වඩා අඩු වූ (Low Stock) කිසිදු උපකරණයක් නොමැත.`, actions };
             }
             const itemsList = context.lowStock
-                .map(s => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min Limit: ${s.min})`)
+                .map((s: any) => `- ${s.itemName} (${s.itemCode}) in ${s.storeName}: Current ${s.qty} (Min Limit: ${s.min})`)
                 .join('\n');
             
             let selfHealText = '';
@@ -352,7 +395,7 @@ Rules:
                 return { response: `ඉදිරි දින 30ක් ඇතුළත කල් ඉකුත්වීමට ආසන්න කිසිදු batch එකක් නොමැත.`, actions };
             }
             const expiringList = context.expiringBatches
-                .map(b => `- Batch ${b.batchNumber}: ${b.itemName} (Expiry Date: ${b.expiry})`)
+                .map((b: any) => `- Batch ${b.batchNumber}: ${b.itemName} (Expiry Date: ${b.expiry})`)
                 .join('\n');
             return {
                 response: `කල් ඉකුත්වීමට ආසන්න batches ලැයිස්තුව:\n\n${expiringList}`,

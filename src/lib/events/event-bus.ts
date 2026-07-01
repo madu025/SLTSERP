@@ -4,12 +4,21 @@ import { EventBus } from './event-bus.interface';
 
 export class RedisEventBus implements EventBus {
     private subscriber: Redis | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private handlers = new Map<string, Set<(data: any) => void>>();
 
     private getSubscriber(): Redis {
         if (!this.subscriber) {
             this.subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
                 maxRetriesPerRequest: null,
+                connectTimeout: 2000,
+                retryStrategy(times) {
+                    if (process.env.NODE_ENV !== 'production') {
+                        if (times > 2) return null;
+                        return 500;
+                    }
+                    return Math.min(times * 100, 3000);
+                }
             });
             this.subscriber.on('error', (err) => {
                 if (process.env.NODE_ENV === 'production' && !err.message.includes('ECONNREFUSED')) {
@@ -46,6 +55,7 @@ export class RedisEventBus implements EventBus {
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     subscribe(channel: string, callback: (data: any) => void): () => void {
         const sub = this.getSubscriber();
 

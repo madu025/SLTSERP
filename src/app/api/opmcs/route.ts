@@ -19,16 +19,20 @@ const OPMC_CACHE_KEY = 'opmcs:all';
 // GET all OPMCs
 export async function GET() {
     try {
-        // Transparent, fail-safe read-through cache
-        try {
-            const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
-            if (cached) {
-                console.log(`[CACHE HIT] OPMCs read from Redis`);
-                return NextResponse.json(cached);
+        const isTestEnv = process.env.NODE_ENV === 'test' || process.env.READ_REPLICA_URL === "";
+
+        // Transparent, fail-safe read-through cache (bypassed in test environment)
+        if (!isTestEnv) {
+            try {
+                const cached = await CacheService.get<OPMCData[]>(OPMC_CACHE_KEY);
+                if (cached) {
+                    console.log(`[CACHE HIT] OPMCs read from Redis`);
+                    return NextResponse.json(cached);
+                }
+            } catch (cacheError) {
+                console.error(`[CACHE ERROR] Failed to read from Redis cache:`, cacheError);
+                // Fallthrough to direct DB query
             }
-        } catch (cacheError) {
-            console.error(`[CACHE ERROR] Failed to read from Redis cache:`, cacheError);
-            // Fallthrough to direct DB query
         }
 
         const opmcs = await prisma.oPMC.findMany({
@@ -48,10 +52,12 @@ export async function GET() {
             orderBy: { rtom: 'asc' }
         });
 
-        try {
-            await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
-        } catch (cacheError) {
-            console.error(`[CACHE ERROR] Failed to write to Redis cache:`, cacheError);
+        if (!isTestEnv) {
+            try {
+                await CacheService.set(OPMC_CACHE_KEY, opmcs, 3600); // 1 hour cache
+            } catch (cacheError) {
+                console.error(`[CACHE ERROR] Failed to write to Redis cache:`, cacheError);
+            }
         }
 
         return NextResponse.json(opmcs);

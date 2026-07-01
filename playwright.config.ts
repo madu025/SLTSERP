@@ -51,6 +51,14 @@ export default defineConfig({
       },
     },
     {
+      name: 'cost-allocation',
+      dependencies: ['setup'],
+      testMatch: /cost-allocation\.spec\.ts/,
+      use: {
+        storageState: '.auth/user.json',
+      },
+    },
+    {
       name: 'gis-import',
       dependencies: ['setup'],
       testMatch: /gis-upload-sanity\.spec\.ts|gis-import\.spec\.ts/,

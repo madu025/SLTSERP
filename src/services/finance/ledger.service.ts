@@ -204,4 +204,41 @@ export class LedgerService {
             });
         }
     }
+
+    static async logCostAllocationMemo(
+        tx: TransactionClient,
+        memoId: string,
+        totalCost: number,
+        allocationTarget: string,
+        description?: string
+    ) {
+        if (totalCost <= 0) return null;
+
+        const desc = description || `Cost Allocation via Memo for ${allocationTarget}`;
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: memoId,
+                referenceType: 'COST_ALLOCATION_MEMO',
+                description: desc,
+                lines: {
+                    create: [
+                        {
+                            accountCode: 'EXP-OSP-8010',
+                            accountName: `OSP Section Expense - ${allocationTarget}`,
+                            debit: totalCost,
+                            credit: 0,
+                            description: `Cost allocated to ${allocationTarget}`
+                        },
+                        {
+                            accountCode: 'CLR-HO-9010',
+                            accountName: 'Head Office Asset Clearing',
+                            debit: 0,
+                            credit: totalCost,
+                            description: `Clearing entry for asset purchase`
+                        }
+                    ]
+                }
+            }
+        });
+    }
 }

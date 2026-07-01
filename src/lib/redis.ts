@@ -6,14 +6,15 @@ const isProduction = process.env.NODE_ENV === 'production';
 const isVercel = process.env.VERCEL === '1';
 
 export const redis = redisGlobal.redis ?? new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-    // BullMQ requires maxRetriesPerRequest to be null where background workers run.
-    // On Vercel, background workers do not run and we want it to fail fast.
-    maxRetriesPerRequest: (isVercel) ? 3 : null,
-    connectTimeout: 5000, // 5 seconds
+    // BullMQ requires maxRetriesPerRequest to be null where background workers run in production.
+    // In serverless (Vercel) or local development, we want it to fail fast to prevent hanging threads.
+    maxRetriesPerRequest: (isVercel || !isProduction) ? 3 : null,
+    connectTimeout: 2000, // 2 seconds
     retryStrategy(times) {
-        if (isVercel) {
-            // Stop retrying immediately on Vercel serverless functions
-            return null;
+        if (isVercel || !isProduction) {
+            // Stop retrying quickly in dev/test/serverless to avoid test timeouts
+            if (times > 2) return null;
+            return 500;
         }
         return Math.min(times * 100, 3000);
     }
