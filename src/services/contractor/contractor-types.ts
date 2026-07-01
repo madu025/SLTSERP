@@ -84,4 +84,6 @@ export interface ContractorQueryParams {
     opmcIds?: string[];
     page?: number;
     limit?: number;
+    userId?: string;
+    userRole?: string;
 }

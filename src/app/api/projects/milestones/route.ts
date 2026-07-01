@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectMilestoneService } from '@/services/project-milestone.service';
 
 // GET list milestones for a project
 export async function GET(request: Request) {
@@ -14,13 +14,9 @@ export async function GET(request: Request) {
             );
         }
 
-        const milestones = await prisma.projectMilestone.findMany({
-            where: { projectId },
-            orderBy: { targetDate: 'asc' }
-        });
-
+        const milestones = await ProjectMilestoneService.getMilestones(projectId);
         return NextResponse.json(milestones);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error fetching milestones:', error);
         return NextResponse.json(
             { error: 'Failed to fetch milestones' },
@@ -33,7 +29,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { projectId, name, description, targetDate, status } = body;
+        const { projectId, name, targetDate } = body;
 
         if (!projectId || !name || !targetDate) {
             return NextResponse.json(
@@ -42,19 +38,9 @@ export async function POST(request: Request) {
             );
         }
 
-        const milestone = await prisma.projectMilestone.create({
-            data: {
-                projectId,
-                name,
-                description: description || null,
-                targetDate: new Date(targetDate),
-                status: status || 'PENDING',
-                progress: 0
-            }
-        });
-
+        const milestone = await ProjectMilestoneService.createMilestone(body);
         return NextResponse.json(milestone);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error creating milestone:', error);
         return NextResponse.json(
             { error: 'Failed to create milestone' },
@@ -67,7 +53,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, completedDate, targetDate, ...updateData } = body;
+        const { id, ...updateData } = body;
 
         if (!id) {
             return NextResponse.json(
@@ -76,23 +62,9 @@ export async function PATCH(request: Request) {
             );
         }
 
-        // Handle dates
-        if (targetDate) updateData.targetDate = new Date(targetDate);
-        if (completedDate) updateData.completedDate = new Date(completedDate);
-
-        // Auto update completedDate if status changes to COMPLETED
-        if (updateData.status === 'COMPLETED' && !updateData.completedDate) {
-            updateData.completedDate = new Date();
-            updateData.progress = 100;
-        }
-
-        const milestone = await prisma.projectMilestone.update({
-            where: { id },
-            data: updateData
-        });
-
+        const milestone = await ProjectMilestoneService.updateMilestone(id, updateData);
         return NextResponse.json(milestone);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error updating milestone:', error);
         return NextResponse.json(
             { error: 'Failed to update milestone' },
@@ -114,12 +86,9 @@ export async function DELETE(request: Request) {
             );
         }
 
-        await prisma.projectMilestone.delete({
-            where: { id }
-        });
-
+        await ProjectMilestoneService.deleteMilestone(id);
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error deleting milestone:', error);
         return NextResponse.json(
             { error: 'Failed to delete milestone' },

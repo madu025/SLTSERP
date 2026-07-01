@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { MaterialService } from '@/services/material.service';
 
 // GET - Retrieve contractor balance sheet
 export async function GET(request: Request) {
@@ -16,49 +16,7 @@ export async function GET(request: Request) {
             );
         }
 
-        // Try to find existing balance sheet
-        let balanceSheet = await prisma.contractorMaterialBalanceSheet.findUnique({
-            where: {
-                contractorId_storeId_month: {
-                    contractorId,
-                    storeId,
-                    month
-                }
-            },
-            include: {
-                contractor: {
-                    select: {
-                        id: true,
-                        name: true,
-                        registrationNumber: true
-                    }
-                },
-                store: {
-                    select: {
-                        id: true,
-                        name: true
-                    }
-                },
-                items: {
-                    include: {
-                        item: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                                unit: true,
-                                category: true
-                            }
-                        }
-                    },
-                    orderBy: {
-                        item: {
-                            name: 'asc'
-                        }
-                    }
-                }
-            }
-        });
+        const balanceSheet = await MaterialService.getBalanceSheet(contractorId, storeId, month);
 
         return NextResponse.json(balanceSheet);
     } catch (error) {

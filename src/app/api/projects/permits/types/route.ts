@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectPermitService } from '@/services/project-permit.service';
 
 // GET all permit types with their authority
 export async function GET(request: NextRequest) {
@@ -8,42 +8,11 @@ export async function GET(request: NextRequest) {
         const isActive = searchParams.get('isActive');
         const authorityId = searchParams.get('authorityId');
 
-        const where: Record<string, unknown> = {};
+        const isActiveVal = isActive !== null ? isActive === 'true' : undefined;
 
-        if (isActive !== null) {
-            where.isActive = isActive === 'true';
-        }
-        if (authorityId) {
-            where.authorityId = authorityId;
-        }
-
-        const permitTypes = await prisma.permitType.findMany({
-            where,
-            include: {
-                authority: {
-                    select: {
-                        id: true,
-                        name: true,
-                        shortName: true,
-                        contactPerson: true,
-                        contactNumber: true,
-                        email: true,
-                        isActive: true
-                    }
-                },
-                _count: {
-                    select: {
-                        permits: true
-                    }
-                }
-            },
-            orderBy: {
-                name: 'asc'
-            }
-        });
-
+        const permitTypes = await ProjectPermitService.getPermitTypes(isActiveVal, authorityId);
         return NextResponse.json(permitTypes);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error fetching permit types:', error);
         return NextResponse.json(
             { error: 'Failed to fetch permit types' },

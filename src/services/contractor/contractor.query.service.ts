@@ -7,8 +7,20 @@ export class ContractorQueryService {
      * Get all contractors (Lightweight for List View)
      */
     static async getAllContractors(params: ContractorQueryParams) {
-        const { opmcIds, page = 1, limit = 50 } = params;
+        const { opmcIds: initialOpmcIds, page = 1, limit = 50, userId, userRole } = params;
         const where: Prisma.ContractorWhereInput = {};
+        
+        let opmcIds = initialOpmcIds;
+
+        if (!opmcIds && ['AREA_MANAGER', 'SITE_OFFICE_STAFF', 'OFFICE_ADMIN'].includes(userRole || '') && userId) {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { accessibleOpmcs: { select: { id: true } } }
+            });
+            if (user) {
+                opmcIds = user.accessibleOpmcs.map((o: any) => o.id);
+            }
+        }
         
         if (opmcIds && opmcIds.length > 0) {
             where.opmcId = { in: opmcIds };
@@ -133,5 +145,48 @@ export class ContractorQueryService {
             if (data.contactNumber && existing.contactNumber === data.contactNumber) throw new Error('CONTACT_NUMBER_ALREADY_EXISTS');
             if (data.registrationNumber && existing.registrationNumber === data.registrationNumber) throw new Error('REGISTRATION_NUMBER_ALREADY_EXISTS');
         }
+    }
+
+    /**
+     * Get all contractor teams
+     */
+    static async getAllTeams() {
+        return await prisma.contractorTeam.findMany({
+            select: {
+                id: true,
+                name: true,
+                contractorId: true,
+                contractor: {
+                    select: { id: true, name: true }
+                }
+            },
+            orderBy: { name: 'asc' }
+        });
+    }
+
+    /**
+     * Get team's assigned stores
+     */
+    static async getTeamStores(teamId: string) {
+        return await prisma.contractorTeam.findUnique({
+            where: { id: teamId },
+            include: {
+                storeAssignments: {
+                    include: {
+                        store: {
+                            include: {
+                                opmcs: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        rtom: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 }

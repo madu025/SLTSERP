@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectBOQService } from '@/services/project-boq.service';
 
 // GET list BOQ items for a project
 export async function GET(request: Request) {
@@ -14,23 +14,9 @@ export async function GET(request: Request) {
             );
         }
 
-        const boqItems = await prisma.projectBOQItem.findMany({
-            where: { projectId },
-            include: {
-                material: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        unit: true
-                    }
-                }
-            },
-            orderBy: { itemCode: 'asc' }
-        });
-
+        const boqItems = await ProjectBOQService.getBOQItems(projectId);
         return NextResponse.json(boqItems);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error fetching BOQ items:', error);
         return NextResponse.json(
             { error: 'Failed to fetch BOQ items' },
@@ -49,41 +35,19 @@ export async function POST(request: Request) {
             description,
             unit,
             quantity,
-            unitRate,
-            category,
-            materialId,
-            remarks
+            unitRate
         } = body;
 
-        if (!projectId || !itemCode || !description || !unit || !quantity || !unitRate) {
+        if (!projectId || !itemCode || !description || !unit || quantity === undefined || unitRate === undefined) {
             return NextResponse.json(
                 { error: 'Missing required fields' },
                 { status: 400 }
             );
         }
 
-        const amount = parseFloat(quantity) * parseFloat(unitRate);
-
-        const boqItem = await prisma.projectBOQItem.create({
-            data: {
-                projectId,
-                itemCode,
-                description,
-                unit,
-                quantity: parseFloat(quantity),
-                unitRate: parseFloat(unitRate),
-                amount,
-                category: category || null,
-                materialId: materialId || null,
-                remarks: remarks || null
-            },
-            include: {
-                material: true
-            }
-        });
-
+        const boqItem = await ProjectBOQService.createBOQItem(body);
         return NextResponse.json(boqItem);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error creating BOQ item:', error);
         return NextResponse.json(
             { error: 'Failed to create BOQ item' },
@@ -96,7 +60,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
     try {
         const body = await request.json();
-        const { id, quantity, unitRate, actualQuantity, actualCost, ...other } = body;
+        const { id, ...updateData } = body;
 
         if (!id) {
             return NextResponse.json(
@@ -105,29 +69,9 @@ export async function PATCH(request: Request) {
             );
         }
 
-        const updateData: any = { ...other };
-
-        if (quantity !== undefined) {
-            updateData.quantity = parseFloat(quantity);
-            updateData.unitRate = unitRate !== undefined ? parseFloat(unitRate) : undefined;
-            if (updateData.quantity && updateData.unitRate) {
-                updateData.amount = updateData.quantity * updateData.unitRate;
-            }
-        }
-
-        if (actualQuantity !== undefined) updateData.actualQuantity = parseFloat(actualQuantity);
-        if (actualCost !== undefined) updateData.actualCost = parseFloat(actualCost);
-
-        const boqItem = await prisma.projectBOQItem.update({
-            where: { id },
-            data: updateData,
-            include: {
-                material: true
-            }
-        });
-
+        const boqItem = await ProjectBOQService.updateBOQItem(id, updateData);
         return NextResponse.json(boqItem);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error updating BOQ item:', error);
         return NextResponse.json(
             { error: 'Failed to update BOQ item' },
@@ -149,12 +93,9 @@ export async function DELETE(request: Request) {
             );
         }
 
-        await prisma.projectBOQItem.delete({
-            where: { id }
-        });
-
+        await ProjectBOQService.deleteBOQItem(id);
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error deleting BOQ item:', error);
         return NextResponse.json(
             { error: 'Failed to delete BOQ item' },

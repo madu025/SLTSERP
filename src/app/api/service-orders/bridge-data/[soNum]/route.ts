@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ServiceOrderService } from '@/services/sod.service';
 
 export async function GET(
     request: Request,
@@ -14,10 +14,7 @@ export async function GET(
 
         console.log(`[API-BRIDGE-DATA] Fetching for SO: ${soNum}`);
 
-        const rawData = await prisma.extensionRawData.findFirst({
-            where: { soNum: { equals: soNum, mode: 'insensitive' } },
-            orderBy: { createdAt: 'desc' }
-        });
+        const rawData = await ServiceOrderService.getExtensionRawData(soNum);
 
         console.log(`[API-BRIDGE-DATA] Found: ${rawData ? 'YES' : 'NO'}`);
 

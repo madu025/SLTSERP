@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { MapApprovalService } from '@/services/map-approval.service';
+import { ProjectSurveyService } from '@/services/project-survey.service';
 
 // GET /api/projects/[id]/survey/points
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -35,19 +36,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Missing required fields: sessionId, layerId, latitude, longitude' }, { status: 400 });
     }
 
-    const { prisma } = await import('@/lib/prisma');
-    const point = await prisma.surveyPoint.create({
-      data: {
-        sessionId,
-        projectId,
-        layerId,
-        layerName: layerName || layerId,
-        latitude,
-        longitude,
-        attributes: attributes || {},
-        photoUrls: photoUrls || [],
-        supervisorId: userId,
-      },
+    const point = await ProjectSurveyService.createSurveyPoint({
+      projectId,
+      sessionId,
+      layerId,
+      layerName,
+      latitude,
+      longitude,
+      attributes,
+      photoUrls,
+      supervisorId: userId,
     });
 
     return NextResponse.json(point, { status: 201 });

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { MapApprovalService } from '@/services/map-approval.service';
 
 type Params = Promise<{ id: string; pointId: string }>;
@@ -45,35 +44,12 @@ export async function PATCH(request: Request, { params }: { params: Params }) {
           );
         }
 
-        // Fetch existing point to merge attributes
-        const existing = await prisma.surveyPoint.findUnique({
-          where: { id: pointId },
-        });
-
-        if (!existing) {
-          return NextResponse.json({ error: 'Survey point not found' }, { status: 404 });
-        }
-
-        const existingAttrs = (existing.attributes as Record<string, unknown>) || {};
-
-        // Update the point with new coordinates and merge geometry into attributes
-        const updated = await prisma.surveyPoint.update({
-          where: { id: pointId },
-          data: {
-            latitude: parseFloat(latitude),
-            longitude: parseFloat(longitude),
-            attributes: {
-              ...existingAttrs,
-              geometry: {
-                type: 'Point',
-                coordinates: [parseFloat(longitude), parseFloat(latitude)],
-              },
-              _lastCoordinateEditBy: userId,
-              _lastCoordinateEditAt: new Date().toISOString(),
-            },
-            verificationStatus: existing.verificationStatus, // preserve status
-          },
-        });
+        const updated = await MapApprovalService.updatePointCoordinates(
+          pointId,
+          parseFloat(latitude),
+          parseFloat(longitude),
+          userId
+        );
 
         return NextResponse.json({
           success: true,
@@ -92,8 +68,11 @@ export async function PATCH(request: Request, { params }: { params: Params }) {
     }
 
     return NextResponse.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update point';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error: any) {
+    const message = error.message;
+    if (message === 'SURVEY_POINT_NOT_FOUND') {
+      return NextResponse.json({ error: 'Survey point not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: message || 'Failed to update point' }, { status: 500 });
   }
 }

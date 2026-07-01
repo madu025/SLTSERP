@@ -265,4 +265,37 @@ export class MapApprovalService {
 
     return { points, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
+
+  /**
+   * Update survey point coordinates and merge geometry attributes
+   */
+  static async updatePointCoordinates(pointId: string, latitude: number, longitude: number, userId: string) {
+    const existing = await prisma.surveyPoint.findUnique({
+      where: { id: pointId },
+    });
+
+    if (!existing) {
+      throw new Error('SURVEY_POINT_NOT_FOUND');
+    }
+
+    const existingAttrs = (existing.attributes as Record<string, unknown>) || {};
+
+    return prisma.surveyPoint.update({
+      where: { id: pointId },
+      data: {
+        latitude: parseFloat(String(latitude)),
+        longitude: parseFloat(String(longitude)),
+        attributes: {
+          ...existingAttrs,
+          geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(String(longitude)), parseFloat(String(latitude))],
+          },
+          _lastCoordinateEditBy: userId,
+          _lastCoordinateEditAt: new Date().toISOString(),
+        },
+        verificationStatus: existing.verificationStatus, // preserve status
+      },
+    });
+  }
 }

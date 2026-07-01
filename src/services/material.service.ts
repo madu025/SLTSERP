@@ -332,4 +332,107 @@ export class MaterialService {
             return sheet;
         }, { timeout: 30000 });
     }
+
+    /**
+     * Get Monthly Balance Sheet with full details
+     */
+    static async getBalanceSheet(contractorId: string, storeId: string, month: string) {
+        return await prisma.contractorMaterialBalanceSheet.findUnique({
+            where: {
+                contractorId_storeId_month: {
+                    contractorId,
+                    storeId,
+                    month
+                }
+            },
+            include: {
+                contractor: {
+                    select: {
+                        id: true,
+                        name: true,
+                        registrationNumber: true
+                    }
+                },
+                store: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                items: {
+                    include: {
+                        item: {
+                            select: {
+                                id: true,
+                                name: true,
+                                code: true,
+                                unit: true,
+                                category: true
+                            }
+                        }
+                    },
+                    orderBy: {
+                        item: {
+                            name: 'asc'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Preview balance sheet counts before generation
+     */
+    static async previewBalanceSheet(contractorId: string, storeId: string, month: string) {
+        const [year, monthNum] = month.split('-').map(Number);
+        const startDate = new Date(year, monthNum - 1, 1);
+        const endDate = new Date(year, monthNum, 0, 23, 59, 59);
+
+        const [issuesCount, returnsCount, usageCount, contractor, store] = await Promise.all([
+            prisma.contractorMaterialIssue.count({
+                where: {
+                    contractorId,
+                    storeId,
+                    issueDate: { gte: startDate, lte: endDate }
+                }
+            }),
+            prisma.contractorMaterialReturn.count({
+                where: {
+                    contractorId,
+                    storeId,
+                    status: 'ACCEPTED',
+                    acceptedAt: { gte: startDate, lte: endDate }
+                }
+            }),
+            prisma.sODMaterialUsage.count({
+                where: {
+                    serviceOrder: {
+                        contractorId,
+                        completedDate: { gte: startDate, lte: endDate }
+                    }
+                }
+            }),
+            prisma.contractor.findUnique({
+                where: { id: contractorId },
+                select: { id: true, name: true, registrationNumber: true }
+            }),
+            prisma.inventoryStore.findUnique({
+                where: { id: storeId },
+                select: { id: true, name: true }
+            })
+        ]);
+
+        return {
+            contractor,
+            store,
+            month,
+            summary: {
+                materialIssues: issuesCount,
+                materialReturns: returnsCount,
+                sodUsage: usageCount,
+                hasData: issuesCount > 0 || returnsCount > 0 || usageCount > 0
+            }
+        };
+    }
 }

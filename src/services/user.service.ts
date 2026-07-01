@@ -1,10 +1,39 @@
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { signJWT } from '@/lib/auth';
+import { SystemService } from '@/services/system.service';
+import { sign, verify, JwtPayload } from 'jsonwebtoken';
+import { Role } from '@prisma/client';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 interface LoginCredentials {
     username: string;
     password?: string;
+}
+
+interface CreateUserData {
+    username: string;
+    email: string;
+    password?: string;
+    name?: string;
+    role: Role;
+    employeeId?: string;
+    opmcIds?: string[];
+    supervisorId?: string;
+    assignedStoreId?: string;
+}
+
+interface UpdateUserData {
+    username: string;
+    email: string;
+    password?: string;
+    name?: string;
+    role: Role;
+    employeeId?: string;
+    opmcIds?: string[];
+    supervisorId?: string;
+    assignedStoreId?: string;
 }
 
 export class UserService {
@@ -47,8 +76,499 @@ export class UserService {
                 name: user.name,
                 role: user.role,
                 accessibleOpmcs: user.accessibleOpmcs,
-                mustChangePassword: (user as any).mustChangePassword
+                mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword
             }
         };
+    }
+
+    /**
+     * Retrieves all users with pagination
+     */
+    static async getUsers(page: number, limit: number) {
+        const skip = (page - 1) * limit;
+
+        const [total, users] = await Promise.all([
+            prisma.user.count(),
+            prisma.user.findMany({
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    name: true,
+                    role: true,
+                    createdAt: true,
+                    staffId: true,
+                    assignedStoreId: true,
+                    accessibleOpmcs: { select: { id: true, rtom: true } },
+                    supervisor: { select: { id: true, name: true, username: true, role: true } }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            })
+        ]);
+
+        return {
+            users,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    /**
+     * Creates a new user with transactional section assignments
+     */
+    static async createUser(data: CreateUserData, currentUserId: string) {
+        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = data;
+
+        // Validate OPMC requirement for New Connection & Service Assurance
+        const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
+        if (requiresOPMC && (!opmcIds || opmcIds.length === 0)) {
+            throw new Error('OPMC_REQUIRED');
+        }
+
+        if (!password) {
+            throw new Error('PASSWORD_REQUIRED');
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Create Staff record if employeeId is present
+            let staffId = undefined;
+            if (employeeId) {
+                const existingStaff = await tx.staff.findUnique({ where: { employeeId } });
+
+                if (existingStaff) {
+                    staffId = existingStaff.id;
+                } else {
+                    const staff = await tx.staff.create({
+                        data: {
+                            name: name || username,
+                            employeeId,
+                            designation: role,
+                            opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
+                        }
+                    });
+                    staffId = staff.id;
+                }
+            }
+
+            // 2. Create User record
+            const user = await tx.user.create({
+                data: {
+                    username,
+                    email,
+                    password: hashedPassword,
+                    name,
+                    role: role || 'ENGINEER',
+                    staff: staffId ? { connect: { id: staffId } } : undefined,
+                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : undefined,
+                    accessibleOpmcs: {
+                        connect: opmcIds && Array.isArray(opmcIds)
+                            ? opmcIds.map((id: string) => ({ id }))
+                            : []
+                    },
+                    supervisor: supervisorId ? { connect: { id: supervisorId } } : undefined
+                },
+                include: {
+                    accessibleOpmcs: { select: { rtom: true } }
+                }
+            });
+
+            // 3. Auto-assign to Section based on Role
+            const sectionMapping: Record<string, string> = {
+                'OSP_MANAGER': 'PROJECTS',
+                'AREA_MANAGER': 'PROJECTS',
+                'ENGINEER': 'PROJECTS',
+                'ASSISTANT_ENGINEER': 'PROJECTS',
+                'AREA_COORDINATOR': 'PROJECTS',
+                'QC_OFFICER': 'PROJECTS',
+                'MANAGER': 'NEW_CONNECTION',
+                'SA_MANAGER': 'SERVICE_ASSURANCE',
+                'SA_ASSISTANT': 'SERVICE_ASSURANCE',
+                'STORES_MANAGER': 'STORES',
+                'STORES_ASSISTANT': 'STORES',
+                'PROCUREMENT_OFFICER': 'PROCUREMENT',
+                'FINANCE_MANAGER': 'FINANCE',
+                'FINANCE_ASSISTANT': 'FINANCE',
+                'INVOICE_MANAGER': 'INVOICE',
+                'INVOICE_ASSISTANT': 'INVOICE',
+                'OFFICE_ADMIN': 'OFFICE_ADMIN',
+                'OFFICE_ADMIN_ASSISTANT': 'OFFICE_ADMIN',
+                'SUPER_ADMIN': 'ADMIN',
+                'ADMIN': 'ADMIN'
+            };
+
+            const sectionCode = sectionMapping[role];
+            if (sectionCode) {
+                let section = await tx.section.findUnique({ where: { code: sectionCode } });
+                if (!section) {
+                    section = await tx.section.create({
+                        data: {
+                            name: sectionCode.replace(/_/g, ' '),
+                            code: sectionCode
+                        }
+                    });
+                }
+
+                const roleCode = `${sectionCode}_${role}`;
+                let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
+                if (!systemRole) {
+                    systemRole = await tx.systemRole.create({
+                        data: {
+                            name: role.replace(/_/g, ' '),
+                            code: roleCode,
+                            sectionId: section.id,
+                            permissions: JSON.stringify(['dashboard'])
+                        }
+                    });
+                }
+
+                await tx.userSectionAssignment.create({
+                    data: {
+                        userId: user.id,
+                        sectionId: section.id,
+                        roleId: systemRole.id,
+                        isPrimary: true
+                    }
+                });
+            }
+
+            return user;
+        });
+
+        const userWithoutPassword = { ...result } as Partial<typeof result>;
+        delete userWithoutPassword.password;
+
+        // Log creation and Notify
+        await SystemService.logEvent({
+            userId: currentUserId || 'system',
+            action: 'USER_CREATE',
+            entity: 'User',
+            entityId: result.id as string,
+            newValue: userWithoutPassword,
+            notify: true,
+            notifyTitle: 'Welcome to SLT ERP',
+            notifyMessage: `An administrator has created your account as ${role}. Please setup your security profile.`,
+            notifyType: 'SYSTEM'
+        });
+
+        return userWithoutPassword;
+    }
+
+    /**
+     * Updates an existing user record
+     */
+    static async updateUser(id: string, data: UpdateUserData, currentUserId: string) {
+        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = data;
+
+        const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
+        if (!existingUser) throw new Error('USER_NOT_FOUND');
+
+        if (existingUser.role === 'SUPER_ADMIN' && role !== 'SUPER_ADMIN') {
+            throw new Error('CANNOT_DEMOTE_SUPER_ADMIN');
+        }
+
+        const dataToUpdate: {
+            username: string;
+            email: string;
+            name?: string;
+            role: Role;
+            password?: string;
+            mustChangePassword?: boolean;
+        } = {
+            username,
+            email,
+            name,
+            role,
+        };
+
+        if (password && password.length > 0) {
+            dataToUpdate.password = await bcrypt.hash(password, 10);
+            dataToUpdate.mustChangePassword = true;
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            let staffId = existingUser.staffId;
+            if (employeeId) {
+                const staff = await tx.staff.upsert({
+                    where: { employeeId },
+                    create: {
+                        name: name || username,
+                        employeeId,
+                        designation: role,
+                        opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
+                    },
+                    update: {
+                        name: name || undefined,
+                        designation: role,
+                        opmcId: opmcIds && opmcIds.length > 0 ? opmcIds[0] : undefined
+                    }
+                });
+                staffId = staff.id;
+            }
+
+            const updatedUser = await tx.user.update({
+                where: { id },
+                data: {
+                    ...dataToUpdate,
+                    staff: staffId ? { connect: { id: staffId } } : undefined,
+                    assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : { disconnect: true },
+                    accessibleOpmcs: {
+                        set: [],
+                        connect: opmcIds ? opmcIds.map((oid: string) => ({ id: oid })) : []
+                    },
+                    supervisor: supervisorId ? { connect: { id: supervisorId } } : { disconnect: true }
+                }
+            });
+            return updatedUser;
+        });
+
+        const userWithoutPassword = { ...result } as Partial<typeof result>;
+        delete userWithoutPassword.password;
+
+        await SystemService.logEvent({
+            userId: currentUserId || 'system',
+            action: 'USER_UPDATE',
+            entity: 'User',
+            entityId: result.id as string,
+            oldValue: existingUser,
+            newValue: userWithoutPassword,
+            notify: true,
+            notifyTitle: 'Profile Updated',
+            notifyMessage: `Your account details have been updated by an administrator.`,
+            notifyType: 'SYSTEM'
+        });
+
+        return userWithoutPassword;
+    }
+
+    /**
+     * Deletes a user record by ID
+     */
+    static async deleteUser(id: string) {
+        const user = await prisma.user.findUnique({ where: { id } });
+        if (!user) throw new Error('USER_NOT_FOUND');
+
+        if (user.role === 'SUPER_ADMIN') {
+            throw new Error('CANNOT_DELETE_SUPER_ADMIN');
+        }
+
+        await prisma.user.delete({ where: { id } });
+        return { success: true };
+    }
+
+    /**
+     * Initiates a forgot password workflow
+     */
+    static async forgotPasswordVerify(username: string, employeeId: string) {
+        const user = await prisma.user.findUnique({
+            where: { username },
+            select: {
+                id: true,
+                username: true,
+                employeeId: true,
+                securityQuestion: true,
+                securityAnswer: true
+            }
+        });
+
+        if (!user) throw new Error('USER_NOT_FOUND');
+
+        if (user.employeeId !== employeeId) {
+            throw new Error('EMPLOYEE_ID_MISMATCH');
+        }
+
+        if (!user.securityQuestion || !user.securityAnswer) {
+            throw new Error('SECURITY_QUESTION_NOT_SET');
+        }
+
+        // Generate temporary token
+        const token = sign(
+            { userId: user.id, step: 'verify' },
+            JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        return {
+            securityQuestion: user.securityQuestion,
+            token
+        };
+    }
+
+    /**
+     * Verifies the answer of forgot password security question
+     */
+    static async forgotPasswordVerifyAnswer(token: string, answer: string) {
+        let decoded: string | JwtPayload;
+        try {
+            decoded = verify(token, JWT_SECRET);
+        } catch {
+            throw new Error('INVALID_TOKEN');
+        }
+
+        if (typeof decoded === 'string' || decoded.step !== 'verify') {
+            throw new Error('INVALID_TOKEN');
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: {
+                id: true,
+                securityAnswer: true
+            }
+        });
+
+        if (!user || !user.securityAnswer) {
+            throw new Error('USER_NOT_FOUND');
+        }
+
+        const isCorrect = await bcrypt.compare(answer.toLowerCase().trim(), user.securityAnswer);
+        if (!isCorrect) {
+            throw new Error('INCORRECT_ANSWER');
+        }
+
+        // Generate reset token
+        const resetToken = sign(
+            { userId: user.id, step: 'reset' },
+            JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        return {
+            message: 'Security answer verified',
+            token: resetToken
+        };
+    }
+
+    /**
+     * Resets password to a new value
+     */
+    static async forgotPasswordReset(token: string, newPassword: string) {
+        if (newPassword.length < 6) {
+            throw new Error('PASSWORD_TOO_SHORT');
+        }
+
+        let decoded: string | JwtPayload;
+        try {
+            decoded = verify(token, JWT_SECRET);
+        } catch {
+            throw new Error('INVALID_TOKEN');
+        }
+
+        if (typeof decoded === 'string' || decoded.step !== 'reset') {
+            throw new Error('INVALID_TOKEN');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await prisma.user.update({
+            where: { id: decoded.userId },
+            data: { password: hashedPassword }
+        });
+
+        return { success: true };
+    }
+
+    /**
+     * Fetches user profile by ID
+     */
+    static async getProfile(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                staff: true,
+                accessibleOpmcs: {
+                    select: {
+                        id: true,
+                        name: true,
+                        rtom: true
+                    }
+                },
+                assignedStore: {
+                    select: {
+                        id: true,
+                        name: true,
+                        location: true
+                    }
+                },
+                supervisor: {
+                    select: {
+                        name: true,
+                        role: true,
+                        username: true
+                    }
+                },
+                subordinates: {
+                    select: {
+                        id: true,
+                        name: true,
+                        role: true
+                    }
+                },
+                sectionAssignments: {
+                    include: {
+                        section: {
+                            select: {
+                                name: true,
+                                icon: true
+                            }
+                        },
+                        role: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                },
+                auditLogs: {
+                    take: 5,
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+
+        if (!user) throw new Error('USER_NOT_FOUND');
+        return user;
+    }
+
+    /**
+     * Changes password of profile user
+     */
+    static async changePassword(userId: string, currentPassword: string, newPassword: string) {
+        if (newPassword.length < 6) {
+            throw new Error('PASSWORD_TOO_SHORT');
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                password: true
+            }
+        });
+
+        if (!user) throw new Error('USER_NOT_FOUND');
+
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            throw new Error('INCORRECT_PASSWORD');
+        }
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                password: hashedNewPassword
+            }
+        });
+
+        return { success: true };
     }
 }

@@ -2,7 +2,6 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ContractorService } from '@/services/contractor.service';
 import { contractorSchema } from '@/lib/validations/contractor.schema';
-import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,24 +15,18 @@ export const GET = apiHandler(async (req) => {
     const limit = parseInt(searchParams.get('limit') || '50');
     const rtomId = searchParams.get('rtomId') || searchParams.get('opmcId');
     
-    const userId = req.headers.get('x-user-id');
-    const role = req.headers.get('x-user-role');
+    const userId = req.headers.get('x-user-id') || undefined;
+    const role = req.headers.get('x-user-role') || undefined;
 
-    let opmcIds: string[] | undefined = undefined;
+    const opmcIds = rtomId ? [rtomId] : undefined;
 
-    if (rtomId) {
-        opmcIds = [rtomId];
-    } else if (['AREA_MANAGER', 'SITE_OFFICE_STAFF', 'OFFICE_ADMIN'].includes(role || '') && userId) {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: { accessibleOpmcs: { select: { id: true } } }
-        });
-        if (user) {
-            opmcIds = user.accessibleOpmcs.map((o: any) => o.id);
-        }
-    }
-
-    return await ContractorService.getAllContractors(opmcIds, page, limit);
+    return await ContractorService.getAllContractors({
+        opmcIds,
+        page,
+        limit,
+        userId,
+        userRole: role
+    });
 });
 
 /**

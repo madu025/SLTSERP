@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { MaterialService } from '@/services/material.service';
 
 // POST - Generate contractor balance sheet for a month
@@ -15,46 +14,8 @@ export async function POST(request: Request) {
             );
         }
 
-        // Generate the balance sheet via the MaterialService (which deletes existing, recalculates, and saves)
         const sheet = await MaterialService.generateBalanceSheet(contractorId, storeId, month);
-
-        // Fetch the full balance sheet with details to return to the UI (matching the expected format)
-        const balanceSheet = await prisma.contractorMaterialBalanceSheet.findUnique({
-            where: { id: sheet.id },
-            include: {
-                contractor: {
-                    select: {
-                        id: true,
-                        name: true,
-                        registrationNumber: true
-                    }
-                },
-                store: {
-                    select: {
-                        id: true,
-                        name: true
-                    }
-                },
-                items: {
-                    include: {
-                        item: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                                unit: true,
-                                category: true
-                            }
-                        }
-                    },
-                    orderBy: {
-                        item: {
-                            name: 'asc'
-                        }
-                    }
-                }
-            }
-        });
+        const balanceSheet = await MaterialService.getBalanceSheet(contractorId, storeId, month);
 
         return NextResponse.json({
             message: 'Balance sheet generated successfully',

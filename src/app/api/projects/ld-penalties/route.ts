@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectLDPenaltyService } from '@/services/project-ld-penalty.service';
 
 // GET /api/projects/ld-penalties?projectId=xxx - List LD/Penalties by project
 export async function GET(request: NextRequest) {
@@ -11,13 +11,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
         }
 
-        const penalties = await prisma.projectLDPenalty.findMany({
-            where: { projectId },
-            orderBy: { createdAt: 'desc' },
-        });
-
+        const penalties = await ProjectLDPenaltyService.getPenalties(projectId);
         return NextResponse.json(penalties);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching LD/penalties:', error);
         return NextResponse.json({ error: 'Failed to fetch LD/penalties' }, { status: 500 });
     }
@@ -27,11 +23,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const {
-            projectId, title, description, type, category, amount,
-            percentage, referenceTable, referenceId, referenceDesc,
-            appliedDate, leviedById, remarks,
-        } = body;
+        const { projectId, title, amount } = body;
 
         if (!projectId || !title || !amount) {
             return NextResponse.json(
@@ -40,29 +32,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const penalty = await prisma.projectLDPenalty.create({
-            data: {
-                projectId,
-                title,
-                description: description || null,
-                type: type || 'LD',
-                category: category || 'DELAY',
-                amount,
-                percentage: percentage || null,
-                referenceTable: referenceTable || null,
-                referenceId: referenceId || null,
-                referenceDesc: referenceDesc || null,
-                waivedAmount: 0,
-                netAmount: amount,
-                appliedDate: appliedDate ? new Date(appliedDate) : new Date(),
-                leviedById: leviedById || null,
-                remarks: remarks || null,
-                status: 'PROPOSED',
-            },
-        });
-
+        const penalty = await ProjectLDPenaltyService.createPenalty(body);
         return NextResponse.json(penalty, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating LD/penalty:', error);
         return NextResponse.json({ error: 'Failed to create LD/penalty' }, { status: 500 });
     }
@@ -72,41 +44,20 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     try {
         const body = await request.json();
-        const {
-            id, status, approvedById, waivedAmount, remarks,
-        } = body;
+        const { id, status, ...options } = body;
 
         if (!id || !status) {
             return NextResponse.json({ error: 'id and status are required' }, { status: 400 });
         }
 
-        const existing = await prisma.projectLDPenalty.findUnique({ where: { id } });
-        if (!existing) {
+        const penalty = await ProjectLDPenaltyService.updatePenalty(id, status, options);
+        return NextResponse.json(penalty);
+    } catch (error: unknown) {
+        console.error('Error updating LD/penalty:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'LD_PENALTY_NOT_FOUND') {
             return NextResponse.json({ error: 'LD/penalty not found' }, { status: 404 });
         }
-
-        const updateData: any = { status };
-
-        if (status === 'APPROVED' || status === 'WAIVED') {
-            updateData.approvedById = approvedById || null;
-            updateData.approvedAt = new Date();
-        }
-
-        if (waivedAmount !== undefined) {
-            updateData.waivedAmount = waivedAmount;
-            updateData.netAmount = existing.amount - waivedAmount;
-        }
-
-        if (remarks) updateData.remarks = remarks;
-
-        const penalty = await prisma.projectLDPenalty.update({
-            where: { id },
-            data: updateData,
-        });
-
-        return NextResponse.json(penalty);
-    } catch (error: any) {
-        console.error('Error updating LD/penalty:', error);
         return NextResponse.json({ error: 'Failed to update LD/penalty' }, { status: 500 });
     }
 }
@@ -121,22 +72,20 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'id is required' }, { status: 400 });
         }
 
-        const existing = await prisma.projectLDPenalty.findUnique({ where: { id } });
-        if (!existing) {
+        await ProjectLDPenaltyService.deletePenalty(id);
+        return NextResponse.json({ message: 'LD/penalty deleted successfully' });
+    } catch (error: unknown) {
+        console.error('Error deleting LD/penalty:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'LD_PENALTY_NOT_FOUND') {
             return NextResponse.json({ error: 'LD/penalty not found' }, { status: 404 });
         }
-
-        if (existing.status !== 'PROPOSED') {
+        if (errorMsg === 'PROPOSED_ONLY_DELETION') {
             return NextResponse.json(
                 { error: 'Only PROPOSED LD/penalties can be deleted' },
                 { status: 400 }
             );
         }
-
-        await prisma.projectLDPenalty.delete({ where: { id } });
-        return NextResponse.json({ message: 'LD/penalty deleted successfully' });
-    } catch (error: any) {
-        console.error('Error deleting LD/penalty:', error);
         return NextResponse.json({ error: 'Failed to delete LD/penalty' }, { status: 500 });
     }
 }

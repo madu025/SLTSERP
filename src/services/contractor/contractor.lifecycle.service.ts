@@ -299,4 +299,188 @@ export class ContractorLifecycleService {
         emitSystemEvent('CONTRACTOR_UPDATE');
         return result;
     }
+
+    /**
+     * Get teams and minimal contractor information
+     */
+    static async getContractorTeams(contractorId: string) {
+        const [teams, contractor] = await prisma.$transaction([
+            prisma.contractorTeam.findMany({
+                where: { contractorId },
+                include: {
+                    members: true,
+                    storeAssignments: {
+                        include: {
+                            store: { select: { id: true, name: true, type: true } }
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.contractor.findUnique({
+                where: { id: contractorId },
+                select: {
+                    name: true,
+                    contactNumber: true,
+                    address: true,
+                    nic: true,
+                    photoUrl: true,
+                    nicFrontUrl: true,
+                    policeReportUrl: true,
+                    gramaCertUrl: true
+                }
+            })
+        ]);
+
+        return { teams, contractor };
+    }
+
+    /**
+     * Save contractor teams, handling upserts, store assignments, and members
+     */
+    static async saveContractorTeams(contractorId: string, teams: any[]) {
+        const existingTeams = await prisma.contractorTeam.findMany({
+            where: { contractorId },
+            select: { id: true }
+        });
+        
+        const contractor = await prisma.contractor.findUnique({
+            where: { id: contractorId },
+            select: { opmcId: true }
+        });
+
+        const existingIds = existingTeams.map(t => t.id);
+        const incomingIds = teams.filter((t: any) => t.id && !t.id.startsWith('temp')).map((t: any) => t.id);
+        const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
+
+        await prisma.$transaction(async (tx) => {
+            // 1. Delete removed teams
+            if (idsToDelete.length > 0) {
+                await tx.contractorTeam.deleteMany({
+                    where: { id: { in: idsToDelete } }
+                });
+            }
+
+            // 2. Upsert teams
+            for (const team of teams) {
+                const teamData = {
+                    name: team.name,
+                    status: team.status,
+                    contractorId: contractorId,
+                    sltCode: team.sltCode || null,
+                    opmcId: (team.opmcId && team.opmcId !== 'inherit') ? team.opmcId : (contractor?.opmcId || null)
+                };
+
+                let teamId = team.id;
+
+                if (!team.id || team.id.startsWith('temp')) {
+                    const newTeam = await tx.contractorTeam.create({
+                        data: teamData
+                    });
+                    teamId = newTeam.id;
+                } else {
+                    await tx.contractorTeam.update({
+                        where: { id: team.id },
+                        data: teamData
+                    });
+                }
+
+                // 3. Handle Store Assignments
+                await tx.teamStoreAssignment.deleteMany({ where: { teamId } });
+
+                if (team.storeAssignments && team.storeAssignments.length > 0) {
+                    await tx.teamStoreAssignment.createMany({
+                        data: team.storeAssignments.map((sa: any) => ({
+                            teamId,
+                            storeId: sa.storeId,
+                            isPrimary: sa.isPrimary || false
+                        }))
+                    });
+                }
+
+                // 4. Handle Members
+                const currentMembers = await tx.teamMember.findMany({
+                    where: { teamId },
+                    select: { id: true }
+                });
+                const curMemIds = currentMembers.map(m => m.id);
+                const incMemIds = (team.members || [])
+                    .filter((m: any) => m.id && !m.id.startsWith('mem'))
+                    .map((m: any) => m.id);
+
+                const memsToDelete = curMemIds.filter(id => !incMemIds.includes(id));
+                if (memsToDelete.length > 0) {
+                    await tx.teamMember.deleteMany({ where: { id: { in: memsToDelete } } });
+                }
+
+                for (const member of (team.members || [])) {
+                    const memData = {
+                        name: member.name,
+                        idCopyNumber: member.idCopyNumber,
+                        nic: member.nic || member.idCopyNumber,
+                        contactNumber: member.contactNumber,
+                        address: member.address,
+                        photoUrl: member.photoUrl,
+                        nicUrl: member.nicUrl,
+                        policeReportUrl: member.policeReportUrl,
+                        gramaCertUrl: member.gramaCertUrl,
+                        contractorId: contractorId,
+                        teamId: teamId,
+                        shoeSize: member.shoeSize,
+                        tshirtSize: member.tshirtSize,
+                        passportPhotoUrl: member.passportPhotoUrl
+                    };
+
+                    if (!member.id || member.id.startsWith('mem')) {
+                        await tx.teamMember.create({ data: memData });
+                    } else {
+                        await tx.teamMember.update({
+                            where: { id: member.id },
+                            data: memData
+                        });
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Assign a store to a contractor team or update its primary status
+     */
+    static async assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean) {
+        if (isPrimary) {
+            await prisma.teamStoreAssignment.updateMany({
+                where: { teamId },
+                data: { isPrimary: false }
+            });
+        }
+
+        const existing = await prisma.teamStoreAssignment.findFirst({
+            where: { teamId, storeId }
+        });
+
+        if (existing) {
+            return await prisma.teamStoreAssignment.update({
+                where: { id: existing.id },
+                data: { isPrimary }
+            });
+        } else {
+            return await prisma.teamStoreAssignment.create({
+                data: {
+                    teamId,
+                    storeId,
+                    isPrimary: isPrimary || false
+                }
+            });
+        }
+    }
+
+    /**
+     * Remove a store assignment from a contractor team
+     */
+    static async removeTeamStore(teamId: string, storeId: string) {
+        return await prisma.teamStoreAssignment.deleteMany({
+            where: { teamId, storeId }
+        });
+    }
 }

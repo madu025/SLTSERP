@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { UserService } from '@/services/user.service';
 
 export async function GET(request: Request) {
     try {
@@ -8,67 +8,14 @@ export async function GET(request: Request) {
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
         }
 
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                staff: true,
-                accessibleOpmcs: {
-                    select: {
-                        id: true,
-                        name: true,
-                        rtom: true
-                    }
-                },
-                assignedStore: {
-                    select: {
-                        id: true,
-                        name: true,
-                        location: true
-                    }
-                },
-                supervisor: {
-                    select: {
-                        name: true,
-                        role: true,
-                        username: true
-                    }
-                },
-                subordinates: {
-                    select: {
-                        id: true,
-                        name: true,
-                        role: true
-                    }
-                },
-                sectionAssignments: {
-                    include: {
-                        section: {
-                            select: {
-                                name: true,
-                                icon: true
-                            }
-                        },
-                        role: {
-                            select: {
-                                name: true
-                            }
-                        }
-                    }
-                },
-                auditLogs: {
-                    take: 5,
-                    orderBy: { createdAt: 'desc' }
-                }
-            }
-        });
-
-        if (!user) {
+        const user = await UserService.getProfile(userId);
+        return NextResponse.json(user);
+    } catch (error: unknown) {
+        console.error('Profile Fetch Error:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'USER_NOT_FOUND') {
             return NextResponse.json({ message: 'User not found' }, { status: 404 });
         }
-
-        return NextResponse.json(user);
-    } catch (error) {
-        console.error('Profile Fetch Error:', error);
         return NextResponse.json({ message: 'Error fetching profile' }, { status: 500 });
     }
 }

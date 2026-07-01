@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { InventoryService } from '@/services/inventory.service';
 import { handleApiError } from '@/lib/api-utils';
 
 export async function GET(request: Request) {
@@ -12,14 +12,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
         }
 
-        const serials = await prisma.inventoryItemSerial.findMany({
-            where: {
-                storeId,
-                itemId,
-                status: 'IN_STORE'
-            },
-            orderBy: { serialNumber: 'asc' }
-        });
+        const serials = await InventoryService.getItemSerials(storeId, itemId);
 
         return NextResponse.json(serials);
     } catch (error) {

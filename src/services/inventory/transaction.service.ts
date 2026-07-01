@@ -122,4 +122,158 @@ export class TransactionService {
             }
         });
     }
+
+    /**
+     * Calculate/generate balance sheet report data for a contractor and store
+     */
+    static async generateReportData(params: { contractorId: string; storeId: string; month: string }) {
+        const { contractorId, storeId, month } = params;
+        const startDate = new Date(`${month}-01`);
+
+        // 1. Get List of ALL Active Items
+        const items = await prisma.inventoryItem.findMany({
+            select: { id: true, name: true, code: true, unit: true }
+        });
+
+        // 2. Fetch Opening Balances
+        const prevMonthDate = new Date(startDate.getFullYear(), startDate.getMonth() - 1, 1);
+        const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const prevSheet = await (prisma as any).contractorMaterialBalanceSheet.findUnique({
+            where: {
+                contractorId_storeId_month: {
+                    contractorId,
+                    storeId,
+                    month: prevMonthStr
+                }
+            },
+            include: { items: true }
+        });
+
+        const openingMap = new Map<string, number>();
+        if (prevSheet) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            prevSheet.items.forEach((item: any) => {
+                openingMap.set(item.itemId, item.closingBalance);
+            });
+        }
+
+        // 3. Fetch Issues (Received)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const issues = await (prisma as any).contractorMaterialIssue.findMany({
+            where: {
+                contractorId,
+                storeId,
+                month: month
+            },
+            include: { items: true }
+        });
+
+        const receivedMap = new Map<string, number>();
+        issues.forEach((issue: any) => {
+            issue.items.forEach((item: any) => {
+                const current = receivedMap.get(item.itemId) || 0;
+                receivedMap.set(item.itemId, current + item.quantity);
+            });
+        });
+
+        // 4. Fetch Returns (Returned)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const returns = await (prisma as any).contractorMaterialReturn.findMany({
+            where: {
+                contractorId,
+                storeId,
+                month: month,
+                status: 'ACCEPTED'
+            },
+            include: { items: true }
+        });
+
+        const returnedMap = new Map<string, number>();
+        returns.forEach((ret: any) => {
+            ret.items.forEach((item: any) => {
+                const current = returnedMap.get(item.itemId) || 0;
+                returnedMap.set(item.itemId, current + item.quantity);
+            });
+        });
+
+        // 5. Fetch Usage (Used in SODs)
+        const usageStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+        const usageEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
+
+        const sods = await prisma.serviceOrder.findMany({
+            where: {
+                contractorId,
+                sltsStatus: { in: ['COMPLETED', 'RETURN'] },
+                completedDate: {
+                    gte: usageStart,
+                    lte: usageEnd
+                }
+            },
+            include: { materialUsage: true }
+        });
+
+        const usedMap = new Map<string, number>();
+        const wastageMap = new Map<string, number>();
+
+        sods.forEach(sod => {
+            sod.materialUsage.forEach(mu => {
+                if (mu.usageType === 'USED') {
+                    const current = usedMap.get(mu.itemId) || 0;
+                    usedMap.set(mu.itemId, current + mu.quantity);
+                } else if (mu.usageType === 'WASTAGE') {
+                    const current = wastageMap.get(mu.itemId) || 0;
+                    wastageMap.set(mu.itemId, current + mu.quantity);
+                }
+            });
+        });
+
+        // Fetch Direct Wastage (Reported)
+        const directWastage = await (prisma as any).contractorWastage.findMany({
+            where: {
+                contractorId,
+                storeId,
+                month: month
+            },
+            include: { items: true }
+        });
+
+        directWastage.forEach((dw: any) => {
+            dw.items.forEach((item: any) => {
+                const current = wastageMap.get(item.itemId) || 0;
+                wastageMap.set(item.itemId, current + item.quantity);
+            });
+        });
+
+        // 6. Compile Report Data
+        const reportData = items.map(item => {
+            const opening = openingMap.get(item.id) || 0;
+            const received = receivedMap.get(item.id) || 0;
+            const returned = returnedMap.get(item.id) || 0;
+            const used = usedMap.get(item.id) || 0;
+            const wastage = wastageMap.get(item.id) || 0;
+
+            const closing = opening + received - returned - used - wastage;
+
+            if (opening === 0 && received === 0 && returned === 0 && used === 0 && wastage === 0) {
+                return null;
+            }
+
+            return {
+                itemId: item.id,
+                itemCode: item.code,
+                itemName: item.name,
+                unit: item.unit,
+                opening,
+                received,
+                returned,
+                used,
+                wastage,
+                closing
+            };
+        }).filter(Boolean);
+
+        return reportData;
+    }
 }

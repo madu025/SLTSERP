@@ -365,4 +365,20 @@ export class StockService {
             orderBy: { createdAt: 'desc' }
         }) as StockIssue[];
     }
+
+    /**
+     * Get item serials in store
+     */
+    static async getItemSerials(storeId: string, itemId: string) {
+        if (!storeId || !itemId) throw new Error('MISSING_PARAMS');
+        
+        return await prisma.inventoryItemSerial.findMany({
+            where: {
+                storeId,
+                itemId,
+                status: 'IN_STORE'
+            },
+            orderBy: { serialNumber: 'asc' }
+        });
+    }
 }

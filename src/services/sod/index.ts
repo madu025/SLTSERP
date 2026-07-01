@@ -25,6 +25,13 @@ export class ServiceOrderService {
     }
 
     /**
+     * Get a service order by soNum with full details
+     */
+    static async getServiceOrderBySoNum(soNum: string) {
+        return SODQueryService.getServiceOrderBySoNum(soNum);
+    }
+
+    /**
      * Bulk Import from Excel
      */
     static async bulkImportServiceOrders(rtom: string, data: Record<string, unknown>[], opmcId: string) {
@@ -143,5 +150,33 @@ export class ServiceOrderService {
 
     static async syncServiceOrders(opmcId: string, rtom: string) {
         return SODSyncService.syncServiceOrders(opmcId, rtom);
+    }
+
+    static async getExtensionRawData(soNum: string) {
+        return SODQueryService.getExtensionRawData(soNum);
+    }
+
+    static async getPatResults(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        rtom?: string;
+        startDate?: string;
+        endDate?: string;
+    }) {
+        return SODQueryService.getPatResults(params);
+    }
+
+    static async getOspFtthItems() {
+        return SODQueryService.getOspFtthItems();
+    }
+
+    static async bulkImportLegacyServiceOrders(rows: any[], skipMaterials?: boolean) {
+        return SODImportService.bulkImportLegacyServiceOrders(rows, skipMaterials);
+    }
+
+    static async bridgeSync(payload: any) {
+        return SODSyncService.bridgeSync(payload);
     }
 }

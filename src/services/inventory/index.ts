@@ -45,6 +45,7 @@ export class InventoryService {
     static pickContractorBatchesFIFO = StockService.pickContractorBatchesFIFO;
     static createStockIssue = StockService.createStockIssue;
     static getStockIssues = StockService.getStockIssues;
+    static getItemSerials = StockService.getItemSerials;
 
     // --- GRN MANAGEMENT ---
     static getGRNs = GRNService.getGRNs;
@@ -74,6 +75,7 @@ export class InventoryService {
     // --- TRANSACTION & REPORTING ---
     static getTransactions = TransactionService.getTransactions;
     static saveBalanceSheet = TransactionService.saveBalanceSheet;
+    static generateReportData = TransactionService.generateReportData;
 
     // --- VIRTUAL SWAP ---
     static getTransitionSummary = VirtualSwapService.getTransitionSummary;

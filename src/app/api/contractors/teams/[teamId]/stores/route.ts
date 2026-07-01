@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-
+import { ContractorService } from '@/services/contractor.service';
 
 // GET - Get team's assigned stores
 export async function GET(
@@ -9,26 +8,7 @@ export async function GET(
 ) {
     const params = await context.params;
     try {
-        const team = await prisma.contractorTeam.findUnique({
-            where: { id: params.teamId },
-            include: {
-                storeAssignments: {
-                    include: {
-                        store: {
-                            include: {
-                                opmcs: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        rtom: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        const team = await ContractorService.getTeamStores(params.teamId);
 
         if (!team) {
             return NextResponse.json({ error: 'Team not found' }, { status: 404 });
@@ -61,39 +41,7 @@ export async function POST(
             return NextResponse.json({ error: 'Store ID is required' }, { status: 400 });
         }
 
-        // If isPrimary, unset other primary stores
-        if (isPrimary) {
-            await prisma.teamStoreAssignment.updateMany({
-                where: { teamId: params.teamId },
-                data: { isPrimary: false }
-            });
-        }
-
-        // Check if assignment already exists
-        const existing = await prisma.teamStoreAssignment.findFirst({
-            where: {
-                teamId: params.teamId,
-                storeId
-            }
-        });
-
-        let assignment;
-        if (existing) {
-            // Update existing
-            assignment = await prisma.teamStoreAssignment.update({
-                where: { id: existing.id },
-                data: { isPrimary }
-            });
-        } else {
-            // Create new
-            assignment = await prisma.teamStoreAssignment.create({
-                data: {
-                    teamId: params.teamId,
-                    storeId,
-                    isPrimary
-                }
-            });
-        }
+        const assignment = await ContractorService.assignTeamStore(params.teamId, storeId, isPrimary);
 
         return NextResponse.json(assignment);
     } catch (error) {
@@ -122,12 +70,7 @@ export async function DELETE(
             return NextResponse.json({ error: 'Store ID is required' }, { status: 400 });
         }
 
-        await prisma.teamStoreAssignment.deleteMany({
-            where: {
-                teamId: params.teamId,
-                storeId
-            }
-        });
+        await ContractorService.removeTeamStore(params.teamId, storeId);
 
         return NextResponse.json({ success: true });
     } catch (error) {

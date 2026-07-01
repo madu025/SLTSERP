@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { sign } from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+import { UserService } from '@/services/user.service';
 
 export async function POST(request: Request) {
     try {
@@ -15,55 +12,23 @@ export async function POST(request: Request) {
             );
         }
 
-        // Find user
-        const user = await prisma.user.findUnique({
-            where: { username },
-            select: {
-                id: true,
-                username: true,
-                employeeId: true,
-                securityQuestion: true,
-                securityAnswer: true
-            }
-        });
-
-        if (!user) {
-            return NextResponse.json(
-                { message: 'User not found' },
-                { status: 404 }
-            );
+        const result = await UserService.forgotPasswordVerify(username, employeeId);
+        return NextResponse.json(result);
+    } catch (error: unknown) {
+        console.error('Forgot password verify error:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'USER_NOT_FOUND') {
+            return NextResponse.json({ message: 'User not found' }, { status: 404 });
         }
-
-        // Verify employee ID
-        if (user.employeeId !== employeeId) {
-            return NextResponse.json(
-                { message: 'Employee ID does not match' },
-                { status: 401 }
-            );
+        if (errorMsg === 'EMPLOYEE_ID_MISMATCH') {
+            return NextResponse.json({ message: 'Employee ID does not match' }, { status: 401 });
         }
-
-        // Check if security question is set
-        if (!user.securityQuestion || !user.securityAnswer) {
+        if (errorMsg === 'SECURITY_QUESTION_NOT_SET') {
             return NextResponse.json(
                 { message: 'Security question not set. Please contact administrator.' },
                 { status: 400 }
             );
         }
-
-        // Generate temporary token
-        const token = sign(
-            { userId: user.id, step: 'verify' },
-            JWT_SECRET,
-            { expiresIn: '15m' }
-        );
-
-        return NextResponse.json({
-            securityQuestion: user.securityQuestion,
-            token
-        });
-
-    } catch (error) {
-        console.error('Forgot password verify error:', error);
         return NextResponse.json(
             { message: 'Internal server error' },
             { status: 500 }

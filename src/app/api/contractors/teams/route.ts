@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ContractorService } from '@/services/contractor.service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -9,18 +9,7 @@ export const revalidate = 0;
  */
 export async function GET() {
     try {
-        const teams = await prisma.contractorTeam.findMany({
-            select: {
-                id: true,
-                name: true,
-                contractorId: true,
-                contractor: {
-                    select: { id: true, name: true }
-                }
-            },
-            orderBy: { name: 'asc' }
-        });
-
+        const teams = await ContractorService.getAllTeams();
         return NextResponse.json(teams);
     } catch (error) {
         console.error('Error fetching contractor teams:', error);

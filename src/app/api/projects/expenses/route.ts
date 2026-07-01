@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectExpenseService } from '@/services/project-expense.service';
 
 // POST create expense
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { projectId, type, description, amount, date, invoiceRef, remarks } = body;
+        const { projectId, type, amount } = body;
 
         if (!projectId || !type || !amount) {
             return NextResponse.json(
@@ -14,44 +14,9 @@ export async function POST(request: Request) {
             );
         }
 
-        let expense;
-
-        await prisma.$transaction(async (tx) => {
-            expense = await tx.projectExpense.create({
-                data: {
-                    projectId,
-                    type,
-                    description: description || '',
-                    amount: parseFloat(amount),
-                    date: date ? new Date(date) : new Date(),
-                    invoiceRef: invoiceRef || null,
-                    remarks: remarks || null
-                }
-            });
-
-            // Dynamically recalculate project actualCost and variance
-            const project = await tx.project.findUnique({
-                where: { id: projectId }
-            });
-
-            if (project) {
-                const newActualCost = (project.actualCost || 0) + parseFloat(amount);
-                const newVariance = project.budget !== null && project.budget !== undefined
-                    ? project.budget - newActualCost
-                    : null;
-
-                await tx.project.update({
-                    where: { id: projectId },
-                    data: {
-                        actualCost: newActualCost,
-                        variance: newVariance
-                    }
-                });
-            }
-        });
-
+        const expense = await ProjectExpenseService.createExpense(body);
         return NextResponse.json(expense);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error creating expense:', error);
         return NextResponse.json(
             { error: 'Failed to create expense' },
@@ -73,46 +38,17 @@ export async function DELETE(request: Request) {
             );
         }
 
-        await prisma.$transaction(async (tx) => {
-            const expense = await tx.projectExpense.findUnique({
-                where: { id }
-            });
-
-            if (!expense) {
-                throw new Error('Expense not found');
-            }
-
-            const projectId = expense.projectId;
-            const expenseAmount = expense.amount;
-
-            await tx.projectExpense.delete({
-                where: { id }
-            });
-
-            // Dynamically recalculate project actualCost and variance
-            const project = await tx.project.findUnique({
-                where: { id: projectId }
-            });
-
-            if (project) {
-                const newActualCost = Math.max(0, (project.actualCost || 0) - expenseAmount);
-                const newVariance = project.budget !== null && project.budget !== undefined
-                    ? project.budget - newActualCost
-                    : null;
-
-                await tx.project.update({
-                    where: { id: projectId },
-                    data: {
-                        actualCost: newActualCost,
-                        variance: newVariance
-                    }
-                });
-            }
-        });
-
+        await ProjectExpenseService.deleteExpense(id);
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error deleting expense:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'EXPENSE_NOT_FOUND') {
+            return NextResponse.json(
+                { error: 'Expense not found' },
+                { status: 404 }
+            );
+        }
         return NextResponse.json(
             { error: 'Failed to delete expense' },
             { status: 500 }

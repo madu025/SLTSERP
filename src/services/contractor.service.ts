@@ -67,6 +67,14 @@ export class ContractorService {
         return ContractorRegistrationService.submitPublicRegistration(token, data);
     }
 
+    static async verifyUploadToken(token: string) {
+        return ContractorRegistrationService.verifyUploadToken(token);
+    }
+
+    static async submitPublicDocuments(token: string, documents: any) {
+        return ContractorRegistrationService.submitPublicDocuments(token, documents);
+    }
+
     // --- LIFECYCLE OPERATIONS ---
 
     static async createContractor(data: ContractorUpdateData) {
@@ -79,5 +87,29 @@ export class ContractorService {
 
     static async deleteContractor(id: string) {
         return ContractorLifecycleService.deleteContractor(id);
+    }
+
+    static async getContractorTeams(contractorId: string) {
+        return ContractorLifecycleService.getContractorTeams(contractorId);
+    }
+
+    static async saveContractorTeams(contractorId: string, teams: any[]) {
+        return ContractorLifecycleService.saveContractorTeams(contractorId, teams);
+    }
+
+    static async getAllTeams() {
+        return ContractorQueryService.getAllTeams();
+    }
+
+    static async getTeamStores(teamId: string) {
+        return ContractorQueryService.getTeamStores(teamId);
+    }
+
+    static async assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean) {
+        return ContractorLifecycleService.assignTeamStore(teamId, storeId, isPrimary);
+    }
+
+    static async removeTeamStore(teamId: string, storeId: string) {
+        return ContractorLifecycleService.removeTeamStore(teamId, storeId);
     }
 }

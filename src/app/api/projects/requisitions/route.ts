@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectRequisitionService } from '@/services/project-requisition.service';
 
 // GET /api/projects/requisitions?projectId=xxx - List requisitions by project
 export async function GET(request: NextRequest) {
@@ -11,23 +11,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
         }
 
-        const requisitions = await prisma.projectRequisition.findMany({
-            where: { projectId },
-            include: {
-                items: true,
-                vendor: true,
-                quotations: {
-                    include: { items: true }
-                },
-                purchaseOrders: {
-                    include: { items: true }
-                }
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-
+        const requisitions = await ProjectRequisitionService.getRequisitions(projectId);
         return NextResponse.json(requisitions);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching requisitions:', error);
         return NextResponse.json({ error: 'Failed to fetch requisitions' }, { status: 500 });
     }
@@ -40,15 +26,8 @@ export async function POST(request: NextRequest) {
         const {
             projectId,
             title,
-            description,
-            priority,
-            type,
-            deliveryLocation,
-            requiredDate,
             requestedById,
-            vendorId,
             items,
-            remarks,
         } = body;
 
         // Validate required fields
@@ -59,70 +38,16 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify project exists
-        const project = await prisma.project.findUnique({ where: { id: projectId } });
-        if (!project) {
+        const requisition = await ProjectRequisitionService.createRequisition(body);
+        return NextResponse.json(requisition, { status: 201 });
+    } catch (error: unknown) {
+        console.error('Error creating requisition:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'PROJECT_NOT_FOUND') {
             return NextResponse.json({ error: 'Project not found' }, { status: 404 });
         }
-
-        // Auto-generate PR number
-        const lastPR = await prisma.projectRequisition.findFirst({
-            orderBy: { prNumber: 'desc' },
-            select: { prNumber: true },
-        });
-
-        let nextPRNumber: string;
-        if (lastPR && lastPR.prNumber) {
-            const lastNum = parseInt(lastPR.prNumber.replace('PR-', ''), 10);
-            const nextNum = isNaN(lastNum) ? 1 : lastNum + 1;
-            nextPRNumber = 'PR-' + String(nextNum).padStart(5, '0');
-        } else {
-            nextPRNumber = 'PR-00001';
-        }
-
-        // Calculate total from items
-        const estimatedTotal = items.reduce((sum: number, item: any) => {
-            return sum + (item.estimatedPrice || 0) * (item.quantity || 0);
-        }, 0);
-
-        // Use transaction to create requisition + items
-        const requisition = await prisma.$transaction(async (tx) => {
-            const newReq = await tx.projectRequisition.create({
-                data: {
-                    prNumber: nextPRNumber,
-                    projectId,
-                    title,
-                    description: description || null,
-                    priority: priority || 'MEDIUM',
-                    type: type || 'MATERIAL',
-                    deliveryLocation: deliveryLocation || null,
-                    requiredDate: requiredDate ? new Date(requiredDate) : null,
-                    requestedById,
-                    vendorId: vendorId || null,
-                    estimatedTotal,
-                    remarks: remarks || null,
-                    items: {
-                        create: items.map((item: any) => ({
-                            boqItemId: item.boqItemId || null,
-                            itemCode: item.itemCode,
-                            description: item.description,
-                            unit: item.unit || 'NOS',
-                            quantity: item.quantity || 0,
-                            estimatedPrice: item.estimatedPrice || 0,
-                            totalEstimated: (item.estimatedPrice || 0) * (item.quantity || 0),
-                            notes: item.notes || null,
-                        })),
-                    },
-                },
-                include: { items: true, vendor: true },
-            });
-            return newReq;
-        });
-
-        return NextResponse.json(requisition, { status: 201 });
-    } catch (error: any) {
-        console.error('Error creating requisition:', error);
-        if (error.code === 'P2002') {
+        const errorCode = (error as { code?: string }).code;
+        if (errorCode === 'P2002') {
             return NextResponse.json({ error: 'Requisition number already exists' }, { status: 400 });
         }
         return NextResponse.json({ error: 'Failed to create requisition' }, { status: 500 });
@@ -139,43 +64,20 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'id and status are required' }, { status: 400 });
         }
 
-        // Validate status transitions
-        const validStatuses = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
-        if (!validStatuses.includes(status)) {
-            return NextResponse.json({ error: `Invalid status: ${status}` }, { status: 400 });
+        const requisition = await ProjectRequisitionService.updateRequisitionStatus(id, status, approvedById, rejectionReason);
+        return NextResponse.json(requisition);
+    } catch (error: unknown) {
+        console.error('Error updating requisition:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'INVALID_STATUS') {
+            return NextResponse.json({ error: 'Invalid status transition' }, { status: 400 });
         }
-
-        const existing = await prisma.projectRequisition.findUnique({ where: { id } });
-        if (!existing) {
+        if (errorMsg === 'REQUISITION_NOT_FOUND') {
             return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
         }
-
-        // Only allow status transitions from DRAFT or PENDING
-        if (existing.status === 'APPROVED' || existing.status === 'REJECTED' || existing.status === 'CANCELLED') {
-            return NextResponse.json(
-                { error: `Cannot change status from ${existing.status}` },
-                { status: 400 }
-            );
+        if (errorMsg === 'STATUS_LOCKED') {
+            return NextResponse.json({ error: 'Cannot change status from current finalized state' }, { status: 400 });
         }
-
-        const updateData: any = { status };
-        if (status === 'APPROVED' && approvedById) {
-            updateData.approvedById = approvedById;
-            updateData.approvedAt = new Date();
-        }
-        if (status === 'REJECTED') {
-            updateData.rejectionReason = rejectionReason || null;
-        }
-
-        const requisition = await prisma.projectRequisition.update({
-            where: { id },
-            data: updateData,
-            include: { items: true, vendor: true },
-        });
-
-        return NextResponse.json(requisition);
-    } catch (error: any) {
-        console.error('Error updating requisition:', error);
         return NextResponse.json({ error: 'Failed to update requisition' }, { status: 500 });
     }
 }
@@ -190,22 +92,17 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'id is required' }, { status: 400 });
         }
 
-        const existing = await prisma.projectRequisition.findUnique({ where: { id } });
-        if (!existing) {
+        await ProjectRequisitionService.deleteRequisition(id);
+        return NextResponse.json({ message: 'Requisition deleted successfully' });
+    } catch (error: unknown) {
+        console.error('Error deleting requisition:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'REQUISITION_NOT_FOUND') {
             return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
         }
-
-        if (existing.status !== 'DRAFT') {
-            return NextResponse.json(
-                { error: 'Only DRAFT requisitions can be deleted' },
-                { status: 400 }
-            );
+        if (errorMsg === 'DRAFT_ONLY_DELETION') {
+            return NextResponse.json({ error: 'Only DRAFT requisitions can be deleted' }, { status: 400 });
         }
-
-        await prisma.projectRequisition.delete({ where: { id } });
-        return NextResponse.json({ message: 'Requisition deleted successfully' });
-    } catch (error: any) {
-        console.error('Error deleting requisition:', error);
         return NextResponse.json({ error: 'Failed to delete requisition' }, { status: 500 });
     }
 }

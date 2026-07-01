@@ -1,25 +1,14 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { ProjectPermitService } from "@/services/project-permit.service";
 
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get("projectId");
 
-        const where: Record<string, unknown> = {};
-        if (projectId) where.projectId = projectId;
-
-        const permits = await prisma.projectPermit.findMany({
-            where,
-            include: {
-                permitType: true,
-                _count: { select: { permitDocuments: true } }
-            },
-            orderBy: { createdAt: "desc" }
-        });
-
+        const permits = await ProjectPermitService.getPermits(projectId);
         return NextResponse.json(permits);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error fetching permits:", error);
         return NextResponse.json(
             { error: "Failed to fetch permits" },
@@ -31,15 +20,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const {
-            projectId,
-            permitTypeId,
-            permitNumber,
-            applicationDate,
-            expiryDate,
-            status,
-            cost
-        } = body;
+        const { projectId, permitTypeId } = body;
 
         if (!projectId || !permitTypeId) {
             return NextResponse.json(
@@ -48,26 +29,9 @@ export async function POST(request: Request) {
             );
         }
 
-        const permit = await prisma.projectPermit.create({
-            data: {
-                projectId,
-                permitTypeId,
-                permitNumber: permitNumber || null,
-                applicationDate: applicationDate
-                    ? new Date(applicationDate)
-                    : null,
-                expiryDate: expiryDate ? new Date(expiryDate) : null,
-                status: status || "DRAFT",
-                cost: cost || null
-            },
-            include: {
-                permitType: true,
-                _count: { select: { permitDocuments: true } }
-            }
-        });
-
+        const permit = await ProjectPermitService.createPermit(body);
         return NextResponse.json(permit, { status: 201 });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error creating permit:", error);
         return NextResponse.json(
             { error: "Failed to create permit" },

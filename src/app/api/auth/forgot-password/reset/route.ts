@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verify } from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+import { UserService } from '@/services/user.service';
 
 export async function POST(request: Request) {
     try {
@@ -16,46 +12,27 @@ export async function POST(request: Request) {
             );
         }
 
-        if (newPassword.length < 6) {
-            return NextResponse.json(
-                { message: 'Password must be at least 6 characters' },
-                { status: 400 }
-            );
-        }
-
-        // Verify token
-        let decoded: any;
-        try {
-            decoded = verify(token, JWT_SECRET);
-        } catch (error) {
-            return NextResponse.json(
-                { message: 'Invalid or expired token' },
-                { status: 401 }
-            );
-        }
-
-        if (decoded.step !== 'reset') {
-            return NextResponse.json(
-                { message: 'Invalid token' },
-                { status: 401 }
-            );
-        }
-
-        // Hash new password
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Update password
-        await prisma.user.update({
-            where: { id: decoded.userId },
-            data: { password: hashedPassword }
-        });
+        await UserService.forgotPasswordReset(token, newPassword);
 
         return NextResponse.json({
             message: 'Password reset successful'
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Password reset error:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'PASSWORD_TOO_SHORT') {
+            return NextResponse.json(
+                { message: 'Password must be at least 6 characters' },
+                { status: 400 }
+            );
+        }
+        if (errorMsg === 'INVALID_TOKEN') {
+            return NextResponse.json(
+                { message: 'Invalid or expired token' },
+                { status: 401 }
+            );
+        }
         return NextResponse.json(
             { message: 'Internal server error' },
             { status: 500 }

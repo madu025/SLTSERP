@@ -273,4 +273,195 @@ export class SODQueryService {
             }
         };
     }
+
+    /**
+     * Get unique service order by soNum with full details
+     */
+    static async getServiceOrderBySoNum(soNum: string) {
+        return await prisma.serviceOrder.findUnique({
+            where: { soNum },
+            include: {
+                contractor: { select: { name: true } },
+                team: { select: { name: true, sltCode: true } },
+                materialUsage: {
+                    select: {
+                        quantity: true,
+                        unitPrice: true,
+                        usageType: true,
+                        serialNumber: true,
+                        item: { select: { name: true, code: true, unit: true } }
+                    }
+                },
+                forensicAudit: {
+                    select: {
+                        auditData: true,
+                        voiceTestStatus: true
+                    }
+                },
+                statusHistory: {
+                    orderBy: { statusDate: 'desc' },
+                    select: {
+                        id: true,
+                        status: true,
+                        statusDate: true,
+                        createdAt: true
+                    }
+                },
+                restoreRequests: {
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        reason: true,
+                        status: true,
+                        createdAt: true
+                    }
+                },
+                commentsHistory: {
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        comment: true,
+                        createdAt: true,
+                        author: { select: { name: true } }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Get first extension raw data record by soNum (case insensitive)
+     */
+    static async getExtensionRawData(soNum: string) {
+        return await prisma.extensionRawData.findFirst({
+            where: { soNum: { equals: soNum, mode: 'insensitive' } },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    /**
+     * Get PAT results with filtering and pagination, enriched with internal service order info
+     */
+    static async getPatResults(params: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        status?: string;
+        rtom?: string;
+        startDate?: string;
+        endDate?: string;
+    }) {
+        const { page = 1, limit = 20, search = '', status = 'ALL', rtom = 'ALL', startDate, endDate } = params;
+        const skip = (page - 1) * limit;
+
+        const where: Prisma.SLTPATStatusWhereInput = {};
+
+        if (search) {
+            where.soNum = { contains: search, mode: 'insensitive' };
+        }
+
+        if (rtom !== 'ALL') {
+            where.rtom = rtom;
+        }
+
+        if (startDate && endDate) {
+            where.statusDate = {
+                gte: new Date(startDate),
+                lte: new Date(endDate)
+            };
+        }
+
+        if (status === 'ACCEPTED') {
+            where.status = 'PAT_PASSED';
+            where.source = 'HO_APPROVED';
+        } else if (status === 'REJECTED') {
+            where.status = 'REJECTED';
+            where.source = 'HO_REJECTED';
+        } else if (status === 'OPMC_REJECTED') {
+            where.status = 'REJECTED';
+            where.source = 'OPMC_REJECTED';
+        } else if (status !== 'ALL') {
+            where.source = status;
+        }
+
+        const [results, total, rtoms] = await Promise.all([
+            prisma.sLTPATStatus.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { statusDate: 'desc' },
+            }),
+            prisma.sLTPATStatus.count({
+                where
+            }),
+            prisma.oPMC.findMany({ select: { rtom: true }, orderBy: { rtom: 'asc' } })
+        ]);
+
+        // Enrich results with ServiceOrder internal info
+        const soNums = results.map(r => r.soNum);
+        const internalOrders = await prisma.serviceOrder.findMany({
+            where: { soNum: { in: soNums } },
+            select: {
+                soNum: true,
+                sltsStatus: true,
+                sltsPatStatus: true,
+                isInvoicable: true
+            }
+        });
+
+        const orders = results.map(r => {
+            const internal = internalOrders.find(io => io.soNum === r.soNum);
+
+            return {
+                id: r.id,
+                soNum: r.soNum,
+                rtom: r.rtom,
+                lea: r.lea,
+                voiceNumber: r.voiceNumber,
+                sType: r.sType,
+                orderType: r.orderType,
+                task: r.task,
+                package: r.package,
+                conName: r.conName,
+                patUser: r.patUser,
+                status: r.status,
+                statusDate: r.statusDate,
+                source: r.source,
+                // Internal metadata
+                sltsStatus: internal?.sltsStatus || 'NOT_IN_SYSTEM',
+                sltsPatStatus: internal?.sltsPatStatus || 'PENDING',
+                isInvoicable: internal?.isInvoicable || false
+            };
+        });
+
+        return {
+            orders,
+            total,
+            totalPages: Math.ceil(total / limit),
+            rtoms: rtoms.map(r => r.rtom)
+        };
+    }
+
+    /**
+     * Get OSP FTTH items for manual mapping
+     */
+    static async getOspFtthItems() {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return await (prisma.inventoryItem as any).findMany({
+            where: {
+                isOspFtth: true
+            },
+            select: {
+                id: true,
+                code: true,
+                name: true,
+                source: true,
+                commonName: true,
+                importAliases: true
+            },
+            orderBy: {
+                name: 'asc'
+            }
+        });
+    }
 }

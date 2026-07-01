@@ -344,4 +344,67 @@ export class ContractorRegistrationService {
         emitSystemEvent('CONTRACTOR_UPDATE');
         return result;
     }
+
+    /**
+     * Verify public upload token
+     */
+    static async verifyUploadToken(token: string) {
+        const contractor = await prisma.contractor.findUnique({
+            where: { uploadToken: token },
+            select: {
+                id: true,
+                name: true,
+                uploadTokenExpiry: true,
+                photoUrl: true,
+                nicFrontUrl: true,
+                nicBackUrl: true,
+                policeReportUrl: true,
+                gramaCertUrl: true,
+                bankPassbookUrl: true,
+                brCertUrl: true,
+                bankName: true,
+                bankBranch: true,
+                bankAccountNumber: true
+            }
+        });
+
+        if (!contractor) throw new Error('INVALID_TOKEN');
+
+        if (contractor.uploadTokenExpiry && new Date() > contractor.uploadTokenExpiry) {
+            throw new Error('TOKEN_EXPIRED');
+        }
+
+        return contractor;
+    }
+
+    /**
+     * Submit documents publicly using upload token
+     */
+    static async submitPublicDocuments(token: string, documents: any) {
+        const contractor = await prisma.contractor.findUnique({
+            where: { uploadToken: token }
+        });
+
+        if (!contractor) throw new Error('INVALID_TOKEN');
+        if (contractor.uploadTokenExpiry && new Date() > contractor.uploadTokenExpiry) {
+            throw new Error('TOKEN_EXPIRED');
+        }
+
+        return await prisma.contractor.update({
+            where: { id: contractor.id },
+            data: {
+                photoUrl: documents.photoUrl,
+                nicFrontUrl: documents.nicFrontUrl,
+                nicBackUrl: documents.nicBackUrl,
+                policeReportUrl: documents.policeReportUrl,
+                gramaCertUrl: documents.gramaCertUrl,
+                bankPassbookUrl: documents.bankPassbookUrl,
+                brCertUrl: documents.brCertUrl,
+                bankName: documents.bankName,
+                bankBranch: documents.bankBranch,
+                bankAccountNumber: documents.bankAccountNumber,
+                documentStatus: 'PENDING'
+            }
+        });
+    }
 }

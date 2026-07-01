@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectPurchaseOrderService } from '@/services/project-purchase-order.service';
 
 // GET /api/projects/purchase-orders?projectId=xxx - List POs by project
 export async function GET(request: NextRequest) {
@@ -11,22 +11,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
         }
 
-        const purchaseOrders = await prisma.projectPurchaseOrder.findMany({
-            where: { projectId },
-            include: {
-                items: true,
-                requisition: {
-                    select: { prNumber: true, title: true }
-                },
-                goodsReceipts: {
-                    include: { items: true }
-                }
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-
+        const purchaseOrders = await ProjectPurchaseOrderService.getPurchaseOrders(projectId);
         return NextResponse.json(purchaseOrders);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching purchase orders:', error);
         return NextResponse.json({ error: 'Failed to fetch purchase orders' }, { status: 500 });
     }
@@ -38,19 +25,9 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const {
             projectId,
-            requisitionId,
             vendorId,
-            vendorName,
             title,
-            description,
-            priority,
-            type,
-            expectedDelivery,
-            deliveryLocation,
             items,
-            paymentTerms,
-            deliveryTerms,
-            notes,
         } = body;
 
         // Validate required fields
@@ -61,80 +38,16 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Verify project exists
-        const project = await prisma.project.findUnique({ where: { id: projectId } });
-        if (!project) {
+        const purchaseOrder = await ProjectPurchaseOrderService.createPurchaseOrder(body);
+        return NextResponse.json(purchaseOrder, { status: 201 });
+    } catch (error: unknown) {
+        console.error('Error creating purchase order:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'PROJECT_NOT_FOUND') {
             return NextResponse.json({ error: 'Project not found' }, { status: 404 });
         }
-
-        // Auto-generate PO number
-        const lastPO = await prisma.projectPurchaseOrder.findFirst({
-            orderBy: { poNumber: 'desc' },
-            select: { poNumber: true },
-        });
-
-        let nextPONumber: string;
-        if (lastPO && lastPO.poNumber) {
-            const lastNum = parseInt(lastPO.poNumber.replace('PO-', ''), 10);
-            const nextNum = isNaN(lastNum) ? 1 : lastNum + 1;
-            nextPONumber = 'PO-' + String(nextNum).padStart(5, '0');
-        } else {
-            nextPONumber = 'PO-00001';
-        }
-
-        // Calculate totals from items
-        let subtotal = 0;
-        const itemsData = items.map((item: any) => {
-            const totalPrice = (item.unitPrice || 0) * (item.quantity || 0);
-            subtotal += totalPrice;
-            return {
-                requisitionItemId: item.requisitionItemId || null,
-                itemCode: item.itemCode,
-                description: item.description,
-                unit: item.unit || 'NOS',
-                quantity: item.quantity || 0,
-                unitPrice: item.unitPrice || 0,
-                totalPrice,
-                receivedQty: 0,
-                balanceQty: item.quantity || 0,
-                deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
-                notes: item.notes || null,
-            };
-        });
-
-        // Use transaction to create PO + items
-        const purchaseOrder = await prisma.$transaction(async (tx) => {
-            const newPO = await tx.projectPurchaseOrder.create({
-                data: {
-                    poNumber: nextPONumber,
-                    projectId,
-                    requisitionId: requisitionId || null,
-                    vendorId,
-                    vendorName: vendorName || '',
-                    title,
-                    description: description || null,
-                    priority: priority || 'MEDIUM',
-                    type: type || 'MATERIAL',
-                    expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : null,
-                    deliveryLocation: deliveryLocation || null,
-                    subtotal,
-                    taxAmount: 0,
-                    discountAmount: 0,
-                    totalAmount: subtotal,
-                    paymentTerms: paymentTerms || null,
-                    deliveryTerms: deliveryTerms || null,
-                    notes: notes || null,
-                    items: { create: itemsData },
-                },
-                include: { items: true },
-            });
-            return newPO;
-        });
-
-        return NextResponse.json(purchaseOrder, { status: 201 });
-    } catch (error: any) {
-        console.error('Error creating purchase order:', error);
-        if (error.code === 'P2002') {
+        const errorCode = (error as { code?: string }).code;
+        if (errorCode === 'P2002') {
             return NextResponse.json({ error: 'Purchase order number already exists' }, { status: 400 });
         }
         return NextResponse.json({ error: 'Failed to create purchase order' }, { status: 500 });
@@ -151,51 +64,29 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: 'id and status are required' }, { status: 400 });
         }
 
-        const existing = await prisma.projectPurchaseOrder.findUnique({ where: { id } });
-        if (!existing) {
-            return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
-        }
-
-        const updateData: any = { status };
-
-        switch (status) {
-            case 'APPROVED':
-                if (!approvedById) {
-                    return NextResponse.json({ error: 'approvedById is required' }, { status: 400 });
-                }
-                updateData.approvedById = approvedById;
-                updateData.approvedAt = new Date();
-                break;
-            case 'ISSUED':
-                if (!issuedById) {
-                    return NextResponse.json({ error: 'issuedById is required' }, { status: 400 });
-                }
-                updateData.issuedById = issuedById;
-                updateData.issuedAt = new Date();
-                break;
-            case 'CLOSED':
-                if (!closedById) {
-                    return NextResponse.json({ error: 'closedById is required' }, { status: 400 });
-                }
-                updateData.closedById = closedById;
-                updateData.closedAt = new Date();
-                break;
-            case 'CANCELLED':
-                updateData.cancellationReason = cancellationReason || null;
-                break;
-            default:
-                break;
-        }
-
-        const purchaseOrder = await prisma.projectPurchaseOrder.update({
-            where: { id },
-            data: updateData,
-            include: { items: true },
+        const purchaseOrder = await ProjectPurchaseOrderService.updatePurchaseOrderStatus(id, status, {
+            approvedById,
+            issuedById,
+            closedById,
+            cancellationReason
         });
 
         return NextResponse.json(purchaseOrder);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating purchase order:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'PURCHASE_ORDER_NOT_FOUND') {
+            return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
+        }
+        if (errorMsg === 'APPROVED_BY_ID_REQUIRED') {
+            return NextResponse.json({ error: 'approvedById is required' }, { status: 400 });
+        }
+        if (errorMsg === 'ISSUED_BY_ID_REQUIRED') {
+            return NextResponse.json({ error: 'issuedById is required' }, { status: 400 });
+        }
+        if (errorMsg === 'CLOSED_BY_ID_REQUIRED') {
+            return NextResponse.json({ error: 'closedById is required' }, { status: 400 });
+        }
         return NextResponse.json({ error: 'Failed to update purchase order' }, { status: 500 });
     }
 }
@@ -210,22 +101,17 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'id is required' }, { status: 400 });
         }
 
-        const existing = await prisma.projectPurchaseOrder.findUnique({ where: { id } });
-        if (!existing) {
+        await ProjectPurchaseOrderService.deletePurchaseOrder(id);
+        return NextResponse.json({ message: 'Purchase order deleted successfully' });
+    } catch (error: unknown) {
+        console.error('Error deleting purchase order:', error);
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg === 'PURCHASE_ORDER_NOT_FOUND') {
             return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
         }
-
-        if (existing.status !== 'DRAFT') {
-            return NextResponse.json(
-                { error: 'Only DRAFT purchase orders can be deleted' },
-                { status: 400 }
-            );
+        if (errorMsg === 'DRAFT_ONLY_DELETION') {
+            return NextResponse.json({ error: 'Only DRAFT purchase orders can be deleted' }, { status: 400 });
         }
-
-        await prisma.projectPurchaseOrder.delete({ where: { id } });
-        return NextResponse.json({ message: 'Purchase order deleted successfully' });
-    } catch (error: any) {
-        console.error('Error deleting purchase order:', error);
         return NextResponse.json({ error: 'Failed to delete purchase order' }, { status: 500 });
     }
 }
