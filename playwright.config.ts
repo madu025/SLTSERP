@@ -43,6 +43,14 @@ export default defineConfig({
       },
     },
     {
+      name: 'dynamic-reports',
+      dependencies: ['setup'],
+      testMatch: /dynamic-reports\.spec\.ts/,
+      use: {
+        storageState: '.auth/user.json',
+      },
+    },
+    {
       name: 'gis-import',
       dependencies: ['setup'],
       testMatch: /gis-upload-sanity\.spec\.ts|gis-import\.spec\.ts/,

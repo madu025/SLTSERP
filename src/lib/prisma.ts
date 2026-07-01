@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { logger } from './logger'
-import { getRequestId } from './request-context'
+import { getRequestId, requestContext } from './request-context'
 
 /**
  * Utility to sanitize and optimize DB URLs (timeouts, pooling)
@@ -72,9 +72,12 @@ export const prisma = primaryClient.$extends({
             const readOperations = ['findUnique', 'findUniqueOrThrow', 'findFirst', 'findFirstOrThrow', 'findMany', 'count', 'aggregate', 'groupBy'];
             const isReadOperation = readOperations.includes(operation);
 
+            const store = requestContext.getStore();
+            const forcePrimary = store?.forcePrimary === true;
+
             let result;
-            // Only route to replica if it's a read operation AND a replica URL is actually different from primary
-            if (isReadOperation && process.env.READ_REPLICA_URL && process.env.READ_REPLICA_URL !== process.env.DATABASE_URL) {
+            // Only route to replica if it's a read operation, replica bypass is not forced, and replica URL is configured
+            if (isReadOperation && !forcePrimary && process.env.READ_REPLICA_URL && process.env.READ_REPLICA_URL !== process.env.DATABASE_URL) {
                 // Execute on Read Replica
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 result = await (readClient as any)[model as string][operation](args);
