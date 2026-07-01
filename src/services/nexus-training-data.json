@@ -1,0 +1,82 @@
+[
+  {
+    "intent": "FINANCE",
+    "text": "higa pvs monawada thiyenne"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "outstanding value eka keeyada"
+  },
+  {
+    "intent": "FINANCE",
+    "text": "contractor payments kiyak thiyeda outstanding"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "overdue wada kiyak thiyeda"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "delayed tasks details laba denna"
+  },
+  {
+    "intent": "PROJECTS",
+    "text": "active projects details monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "adu stock badu list eka"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "stock aduma items monawada"
+  },
+  {
+    "intent": "INVENTORY_LOW",
+    "text": "low stock warnings"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "liyapadinchi contractorla pramanya"
+  },
+  {
+    "intent": "CONTRACTORS",
+    "text": "registered contractors la keeyak innavada"
+  },
+  {
+    "intent": "STORES",
+    "text": "gabadawal kiyak active da"
+  },
+  {
+    "intent": "STORES",
+    "text": "stores pramanya search karanna"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "muluku items pramanya"
+  },
+  {
+    "intent": "INVENTORY_ITEMS",
+    "text": "total inventory materials kiyada"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "pending requisitions list eka"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "purchase orders status"
+  },
+  {
+    "intent": "PROCUREMENT",
+    "text": "pending grns count"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "vouchers keeyak approve karanna thiyeda"
+  },
+  {
+    "intent": "VOUCHERS",
+    "text": "pending payment vouchers count"
+  }
+]
