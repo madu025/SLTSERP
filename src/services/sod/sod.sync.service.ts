@@ -3,6 +3,7 @@ import { Prisma, ServiceOrder } from '@prisma/client';
 import { sltApiService, SLTServiceOrderData, SLTPATData } from '../slt-api.service';
 import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 import { SODMaterialService } from './sod.material.service';
+import { LedgerService } from '../finance/ledger.service';
 
 interface SyncStats {
     queuedCount: number;
@@ -381,6 +382,7 @@ export class SODSyncService {
                             
                             if (isReturning) {
                                 await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'SYNC_SERVICE');
+                                await LedgerService.rollbackSodTransaction(tx, existing.id);
                             }
                         });
                         updated++;
@@ -644,6 +646,7 @@ export class SODSyncService {
                 });
                 if (isReturning) {
                     await SODMaterialService.rollbackMaterialUsage(tx, serviceOrder.id, 'BRIDGE_SYNC');
+                    await LedgerService.rollbackSodTransaction(tx, serviceOrder.id);
                 }
                 return updated;
             });

@@ -109,14 +109,28 @@ export class IssueService {
                     create: { contractorId, itemId: item.itemId, quantity: qty }
                 });
 
-                // F. Update serials status if issued and serials are provided
+                // F. Update serials status if issued and serials are provided with strict verification
                 if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
                     for (const sn of item.serials) {
                         const serialNum = sn.trim();
                         if (!serialNum) continue;
 
+                        const serialRecord = await transaction.inventoryItemSerial.findUnique({
+                            where: { serialNumber: serialNum }
+                        });
+
+                        if (!serialRecord) {
+                            throw new Error(`SERIAL_NOT_FOUND: ${serialNum}`);
+                        }
+                        if (serialRecord.itemId !== item.itemId) {
+                            throw new Error(`SERIAL_ITEM_MISMATCH: Serial ${serialNum} does not match item ${item.itemId}`);
+                        }
+                        if (serialRecord.status !== 'IN_STORE' || serialRecord.storeId !== storeId) {
+                            throw new Error(`SERIAL_NOT_AVAILABLE_IN_STORE: Serial ${serialNum} is not available in store ${storeId}`);
+                        }
+
                         await transaction.inventoryItemSerial.update({
-                            where: { serialNumber: serialNum },
+                            where: { id: serialRecord.id },
                             data: {
                                 status: 'ISSUED',
                                 contractorId: contractorId,

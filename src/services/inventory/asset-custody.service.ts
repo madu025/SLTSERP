@@ -25,6 +25,28 @@ export class AssetCustodyService {
         });
         if (!serial) throw new Error("SERIAL_NOT_FOUND");
 
+        // 2.5 If the serial was located in a store, decrement stock counts
+        if (serial.storeId) {
+            const storeId = serial.storeId;
+            const itemId = serial.itemId;
+
+            await client.inventoryStock.update({
+                where: { storeId_itemId: { storeId, itemId } },
+                data: { quantity: { decrement: 1 } }
+            });
+
+            const { StockService } = await import('./stock.service');
+            const pickedBatches = await StockService.pickStoreBatchesFIFO(client as TransactionClient, storeId, itemId, 1);
+            for (const picked of pickedBatches) {
+                if (picked.batchId) {
+                    await client.inventoryBatchStock.update({
+                        where: { storeId_batchId: { storeId, batchId: picked.batchId } },
+                        data: { quantity: { decrement: picked.quantity } }
+                    });
+                }
+            }
+        }
+
         // 3. Update serial status and assignee
         const updated = await client.inventoryItemSerial.update({
             where: { serialNumber },
@@ -123,6 +145,43 @@ export class AssetCustodyService {
                 where: { id: storeId }
             });
             if (!store) throw new Error("STORE_NOT_FOUND");
+        }
+
+        // 2.5 If returning/retiring to store, increment stock counts
+        if (status === 'IN_STORE' && storeId && serial.status !== 'IN_STORE') {
+            const itemId = serial.itemId;
+
+            await client.inventoryStock.upsert({
+                where: { storeId_itemId: { storeId, itemId } },
+                update: { quantity: { increment: 1 } },
+                create: { storeId, itemId, quantity: 1 }
+            });
+
+            const latestBatchStock = await client.inventoryBatchStock.findFirst({
+                where: { storeId, itemId },
+                orderBy: { updatedAt: 'desc' }
+            });
+
+            let batchId = latestBatchStock?.batchId;
+            if (!batchId) {
+                const itemData = await client.inventoryItem.findUnique({ where: { id: itemId } });
+                const batch = await client.inventoryBatch.create({
+                    data: {
+                        batchNumber: `RET-${Date.now()}`,
+                        itemId,
+                        initialQty: 1,
+                        costPrice: itemData?.costPrice || 0,
+                        unitPrice: itemData?.unitPrice || 0
+                    }
+                });
+                batchId = batch.id;
+            }
+
+            await client.inventoryBatchStock.upsert({
+                where: { storeId_batchId: { storeId, batchId } },
+                update: { quantity: { increment: 1 } },
+                create: { storeId, batchId, itemId, quantity: 1 }
+            });
         }
 
         // 3. Update serial status, clear staff assignment

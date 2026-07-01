@@ -13,10 +13,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
         }
 
-        const { id } = await request.json();
+        const { id, action } = await request.json();
         if (!id) return NextResponse.json({ message: 'Missing ID' }, { status: 400 });
 
-        const result = await InventoryService.approveWastage(id, userId);
+        let result;
+        if (action === 'REJECT') {
+            result = await InventoryService.rejectWastage(id, userId);
+        } else {
+            result = await InventoryService.approveWastage(id, userId);
+        }
         return NextResponse.json(result);
     } catch (error) {
         console.error("Wastage approval error:", error);

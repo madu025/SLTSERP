@@ -10,6 +10,8 @@ import { TransactionService } from './transaction.service';
 import { VirtualSwapService } from './virtual-swap.service';
 import { AssetCustodyService } from './asset-custody.service';
 import { ForecastService } from './forecast.service';
+import { ROPService } from './rop.service';
+import { AbcService } from './abc.service';
 
 /**
  * InventoryService Facade
@@ -68,6 +70,7 @@ export class InventoryService {
     // --- WASTAGE MANAGEMENT ---
     static recordWastage = WastageService.recordWastage;
     static approveWastage = WastageService.approveWastage;
+    static rejectWastage = WastageService.rejectWastage;
     static getWastageHistory = WastageService.getWastageHistory;
 
     // --- STOCK REQUEST MANAGEMENT ---
@@ -94,4 +97,8 @@ export class InventoryService {
     // --- FORECAST MANAGEMENT ---
     static getMaterialForecast = ForecastService.getMaterialForecast;
     static generateDraftPO = ForecastService.generateDraftPO;
+
+    // --- REORDER POINT & ABC ANALYSIS ---
+    static updateDynamicSafetyLevels = ROPService.updateDynamicSafetyLevels;
+    static generateAbcReport = AbcService.generateAbcReport;
 }

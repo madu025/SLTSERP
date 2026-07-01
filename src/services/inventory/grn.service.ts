@@ -4,6 +4,7 @@ import { NotificationService } from '../notification.service';
 import { emitSystemEvent } from '@/lib/events';
 import { CreateGRNData, TransactionClient } from './types';
 import { StockService } from './stock.service';
+import { LedgerService } from '../finance/ledger.service';
 
 export class GRNService {
     static async getGRNs(storeId?: string) {
@@ -67,12 +68,14 @@ export class GRNService {
 
             // 3. Update Stock & Create Batches
             const transactionItems: { itemId: string; quantity: number }[] = [];
+            let totalGrnCost = 0;
 
             for (const item of items) {
                 const qty = StockService.round(parseFloat(item.quantity.toString()));
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const meta = itemMetadata.find((m: any) => m.id === item.itemId);
                 const costPrice = meta?.costPrice || 0;
+                totalGrnCost += Number(costPrice) * qty;
                 const unitPrice = meta?.unitPrice || 0;
 
                 // A. Create Batch
@@ -187,8 +190,14 @@ export class GRNService {
                 }
             });
 
+            // 3.5 Log receipt in General Ledger (real-time double-entry)
+            await LedgerService.logGrnReceipt(tx, grn.id, totalGrnCost);
+
             // 4. Update Request Status if linked
             if (requestId) {
+                // Lock the StockRequest row to prevent concurrent race conditions
+                await tx.$executeRaw`SELECT id FROM "StockRequest" WHERE id = ${requestId} FOR UPDATE`;
+
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const request = await (tx as any).stockRequest.findUnique({
                     where: { id: requestId },
@@ -204,6 +213,10 @@ export class GRNService {
                         const grnItem = items.find((gi: any) => gi.itemId === reqItem.itemId);
                         if (grnItem) {
                             const newReceivedQty = reqItem.receivedQty + parseFloat(grnItem.quantity.toString());
+                            const limitQty = Number(reqItem.approvedQty || reqItem.requestedQty);
+                            if (newReceivedQty > limitQty) {
+                                throw new Error(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
+                            }
 
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             await (tx as any).stockRequestItem.update({
@@ -211,7 +224,7 @@ export class GRNService {
                                 data: { receivedQty: newReceivedQty }
                             });
 
-                            if (newReceivedQty < reqItem.requestedQty) {
+                            if (newReceivedQty < limitQty) {
                                 allItemsCompleted = false;
                             }
                         } else {

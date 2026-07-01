@@ -4,6 +4,7 @@ import { SODInvoicingService } from './sod.invoicing.service';
 import { SODMaterialService } from './sod.material.service';
 import { SODLifecycleService } from './sod.lifecycle.service';
 import { SODSyncService } from './sod.sync.service';
+import { LedgerService } from '../finance/ledger.service';
 import { SODQueryService } from './sod.query.service';
 import { SODImportService } from './sod.import.service';
 import { GetServiceOrdersParams, ServiceOrderUpdateData } from './sod-types';
@@ -87,6 +88,8 @@ export class ServiceOrderService {
             const isTransitioningToReturn = data.sltsStatus === 'RETURN' && oldOrder.sltsStatus !== 'RETURN';
             if (isTransitioningToReturn) {
                 await SODMaterialService.rollbackMaterialUsage(tx, id, userId || 'SYSTEM');
+                // Reversal entry in General Ledger
+                await LedgerService.rollbackSodTransaction(tx, id);
             }
 
             // Material usage processing (only on COMPLETED, not on RETURN)
@@ -102,6 +105,22 @@ export class ServiceOrderService {
 
             // Database update via Repository (Single Update)
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
+
+            // Log material consumption & revenue in General Ledger on completion
+            if (isCompleting) {
+                const usages = await tx.sODMaterialUsage.findMany({
+                    where: { serviceOrderId: id }
+                });
+                const totalSodMaterialCost = usages.reduce((sum, u) => sum + (Number(u.costPrice) * Number(u.quantity)), 0);
+                
+                // DR COGS, CR Inventory
+                await LedgerService.logSodConsumption(tx, id, totalSodMaterialCost);
+                
+                // DR Accrued Billing, CR Recognized Revenue
+                if (updatedOrder.revenueAmount) {
+                    await LedgerService.logSodRevenue(tx, id, Number(updatedOrder.revenueAmount));
+                }
+            }
 
             // Post-update actions
             await SODLifecycleService.handlePostUpdate(oldOrder, updatedOrder, updateData, userId, tx);

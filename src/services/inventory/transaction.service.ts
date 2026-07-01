@@ -160,8 +160,7 @@ export class TransactionService {
         }
 
         // 3. Fetch Issues (Received)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const issues = await (prisma as any).contractorMaterialIssue.findMany({
+        const issues = await prisma.contractorMaterialIssue.findMany({
             where: {
                 contractorId,
                 storeId,
@@ -171,16 +170,15 @@ export class TransactionService {
         });
 
         const receivedMap = new Map<string, number>();
-        issues.forEach((issue: any) => {
-            issue.items.forEach((item: any) => {
+        issues.forEach(issue => {
+            issue.items.forEach(item => {
                 const current = receivedMap.get(item.itemId) || 0;
                 receivedMap.set(item.itemId, current + item.quantity);
             });
         });
 
         // 4. Fetch Returns (Returned)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const returns = await (prisma as any).contractorMaterialReturn.findMany({
+        const returns = await prisma.contractorMaterialReturn.findMany({
             where: {
                 contractorId,
                 storeId,
@@ -191,8 +189,8 @@ export class TransactionService {
         });
 
         const returnedMap = new Map<string, number>();
-        returns.forEach((ret: any) => {
-            ret.items.forEach((item: any) => {
+        returns.forEach(ret => {
+            ret.items.forEach(item => {
                 const current = returnedMap.get(item.itemId) || 0;
                 returnedMap.set(item.itemId, current + item.quantity);
             });
@@ -219,7 +217,8 @@ export class TransactionService {
 
         sods.forEach(sod => {
             sod.materialUsage.forEach(mu => {
-                if (mu.usageType === 'USED') {
+                const isUsage = ['USED', 'USED_F1', 'USED_G1', 'PORTAL_SYNC'].includes(mu.usageType);
+                if (isUsage) {
                     const current = usedMap.get(mu.itemId) || 0;
                     usedMap.set(mu.itemId, current + mu.quantity);
                 } else if (mu.usageType === 'WASTAGE') {
@@ -230,7 +229,7 @@ export class TransactionService {
         });
 
         // Fetch Direct Wastage (Reported)
-        const directWastage = await (prisma as any).contractorWastage.findMany({
+        const directWastage = await prisma.contractorWastage.findMany({
             where: {
                 contractorId,
                 storeId,
@@ -239,8 +238,8 @@ export class TransactionService {
             include: { items: true }
         });
 
-        directWastage.forEach((dw: any) => {
-            dw.items.forEach((item: any) => {
+        directWastage.forEach(dw => {
+            dw.items.forEach(item => {
                 const current = wastageMap.get(item.itemId) || 0;
                 wastageMap.set(item.itemId, current + item.quantity);
             });

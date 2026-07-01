@@ -69,6 +69,9 @@ export class InventoryRepository {
      * Find available batches for an item (FIFO order)
      */
     static async findAvailableBatches(storeId: string, itemId: string, tx: any) {
+        // Lock rows for update to prevent concurrent double allocation race conditions (WMS standard)
+        await tx.$executeRaw`SELECT id FROM "InventoryBatchStock" WHERE "storeId" = ${storeId} AND "itemId" = ${itemId} AND "quantity" > 0 FOR UPDATE`;
+
         return (tx as any).inventoryBatchStock.findMany({
             where: { storeId, itemId, quantity: { gt: 0 } },
             include: { batch: true },

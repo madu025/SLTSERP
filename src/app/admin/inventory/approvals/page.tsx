@@ -42,7 +42,7 @@ interface ProcessActionPayload {
     remarks: string;
     userId?: string;
     approvedById?: string;
-    allocation?: Array<{ itemId: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }>;
+    allocation?: Array<{ id: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }>;
 }
 
 export default function ApprovalsPage() {
@@ -51,7 +51,7 @@ export default function ApprovalsPage() {
     const [showModal, setShowModal] = useState(false);
     const [actionType, setActionType] = useState<string>("");
     const [remarks, setRemarks] = useState("");
-    const [allocation, setAllocation] = useState<Array<{ itemId: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }>>([]);
+    const [allocation, setAllocation] = useState<Array<{ id: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }>>([]);
 
     // Get current user from localStorage
     const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
@@ -120,17 +120,17 @@ export default function ApprovalsPage() {
         // Initialize allocation based on action type
         if (action === 'OSP_MANAGER_APPROVE' || action === 'ARM_APPROVE' || action === 'STORES_MANAGER_APPROVE') {
             setAllocation(request.items.map(item => ({
-                itemId: item.item.id,
+                id: item.id,
                 approvedQty: item.requestedQty
             })));
         } else if (action === 'MAIN_STORE_RELEASE') {
             setAllocation(request.items.map(item => ({
-                itemId: item.item.id,
+                id: item.id,
                 issuedQty: item.approvedQty || item.requestedQty
             })));
         } else if (action === 'SUB_STORE_RECEIVE') {
             setAllocation(request.items.map(item => ({
-                itemId: item.item.id,
+                id: item.id,
                 receivedQty: item.issuedQty || item.approvedQty || item.requestedQty
             })));
         }
@@ -160,9 +160,9 @@ export default function ApprovalsPage() {
         });
     };
 
-    const updateAllocation = (itemId: string, field: 'approvedQty' | 'issuedQty' | 'receivedQty', value: number) => {
+    const updateAllocation = (id: string, field: 'approvedQty' | 'issuedQty' | 'receivedQty', value: number) => {
         setAllocation(prev => prev.map(a =>
-            a.itemId === itemId ? { ...a, [field]: value } : a
+            a.id === id ? { ...a, [field]: value } : a
         ));
     };
 
@@ -370,7 +370,7 @@ export default function ApprovalsPage() {
                                                             type="number"
                                                             className="w-24 ml-auto text-right"
                                                             value={allocation[idx]?.approvedQty || item.requestedQty}
-                                                            onChange={(e) => updateAllocation(item.item.id, 'approvedQty', parseFloat(e.target.value))}
+                                                            onChange={(e) => updateAllocation(item.id, 'approvedQty', parseFloat(e.target.value))}
                                                         />
                                                     </td>
                                                 )}
@@ -380,7 +380,7 @@ export default function ApprovalsPage() {
                                                             type="number"
                                                             className="w-24 ml-auto text-right"
                                                             value={allocation[idx]?.issuedQty || item.approvedQty}
-                                                            onChange={(e) => updateAllocation(item.item.id, 'issuedQty', parseFloat(e.target.value))}
+                                                            onChange={(e) => updateAllocation(item.id, 'issuedQty', parseFloat(e.target.value))}
                                                         />
                                                     </td>
                                                 )}
@@ -392,7 +392,7 @@ export default function ApprovalsPage() {
                                                                 type="number"
                                                                 className="w-24 ml-auto text-right"
                                                                 value={allocation[idx]?.receivedQty || item.issuedQty}
-                                                                onChange={(e) => updateAllocation(item.item.id, 'receivedQty', parseFloat(e.target.value))}
+                                                                onChange={(e) => updateAllocation(item.id, 'receivedQty', parseFloat(e.target.value))}
                                                             />
                                                         </td>
                                                     </>

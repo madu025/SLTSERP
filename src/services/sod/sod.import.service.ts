@@ -92,6 +92,8 @@ export class SODImportService {
                         if (isReturning) {
                             const { SODMaterialService } = await import('./sod.material.service');
                             await SODMaterialService.rollbackMaterialUsage(tx, existing.id, 'EXCEL_IMPORT');
+                            const { LedgerService } = await import('../finance/ledger.service');
+                            await LedgerService.rollbackSodTransaction(tx, existing.id);
                         }
                     });
                 } else {

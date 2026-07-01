@@ -226,6 +226,30 @@ export class StockService {
             const issueNumber = `ISS-${Date.now()}`;
             const isContractorIssue = issueType === 'CONTRACTOR' && !!contractorId;
 
+            // Validate all serials (exist, match item, available in store)
+            for (const item of items) {
+                if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
+                    for (const sn of item.serials) {
+                        const serialNum = sn.trim();
+                        if (!serialNum) continue;
+
+                        const serialRecord = await tx.inventoryItemSerial.findUnique({
+                            where: { serialNumber: serialNum }
+                        });
+
+                        if (!serialRecord) {
+                            throw new Error(`SERIAL_NOT_FOUND: ${serialNum}`);
+                        }
+                        if (serialRecord.itemId !== item.itemId) {
+                            throw new Error(`SERIAL_ITEM_MISMATCH: Serial ${serialNum} does not match item ${item.itemId}`);
+                        }
+                        if (serialRecord.status !== 'IN_STORE' || serialRecord.storeId !== storeId) {
+                            throw new Error(`SERIAL_NOT_AVAILABLE_IN_STORE: Serial ${serialNum} is not available in store ${storeId}`);
+                        }
+                    }
+                }
+            }
+
             if (isContractorIssue) {
                 const { IssueService } = await import('./issue.service');
                 const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -237,31 +261,15 @@ export class StockService {
                     month: currentMonth,
                     items: items.map(item => ({
                         itemId: item.itemId,
-                        quantity: parseFloat(item.quantity.toString())
+                        quantity: parseFloat(item.quantity.toString()),
+                        serials: item.serials
                     })),
                     userId: issuedById
                 }, tx);
-
-                // Update serials status (IssueService doesn't do this, so we handle it here)
-                for (const item of items) {
-                    if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
-                        for (const sn of item.serials) {
-                            const serialNum = sn.trim();
-                            if (!serialNum) continue;
-
-                            await tx.inventoryItemSerial.update({
-                                where: { serialNumber: serialNum },
-                                data: {
-                                    status: 'ISSUED',
-                                    storeId: null,
-                                    contractorId: contractorId || null
-                                }
-                            });
-                        }
-                    }
-                }
             } else {
                 // Default path for PROJECTS, TEAMS, etc.
+                const transactionItems: { itemId: string; batchId: string; quantity: number }[] = [];
+
                 for (const item of items) {
                     const quantity = parseFloat(item.quantity.toString());
 
@@ -279,29 +287,17 @@ export class StockService {
                                 where: { storeId_batchId: { storeId, batchId: picked.batchId } },
                                 data: { quantity: { decrement: picked.quantity } }
                             });
+                            
+                            transactionItems.push({
+                                itemId: item.itemId,
+                                batchId: picked.batchId,
+                                quantity: -picked.quantity
+                            });
                         }
                     }
 
                     // B. Decrement global store stock
                     await InventoryRepository.updateStock(storeId, item.itemId, { quantity: { decrement: quantity } }, tx);
-
-                    // C. Log transaction and transaction items with batchId
-                    const invTx = await InventoryRepository.createTransaction({
-                        type: 'TRANSFER_OUT',
-                        storeId,
-                        userId: issuedById,
-                        referenceId: issueNumber,
-                        notes: `Issued to ${recipientName} - ${issueType}`
-                    }, tx);
-
-                    for (const picked of pickedBatches) {
-                        await InventoryRepository.createTransactionItem({
-                            transactionId: invTx.id,
-                            itemId: item.itemId,
-                            batchId: picked.batchId,
-                            quantity: -picked.quantity
-                        }, tx);
-                    }
 
                     // D. Update serial status if serials are provided in the payload
                     if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
@@ -319,6 +315,24 @@ export class StockService {
                             });
                         }
                     }
+                }
+
+                // C. Log transaction and transaction items with batchId (Single Transaction Header)
+                if (transactionItems.length > 0) {
+                    await InventoryRepository.createTransaction({
+                        type: 'TRANSFER_OUT',
+                        storeId,
+                        userId: issuedById,
+                        referenceId: issueNumber,
+                        notes: `Issued to ${recipientName} - ${issueType}`,
+                        items: {
+                            create: transactionItems.map(ti => ({
+                                itemId: ti.itemId,
+                                batchId: ti.batchId,
+                                quantity: ti.quantity
+                            }))
+                        }
+                    }, tx);
                 }
             }
 

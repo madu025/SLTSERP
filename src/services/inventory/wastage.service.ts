@@ -29,6 +29,7 @@ export class WastageService {
 
         let requiresApproval = false;
         let totalWastageValue = 0;
+        const excessDetails: string[] = [];
 
         for (const item of items) {
             const meta = itemMetas.find(m => m.id === item.itemId);
@@ -43,11 +44,48 @@ export class WastageService {
             const price = meta.costPrice ? Number(meta.costPrice) : (meta.unitPrice ? Number(meta.unitPrice) : 0);
             const qty = parseFloat(item.quantity.toString()) || 0;
             totalWastageValue += qty * price;
+
+            // Validate wastage percentage limits for contractor issues
+            if (contractorId) {
+                const targetMonth = month || new Date().toISOString().slice(0, 7);
+                const issues = await prisma.contractorMaterialIssue.findMany({
+                    where: {
+                        contractorId,
+                        month: targetMonth
+                    },
+                    include: { items: true }
+                });
+
+                let totalIssued = 0;
+                for (const issue of issues) {
+                    const issueItem = issue.items.find(i => i.itemId === item.itemId);
+                    if (issueItem) {
+                        totalIssued += Number(issueItem.quantity);
+                    }
+                }
+
+                const allowedPerc = meta.maxWastagePercentage ? Number(meta.maxWastagePercentage) : 0;
+                if (totalIssued > 0) {
+                    const wastagePerc = (qty / totalIssued) * 100;
+                    if (wastagePerc > allowedPerc) {
+                        requiresApproval = true;
+                        excessDetails.push(`${meta.name} (Wastage: ${wastagePerc.toFixed(1)}% > Allowed: ${allowedPerc.toFixed(1)}%)`);
+                    }
+                } else if (qty > 0) {
+                    requiresApproval = true;
+                    excessDetails.push(`${meta.name} (Wastage reported but no issues recorded)`);
+                }
+            }
         }
 
         // Value-based approval threshold (e.g. 10,000 LKR)
         const VALUE_APPROVAL_THRESHOLD = 10000;
         if (totalWastageValue > VALUE_APPROVAL_THRESHOLD) {
+            requiresApproval = true;
+        }
+
+        // Contractors must NEVER get automatic approval (strict anti-fraud compliance check)
+        if (contractorId) {
             requiresApproval = true;
         }
 
@@ -64,7 +102,9 @@ export class WastageService {
                         contractorId,
                         storeId,
                         month: month || new Date().toISOString().slice(0, 7),
-                        description: description || reason,
+                        description: excessDetails.length > 0
+                            ? `[EXCESS_WASTAGE: ${excessDetails.join(', ')}] ${description || reason || ''}`
+                            : (description || reason),
                         status: status,
                         items: {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,7 +240,7 @@ export class WastageService {
     static async approveWastage(wastageId: string, userId: string) {
         return await prisma.$transaction(async (tx: TransactionClient) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let wastage = await (tx as any).contractorWastage.findUnique({
+            const wastage = await (tx as any).contractorWastage.findUnique({
                 where: { id: wastageId },
                 include: { items: true }
             });
@@ -316,6 +356,62 @@ export class WastageService {
     }
 
     /**
+     * Reject a pending wastage record
+     */
+    static async rejectWastage(wastageId: string, userId: string) {
+        return await prisma.$transaction(async (tx: TransactionClient) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const wastage = await (tx as any).contractorWastage.findUnique({
+                where: { id: wastageId }
+            });
+
+            if (wastage) {
+                if (wastage.status !== 'PENDING') throw new Error('ALREADY_PROCESSED');
+
+                // Update Status to REJECTED
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const updated = await (tx as any).contractorWastage.update({
+                    where: { id: wastageId },
+                    data: { 
+                        status: 'REJECTED',
+                        approvedById: userId,
+                        approvedAt: new Date()
+                    }
+                });
+
+                return updated;
+            } else {
+                // If not found in ContractorWastage, check InventoryTransaction for Store Wastage
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const txRecord = await (tx as any).inventoryTransaction.findUnique({
+                    where: { id: wastageId }
+                });
+
+                if (!txRecord || txRecord.type !== 'WASTAGE') {
+                    throw new Error('WASTAGE_NOT_FOUND');
+                }
+
+                if (!txRecord.notes?.includes('[STATUS: PENDING]')) {
+                    throw new Error('ALREADY_PROCESSED');
+                }
+
+                // Update the notes in the transaction to REJECTED
+                const rejectedNotes = txRecord.notes.replace('[STATUS: PENDING]', '[STATUS: REJECTED]');
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const updatedTx = await (tx as any).inventoryTransaction.update({
+                    where: { id: txRecord.id },
+                    data: {
+                        notes: rejectedNotes,
+                        userId
+                    }
+                });
+
+                return updatedTx;
+            }
+        });
+    }
+
+    /**
      * Get consolidated wastage history for reporting
      */
     static async getWastageHistory(filters: { storeId?: string, contractorId?: string, month?: string }) {
@@ -362,19 +458,19 @@ export class WastageService {
                 storeName: w.store.name,
                 month: w.month,
                 description: w.description,
-                status: (w as any).status || 'APPROVED',
-                items: w.items.map(i => ({ name: i.item.name, code: i.item.code, quantity: i.quantity }))
+                status: w.status || 'APPROVED',
+                items: w.items.map(i => ({ name: i.item.name, code: i.item.code, quantity: Number(i.quantity) }))
             })),
-            ...storeWastage.map((w: any) => ({
+            ...storeWastage.map(w => ({
                 id: w.id,
                 date: w.date,
                 type: 'STORE',
                 entityName: 'N/A',
                 storeName: w.store?.name || 'Unknown Store',
                 month: w.date.toISOString().slice(0, 7),
-                description: w.notes,
+                description: w.notes || '',
                 status: w.notes?.includes('[STATUS: PENDING]') ? 'PENDING' : 'APPROVED',
-                items: w.items.map((i: any) => ({ name: i.item.name, code: i.item.code, quantity: Math.abs(i.quantity) }))
+                items: w.items.map(i => ({ name: i.item.name, code: i.item.code, quantity: Math.abs(Number(i.quantity)) }))
             }))
         ];
 

@@ -92,11 +92,11 @@ export class SODMaterialService {
             }
         }
 
-        // 3. Log Inventory Transaction
-        if (transactionItems.length > 0) {
+        // 3. Log Inventory Transaction (only for direct OPMC store usages, not for contractor stocks)
+        if (transactionItems.length > 0 && !contractorId && storeId) {
             await InventoryRepository.createTransaction({
                 type: 'TRANSFER_OUT',
-                storeId: storeId || undefined,
+                storeId: storeId,
                 userId,
                 referenceId: serviceOrderId,
                 notes: `SOD Material Usage Update`,
@@ -173,10 +173,10 @@ export class SODMaterialService {
             }
         }
 
-        if (transactionItems.length > 0) {
+        if (transactionItems.length > 0 && !contractorId && storeId) {
             await InventoryRepository.createTransaction({
                 type: 'TRANSFER_IN',
-                storeId: storeId || undefined,
+                storeId: storeId,
                 userId,
                 referenceId: serviceOrderId,
                 notes: `Rollback SOD Material Usage`,

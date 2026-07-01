@@ -21,7 +21,13 @@ export class ForecastService {
             where: {
                 quantity: { lt: 0 },
                 transaction: {
-                    date: { gte: threeMonthsAgo }
+                    date: { gte: threeMonthsAgo },
+                    type: { in: ['TRANSFER_OUT', 'WASTAGE'] },
+                    NOT: [
+                        { notes: { contains: 'Released to Transit' } },
+                        { notes: { contains: 'Material Issue' } },
+                        { notes: { contains: 'Transit incoming' } }
+                    ]
                 }
             },
             select: {
