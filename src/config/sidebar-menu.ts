@@ -216,6 +216,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Truck,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
             },
+            {
+                title: 'National GIS Map',
+                path: '/gis/map',
+                icon: Route,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+            },
         ]
     },
 
