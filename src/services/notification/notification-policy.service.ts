@@ -149,7 +149,7 @@ export class NotificationPolicyService {
             message: `New material request ${req.requestNr} from ${req.fromStoreName} requires your ${stageName}.`,
             type: 'INVENTORY',
             priority: 'MEDIUM',
-            link: '/admin/inventory/approvals',
+            link: '/inventory/approvals',
             opmcId: req.opmcId,
             metadata: { requestId: req.id, type: req.type }
         });
@@ -184,7 +184,7 @@ export class NotificationPolicyService {
             message,
             type: 'INVENTORY',
             priority: 'HIGH',
-            link: '/admin/inventory/approvals'
+            link: '/inventory/approvals'
         });
     }
 

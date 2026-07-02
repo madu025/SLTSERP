@@ -51,7 +51,7 @@ export class StockRequestService {
         const initialWorkflowStage = fromStore.type === 'SUB' ? 'ARM_APPROVAL' : 'OSP_MANAGER_APPROVAL';
 
         const req = await StockRequestRepository.create({
-            requestNr: this.generateRequestId(),
+            requestNr: StockRequestService.generateRequestId(),
             fromStoreId,
             toStoreId: finalToStoreId,
             requestedById,

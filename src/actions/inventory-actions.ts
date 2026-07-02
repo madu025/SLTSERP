@@ -139,7 +139,7 @@ export async function updateMRNStatus(mrnId: string, action: 'APPROVE' | 'REJECT
 // --- STOCK REQUESTS & ISSUES ---
 
 export async function createStockRequest(data: any) {
-    const user = await requireAuth(['AREA_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'ENGINEER', 'AREA_COORDINATOR']);
+    const user = await requireAuth(['AREA_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'ENGINEER', 'AREA_COORDINATOR', 'STORES_MANAGER']);
     try {
         const result = await InventoryService.createStockRequest({
             ...data,

@@ -27,7 +27,27 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json(routes);
+    // Fetch DB-level counts for precise global statistics
+    const [polesCount, chambersCount, closuresCount, totalCableLengthDb] = await Promise.all([
+      prisma.gISPole.count(),
+      prisma.gISChamber.count(),
+      prisma.gISClosure.count(),
+      prisma.gISCableSegment.aggregate({
+        _sum: {
+          length: true
+        }
+      })
+    ]);
+
+    return NextResponse.json({
+      routes,
+      stats: {
+        polesCount,
+        chambersCount,
+        closuresCount,
+        totalCableLength: totalCableLengthDb._sum.length || 0
+      }
+    });
   } catch (error) {
     return handleApiError(error);
   }

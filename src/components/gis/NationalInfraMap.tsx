@@ -48,6 +48,12 @@ export default function NationalInfraMap() {
   const [mapZoom, setMapZoom] = useState(8);
   const [anomalies, setAnomalies] = useState<GISAnomaly[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dbStats, setDbStats] = useState({
+    polesCount: 0,
+    chambersCount: 0,
+    closuresCount: 0,
+    totalCableLength: 0
+  });
 
   useEffect(() => {
     const fetchMapData = async () => {
@@ -55,8 +61,17 @@ export default function NationalInfraMap() {
         const res = await fetch('/api/gis/map-data');
         if (res.ok) {
           const data = await res.json();
-          setRoutes(data);
-          setFilteredRoutes(data);
+          if (data && data.routes) {
+            setRoutes(data.routes);
+            setFilteredRoutes(data.routes);
+            if (data.stats) {
+              setDbStats(data.stats);
+            }
+          } else {
+            const rList = Array.isArray(data) ? data : [];
+            setRoutes(rList);
+            setFilteredRoutes(rList);
+          }
         }
       } catch (err) {
         console.error("Failed to load national map data:", err);
@@ -110,13 +125,13 @@ export default function NationalInfraMap() {
     }
   };
 
-  // Summarize stats
-  const totalPolesCount = routes.reduce((sum, r) => {
+  // Summarize stats using DB-level aggregates as primary (fallback to client-side count if 0)
+  const displayPolesCount = dbStats.polesCount || routes.reduce((sum, r) => {
     const features = r.geojsonData?.features || [];
     return sum + features.filter((f: any) => f.geometry?.type === 'Point' && (f.properties?.layer || f.properties?.Layer || '').toUpperCase().includes('POLE')).length;
   }, 0);
 
-  const totalCableLength = routes.reduce((sum, r) => sum + (r.routeLength || 0), 0);
+  const displayCableLength = dbStats.totalCableLength || routes.reduce((sum, r) => sum + (r.routeLength || 0), 0);
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-4rem)] bg-slate-900 text-slate-100 overflow-hidden font-sans">
@@ -138,14 +153,14 @@ export default function NationalInfraMap() {
               <span className="text-[10px] uppercase font-bold tracking-wider">Total Poles</span>
               <Activity className="w-3.5 h-3.5 text-emerald-400" />
             </div>
-            <p className="text-base font-bold text-slate-100">{totalPolesCount}</p>
+            <p className="text-base font-bold text-slate-100">{displayPolesCount}</p>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-2.5">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] uppercase font-bold tracking-wider">Cable Dist</span>
               <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
             </div>
-            <p className="text-base font-bold text-slate-100">{(totalCableLength / 1000).toFixed(1)} km</p>
+            <p className="text-base font-bold text-slate-100">{(displayCableLength / 1000).toFixed(1)} km</p>
           </div>
         </div>
 
@@ -256,56 +271,97 @@ export default function NationalInfraMap() {
             {filteredRoutes.map((r) => {
               const features = r.geojsonData?.features || [];
               const isSelected = selectedRoute?.id === r.id;
+              const lineColor = isSelected ? '#6366f1' : '#334155';
+              const lineWeight = isSelected ? 4 : 2;
+              const lineOpacity = isSelected ? 0.9 : 0.6;
 
-              return features.map((f: any, idx: number) => {
+              return features.flatMap((f: any, idx: number) => {
                 const geom = f.geometry;
-                if (!geom) return null;
+                if (!geom) return [];
+                const props = f.properties || {};
+                const layerName = (props.layer || props.Layer || props.LAYER || props.layerType || '').toUpperCase();
 
-                // Render Cable routes
+                // ── LineString ────────────────────────────────────
                 if (geom.type === 'LineString' && Array.isArray(geom.coordinates)) {
                   const path: [number, number][] = geom.coordinates.map((c: any) => [c[1], c[0]]);
-                  return (
-                    <Polyline
-                      key={`line-${r.id}-${idx}`}
-                      positions={path}
-                      color={isSelected ? '#6366f1' : '#334155'}
-                      weight={isSelected ? 4 : 2}
-                      opacity={isSelected ? 0.9 : 0.6}
-                    >
+                  return [(
+                    <Polyline key={`line-${r.id}-${idx}`} positions={path} color={lineColor} weight={lineWeight} opacity={lineOpacity}>
                       <Popup>
                         <div className="text-xs font-bold text-slate-900">{r.project.name}</div>
-                        <div className="text-[10px] text-slate-600">Cable Route: {r.name}</div>
+                        <div className="text-[10px] text-slate-700">Route: {r.name}</div>
+                        {props.cable_type && <div className="text-[10px] text-slate-600">Cable: {props.cable_type}</div>}
+                        {props.fiber_count && <div className="text-[10px] text-slate-600">Fibers: {props.fiber_count}F</div>}
+                        {props.installation_method && <div className="text-[10px] text-slate-600">Method: {props.installation_method}</div>}
+                        {props.length && <div className="text-[10px] text-slate-600">Length: {parseFloat(props.length).toFixed(1)}m</div>}
                       </Popup>
                     </Polyline>
-                  );
+                  )];
                 }
 
-                // Render Pole coordinates
+                // ── MultiLineString (QGIS exports) ────────────────
+                if (geom.type === 'MultiLineString' && Array.isArray(geom.coordinates)) {
+                  return geom.coordinates.map((segment: any[], segIdx: number) => {
+                    const path: [number, number][] = segment.map((c: any) => [c[1], c[0]]);
+                    return (
+                      <Polyline key={`mline-${r.id}-${idx}-${segIdx}`} positions={path} color={lineColor} weight={lineWeight} opacity={lineOpacity}>
+                        <Popup>
+                          <div className="text-xs font-bold text-slate-900">{r.project.name}</div>
+                          <div className="text-[10px] text-slate-700">Route: {r.name} (segment {segIdx + 1})</div>
+                          {props.cable_type && <div className="text-[10px] text-slate-600">Cable: {props.cable_type}</div>}
+                          {props.fiber_count && <div className="text-[10px] text-slate-600">Fibers: {props.fiber_count}F</div>}
+                        </Popup>
+                      </Polyline>
+                    );
+                  });
+                }
+
+                // ── Point Assets ──────────────────────────────────
                 if (geom.type === 'Point' && Array.isArray(geom.coordinates)) {
                   const lat = geom.coordinates[1];
                   const lng = geom.coordinates[0];
-                  const layerName = (f.properties?.layer || f.properties?.Layer || '').toUpperCase();
-                  const isPole = layerName.includes('POLE');
 
-                  return (
+                  // Color-coded by asset type
+                  let fillColor = '#f59e0b'; // default: amber for FDP/Joint
+                  let radius = 5;
+                  let assetLabel = 'Asset';
+
+                  if (layerName.includes('POLE')) {
+                    fillColor = '#10b981'; radius = 4; assetLabel = 'Pole';
+                  } else if (layerName.includes('CHAMBER')) {
+                    fillColor = '#3b82f6'; radius = 6; assetLabel = 'Chamber';
+                  } else if (layerName.includes('MANHOLE')) {
+                    fillColor = '#8b5cf6'; radius = 6; assetLabel = 'Manhole';
+                  } else if (layerName.includes('ODF')) {
+                    fillColor = '#ec4899'; radius = 5; assetLabel = 'ODF';
+                  } else if (layerName.includes('FDP') || layerName.includes('CLOSURE')) {
+                    fillColor = '#f59e0b'; radius = 5; assetLabel = 'FDP/Closure';
+                  } else if (layerName.includes('HANDHOLE')) {
+                    fillColor = '#06b6d4'; radius = 5; assetLabel = 'Handhole';
+                  }
+
+                  return [(
                     <CircleMarker
                       key={`point-${r.id}-${idx}`}
                       center={[lat, lng]}
-                      radius={isPole ? 4 : 5}
-                      fillColor={isPole ? '#10b981' : '#f59e0b'}
+                      radius={radius}
+                      fillColor={fillColor}
                       color="#0f172a"
                       weight={1}
-                      fillOpacity={isSelected ? 0.9 : 0.4}
+                      fillOpacity={isSelected ? 0.95 : 0.5}
                     >
                       <Popup>
-                        <div className="text-xs font-bold text-slate-900">{isPole ? 'Pole' : 'FDP/Joint'}</div>
-                        <div className="text-[10px] text-slate-600">Coordinates: {lat.toFixed(6)}, {lng.toFixed(6)}</div>
+                        <div className="text-xs font-bold text-slate-900">{assetLabel}</div>
+                        {props.pole_number && <div className="text-[10px] text-slate-700">No: {props.pole_number}</div>}
+                        {props.pole_type && <div className="text-[10px] text-slate-600">Type: {props.pole_type}</div>}
+                        {props.height && <div className="text-[10px] text-slate-600">Height: {props.height}m</div>}
+                        {props.capacity && <div className="text-[10px] text-slate-600">Capacity: {props.capacity}</div>}
+                        <div className="text-[10px] text-slate-500 mt-1">{lat.toFixed(6)}, {lng.toFixed(6)}</div>
                       </Popup>
                     </CircleMarker>
-                  );
+                  )];
                 }
 
-                return null;
+                return [];
               });
             })}
 
@@ -328,7 +384,34 @@ export default function NationalInfraMap() {
             ))}
           </MapContainer>
         </div>
+
+        {/* Map Legend */}
+        <div className="absolute bottom-4 left-4 z-[999] bg-slate-950/90 border border-slate-800 rounded-xl p-3 shadow-xl backdrop-blur-sm">
+          <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-2">Legend</p>
+          <div className="space-y-1">
+            {[
+              { color: '#6366f1', label: 'Selected Cable Route', shape: 'line' },
+              { color: '#334155', label: 'Cable Route', shape: 'line' },
+              { color: '#10b981', label: 'Pole', shape: 'circle' },
+              { color: '#3b82f6', label: 'Chamber', shape: 'circle' },
+              { color: '#8b5cf6', label: 'Manhole', shape: 'circle' },
+              { color: '#ec4899', label: 'ODF', shape: 'circle' },
+              { color: '#f59e0b', label: 'FDP / Closure', shape: 'circle' },
+              { color: '#ef4444', label: 'AI Anomaly', shape: 'circle' },
+            ].map(({ color, label, shape }) => (
+              <div key={label} className="flex items-center gap-2">
+                {shape === 'line' ? (
+                  <div className="w-5 h-0.5 rounded" style={{ backgroundColor: color }} />
+                ) : (
+                  <div className="w-2.5 h-2.5 rounded-full border border-slate-900" style={{ backgroundColor: color }} />
+                )}
+                <span className="text-[9px] text-slate-300">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+

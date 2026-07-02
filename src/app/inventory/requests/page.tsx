@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Printer } from "lucide-react";
+import { Printer, Plus, ClipboardList } from "lucide-react";
 import { toast } from 'sonner';
 import { processStockRequestAction } from '@/actions/inventory-actions';
 import { generateGatePassPDF } from '@/utils/pdfGenerator';
@@ -48,6 +49,7 @@ interface InventoryRequest {
 
 export default function RequestsPage() {
     const queryClient = useQueryClient();
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
     const [user] = useState<User | null>(() => {
         if (typeof window !== 'undefined') {
@@ -135,6 +137,25 @@ export default function RequestsPage() {
                                 <p className="text-xs text-slate-500">
                                     Manage Internal Transfers &amp; External Purchases
                                 </p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => router.push('/inventory/requests/my-requests')}
+                                    className="h-8 text-xs font-semibold flex items-center gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-50"
+                                >
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                    My Requests
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => router.push('/inventory/requests/create')}
+                                    className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-md shadow-sm flex items-center gap-1.5"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    New Request
+                                </Button>
                             </div>
                         </div>
 

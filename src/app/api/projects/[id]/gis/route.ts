@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { GISAuditService } from "@/services/gis-audit.service";
 
 // GET: List GIS routes for project with poles count
 export async function GET(
@@ -75,6 +76,18 @@ export async function POST(
                 }
             }
         });
+
+        // Write audit log
+        const performedById = createdById || request.headers.get('x-user-id') || 'unknown';
+        await GISAuditService.logChange({
+            projectId,
+            entityType: 'GISRoute',
+            entityId: gisRoute.id,
+            action: 'ROUTE_CREATED',
+            performedById,
+            routeVersion: gisRoute.version,
+            source: 'WEB_PORTAL'
+        }).catch((e) => console.error('Audit log failed on route create:', e));
 
         return NextResponse.json(gisRoute, { status: 201 });
     } catch (error) {

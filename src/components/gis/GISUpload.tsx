@@ -8,7 +8,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   SELECTABLE_LAYER_TYPES,
   LAYER_TYPE_LABELS,
@@ -32,6 +32,21 @@ interface UploadState {
   progress: number;
 }
 
+interface OPMC {
+  id: string;
+  name: string;
+  rtom: string;
+  region: string;
+}
+
+interface CompactProject {
+  id: string;
+  projectCode: string;
+  name: string;
+  createdAt: string | Date;
+  opmc?: OPMC | null;
+}
+
 /**
  * Client-side layer type detection from file name.
  * Mirrors the server-side gisParser.detectLayerType logic.
@@ -51,8 +66,15 @@ function detectLayerTypeFromFileName(fileName: string): GISLayerType {
 }
 
 export function GISUpload() {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const upgradeProjectId = searchParams.get('projectId');
+  const [upgradeProject, setUpgradeProject] = useState<CompactProject | null>(null);
+  const [versionType, setVersionType] = useState<'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT'>('FIELD_CHANGE');
+  const [notes, setNotes] = useState('');
+
   const [files, setFiles] = useState<UploadFileInfo[]>([]);
   const [uploadState, setUploadState] = useState<UploadState>({
     status: 'idle',
@@ -61,8 +83,109 @@ export function GISUpload() {
   const [projectName, setProjectName] = useState('');
   const [region, setRegion] = useState('');
   const [district, setDistrict] = useState('');
-  const [useRegionMultiplier, setUseRegionMultiplier] = useState(false);
+  const [opmcs, setOpmcs] = useState<OPMC[]>([]);
+  const [selectedOpmcId, setSelectedOpmcId] = useState('');
+  const [lea, setLea] = useState('');
   const [dragOver, setDragOver] = useState(false);
+
+  const [existingProjects, setExistingProjects] = useState<CompactProject[]>([]);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string; code: string } | null>(null);
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects?status=COMPLETED&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setExistingProjects(data);
+      }
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetch('/api/opmcs')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setOpmcs(data);
+        }
+      })
+      .catch((err) => console.error('Error loading OPMCs:', err));
+
+    fetchProjects();
+
+    if (upgradeProjectId) {
+      fetch(`/api/projects/${upgradeProjectId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.id) {
+            setUpgradeProject(data);
+          }
+        })
+        .catch((err) => console.error('Error loading upgrade project:', err));
+    }
+  }, [fetchProjects, upgradeProjectId]);
+
+  const handleDeleteProject = (id: string, name: string, code: string) => {
+    setProjectToDelete({ id, name, code });
+  };
+
+  const executeDelete = async (id: string, name: string) => {
+    try {
+      setUploadState({
+        status: 'processing',
+        message: `Deleting project ${name}...`,
+        progress: 50,
+      });
+
+      const res = await fetch(`/api/projects/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-role': 'ADMIN',
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setUploadState({
+          status: 'idle',
+          progress: 0,
+        });
+        setExistingProjects((prev) => prev.filter((p) => p.id !== id));
+        alert(`Project "${name}" was deleted successfully.`);
+        fetchProjects();
+      } else {
+        throw new Error(data.error || 'Failed to delete project');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      const errMsg = err instanceof Error ? err.message : 'Failed to delete project';
+      setUploadState({
+        status: 'error',
+        error: errMsg,
+        progress: 0,
+      });
+    }
+  };
+
+  const handleOpmcChange = (opmcId: string) => {
+    setSelectedOpmcId(opmcId);
+    const selected = opmcs.find((o) => o.id === opmcId);
+    if (selected) {
+      setRegion(selected.region);
+      setDistrict(selected.name); // OPMC Name represents the district/exchange station
+    } else {
+      setRegion('');
+      setDistrict('');
+    }
+  };
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const entries: UploadFileInfo[] = Array.from(newFiles).map((file) => {
@@ -134,10 +257,19 @@ export function GISUpload() {
         JSON.stringify(files.map((f) => f.layerType))
       );
 
-      if (projectName) formData.append('projectName', projectName);
-      if (region) formData.append('region', region);
-      if (district) formData.append('district', district);
-      formData.append('useRegionMultiplier', useRegionMultiplier ? 'true' : 'false');
+      if (upgradeProjectId) {
+        formData.append('projectId', upgradeProjectId);
+        formData.append('versionType', versionType);
+        if (notes) formData.append('notes', notes);
+      } else {
+        if (projectName) formData.append('projectName', projectName);
+        if (region) formData.append('region', region);
+        if (district) formData.append('district', district);
+        if (lea) formData.append('lea', lea);
+        formData.append('useRegionMultiplier', 'false');
+        formData.append('isCompletedProject', 'true');
+      }
+      
       formData.append('createdById', 'current-user'); // Replace with actual user ID
 
       // Upload files
@@ -177,10 +309,19 @@ export function GISUpload() {
 
       // Clear files
       setFiles([]);
-    } catch (err: any) {
+      
+      if (upgradeProjectId) {
+        setTimeout(() => {
+          router.push(`/projects/${upgradeProjectId}/gis`);
+        }, 2000);
+      } else {
+        fetchProjects();
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Upload failed';
       setUploadState({
         status: 'error',
-        error: err.message || 'Upload failed',
+        error: errMsg,
         progress: 0,
       });
     }
@@ -192,6 +333,8 @@ export function GISUpload() {
     setProjectName('');
     setRegion('');
     setDistrict('');
+    setSelectedOpmcId('');
+    setLea('');
   };
 
   const isValidGeoJSON = (fileName: string) => {
@@ -202,60 +345,108 @@ export function GISUpload() {
   return (
     <div className="space-y-6">
       {/* Project Details */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Project Name (optional)
-          </label>
-          <input
-            type="text"
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            placeholder="e.g., Kolonnawa SSD Phase 2"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
-          />
+      {upgradeProjectId ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-2xl">🔄</span>
+            <div>
+              <h2 className="text-lg font-bold text-blue-900">Route Version Upgrade</h2>
+              <p className="text-sm text-blue-700">
+                Uploading a new version for project: <strong className="font-mono">{upgradeProject?.projectCode || upgradeProjectId}</strong>
+              </p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-blue-900 mb-1">
+                Version Reason / Type
+              </label>
+              <select
+                value={versionType}
+                onChange={(e) => setVersionType(e.target.value as 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT')}
+                className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+              >
+                <option value="FIELD_CHANGE">Field Change / Revision</option>
+                <option value="PLANNED">Planned (Draft Update)</option>
+                <option value="AS_BUILT">As-Built (Finalized)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-blue-900 mb-1">
+                Version Notes (Optional)
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g., Revised path due to road construction"
+                className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+              />
+            </div>
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Region
-          </label>
-          <input
-            type="text"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            placeholder="e.g., Western Province"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
-          />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Project Name (optional)
+            </label>
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="e.g., Kolonnawa SSD Phase 2"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-800 mb-1">
+              OPMC / RTOM Station
+            </label>
+            <select
+              value={selectedOpmcId}
+              onChange={(e) => handleOpmcChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+            >
+              <option value="">-- Select OPMC --</option>
+              {opmcs.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.rtom} - {o.name} ({o.region})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Local Exchange Area (LEA)
+            </label>
+            <input
+              type="text"
+              value={lea}
+              onChange={(e) => setLea(e.target.value)}
+              placeholder="e.g., LEA-01"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-500 mb-1">
+              Region & District (Auto-filled)
+            </label>
+            <input
+              type="text"
+              value={region && district ? `${region} / ${district}` : 'Select OPMC first'}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            District
-          </label>
-          <input
-            type="text"
-            value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            placeholder="e.g., Colombo"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
-          />
-        </div>
-        <div className="flex items-center gap-2 pt-6">
-          <input
-            type="checkbox"
-            id="useRegionMultiplier"
-            checked={useRegionMultiplier}
-            onChange={(e) => setUseRegionMultiplier(e.target.checked)}
-            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
-          />
-          <label htmlFor="useRegionMultiplier" className="text-sm font-medium text-gray-700 cursor-pointer">
-            Apply Region Cost Multiplier (↑rates for distant regions)
-          </label>
-        </div>
-      </div>
+      )}
 
       {/* Drop Zone */}
       <div
@@ -449,6 +640,92 @@ export function GISUpload() {
           </button>
         )}
       </div>
+
+      {/* Existing Uploaded Projects List */}
+      {!upgradeProjectId && existingProjects.length > 0 && (
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span>🗂️</span> Active &amp; Imported Projects ({existingProjects.length})
+          </h3>
+          <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Project Code</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Project Name</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Region / OPMC</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Created At</th>
+                  <th className="px-4 py-2 text-right font-medium text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {existingProjects.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 font-mono text-xs font-bold text-slate-700">{p.projectCode}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">{p.name}</td>
+                    <td className="px-4 py-2 text-gray-500">
+                      {p.opmc?.region || 'N/A'} - {p.opmc?.name || 'N/A'}
+                    </td>
+                    <td className="px-4 py-2 text-gray-400 text-xs">
+                      {new Date(p.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        onClick={() => handleDeleteProject(p.id, p.name, p.projectCode)}
+                        className="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-1 border border-red-200 hover:border-red-400 rounded bg-red-50 hover:bg-red-100 transition-colors"
+                        disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
+                      >
+                        🗑️ Delete Project
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {projectToDelete && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 mx-4 border border-slate-100 transform scale-100 transition-all duration-300">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <span className="text-2xl">⚠️</span>
+              <h3 className="text-lg font-bold">Delete Project</h3>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6 text-left">
+              Are you sure you want to permanently delete the project <strong className="text-gray-900">&quot;{projectToDelete.name}&quot; ({projectToDelete.code})</strong>?
+              <br /><br />
+              This will completely erase all associated GIS routes, cables, poles, joints, chambers, generated BOQs, milestones, and field tasks from the system.
+              <br /><br />
+              <span className="text-red-600 font-semibold">This action cannot be undone.</span>
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setProjectToDelete(null)}
+                className="px-4 py-2 text-sm font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                disabled={uploadState.status === 'processing'}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const { id, name } = projectToDelete;
+                  setProjectToDelete(null);
+                  await executeDelete(id, name);
+                }}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center gap-1 shadow-sm"
+                disabled={uploadState.status === 'processing'}
+              >
+                🗑️ Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

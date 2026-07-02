@@ -1,125 +1,158 @@
-// ============================================================================
-// GIS Upload Page - File upload interface for GIS ingestion
-// ============================================================================
+"use client";
 
-import { GISUpload } from '@/components/gis/GISUpload';
+import dynamic from 'next/dynamic';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
+import {
+  Upload,
+  MapPin,
+  Zap,
+  FileText,
+  ChevronDown,
+  Info,
+} from 'lucide-react';
+import React, { useState } from 'react';
 
-export const metadata = {
-  title: 'GIS Import - SLTS ERP',
-  description: 'Upload and process GIS files for OSP project management',
-};
+const GISUpload = dynamic(
+  () => import('@/components/gis/GISUpload').then((m) => ({ default: m.GISUpload })),
+  { ssr: false }
+);
+
+const FEATURE_PILLS = [
+  { icon: Zap, label: 'Auto-BOQ', color: 'text-amber-600 bg-amber-50 border-amber-200' },
+  { icon: MapPin, label: 'OPMC Link', color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  { icon: FileText, label: 'Workflow', color: 'text-purple-600 bg-purple-50 border-purple-200' },
+];
+
+const FORMATS = [
+  { name: 'GeoJSON', ext: '.geojson .json' },
+  { name: 'KML/KMZ', ext: '.kml .kmz' },
+  { name: 'Shapefile', ext: '.shp' },
+  { name: 'GeoPackage', ext: '.gpkg' },
+  { name: 'QGIS', ext: '.qgz .qgs' },
+];
+
+const LAYER_HINTS = [
+  { kw: '*Cables*', emoji: '🔌' },
+  { kw: '*Poles*', emoji: '📡' },
+  { kw: '*FDP*', emoji: '📦' },
+  { kw: '*Fiber_Joint*', emoji: '🔗' },
+  { kw: '*Road*', emoji: '🛣️' },
+];
 
 export default function GISUploadPage() {
+  const [helpOpen, setHelpOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">GIS Import Engine</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Upload GeoJSON files from QGIS or other GIS tools to automatically create projects,
-            generate BOQs, register assets, create survey tasks, and instantiate workflows.
-          </p>
-        </div>
+    <div className="erp-page-wrapper flex-row overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <Header />
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="max-w-5xl mx-auto space-y-5">
 
-        {/* Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
+            {/* ─── Page Title ─────────────────────────────────────── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-gray-900">Auto-Detect</p>
-                <p className="text-xs text-gray-500">Layer types & project type</p>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-blue-600" />
+                  GIS Import Engine
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Upload GeoJSON / Shapefiles to auto-create projects, BOQs & workflows.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {FEATURE_PILLS.map(({ icon: Icon, label, color }) => (
+                  <span
+                    key={label}
+                    className={`hidden sm:flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border ${color}`}
+                  >
+                    <Icon className="w-3 h-3" />
+                    {label}
+                  </span>
+                ))}
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            {/* ─── Main Upload Card ────────────────────────────────── */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-800">Upload GIS Files</h2>
+                <span className="text-[10px] font-semibold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-200">
+                  QGIS Snap v2
+                </span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Auto-BOQ</p>
-                <p className="text-xs text-gray-500">Quantity & cost calculation</p>
+              <div className="p-5">
+                <GISUpload />
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Full Automation</p>
-                <p className="text-xs text-gray-500">Assets, permits & workflow</p>
-              </div>
+            {/* ─── Collapsible Help Section ────────────────────────── */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <button
+                onClick={() => setHelpOpen((v) => !v)}
+                className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Info className="w-4 h-4 text-slate-400" />
+                  Help &amp; Supported Formats
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${helpOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {helpOpen && (
+                <div className="px-5 pb-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                  {/* Formats */}
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">
+                      Supported Formats
+                    </h4>
+                    <div className="space-y-1.5">
+                      {FORMATS.map((f) => (
+                        <div key={f.name} className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-slate-700">{f.name}</span>
+                          <code className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {f.ext}
+                          </code>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Layer naming */}
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">
+                      Auto-Detection by Filename
+                    </h4>
+                    <div className="grid grid-cols-2 gap-1.5 mb-3">
+                      {LAYER_HINTS.map((h) => (
+                        <div
+                          key={h.kw}
+                          className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-100"
+                        >
+                          <span>{h.emoji}</span>
+                          <code className="font-mono text-[10px]">{h.kw}</code>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Example:{' '}
+                      <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">
+                        KL-SVK-0567_Cables.geojson
+                      </code>{' '}
+                      → CABLE layer
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
+
           </div>
         </div>
-
-        {/* Upload Component */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload GIS Files</h2>
-          <GISUpload />
-        </div>
-
-        {/* Supported Formats */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Supported GIS Formats</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { name: 'GeoJSON', ext: '.geojson, .json', desc: 'Native GIS format' },
-              { name: 'KML', ext: '.kml', desc: 'Google Earth' },
-              { name: 'KMZ', ext: '.kmz', desc: 'Compressed KML' },
-              { name: 'Shapefile', ext: '.shp', desc: 'ESRI Shapefile' },
-              { name: 'GeoPackage', ext: '.gpkg', desc: 'OGC Standard' },
-              { name: 'QGIS', ext: '.qgz, .qgs', desc: 'QGIS Project' },
-            ].map((fmt) => (
-              <div key={fmt.name} className="text-center p-3 bg-gray-50 rounded-md">
-                <p className="text-sm font-medium text-gray-900">{fmt.name}</p>
-                <p className="text-xs text-gray-500">{fmt.ext}</p>
-                <p className="text-xs text-gray-400">{fmt.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Expected Layer Naming */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Expected Layer Naming</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Files are auto-detected by name. The system looks for these keywords in file names:
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {[
-              { pattern: '*Cables*', type: 'Fiber Cables', icon: '🔌' },
-              { pattern: '*Poles*', type: 'Telecom Poles', icon: '📡' },
-              { pattern: '*FDP*', type: 'Distribution Points', icon: '📦' },
-              { pattern: '*Fiber_Joint*', type: 'Joint Closures', icon: '🔗' },
-              { pattern: '*Road*', type: 'Road Segments', icon: '🛣️' },
-            ].map((layer) => (
-              <div key={layer.type} className="text-center p-3 bg-gray-50 rounded-md">
-                <p className="text-lg">{layer.icon}</p>
-                <p className="text-sm font-medium text-gray-900">{layer.pattern}</p>
-                <p className="text-xs text-gray-500">{layer.type}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 mt-4">
-            Example: <code className="bg-gray-100 px-1 rounded">KL-SVK-0567_Cables.geojson</code> → CABLE layer
-          </p>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }

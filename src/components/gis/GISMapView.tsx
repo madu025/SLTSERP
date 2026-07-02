@@ -32,6 +32,96 @@ interface MeasurePoint {
   pixel: [number, number];
 }
 
+interface GISPoleData {
+  id: string;
+  poleNumber?: string;
+  poleType?: string;
+  height?: number;
+  status?: string;
+  latitude?: number;
+  lat?: number;
+  longitude?: number;
+  lon?: number;
+  lng?: number;
+}
+
+interface GISClosureData {
+  id: string;
+  closureNumber?: string;
+  closureType?: string;
+  capacity?: string;
+  notes?: string;
+  latitude?: number;
+  lat?: number;
+  longitude?: number;
+  lon?: number;
+  lng?: number;
+}
+
+interface GISChamberData {
+  id: string;
+  chamberNumber?: string;
+  chamberType?: string;
+  status?: string;
+  notes?: string;
+  latitude?: number;
+  lat?: number;
+  longitude?: number;
+  lon?: number;
+  lng?: number;
+}
+
+interface GISCableSegmentData {
+  id: string;
+  segmentNumber?: number;
+  length?: number;
+  cableType?: string;
+  fiberCount?: number;
+  fromPoleId?: string;
+  toPoleId?: string;
+  coordinates?: [number, number][];
+  properties?: Record<string, unknown>;
+}
+
+interface GISRoadSegmentData {
+  id: string;
+  roadName?: string;
+  length?: number;
+  roadType?: string;
+  authority?: string;
+  coordinates?: [number, number][];
+}
+
+export interface GISRouteData {
+  id: string;
+  name: string;
+  version?: number;
+  versionType?: string;
+  isActive?: boolean;
+  routeLength?: number;
+  cableSegments?: GISCableSegmentData[];
+  poles?: GISPoleData[];
+  closures?: GISClosureData[];
+  chambers?: GISChamberData[];
+  roadSegments?: GISRoadSegmentData[];
+  geometry?: unknown;
+  cableType?: string;
+  generatedBOQs?: unknown[];
+}
+
+export interface GISAssetData {
+  id: string;
+  assetName?: string;
+  assetCode?: string;
+  assetType?: string;
+  status?: string;
+  latitude?: number;
+  lat?: number;
+  longitude?: number;
+  lon?: number;
+  lng?: number;
+}
+
 // ─── Distance measurement style helpers ────────────────────────────────────
 const MEASURE_STYLE = new Style({
   fill: new Fill({ color: 'rgba(255, 255, 255, 0.2)' }),
@@ -48,11 +138,13 @@ const MEASURE_SEGMENT_STYLE = new Style({
 });
 
 interface GISMapViewProps {
-  gisRoutes?: any[];
-  assets?: any[];
+  gisRoutes?: GISRouteData[];
+  assets?: GISAssetData[];
   width?: string;
   height?: string;
   fullscreen?: boolean;
+  preSurveyMode?: boolean;
+  onPreSurveyPointsSelected?: (start: [number, number], end: [number, number]) => void;
 }
 
 interface LayerVisibility {
@@ -152,13 +244,25 @@ function createPopupOverlay(html: string): Overlay {
 // Main Component
 // ============================================================================
 
-export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height = '600px', fullscreen = false }: GISMapViewProps) {
+export function GISMapView({
+  gisRoutes = [],
+  assets = [],
+  width = '100%',
+  height = '600px',
+  fullscreen = false,
+  preSurveyMode = false,
+  onPreSurveyPointsSelected
+}: GISMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
   const popupRef = useRef<Overlay | null>(null);
   const layerSourcesRef = useRef<Record<string, VectorSource>>({});
   const vectorLayersRef = useRef<Record<string, VectorLayer<VectorSource>>>({});
   const [mapReady, setMapReady] = useState(false);
+  const [preSurveyStart, setPreSurveyStart] = useState<[number, number] | null>(null);
+  const [preSurveyEnd, setPreSurveyEnd] = useState<[number, number] | null>(null);
+  const preSurveySourceRef = useRef<VectorSource | null>(null);
+  const preSurveyLayerRef = useRef<VectorLayer | null>(null);
   const [visibility, setVisibility] = useState<LayerVisibility>({
     cables: true, poles: true, fdps: true, fiberJoints: true, chambers: true, roads: true, assets: true,
   });
@@ -171,13 +275,15 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
   const measureTooltipRef = useRef<Overlay | null>(null);
   const measureOverlayRef = useRef<HTMLDivElement | null>(null);
   const [totalDistance, setTotalDistance] = useState<number | null>(null);
-  const lastSegmentDistanceRef = useRef<number | null>(null);
+  const [lastSegmentDistance, setLastSegmentDistance] = useState<number | null>(null);
+  const [measurePointsCount, setMeasurePointsCount] = useState<number>(0);
 
     // ─── Clear measurement ────────────────────────────────────────────────
   const clearMeasure = useCallback(() => {
     measurePointsRef.current = [];
     setTotalDistance(null);
-    lastSegmentDistanceRef.current = null;
+    setLastSegmentDistance(null);
+    setMeasurePointsCount(0);
     if (measureSourceRef.current) measureSourceRef.current.clear();
     if (measureTooltipRef.current) {
       const el = measureTooltipRef.current.getElement();
@@ -228,6 +334,25 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     measureLayerRef.current = mLayer;
     map.addLayer(mLayer);
 
+    // ─── Initialize pre-survey layer ──────────────────────────────────
+    const pSource = new VectorSource();
+    preSurveySourceRef.current = pSource;
+    const pLayer = new VectorLayer({
+      source: pSource,
+      style: new Style({
+        fill: new Fill({ color: 'rgba(59, 130, 246, 0.2)' }),
+        stroke: new Stroke({ color: '#f59e0b', width: 4, lineDash: [6, 4] }),
+        image: new CircleStyle({
+          radius: 8,
+          fill: new Fill({ color: '#ef4444' }),
+          stroke: new Stroke({ color: '#ffffff', width: 2.5 })
+        })
+      }),
+      zIndex: 1001
+    });
+    preSurveyLayerRef.current = pLayer;
+    map.addLayer(pLayer);
+
     // ─── Measurement tooltip overlay ───────────────────────────────────
     const tooltipEl = document.createElement('div');
     tooltipEl.style.cssText = `
@@ -241,8 +366,13 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     measureTooltipRef.current = mTooltip;
     map.addOverlay(mTooltip);
 
-    setMapReady(true);
-    requestAnimationFrame(() => map.updateSize());
+    requestAnimationFrame(() => {
+      setMapReady(true);
+      map.updateSize();
+      // Force tile refresh by triggering multiple size updates
+      setTimeout(() => map.updateSize(), 200);
+      setTimeout(() => map.updateSize(), 500);
+    });
     return () => { map.setTarget(undefined); mapRef.current = null; };
   }, []);
 
@@ -259,12 +389,12 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     const popup = createPopupOverlay('');
     mapRef.current.addOverlay(popup);
     popupRef.current = popup;
-    const handleClick = (evt: any) => {
+    const handleClick = (evt: import('ol/MapBrowserEvent').default<PointerEvent | KeyboardEvent | WheelEvent>) => {
       const map = mapRef.current;
       if (!map) return;
-      const feature = map.forEachFeatureAtPixel(evt.pixel, (f: any) => f);
+      const feature = map.forEachFeatureAtPixel(evt.pixel, (f: import('ol/Feature').FeatureLike) => f) as Feature | undefined;
       if (feature) {
-        const html = feature.get('popupHtml');
+        const html = feature.get('popupHtml') as string;
         if (html && popup.getElement()) { popup.getElement()!.innerHTML = html; popup.setPosition(evt.coordinate); popup.getElement()!.style.display = ''; }
       } else {
         if (popup.getElement()) popup.getElement()!.style.display = 'none';
@@ -279,7 +409,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     if (!mapRef.current || !mapReady) return;
     const map = mapRef.current;
 
-    const handleMeasureClick = (evt: any) => {
+    const handleMeasureClick = (evt: import('ol/MapBrowserEvent').default<PointerEvent | KeyboardEvent | WheelEvent>) => {
       if (!measureActive) return;
       const lonLat = toLonLat(evt.coordinate) as [number, number];
       const pixel = evt.pixel as [number, number];
@@ -288,6 +418,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
       if (!source) return;
 
       points.push({ lonLat, pixel });
+      setMeasurePointsCount(points.length);
 
       if (points.length === 1) {
         // First point: show a marker
@@ -313,7 +444,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
 
         // Calculate distances
         const segmentMeters = getDistance(prev.lonLat, lonLat);
-        lastSegmentDistanceRef.current = segmentMeters;
+        setLastSegmentDistance(segmentMeters);
 
         // Total distance
         let total = 0;
@@ -337,7 +468,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
       }
     };
 
-    const handleMeasureDblClick = (evt: any) => {
+    const handleMeasureDblClick = () => {
       if (!measureActive) return;
       const points = measurePointsRef.current;
       if (points.length < 2) return;
@@ -406,27 +537,104 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     };
   }, [mapReady, measureActive]);
 
+  // ─── Pre-Survey click handler ─────────────────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    const map = mapRef.current;
+
+    const handlePreSurveyClick = (evt: import('ol/MapBrowserEvent').default<PointerEvent | KeyboardEvent | WheelEvent>) => {
+      if (!preSurveyMode) return;
+      
+      const lonLat = toLonLat(evt.coordinate) as [number, number]; // [lng, lat]
+      const source = preSurveySourceRef.current;
+      if (!source) return;
+
+      if (!preSurveyStart || (preSurveyStart && preSurveyEnd)) {
+        // First click (or reset): set start point
+        setPreSurveyStart(lonLat);
+        setPreSurveyEnd(null);
+        source.clear();
+
+        const startPt = new Point(evt.coordinate);
+        const startFeature = new Feature({ geometry: startPt });
+        startFeature.setStyle(new Style({
+          image: new CircleStyle({
+            radius: 8,
+            fill: new Fill({ color: '#ef4444' }), // Red for Start
+            stroke: new Stroke({ color: '#ffffff', width: 2 })
+          })
+        }));
+        source.addFeature(startFeature);
+      } else {
+        // Second click: set end point
+        setPreSurveyEnd(lonLat);
+
+        const endPt = new Point(evt.coordinate);
+        const endFeature = new Feature({ geometry: endPt });
+        endFeature.setStyle(new Style({
+          image: new CircleStyle({
+            radius: 8,
+            fill: new Fill({ color: '#3b82f6' }), // Blue for End
+            stroke: new Stroke({ color: '#ffffff', width: 2 })
+          })
+        }));
+        source.addFeature(endFeature);
+
+        // Draw line between Start and End
+        const startCoord = fromLonLat(preSurveyStart);
+        const endCoord = evt.coordinate;
+        const line = new LineString([startCoord, endCoord]);
+        const lineFeature = new Feature({ geometry: line });
+        lineFeature.setStyle(new Style({
+          stroke: new Stroke({ color: '#f59e0b', width: 4, lineDash: [8, 4] })
+        }));
+        source.addFeature(lineFeature);
+
+        // Fire callback to parent
+        if (onPreSurveyPointsSelected) {
+          onPreSurveyPointsSelected(preSurveyStart, lonLat);
+        }
+      }
+    };
+
+    map.on('click', handlePreSurveyClick);
+    return () => {
+      map.un('click', handlePreSurveyClick);
+    };
+  }, [mapReady, preSurveyMode, preSurveyStart, preSurveyEnd, onPreSurveyPointsSelected]);
+
   // --- Hover (pointermove) for highlight ---
   const hoverFeatureRef = useRef<Feature | null>(null);
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
     const map = mapRef.current;
-    const handlePointerMove = (evt: any) => {
+    const handlePointerMove = (evt: import('ol/MapBrowserEvent').default<PointerEvent | KeyboardEvent | WheelEvent>) => {
       if (hoverFeatureRef.current) {
         const prev = hoverFeatureRef.current;
         const prevLayerKey = prev.get('layerKey');
         if (prevLayerKey) {
           const hoverStyleKey = (prevLayerKey + 'Hover') as keyof typeof layerStyles;
-          if (layerStyles[hoverStyleKey]) { prev.setStyle(undefined); }
+          if (layerStyles[hoverStyleKey]) {
+            const orig = prev.get('customStyle') as Style | undefined;
+            prev.setStyle(orig || undefined);
+          }
         }
         hoverFeatureRef.current = null;
       }
-      const feature = map.forEachFeatureAtPixel(evt.pixel, (f: any) => f);
+      const feature = map.forEachFeatureAtPixel(evt.pixel, (f: import('ol/Feature').FeatureLike) => f) as Feature | undefined;
       if (feature) {
         const layerKey = feature.get('layerKey');
         if (layerKey) {
           const hoverStyleKey = (layerKey + 'Hover') as keyof typeof layerStyles;
-          if (layerStyles[hoverStyleKey]) { feature.setStyle(layerStyles[hoverStyleKey]); hoverFeatureRef.current = feature; }
+          if (layerStyles[hoverStyleKey]) {
+            let hoverStyle = layerStyles[hoverStyleKey];
+            const customColor = feature.get('customColor') as string | undefined;
+            if (customColor) {
+              hoverStyle = createHoverCircleStyle(customColor, 10);
+            }
+            feature.setStyle(hoverStyle);
+            hoverFeatureRef.current = feature;
+          }
         }
       }
       map.getTargetElement().style.cursor = feature ? 'pointer' : '';
@@ -446,18 +654,32 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
       cables: new VectorSource(), poles: new VectorSource(), fdps: new VectorSource(),
       fiberJoints: new VectorSource(), chambers: new VectorSource(), roads: new VectorSource(), assets: new VectorSource(),
     };
-    const allExtents: any[] = [];
+    const allExtents: import('ol/extent').Extent[] = [];
     layerSourcesRef.current = sources;
 
-    function addFeature(sourceKey: string, geom: any, popupHtml: string, layerKey: string) {
+    function addFeature(
+      sourceKey: string, 
+      geom: import('ol/geom/Geometry').default, 
+      popupHtml: string, 
+      layerKey: string,
+      customStyle?: Style,
+      customColor?: string
+    ) {
       const feature = new Feature({ geometry: geom });
       feature.set('popupHtml', popupHtml);
       feature.set('layerKey', layerKey);
+      if (customStyle) {
+        feature.setStyle(customStyle);
+        feature.set('customStyle', customStyle);
+      }
+      if (customColor) {
+        feature.set('customColor', customColor);
+      }
       sources[sourceKey].addFeature(feature);
       allExtents.push(geom.getExtent());
     }
 
-    function cablePopup(seg: any, route: any) {
+    function cablePopup(seg: GISCableSegmentData, route: GISRouteData) {
       return `
         <div style="font-family: sans-serif; min-width: 200px;">
           <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🔌 Cable Segment #${seg.segmentNumber || '?'}</h3>
@@ -509,7 +731,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
             if (fromC && toC) cableCoords = [fromC, toC];
           }
           if (cableCoords) {
-            const coords = cableCoords.map((c: any) => fromLonLat([c[0], c[1]]));
+            const coords = cableCoords.map((c: [number, number]) => fromLonLat([c[0], c[1]]));
             const line = new LineString(coords);
             addFeature('cables', line, cablePopup(seg, route), 'cables');
           }
@@ -526,7 +748,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
             const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🔌 Route: ${route.name}</h3><p style="font-size: 12px; color: #666;">Length: ${route.routeLength ? route.routeLength.toFixed(2) + ' m' : 'N/A'}</p></div>`;
             addFeature('cables', line, html, 'cables');
           }
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
       }
 
       // --- POLES ---
@@ -537,7 +759,22 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
           if (lat == null || lng == null) continue;
           const point = new Point(fromLonLat([lng, lat]));
           const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">📡 Pole #${pole.poleNumber || '?'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${pole.poleType || 'CONCRETE'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Height</td><td style="padding: 2px 4px; font-weight: 500;">${pole.height || 9}m</td></tr><tr><td style="padding: 2px 4px; color: #666;">Status</td><td style="padding: 2px 4px; font-weight: 500;">${pole.status || 'PLANNED'}</td></tr></table></div>`;
-          addFeature('poles', point, html, 'poles');
+          
+          const isExisting = pole.status === 'VERIFIED' || pole.status === 'INSTALLED';
+          const isNew = pole.status === 'PLANNED';
+          
+          let customStyle: Style | undefined = undefined;
+          let customColor: string | undefined = undefined;
+          
+          if (isExisting) {
+            customColor = '#f97316'; // Orange for existing poles, matching QGIS
+            customStyle = createCircleStyle(customColor, 8, 0.6);
+          } else if (isNew) {
+            customColor = '#2563eb'; // Blue for new poles, matching QGIS
+            customStyle = createCircleStyle(customColor, 8, 0.6);
+          }
+          
+          addFeature('poles', point, html, 'poles', customStyle, customColor);
         }
       }
 
@@ -573,7 +810,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
       if (route.roadSegments?.length) {
         for (const road of route.roadSegments) {
           if (road.coordinates?.length) {
-            const coords = road.coordinates.map((c: any) => fromLonLat([c[0], c[1]]));
+            const coords = road.coordinates.map((c: [number, number]) => fromLonLat([c[0], c[1]]));
             const line = new LineString(coords);
             const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">🛣️ ${road.roadName || 'Road Segment'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">Length</td><td style="padding: 2px 4px; font-weight: 500;">${road.length ? road.length.toFixed(2) + ' m' : 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Authority</td><td style="padding: 2px 4px; font-weight: 500;">${road.authority || road.roadType || 'N/A'}</td></tr></table></div>`;
             addFeature('roads', line, html, 'roads');
@@ -589,7 +826,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
         const lat = asset.latitude ?? asset.lat;
         const lng = asset.longitude ?? asset.lon ?? asset.lng;
         if (lat == null || lng == null) continue;
-        const color = assetColors[asset.assetType] || LAYER_COLORS.assets;
+        const color = (asset.assetType ? assetColors[asset.assetType] : undefined) || LAYER_COLORS.assets;
         const point = new Point(fromLonLat([lng, lat]));
         const feature = new Feature({ geometry: point });
         feature.set('layerKey', 'assets');
@@ -602,7 +839,7 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
 
     // Create vector layers and add to map
     const vectorLayers: Record<string, VectorLayer<VectorSource>> = {};
-    const layerDefs: { key: string; style: any }[] = [
+    const layerDefs: { key: string; style: Style }[] = [
       { key: 'cables', style: layerStyles.cables }, { key: 'poles', style: layerStyles.poles },
       { key: 'fdps', style: layerStyles.fdps }, { key: 'fiberJoints', style: layerStyles.fiberJoints },
       { key: 'chambers', style: layerStyles.chambers }, { key: 'roads', style: layerStyles.roads },
@@ -627,9 +864,18 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
       const overallExtent = allExtents.reduce((acc, ext) => [
         Math.min(acc[0], ext[0]), Math.min(acc[1], ext[1]), Math.max(acc[2], ext[2]), Math.max(acc[3], ext[3]),
       ], allExtents[0]);
-      map.getView().fit(overallExtent, { padding: [50, 50], maxZoom: 16, duration: 500 });
+      // Defer fit to allow the DOM to settle
+      setTimeout(() => {
+        map.getView().fit(overallExtent, { padding: [60, 60, 60, 60], maxZoom: 17, duration: 800 });
+        map.updateSize();
+      }, 100);
+    } else {
+      // No data - reset to Sri Lanka
+      map.getView().setCenter(fromLonLat([80.7718, 7.8731]));
+      map.getView().setZoom(8);
     }
     setTimeout(() => map.updateSize(), 100);
+    setTimeout(() => map.updateSize(), 400);
   }, [mapReady, gisRoutes, assets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Sync visibility state to layers ---
@@ -641,13 +887,52 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
     }
   }, [visibility]);
 
+  // --- Auto-update map size when container resize occurs ---
+  useEffect(() => {
+    if (!mapRef.current || !mapContainerRef.current) return;
+    const map = mapRef.current;
+    const observer = new ResizeObserver(() => {
+      map.updateSize();
+    });
+    observer.observe(mapContainerRef.current);
+    return () => {
+      observer.disconnect();
+    };
+  }, [mapReady]);
+
   const countFeatures = useMemo(() => {
-    const sources = layerSourcesRef.current;
+    let cables = 0;
+    let poles = 0;
+    let fdps = 0;
+    let fiberJoints = 0;
+    let chambers = 0;
+    let roads = 0;
+    const assetsCount = assets?.length || 0;
+
+    for (const route of gisRoutes) {
+      cables += route.cableSegments?.length || 0;
+      poles += route.poles?.length || 0;
+      chambers += route.chambers?.length || 0;
+      roads += route.roadSegments?.length || 0;
+      if (route.closures) {
+        for (const cl of route.closures) {
+          if (cl.closureType === 'TERMINAL') {
+            fdps++;
+          } else {
+            fiberJoints++;
+          }
+        }
+      }
+    }
+
     return {
-      cables: sources.cables?.getFeatures().length || 0, poles: sources.poles?.getFeatures().length || 0,
-      fdps: sources.fdps?.getFeatures().length || 0, fiberJoints: sources.fiberJoints?.getFeatures().length || 0,
-      chambers: sources.chambers?.getFeatures().length || 0,
-      roads: sources.roads?.getFeatures().length || 0, assets: sources.assets?.getFeatures().length || 0,
+      cables,
+      poles,
+      fdps,
+      fiberJoints,
+      chambers,
+      roads,
+      assets: assetsCount
     };
   }, [gisRoutes, assets]);
 
@@ -671,13 +956,49 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
           </div>
         </div>
       )}
-      {mapReady && gisRoutes.length === 0 && !assets?.length && (
+      {mapReady && gisRoutes.length === 0 && !assets?.length && !preSurveyMode && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 rounded-lg z-10 backdrop-blur-sm">
           <div className="text-center space-y-3 p-8">
             <p className="text-4xl">🗺️</p>
             <p className="text-base font-medium text-gray-700">No GIS Data Available</p>
             <p className="text-sm text-gray-500 max-w-sm">Import GIS files to visualize routes, poles, cables and other telecom infrastructure on the map.</p>
           </div>
+        </div>
+      )}
+
+      {/* ─── Pre-Survey AI Panel ─────────────────────────────────────────── */}
+      {preSurveyMode && (
+        <div className="absolute top-3 left-3 z-[1000] bg-slate-900/90 text-white rounded-lg shadow-lg border border-slate-700 p-3.5 max-w-[320px] backdrop-blur-sm transition-all">
+          <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <span>🤖 AI Pre-Survey Mode Active</span>
+          </div>
+          <p className="text-[11px] text-slate-300 mt-1.5 leading-relaxed">
+            {!preSurveyStart ? (
+              "👉 Click anywhere on the map to set the starting location (Point A)."
+            ) : !preSurveyEnd ? (
+              "👉 Now click another point to set the ending location (Point B)."
+            ) : (
+              "✅ Point A and Point B selected! Click 'Generate AI Pre-Survey' on the sidebar."
+            )}
+          </p>
+          {preSurveyStart && (
+            <div className="mt-2.5 text-[10px] text-slate-400 space-y-1 border-t border-slate-800 pt-2">
+              <div className="flex justify-between">
+                <span>Start Point A:</span>
+                <span className="font-mono text-amber-300">{preSurveyStart[1].toFixed(5)}, {preSurveyStart[0].toFixed(5)}</span>
+              </div>
+              {preSurveyEnd && (
+                <div className="flex justify-between">
+                  <span>End Point B:</span>
+                  <span className="font-mono text-blue-300">{preSurveyEnd[1].toFixed(5)}, {preSurveyEnd[0].toFixed(5)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
       {/* ─── Floating Controls Panel ──────────────────────────────────────── */}
@@ -742,11 +1063,11 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
                 <p className="text-[10px] text-amber-800 font-bold">
                   📐 Last Measurement: {totalDistance.toFixed(2)} m
                 </p>
-                {lastSegmentDistanceRef.current !== null && (
+                {lastSegmentDistance !== null && (
                   <p className="text-[9px] text-amber-600 font-medium">
-                    Last segment: {lastSegmentDistanceRef.current.toFixed(2)} m
+                    Last segment: {lastSegmentDistance.toFixed(2)} m
                     {/* total pole count */}
-                    {measurePointsRef.current.length > 0 && ` · ${measurePointsRef.current.length} points`}
+                    {measurePointsCount > 0 && ` · ${measurePointsCount} points`}
                   </p>
                 )}
               </div>
@@ -757,7 +1078,12 @@ export function GISMapView({ gisRoutes = [], assets = [], width = '100%', height
           </div>
         </div>
       )}
-      <div ref={mapContainerRef} className="w-full h-full rounded-lg border border-gray-200" style={{ minHeight: height }} />
+      {/* Map container - must have explicit height for tiles to render */}
+      <div
+        ref={mapContainerRef}
+        className="rounded-lg border border-gray-200 overflow-hidden"
+        style={{ width: '100%', height, minHeight: '300px', display: 'block', position: 'relative' }}
+      />
     </div>
   );
 }

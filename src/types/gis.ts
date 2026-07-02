@@ -298,6 +298,9 @@ export interface GISUploadRequest {
     layerType?: GISLayerType;
     fileData: string; // Base64 or buffer
   }>;
+  projectId?: string;
+  versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT';
+  notes?: string;
   projectName?: string;
   region?: string;
   district?: string;
@@ -305,6 +308,10 @@ export interface GISUploadRequest {
   poleSpacing?: number;
   /** When false (default), region multiplier is NOT applied (all regions use 1.0x base rates). When true, region-specific rate multipliers are applied. */
   useRegionMultiplier?: boolean;
+  /** When true, marks the imported project as completed/historical (status = COMPLETED, GIS route status = APPROVED, versionType = AS_BUILT). */
+  isCompletedProject?: boolean;
+  /** Local Exchange Area (LEA) identifier */
+  lea?: string;
 }
 
 export interface GISUploadResponse {
@@ -342,11 +349,16 @@ export const LAYER_NAME_MAPPING: Record<string, GISLayerType> = {
   'Cables': 'CABLE',
   'CABLE': 'CABLE',
   'slt_cables': 'CABLE',
+  'cbl': 'CABLE',
+  'CBL': 'CABLE',
   // Pole layer
   'poles': 'POLE',
   'Poles': 'POLE',
   'POLE': 'POLE',
   'slt_poles': 'POLE',
+  'pole': 'POLE',
+  'pl': 'POLE',
+  'PL': 'POLE',
   // FDP layer
   'fdp': 'FDP',
   'FDP': 'FDP',
@@ -360,6 +372,10 @@ export const LAYER_NAME_MAPPING: Record<string, GISLayerType> = {
   'FiberJoint': 'FIBER_JOINT',
   'fiber_joints': 'FIBER_JOINT',
   'slt_fj': 'FIBER_JOINT',
+  'jt': 'FIBER_JOINT',
+  'JT': 'FIBER_JOINT',
+  'joint': 'FIBER_JOINT',
+  'JOINT': 'FIBER_JOINT',
   // Road / EOP layer
   'road_eops': 'ROAD_EOP',
   'Road_EOPs': 'ROAD_EOP',
@@ -367,6 +383,8 @@ export const LAYER_NAME_MAPPING: Record<string, GISLayerType> = {
   'roads': 'ROAD_EOP',
   'slt_road_eops': 'ROAD_EOP',
   'road': 'ROAD_EOP',
+  'eop': 'ROAD_EOP',
+  'EOP': 'ROAD_EOP',
   // Duct layer
   'duct': 'DUCT',
   'ducts': 'DUCT',
@@ -384,6 +402,8 @@ export const LAYER_NAME_MAPPING: Record<string, GISLayerType> = {
   'mh': 'MANHOLE',
   'MH': 'MANHOLE',
   'slt_mh': 'MANHOLE',
+  'chamber': 'MANHOLE',
+  'Chamber': 'MANHOLE',
   // ODF layer
   'odf': 'ODF',
   'ODF': 'ODF',

@@ -51,7 +51,19 @@ export async function middleware(request: NextRequest) {
     }
 
     // Check for token
-    const token = request.cookies.get('token')?.value;
+    let token = request.cookies.get('token')?.value;
+
+    // Support extracting token from Authorization header (for scripts and external integrations)
+    if (!token) {
+        const authHeader = request.headers.get('authorization');
+        if (authHeader) {
+            if (authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7);
+            } else if (authHeader.startsWith('Token ')) {
+                token = authHeader.substring(6);
+            }
+        }
+    }
 
     // Verify token
     const verifiedToken = token ? await verifyJWT(token) : null;

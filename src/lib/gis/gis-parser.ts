@@ -174,7 +174,10 @@ export class GISParser {
         feature.properties?.material ||
         undefined,
       height: parsedHeight,
-      properties: feature.properties || {},
+      properties: {
+        ...(feature.properties || {}),
+        _sourceFile: layerName,
+      },
     });
       }
     });

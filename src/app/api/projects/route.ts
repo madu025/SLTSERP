@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ProjectService } from '@/services/project.service';
 
+export const dynamic = 'force-dynamic';
+
 // GET all projects
 export async function GET(request: Request) {
     try {

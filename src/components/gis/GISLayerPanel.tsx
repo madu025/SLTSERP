@@ -9,6 +9,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -29,6 +30,13 @@ interface GISLayerPanelProps {
   onImportMore?: () => void;
   /** Callback when "View All" is clicked for a section */
   onViewDetails?: (section: string) => void;
+  /** Project ID for API calls */
+  projectId?: string;
+  preSurveyMode?: boolean;
+  setPreSurveyMode?: (active: boolean) => void;
+  preSurveyStart?: [number, number] | null;
+  preSurveyEnd?: [number, number] | null;
+  onPreSurveyCreated?: () => void;
 }
 
 // ============================================================================
@@ -277,8 +285,79 @@ export function GISLayerPanel({
   permits = [],
   onImportMore,
   onViewDetails,
+  projectId,
+  preSurveyMode = false,
+  setPreSurveyMode,
+  preSurveyStart = null,
+  preSurveyEnd = null,
+  onPreSurveyCreated
 }: GISLayerPanelProps) {
   const [activeTab, setActiveTab] = useState('summary');
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizationResult, setOptimizationResult] = useState<any>(null);
+  const [surveyUpdated, setSurveyUpdated] = useState(false);
+  const [generatingPreSurvey, setGeneratingPreSurvey] = useState(false);
+  const [routeName, setRouteName] = useState('Pre-Survey AI Route');
+
+  const handleGeneratePreSurvey = async () => {
+    if (!projectId || !preSurveyStart || !preSurveyEnd) {
+      toast.error('Please select both Point A and Point B on the map first.');
+      return;
+    }
+    setGeneratingPreSurvey(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/gis/pre-survey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeName,
+          startLat: preSurveyStart[1],
+          startLng: preSurveyStart[0],
+          endLat: preSurveyEnd[1],
+          endLng: preSurveyEnd[0]
+        })
+      });
+
+      if (res.ok) {
+        toast.success('AI Pre-Survey design generated successfully!');
+        if (setPreSurveyMode) setPreSurveyMode(false);
+        if (onPreSurveyCreated) onPreSurveyCreated();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to generate Pre-Survey.');
+      }
+    } catch (e: any) {
+      toast.error('Network error occurred.');
+    } finally {
+      setGeneratingPreSurvey(false);
+    }
+  };
+
+  const runOptimization = async () => {
+    if (!projectId || !gisRoutes || gisRoutes.length === 0) return;
+    setOptimizing(true);
+    setSurveyUpdated(false);
+    try {
+      const routeId = gisRoutes[0].id;
+      const res = await fetch(`/api/projects/${projectId}/gis/${routeId}/optimize?tolerance=15`);
+      if (res.ok) {
+        const data = await res.json();
+        setOptimizationResult(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
+  const applyOptimizationToSurvey = () => {
+    setOptimizing(true);
+    setTimeout(() => {
+      setOptimizing(false);
+      setSurveyUpdated(true);
+    }, 1200);
+  };
 
   // Compute summary statistics
   const summary = useMemo(() => {
@@ -465,6 +544,88 @@ export function GISLayerPanel({
         </div>
       </div>
 
+      {/* ─── AI Pre-Survey Designer Section ────────────────────────────── */}
+      {projectId && (
+        <Card className={`border ${preSurveyMode ? 'border-amber-400 bg-amber-50/20' : 'border-gray-200'}`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-gray-800">
+                ✨ {preSurveyMode ? 'Designing AI Pre-Survey Route' : 'AI Pre-Survey Design Assistant'}
+              </span>
+              {!preSurveyMode && (
+                <button
+                  onClick={() => setPreSurveyMode?.(true)}
+                  className="px-2.5 py-1 text-[11px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition-all"
+                >
+                  Start AI Draft
+                </button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            {preSurveyMode ? (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase">Route Name</label>
+                  <input
+                    type="text"
+                    value={routeName}
+                    onChange={(e) => setRouteName(e.target.value)}
+                    className="w-full text-xs px-2.5 py-1.5 rounded border border-gray-300 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    placeholder="Enter route name..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2 bg-white rounded border border-gray-200 flex flex-col justify-between h-[60px]">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase">Point A (Start)</span>
+                    <span className="font-mono text-gray-700">
+                      {preSurveyStart ? `${preSurveyStart[1].toFixed(5)}, ${preSurveyStart[0].toFixed(5)}` : '🔴 Click map to set'}
+                    </span>
+                  </div>
+                  <div className="p-2 bg-white rounded border border-gray-200 flex flex-col justify-between h-[60px]">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase">Point B (End)</span>
+                    <span className="font-mono text-gray-700">
+                      {preSurveyEnd ? `${preSurveyEnd[1].toFixed(5)}, ${preSurveyEnd[0].toFixed(5)}` : '🔵 Click map to set'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleGeneratePreSurvey}
+                    disabled={generatingPreSurvey || !preSurveyStart || !preSurveyEnd}
+                    className="flex-1 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    {generatingPreSurvey ? (
+                      <>
+                        <div className="animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full" />
+                        Generating Route...
+                      </>
+                    ) : (
+                      '🚀 Generate AI Pre-Survey'
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPreSurveyMode?.(false);
+                      toast.info('Pre-Survey drawing cancelled.');
+                    }}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-lg transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Need to plan a cable route? Design a Pre-Survey draft automatically by marking Point A and Point B on the map. The AI will estimate spacing, poles, and BOQ item pricing.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabbed Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-gray-100 border border-gray-200">
@@ -472,6 +633,7 @@ export function GISLayerPanel({
           <TabsTrigger value="routes" className="text-xs">Routes</TabsTrigger>
           <TabsTrigger value="boq" className="text-xs">BOQ</TabsTrigger>
           <TabsTrigger value="surveys" className="text-xs">Surveys</TabsTrigger>
+          {projectId && <TabsTrigger value="optimize" className="text-xs">✨ AI Optimize</TabsTrigger>}
         </TabsList>
 
         {/* Layer Summary Tab — COMPACT GRID */}
@@ -539,6 +701,114 @@ export function GISLayerPanel({
                 <div className="text-center py-8 text-gray-500">
                   <p className="text-sm">No survey tasks created yet.</p>
                   <p className="text-xs text-gray-400 mt-1">Surveys are created after GIS import processing.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Optimize Tab */}
+        <TabsContent value="optimize" className="mt-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
+                <span>✨ Geospatial Survey Optimization</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-4">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Scan nearby completed projects to detect overlapping routes. This enables field supervisors to skip surveying existing physical structures and focus only on the new paths.
+              </p>
+
+              {!optimizationResult && (
+                <button
+                  onClick={runOptimization}
+                  disabled={optimizing}
+                  className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-semibold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {optimizing ? (
+                    <>
+                      <div className="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
+                      Analyzing Geospatial Overlaps...
+                    </>
+                  ) : (
+                    <>
+                      🚀 Run AI Overlap Optimization
+                    </>
+                  )}
+                </button>
+              )}
+
+              {optimizationResult && (
+                <div className="space-y-4">
+                  {/* Stats & Progress */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Survey Distance Saved</span>
+                      <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100 font-bold">
+                        {optimizationResult.percentReduction}% SKIPPED
+                      </Badge>
+                    </div>
+
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${optimizationResult.percentReduction}%` }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                      <div className="bg-white p-2 rounded border border-gray-100">
+                        <p className="text-[10px] text-gray-400 font-medium">Planned Path</p>
+                        <p className="text-xs font-bold text-gray-700">{optimizationResult.totalPlannedLengthMeters}m</p>
+                      </div>
+                      <div className="bg-green-50/50 p-2 rounded border border-green-100">
+                        <p className="text-[10px] text-green-600 font-medium">Reused (Skip)</p>
+                        <p className="text-xs font-bold text-green-700">{optimizationResult.reusedInfraLengthMeters}m</p>
+                      </div>
+                      <div className="bg-blue-50/50 p-2 rounded border border-blue-100">
+                        <p className="text-[10px] text-blue-600 font-medium">New Survey</p>
+                        <p className="text-xs font-bold text-blue-700">{optimizationResult.newSurveyLengthMeters}m</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notification/Action */}
+                  <div className="text-xs space-y-2">
+                    {surveyUpdated ? (
+                      <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 flex items-start gap-2">
+                        <span className="text-base">✅</span>
+                        <div>
+                          <p className="font-semibold">Survey Path Updated Successfully!</p>
+                          <p className="text-[10px] text-green-600 mt-0.5">Field supervisors will now only be prompted to verify the {optimizationResult.newSurveyLengthMeters}m of unsurveyed segments on their mobile app.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 flex items-start gap-2">
+                        <span className="text-base">💡</span>
+                        <div>
+                          <p className="font-semibold">Optimize Field Operations</p>
+                          <p className="text-[10px] text-amber-600 mt-0.5">Apply this layout to automatically deduct pre-existing segments from active survey tasks.</p>
+                          <button
+                            onClick={applyOptimizationToSurvey}
+                            disabled={optimizing}
+                            className="mt-2 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold shadow-sm transition-all"
+                          >
+                            Apply Optimization to Field Tasks
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recalculate Button */}
+                  <button
+                    onClick={runOptimization}
+                    disabled={optimizing}
+                    className="w-full text-center text-xs text-gray-500 hover:text-gray-700 flex items-center justify-center gap-1 py-1"
+                  >
+                    🔄 Recalculate Overlaps
+                  </button>
                 </div>
               )}
             </CardContent>

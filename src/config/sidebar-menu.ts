@@ -222,6 +222,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 icon: Route,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
             },
+            {
+                title: 'GIS File Import',
+                path: '/gis/upload',
+                icon: Upload,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS]
+            },
         ]
     },
 
@@ -343,6 +349,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/inventory/requests',
                 icon: ClipboardList,
                 allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'STORES_ASSISTANT', 'OSP_MANAGER']
+            },
+            {
+                title: 'Material Approvals',
+                path: '/inventory/approvals',
+                icon: ClipboardCheck,
+                allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'STORES_MANAGER', 'OSP_MANAGER', 'AREA_MANAGER']
             },
             // 3. Stock Outflow
             {

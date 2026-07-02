@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "SLT_Poles",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "PL_Number": "KL-SM-PL-00010", "LEA": "SM", "POLE TYPE": "Concrete", "POLE MAKE": "SLT", "ROAD NAME": "Ali Vanniyar Road\n", "SIDE": "LHS", "DP COUNT": "No", "FDP COUNT": "No", "NUMBER OF RISERS": "0", "NO OF DROP WIRES(COPPER)": null, "NO OF DROP WIRES(FIBER)": null, "ADJACENT PREVIOUS": null, "POWER ENCLOSURE": null, "MOUNTED MSAN": null, "RISER PIPE": "No", "STAYS": "No", "STRUT": "No", "OVERHEAD GUY": null, "BARBED": null, "POLE HEIGHT": "6.7m", "REMARK": "IC-119", "JOINT": "No", "LAC": null, "Exist_New": "New", "Longitute": "81.80268001784653", "Latitude": "7.365801863785133" }, "geometry": { "type": "Point", "coordinates": [ 81.802680017846527, 7.365801863785133 ] } },
+{ "type": "Feature", "properties": { "PL_Number": "KL-SM-PL-00032", "LEA": "SM", "POLE TYPE": "Concrete", "POLE MAKE": "SLT", "ROAD NAME": "Ampara Road\n", "SIDE": "LHS", "DP COUNT": "No", "FDP COUNT": "No", "NUMBER OF RISERS": "1", "NO OF DROP WIRES(COPPER)": null, "NO OF DROP WIRES(FIBER)": null, "ADJACENT PREVIOUS": null, "POWER ENCLOSURE": null, "MOUNTED MSAN": null, "RISER PIPE": "Yes", "STAYS": "No", "STRUT": "No", "OVERHEAD GUY": null, "BARBED": null, "POLE HEIGHT": "6.7m", "REMARK": "IC-148", "JOINT": "No", "LAC": null, "Exist_New": "New", "Longitute": "81.80381737622795", "Latitude": "7.362254004867625" }, "geometry": { "type": "Point", "coordinates": [ 81.803817376227954, 7.362254004867625 ] } }
+]
+}

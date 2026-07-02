@@ -58,11 +58,16 @@ export async function POST(request: NextRequest) {
 
       body = {
         files,
+        projectId: (formData.get('projectId') as string) || undefined,
+        versionType: (formData.get('versionType') as 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT') || undefined,
+        notes: (formData.get('notes') as string) || undefined,
         projectName: (formData.get('projectName') as string) || undefined,
         region: (formData.get('region') as string) || undefined,
         district: (formData.get('district') as string) || undefined,
         createdById: (formData.get('createdById') as string) || 'system',
         useRegionMultiplier: formData.get('useRegionMultiplier') === 'true',
+        isCompletedProject: formData.get('isCompletedProject') === 'true',
+        lea: (formData.get('lea') as string) || undefined,
       };
     } else {
       // Handle JSON body (API-to-API)
@@ -101,16 +106,17 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json(result, { status: 201 });
-  } catch (err: any) {
+  } catch (err) {
+    const error = err as Error;
     logger.error('[GIS-UPLOAD] Upload failed', {
-      error: err.message,
-      stack: err.stack,
+      error: error.message,
+      stack: error.stack,
     });
 
     return NextResponse.json(
       {
         error: 'GIS upload failed',
-        message: err.message || 'Internal server error',
+        message: error.message || 'Internal server error',
       },
       { status: 500 }
     );

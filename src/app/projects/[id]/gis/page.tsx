@@ -13,7 +13,7 @@ import { ArrowLeft, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GISMapView } from '@/components/gis/GISMapView';
+import { GISMapView, type GISRouteData, type GISAssetData } from '@/components/gis/GISMapView';
 import { GISLayerPanel } from '@/components/gis/GISLayerPanel';
 import { SurveyPointEditor } from '@/components/gis/SurveyPointEditor';
 
@@ -22,11 +22,8 @@ interface Project {
   projectCode?: string;
 }
 interface GISData {
-  gisRoutes?: {
-    poles?: unknown[];
-    generatedBOQs?: unknown[];
-  }[];
-  assets?: unknown[];
+  gisRoutes?: GISRouteData[];
+  assets?: GISAssetData[];
   surveys?: unknown[];
   permits?: unknown[];
 }
@@ -41,6 +38,18 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
   const [fullscreen, setFullscreen] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<'gis' | 'survey-edit'>('gis');
+  const [preSurveyMode, setPreSurveyMode] = useState(false);
+  const [preSurveyStart, setPreSurveyStart] = useState<[number, number] | null>(null);
+  const [preSurveyEnd, setPreSurveyEnd] = useState<[number, number] | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [rollingBack, setRollingBack] = useState(false);
+
+  useEffect(() => {
+    if (!preSurveyMode) {
+      setPreSurveyStart(null);
+      setPreSurveyEnd(null);
+    }
+  }, [preSurveyMode]);
 
   const fetchGISData = useCallback(async () => {
     try {
@@ -67,6 +76,10 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
       } else {
         const gisDataResult = await gisRes.json();
         setGisData(gisDataResult);
+        if (gisDataResult.gisRoutes && gisDataResult.gisRoutes.length > 0) {
+          const activeRoute = gisDataResult.gisRoutes.find((r: GISRouteData) => r.isActive);
+          setSelectedRouteId(activeRoute ? activeRoute.id : gisDataResult.gisRoutes[0].id);
+        }
       }
 
       setLastRefreshed(new Date());
@@ -84,8 +97,8 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
   }, [fetchGISData]);
 
   const handleImportMore = useCallback(() => {
-    router.push('/gis/upload');
-  }, [router]);
+    router.push(`/gis/upload?projectId=${id}`);
+  }, [router, id]);
 
   const handleViewDetails = useCallback((section: string) => {
     console.log(`View details for: ${section}`);
@@ -96,8 +109,33 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
     setFullscreen((prev) => !prev);
   }, []);
 
-  // Extract the BOQ from the first generated BOQ
-  const boq = gisData?.gisRoutes?.[0]?.generatedBOQs?.[0] || null;
+  const displayedRoute = gisData?.gisRoutes?.find((r: GISRouteData) => r.id === selectedRouteId) || gisData?.gisRoutes?.[0];
+  const displayedRoutes = displayedRoute ? [displayedRoute] : [];
+  
+  // Extract the BOQ from the selected route
+  const boq = displayedRoute?.generatedBOQs?.[0] || null;
+
+  const handleRollback = async () => {
+    if (!selectedRouteId || !displayedRoute) return;
+    if (!confirm(`Are you sure you want to rollback and make v${displayedRoute.version} active?`)) return;
+
+    try {
+      setRollingBack(true);
+      const res = await fetch(`/api/projects/${id}/gis/${selectedRouteId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'rollback' })
+      });
+      
+      if (!res.ok) throw new Error('Rollback failed');
+      await fetchGISData();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to rollback route version.');
+    } finally {
+      setRollingBack(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -215,11 +253,42 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
                 {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </Button>
               <Button size="sm" onClick={handleImportMore} className="gap-1.5">
-                + Import GIS
+                + Upgrade Route Version
               </Button>
             </div>
           </div>
         </div>
+
+        {/* Version Selector */}
+        {activeTab === 'gis' && gisData?.gisRoutes && gisData.gisRoutes.length > 1 && (
+          <div className="mb-4 flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+            <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              🛣️ Route Version:
+            </span>
+            <select
+              value={selectedRouteId || ''}
+              onChange={(e) => setSelectedRouteId(e.target.value)}
+              className="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {gisData.gisRoutes.map((r: GISRouteData) => (
+                <option key={r.id} value={r.id}>
+                  v{r.version} - {r.versionType} {r.isActive ? '(Active)' : ''}
+                </option>
+              ))}
+            </select>
+            {displayedRoute && !displayedRoute.isActive && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={handleRollback}
+                disabled={rollingBack}
+              >
+                {rollingBack ? 'Rolling back...' : '🔄 Rollback to this version'}
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Main Content */}
         {activeTab === 'gis' ? (
@@ -228,10 +297,15 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
             <div className={`${fullscreen ? 'flex-1' : 'lg:flex-[3]'} min-h-[400px] ${fullscreen ? 'flex flex-col' : ''}`}>
               <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${fullscreen ? 'flex-1' : ''}`}>
                 <GISMapView
-                  gisRoutes={gisData?.gisRoutes || []}
+                  gisRoutes={displayedRoutes}
                   assets={gisData?.assets || []}
                   height={fullscreen ? '100%' : '600px'}
                   fullscreen={fullscreen}
+                  preSurveyMode={preSurveyMode}
+                  onPreSurveyPointsSelected={(start, end) => {
+                    setPreSurveyStart(start);
+                    setPreSurveyEnd(end);
+                  }}
                 />
               </div>
             </div>
@@ -240,13 +314,23 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
             <div className={`${fullscreen ? 'w-96 overflow-y-auto border-l border-gray-200 bg-white' : 'lg:flex-1'}`}>
               <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${fullscreen ? 'rounded-none border-0 h-full' : ''}`}>
                 <GISLayerPanel
-                  gisRoutes={gisData?.gisRoutes || []}
+                  gisRoutes={displayedRoutes}
                   assets={gisData?.assets || []}
                   boq={boq}
                   surveys={gisData?.surveys || []}
                   permits={gisData?.permits || []}
                   onImportMore={handleImportMore}
                   onViewDetails={handleViewDetails}
+                  projectId={id}
+                  preSurveyMode={preSurveyMode}
+                  setPreSurveyMode={setPreSurveyMode}
+                  preSurveyStart={preSurveyStart}
+                  preSurveyEnd={preSurveyEnd}
+                  onPreSurveyCreated={() => {
+                    setPreSurveyStart(null);
+                    setPreSurveyEnd(null);
+                    fetchGISData();
+                  }}
                 />
               </div>
             </div>

@@ -377,6 +377,7 @@ export function getTabsForStage(stageName: string | null | undefined): TabDefini
 export function getDefaultTabs(): TabDefinition[] {
     return [
         ...ALWAYS_VISIBLE_TABS,
+        { value: 'gis', label: 'GIS Route', description: 'GIS route planning and mapping' },
         { value: 'tasks', label: 'Tasks', description: 'Project task list and tracking' },
         { value: 'documents', label: 'Documents', description: 'Project files and documentation' },
         { value: 'guide', label: 'Guide', description: 'Project module guide' }

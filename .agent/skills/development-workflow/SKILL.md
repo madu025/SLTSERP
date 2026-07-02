@@ -1035,3 +1035,16 @@ To prevent code regressions or architectural misunderstandings, any AI Agent wor
 * **WBS Progress updates:** Sub-task progress edits **MUST** run a transaction and call a recursive helper `updateParentProgress` to dynamically propagate the weighted or flat completion average up the WBS (Work Breakdown Structure) hierarchy all the way to root-level parent tasks.
 * **Frontend Component Standards:** Frontend modules within the project section (tasks, finance, procurement, closure) **MUST** remain strictly typed (zero `any` types), wrap all state fetchers with `useCallback` to avoid stale closures, and declare proper interfaces matching development standards.
 
+### 5. GIS Map & OpenLayers Sizing Standards (CRITICAL FOR MAP BLANK ISSUE)
+* **Explicit Heights**: OpenLayers requires target divs to have defined heights. Wrap the map target `div` with a container that has explicit pixel height (e.g., `height` prop or `minHeight: '300px'`) and styles `display: block; position: relative; width: '100%'`.
+* **Auto-Resizing Observer**: Always register a `ResizeObserver` inside a `useEffect` that listens to target div mutations and calls `map.updateSize()` immediately to refresh canvas tiles on size changes.
+* **Deferred Geometry Fitting**: When zooming to extents using `map.getView().fit(...)`, the call **must be deferred** by at least 100ms using a `setTimeout` to allow browser DOM layout styles to settle, followed by `map.updateSize()`.
+* **MapBrowserEvent Generic PointerEvent Constraints**: OpenLayers click and hover move events (`MapBrowserEvent`) must specify generic type parameters as `PointerEvent | KeyboardEvent | WheelEvent` (or standard `PointerEvent`), rather than general `UIEvent` which is incompatible with OpenLayers type constraints.
+* **Render Loop State Rule**: Never read `.current` properties of React `useRef` directly during JSX rendering. Synchronize all computed values to React state hooks inside event handlers, and render from states instead.
+
+### 6. Next.js Route Caching & State Refresh Standards
+* **Force Dynamic GET Routes**: All Next.js API GET routes that list entities (e.g., `/api/projects`, `/api/gis`) must disable Route Handler static caching by exporting `dynamic = 'force-dynamic'`.
+* **Client-Side Cache Busting**: When performing fetch calls to retrieve lists of items, always append a timestamp parameter (e.g., `_t=${Date.now()}`) and set `{ cache: 'no-store' }` to bypass browser and CDN caches.
+* **Optimistic Client State Management**: Always perform optimistic state updates on the client (e.g., filter out a deleted item from local state arrays immediately in the delete success handler) so the UI responds instantly without waiting for network reloads.
+
+
