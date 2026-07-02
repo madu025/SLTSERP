@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
-import { handleApiError } from '@/lib/api-utils';
+import { handleApiError, ApiError } from '@/lib/api-utils';
 import { prisma } from '@/lib/prisma';
+import { requireAuth } from '@/lib/server-utils';
 
 export async function GET(request: Request) {
     try {
+        let user;
+        try {
+            user = await requireAuth();
+        } catch {
+            throw new ApiError('Unauthorized', 401);
+        }
+
+        const allowedRoles = ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'];
+        if (!allowedRoles.includes(user.role)) {
+            throw new ApiError('Forbidden', 403);
+        }
+
         const { searchParams } = new URL(request.url);
         const storeId = searchParams.get('storeId');
         const itemId = searchParams.get('itemId');

@@ -88,7 +88,7 @@ export class AutomationService {
                 message: `There are ${stalledRequests.length} material requests awaiting approval for over 24 hours.`,
                 type: 'INVENTORY',
                 priority: 'HIGH',
-                link: '/admin/inventory/requests'
+                link: '/inventory/requests'
             });
         }
 

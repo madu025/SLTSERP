@@ -143,7 +143,11 @@ export class StockRequestService {
                 where: { id: requestId },
                 select: { requestedById: true }
             });
-            if (stockReq && stockReq.requestedById === userId) {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { role: true }
+            });
+            if (user?.role !== 'SUPER_ADMIN' && stockReq && stockReq.requestedById === userId) {
                 throw new Error("SEGREGATION_OF_DUTIES_VIOLATION: Request creator cannot approve or release this stock request.");
             }
         }

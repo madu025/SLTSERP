@@ -52,6 +52,7 @@ export default function ApprovalsPage() {
     const [actionType, setActionType] = useState<string>("");
     const [remarks, setRemarks] = useState("");
     const [allocation, setAllocation] = useState<Array<{ id: string; approvedQty?: number; issuedQty?: number; receivedQty?: number }>>([]);
+    const [adminViewRole, setAdminViewRole] = useState<'AREA_MANAGER' | 'STORES_MANAGER' | 'OSP_MANAGER' | 'STORES_ASSISTANT' | 'SUB_STORE_RECEIVE'>('AREA_MANAGER');
 
     // Get current user from localStorage
     const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {};
@@ -59,7 +60,8 @@ export default function ApprovalsPage() {
 
     // Determine which requests to show based on role
     const getWorkflowStageFilter = () => {
-        switch (userRole) {
+        const activeRole = userRole === 'SUPER_ADMIN' ? adminViewRole : userRole;
+        switch (activeRole) {
             case 'AREA_MANAGER':
                 return 'ARM_APPROVAL';
             case 'STORES_MANAGER':
@@ -68,6 +70,8 @@ export default function ApprovalsPage() {
                 return 'OSP_MANAGER_APPROVAL';
             case 'STORES_ASSISTANT':
                 return 'MAIN_STORE_RELEASE';
+            case 'SUB_STORE_RECEIVE':
+                return 'SUB_STORE_RECEIVE';
             default:
                 return 'SUB_STORE_RECEIVE'; // Sub Store Officers
         }
@@ -75,7 +79,7 @@ export default function ApprovalsPage() {
 
     // Fetch pending requests
     const { data: requests = [], isLoading } = useQuery<StockRequest[]>({
-        queryKey: ['approval-requests', userRole],
+        queryKey: ['approval-requests', userRole, adminViewRole],
         queryFn: async () => {
             const stage = getWorkflowStageFilter();
             const res = await fetch(`/api/inventory/requests?workflowStage=${stage}`);
@@ -167,7 +171,8 @@ export default function ApprovalsPage() {
     };
 
     const getRoleTitle = () => {
-        switch (userRole) {
+        const activeRole = userRole === 'SUPER_ADMIN' ? adminViewRole : userRole;
+        switch (activeRole) {
             case 'AREA_MANAGER': return 'ARM Approvals';
             case 'STORES_MANAGER': return 'Stores Manager Approvals';
             case 'OSP_MANAGER': return 'OSP Manager Approvals';
@@ -178,8 +183,9 @@ export default function ApprovalsPage() {
 
     const getActionButtons = (request: StockRequest) => {
         const stage = request.workflowStage;
+        const roleToCheck = userRole === 'SUPER_ADMIN' ? adminViewRole : userRole;
 
-        if (stage === 'ARM_APPROVAL' && userRole === 'AREA_MANAGER') {
+        if (stage === 'ARM_APPROVAL' && (roleToCheck === 'AREA_MANAGER' || userRole === 'SUPER_ADMIN')) {
             return (
                 <>
                     <Button size="sm" onClick={() => handleAction(request, 'approve')} className="bg-green-600 hover:bg-green-700">
@@ -192,7 +198,7 @@ export default function ApprovalsPage() {
             );
         }
 
-        if (stage === 'STORES_MANAGER_APPROVAL' && userRole === 'STORES_MANAGER') {
+        if (stage === 'STORES_MANAGER_APPROVAL' && (roleToCheck === 'STORES_MANAGER' || userRole === 'SUPER_ADMIN')) {
             return (
                 <>
                     <Button size="sm" onClick={() => handleAction(request, 'approve')} className="bg-green-600 hover:bg-green-700">
@@ -205,7 +211,7 @@ export default function ApprovalsPage() {
             );
         }
 
-        if (stage === 'OSP_MANAGER_APPROVAL' && userRole === 'OSP_MANAGER') {
+        if (stage === 'OSP_MANAGER_APPROVAL' && (roleToCheck === 'OSP_MANAGER' || userRole === 'SUPER_ADMIN')) {
             return (
                 <>
                     <Button size="sm" onClick={() => handleAction(request, 'approve')} className="bg-green-600 hover:bg-green-700">
@@ -218,7 +224,7 @@ export default function ApprovalsPage() {
             );
         }
 
-        if (stage === 'MAIN_STORE_RELEASE' && userRole === 'STORES_ASSISTANT') {
+        if (stage === 'MAIN_STORE_RELEASE' && (roleToCheck === 'STORES_ASSISTANT' || userRole === 'SUPER_ADMIN')) {
             return (
                 <Button size="sm" onClick={() => handleAction(request, 'MAIN_STORE_RELEASE')} className="bg-blue-600 hover:bg-blue-700">
                     <Package className="w-4 h-4 mr-1" /> Release Materials
@@ -256,11 +262,29 @@ export default function ApprovalsPage() {
                 <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50">
                     <div className="max-w-7xl mx-auto space-y-4">
                         {/* Header */}
-                        <div className="bg-white p-4 rounded-lg shadow-sm border">
-                            <h1 className="text-xl font-bold text-slate-800">{getRoleTitle()}</h1>
-                            <p className="text-sm text-slate-500">
-                                {requests.length} pending request{requests.length !== 1 ? 's' : ''}
-                            </p>
+                        <div className="bg-white p-4 rounded-lg shadow-sm border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h1 className="text-xl font-bold text-slate-800">{getRoleTitle()}</h1>
+                                <p className="text-sm text-slate-500">
+                                    {requests.length} pending request{requests.length !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+                            {userRole === 'SUPER_ADMIN' && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-600 uppercase">Simulate Role:</span>
+                                    <select
+                                        value={adminViewRole}
+                                        onChange={(e) => setAdminViewRole(e.target.value as any)}
+                                        className="text-xs font-semibold p-2 border rounded-md bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    >
+                                        <option value="AREA_MANAGER">ARM Approvals (AREA_MANAGER)</option>
+                                        <option value="STORES_MANAGER">Stores Manager Approvals (STORES_MANAGER)</option>
+                                        <option value="OSP_MANAGER">OSP Manager Approvals (OSP_MANAGER)</option>
+                                        <option value="STORES_ASSISTANT">Material Release (STORES_ASSISTANT)</option>
+                                        <option value="SUB_STORE_RECEIVE">Material Receipt Confirmation (SUB_STORE_RECEIVE)</option>
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         {/* Requests List */}

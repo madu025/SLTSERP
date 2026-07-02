@@ -158,7 +158,7 @@ function EditRequestForm({ request, items, requestId }: EditRequestFormProps) {
         onSuccess: () => {
             toast.success('Request updated and resubmitted successfully!');
             queryClient.invalidateQueries({ queryKey: ['my-requests'] });
-            router.push('/admin/inventory/requests/my-requests');
+            router.push('/inventory/requests/my-requests');
         },
         onError: () => toast.error('Failed to update request')
     });

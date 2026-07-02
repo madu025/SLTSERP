@@ -14,8 +14,10 @@ export class StockService {
     static async getStock(storeId: string) {
         if (!storeId) throw new Error('STORE_ID_REQUIRED');
 
+        const whereClause = storeId === 'all' ? {} : { storeId };
+
         return await InventoryRepository.findManyStocks(
-            { storeId },
+            whereClause,
             { item: true }
         );
     }

@@ -13,8 +13,7 @@ import {
     ChevronRight,
     TrendingUp,
     Clock,
-    Store,
-    FileText
+    Store
 } from "lucide-react";
 import Link from 'next/link';
 import { safeFormat } from '@/lib/utils';
@@ -93,7 +92,8 @@ export default function InventoryDashboardPage() {
     const { data: stockData = [] } = useQuery<Stock[]>({
         queryKey: ['stock-levels', currentStoreId],
         queryFn: async () => {
-            const res = await fetch('/api/inventory/stock');
+            const storeParam = (!currentStoreId || currentStoreId === 'unassigned') ? 'all' : currentStoreId;
+            const res = await fetch(`/api/inventory/stock?storeId=${storeParam}`);
             return res.json();
         },
         enabled: !!user

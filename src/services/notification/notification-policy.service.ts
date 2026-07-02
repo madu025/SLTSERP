@@ -221,7 +221,7 @@ export class NotificationPolicyService {
             message,
             type: 'INVENTORY',
             priority,
-            link: '/admin/inventory/requests'
+            link: '/inventory/requests'
         });
     }
 

@@ -253,7 +253,7 @@ export class GRNService {
                             message: `Materials for request ${updatedReq.requestNr} have arrived at the store via GRN ${grn.grnNumber}.`,
                             type: 'INVENTORY',
                             priority: 'HIGH',
-                            link: '/admin/inventory/requests',
+                            link: '/inventory/requests',
                             metadata: { requestId: updatedReq.id, grnNumber: grn.grnNumber, status: newStatus }
                         });
                     } catch (nErr) {

@@ -39,11 +39,12 @@ export async function PATCH(request: Request) {
         const result = await InventoryService.updateMRNStatus(mrnId, action, approvedById);
         return NextResponse.json(result);
 
-    } catch (error: any) {
-        if (error.message === 'MRN_NOT_FOUND') {
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err?.message === 'MRN_NOT_FOUND') {
             return NextResponse.json({ error: 'MRN not found' }, { status: 404 });
         }
-        if (error.message === 'INVALID_ACTION') {
+        if (err?.message === 'INVALID_ACTION') {
             return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
         }
 

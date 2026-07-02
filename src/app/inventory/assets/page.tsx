@@ -81,11 +81,10 @@ export default function AssetCustodyPage() {
         }
     });
 
-    // Fetch Stores for return dialog
     const { data: stores = [] } = useQuery<StoreType[]>({
         queryKey: ['stores'],
         queryFn: async () => {
-            const res = await fetch('/api/stores');
+            const res = await fetch('/api/inventory/stores');
             return res.json();
         }
     });

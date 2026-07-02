@@ -49,6 +49,33 @@ interface InventoryRequest {
     expectedDelivery?: string;
 }
 
+interface CompletedGRN {
+    id: string;
+    grnNumber: string;
+    storeId: string;
+    sourceType: string;
+    supplier: string | null;
+    createdAt: string;
+    request?: {
+        requestNr: string;
+        poNumber: string;
+        vendor: string | null;
+    } | null;
+    items: Array<{
+        id: string;
+        itemId: string;
+        item?: {
+            name: string;
+            code: string;
+            unit: string;
+        } | null;
+        quantity: number;
+        batch?: {
+            batchNumber: string;
+        } | null;
+    }>;
+}
+
 export default function GRNPage() {
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'READY' | 'COMPLETED'>('READY');
@@ -73,13 +100,27 @@ export default function GRNPage() {
     }, [showGRNDialog, grnNumber]);
 
     // Fetch requests ready for GRN
-    const { data: requests = [], isLoading } = useQuery<InventoryRequest[]>({
-        queryKey: ['grn-requests', activeTab],
+    const { data: requests = [], isLoading: isLoadingRequests } = useQuery<InventoryRequest[]>({
+        queryKey: ['grn-requests'],
         queryFn: async () => {
-            const res = await fetch(`/api/inventory/requests?workflowStage=${activeTab === 'READY' ? 'GRN_PENDING' : 'COMPLETED'}`);
+            const res = await fetch(`/api/inventory/requests?workflowStage=GRN_PENDING`);
             return res.json();
-        }
+        },
+        enabled: activeTab === 'READY'
     });
+
+    // Fetch completed GRNs
+    const { data: completedGrns = [], isLoading: isLoadingCompleted } = useQuery<CompletedGRN[]>({
+        queryKey: ['completed-generals'],
+        queryFn: async () => {
+            const res = await fetch(`/api/inventory/grn`);
+            const json = await res.json();
+            return json.success ? json.data : json;
+        },
+        enabled: activeTab === 'COMPLETED'
+    });
+
+    const isLoading = activeTab === 'READY' ? isLoadingRequests : isLoadingCompleted;
 
     // Create GRN mutation
     const createGRNMutation = useMutation({
@@ -98,6 +139,7 @@ export default function GRNPage() {
             if (result.success) {
                 toast.success('GRN created successfully! Stock updated.');
                 queryClient.invalidateQueries({ queryKey: ['grn-requests'] });
+                queryClient.invalidateQueries({ queryKey: ['completed-grns'] });
                 handleCloseGRNDialog();
             } else {
                 toast.error(result.error || 'Failed to create GRN');
@@ -249,7 +291,7 @@ export default function GRNPage() {
                             </div>
                             {isLoading ? (
                                 <div className="text-center p-8 text-slate-400 text-xs font-semibold">Loading...</div>
-                            ) : requests.length === 0 ? (
+                            ) : (activeTab === 'READY' ? requests.length : completedGrns.length) === 0 ? (
                                 <div className="text-center p-8 text-slate-400 text-xs font-semibold">
                                     {activeTab === 'READY' ? 'No pending GRNs' : 'No completed GRNs'}
                                 </div>
@@ -258,58 +300,111 @@ export default function GRNPage() {
                                     <table className="w-full text-xs text-left border-collapse">
                                         <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                                             <tr>
-                                                <th className="px-4 py-2 font-semibold">Request No</th>
+                                                <th className="px-4 py-2 font-semibold">{activeTab === 'READY' ? 'Request No' : 'GRN No'}</th>
                                                 <th className="px-3 py-2 font-semibold">PO Number</th>
-                                                <th className="px-3 py-2 font-semibold">Vendor</th>
+                                                <th className="px-3 py-2 font-semibold">{activeTab === 'READY' ? 'Vendor' : 'Supplier'}</th>
                                                 <th className="px-3 py-2 font-semibold text-center">Items</th>
-                                                <th className="px-3 py-2 font-semibold">Expected Delivery</th>
+                                                <th className="px-3 py-2 font-semibold">{activeTab === 'READY' ? 'Expected Delivery' : 'Received Date'}</th>
                                                 <th className="px-4 py-2 font-semibold text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
-                                            {requests.map((req) => (
-                                                <tr key={req.id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                                                    <td className="px-4 py-1.5 font-bold text-slate-800">{req.requestNr}</td>
-                                                    <td className="px-3 py-1.5">
-                                                        <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-slate-200 text-slate-600 bg-white">
-                                                            {req.poNumber || '-'}
-                                                        </Badge>
-                                                    </td>
-                                                    <td className="px-3 py-1.5 text-slate-700">{req.vendor || '-'}</td>
-                                                    <td className="px-3 py-1.5 text-center font-semibold text-slate-700">{req.items?.length || 0}</td>
-                                                    <td className="px-3 py-1.5 text-slate-500">
-                                                        {req.expectedDelivery
-                                                            ? new Date(req.expectedDelivery).toLocaleDateString()
-                                                            : '-'
-                                                        }
-                                                    </td>
-                                                    <td className="px-4 py-1.5 text-right">
-                                                        <div className="flex justify-end gap-1.5">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
-                                                                onClick={() => {
-                                                                    setSelectedRequest(req);
-                                                                    setShowDetailsDialog(true);
-                                                                }}
-                                                            >
-                                                                <Eye className="w-3.5 h-3.5" />
-                                                            </Button>
-                                                            {activeTab === 'READY' && (
+                                            {activeTab === 'READY' ? (
+                                                requests.map((req) => (
+                                                    <tr key={req.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                                                        <td className="px-4 py-1.5 font-bold text-slate-800">{req.requestNr}</td>
+                                                        <td className="px-3 py-1.5">
+                                                            <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-slate-200 text-slate-600 bg-white">
+                                                                {req.poNumber || '-'}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-3 py-1.5 text-slate-700">{req.vendor || '-'}</td>
+                                                        <td className="px-3 py-1.5 text-center font-semibold text-slate-700">{req.items?.length || 0}</td>
+                                                        <td className="px-3 py-1.5 text-slate-500">
+                                                            {req.expectedDelivery
+                                                                ? new Date(req.expectedDelivery).toLocaleDateString()
+                                                                : '-'
+                                                            }
+                                                        </td>
+                                                        <td className="px-4 py-1.5 text-right">
+                                                            <div className="flex justify-end gap-1.5">
                                                                 <Button
-                                                                    size="sm"
-                                                                    className="h-7 px-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-md shadow-sm"
-                                                                    onClick={() => handleOpenGRNDialog(req)}
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                                                                    onClick={() => {
+                                                                        setSelectedRequest(req);
+                                                                        setShowDetailsDialog(true);
+                                                                    }}
                                                                 >
-                                                                    <Package className="w-3 h-3 mr-1" />
-                                                                    Create GRN
+                                                                    <Eye className="w-3.5 h-3.5" />
                                                                 </Button>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                                {activeTab === 'READY' && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="h-7 px-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-md shadow-sm"
+                                                                        onClick={() => handleOpenGRNDialog(req)}
+                                                                    >
+                                                                        <Package className="w-3 h-3 mr-1" />
+                                                                        Create GRN
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                completedGrns.map((grn) => (
+                                                    <tr key={grn.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                                                        <td className="px-4 py-1.5 font-bold text-slate-800">{grn.grnNumber}</td>
+                                                        <td className="px-3 py-1.5">
+                                                            <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0 border-slate-200 text-slate-600 bg-white">
+                                                                {grn.request?.poNumber || '-'}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-3 py-1.5 text-slate-700">{grn.supplier || grn.request?.vendor || '-'}</td>
+                                                        <td className="px-3 py-1.5 text-center font-semibold text-slate-700">{grn.items?.length || 0}</td>
+                                                        <td className="px-3 py-1.5 text-slate-500">
+                                                            {new Date(grn.createdAt).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-4 py-1.5 text-right">
+                                                            <div className="flex justify-end gap-1.5">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                                                                    onClick={() => {
+                                                                        // Construct a mock Request detail so the details modal works
+                                                                        const mockRequest: InventoryRequest = {
+                                                                            id: grn.id,
+                                                                            requestNr: grn.request?.requestNr || 'N/A',
+                                                                            poNumber: grn.request?.poNumber || 'N/A',
+                                                                            vendor: grn.supplier || grn.request?.vendor || 'N/A',
+                                                                            sourceType: grn.sourceType,
+                                                                            fromStoreId: grn.storeId,
+                                                                            items: grn.items.map((i) => ({
+                                                                                id: i.id,
+                                                                                itemId: i.itemId,
+                                                                                item: {
+                                                                                    name: i.item?.name || 'Unknown',
+                                                                                    code: i.item?.code || '',
+                                                                                    unit: i.item?.unit || ''
+                                                                                },
+                                                                                requestedQty: i.quantity,
+                                                                                batch: i.batch ? { batchNumber: i.batch.batchNumber } : undefined
+                                                                            }))
+                                                                        };
+                                                                        setSelectedRequest(mockRequest);
+                                                                        setShowDetailsDialog(true);
+                                                                    }}
+                                                                >
+                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>

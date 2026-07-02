@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit } from "lucide-react";
@@ -77,7 +76,7 @@ export default function MyRequestsPage() {
     };
 
     const handleEdit = (request: MaterialRequestData) => {
-        router.push(`/admin/inventory/requests/edit/${request.id}`);
+        router.push(`/inventory/requests/edit/${request.id}`);
     };
 
     return (
@@ -104,7 +103,7 @@ export default function MyRequestsPage() {
                                 <div className="text-center p-8 text-slate-400 text-xs font-semibold">
                                     No requests found
                                     <div className="mt-2">
-                                        <Button size="sm" onClick={() => router.push('/admin/inventory/requests/create')} className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-md shadow-sm">
+                                        <Button size="sm" onClick={() => router.push('/inventory/requests/create')} className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-md shadow-sm">
                                             Create New Request
                                         </Button>
                                     </div>
