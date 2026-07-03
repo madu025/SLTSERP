@@ -21,10 +21,14 @@ import Overlay from 'ol/Overlay';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
+import Polygon from 'ol/geom/Polygon';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style';
+import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
 import { defaults as defaultControls, FullScreen } from 'ol/control';
 import { getDistance } from 'ol/sphere';
+import Draw from 'ol/interaction/Draw';
+import Translate from 'ol/interaction/Translate';
+import { type AutoPlanResult, type PlannedClosure } from '@/services/GISAutoPlanService';
 
 // ─── Measurement tool types ────────────────────────────────────────────────
 interface MeasurePoint {
@@ -56,6 +60,7 @@ interface GISClosureData {
   longitude?: number;
   lon?: number;
   lng?: number;
+  properties?: Record<string, unknown> | null;
 }
 
 interface GISChamberData {
@@ -145,6 +150,8 @@ interface GISMapViewProps {
   fullscreen?: boolean;
   preSurveyMode?: boolean;
   onPreSurveyPointsSelected?: (start: [number, number], end: [number, number]) => void;
+  projectId?: string;
+  onRouteSaved?: () => void;
 }
 
 interface LayerVisibility {
@@ -251,7 +258,9 @@ export function GISMapView({
   height = '600px',
   fullscreen = false,
   preSurveyMode = false,
-  onPreSurveyPointsSelected
+  onPreSurveyPointsSelected,
+  projectId,
+  onRouteSaved
 }: GISMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Map | null>(null);
@@ -277,6 +286,20 @@ export function GISMapView({
   const [totalDistance, setTotalDistance] = useState<number | null>(null);
   const [lastSegmentDistance, setLastSegmentDistance] = useState<number | null>(null);
   const [measurePointsCount, setMeasurePointsCount] = useState<number>(0);
+
+  // ─── AI Auto-Plan State ──────────────────────────────────────────────
+  const [autoPlanActive, setAutoPlanActive] = useState(false);
+  const [autoPlanLoading, setAutoPlanLoading] = useState(false);
+  const [autoPlanSummary, setAutoPlanSummary] = useState<AutoPlanResult['summary'] | null>(null);
+  const [autoPlanData, setAutoPlanData] = useState<AutoPlanResult | null>(null);
+  const [routeName, setRouteName] = useState('AI Planned Route');
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [drawnPolygon, setDrawnPolygon] = useState<[number, number][] | null>(null);
+  
+  const autoPlanSourceRef = useRef<VectorSource | null>(null);
+  const autoPlanLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const autoPlanDrawRef = useRef<Draw | null>(null);
+  const translateInteractionRef = useRef<Translate | null>(null);
 
     // ─── Clear measurement ────────────────────────────────────────────────
   const clearMeasure = useCallback(() => {
@@ -352,6 +375,20 @@ export function GISMapView({
     });
     preSurveyLayerRef.current = pLayer;
     map.addLayer(pLayer);
+
+    // ─── Initialize auto-plan layer ──────────────────────────────────
+    const apSource = new VectorSource();
+    autoPlanSourceRef.current = apSource;
+    const apLayer = new VectorLayer({
+      source: apSource,
+      style: new Style({
+        fill: new Fill({ color: 'rgba(249, 115, 22, 0.15)' }),
+        stroke: new Stroke({ color: '#f97316', width: 3, lineDash: [6, 4] }),
+      }),
+      zIndex: 1002
+    });
+    autoPlanLayerRef.current = apLayer;
+    map.addLayer(apLayer);
 
     // ─── Measurement tooltip overlay ───────────────────────────────────
     const tooltipEl = document.createElement('div');
@@ -663,9 +700,13 @@ export function GISMapView({
       popupHtml: string, 
       layerKey: string,
       customStyle?: Style,
-      customColor?: string
+      customColor?: string,
+      featureId?: string | number
     ) {
       const feature = new Feature({ geometry: geom });
+      if (featureId !== undefined) {
+        feature.set('index', featureId);
+      }
       feature.set('popupHtml', popupHtml);
       feature.set('layerKey', layerKey);
       if (customStyle) {
@@ -788,9 +829,39 @@ export function GISMapView({
           const layerKey = isFDP ? 'fdps' : 'fiberJoints';
           const typeName = isFDP ? 'FDP' : 'Fiber Joint';
           const icon = isFDP ? '📦' : '🔗';
+          
+          const props = (closure.properties as Record<string, unknown>) || {};
+          const dpName = (props.Name || props.name || props.FDP_Name || props.dp_name || props.dpName || props.FDP_Code || props.Code || props.code || props.FJ_Name || props.joint_name || '') as string;
+          
           const point = new Point(fromLonLat([lng, lat]));
-          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">${icon} ${typeName} #${closure.closureNumber || '?'}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${closure.closureType || 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Capacity</td><td style="padding: 2px 4px; font-weight: 500;">${closure.capacity || '?'}</td></tr><tr><td style="padding: 2px 4px; color: #666; max-width: 150px; word-break: break-word;">Notes</td><td style="padding: 2px 4px; font-weight: 500;">${closure.notes || '-'}</td></tr></table></div>`;
-          addFeature(layerKey, point, html, layerKey);
+          
+          // Setup title text containing DP Name if present
+          const titleText = dpName ? `${icon} ${dpName}` : `${icon} ${typeName} #${closure.closureNumber || '?'}`;
+          
+          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600;">${titleText}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;">${dpName ? `<tr><td style="padding: 2px 4px; color: #666;">Name</td><td style="padding: 2px 4px; font-weight: 500;">${dpName}</td></tr>` : ''}<tr><td style="padding: 2px 4px; color: #666;">GPS</td><td style="padding: 2px 4px; font-weight: 500;">${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${closure.closureType || 'N/A'}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Capacity</td><td style="padding: 2px 4px; font-weight: 500;">${closure.capacity || '?'}</td></tr><tr><td style="padding: 2px 4px; color: #666; max-width: 150px; word-break: break-word;">Notes</td><td style="padding: 2px 4px; font-weight: 500;">${closure.notes || '-'}</td></tr></table></div>`;
+          
+          let customStyle: Style | undefined = undefined;
+          if (dpName) {
+            const baseColor = isFDP ? LAYER_COLORS.fdps : LAYER_COLORS.fiberJoints;
+            const radius = isFDP ? 10 : 7;
+            customStyle = new Style({
+              image: new CircleStyle({
+                radius,
+                fill: new Fill({ color: hexToRgba(baseColor, 0.6) }),
+                stroke: new Stroke({ color: baseColor, width: 2 })
+              }),
+              text: new Text({
+                text: dpName,
+                font: 'bold 11px system-ui, sans-serif',
+                fill: new Fill({ color: '#1f2937' }),
+                stroke: new Stroke({ color: '#ffffff', width: 3 }),
+                offsetY: -15,
+                textAlign: 'center'
+              })
+            });
+          }
+
+          addFeature(layerKey, point, html, layerKey, customStyle, isFDP ? LAYER_COLORS.fdps : LAYER_COLORS.fiberJoints);
         }
       }
 
@@ -837,6 +908,76 @@ export function GISMapView({
       }
     }
 
+    // --- AI PLANNED ELEMENTS ---
+    if (autoPlanData) {
+      // Render planned closures (FDPs and Joints)
+      if (autoPlanData.closures) {
+        for (const cl of autoPlanData.closures) {
+          const lat = cl.latitude;
+          const lng = cl.longitude;
+          const point = new Point(fromLonLat([lng, lat]));
+          const isFDP = cl.closureType === 'TERMINAL';
+          const layerKey = isFDP ? 'fdps' : 'fiberJoints';
+          const icon = isFDP ? '📦' : '🔗';
+          
+          const titleText = `Planned DP-${cl.index}`;
+          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #f97316;">🤖 ${icon} Planned Closure #${cl.index}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${cl.closureType}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Capacity</td><td style="padding: 2px 4px; font-weight: 500;">${cl.capacity}</td></tr><tr><td style="padding: 2px 4px; color: #666;">Notes</td><td style="padding: 2px 4px; font-weight: 500;">${cl.notes}</td></tr></table></div>`;
+          
+          const baseColor = '#f97316'; // orange color for planned items
+          const customStyle = new Style({
+            image: new CircleStyle({
+              radius: isFDP ? 10 : 7,
+              fill: new Fill({ color: hexToRgba(baseColor, 0.7) }),
+              stroke: new Stroke({ color: '#ea580c', width: 2 })
+            }),
+            text: new Text({
+              text: titleText,
+              font: 'bold 11px system-ui, sans-serif',
+              fill: new Fill({ color: '#1f2937' }),
+              stroke: new Stroke({ color: '#ffffff', width: 3 }),
+              offsetY: -15,
+              textAlign: 'center'
+            })
+          });
+
+          addFeature(layerKey, point, html, layerKey, customStyle, baseColor, cl.index);
+        }
+      }
+
+      // Render planned poles
+      if (autoPlanData.poles) {
+        for (const pole of autoPlanData.poles) {
+          const lat = pole.latitude;
+          const lng = pole.longitude;
+          const point = new Point(fromLonLat([lng, lat]));
+          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #f97316;">🤖 📡 Planned Pole #${pole.index}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">Height</td><td style="padding: 2px 4px; font-weight: 500;">${pole.height}m</td></tr><tr><td style="padding: 2px 4px; color: #666;">Type</td><td style="padding: 2px 4px; font-weight: 500;">${pole.poleType}</td></tr></table></div>`;
+          const baseColor = '#f97316';
+          const customStyle = new Style({
+            image: new CircleStyle({
+              radius: 8,
+              fill: new Fill({ color: hexToRgba(baseColor, 0.7) }),
+              stroke: new Stroke({ color: '#ea580c', width: 2 })
+            })
+          });
+          addFeature('poles', point, html, 'poles', customStyle, baseColor, pole.index);
+        }
+      }
+
+      // Render planned cables
+      if (autoPlanData.cables) {
+        for (const cable of autoPlanData.cables) {
+          const coords = cable.coordinates.map((c: [number, number]) => fromLonLat([c[0], c[1]]));
+          const line = new LineString(coords);
+          const html = `<div style="font-family: sans-serif; min-width: 200px;"><h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #f97316;">🤖 🔌 Planned Cable #${cable.index}</h3><table style="width:100%; font-size: 12px; border-collapse: collapse;"><tr><td style="padding: 2px 4px; color: #666;">Length</td><td style="padding: 2px 4px; font-weight: 500;">${cable.length.toFixed(2)} m</td></tr><tr><td style="padding: 2px 4px; color: #666;">Fiber Count</td><td style="padding: 2px 4px; font-weight: 500;">${cable.fiberCount}F</td></tr></table></div>`;
+          const baseColor = '#f97316';
+          const customStyle = new Style({
+            stroke: new Stroke({ color: baseColor, width: 3, lineDash: [6, 4] })
+          });
+          addFeature('cables', line, html, 'cables', customStyle, baseColor);
+        }
+      }
+    }
+
     // Create vector layers and add to map
     const vectorLayers: Record<string, VectorLayer<VectorSource>> = {};
     const layerDefs: { key: string; style: Style }[] = [
@@ -876,7 +1017,7 @@ export function GISMapView({
     }
     setTimeout(() => map.updateSize(), 100);
     setTimeout(() => map.updateSize(), 400);
-  }, [mapReady, gisRoutes, assets]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapReady, gisRoutes, assets, autoPlanData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Sync visibility state to layers ---
   useEffect(() => {
@@ -899,6 +1040,247 @@ export function GISMapView({
       observer.disconnect();
     };
   }, [mapReady]);
+
+  // --- Initialize translate interaction for drag & drop ---
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    const map = mapRef.current;
+
+    if (translateInteractionRef.current) {
+      map.removeInteraction(translateInteractionRef.current);
+      translateInteractionRef.current = null;
+    }
+
+    if (autoPlanData) {
+      const apLayers = [
+        vectorLayersRef.current?.poles,
+        vectorLayersRef.current?.fdps,
+        vectorLayersRef.current?.fiberJoints,
+      ].filter(Boolean) as VectorLayer<VectorSource>[];
+
+      const translate = new Translate({
+        layers: apLayers,
+      });
+
+      translate.on('translateend', async (evt) => {
+        const feature = evt.features.getArray()[0];
+        if (!feature) return;
+
+        const geom = feature.getGeometry();
+        if (geom instanceof Point) {
+          const coords = toLonLat(geom.getCoordinates()) as [number, number];
+          const layerKey = feature.get('layerKey') as string;
+          const index = feature.get('index');
+
+          let updatedClosures: PlannedClosure[] = [];
+          const isPole = layerKey === 'poles';
+
+          setAutoPlanData((prev) => {
+            if (!prev) return null;
+
+            if (layerKey === 'fdps' || layerKey === 'fiberJoints') {
+              updatedClosures = prev.closures.map((c) => {
+                if (c.index === index || Math.hypot(c.longitude - coords[0], c.latitude - coords[1]) < 0.001) {
+                  return { ...c, longitude: coords[0], latitude: coords[1] };
+                }
+                return c;
+              });
+              return { ...prev, closures: updatedClosures };
+            } else if (isPole) {
+              const updatedPoles = prev.poles.map((p) => {
+                if (p.index === index || Math.hypot(p.longitude - coords[0], p.latitude - coords[1]) < 0.001) {
+                  return { ...p, longitude: coords[0], latitude: coords[1] };
+                }
+                return p;
+              });
+              return { ...prev, poles: updatedPoles };
+            }
+
+            return prev;
+          });
+
+          if (isPole || updatedClosures.length === 0) return;
+
+          // Call API to re-plan with the updated closures array
+          setAutoPlanLoading(true);
+          try {
+            const res = await fetch('/api/gis/auto-plan', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                polygon: drawnPolygon,
+                customClosures: updatedClosures
+              })
+            });
+
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || 'Failed to re-route');
+            }
+
+            const updatedPlan = (await res.json()) as AutoPlanResult;
+            setAutoPlanSummary(updatedPlan.summary);
+            setAutoPlanData(updatedPlan);
+
+          } catch (err: unknown) {
+            console.error(err);
+            const msg = err instanceof Error ? err.message : 'Error re-routing plan';
+            alert(msg);
+          } finally {
+            setAutoPlanLoading(false);
+          }
+        }
+      });
+
+      map.addInteraction(translate);
+      translateInteractionRef.current = translate;
+    }
+
+    return () => {
+      if (translateInteractionRef.current && mapRef.current) {
+        mapRef.current.removeInteraction(translateInteractionRef.current);
+      }
+    };
+  }, [mapReady, autoPlanData, drawnPolygon]);
+
+  // ─── AI Auto-Plan Functions ──────────────────────────────────────────
+  const clearAutoPlan = useCallback(() => {
+    setAutoPlanSummary(null);
+    setAutoPlanData(null);
+    if (autoPlanSourceRef.current) autoPlanSourceRef.current.clear();
+  }, []);
+
+  const startAutoPlanDraw = useCallback(() => {
+    const map = mapRef.current;
+    const source = autoPlanSourceRef.current;
+    if (!map || !source) return;
+
+    source.clear();
+
+    const draw = new Draw({
+      source: source,
+      type: 'Polygon',
+    });
+
+    autoPlanDrawRef.current = draw;
+    map.addInteraction(draw);
+
+    draw.on('drawend', async (evt) => {
+      const feature = evt.feature;
+      const geometry = feature.getGeometry();
+      if (geometry && geometry instanceof Polygon) {
+        const coords = geometry.getCoordinates()[0].map((coord) => {
+          return toLonLat(coord) as [number, number];
+        });
+
+        setDrawnPolygon(coords);
+        map.removeInteraction(draw);
+        autoPlanDrawRef.current = null;
+        setAutoPlanActive(false);
+
+        setAutoPlanLoading(true);
+        try {
+          const res = await fetch('/api/gis/auto-plan', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ polygon: coords }),
+          });
+
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Failed to generate layout');
+          }
+
+          const plan = (await res.json()) as AutoPlanResult;
+          setAutoPlanSummary(plan.summary);
+          setAutoPlanData(plan);
+
+        } catch (err: unknown) {
+          console.error(err);
+          const msg = err instanceof Error ? err.message : 'Error creating AI plan';
+          alert(msg);
+        } finally {
+          setAutoPlanLoading(false);
+        }
+      }
+    });
+  }, []);
+
+  const toggleAutoPlan = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    setAutoPlanActive((prev) => {
+      if (prev) {
+        if (autoPlanDrawRef.current) {
+          map.removeInteraction(autoPlanDrawRef.current);
+          autoPlanDrawRef.current = null;
+        }
+        return false;
+      } else {
+        if (measureActive) clearMeasure();
+        startAutoPlanDraw();
+        return true;
+      }
+    });
+  }, [measureActive, clearMeasure, startAutoPlanDraw]);
+
+  const handleSavePlan = async () => {
+    if (!projectId) {
+      alert('Error: Project ID is missing from map context.');
+      return;
+    }
+    if (!routeName.trim()) {
+      alert('Please enter a valid Route Name.');
+      return;
+    }
+    if (!autoPlanData) {
+      alert('Error: No active planning data to save.');
+      return;
+    }
+
+    setSavingPlan(true);
+    try {
+      const res = await fetch('/api/gis/auto-plan/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId,
+          routeName,
+          poles: autoPlanData.poles,
+          closures: autoPlanData.closures,
+          cables: autoPlanData.cables,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save route plan');
+      }
+
+      const data = await res.json();
+      alert(data.message);
+      
+      // Clear draft states
+      clearAutoPlan();
+
+      // Trigger refetch callback in parent project page if defined
+      if (onRouteSaved) {
+        onRouteSaved();
+      }
+
+    } catch (err: unknown) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : 'Error saving route plan';
+      alert(msg);
+    } finally {
+      setSavingPlan(false);
+    }
+  };
 
   const countFeatures = useMemo(() => {
     let cables = 0;
@@ -1027,6 +1409,13 @@ export function GISMapView({
             })}
           </div>
 
+          {autoPlanData && (
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-orange-50 border border-orange-100 mb-3">
+              <span className="w-3 h-3 rounded-sm flex-shrink-0 bg-orange-500" />
+              <span className="flex-1 text-[10px] font-semibold text-orange-700">🤖 AI Planned Draft Layout</span>
+            </div>
+          )}
+
           {/* ─── Distance Measurement Tool ─────────────────────────────────── */}
           <div className="border-t border-gray-100 pt-2.5">
             <div className="flex items-center justify-between mb-1">
@@ -1075,6 +1464,97 @@ export function GISMapView({
             <p className="text-[9px] text-gray-400 mt-1.5 leading-tight">
               Measure pole-to-pole or any point distances in meters for cable path planning.
             </p>
+          </div>
+
+          {/* ─── AI Auto-Planner Tool ────────────────────────────────────────── */}
+          <div className="border-t border-gray-100 pt-2.5 mt-2.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                🤖 AI Auto-Planner
+              </span>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={toggleAutoPlan}
+                disabled={autoPlanLoading}
+                className={`flex-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition-all ${
+                  autoPlanActive
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-200 animate-pulse'
+                    : 'bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-700'
+                }`}
+              >
+                {autoPlanLoading ? '⚡ Querying OSM...' : autoPlanActive ? '✍️ Draw Area...' : '🤖 Draw & Auto-Plan'}
+              </button>
+              {(autoPlanData || autoPlanActive) && (
+                <button
+                  onClick={clearAutoPlan}
+                  className="text-[10px] font-semibold px-2 py-1.5 rounded-md bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                  disabled={autoPlanLoading}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {autoPlanActive && (
+              <p className="text-[9px] text-orange-600 font-medium mt-1.5 leading-tight">
+                Click map vertices to draw a polygon. Double-click to complete and auto-generate the plan.
+              </p>
+            )}
+            
+            {/* Auto-Plan Summary Dashboard */}
+            {autoPlanSummary && (
+              <div className="mt-2.5 bg-orange-50/50 border border-orange-100 rounded-lg p-2.5 space-y-2">
+                <p className="text-[10px] text-orange-800 font-bold flex items-center gap-1">
+                  📐 Generated Layout Draft
+                </p>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-slate-600 border-t border-orange-100/50 pt-1.5">
+                  <div className="flex justify-between">
+                    <span>Homes SDU:</span>
+                    <strong className="text-slate-800">{autoPlanSummary.sduCount}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>MDU / Schools:</span>
+                    <strong className="text-slate-800">{autoPlanSummary.mduCount}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>FDPs (1:8):</span>
+                    <strong className="text-slate-800">{autoPlanSummary.fdpCount}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>New Poles:</span>
+                    <strong className="text-slate-800">{autoPlanSummary.poleCount}</strong>
+                  </div>
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-600 border-t border-orange-100/50 pt-1 pb-1.5">
+                  <span>Total Cable:</span>
+                  <strong className="text-orange-700">{autoPlanSummary.totalCableLength.toFixed(0)} meters</strong>
+                </div>
+                
+                {/* Route Name Input and Save Button */}
+                <div className="border-t border-orange-100/50 pt-2 space-y-2">
+                  <label className="block text-[10px] font-semibold text-slate-600">Route Name:</label>
+                  <input
+                    type="text"
+                    value={routeName}
+                    onChange={(e) => setRouteName(e.target.value)}
+                    className="w-full text-xs px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white text-slate-800"
+                    placeholder="Enter route name..."
+                    disabled={savingPlan}
+                  />
+                  <button
+                    onClick={handleSavePlan}
+                    disabled={savingPlan}
+                    className="w-full bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-semibold text-xs py-1.5 px-3 rounded shadow transition-colors flex items-center justify-center gap-1"
+                  >
+                    {savingPlan ? '💾 Saving Plan...' : '💾 Save Route Plan'}
+                  </button>
+                </div>
+
+                <div className="text-[9px] text-slate-400 font-medium leading-normal mt-1 border-t border-orange-100/50 pt-1.5">
+                  💡 Drag & Drop FDPs/Poles to customize layout before saving.
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

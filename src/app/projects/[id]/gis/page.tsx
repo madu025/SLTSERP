@@ -306,6 +306,8 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
                     setPreSurveyStart(start);
                     setPreSurveyEnd(end);
                   }}
+                  projectId={id}
+                  onRouteSaved={fetchGISData}
                 />
               </div>
             </div>
