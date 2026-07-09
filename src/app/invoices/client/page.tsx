@@ -49,6 +49,8 @@ export default function ClientInvoicesPage() {
     const [importing, setImporting] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<ClientInvoice | null>(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
 
     // Metrics
     const [totalBilled, setTotalBilled] = useState(0);
@@ -284,6 +286,8 @@ export default function ClientInvoicesPage() {
         }
     };
 
+    const paginatedInvoices = invoices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
     return (
         <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
@@ -366,21 +370,22 @@ export default function ClientInvoicesPage() {
                                     <p className="text-xs font-bold">No client invoices found.</p>
                                 </div>
                             ) : (
-                                <ResponsiveTable>
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr>
-                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Invoice #</th>
-                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Invoice Title</th>
-                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Project Code</th>
-                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Date</th>
-                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Billing Amount</th>
-                                                <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Status</th>
-                                                <th className="px-3 py-2 text-right pr-6 w-36">Actions</th>
-                                            </tr>
-                                        </thead>
+                                <>
+                                    <ResponsiveTable>
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr>
+                                                    <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Invoice #</th>
+                                                    <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Invoice Title</th>
+                                                    <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Project Code</th>
+                                                    <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Date</th>
+                                                    <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Billing Amount</th>
+                                                    <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Status</th>
+                                                    <th className="px-3 py-2 text-right pr-6 w-36">Actions</th>
+                                                </tr>
+                                            </thead>
                                         <tbody className="divide-y divide-slate-100 bg-white">
-                                            {invoices.map((inv) => (
+                                            {paginatedInvoices.map((inv) => (
                                                 <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
                                                     <td className="text-slate-600 font-medium">
@@ -449,6 +454,51 @@ export default function ClientInvoicesPage() {
                                         </tbody>
                                     </table>
                                 </ResponsiveTable>
+
+                                {/* Pagination Footer Controls */}
+                                <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-3 sm:px-6 mt-4 rounded-xl">
+                                    <div className="flex flex-1 justify-between sm:hidden">
+                                        <Button
+                                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                            disabled={currentPage === 1}
+                                            className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs"
+                                        >
+                                            Previous
+                                        </Button>
+                                        <Button
+                                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(invoices.length / pageSize)))}
+                                            disabled={currentPage >= Math.ceil(invoices.length / pageSize) || invoices.length === 0}
+                                            className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs"
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="text-xs text-slate-500">
+                                                Showing <span className="font-bold text-slate-900">{invoices.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to <span className="font-bold text-slate-900">{Math.min(currentPage * pageSize, invoices.length)}</span> of{' '}
+                                                <span className="font-bold text-slate-900">{invoices.length}</span> results
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                                disabled={currentPage === 1}
+                                                className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs"
+                                            >
+                                                Previous
+                                            </Button>
+                                            <Button
+                                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(invoices.length / pageSize)))}
+                                                disabled={currentPage >= Math.ceil(invoices.length / pageSize) || invoices.length === 0}
+                                                className="h-8 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs"
+                                            >
+                                                Next
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                                </>
                             )}
                         </div>
 
