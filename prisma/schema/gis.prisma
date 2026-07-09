@@ -271,3 +271,15 @@ model QFieldFieldConfig {
   @@unique([projectId, layerId, fieldName])
   @@index([projectId])
 }
+
+model GISRoadData {
+  fid        Int      @id
+  wkt        String   @db.Text
+  wayFbid    String?
+  highwayTag String?
+  minLat     Float?
+  maxLat     Float?
+  minLon     Float?
+  maxLon     Float?
+  createdAt  DateTime @default(now())
+}

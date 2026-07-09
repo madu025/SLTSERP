@@ -127,7 +127,7 @@ export class GISAutoPlanService {
       }
       
       // Inject local Meta AI (MapWithAI) roads, filtering out duplicates
-      const aiRoads = GISGeoPackageService.getRoadsInBoundingBox(polygon);
+      const aiRoads = await GISGeoPackageService.getRoadsInBoundingBox(polygon);
       const osmRoads = GISDataExtractor.extractRoads(nodes, ways, polygon);
       
       const uniqueAiWays: OSMWay[] = [];
