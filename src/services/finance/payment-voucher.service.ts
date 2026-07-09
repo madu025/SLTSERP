@@ -293,21 +293,29 @@ export class PaymentVoucherService {
       });
 
       // Update invoice paid amount if transitions to PAID
-      if (status === 'PAID' && existing.invoiceId) {
-        const invoice = await tx.projectInvoice.findUnique({
-          where: { id: existing.invoiceId }
-        });
-        if (invoice) {
-          const newPaidAmount = (invoice.paidAmount || 0) + existing.amount;
-          const newBalance = invoice.totalAmount - newPaidAmount;
-          await tx.projectInvoice.update({
-            where: { id: existing.invoiceId },
-            data: {
-              paidAmount: newPaidAmount,
-              balanceAmount: Math.max(0, newBalance),
-              status: newBalance <= 0 ? 'FULLY_PAID' : 'PARTIALLY_PAID',
-            },
+      if (status === 'PAID') {
+        // Log payment voucher payout in General Ledger
+        const { LedgerService } = await import('./ledger.service');
+        await LedgerService.logPaymentVoucherPayment(
+          tx, id, existing.amount, existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName
+        );
+
+        if (existing.invoiceId) {
+          const invoice = await tx.projectInvoice.findUnique({
+            where: { id: existing.invoiceId }
           });
+          if (invoice) {
+            const newPaidAmount = (invoice.paidAmount || 0) + existing.amount;
+            const newBalance = invoice.totalAmount - newPaidAmount;
+            await tx.projectInvoice.update({
+              where: { id: existing.invoiceId },
+              data: {
+                paidAmount: newPaidAmount,
+                balanceAmount: Math.max(0, newBalance),
+                status: newBalance <= 0 ? 'FULLY_PAID' : 'PARTIALLY_PAID',
+              },
+            });
+          }
         }
       }
 

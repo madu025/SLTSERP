@@ -431,4 +431,126 @@ export class LedgerService {
             }
         });
     }
+
+    /**
+     * Log double-entry for Project Invoice finalization (issued)
+     * For Client Invoice:
+     *   DR: Client Accounts Receivable (AR-CLIENT-1200)
+     *   CR: Project Revenue (REV-PROJ-3010)
+     * For Contractor Invoice:
+     *   DR: Accrued Contractor Payables (AP-CON-2020)
+     *   CR: Accounts Payable - Contractors/Vendors (AP-VEND-2010)
+     */
+    static async logInvoiceIssuance(
+        tx: TransactionClient,
+        invoiceId: string,
+        amount: number,
+        type: string,
+        invoiceNumber: string,
+        description?: string
+    ) {
+        if (amount <= 0) return null;
+
+        const desc = description || `Invoice Finalization: ${invoiceNumber} (${type})`;
+        
+        let debitAccountCode = '';
+        let debitAccountName = '';
+        let creditAccountCode = '';
+        let creditAccountName = '';
+        
+        if (type.toUpperCase() === 'CLIENT') {
+            debitAccountCode = 'AR-CLIENT-1200';
+            debitAccountName = 'Client Accounts Receivable';
+            creditAccountCode = 'REV-PROJ-3010';
+            creditAccountName = 'Project Revenue';
+        } else { // CONTRACTOR or VENDOR
+            debitAccountCode = 'AP-CON-2020';
+            debitAccountName = 'Accrued Contractor Payables';
+            creditAccountCode = 'AP-VEND-2010';
+            creditAccountName = 'Accounts Payable - Contractors/Vendors';
+        }
+
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: invoiceId,
+                referenceType: 'INVOICE_ISSUANCE',
+                description: desc,
+                lines: {
+                    create: [
+                        {
+                            accountCode: debitAccountCode,
+                            accountName: debitAccountName,
+                            debit: amount,
+                            credit: 0,
+                            description: `Invoice ${invoiceNumber} issued`
+                        },
+                        {
+                            accountCode: creditAccountCode,
+                            accountName: creditAccountName,
+                            debit: 0,
+                            credit: amount,
+                            description: `Revenue/Liability recorded for ${invoiceNumber}`
+                        }
+                    ]
+                }
+            }
+        });
+    }
+
+    /**
+     * Log double-entry for Payment Voucher payout (status: PAID)
+     * For Contractor PV:
+     *   DR: Accounts Payable - Contractors/Vendors (AP-VEND-2010)
+     *   CR: Main Corporate Bank Account (BANK-1000)
+     * For Other PV (Expense/Materials):
+     *   DR: Miscellaneous Expenses (EXP-MISC-5990)
+     *   CR: Main Corporate Bank Account (BANK-1000)
+     */
+    static async logPaymentVoucherPayment(
+        tx: TransactionClient,
+        pvId: string,
+        amount: number,
+        type: string,
+        pvNumber: string,
+        payeeName: string,
+        description?: string
+    ) {
+        if (amount <= 0) return null;
+
+        const desc = description || `Payment Voucher Paid: ${pvNumber} (Payee: ${payeeName})`;
+
+        let debitAccountCode = 'EXP-MISC-5990';
+        let debitAccountName = 'Miscellaneous Expenses';
+        
+        if (type.toUpperCase() === 'CONTRACTOR') {
+            debitAccountCode = 'AP-VEND-2010';
+            debitAccountName = 'Accounts Payable - Contractors/Vendors';
+        }
+
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: pvId,
+                referenceType: 'PV_PAYMENT',
+                description: desc,
+                lines: {
+                    create: [
+                        {
+                            accountCode: debitAccountCode,
+                            accountName: debitAccountName,
+                            debit: amount,
+                            credit: 0,
+                            description: `Payment release to ${payeeName}`
+                        },
+                        {
+                            accountCode: 'BANK-1000',
+                            accountName: 'Main Corporate Bank Account',
+                            debit: 0,
+                            credit: amount,
+                            description: `Disbursement for PV ${pvNumber}`
+                        }
+                    ]
+                }
+            }
+        });
+    }
 }

@@ -157,9 +157,13 @@ export class ProjectInvoiceService {
             if (updateFields.cancelledReason) updateData.cancelledReason = updateFields.cancelledReason;
 
             // Handle status transitions
-            if (updateFields.status === 'ISSUED') {
+            if (updateFields.status === 'ISSUED' && existing.status !== 'ISSUED') {
                 updateData.approvedById = updateFields.approvedById || null;
                 updateData.approvedAt = new Date();
+                
+                // Log invoice finalization in General Ledger
+                const { LedgerService } = await import('../finance/ledger.service');
+                await LedgerService.logInvoiceIssuance(tx, id, existing.totalAmount, existing.type, existing.invoiceNumber);
             } else if (updateFields.status === 'CANCELLED') {
                 updateData.cancelledReason = updateFields.cancelledReason || 'Cancelled';
             }
