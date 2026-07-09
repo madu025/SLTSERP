@@ -6,6 +6,12 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get('projectId');
+        const allClient = searchParams.get('allClient') === 'true';
+
+        if (allClient) {
+            const invoices = await ProjectInvoiceService.getAllClientInvoices();
+            return NextResponse.json(invoices);
+        }
 
         if (!projectId) {
             return NextResponse.json({ error: 'projectId is required' }, { status: 400 });

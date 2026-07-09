@@ -291,6 +291,17 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             },
             {
+                title: 'Client Invoices & BOM Sync',
+                path: '/invoices/client',
+                icon: Receipt,
+                allowedRoles: [
+                    ...ROLE_GROUPS.ADMINS,
+                    ...ROLE_GROUPS.INVOICE,
+                    ...ROLE_GROUPS.FINANCE,
+                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'
+                ]
+            },
+            {
                 title: 'Cost Allocation',
                 path: '/admin/finance/cost-allocation',
                 icon: FileSignature,

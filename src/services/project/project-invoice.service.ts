@@ -59,6 +59,23 @@ export class ProjectInvoiceService {
     }
 
     /**
+     * Get all client-facing project invoices (BOM Client Invoices)
+     */
+    static async getAllClientInvoices() {
+        const invoices = await prisma.projectInvoice.findMany({
+            where: { type: 'CLIENT' },
+            include: {
+                items: true,
+                project: {
+                    select: { projectCode: true, name: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        return invoices;
+    }
+
+    /**
      * Create a new invoice with items in a transaction
      */
     static async createInvoice(data: CreateInvoiceInput) {
