@@ -241,7 +241,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Finance & Accounts',
         path: '/admin/finance',
         icon: Banknote,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE, 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
         submenu: [
             {
                 title: 'Vendor Registry',
@@ -260,6 +260,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 path: '/admin/finance/payments',
                 icon: Receipt,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
+            },
+            {
+                title: 'Petty Cash',
+                path: '/admin/finance/petty-cash',
+                icon: Banknote,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS]
             },
             {
                 title: 'Retention Management',
