@@ -143,4 +143,59 @@ export class BOMInvoiceService {
             warnings
         };
     }
+
+    /**
+     * Parse raw CSV text and generate Client Invoice summary
+     */
+    static async processBOMCSVImport(csvText: string, userId: string) {
+        if (!csvText || typeof csvText !== 'string') {
+            throw new Error('INVALID_CSV_TEXT');
+        }
+
+        const lines = csvText.split(/\r?\n/);
+        if (lines.length === 0) {
+            throw new Error('EMPTY_CSV');
+        }
+
+        // Clean headers and fields
+        const parseRow = (line: string): string[] => {
+            const result: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        };
+
+        const headers = parseRow(lines[0]);
+        const rows: Record<string, unknown>[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const values = parseRow(line);
+            const row: Record<string, unknown> = {};
+            for (let j = 0; j < headers.length; j++) {
+                const header = headers[j];
+                if (header) {
+                    row[header] = values[j] || '';
+                }
+            }
+            rows.push(row);
+        }
+
+        return await this.processBOMImport(rows, userId);
+    }
 }

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, ShieldAlert } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Invoice {
     id: string;
@@ -190,63 +191,107 @@ export default function InvoicesPage() {
 
         setImporting(true);
         try {
-            const XLSX = await import('xlsx');
             const reader = new FileReader();
-            
-            reader.onload = async (evt) => {
-                try {
-                    const bstr = evt.target?.result;
-                    const wb = XLSX.read(bstr, { type: 'binary' });
-                    const wsname = wb.SheetNames[0];
-                    const ws = wb.Sheets[wsname];
-                    const data = XLSX.utils.sheet_to_json(ws);
-                    
-                    if (data.length === 0) {
-                        alert('No rows found in sheet');
-                        setImporting(false);
-                        return;
-                    }
 
-                    const res = await fetch('/api/invoices/import-bom', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ rows: data })
-                    });
+            if (bomFile.name.toLowerCase().endsWith('.csv')) {
+                reader.onload = async (evt) => {
+                    try {
+                        const csvText = evt.target?.result as string;
+                        const res = await fetch('/api/invoices/import-bom/csv', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ csvText })
+                        });
 
-                    const json = await res.json();
-                    if (!res.ok) {
-                        throw new Error(json.error || json.message || 'Import failed');
-                    }
-
-                    if (json.success) {
-                        let msg = `Successfully parsed SLT BOM Sheet!\n\n`;
-                        msg += `- Matched connections (PAT Passed): ${json.matchedCount}\n`;
-                        msg += `- Generated Client Invoice: ${json.clientInvoiceNumber}\n`;
-                        msg += `- Total Recognized Project Revenue: ${json.totalRevenue.toLocaleString()} LKR\n`;
-                        
-                        if (json.warnings && json.warnings.length > 0) {
-                            msg += `\nWarnings (${json.warnings.length} unmatched connection SOs):\n`;
-                            msg += json.warnings.slice(0, 10).join('\n');
-                            if (json.warnings.length > 10) {
-                                msg += `\n...and ${json.warnings.length - 10} more.`;
-                            }
+                        const json = await res.json();
+                        if (!res.ok) {
+                            throw new Error(json.error || json.message || 'Import failed');
                         }
-                        alert(msg);
-                    } else {
-                        alert(`BOM Import Warning: ${json.warnings?.join('\n')}`);
+
+                        if (json.success) {
+                            let msg = `Successfully parsed SLT BOM CSV Sheet!\n\n`;
+                            msg += `- Matched connections (PAT Passed): ${json.matchedCount}\n`;
+                            msg += `- Generated Client Invoice: ${json.clientInvoiceNumber}\n`;
+                            msg += `- Total Recognized Project Revenue: ${json.totalRevenue.toLocaleString()} LKR\n`;
+                            
+                            if (json.warnings && json.warnings.length > 0) {
+                                msg += `\nWarnings (${json.warnings.length} unmatched connection SOs):\n`;
+                                msg += json.warnings.slice(0, 10).join('\n');
+                                if (json.warnings.length > 10) {
+                                    msg += `\n...and ${json.warnings.length - 10} more.`;
+                                }
+                            }
+                            alert(msg);
+                        } else {
+                            alert(`BOM Import Warning: ${json.warnings?.join('\n')}`);
+                        }
+                        setBomImportDialogOpen(false);
+                        setBomFile(null);
+                        fetchInvoices();
+                    } catch (err: any) {
+                        console.error(err);
+                        alert(`Error parsing/uploading BOM CSV: ${err.message}`);
+                    } finally {
+                        setImporting(false);
                     }
-                    setBomImportDialogOpen(false);
-                    setBomFile(null);
-                    fetchInvoices();
-                } catch (err: any) {
-                    console.error(err);
-                    alert(`Error parsing/uploading BOM: ${err.message}`);
-                } finally {
-                    setImporting(false);
-                }
-            };
-            
-            reader.readAsBinaryString(bomFile);
+                };
+                reader.readAsText(bomFile);
+            } else {
+                const XLSX = await import('xlsx');
+                reader.onload = async (evt) => {
+                    try {
+                        const bstr = evt.target?.result;
+                        const wb = XLSX.read(bstr, { type: 'binary' });
+                        const wsname = wb.SheetNames[0];
+                        const ws = wb.Sheets[wsname];
+                        const data = XLSX.utils.sheet_to_json(ws);
+                        
+                        if (data.length === 0) {
+                            alert('No rows found in sheet');
+                            setImporting(false);
+                            return;
+                        }
+
+                        const res = await fetch('/api/invoices/import-bom', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ rows: data })
+                        });
+
+                        const json = await res.json();
+                        if (!res.ok) {
+                            throw new Error(json.error || json.message || 'Import failed');
+                        }
+
+                        if (json.success) {
+                            let msg = `Successfully parsed SLT BOM Sheet!\n\n`;
+                            msg += `- Matched connections (PAT Passed): ${json.matchedCount}\n`;
+                            msg += `- Generated Client Invoice: ${json.clientInvoiceNumber}\n`;
+                            msg += `- Total Recognized Project Revenue: ${json.totalRevenue.toLocaleString()} LKR\n`;
+                            
+                            if (json.warnings && json.warnings.length > 0) {
+                                msg += `\nWarnings (${json.warnings.length} unmatched connection SOs):\n`;
+                                msg += json.warnings.slice(0, 10).join('\n');
+                                if (json.warnings.length > 10) {
+                                    msg += `\n...and ${json.warnings.length - 10} more.`;
+                                }
+                            }
+                            alert(msg);
+                        } else {
+                            alert(`BOM Import Warning: ${json.warnings?.join('\n')}`);
+                        }
+                        setBomImportDialogOpen(false);
+                        setBomFile(null);
+                        fetchInvoices();
+                    } catch (err: any) {
+                        console.error(err);
+                        alert(`Error parsing/uploading BOM: ${err.message}`);
+                    } finally {
+                        setImporting(false);
+                    }
+                };
+                reader.readAsBinaryString(bomFile);
+            }
         } catch (err: any) {
             console.error(err);
             alert(`Error loading excel parser: ${err.message}`);
@@ -1171,36 +1216,71 @@ export default function InvoicesPage() {
 
             {/* BOM Import Dialog */}
             <Dialog open={bomImportDialogOpen} onOpenChange={setBomImportDialogOpen}>
-                <DialogContent className="sm:max-w-[425px] rounded-2xl">
+                <DialogContent className="sm:max-w-[450px] rounded-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-sm font-black text-slate-900 uppercase tracking-wider">
                             Import SLT BOM Sheet (Client Billing & PAT Sync)
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-500">
-                            Select an SLT-generated Excel BOM sheet to mark matched connection orders as PAT-passed and automatically generate the client billing claim (Client Invoice) to SLT.
+                            Process SLT BOM CSV/Excel sheets to mark matched connections as PAT-passed and generate Client Invoices.
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleBOMImport} className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select File</Label>
-                            <Input 
-                                type="file" 
-                                accept=".xlsx, .xls" 
-                                required 
-                                onChange={(e) => setBomFile(e.target.files?.[0] || null)}
-                                className="h-10 rounded-lg bg-slate-50 border-none file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-350 cursor-pointer" 
-                            />
-                        </div>
-                        <DialogFooter className="pt-2">
-                            <Button 
-                                type="submit" 
-                                disabled={importing || !bomFile} 
-                                className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 rounded-lg font-bold text-xs uppercase tracking-wider"
-                            >
-                                {importing ? 'Processing BOM...' : 'Import & Generate'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
+                    
+                    <Tabs defaultValue="file" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 bg-slate-100 rounded-xl p-1 mb-4">
+                            <TabsTrigger value="file" className="rounded-lg text-xs font-bold py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900">Upload File</TabsTrigger>
+                            <TabsTrigger value="sync" className="rounded-lg text-xs font-bold py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900">Browser Sync</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="file">
+                            <form onSubmit={handleBOMImport} className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select BOM File (.csv, .xlsx, .xls)</Label>
+                                    <Input 
+                                        type="file" 
+                                        accept=".csv, .xlsx, .xls" 
+                                        required 
+                                        onChange={(e) => setBomFile(e.target.files?.[0] || null)}
+                                        className="h-10 rounded-lg bg-slate-50 border-none file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-350 cursor-pointer" 
+                                    />
+                                </div>
+                                <DialogFooter className="pt-2">
+                                    <Button 
+                                        type="submit" 
+                                        disabled={importing || !bomFile} 
+                                        className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 rounded-lg font-bold text-xs uppercase tracking-wider"
+                                    >
+                                        {importing ? 'Processing BOM...' : 'Import & Generate'}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </TabsContent>
+
+                        <TabsContent value="sync" className="space-y-4">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">SLT Portal Auto-Sync Bookmarklet</h4>
+                                <p className="text-[11px] text-slate-600 leading-relaxed">
+                                    To sync BOM data directly from the SLT Service Portal without downloading and uploading CSV files manually:
+                                </p>
+                                <ol className="list-decimal list-inside text-[10px] text-slate-500 space-y-1.5">
+                                    <li>Drag the button below to your browser Bookmarks Bar.</li>
+                                    <li>Go to the SLT Service Portal page containing the BOM download link.</li>
+                                    <li>Click the <b>"Sync to ERP"</b> bookmark in your bookmarks bar.</li>
+                                    <li>Enter the BOM Path (e.g. <code className="bg-slate-200 text-slate-700 px-1 rounded">BOM/R-AD/2023-09-09-24030409</code>) when prompted.</li>
+                                </ol>
+                                
+                                <div className="pt-2 flex justify-center">
+                                    <a
+                                        href={`javascript:(async()=>{const path=prompt('Enter BOM Path (e.g. BOM/R-AD/2023-09-09-24030409):');if(!path)return;const cleanPath=path.trim().replace(/\\//g,'-');const url=\`/iShamp/files/\${cleanPath}.csv\`;alert('Fetching BOM CSV from SLT Portal...');try{const res=await fetch(url);if(!res.ok)throw new Error('Failed to fetch CSV from SLT portal. Make sure you are logged in.');const csvText=await res.text();alert('BOM CSV fetched successfully! Sending to SLTSERP...');const erpRes=await fetch('${typeof window !== 'undefined' ? window.location.origin : ''}/api/invoices/import-bom/csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csvText})});const json=await erpRes.json();if(!erpRes.ok)throw new Error(json.error||json.message||'Import failed');alert('BOM sync successful!\\n- Matched connections: '+json.matchedCount+'\\n- Generated Client Invoice: '+json.clientInvoiceNumber+'\\n- Revenue: '+json.totalRevenue.toLocaleString()+' LKR');}catch(err){alert('Sync Error: '+err.message);}})();`}
+                                        className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition-all select-none shadow-sm cursor-grab"
+                                        onClick={(e) => e.preventDefault()}
+                                    >
+                                        Sync to ERP
+                                    </a>
+                                </div>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </DialogContent>
             </Dialog>
         </div>
