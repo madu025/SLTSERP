@@ -5,7 +5,7 @@ export class BOMInvoiceService {
     /**
      * Parse SLT BOM Excel row data, update matched SODs to PAT_PASSED, and generate Client Invoice for SLT
      */
-    static async processBOMImport(rows: Record<string, unknown>[], userId: string) {
+    static async processBOMImport(rows: Record<string, unknown>[], userId: string, bomPath?: string) {
         if (!rows || rows.length === 0) {
             throw new Error('NO_ROWS_PROVIDED');
         }
@@ -131,7 +131,8 @@ export class BOMInvoiceService {
             invoiceDate: new Date(),
             dueDate: new Date(Date.now() + 30 * 24 * 3600 * 1000), // 30 days due
             items: invoiceItems,
-            createdById: userId
+            createdById: userId,
+            referenceNumber: bomPath || null
         });
 
         return {
@@ -147,7 +148,7 @@ export class BOMInvoiceService {
     /**
      * Parse raw CSV text and generate Client Invoice summary
      */
-    static async processBOMCSVImport(csvText: string, userId: string) {
+    static async processBOMCSVImport(csvText: string, userId: string, bomPath?: string) {
         if (!csvText || typeof csvText !== 'string') {
             throw new Error('INVALID_CSV_TEXT');
         }
@@ -196,6 +197,6 @@ export class BOMInvoiceService {
             rows.push(row);
         }
 
-        return await this.processBOMImport(rows, userId);
+        return await this.processBOMImport(rows, userId, bomPath);
     }
 }

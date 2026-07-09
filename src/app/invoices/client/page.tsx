@@ -34,6 +34,7 @@ interface ClientInvoice {
     invoiceDate: string;
     createdAt: string;
     items: ProjectInvoiceItem[];
+    referenceNumber: string | null;
     project: {
         projectCode: string;
         name: string;
@@ -105,6 +106,12 @@ export default function ClientInvoicesPage() {
         try {
             const reader = new FileReader();
 
+            // Extract BOM path from file name if it matches standard format
+            let bomPath = bomFile.name.replace(/\.[^/.]+$/, ""); // strip extension
+            if (bomPath.toUpperCase().startsWith("BOM")) {
+                bomPath = bomPath.replace(/-/g, "/"); // restore slashes
+            }
+
             if (bomFile.name.toLowerCase().endsWith('.csv')) {
                 reader.onload = async (evt) => {
                     try {
@@ -112,7 +119,7 @@ export default function ClientInvoicesPage() {
                         const res = await fetch('/api/invoices/import-bom/csv', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ csvText })
+                            body: JSON.stringify({ csvText, bomPath })
                         });
 
                         const json = await res.json();
@@ -167,7 +174,7 @@ export default function ClientInvoicesPage() {
                         const res = await fetch('/api/invoices/import-bom', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ rows: data })
+                            body: JSON.stringify({ rows: data, bomPath })
                         });
 
                         const json = await res.json();
@@ -406,6 +413,17 @@ export default function ClientInvoicesPage() {
                                                             >
                                                                 View
                                                             </Button>
+                                                            {inv.referenceNumber && inv.referenceNumber.toUpperCase().startsWith("BOM") && (
+                                                                <a
+                                                                    href={`https://serviceportal.slt.lk/iShamp/files/${inv.referenceNumber.trim().replace(/\//g, '-')}.csv`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center justify-center h-7 px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-[10px] uppercase font-black rounded-lg transition-colors"
+                                                                    title="Download original BOM CSV from SLT portal"
+                                                                >
+                                                                    Download BOM
+                                                                </a>
+                                                            )}
                                                             {inv.status === 'DRAFT' && (
                                                                 <Button
                                                                     size="sm"

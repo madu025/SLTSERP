@@ -4,7 +4,7 @@ import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { rows } = body;
+        const { rows, bomPath } = body;
 
         if (!rows || !Array.isArray(rows) || rows.length === 0) {
             return NextResponse.json(
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const result = await BOMInvoiceService.processBOMImport(rows, userId);
+        const result = await BOMInvoiceService.processBOMImport(rows, userId, bomPath);
 
         return NextResponse.json(result);
     } catch (error: unknown) {
