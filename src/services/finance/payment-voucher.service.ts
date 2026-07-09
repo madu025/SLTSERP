@@ -255,6 +255,22 @@ export class PaymentVoucherService {
     const existing = await prisma.paymentVoucher.findUnique({ where: { id } });
     if (!existing) throw new Error('VOUCHER_NOT_FOUND');
 
+    // Enforce proper state machine transitions and protect terminal states
+    const currentStatus = existing.status;
+    if (currentStatus === 'PAID' || currentStatus === 'CANCELLED' || currentStatus === 'REJECTED') {
+      throw new Error(`CANNOT_CHANGE_STATUS_FROM_TERMINAL_STATE_${currentStatus}`);
+    }
+
+    if (status === 'PENDING_APPROVAL' && currentStatus !== 'DRAFT') {
+      throw new Error('ONLY_DRAFT_VOUCHERS_CAN_BE_SUBMITTED_FOR_APPROVAL');
+    }
+    if (status === 'APPROVED' && currentStatus !== 'PENDING_APPROVAL') {
+      throw new Error('ONLY_PENDING_APPROVAL_VOUCHERS_CAN_BE_APPROVED');
+    }
+    if (status === 'PAID' && currentStatus !== 'APPROVED') {
+      throw new Error('ONLY_APPROVED_VOUCHERS_CAN_BE_PAID');
+    }
+
     return prisma.$transaction(async (tx) => {
       const updateData: any = { status };
 

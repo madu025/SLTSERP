@@ -11,6 +11,10 @@ export class PettyCashService {
     imprestLimit: number;
     createdById: string;
   }) {
+    if (data.imprestLimit <= 0) {
+      throw new Error('INVALID_IMPREST_LIMIT');
+    }
+
     // Check if account already exists for OPMC
     const existing = await prisma.pettyCashAccount.findUnique({
       where: { opmcId: data.opmcId }
@@ -72,12 +76,20 @@ export class PettyCashService {
     receiptUrl?: string | null;
     createdById: string;
   }) {
+    if (data.amount <= 0) {
+      throw new Error('INVALID_VOUCHER_AMOUNT');
+    }
+
     const account = await prisma.pettyCashAccount.findUnique({
       where: { id: data.accountId },
       include: { opmc: true }
     });
     if (!account) throw new Error('PETTY_CASH_ACCOUNT_NOT_FOUND');
     if (account.status !== 'ACTIVE') throw new Error('PETTY_CASH_ACCOUNT_NOT_ACTIVE');
+
+    if (data.amount > account.imprestLimit) {
+      throw new Error('VOUCHER_AMOUNT_EXCEEDS_IMPREST_LIMIT');
+    }
 
     // Generate Voucher Number: PCV-[RTOM]-[YEAR]-[COUNT]
     const year = new Date().getFullYear();
@@ -188,6 +200,13 @@ export class PettyCashService {
       });
       if (!account) throw new Error('PETTY_CASH_ACCOUNT_NOT_FOUND');
 
+      const pendingReimbursement = await tx.pettyCashReimbursement.findFirst({
+        where: { accountId, status: 'PENDING' }
+      });
+      if (pendingReimbursement) {
+        throw new Error('PENDING_REIMBURSEMENT_EXISTS');
+      }
+
       // Get all APPROVED vouchers not currently in a reimbursement
       const eligibleVouchers = await tx.pettyCashVoucher.findMany({
         where: {
@@ -265,10 +284,17 @@ export class PettyCashService {
       });
 
       // 3. Replenish Current Balance in Petty Cash Account
+      // Instead of blindly resetting to the imprest limit, we ADD the reimbursement amount
+      // to the current balance to avoid overwriting any expenses approved during the pending window.
+      // We cap it at the imprest limit to ensure mathematical logic checks out.
+      const newBalance = Math.min(
+        reimbursement.account.imprestLimit,
+        reimbursement.account.currentBalance + reimbursement.totalAmount
+      );
       await tx.pettyCashAccount.update({
         where: { id: reimbursement.accountId },
         data: {
-          currentBalance: reimbursement.account.imprestLimit // Reset to full imprest limit
+          currentBalance: newBalance
         }
       });
 
