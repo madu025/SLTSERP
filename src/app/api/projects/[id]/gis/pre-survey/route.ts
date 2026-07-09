@@ -3,24 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/server-utils';
 import { BOQEngine } from '@/lib/gis/boq-engine';
 import { GISLayerType, ParsedCableData, ParsedPoleData, ParsedFiberJointData } from '@/types/gis';
+import { GISAIService } from '@/services/gis/gis-ai.service';
 
 type Params = Promise<{ id: string }>;
 
-// Haversine formula to compute distance in meters
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3; // Earth radius in meters
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
 
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-}
 
 // POST /api/projects/[id]/gis/pre-survey - Create AI-generated Pre-Survey Draft
 export async function POST(request: NextRequest, { params }: { params: Params }) {
@@ -56,79 +43,71 @@ export async function POST(request: NextRequest, { params }: { params: Params })
     const projectCode = project.projectCode || 'PRJ';
     const region = project.job?.region || undefined;
 
-    // 2. Compute route metrics and interpolate path
-    const distanceMeters = calculateDistance(startLat, startLng, endLat, endLng);
-    if (distanceMeters <= 0) {
-      return NextResponse.json({ error: 'Start and end points must be distinct.' }, { status: 400 });
-    }
+    // 2. Run AI Cable Route Optimization (Real Dijkstra pathfinding on road network)
+    const optResult = await GISAIService.optimizeRoute(
+      [startLat, startLng],
+      [endLat, endLng],
+      projectId,
+      {
+        allowRestrictedZones: false,
+        maxSpanMeters: 50,
+        boundsBufferMeters: 500
+      }
+    );
 
-    // Generate 15 points along the path with a slight curve for realism
-    const numSubdivisions = 15;
-    const pathCoordinates: [number, number][] = [];
-    for (let i = 0; i <= numSubdivisions; i++) {
-      const f = i / numSubdivisions;
-      const lat = startLat + (endLat - startLat) * f;
-      const lng = startLng + (endLng - startLng) * f;
+    const distanceMeters = optResult.estimatedCableLengthMeters;
+    
+    // Map the optimized path coordinates [lat, lon] to GeoJSON [lon, lat] format
+    const pathCoordinates: [number, number][] = optResult.optimizedPath.map(coord => [coord[1], coord[0]]);
 
-      // Add a small sine wave curve perpendicular to the line for visual realism (road-like bend)
-      const bendFactor = 0.00018 * Math.sin(f * Math.PI);
-      
-      // Calculate normal vector direction
-      const dx = endLng - startLng;
-      const dy = endLat - startLat;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const nx = len > 0 ? -dy / len : 0;
-      const ny = len > 0 ? dx / len : 0;
+    // 3. Map the real generated poles
+    const polesData = optResult.autoPoles.map((p, i) => ({
+      index: i + 1,
+      longitude: p.lon,
+      latitude: p.lat,
+      poleType: p.type || 'CONCRETE',
+      height: 9,
+      properties: {
+        PL_Number: `${projectCode}-PL-${String(i + 1).padStart(3, '0')}`,
+      },
+    }));
 
-      pathCoordinates.push([
-        lng + nx * bendFactor,
-        lat + ny * bendFactor
-      ]);
-    }
-
-    // 3. Interpolate pole positions (every 50 meters)
-    const poleSpacing = 50; // meters
-    const numPoles = Math.max(2, Math.floor(distanceMeters / poleSpacing) + 1);
-    const polesData: any[] = [];
-    for (let i = 0; i < numPoles; i++) {
-      const f = i / (numPoles - 1);
-      // Interpolate along path coordinates
-      const floatIndex = f * numSubdivisions;
-      const baseIdx = Math.floor(floatIndex);
-      const frac = floatIndex - baseIdx;
-      
-      const p1 = pathCoordinates[baseIdx];
-      const p2 = pathCoordinates[Math.min(baseIdx + 1, numSubdivisions)];
-
-      const lng = p1[0] + (p2[0] - p1[0]) * frac;
-      const lat = p1[1] + (p2[1] - p1[1]) * frac;
-
-      polesData.push({
-        index: i + 1,
-        longitude: lng,
-        latitude: lat,
-        poleType: 'CONCRETE',
-        height: 9,
-        properties: {
-          PL_Number: `${projectCode}-PL-${String(i + 1).padStart(3, '0')}`,
+    // If no poles were auto-placed (very short route), place at least start/end poles
+    if (polesData.length === 0) {
+      polesData.push(
+        {
+          index: 1,
+          longitude: startLng,
+          latitude: startLat,
+          poleType: 'CONCRETE',
+          height: 9,
+          properties: { PL_Number: `${projectCode}-PL-001` },
         },
-      });
+        {
+          index: 2,
+          longitude: endLng,
+          latitude: endLat,
+          poleType: 'CONCRETE',
+          height: 9,
+          properties: { PL_Number: `${projectCode}-PL-002` },
+        }
+      );
     }
 
-    // 4. Place 2 Joint Closures (Start and End)
+    // 4. Place 2 Joint Closures (Start and End) at the actual optimized endpoints
     const jointsData = [
       {
         index: 1,
-        latitude: startLat,
-        longitude: startLng,
+        latitude: pathCoordinates[0][1],
+        longitude: pathCoordinates[0][0],
         jointType: 'INLINE',
         capacity: 48,
         properties: { Joint_Number: `${projectCode}-JT-01` },
       },
       {
         index: 2,
-        latitude: endLat,
-        longitude: endLng,
+        latitude: pathCoordinates[pathCoordinates.length - 1][1],
+        longitude: pathCoordinates[pathCoordinates.length - 1][0],
         jointType: 'TERMINAL',
         capacity: 24,
         properties: { Joint_Number: `${projectCode}-JT-02` },
@@ -136,7 +115,7 @@ export async function POST(request: NextRequest, { params }: { params: Params })
     ];
 
     // 5. Construct GeoJSON FeatureCollection
-    const features: any[] = [];
+    const features: unknown[] = [];
 
     // Cable LineString
     features.push({
@@ -193,7 +172,7 @@ export async function POST(request: NextRequest, { params }: { params: Params })
     };
 
     // 6. Run BOQ Engine
-    const layersMap = new Map<GISLayerType, any>();
+    const layersMap = new Map<GISLayerType, unknown>();
     layersMap.set('CABLE', {
       layerName: 'CABLE',
       featureCount: 1,
@@ -211,7 +190,7 @@ export async function POST(request: NextRequest, { params }: { params: Params })
 
     layersMap.set('POLE', {
       layerName: 'POLE',
-      featureCount: numPoles,
+      featureCount: polesData.length,
       poles: polesData.map(p => ({
         index: p.index,
         latitude: p.latitude,
@@ -357,7 +336,7 @@ export async function POST(request: NextRequest, { params }: { params: Params })
         source: 'WEB_PORTAL',
         fieldChanges: {
           distanceMeters: Math.round(distanceMeters),
-          polesCount: numPoles,
+          polesCount: polesData.length,
           estimatedCost: boq.totalEstimatedCost,
         }
       },
@@ -367,13 +346,14 @@ export async function POST(request: NextRequest, { params }: { params: Params })
       success: true,
       routeId: newRoute.id,
       distanceMeters: Math.round(distanceMeters),
-      polesCount: numPoles,
+      polesCount: polesData.length,
       estimatedCost: boq.totalEstimatedCost,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error generating pre-survey route:', error);
+    const message = error instanceof Error ? error.message : 'Failed to generate pre-survey route.';
     return NextResponse.json(
-      { error: error.message || 'Failed to generate pre-survey route.' },
+      { error: message },
       { status: 500 }
     );
   }

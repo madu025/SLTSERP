@@ -28,6 +28,8 @@ model GISRoute {
   versionType     String        @default("PLANNED") // PLANNED, FIELD_CHANGE, AS_BUILT
   changeRequestId String?       // Linked change request
   isActive        Boolean       @default(true)
+  polygonData     Json?         // Original drawn boundary for diagnostics/regeneration
+  osmData         Json?         // Overpass API road map data
   project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   poles           GISPole[]
   chambers        GISChamber[]

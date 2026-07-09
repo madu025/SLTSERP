@@ -1,0 +1,35 @@
+﻿
+  CLOSURE_DEDUP_RADIUS_METERS: 40,
+  POLE_SPACING_METERS: 38,
+  CABLE_FIBER_COUNT: 12,
+  static offsetPath(coords: [number, number][], offsetDistanceMeters: number = 3.5): [number, number][] {
+      // Merge only the unique AI roads
+          const dropLen = cand.dist * 1.2; 
+          const fiberCount = cand.building.isMDU ? (demand > 4 ? 12 : 4) : 2;
+            const dropLen = cand.dist * 1.2; 
+            const fiberCount = b.isMDU ? (demand > 4 ? 12 : 4) : 2;
+                        cable.length = distToTarget * 1.2;
+             if (GISGeometry.getDistanceMeters(node.pt[1], node.pt[0], pc.latitude, pc.longitude) < 
+PLAN_CONFIG.CLOSURE_DEDUP_RADIUS_METERS) {
+        plannedCables, plannedClosures, PLAN_CONFIG.POLE_SPACING_METERS, roads
+      // --- Intelligent Pole Deduplication: Merge poles within 12 meters ---
+      const poleMergeMap = new Map<string, [number, number]>();
+        let merged = false;
+          if (dist < 12) {
+                poleMergeMap.set(fpKey, [p.longitude, p.latitude]);
+              poleMergeMap.set(pKey, [fp.longitude, fp.latitude]);
+            merged = true;
+        if (!merged) {
+      // Update all cable coordinates to use the merged pole coordinates and deduplicate
+          if (poleMergeMap.has(key)) {
+            newCoords.push(poleMergeMap.get(key)!);
+      // --- Greedy Span Aggregation: Merge intermediate poles if the resulting span <= 38m ---
+              if (dist1 + dist2 <= 38.0) {
+          if (dist > 40) {
+              const numSplits = Math.ceil(dist / 38);
+                      if (d < 1.2) {
+      let safetyPoleIdx = 1;
+        p.index = safetyPoleIdx++;
+        plannedCables, plannedClosures, PLAN_CONFIG.POLE_SPACING_METERS, roads
+
+

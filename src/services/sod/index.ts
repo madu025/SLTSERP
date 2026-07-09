@@ -138,6 +138,15 @@ export class ServiceOrderService {
                 if (isCompletingNow && updatedOrder.revenueAmount) {
                     await LedgerService.logSodRevenue(tx, id, Number(updatedOrder.revenueAmount));
                 }
+
+                // Accrue Contractor Payable/Expense once on transition to Completed
+                if (isCompletingNow && updatedOrder.contractorAmount) {
+                    const contractor = updatedOrder.contractorId 
+                        ? await tx.contractor.findUnique({ where: { id: updatedOrder.contractorId } })
+                        : null;
+                    const contractorName = contractor?.name || 'Unknown Contractor';
+                    await LedgerService.logContractorAccrual(tx, id, Number(updatedOrder.contractorAmount), contractorName);
+                }
             }
 
             // Post-update actions

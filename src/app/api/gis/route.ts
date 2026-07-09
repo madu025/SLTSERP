@@ -8,6 +8,8 @@ import { GISImportService } from '@/services/GISImportService';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   logger.info('[GIS-API] Received GIS status request');
 
@@ -53,10 +55,16 @@ export async function GET(request: NextRequest) {
       const gisRoutes = await prisma.gISRoute.findMany({
         where: { projectId },
         include: {
-          poles: true,
-          closures: true,
+          poles: {
+            orderBy: { poleNumber: 'asc' }
+          },
+          closures: {
+            orderBy: { closureNumber: 'asc' }
+          },
           chambers: true,
-          cableSegments: true,
+          cableSegments: {
+            orderBy: { segmentNumber: 'asc' }
+          },
           generatedBOQs: {
             include: { items: true },
           },
@@ -117,15 +125,15 @@ export async function GET(request: NextRequest) {
       sessions,
       total: sessions.length,
     });
-  } catch (err: any) {
+  } catch (err) {
     logger.error('[GIS-API] Status request failed', {
-      error: err.message,
+      error: err instanceof Error ? err.message : String(err),
     });
 
     return NextResponse.json(
       {
         error: 'Failed to retrieve GIS status',
-        message: err.message || 'Internal server error',
+        message: err instanceof Error ? err.message : 'Internal server error',
       },
       { status: 500 }
     );

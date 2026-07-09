@@ -65,7 +65,7 @@ export class SODMaterialService {
                         transactionItems.push({ itemId: m.itemId, batchId: picked.batchId, quantity: -picked.quantity });
                     }
                     
-                    const record = this.mapToUsageRecord(m, picked.quantity, picked.batchId, picked.batch);
+                    const record = this.mapToUsageRecord(m, picked.quantity, picked.batchId, isShortage ? itemMeta : picked.batch);
                     if (isShortage) {
                         record.exceedsLimit = true;
                         record.comment = `[AI_RECON] Material shortage detected: Sync requested ${qty} but stock was unavailable.`;
@@ -117,15 +117,15 @@ export class SODMaterialService {
     /**
      * Map input to Prisma create record
      */
-    private static mapToUsageRecord(m: MaterialUsageInput, qty: number, batchId: string | null, batch: any) {
+    private static mapToUsageRecord(m: MaterialUsageInput, qty: number, batchId: string | null, batchOrItem: any) {
         return {
             itemId: m.itemId,
             quantity: qty,
             usageType: m.usageType,
-            unit: m.unit || batch?.item?.unit || '',
+            unit: m.unit || batchOrItem?.unit || batchOrItem?.item?.unit || '',
             batchId: batchId,
-            costPrice: batch?.costPrice || 0,
-            unitPrice: batch?.unitPrice || 0,
+            costPrice: batchOrItem?.costPrice ? Number(batchOrItem.costPrice) : 0,
+            unitPrice: batchOrItem?.unitPrice ? Number(batchOrItem.unitPrice) : 0,
             wastagePercent: m.wastagePercent ? parseFloat(m.wastagePercent) : null,
             exceedsLimit: m.exceedsLimit || false,
             comment: m.comment || null,

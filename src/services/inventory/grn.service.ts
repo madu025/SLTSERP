@@ -67,7 +67,7 @@ export class GRNService {
             });
 
             // 3. Update Stock & Create Batches
-            const transactionItems: { itemId: string; quantity: number }[] = [];
+            const transactionItems: { itemId: string; quantity: number; batchId?: string }[] = [];
             let totalGrnCost = 0;
 
             for (const item of items) {
@@ -136,7 +136,8 @@ export class GRNService {
 
                 transactionItems.push({
                     itemId: item.itemId,
-                    quantity: qty
+                    quantity: qty,
+                    batchId: batch.id
                 });
 
                 // E. If the item is serialized, upsert serial records
@@ -205,6 +206,10 @@ export class GRNService {
                 });
 
                 if (request) {
+                    if (request.status !== 'APPROVED') {
+                        throw new Error(`CANNOT_RECEIVE_GRN_FOR_UNAPPROVED_REQUEST: Stock Request ${request.requestNr} has status ${request.status} and must be APPROVED first.`);
+                    }
+
                     let allItemsCompleted = true;
 
                     // Update received quantities for each item
@@ -213,7 +218,7 @@ export class GRNService {
                         const grnItem = items.find((gi: any) => gi.itemId === reqItem.itemId);
                         if (grnItem) {
                             const newReceivedQty = reqItem.receivedQty + parseFloat(grnItem.quantity.toString());
-                            const limitQty = Number(reqItem.approvedQty || reqItem.requestedQty);
+                            const limitQty = reqItem.approvedQty;
                             if (newReceivedQty > limitQty) {
                                 throw new Error(`GRN_QUANTITY_EXCEEDS_APPROVED_LIMIT: Received quantity of ${newReceivedQty} exceeds approved limit of ${limitQty} for item ${reqItem.itemId}`);
                             }

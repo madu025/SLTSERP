@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Params }) {
     // ── Action: NEW VERSION ──────────────────────────────────────
     if (action === 'new_version' || !action) {
       if (!versionType) {
-        return NextResponse.json({ error: 'versionType is required (PLANNED, FIELD_CHANGE, AS_BUILT)' }, { status: 400 });
+        return NextResponse.json({ error: 'versionType is required (PLANNED, FIELD_CHANGE, BEFORE_PAT, AS_BUILT)' }, { status: 400 });
       }
 
       const result = await RouteVersionService.createNewVersion({

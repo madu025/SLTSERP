@@ -1,0 +1,56 @@
+// ============================================================
+// Module: petty-cash
+// Models: PettyCashAccount, PettyCashVoucher, PettyCashReimbursement
+// ============================================================
+
+model PettyCashAccount {
+  id             String                   @id @default(cuid())
+  name           String
+  opmcId         String                   @unique
+  imprestLimit   Float                    @default(0)
+  currentBalance Float                    @default(0)
+  status         String                   @default("ACTIVE") // ACTIVE, SUSPENDED, CLOSED
+  createdById    String
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  opmc           OPMC                     @relation(fields: [opmcId], references: [id], onDelete: Cascade)
+  vouchers       PettyCashVoucher[]
+  reimbursements PettyCashReimbursement[]
+}
+
+model PettyCashVoucher {
+  id              String                  @id @default(cuid())
+  accountId       String
+  voucherNumber   String                  @unique // PCV-OPMC-YEAR-XXXX
+  date            DateTime                @default(now())
+  title           String
+  description     String?
+  amount          Float                   @default(0)
+  category        String                  // TRANSPORT, REFRESHMENTS, UTILITIES, STATIONERY, MISC
+  status          String                  @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, REIMBURSED
+  recipientName   String?
+  receiptUrl      String?                 // File upload link for receipt/bill
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  reimbursementId String?
+  createdById     String
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  account         PettyCashAccount        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  reimbursement   PettyCashReimbursement? @relation(fields: [reimbursementId], references: [id])
+}
+
+model PettyCashReimbursement {
+  id                  String             @id @default(cuid())
+  accountId           String
+  reimbursementNumber String             @unique // PCR-OPMC-YEAR-XXXX
+  totalAmount         Float              @default(0)
+  status              String             @default("PENDING") // PENDING, APPROVED, REIMBURSED
+  paymentVoucherId    String?            // Link to Head Office Payment Voucher for fund replenishment
+  createdById         String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  account             PettyCashAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  vouchers            PettyCashVoucher[]
+}

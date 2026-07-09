@@ -13,9 +13,22 @@ import { ArrowLeft, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GISMapView, type GISRouteData, type GISAssetData } from '@/components/gis/GISMapView';
+import { 
+  GISMapView, 
+  type GISRouteData, 
+  type GISAssetData,
+  type LayerVisibility,
+  LAYER_COLORS,
+  LAYER_LABELS,
+  LAYER_ICONS
+} from '@/components/gis/GISMapView';
 import { GISLayerPanel } from '@/components/gis/GISLayerPanel';
-import { SurveyPointEditor } from '@/components/gis/SurveyPointEditor';
+import dynamic from 'next/dynamic';
+
+const SurveyPointEditor = dynamic(
+  () => import('@/components/gis/SurveyPointEditor').then((mod) => mod.SurveyPointEditor),
+  { ssr: false }
+);
 
 interface Project {
   name?: string;
@@ -43,6 +56,17 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
   const [preSurveyEnd, setPreSurveyEnd] = useState<[number, number] | null>(null);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [rollingBack, setRollingBack] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
+    cables: true,
+    poles: true,
+    fdps: true,
+    fiberJoints: true,
+    chambers: true,
+    roads: true,
+    assets: true,
+  });
+  console.log("RENDER page.tsx state:", { preSurveyStart, preSurveyEnd });
 
   useEffect(() => {
     if (!preSurveyMode) {
@@ -64,8 +88,14 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
       const projectData = await projectRes.json();
       setProject(projectData);
 
-      // Fetch GIS data
-      const gisRes = await fetch(`/api/gis?projectId=${id}`);
+      // Fetch GIS data with cache-busting
+      const gisRes = await fetch(`/api/gis?projectId=${id}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (!gisRes.ok) {
         // If GIS data isn't available yet, that's okay
         if (gisRes.status === 404) {
@@ -137,6 +167,17 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const handleRouteDeleted = useCallback((routeId: string) => {
+    setGisData((prev) => {
+      if (!prev || !prev.gisRoutes) return prev;
+      return {
+        ...prev,
+        gisRoutes: prev.gisRoutes.filter((r) => r.id !== routeId)
+      };
+    });
+    fetchGISData();
+  }, [fetchGISData]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -171,7 +212,7 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className={`min-h-screen bg-gray-50 ${fullscreen ? 'fixed inset-0 z-50' : ''}`}>
-      <div className={`${fullscreen ? 'h-full flex flex-col' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
+      <div className={`${fullscreen ? 'h-full flex flex-col' : 'w-full px-6 py-6'}`}>
         {/* Page Header */}
         <div className={`${fullscreen ? 'px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0' : 'mb-6'}`}>
           <div className="flex items-center justify-between">
@@ -230,6 +271,41 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
                 </p>
               </div>
             </div>
+
+            {/* Horizontal Legend / Layer Visibility controls in the header */}
+            {activeTab === 'gis' && (
+              <div className="hidden lg:flex items-center gap-4 bg-slate-100/60 border border-slate-200/50 px-4 py-2 rounded-xl backdrop-blur-sm shadow-sm transition-all animate-in fade-in duration-500">
+                <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider flex items-center gap-1">Layers:</span>
+                <div className="flex items-center gap-4">
+                  {Object.entries(LAYER_LABELS).map(([key, label]) => {
+                    const layerKey = key as keyof LayerVisibility;
+                    const visible = layerVisibility[layerKey];
+                    return (
+                      <label key={key} className="flex items-center gap-1.5 cursor-pointer select-none group">
+                        <input
+                          type="checkbox"
+                          checked={visible}
+                          onChange={() => {
+                            setLayerVisibility((prev) => ({
+                              ...prev,
+                              [layerKey]: !prev[layerKey]
+                            }));
+                          }}
+                          className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span className="w-4 h-4 rounded-sm flex-shrink-0 flex items-center justify-center text-[10px]" style={{ backgroundColor: LAYER_COLORS[key] }}>
+                          {LAYER_ICONS[key]}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">
+                          {label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[10px] text-gray-400">
                 Updated: {lastRefreshed.toLocaleTimeString()}
@@ -292,56 +368,78 @@ export default function ProjectGISMapPage({ params }: { params: Promise<{ id: st
 
         {/* Main Content */}
         {activeTab === 'gis' ? (
-          <div className={`${fullscreen ? 'flex-1 flex overflow-hidden' : 'flex flex-col lg:flex-row gap-6'}`}>
+          <div className={`${fullscreen ? 'flex-1 flex overflow-hidden relative bg-slate-50/30' : 'flex flex-col lg:flex-row gap-6 relative'}`}>
             {/* Map Section */}
-            <div className={`${fullscreen ? 'flex-1' : 'lg:flex-[3]'} min-h-[400px] ${fullscreen ? 'flex flex-col' : ''}`}>
-              <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${fullscreen ? 'flex-1' : ''}`}>
+            <div className={`transition-all duration-500 ease-in-out ${fullscreen ? 'flex-1 relative' : sidebarOpen ? 'lg:flex-[3.5]' : 'lg:flex-1 w-full'} min-h-[400px] ${fullscreen ? 'flex flex-col' : ''}`}>
+              <div className={`relative bg-white/40 backdrop-blur-md shadow-xl border border-white/60 overflow-hidden ${fullscreen ? 'flex-1 rounded-none border-0' : 'h-[calc(100vh-180px)] min-h-[500px] rounded-2xl'}`}>
                 <GISMapView
                   gisRoutes={displayedRoutes}
                   assets={gisData?.assets || []}
-                  height={fullscreen ? '100%' : '600px'}
+                  height={fullscreen ? '100%' : '100%'}
                   fullscreen={fullscreen}
                   preSurveyMode={preSurveyMode}
-                  onPreSurveyPointsSelected={(start, end) => {
-                    setPreSurveyStart(start);
-                    setPreSurveyEnd(end);
-                  }}
+                  preSurveyStart={preSurveyStart}
+                  preSurveyEnd={preSurveyEnd}
+                  setPreSurveyStart={setPreSurveyStart}
+                  setPreSurveyEnd={setPreSurveyEnd}
                   projectId={id}
                   onRouteSaved={fetchGISData}
+                  layerVisibility={layerVisibility}
+                  onLayerVisibilityChange={setLayerVisibility}
                 />
+                
+                {/* Collapse / Expand Toggle Button for Sidebar */}
+                <button
+                  onClick={() => setSidebarOpen(prev => !prev)}
+                  className={`absolute top-1/2 z-[1010] bg-white/90 backdrop-blur-lg hover:bg-white border border-slate-200/80 text-indigo-600 rounded-full w-9 h-9 shadow-[0_0_15px_rgba(0,0,0,0.1)] hover:shadow-[0_0_20px_rgba(79,70,229,0.3)] hover:scale-110 flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                    sidebarOpen ? (fullscreen ? 'right-[400px] -translate-y-1/2' : '-right-4.5 -translate-y-1/2') : 'right-4 -translate-y-1/2'
+                  }`}
+                  title={sidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                >
+                  {sidebarOpen ? (
+                    <span className="text-sm font-bold text-slate-600 transition-transform duration-300 group-hover:translate-x-0.5">▶</span>
+                  ) : (
+                    <span className="text-sm font-bold text-indigo-600 transition-transform duration-300 group-hover:-translate-x-0.5">◀</span>
+                  )}
+                </button>
               </div>
             </div>
 
             {/* Layer Panel Section */}
-            <div className={`${fullscreen ? 'w-96 overflow-y-auto border-l border-gray-200 bg-white' : 'lg:flex-1'}`}>
-              <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${fullscreen ? 'rounded-none border-0 h-full' : ''}`}>
-                <GISLayerPanel
-                  gisRoutes={displayedRoutes}
-                  assets={gisData?.assets || []}
-                  boq={boq}
-                  surveys={gisData?.surveys || []}
-                  permits={gisData?.permits || []}
-                  onImportMore={handleImportMore}
-                  onViewDetails={handleViewDetails}
-                  projectId={id}
-                  preSurveyMode={preSurveyMode}
-                  setPreSurveyMode={setPreSurveyMode}
-                  preSurveyStart={preSurveyStart}
-                  preSurveyEnd={preSurveyEnd}
-                  onPreSurveyCreated={() => {
-                    setPreSurveyStart(null);
-                    setPreSurveyEnd(null);
-                    fetchGISData();
-                  }}
-                />
+            {sidebarOpen && (
+              <div className={`transition-all duration-500 ease-in-out ${fullscreen ? 'absolute right-4 top-4 bottom-4 w-96 z-[1005]' : 'lg:flex-1'}`}>
+                <div className={`bg-white/70 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] border border-white/60 p-4 ${fullscreen ? 'h-full overflow-y-auto' : 'h-[calc(100vh-180px)] min-h-[500px] overflow-y-auto'}`}>
+                  <GISLayerPanel
+                    gisRoutes={displayedRoutes}
+                    assets={gisData?.assets || []}
+                    boq={boq}
+                    surveys={gisData?.surveys || []}
+                    permits={gisData?.permits || []}
+                    onImportMore={handleImportMore}
+                    onViewDetails={handleViewDetails}
+                    projectId={id}
+                    preSurveyMode={preSurveyMode}
+                    setPreSurveyMode={setPreSurveyMode}
+                    preSurveyStart={preSurveyStart}
+                    preSurveyEnd={preSurveyEnd}
+                    setPreSurveyStart={setPreSurveyStart}
+                    setPreSurveyEnd={setPreSurveyEnd}
+                    onPreSurveyCreated={() => {
+                      setPreSurveyStart(null);
+                      setPreSurveyEnd(null);
+                      fetchGISData();
+                    }}
+                    onRouteDeleted={handleRouteDeleted}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           <div className={fullscreen ? 'flex-1' : ''}>
             <SurveyPointEditor
               projectId={id}
-              height={fullscreen ? '100%' : '600px'}
+              height={fullscreen ? '100%' : 'calc(100vh-180px)'}
             />
           </div>
         )}

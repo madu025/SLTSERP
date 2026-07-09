@@ -169,7 +169,21 @@ export class AiAuditService {
             });
             const totalWasted = wastages.reduce((sum, w) => sum + Number(w.quantity), 0);
 
-            const expectedStock = totalIssued - totalUsed - totalWasted;
+            // Calculate returned
+            const returns = await prisma.contractorMaterialReturnItem.findMany({
+                where: {
+                    itemId: stock.itemId,
+                    return: {
+                        is: {
+                            contractorId: stock.contractorId,
+                            status: 'ACCEPTED'
+                        }
+                    }
+                }
+            });
+            const totalReturned = returns.reduce((sum, r) => sum + Number(r.quantity), 0);
+
+            const expectedStock = totalIssued - totalUsed - totalWasted - totalReturned;
             const actualStock = Number(stock.quantity);
 
             if (Math.abs(actualStock - expectedStock) > 0.001) {
@@ -178,7 +192,7 @@ export class AiAuditService {
                     severity: 'HIGH',
                     entityId: `${stock.contractorId}_${stock.itemId}`,
                     entityRef: `${stock.contractor.name} - ${stock.item.code}`,
-                    details: `Current stock count is ${actualStock}, but history-reconciled expected stock is ${expectedStock} (Issued: ${totalIssued}, Used: ${totalUsed}, Wasted: ${totalWasted}).`,
+                    details: `Current stock count is ${actualStock}, but history-reconciled expected stock is ${expectedStock} (Issued: ${totalIssued}, Used: ${totalUsed}, Wasted: ${totalWasted}, Returned: ${totalReturned}).`,
                     suggestedFix: `Recalculate and re-align stock record or record missing adjustment transaction.`
                 });
             }

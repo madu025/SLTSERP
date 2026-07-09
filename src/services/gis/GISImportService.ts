@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { prisma } from '@/lib/prisma';
-import { WorkflowEngine } from './WorkflowEngine';
+import { WorkflowEngine } from '../WorkflowEngine';
 import { gisParser } from '@/lib/gis/gis-parser';
 import { gisValidator } from '@/lib/gis/gis-validator';
 import { projectTypeDetector } from '@/lib/gis/project-type-detector';
@@ -50,7 +50,7 @@ import type { InventoryStockEntry } from '@/lib/gis/boq-engine';
 export interface GISUploadSession {
   id: string;
   projectId?: string;
-  versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT';
+  versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT';
   notes?: string;
   projectName?: string;
   region?: string;

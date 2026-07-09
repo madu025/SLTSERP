@@ -72,7 +72,7 @@ export function GISUpload() {
   
   const upgradeProjectId = searchParams.get('projectId');
   const [upgradeProject, setUpgradeProject] = useState<CompactProject | null>(null);
-  const [versionType, setVersionType] = useState<'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT'>('FIELD_CHANGE');
+  const [versionType, setVersionType] = useState<'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT'>('FIELD_CHANGE');
   const [notes, setNotes] = useState('');
 
   const [files, setFiles] = useState<UploadFileInfo[]>([]);
@@ -364,12 +364,13 @@ export function GISUpload() {
               </label>
               <select
                 value={versionType}
-                onChange={(e) => setVersionType(e.target.value as 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT')}
+                onChange={(e) => setVersionType(e.target.value as 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT')}
                 className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 disabled={uploadState.status === 'uploading' || uploadState.status === 'processing'}
               >
                 <option value="FIELD_CHANGE">Field Change / Revision</option>
                 <option value="PLANNED">Planned (Draft Update)</option>
+                <option value="BEFORE_PAT">Before PAT Survey</option>
                 <option value="AS_BUILT">As-Built (Finalized)</option>
               </select>
             </div>

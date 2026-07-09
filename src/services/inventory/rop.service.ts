@@ -81,13 +81,13 @@ export class ROPService {
             // D. Write dynamic ROP back to the Item Safety Stock Level
             await prisma.inventoryItem.update({
                 where: { id: item.id },
-                data: { minLevel: safetyStockFinal }
+                data: { minLevel: ropFinal }
             });
 
             // E. Propagate dynamic safety levels to individual stores for low stock checks
             await prisma.inventoryStock.updateMany({
                 where: { itemId: item.id },
-                data: { minLevel: safetyStockFinal }
+                data: { minLevel: ropFinal }
             });
 
             results.push({

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 export interface CreateVersionInput {
   projectId: string;
   routeId: string;
-  versionType: 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT';
+  versionType: 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT';
   changeRequestId?: string;
   geojsonData?: Record<string, unknown>;
   notes?: string;

@@ -70,3 +70,6 @@ PERFORMANCE_*.md
 SCALABILITY_*.md
 
 .vercel
+
+# geopackage files
+*.gpkg

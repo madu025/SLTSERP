@@ -325,7 +325,9 @@ export default function NationalInfraMap() {
                   let radius = 5;
                   let assetLabel = 'Asset';
 
-                  if (layerName.includes('POLE')) {
+                  if (layerName.includes('FEED')) {
+                    fillColor = '#10b981'; radius = 7; assetLabel = 'Feed Point';
+                  } else if (layerName.includes('POLE')) {
                     fillColor = '#10b981'; radius = 4; assetLabel = 'Pole';
                   } else if (layerName.includes('CHAMBER')) {
                     fillColor = '#3b82f6'; radius = 6; assetLabel = 'Chamber';

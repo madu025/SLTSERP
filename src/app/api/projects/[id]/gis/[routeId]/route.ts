@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { GISAuditService } from "@/services/gis-audit.service";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
     request: Request,
     { params }: { params: Promise<{ id: string; routeId: string }> }
@@ -12,10 +14,16 @@ export async function GET(
         const route = await prisma.gISRoute.findUnique({
             where: { id: routeId },
             include: {
-                poles: true,
+                poles: {
+                    orderBy: { poleNumber: 'asc' }
+                },
                 chambers: true,
-                closures: true,
-                cableSegments: true,
+                closures: {
+                    orderBy: { closureNumber: 'asc' }
+                },
+                cableSegments: {
+                    orderBy: { segmentNumber: 'asc' }
+                },
                 generatedBOQs: true
             }
         });
@@ -104,7 +112,42 @@ export async function DELETE(
         // Fetch route info before deletion for audit record
         const route = await prisma.gISRoute.findUnique({ where: { id: routeId } });
 
-        await prisma.gISRoute.delete({ where: { id: routeId } });
+        // Delete related child entities in correct order via transaction to prevent foreign key violations
+        await prisma.$transaction(async (tx) => {
+            // Nullify OTDR test references first
+            await tx.oTDRTest.updateMany({
+                where: {
+                    cableSegment: {
+                        routeId: routeId
+                    }
+                },
+                data: {
+                    cableSegmentId: null
+                }
+            });
+
+            await tx.gISGeneratedBOQItem.deleteMany({
+                where: { generatedBOQ: { routeId } }
+            });
+            await tx.gISGeneratedBOQ.deleteMany({
+                where: { routeId }
+            });
+            await tx.gISCableSegment.deleteMany({
+                where: { routeId }
+            });
+            await tx.gISPole.deleteMany({
+                where: { routeId }
+            });
+            await tx.gISClosure.deleteMany({
+                where: { routeId }
+            });
+            await tx.gISChamber.deleteMany({
+                where: { routeId }
+            });
+            await tx.gISRoute.delete({
+                where: { id: routeId }
+            });
+        });
 
         // Write audit log (fire-and-forget — route is deleted, best effort)
         await GISAuditService.logChange({

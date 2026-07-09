@@ -21,4 +21,5 @@ model OPMC {
   serviceOrders            ServiceOrder[]
   staff                    Staff[]
   users                    User[]                    @relation("UserOpmcs")
+  pettyCashAccount         PettyCashAccount?
 }

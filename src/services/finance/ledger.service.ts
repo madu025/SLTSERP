@@ -241,4 +241,194 @@ export class LedgerService {
             }
         });
     }
+
+    /**
+     * Log double-entry for MRN Item Return (Return to Vendor)
+     * DR: Accrued Accounts Payable (AP-2010)
+     * CR: Raw Material Inventory (INV-1010)
+     */
+    static async logMrnReturn(
+        tx: TransactionClient,
+        mrnId: string,
+        totalCost: number,
+        description?: string
+    ) {
+        if (totalCost <= 0) return null;
+
+        const desc = description || `MRN Return Entry for MRN ID: ${mrnId}`;
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: mrnId,
+                referenceType: 'MRN',
+                description: desc,
+                lines: {
+                    create: [
+                        {
+                            accountCode: 'AP-2010',
+                            accountName: 'Accrued Accounts Payable',
+                            debit: totalCost,
+                            credit: 0,
+                            description: 'Accrued liability reduced due to return'
+                        },
+                        {
+                            accountCode: 'INV-1010',
+                            accountName: 'Raw Material Inventory',
+                            debit: 0,
+                            credit: totalCost,
+                            description: 'Inventory returned to supplier'
+                        }
+                    ]
+                }
+            }
+        });
+    }
+
+    /**
+     * Log double-entry for Petty Cash Expense approval
+     * DR: Relevant Expense Account based on category (TRANSPORT, REFRESHMENTS, UTILITIES, STATIONERY, MISC)
+     * CR: Petty Cash Imprest Account (PETTY-1020)
+     */
+    static async logPettyCashExpense(
+        tx: TransactionClient,
+        voucherId: string,
+        amount: number,
+        category: string,
+        description?: string
+    ) {
+        if (amount <= 0) return null;
+
+        let expenseAccountCode = 'EXP-MISC-5990';
+        let expenseAccountName = 'Miscellaneous Expenses';
+
+        switch (category.toUpperCase()) {
+            case 'TRANSPORT':
+                expenseAccountCode = 'EXP-TRAV-5100';
+                expenseAccountName = 'Travel & Transport Expenses';
+                break;
+            case 'REFRESHMENTS':
+                expenseAccountCode = 'EXP-REFR-5200';
+                expenseAccountName = 'Refreshment Expenses';
+                break;
+            case 'UTILITIES':
+                expenseAccountCode = 'EXP-UTIL-5300';
+                expenseAccountName = 'Utility Expenses';
+                break;
+            case 'STATIONERY':
+                expenseAccountCode = 'EXP-STAT-5400';
+                expenseAccountName = 'Printing & Stationery Expenses';
+                break;
+            default:
+                break;
+        }
+
+        const desc = description || `Petty Cash Expense for Category ${category}, Voucher ID: ${voucherId}`;
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: voucherId,
+                referenceType: 'PETTY_CASH_EXPENSE',
+                description: desc,
+                lines: {
+                    create: [
+                        {
+                            accountCode: expenseAccountCode,
+                            accountName: expenseAccountName,
+                            debit: amount,
+                            credit: 0,
+                            description: 'Petty cash local site expense'
+                        },
+                        {
+                            accountCode: 'PETTY-1020',
+                            accountName: 'Petty Cash Imprest',
+                            debit: 0,
+                            credit: amount,
+                            description: 'Cash spent from site petty cash'
+                        }
+                    ]
+                }
+            }
+        });
+    }
+
+    /**
+     * Log double-entry for Petty Cash Imprest Reimbursement (Replenishment)
+     * DR: Petty Cash Imprest Account (PETTY-1020)
+     * CR: Bank Cash Account (BANK-1000)
+     */
+    static async logPettyCashReimbursement(
+        tx: TransactionClient,
+        reimbursementId: string,
+        amount: number,
+        description?: string
+    ) {
+        if (amount <= 0) return null;
+
+        const desc = description || `Replenishment of Petty Cash Imprest, ID: ${reimbursementId}`;
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: reimbursementId,
+                referenceType: 'PETTY_CASH_REIMBURSEMENT',
+                description: desc,
+                lines: {
+                    create: [
+                        {
+                            accountCode: 'PETTY-1020',
+                            accountName: 'Petty Cash Imprest',
+                            debit: amount,
+                            credit: 0,
+                            description: 'Funds replenished to site petty cash'
+                        },
+                        {
+                            accountCode: 'BANK-1000',
+                            accountName: 'Main Corporate Bank Account',
+                            debit: 0,
+                            credit: amount,
+                            description: 'Funds transferred from bank to site cash'
+                        }
+                    ]
+                }
+            }
+        });
+    }
+
+    /**
+     * Log double-entry for Contractor Cost Accrual upon SOD Completion
+     * DR: Contractor Direct OSP Expense (EXP-CON-4020)
+     * CR: Accrued Contractor Payables (AP-CON-2020)
+     */
+    static async logContractorAccrual(
+        tx: TransactionClient,
+        sodId: string,
+        amount: number,
+        contractorName: string,
+        description?: string
+    ) {
+        if (amount <= 0) return null;
+
+        const desc = description || `Accrued Contractor Cost for Completed SOD: ${sodId} (Contractor: ${contractorName})`;
+        return await tx.journalEntry.create({
+            data: {
+                referenceId: sodId,
+                referenceType: 'CONTRACTOR_ACCRUAL',
+                description: desc,
+                lines: {
+                    create: [
+                        {
+                            accountCode: 'EXP-CON-4020',
+                            accountName: 'Contractor Direct OSP Expense',
+                            debit: amount,
+                            credit: 0,
+                            description: 'Accrued contractor service cost'
+                        },
+                        {
+                            accountCode: 'AP-CON-2020',
+                            accountName: 'Accrued Contractor Payables',
+                            debit: 0,
+                            credit: amount,
+                            description: 'Outstanding liability to contractor'
+                        }
+                    ]
+                }
+            }
+        });
+    }
 }

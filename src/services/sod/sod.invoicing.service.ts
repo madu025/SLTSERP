@@ -32,6 +32,11 @@ export class SODInvoicingService {
                 const sortedTiers = [...payConfig.tiers].sort((a, b) => b.maxDistance - a.maxDistance);
                 if (distance > sortedTiers[0].maxDistance) {
                     contractorAmount = sortedTiers[0].amount;
+                } else {
+                    const sortedTiersAsc = [...payConfig.tiers].sort((a, b) => a.minDistance - b.minDistance);
+                    if (distance < sortedTiersAsc[0].minDistance) {
+                        contractorAmount = sortedTiersAsc[0].amount;
+                    }
                 }
             }
         }

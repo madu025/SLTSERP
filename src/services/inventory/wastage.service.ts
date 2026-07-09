@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { StockService } from './stock.service';
 import { AuditService } from '../audit.service';
 import { TransactionClient } from './types';
+import { LedgerService } from '../finance/ledger.service';
 
 export class WastageService {
     /**
@@ -138,6 +139,7 @@ export class WastageService {
                             data: { quantity: { decrement: qty } }
                         });
                     }
+                    await LedgerService.logWastage(tx, wastage.id, totalWastageValue);
                 }
 
                 if (userId) {
@@ -220,6 +222,10 @@ export class WastageService {
                 }
             });
 
+            if (status === 'APPROVED') {
+                await LedgerService.logWastage(tx, txRecord.id, totalWastageValue);
+            }
+
             if (userId) {
                 await AuditService.log({
                     userId,
@@ -248,10 +254,18 @@ export class WastageService {
             if (wastage) {
                 if (wastage.status !== 'PENDING') throw new Error('ALREADY_PROCESSED');
 
+                let totalWastageValue = 0;
                 // Apply DEDUCTIONS
                 for (const item of wastage.items) {
                     const qty = StockService.round(item.quantity);
                     if (qty <= 0) continue;
+
+                    const itemMeta = await tx.inventoryItem.findUnique({
+                        where: { id: item.itemId },
+                        select: { costPrice: true, unitPrice: true }
+                    });
+                    const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
+                    totalWastageValue += qty * price;
 
                     const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, wastage.contractorId, item.itemId, qty);
                     for (const picked of pickedBatches) {
@@ -280,6 +294,8 @@ export class WastageService {
                     }
                 });
 
+                await LedgerService.logWastage(tx, wastage.id, totalWastageValue);
+
                 return updated;
             } else {
                 // If not found in ContractorWastage, check InventoryTransaction for Store Wastage
@@ -297,10 +313,18 @@ export class WastageService {
                     throw new Error('ALREADY_PROCESSED');
                 }
 
+                let totalWastageValue = 0;
                 // Apply deductions for store wastage
                 for (const item of txRecord.items) {
                     const qty = StockService.round(Math.abs(item.quantity));
                     if (qty <= 0) continue;
+
+                    const itemMeta = await tx.inventoryItem.findUnique({
+                        where: { id: item.itemId },
+                        select: { costPrice: true, unitPrice: true }
+                    });
+                    const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
+                    totalWastageValue += qty * price;
 
                     const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, txRecord.storeId, item.itemId, qty);
 
@@ -349,6 +373,8 @@ export class WastageService {
                         userId
                     }
                 });
+
+                await LedgerService.logWastage(tx, txRecord.id, totalWastageValue);
 
                 return updatedTx;
             }

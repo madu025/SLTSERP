@@ -41,28 +41,25 @@ src/
 │   ├── queue.ts          # Background job queue
 │   ├── stats.service.ts  # Statistics aggregation
 │   └── validations/      # Zod validation schemas
-├── services/              # Business logic layer
-│   ├── inventory/        # Inventory management services
-│   │   ├── stock.service.ts
-│   │   ├── grn.service.ts (Goods Receipt Note)
-│   │   ├── mrn.service.ts (Material Return Note)
-│   │   ├── issue.service.ts
-│   │   ├── wastage.service.ts
-│   │   ├── stock-request.service.ts
-│   │   ├── item.service.ts
-│   │   ├── store.service.ts
-│   │   ├── transaction.service.ts
-│   │   └── types.ts
-│   ├── contractor.service.ts
-│   ├── sod.service.ts (Service Order Delivery)
-│   ├── material.service.ts
-│   ├── notification.service.ts
-│   ├── invoice.service.ts
-│   ├── audit.service.ts
-│   ├── automation.service.ts
-│   ├── slt-api.service.ts
-│   ├── system.service.ts
-│   └── user.service.ts
+├── services/              # Business logic layer (Facade + Sub-service Structure)
+│   ├── contractor.service.ts # Contractor Facade
+│   ├── contractor/        # Contractor sub-services
+│   ├── sod.service.ts     # Service Order Facade
+│   ├── sod/               # Service Order sub-services
+│   ├── inventory.service.ts # Inventory Facade
+│   ├── inventory/         # Inventory sub-services
+│   ├── project.service.ts # Project Facade (redirects to subfolder)
+│   ├── project/           # Project sub-services (core, boq, tasks, survey etc.)
+│   ├── gis.service.ts     # GIS Facade (redirects to subfolder)
+│   ├── gis/               # GIS sub-services (auto-plan, parser, road network etc.)
+│   ├── payment-voucher.service.ts # Payment Voucher Facade (redirects to finance)
+│   ├── finance/           # Finance sub-services
+│   │   ├── payment-voucher.service.ts # Unified PV service
+│   │   ├── ledger.service.ts          # General Ledger / Journal Entry service
+│   │   ├── petty-cash.service.ts      # Petty Cash Imprest service
+│   │   └── retention.service.ts
+│   ├── user.service.ts
+│   └── notification.service.ts
 └── workers/               # Background job workers
 
 prisma/
@@ -83,8 +80,9 @@ prisma/
 │   ├── survey.prisma        # Survey, Field Tasks, OTDR, HSE
 │   ├── permits.prisma       # AuthorityEntity, PermitType, ProjectPermit
 │   ├── vehicle-management.prisma # VM* models (21 models)
+│   ├── petty-cash.prisma    # PettyCashAccount, PettyCashVoucher, PettyCashReimbursement
 │   └── system.prisma        # Section, SystemRole, SystemConfig, DashboardStat
-├── schema.prisma            # LEGACY — kept for reference, NOT active
+├── schema.prisma            # Combined schema file
 ├── schema.prisma.bak        # Backup of original monolith
 ├── migrations/              # Migration history (DB structure unchanged)
 └── seed.js                  # Seed data

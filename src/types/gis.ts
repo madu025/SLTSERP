@@ -299,7 +299,7 @@ export interface GISUploadRequest {
     fileData: string; // Base64 or buffer
   }>;
   projectId?: string;
-  versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT';
+  versionType?: 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT';
   notes?: string;
   projectName?: string;
   region?: string;

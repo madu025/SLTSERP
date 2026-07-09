@@ -4,6 +4,7 @@ import { NotificationService } from '../notification.service';
 import { emitSystemEvent } from '@/lib/events';
 import { StockService } from './stock.service';
 import { TransactionClient } from './types';
+import { LedgerService } from '../finance/ledger.service';
 
 export class MRNService {
     static async createMRN(data: {
@@ -120,7 +121,15 @@ export class MRNService {
                 });
 
                 const transactionItems: { itemId: string; quantity: number }[] = [];
+                let totalMrnCost = 0;
                 for (const item of mrn.items) {
+                    const itemMeta = await tx.inventoryItem.findUnique({
+                        where: { id: item.itemId },
+                        select: { costPrice: true, unitPrice: true }
+                    });
+                    const costPrice = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
+                    totalMrnCost += costPrice * item.quantity;
+
                     const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, mrn.storeId, item.itemId, item.quantity);
 
                     for (const picked of pickedBatches) {
@@ -157,6 +166,8 @@ export class MRNService {
                         }
                     }
                 });
+
+                await LedgerService.logMrnReturn(tx, mrn.id, totalMrnCost);
 
                 try {
                     await NotificationService.send({

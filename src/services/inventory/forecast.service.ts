@@ -13,33 +13,24 @@ export class ForecastService {
         const months = options.months || 1;
         const target = options.monthlyConnectionTarget || 0;
 
-        // 1. Calculate Average Monthly Consumption (based on past 3 months of issue transactions)
+        // 1. Calculate Average Monthly Consumption (based on past 3 months of SOD material usages)
         const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
 
-        const consumptionItems = await prisma.inventoryTransactionItem.findMany({
+        const usages = await prisma.sODMaterialUsage.groupBy({
+            by: ['itemId'],
             where: {
-                quantity: { lt: 0 },
-                transaction: {
-                    date: { gte: threeMonthsAgo },
-                    type: { in: ['TRANSFER_OUT', 'WASTAGE'] },
-                    NOT: [
-                        { notes: { contains: 'Released to Transit' } },
-                        { notes: { contains: 'Material Issue' } },
-                        { notes: { contains: 'Transit incoming' } }
-                    ]
-                }
+                createdAt: { gte: threeMonthsAgo },
+                usageType: { in: ['USED', 'USED_F1', 'USED_G1', 'PORTAL_SYNC', 'WASTAGE'] }
             },
-            select: {
-                itemId: true,
+            _sum: {
                 quantity: true
             }
         });
 
         const consumptionMap: Record<string, number> = {};
-        for (const item of consumptionItems) {
-            const qty = Math.abs(Number(item.quantity));
-            consumptionMap[item.itemId] = (consumptionMap[item.itemId] || 0) + qty;
+        for (const u of usages) {
+            consumptionMap[u.itemId] = u._sum.quantity ? Number(u._sum.quantity) : 0;
         }
 
         // 2. Fetch Material Standards

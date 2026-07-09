@@ -288,15 +288,15 @@ export class ProjectSurveyService {
         take: 50
       });
 
-      const findRate = (keywords: string[]): number => {
+      const findRate = (keywords: string[], defaultRate: number): number => {
         const m = inventoryItems.find(i => keywords.some(k => i.name?.toLowerCase().includes(k.toLowerCase())));
-        return m?.unitPrice ? Number(m.unitPrice) : 0;
+        return m?.unitPrice ? Number(m.unitPrice) : defaultRate;
       };
 
       const items = [];
 
       if (poleCount > 0) {
-        const r = findRate(['pole', 'wooden', 'concrete']);
+        const r = findRate(['pole', 'wooden', 'concrete'], 15000);
         items.push({
           itemCategory: 'POLE',
           itemCode: 'POLE-001',
@@ -311,7 +311,7 @@ export class ProjectSurveyService {
       }
 
       if (chamberCount > 0) {
-        const r = findRate(['chamber', 'manhole']);
+        const r = findRate(['chamber', 'manhole'], 25000);
         items.push({
           itemCategory: 'CHAMBER',
           itemCode: 'CHMB-001',
@@ -326,7 +326,7 @@ export class ProjectSurveyService {
       }
 
       if (closureCount > 0) {
-        const r = findRate(['closure', 'splice']);
+        const r = findRate(['closure', 'splice'], 8500);
         items.push({
           itemCategory: 'CLOSURE',
           itemCode: 'CLSR-001',
@@ -341,7 +341,7 @@ export class ProjectSurveyService {
       }
 
       if (gisRoute.cableSegments.length > 0) {
-        const r = findRate(['fiber', 'cable']);
+        const r = findRate(['fiber', 'cable'], 350);
         items.push({
           itemCategory: 'CABLE',
           itemCode: 'CBL-001',

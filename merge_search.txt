@@ -1,0 +1,16 @@
+﻿46:   CABLE_FIBER_COUNT: 12,
+172:       // Merge only the unique AI roads
+489:           const fiberCount = cand.building.isMDU ? (demand > 4 ? 12 : 4) : 2;
+519:             const fiberCount = b.isMDU ? (demand > 4 ? 12 : 4) : 2;
+826:       // --- Intelligent Pole Deduplication: Merge poles within 12 meters ---
+827:       const poleMergeMap = new Map<string, [number, number]>();
+836:         let merged = false;
+839:           if (dist < 12) {
+851:                 poleMergeMap.set(fpKey, [p.longitude, p.latitude]);
+856:               poleMergeMap.set(pKey, [fp.longitude, fp.latitude]);
+858:             merged = true;
+862:         if (!merged) {
+877:       // Update all cable coordinates to use the merged pole coordinates and deduplicate
+882:           if (poleMergeMap.has(key)) {
+883:             newCoords.push(poleMergeMap.get(key)!);
+905:       // --- Greedy Span Aggregation: Merge intermediate poles if the resulting span <= 38m ---

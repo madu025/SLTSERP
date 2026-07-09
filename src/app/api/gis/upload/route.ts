@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       body = {
         files,
         projectId: (formData.get('projectId') as string) || undefined,
-        versionType: (formData.get('versionType') as 'PLANNED' | 'FIELD_CHANGE' | 'AS_BUILT') || undefined,
+        versionType: (formData.get('versionType') as 'PLANNED' | 'FIELD_CHANGE' | 'BEFORE_PAT' | 'AS_BUILT') || undefined,
         notes: (formData.get('notes') as string) || undefined,
         projectName: (formData.get('projectName') as string) || undefined,
         region: (formData.get('region') as string) || undefined,

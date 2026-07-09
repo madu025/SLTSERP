@@ -217,6 +217,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
             },
             {
+                title: 'IR Material Audit',
+                path: '/projects/dashboards/ir-audit',
+                icon: FileText,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER']
+            },
+            {
                 title: 'National GIS Map',
                 path: '/gis/map',
                 icon: Route,
