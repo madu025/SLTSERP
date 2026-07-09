@@ -1,10 +1,9 @@
 import { prisma } from '@/lib/prisma';
-import { InvoiceCalculatorService } from '../invoice/invoice.calculator.service';
-import { InvoiceGeneratorService } from '../invoice/invoice.generator.service';
+import { ProjectInvoiceService } from '../project/project-invoice.service';
 
 export class BOMInvoiceService {
     /**
-     * Parse Excel row data and generate Invoice & PaymentVoucher summaries without raw BOM saving
+     * Parse SLT BOM Excel row data, update matched SODs to PAT_PASSED, and generate Client Invoice for SLT
      */
     static async processBOMImport(rows: Record<string, unknown>[], userId: string) {
         if (!rows || rows.length === 0) {
@@ -24,185 +23,123 @@ export class BOMInvoiceService {
             }
         });
 
-        // 2. Map rows to structured data
-        const structuredRows = rows.map((row, idx) => {
-            // Flex mapping for contractor name
-            const contractorName = String(
-                row['Contractor'] ||
-                row['CON_NAME'] ||
-                row['Contractor Name'] ||
-                row['Vendor'] ||
-                row['contractor'] ||
+        // 2. Extract unique Service Order Numbers (soNum) from the sheet rows
+        const soNumsRaw = rows.map(row => {
+            return String(
+                row['SO Number'] ||
+                row['SO_NUM'] ||
+                row['Service Order'] ||
+                row['soNum'] ||
+                row['SOD'] ||
                 ''
             ).trim();
-
-            // Flex mapping for amount
-            const amountStr = String(
-                row['Amount'] ||
-                row['Cost'] ||
-                row['Total'] ||
-                row['Rate'] ||
-                row['Price'] ||
-                row['Value'] ||
-                row['amount'] ||
-                '0'
-            ).trim();
-            const amount = parseFloat(amountStr) || 0;
-
-            // Flex mapping for invoice number
-            const invoiceNumber = String(
-                row['Invoice Number'] ||
-                row['Invoice_Num'] ||
-                row['InvoiceNumber'] ||
-                row['Invoice Ref'] ||
-                row['invoiceNumber'] ||
-                ''
-            ).trim();
-
-            // Flex mapping for dates/month/year
-            const monthStr = String(row['Month'] || row['month'] || '').trim();
-            const yearStr = String(row['Year'] || row['year'] || '').trim();
-            
-            let month = parseInt(monthStr);
-            let year = parseInt(yearStr);
-            
-            if (isNaN(month) || month < 1 || month > 12) {
-                month = new Date().getMonth() + 1;
-            }
-            if (isNaN(year) || year < 2000) {
-                year = new Date().getFullYear();
-            }
-
-            return {
-                contractorName,
-                amount,
-                invoiceNumber,
-                month,
-                year,
-                originalRowIndex: idx + 1
-            };
         });
 
-        // Filter out empty rows or zero amounts
-        const validRows = structuredRows.filter(r => r.contractorName && r.amount > 0);
-        if (validRows.length === 0) {
-            throw new Error('NO_VALID_DATA_FOUND');
+        const uniqueSoNums = Array.from(new Set(soNumsRaw.filter(Boolean)));
+        if (uniqueSoNums.length === 0) {
+            throw new Error('NO_SERVICE_ORDERS_FOUND_IN_SHEET');
         }
 
-        // Group rows by Contractor name and Invoice Number
-        // Key: `${contractorName}::${invoiceNumber}::${year}::${month}`
-        const groups: Record<string, typeof validRows> = {};
-        for (const r of validRows) {
-            const key = `${r.contractorName.toLowerCase()}::${r.invoiceNumber.toLowerCase()}::${r.year}::${r.month}`;
-            if (!groups[key]) {
-                groups[key] = [];
+        // 3. Query matching ServiceOrder records from the database
+        const serviceOrders = await prisma.serviceOrder.findMany({
+            where: {
+                soNum: {
+                    in: uniqueSoNums
+                }
+            },
+            include: {
+                opmc: true
             }
-            groups[key].push(r);
+        });
+
+        const matchedSoNums = new Set(serviceOrders.map(so => so.soNum.toLowerCase()));
+        const unmatchedSoNums = uniqueSoNums.filter(soNum => !matchedSoNums.has(soNum.toLowerCase()));
+        const warnings = unmatchedSoNums.map(soNum => `Service Order "${soNum}" not found in database.`);
+
+        if (serviceOrders.length === 0) {
+            return {
+                success: false,
+                invoicesCreated: 0,
+                matchedCount: 0,
+                totalRevenue: 0,
+                warnings: [
+                    ...warnings,
+                    'All service connection orders from the sheet were unmatched. No invoice generated.'
+                ]
+            };
         }
 
-        let invoicesCreated = 0;
-        let pvsCreated = 0;
-        const warnings: string[] = [];
+        // 4. Fetch active OPMC revenue configs for flat billing rate calculation
+        const revenueConfigs = await prisma.sODRevenueConfig.findMany({
+            where: { isActive: true }
+        });
 
-        // Process groups inside database transaction
-        await prisma.$transaction(async (tx) => {
-            for (const key in groups) {
-                const groupRows = groups[key];
-                const firstRow = groupRows[0];
-                const contractorSearchName = firstRow.contractorName;
-
-                // Match contractor in database case-insensitively
-                const contractor = await tx.contractor.findFirst({
-                    where: {
-                        name: {
-                            contains: contractorSearchName,
-                            mode: 'insensitive'
-                        }
-                    }
-                });
-
-                if (!contractor) {
-                    warnings.push(`Contractor "${contractorSearchName}" not found in system. Skipping.`);
-                    continue;
-                }
-
-                const totalAmount = groupRows.reduce((sum, r) => sum + r.amount, 0);
-                const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount, 0);
-
-                // Determine invoice number
-                let finalInvoiceNum = firstRow.invoiceNumber;
-                if (!finalInvoiceNum) {
-                    const prefix = InvoiceCalculatorService.getContractorPrefix(contractor.name);
-                    finalInvoiceNum = await InvoiceGeneratorService.generateUniqueNumber(
-                        prefix,
-                        'METRO',
-                        firstRow.year,
-                        firstRow.month
-                    );
-                }
-
-                // Check if invoice number already exists
-                const existingInvoice = await tx.invoice.findUnique({
-                    where: { invoiceNumber: finalInvoiceNum }
-                });
-                if (existingInvoice) {
-                    warnings.push(`Invoice number "${finalInvoiceNum}" already exists. Skipping.`);
-                    continue;
-                }
-
-                // Create monthly Contractor Invoice
-                const invoice = await tx.invoice.create({
-                    data: {
-                        invoiceNumber: finalInvoiceNum,
-                        contractorId: contractor.id,
-                        projectId: defaultProject.id,
-                        year: firstRow.year,
-                        month: firstRow.month,
-                        totalAmount: totalAmount,
-                        amount: totalAmount,
-                        amountA,
-                        amountB,
-                        status: 'PENDING',
-                        statusA: 'PENDING',
-                        statusB: 'HOLD',
-                        description: `BOM Import Invoice - ${firstRow.month}/${firstRow.year}`
-                    }
-                });
-
-                invoicesCreated++;
-
-                // Create linked Payment Voucher
-                // Generate a unique PV Number
-                const countPV = await tx.paymentVoucher.count({
-                    where: { pvNumber: { startsWith: `PV-${new Date().getFullYear()}-` } }
-                });
-                const nextPVSeq = String(countPV + 1).padStart(4, '0');
-                const pvNumber = `PV-${new Date().getFullYear()}-${nextPVSeq}`;
-
-                await tx.paymentVoucher.create({
-                    data: {
-                        pvNumber,
-                        projectId: defaultProject.id,
-                        title: `BOM Payout - ${finalInvoiceNum}`,
-                        description: `BOM_INVOICING_REF:${invoice.id}`,
-                        amount: totalAmount,
-                        netAmount: totalAmount,
-                        type: 'CONTRACTOR',
-                        payeeName: contractor.name,
-                        payeeId: contractor.id,
-                        createdById: userId,
-                        status: 'DRAFT'
-                    }
-                });
-
-                pvsCreated++;
+        const getRevenueRateForOpmc = (opmcId: string | null) => {
+            if (opmcId) {
+                const match = revenueConfigs.find(c => c.rtomId === opmcId);
+                if (match) return match.revenuePerSOD;
             }
+            const fallback = revenueConfigs.find(c => c.rtomId === null);
+            return fallback ? fallback.revenuePerSOD : 5500; // default flat rate fallback
+        };
+
+        // 5. Group matched ServiceOrders by OPMC to generate aggregated invoice items
+        const opmcGroups: Record<string, { opmcName: string; opmcId: string | null; count: number; rate: number }> = {};
+        const matchedIds: string[] = [];
+
+        for (const so of serviceOrders) {
+            matchedIds.push(so.id);
+            const opmcId = so.opmcId || 'GLOBAL';
+            const opmcName = so.opmc?.name || 'Standard Regional OPMC';
+            const rate = getRevenueRateForOpmc(so.opmcId);
+
+            if (!opmcGroups[opmcId]) {
+                opmcGroups[opmcId] = {
+                    opmcName,
+                    opmcId: so.opmcId,
+                    count: 0,
+                    rate
+                };
+            }
+            opmcGroups[opmcId].count++;
+        }
+
+        const invoiceItems = Object.values(opmcGroups).map(g => ({
+            description: `PAT-Passed connections for OPMC: ${g.opmcName} (Qty: ${g.count})`,
+            quantity: g.count,
+            unitPrice: g.rate,
+            itemType: 'SERVICE' as const
+        }));
+
+        // 6. Update matched ServiceOrders to PAT_PASSED and mark as invoicable
+        await prisma.serviceOrder.updateMany({
+            where: { id: { in: matchedIds } },
+            data: {
+                sltsPatStatus: 'PAT_PASSED',
+                hoPatStatus: 'APPROVED',
+                isInvoicable: true,
+                sltsPatDate: new Date()
+            }
+        });
+
+        // 7. Create Client ProjectInvoice
+        const invoice = await ProjectInvoiceService.createInvoice({
+            projectId: defaultProject.id,
+            title: `SLT Client Billing (BOM Import) - ${new Date().toLocaleDateString()}`,
+            description: `Billing claim generated from SLT BOM sheet. Matches ${serviceOrders.length} PAT-passed connections.`,
+            type: 'CLIENT',
+            invoiceDate: new Date(),
+            dueDate: new Date(Date.now() + 30 * 24 * 3600 * 1000), // 30 days due
+            items: invoiceItems,
+            createdById: userId
         });
 
         return {
             success: true,
-            invoicesCreated,
-            pvsCreated,
+            invoicesCreated: 1,
+            clientInvoiceNumber: invoice.invoiceNumber,
+            matchedCount: serviceOrders.length,
+            totalRevenue: invoice.totalAmount,
             warnings
         };
     }

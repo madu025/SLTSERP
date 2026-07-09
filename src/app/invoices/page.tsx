@@ -218,7 +218,23 @@ export default function InvoicesPage() {
                         throw new Error(json.error || json.message || 'Import failed');
                     }
 
-                    alert(`Successfully imported! Created ${json.invoicesCreated} invoices and ${json.pvsCreated} payment vouchers.`);
+                    if (json.success) {
+                        let msg = `Successfully parsed SLT BOM Sheet!\n\n`;
+                        msg += `- Matched connections (PAT Passed): ${json.matchedCount}\n`;
+                        msg += `- Generated Client Invoice: ${json.clientInvoiceNumber}\n`;
+                        msg += `- Total Recognized Project Revenue: ${json.totalRevenue.toLocaleString()} LKR\n`;
+                        
+                        if (json.warnings && json.warnings.length > 0) {
+                            msg += `\nWarnings (${json.warnings.length} unmatched connection SOs):\n`;
+                            msg += json.warnings.slice(0, 10).join('\n');
+                            if (json.warnings.length > 10) {
+                                msg += `\n...and ${json.warnings.length - 10} more.`;
+                            }
+                        }
+                        alert(msg);
+                    } else {
+                        alert(`BOM Import Warning: ${json.warnings?.join('\n')}`);
+                    }
                     setBomImportDialogOpen(false);
                     setBomFile(null);
                     fetchInvoices();
@@ -1158,10 +1174,10 @@ export default function InvoicesPage() {
                 <DialogContent className="sm:max-w-[425px] rounded-2xl">
                     <DialogHeader>
                         <DialogTitle className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                            Import SLT BOM Sheet
+                            Import SLT BOM Sheet (Client Billing & PAT Sync)
                         </DialogTitle>
                         <DialogDescription className="text-xs text-slate-500">
-                            Select an Excel (.xlsx / .xls) BOM sheet to automatically generate contractor invoices and payment vouchers.
+                            Select an SLT-generated Excel BOM sheet to mark matched connection orders as PAT-passed and automatically generate the client billing claim (Client Invoice) to SLT.
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleBOMImport} className="space-y-4 py-2">
