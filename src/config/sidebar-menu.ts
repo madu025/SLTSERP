@@ -291,8 +291,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             },
             {
-                title: 'Client Invoices & BOM Sync',
-                path: '/invoices/client',
+                title: 'BOM Sheets',
+                path: '/invoices/bom-sheets',
                 icon: Receipt,
                 allowedRoles: [
                     ...ROLE_GROUPS.ADMINS,

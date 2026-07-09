@@ -3,35 +3,121 @@ import fs from 'fs';
 import path from 'path';
 
 const REGISTRY_FILE = path.join(process.cwd(), 'src/data/slt-boms.json');
+const CONFIG_FILE = path.join(process.cwd(), 'src/data/slt-config.json');
+
+function parseBOMHtml(html: string) {
+    const boms: Array<{ bomRef: string; rtom: string; contractor: string; path: string }> = [];
+    const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    let match;
+    
+    while ((match = trRegex.exec(html)) !== null) {
+        const trContent = match[1];
+        const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+        const tds: string[] = [];
+        let tdMatch;
+        
+        while ((tdMatch = tdRegex.exec(trContent)) !== null) {
+            const text = tdMatch[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+            tds.push(text);
+        }
+        
+        if (tds.length >= 3) {
+            const bomRef = tds[0];
+            const rtom = tds[1];
+            const contractor = tds[2];
+            
+            const onclickMatch = trContent.match(/bomDwnload\('([^']+)'\)/);
+            const path = onclickMatch ? onclickMatch[1] : bomRef;
+            
+            if (bomRef && (bomRef.toUpperCase().includes('BOM') || bomRef.toUpperCase().startsWith('BOM'))) {
+                boms.push({ bomRef, rtom, contractor, path });
+            }
+        }
+    }
+    
+    return boms;
+}
 
 export async function GET() {
-    try {
-        if (!fs.existsSync(REGISTRY_FILE)) {
-            return NextResponse.json({ success: true, boms: [] });
+    let cachedBoms: any[] = [];
+    let cookieSaved = false;
+    let sltCookie = '';
+
+    // Load cached list if it exists
+    if (fs.existsSync(REGISTRY_FILE)) {
+        try {
+            cachedBoms = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf-8'));
+        } catch (e) {
+            console.error('Failed to read cached BOM registry:', e);
         }
-        const fileContent = fs.readFileSync(REGISTRY_FILE, 'utf-8');
-        const boms = JSON.parse(fileContent);
-        return NextResponse.json({ success: true, boms });
-    } catch (error: unknown) {
-        console.error('Failed to read BOM registry:', error);
-        return NextResponse.json(
-            { success: false, message: 'Failed to read BOM registry' },
-            { status: 500 }
-        );
     }
+
+    // Load SLT cookie configuration
+    if (fs.existsSync(CONFIG_FILE)) {
+        try {
+            const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+            sltCookie = config.cookie || '';
+            cookieSaved = !!sltCookie;
+        } catch (e) {
+            console.error('Failed to read slt-config:', e);
+        }
+    }
+
+    if (sltCookie) {
+        try {
+            console.log('Fetching live BOM list from SLT service portal...');
+            const res = await fetch('https://serviceportal.slt.lk/iShamp/contr/dynamic_load?x=ftthbomload&z=SLTS', {
+                headers: {
+                    'Cookie': sltCookie,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+                },
+                next: { revalidate: 0 } // disable next.js fetch caching
+            });
+
+            if (!res.ok) {
+                throw new Error(`HTTP Error ${res.status}`);
+            }
+
+            const html = await res.text();
+            
+            // Check if redirecting to login page
+            if (html.includes('login') || html.includes('Username') || html.includes('Password')) {
+                throw new Error('SESSION_EXPIRED');
+            }
+
+            const liveBoms = parseBOMHtml(html);
+
+            if (liveBoms.length > 0) {
+                // Ensure data directory exists
+                const dir = path.dirname(REGISTRY_FILE);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+                
+                // Update cache
+                fs.writeFileSync(REGISTRY_FILE, JSON.stringify(liveBoms, null, 2), 'utf-8');
+                return NextResponse.json({ success: true, boms: liveBoms, cookieSaved, source: 'live' });
+            }
+        } catch (error: any) {
+            console.error('Live BOM fetch failed, falling back to cache:', error.message);
+            return NextResponse.json({ 
+                success: true, 
+                boms: cachedBoms, 
+                cookieSaved, 
+                source: 'cache',
+                warning: error.message === 'SESSION_EXPIRED' ? 'SESSION_EXPIRED' : 'SLT_PORTAL_OFFLINE'
+            });
+        }
+    }
+
+    return NextResponse.json({ success: true, boms: cachedBoms, cookieSaved, source: 'cache' });
 }
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { boms } = body;
-
-        if (!boms || !Array.isArray(boms)) {
-            return NextResponse.json(
-                { success: false, message: 'Invalid payload: boms must be an array' },
-                { status: 400 }
-            );
-        }
+        const { action, cookie, boms } = body;
 
         // Ensure data directory exists
         const dir = path.dirname(REGISTRY_FILE);
@@ -39,12 +125,26 @@ export async function POST(request: Request) {
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        fs.writeFileSync(REGISTRY_FILE, JSON.stringify(boms, null, 2), 'utf-8');
-        return NextResponse.json({ success: true, count: boms.length });
+        if (action === 'save-cookie') {
+            fs.writeFileSync(CONFIG_FILE, JSON.stringify({ cookie }, null, 2), 'utf-8');
+            return NextResponse.json({ success: true, message: 'SLT cookie configuration saved successfully' });
+        }
+
+        // Default: save scraped BOMs array
+        const listToSave = boms || body;
+        if (!listToSave || !Array.isArray(listToSave)) {
+            return NextResponse.json(
+                { success: false, message: 'Invalid payload: boms must be an array' },
+                { status: 400 }
+            );
+        }
+
+        fs.writeFileSync(REGISTRY_FILE, JSON.stringify(listToSave, null, 2), 'utf-8');
+        return NextResponse.json({ success: true, count: listToSave.length });
     } catch (error: unknown) {
-        console.error('Failed to save BOM registry:', error);
+        console.error('Failed to save request payload:', error);
         return NextResponse.json(
-            { success: false, message: 'Failed to save BOM registry' },
+            { success: false, message: 'Failed to process request' },
             { status: 500 }
         );
     }

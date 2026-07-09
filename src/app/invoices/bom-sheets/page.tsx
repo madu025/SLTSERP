@@ -65,6 +65,11 @@ export default function ClientInvoicesPage() {
     const [activeTab, setActiveTab] = useState<'invoices' | 'slt-boms'>('invoices');
     const [targetBOM, setTargetBOM] = useState<SLTBOM | null>(null);
     const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+    
+    // Cookie Config States
+    const [sltCookieInput, setSltCookieInput] = useState('');
+    const [sltCookieSaved, setSltCookieSaved] = useState(false);
+    const [sltFetchWarning, setSltFetchWarning] = useState<string | null>(null);
 
     const fetchSltRegistry = async () => {
         setSltLoading(true);
@@ -73,9 +78,62 @@ export default function ClientInvoicesPage() {
             const data = await res.json();
             if (data.success) {
                 setSltBoms(data.boms || []);
+                setSltCookieSaved(data.cookieSaved || false);
+                if (data.warning) {
+                    setSltFetchWarning(data.warning);
+                } else {
+                    setSltFetchWarning(null);
+                }
             }
         } catch (err) {
             console.error('Failed to fetch slt registry:', err);
+        } finally {
+            setSltLoading(false);
+        }
+    };
+
+    const handleSaveCookie = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!sltCookieInput.trim()) return;
+        try {
+            const res = await fetch('/api/invoices/slt-registry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save-cookie', cookie: sltCookieInput.trim() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('SLT Portal Session Cookie saved successfully!');
+                setSltCookieSaved(true);
+                setSltCookieInput('');
+                fetchSltRegistry();
+            } else {
+                alert('Failed to save cookie: ' + data.message);
+            }
+        } catch (err: any) {
+            alert('Error saving cookie: ' + err.message);
+        }
+    };
+
+    const handleDownloadAndSync = async (bom: SLTBOM) => {
+        if (!confirm(`Are you sure you want to download and sync connection data for BOM: ${bom.bomRef} directly from the SLT Portal?`)) return;
+        setSltLoading(true);
+        try {
+            const res = await fetch('/api/invoices/slt-registry/download-sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bomPath: bom.path })
+            });
+            const json = await res.json();
+            if (!res.ok) {
+                throw new Error(json.message || 'Download & Sync failed');
+            }
+            alert(`BOM Synced successfully directly from SLT Portal!\n- Connections matched: ${json.matchedCount}\n- Client Invoice: ${json.clientInvoiceNumber}\n- Recognized Revenue: ${json.totalRevenue.toLocaleString()} LKR`);
+            fetchInvoices();
+            fetchSltRegistry();
+        } catch (err: any) {
+            console.error(err);
+            alert(`Sync Error: ${err.message}`);
         } finally {
             setSltLoading(false);
         }
@@ -329,7 +387,7 @@ export default function ClientInvoicesPage() {
                         {/* Page Header */}
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <div className="space-y-0.5">
-                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Client Invoices & BOM Sync</h1>
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">BOM Sheets</h1>
                                 <p className="text-xs text-slate-500">Revenue Recognition from SLT PAT-Passed BOM sheets.</p>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
@@ -546,6 +604,35 @@ export default function ClientInvoicesPage() {
 
                             <TabsContent value="slt-boms" className="mt-0">
                                 <div className="erp-table-container bg-white rounded-xl border border-slate-200 p-4">
+                                    {/* Cookie Configuration Form */}
+                                    <div className="mb-4 bg-slate-50 border border-slate-200 p-3.5 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                        <div className="space-y-0.5">
+                                            <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider">SLT Portal Session Cookie</h4>
+                                            <p className="text-[10px] text-slate-500">
+                                                Paste your active portal session cookie (e.g. PHPSESSID=xxxxxx) to dynamically load the BOM sheets.
+                                            </p>
+                                        </div>
+                                        <form onSubmit={handleSaveCookie} className="flex gap-2 w-full sm:w-auto">
+                                            <Input
+                                                type="text"
+                                                placeholder={sltCookieSaved ? "Cookie saved (enter new to update)" : "PHPSESSID=xxxxx"}
+                                                value={sltCookieInput}
+                                                onChange={(e) => setSltCookieInput(e.target.value)}
+                                                className="h-8 text-xs bg-white border-slate-200 w-full sm:w-64 rounded-lg"
+                                            />
+                                            <Button type="submit" size="sm" className="h-8 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase rounded-lg">
+                                                Save
+                                            </Button>
+                                        </form>
+                                    </div>
+
+                                    {/* Warning Banner */}
+                                    {sltFetchWarning === 'SESSION_EXPIRED' && (
+                                        <div className="mb-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs px-4 py-2.5 rounded-xl font-semibold flex items-center justify-between">
+                                            <span>⚠️ Your SLT Portal session has expired. Please copy and save your active session cookie above.</span>
+                                        </div>
+                                    )}
+
                                     {sltLoading ? (
                                         <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-4">
                                             <div className="h-8 w-8 border-3 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
@@ -556,36 +643,13 @@ export default function ClientInvoicesPage() {
                                             <FileText className="w-12 h-12 opacity-20 mb-4" />
                                             <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 mb-1">SLT Portal Registry Empty</h3>
                                             <p className="text-xs text-slate-500 leading-relaxed mb-4">
-                                                No SLT portal BOM sheets have been synced to the local ERP registry yet. Use the bookmarklet below to scrape the table from the SLT portal.
+                                                Please save your active SLT Portal session cookie above to dynamically fetch the BOM sheets list.
                                             </p>
-                                            <div className="p-3 bg-slate-50 rounded-lg text-[10px] text-left text-slate-600 border border-slate-100 space-y-2 mb-4">
-                                                <p className="font-bold text-slate-800">Bookmarklet Instructions:</p>
-                                                <ol className="list-decimal list-inside space-y-1">
-                                                    <li>Drag the <b>"Sync BOM Registry"</b> button to your bookmarks bar.</li>
-                                                    <li>Open the SLT Portal BOM list page.</li>
-                                                    <li>Click the bookmarklet to load this registry dynamically!</li>
-                                                </ol>
-                                            </div>
-                                            <a
-                                                href={`javascript:(async()=>{alert('Scraping SLT BOM list...');const rows=[];document.querySelectorAll('table tbody tr').forEach(tr=>{const tds=tr.querySelectorAll('td');if(tds.length>=4){const bomRef=tds[0].innerText.trim();const rtom=tds[1].innerText.trim();const contractor=tds[2].innerText.trim();const btn=tds[3].querySelector('button');const onclick=btn?btn.getAttribute('onclick'):'';const match=onclick.match(/bomDwnload\\(\\'([^\\']+)\\'\\)/);const path=match?match[1]:bomRef;rows.push({bomRef,rtom,contractor,path});}});if(rows.length===0){alert('No BOM rows found. Make sure you are on the SLT BOM portal page.');return;}try{const res=await fetch('${typeof window !== 'undefined' ? window.location.origin : ''}/api/invoices/slt-registry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({boms:rows})});const json=await res.json();if(!res.ok)throw new Error(json.message||'Failed');alert('Successfully synced '+rows.length+' BOM sheets to ERP!');window.location.reload();}catch(err){alert('Sync Error: '+err.message);}})();`}
-                                                className="inline-flex items-center justify-center h-9 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition-all select-none shadow-sm cursor-grab border-none"
-                                                onClick={(e) => e.preventDefault()}
-                                            >
-                                                Sync BOM Registry
-                                            </a>
                                         </div>
                                     ) : (
                                         <>
                                             <div className="mb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-3 rounded-xl border border-slate-100 gap-2">
                                                 <div className="flex flex-wrap gap-2">
-                                                    <a
-                                                        href={`javascript:(async()=>{alert('Scraping SLT BOM list...');const rows=[];document.querySelectorAll('table tbody tr').forEach(tr=>{const tds=tr.querySelectorAll('td');if(tds.length>=4){const bomRef=tds[0].innerText.trim();const rtom=tds[1].innerText.trim();const contractor=tds[2].innerText.trim();const btn=tds[3].querySelector('button');const onclick=btn?btn.getAttribute('onclick'):'';const match=onclick.match(/bomDwnload\\(\\'([^\\']+)\\'\\)/);const path=match?match[1]:bomRef;rows.push({bomRef,rtom,contractor,path});}});if(rows.length===0){alert('No BOM rows found. Make sure you are on the SLT BOM portal page.');return;}try{const res=await fetch('${typeof window !== 'undefined' ? window.location.origin : ''}/api/invoices/slt-registry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({boms:rows})});const json=await res.json();if(!res.ok)throw new Error(json.message||'Failed');alert('Successfully synced '+rows.length+' BOM sheets to ERP!');window.location.reload();}catch(err){alert('Sync Error: '+err.message);}})();`}
-                                                        className="inline-flex items-center justify-center h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] uppercase tracking-wider cursor-grab select-none shadow-sm"
-                                                        onClick={(e) => e.preventDefault()}
-                                                        title="Drag to bookmarks bar"
-                                                    >
-                                                        Sync BOM Registry Bookmarklet
-                                                    </a>
                                                     <Button
                                                         onClick={fetchSltRegistry}
                                                         size="sm"
@@ -596,7 +660,7 @@ export default function ClientInvoicesPage() {
                                                     </Button>
                                                 </div>
                                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                                    Latest Scraped BOMs: <span className="text-slate-900 font-extrabold">{sltBoms.length} Sheets</span>
+                                                    SLT Portal BOM Sheets: <span className="text-slate-900 font-extrabold">{sltBoms.length} Sheets</span>
                                                 </p>
                                             </div>
                                             <ResponsiveTable>
@@ -607,7 +671,7 @@ export default function ClientInvoicesPage() {
                                                             <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">RTOM</th>
                                                             <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Contractor</th>
                                                             <th className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Sync Status</th>
-                                                            <th className="px-3 py-2 text-right pr-6 w-56">Action</th>
+                                                            <th className="px-3 py-2 text-right pr-6 w-72">Action</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100 bg-white">
@@ -632,37 +696,50 @@ export default function ClientInvoicesPage() {
                                                                     <td className="text-right pr-6">
                                                                         <div className="inline-flex items-center gap-1.5">
                                                                             {matchedInvoice ? (
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    onClick={() => {
-                                                                                        setSelectedInvoice(matchedInvoice);
-                                                                                        setDetailsOpen(true);
-                                                                                    }}
-                                                                                    className="h-7 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[10px] uppercase font-bold rounded-lg"
-                                                                                >
-                                                                                    View Invoice
-                                                                                </Button>
+                                                                                <>
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        onClick={() => {
+                                                                                            setSelectedInvoice(matchedInvoice);
+                                                                                            setDetailsOpen(true);
+                                                                                        }}
+                                                                                        className="h-7 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[10px] uppercase font-bold rounded-lg"
+                                                                                    >
+                                                                                        View Invoice
+                                                                                    </Button>
+                                                                                    <a
+                                                                                        href={`https://serviceportal.slt.lk/iShamp/files/${bom.path.trim().replace(/\//g, '-')}.csv`}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="inline-flex items-center justify-center h-7 px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-[10px] uppercase font-black rounded-lg transition-colors"
+                                                                                        title="Download original BOM CSV from SLT portal"
+                                                                                    >
+                                                                                        Download BOM
+                                                                                    </a>
+                                                                                </>
                                                                             ) : (
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    onClick={() => {
-                                                                                        setTargetBOM(bom);
-                                                                                        setSyncDialogOpen(true);
-                                                                                    }}
-                                                                                    className="h-7 px-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] uppercase font-bold rounded-lg"
-                                                                                >
-                                                                                    Sync & Generate
-                                                                                </Button>
+                                                                                <>
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        onClick={() => handleDownloadAndSync(bom)}
+                                                                                        className="h-7 px-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] uppercase font-bold rounded-lg"
+                                                                                        title="Download from SLT portal and sync directly to database"
+                                                                                    >
+                                                                                        Download & Sync
+                                                                                    </Button>
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        onClick={() => {
+                                                                                            setTargetBOM(bom);
+                                                                                            setSyncDialogOpen(true);
+                                                                                        }}
+                                                                                        className="h-7 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] uppercase font-bold rounded-lg"
+                                                                                        title="Manually upload CSV for this BOM"
+                                                                                    >
+                                                                                        Manual Sync
+                                                                                    </Button>
+                                                                                </>
                                                                             )}
-                                                                            <a
-                                                                                href={`https://serviceportal.slt.lk/iShamp/files/${bom.path.trim().replace(/\//g, '-')}.csv`}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className="inline-flex items-center justify-center h-7 px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-[10px] uppercase font-black rounded-lg transition-colors"
-                                                                                title="Download original BOM CSV from SLT portal"
-                                                                            >
-                                                                                Download BOM
-                                                                            </a>
                                                                         </div>
                                                                     </td>
                                                                 </tr>
