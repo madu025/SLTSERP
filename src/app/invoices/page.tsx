@@ -93,6 +93,9 @@ export default function InvoicesPage() {
     const [loading, setLoading] = useState(true);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [statusFilter] = useState('ALL');
+    const [bomImportDialogOpen, setBomImportDialogOpen] = useState(false);
+    const [bomFile, setBomFile] = useState<File | null>(null);
+    const [importing, setImporting] = useState(false);
 
     const [generateParams, setGenerateParams] = useState({
         contractorId: '',
@@ -178,6 +181,60 @@ export default function InvoicesPage() {
             alert('Error generating invoice');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleBOMImport = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!bomFile) return;
+
+        setImporting(true);
+        try {
+            const XLSX = await import('xlsx');
+            const reader = new FileReader();
+            
+            reader.onload = async (evt) => {
+                try {
+                    const bstr = evt.target?.result;
+                    const wb = XLSX.read(bstr, { type: 'binary' });
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+                    const data = XLSX.utils.sheet_to_json(ws);
+                    
+                    if (data.length === 0) {
+                        alert('No rows found in sheet');
+                        setImporting(false);
+                        return;
+                    }
+
+                    const res = await fetch('/api/invoices/import-bom', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rows: data })
+                    });
+
+                    const json = await res.json();
+                    if (!res.ok) {
+                        throw new Error(json.error || json.message || 'Import failed');
+                    }
+
+                    alert(`Successfully imported! Created ${json.invoicesCreated} invoices and ${json.pvsCreated} payment vouchers.`);
+                    setBomImportDialogOpen(false);
+                    setBomFile(null);
+                    fetchInvoices();
+                } catch (err: any) {
+                    console.error(err);
+                    alert(`Error parsing/uploading BOM: ${err.message}`);
+                } finally {
+                    setImporting(false);
+                }
+            };
+            
+            reader.readAsBinaryString(bomFile);
+        } catch (err: any) {
+            console.error(err);
+            alert(`Error loading excel parser: ${err.message}`);
+            setImporting(false);
         }
     };
 
@@ -693,9 +750,14 @@ export default function InvoicesPage() {
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 {userRole !== 'AREA_COORDINATOR' && userRole !== 'QC_OFFICER' && (
-                                    <Button onClick={() => setCreateDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
-                                        <Plus className="w-4 h-4 mr-1.5" /> Generate Monthly Invoice
-                                    </Button>
+                                    <>
+                                        <Button onClick={() => setBomImportDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-slate-800 hover:bg-slate-950 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                            <FileText className="w-4 h-4 mr-1.5" /> Import BOM Sheet
+                                        </Button>
+                                        <Button onClick={() => setCreateDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                            <Plus className="w-4 h-4 mr-1.5" /> Generate Monthly Invoice
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -1088,6 +1150,41 @@ export default function InvoicesPage() {
                             </div>
                         )}
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* BOM Import Dialog */}
+            <Dialog open={bomImportDialogOpen} onOpenChange={setBomImportDialogOpen}>
+                <DialogContent className="sm:max-w-[425px] rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                            Import SLT BOM Sheet
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            Select an Excel (.xlsx / .xls) BOM sheet to automatically generate contractor invoices and payment vouchers.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleBOMImport} className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select File</Label>
+                            <Input 
+                                type="file" 
+                                accept=".xlsx, .xls" 
+                                required 
+                                onChange={(e) => setBomFile(e.target.files?.[0] || null)}
+                                className="h-10 rounded-lg bg-slate-50 border-none file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-350 cursor-pointer" 
+                            />
+                        </div>
+                        <DialogFooter className="pt-2">
+                            <Button 
+                                type="submit" 
+                                disabled={importing || !bomFile} 
+                                className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 rounded-lg font-bold text-xs uppercase tracking-wider"
+                            >
+                                {importing ? 'Processing BOM...' : 'Import & Generate'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>

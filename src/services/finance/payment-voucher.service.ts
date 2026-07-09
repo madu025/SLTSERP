@@ -300,6 +300,25 @@ export class PaymentVoucherService {
           tx, id, existing.amount, existing.type || 'CONTRACTOR', existing.pvNumber, existing.payeeName
         );
 
+        // Sync with monthly Contractor Invoice if BOM-based
+        if (existing.description && existing.description.startsWith('BOM_INVOICING_REF:')) {
+          const bomInvoiceId = existing.description.split(':')[1];
+          try {
+            await tx.invoice.update({
+              where: { id: bomInvoiceId },
+              data: {
+                status: 'PAID',
+                statusA: 'PAID',
+                statusB: 'PAID',
+                paidDateA: new Date(),
+                paidDateB: new Date()
+              }
+            });
+          } catch (err) {
+            console.error('Failed to sync monthly Contractor Invoice status from BOM PV:', err);
+          }
+        }
+
         if (existing.invoiceId) {
           const invoice = await tx.projectInvoice.findUnique({
             where: { id: existing.invoiceId }
