@@ -2,6 +2,15 @@
 
 This document contains workspace-specific rules and instructions for coding agents operating on the SLTSERP codebase.
 
+## 🏆 Mandatory Production-Level Coding Standards
+All code additions, edits, or refactors MUST comply with strict production-level standards:
+1. **API Endpoints**: Always wrap write and complex read route handlers with `apiHandler` (Zod validation, role checks, audit trail logging, unified error handling). Avoid manual `try/catch` and direct `NextResponse.json` returns.
+2. **Decoupled Architecture**: No direct database access or queries (`prisma.[model]`) inside controller API routes (`route.ts`). All business logic must reside in a Service layer (`src/services/`).
+3. **Database Integrity**: Never create "soft relations" (e.g. matching strings across tables with mismatched Prisma relations). Ensure all schemas are explicitly typed and linked with foreign keys.
+4. **Strategic Indexing & Pagination**: Ensure any newly introduced query lookup field has an explicit `@@index` in the Prisma model. Implement server-side pagination for dynamic tables with more than 100 entries.
+5. **No Caching Drift**: Declare `export const dynamic = 'force-dynamic'` in any GET API route returning dynamic database records.
+
+
 ## 🗺️ GIS Map Integration & OpenLayers Sizing Standards
 
 To prevent the OpenLayers GIS map container from collapsing or rendering as a blank white space, all GIS/QGIS map enhancements must strictly follow these rules:

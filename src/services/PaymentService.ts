@@ -149,6 +149,21 @@ export class PaymentService {
   }
 
   /**
+   * Get an invoice by ID
+   */
+  async getInvoice(id: string): Promise<Invoice | null> {
+    try {
+      const invoice = await prisma.vMInvoice.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      return invoice ? this.mapInvoiceToDTO(invoice) : null;
+    } catch (error) {
+      throw new Error(`Failed to fetch invoice: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * Create a payment for an invoice
    */
   async createPayment(data: CreatePaymentDTO): Promise<Payment> {

@@ -262,16 +262,34 @@ export class NexusAgentService {
         const apiKey = process.env.GEMINI_API_KEY;
         const { NexusMemoryService } = await import('./nexus-memory.service');
 
-        // Fetch user name to personalize AI greetings
+        // Fetch user name and role to personalize AI greetings and enforce role security
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { name: true }
+            select: { name: true, role: true }
         });
         const userName = user?.name || "User";
+        const userRole = user?.role || "ENGINEER";
 
         // 1. Predictive Intent Classification
         const intent = NexusClassifierService.predict(message);
         const actions: NexusAction[] = [];
+
+        // Enforce Role-Based Information Hiding
+        const hasFinanceAccess = [
+            'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 
+            'FINANCE_MANAGER', 'FINANCE_ASSISTANT', 
+            'INVOICE_MANAGER', 'INVOICE_ASSISTANT'
+        ].includes(userRole);
+
+        if ((intent === 'FINANCE' || intent === 'BOM_INVOICES' || intent === 'VOUCHERS') && !hasFinanceAccess) {
+            return {
+                intent,
+                query: message,
+                response: `⚠️ Unauthorized: Your role (${userRole}) is not authorized to access financial or billing reports. This query has been blocked for security.`,
+                actions: [],
+                suggestions: ["Show active projects status", "List current low stock items"]
+            };
+        }
         
         // 2. Fetch Modular Context (Only what is needed!)
         let contextText = '';
@@ -331,6 +349,14 @@ export class NexusAgentService {
                 contextText = `Pending PVs: ${vouchers.pendingPVsCount}`;
                 break;
             }
+            case 'BOM_INVOICES': {
+                const bom = await NexusContextService.getBOMInvoicesContext();
+                const rtomMismatchSummary = bom.rtomMismatches && bom.rtomMismatches.length > 0
+                    ? `\nRTOM Mismatch Stats:\n` + bom.rtomMismatches.map(m => `- RTOM ${m.rtom}: Mismatched Connections: ${m.mismatchedSODs}/${m.totalSODs} (Accuracy: ${m.accuracyRate}%) | Top Mismatched Material: ${m.topMismatchedItem}`).join('\n')
+                    : `\nRTOM Mismatch Stats: All balanced.`;
+                contextText = `BOM Invoices Count: ${bom.bomInvoicesCount}\nTotal Revenue from BOM: LKR ${bom.bomRevenueSum.toLocaleString()}\nTotal Synced Connections: ${bom.syncedSODsCount}\nRecent BOM Invoices:\n` + bom.recentBOMInvoices.join('\n') + rtomMismatchSummary;
+                break;
+            }
             default:
                 contextText = "General queries mapping context.";
                 break;
@@ -342,6 +368,27 @@ export class NexusAgentService {
             
             // Fetch Unified complete system context so Gemini has global cross-module understanding
             const fullContext = await NexusContextService.getContext();
+            
+            // Apply role-based data stripping
+            if (!hasFinanceAccess) {
+                fullContext.finance = {
+                    outstandingInvoicesSum: 0,
+                    pendingPVsCount: 0,
+                    totalRetentionHeld: 0,
+                    activePenaltiesSum: 0,
+                    releasableRetentionsCount: 0,
+                    releasableRetentionsSum: 0,
+                    releasableInvoicesList: []
+                };
+                if ((fullContext as any).bomInvoices) {
+                    (fullContext as any).bomInvoices = {
+                        bomInvoicesCount: 0,
+                        bomRevenueSum: 0,
+                        syncedSODsCount: 0,
+                        recentBOMInvoices: []
+                    };
+                }
+            }
             const selfHealing = await this.getSelfHealingProposals();
             let healingPrompt = '';
             if (selfHealing.length > 0) {
@@ -532,6 +579,18 @@ ${healingPrompt}
                 "how many registered contractors?",
                 "gabadu gana kiyada?",
                 "pending requisitions kiyada?"
+            ];
+        } else if (intent === 'BOM_INVOICES') {
+            const bom = await NexusContextService.getBOMInvoicesContext();
+            const mismatchSummary = bom.rtomMismatches && bom.rtomMismatches.length > 0
+                ? `\n\n⚠️ **RTOM Areas Mismatch Report (ප්‍රාදේශීය ද්‍රව්‍ය වෙනස්කම්):**\n` + 
+                  bom.rtomMismatches.map(m => `- RTOM ${m.rtom}: Unbalanced SODs: ${m.mismatchedSODs}/${m.totalSODs} (Accuracy: ${m.accuracyRate}%) | Top Mismatched: ${m.topMismatchedItem}`).join('\n')
+                : '\n\n✅ No material mismatches detected across any RTOM area!';
+            response = `පද්ධතියට ඇතුළත් කර ඇති මුළු BOM Invoices ගණන ${bom.bomInvoicesCount} කි. ඒ හරහා බිල් කර ඇති මුළු මුදල LKR ${bom.bomRevenueSum.toLocaleString()} ක් වන අතර ස්වයංක්‍රීයව sync කරන ලද මුළු Service Orders (Connections) ගණන ${bom.syncedSODsCount} කි.\n\nමෑතකදී ඇතුළත් කළ BOM Invoices:\n${bom.recentBOMInvoices.map(i => `- ${i}`).join('\n')}${mismatchSummary}`;
+            suggestions = [
+                "how many active projects?",
+                "gabadu gana kiyada?",
+                "total materials info danna?"
             ];
         } else {
             response = `ආයුබෝවන්! මම Nexus AI Agent. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම දත්ත ලබා දිය හැක. උදාහරණ:\n- "low stock items මොනවාද?"\n- "how many registered contractors?"`;

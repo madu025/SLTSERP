@@ -10,84 +10,64 @@ export class NexusContextService {
   static async getContext() {
     const today = new Date();
 
-    const [
-      itemsCount,
-      storesCount,
-      lowStockItems,
-      expiringBatches,
-      custodyAssets,
-      activeProjectsCount,
-      overdueTasksCount,
-      atRiskProjects,
-      outstandingInvoices,
-      pendingPVs,
-      totalRetentionHeld,
-      activePenalties,
-      pendingPRs,
-      pendingPOs,
-      pendingGRNs,
-      contractorsCount,
-      releasableInvoices,
-      activeProjects
-    ] = await Promise.all([
-      prisma.inventoryItem.count(),
-      prisma.inventoryStore.count(),
-      prisma.inventoryStock.findMany({
-        where: { quantity: { lte: 10 } },
-        include: { item: true, store: true },
-        take: 5
-      }),
-      prisma.inventoryBatch.findMany({
-        where: {
-          expiryDate: { lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), gt: today }
-        },
-        include: { item: true },
-        take: 5
-      }),
-      prisma.inventoryItemSerial.findMany({
-        where: { status: 'ASSIGNED' },
-        include: { assignedStaff: true, item: true },
-        take: 5
-      }),
-      prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
-      prisma.projectTask.count({
-        where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today } }
-      }),
-      prisma.project.findMany({
-        where: { status: 'IN_PROGRESS', actualCost: { gt: 0 } },
-        select: { id: true, name: true, projectCode: true, progress: true },
-        take: 3
-      }),
-      prisma.invoice.aggregate({
-        _sum: { totalAmount: true },
-        where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } }
-      }),
-      prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } }),
-      prisma.projectRetention.aggregate({
-        _sum: { balanceAmount: true },
-        where: { status: { not: 'FULLY_RELEASED' } }
-      }),
-      prisma.projectLDPenalty.aggregate({
-        _sum: { netAmount: true },
-        where: { status: 'APPROVED' }
-      }),
-      prisma.projectRequisition.count({ where: { status: 'DRAFT' } }),
-      prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } }),
-      prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } }),
-      prisma.contractor.count(),
-      prisma.invoice.findMany({
-        where: {
-          statusB: 'HOLD',
-          sods: { every: { hoPatStatus: 'PAT_PASSED' } }
-        },
-        select: { invoiceNumber: true, amountB: true }
-      }),
-      prisma.project.findMany({
-        where: { status: 'IN_PROGRESS' },
-        select: { id: true, name: true },
-        take: 5
-      })
-    ]);
+    const itemsCount = await prisma.inventoryItem.count();
+    const storesCount = await prisma.inventoryStore.count();
+    const lowStockItems = await prisma.inventoryStock.findMany({
+      where: { quantity: { lte: 10 } },
+      include: { item: true, store: true },
+      take: 5
+    });
+    const expiringBatches = await prisma.inventoryBatch.findMany({
+      where: {
+        expiryDate: { lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), gt: today }
+      },
+      include: { item: true },
+      take: 5
+    });
+    const custodyAssets = await prisma.inventoryItemSerial.findMany({
+      where: { status: 'ASSIGNED' },
+      include: { assignedStaff: true, item: true },
+      take: 5
+    });
+    const activeProjectsCount = await prisma.project.count({ where: { status: 'IN_PROGRESS' } });
+    const overdueTasksCount = await prisma.projectTask.count({
+      where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today } }
+    });
+    const atRiskProjects = await prisma.project.findMany({
+      where: { status: 'IN_PROGRESS', actualCost: { gt: 0 } },
+      select: { id: true, name: true, projectCode: true, progress: true },
+      take: 3
+    });
+    const outstandingInvoices = await prisma.invoice.aggregate({
+      _sum: { totalAmount: true },
+      where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } }
+    });
+    const pendingPVs = await prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } });
+    const totalRetentionHeld = await prisma.projectRetention.aggregate({
+      _sum: { balanceAmount: true },
+      where: { status: { not: 'FULLY_RELEASED' } }
+    });
+    const activePenalties = await prisma.projectLDPenalty.aggregate({
+      _sum: { netAmount: true },
+      where: { status: 'APPROVED' }
+    });
+    const pendingPRs = await prisma.projectRequisition.count({ where: { status: 'DRAFT' } });
+    const pendingPOs = await prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } });
+    const pendingGRNs = await prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } });
+    const contractorsCount = await prisma.contractor.count();
+    const releasableInvoices = await prisma.invoice.findMany({
+      where: {
+        statusB: 'HOLD',
+        sods: { every: { hoPatStatus: 'PAT_PASSED' } }
+      },
+      select: { invoiceNumber: true, amountB: true }
+    });
+    const activeProjects = await prisma.project.findMany({
+      where: { status: 'IN_PROGRESS' },
+      select: { id: true, name: true },
+      take: 5
+    });
+    const bomContext = await this.getBOMInvoicesContext();
 
     const projectRisks = [];
     for (const p of activeProjects) {
@@ -145,7 +125,8 @@ export class NexusContextService {
         pendingPOsCount: pendingPOs,
         pendingGRNsCount: pendingGRNs
       },
-      contractorsCount: contractorsCount
+      contractorsCount: contractorsCount,
+      bomInvoices: bomContext
     };
   }
 
@@ -275,5 +256,133 @@ export class NexusContextService {
   static async getVouchersContext() {
     const pendingPVs = await prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } });
     return { pendingPVsCount: pendingPVs };
+  }
+
+  static async getBOMInvoicesContext() {
+    const [bomInvoicesCount, bomRevenue, recentBOMInvoices, syncedSODsCount, rtomMismatches] = await Promise.all([
+      prisma.invoice.count({ where: { bomNumber: { not: null } } }),
+      prisma.invoice.aggregate({
+        _sum: { totalAmount: true },
+        where: { bomNumber: { not: null } }
+      }),
+      prisma.invoice.findMany({
+        where: { bomNumber: { not: null } },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          totalAmount: true,
+          rtomArea: true,
+          bomNumber: true,
+          year: true,
+          month: true,
+          status: true
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      }),
+      prisma.serviceOrder.count({
+        where: { invoice: { bomNumber: { not: null } } }
+      }),
+      this.getRTOMMismatchesContext()
+    ]);
+
+    return {
+      bomInvoicesCount,
+      bomRevenueSum: bomRevenue._sum.totalAmount || 0,
+      syncedSODsCount,
+      recentBOMInvoices: recentBOMInvoices.map(i => `${i.invoiceNumber} (${i.rtomArea || 'GLOBAL'}, ${i.month}/${i.year}) - LKR ${i.totalAmount.toLocaleString()} [${i.status}]`),
+      rtomMismatches
+    };
+  }
+
+  static async getRTOMMismatchesContext() {
+    const sods = await prisma.serviceOrder.findMany({
+        where: {
+            invoice: { bomNumber: { not: null } }
+        },
+        select: {
+            rtom: true,
+            materialUsage: {
+                select: {
+                    quantity: true,
+                    usageType: true,
+                    item: {
+                        select: { code: true, name: true }
+                    }
+                }
+            }
+        }
+    });
+
+    const rtomStats: Record<string, {
+        rtom: string;
+        totalSODsCount: number;
+        mismatchedSODsCount: number;
+        itemMismatches: Record<string, { name: string; local: number; bom: number }>;
+    }> = {};
+
+    sods.forEach(sod => {
+        const rtom = sod.rtom || 'GLOBAL';
+        if (!rtomStats[rtom]) {
+            rtomStats[rtom] = {
+                rtom,
+                totalSODsCount: 0,
+                mismatchedSODsCount: 0,
+                itemMismatches: {}
+            };
+        }
+        rtomStats[rtom].totalSODsCount++;
+
+        const itemMap: Record<string, { name: string; local: number; bom: number }> = {};
+        sod.materialUsage.forEach(u => {
+            const code = u.item.code;
+            if (!itemMap[code]) {
+                itemMap[code] = { name: u.item.name, local: 0, bom: 0 };
+            }
+            if (u.usageType === 'BOM_CLAIM') {
+                itemMap[code].bom += u.quantity;
+            } else {
+                itemMap[code].local += u.quantity;
+            }
+        });
+
+        let isMismatched = false;
+        Object.entries(itemMap).forEach(([code, counts]) => {
+            if (Math.abs(counts.local - counts.bom) > 0.001) {
+                isMismatched = true;
+                if (!rtomStats[rtom].itemMismatches[code]) {
+                    rtomStats[rtom].itemMismatches[code] = { name: counts.name, local: 0, bom: 0 };
+                }
+                rtomStats[rtom].itemMismatches[code].local += counts.local;
+                rtomStats[rtom].itemMismatches[code].bom += counts.bom;
+            }
+        });
+
+        if (isMismatched) {
+            rtomStats[rtom].mismatchedSODsCount++;
+        }
+    });
+
+    return Object.values(rtomStats).map(stat => {
+        let topItemCode = 'None';
+        let maxDiff = 0;
+        Object.entries(stat.itemMismatches).forEach(([code, counts]) => {
+            const diff = Math.abs(counts.local - counts.bom);
+            if (diff > maxDiff) {
+                maxDiff = diff;
+                topItemCode = `${counts.name} (${code}) [Diff: ${diff.toFixed(0)}]`;
+            }
+        });
+
+        return {
+            rtom: stat.rtom,
+            totalSODs: stat.totalSODsCount,
+            mismatchedSODs: stat.mismatchedSODsCount,
+            accuracyRate: stat.totalSODsCount > 0 
+                ? parseFloat(((1 - stat.mismatchedSODsCount / stat.totalSODsCount) * 100).toFixed(1)) 
+                : 100.0,
+            topMismatchedItem: topItemCode
+        };
+    }).sort((a, b) => b.mismatchedSODs - a.mismatchedSODs);
   }
 }

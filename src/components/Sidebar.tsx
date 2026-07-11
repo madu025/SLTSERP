@@ -293,7 +293,15 @@ export default function Sidebar() {
                                             style={{ borderLeft: '1px solid rgba(0,114,187,0.15)' }}
                                         >
                                             {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => {
-                                                const isSubActive = pathname === sub.path || pathname.startsWith(sub.path + '/');
+                                                const siblingPaths = item.submenu!.map(s => s.path);
+                                                const isSubActive = pathname === sub.path || (
+                                                    pathname.startsWith(sub.path + '/') && 
+                                                    !siblingPaths.some(siblingPath => 
+                                                        siblingPath !== sub.path && 
+                                                        siblingPath.startsWith(sub.path + '/') && 
+                                                        pathname.startsWith(siblingPath)
+                                                    )
+                                                );
                                                 return (
                                                     <Link
                                                         key={sub.path}

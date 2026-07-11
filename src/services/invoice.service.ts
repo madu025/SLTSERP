@@ -1,8 +1,11 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { InvoiceQueryService } from './invoice/invoice.query.service';
 import { InvoiceGeneratorService } from './invoice/invoice.generator.service';
 import { InvoiceCalculatorService } from './invoice/invoice.calculator.service';
 import { InvoiceRetentionService } from './invoice/invoice.retention.service';
+import { CreateInvoiceDTO, UpdateInvoiceDTO } from '@/lib/validations/invoice.schema';
+import { AppError, ErrorCode } from '@/lib/error';
 
 export class InvoiceService {
 
@@ -154,5 +157,156 @@ export class InvoiceService {
      */
     static async checkRetentionEligibility() {
         return await InvoiceRetentionService.processAutoReleases();
+    }
+
+    /**
+     * Get list of contractor invoices with filters
+     */
+    static async getInvoices(filters: { status?: string; contractorId?: string; projectId?: string }) {
+        const where: Prisma.InvoiceWhereInput = {};
+        if (filters.status) where.status = filters.status;
+        if (filters.contractorId) where.contractorId = filters.contractorId;
+        if (filters.projectId) where.projectId = filters.projectId;
+
+        return await prisma.invoice.findMany({
+            where,
+            include: {
+                contractor: {
+                    select: {
+                        id: true,
+                        name: true,
+                        contactNumber: true,
+                        address: true,
+                        registrationNumber: true,
+                        bankName: true,
+                        bankBranch: true,
+                        bankAccountNumber: true
+                    }
+                },
+                project: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                _count: {
+                    select: {
+                        sods: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+    }
+
+    /**
+     * Create a manual invoice
+     */
+    static async createInvoice(data: CreateInvoiceDTO) {
+        // Check if invoice number already exists
+        const existing = await prisma.invoice.findUnique({
+            where: { invoiceNumber: data.invoiceNumber }
+        });
+
+        if (existing) {
+            throw new AppError('Invoice number already exists', ErrorCode.CONFLICT, 400);
+        }
+
+        return await prisma.invoice.create({
+            data: {
+                invoiceNumber: data.invoiceNumber,
+                contractorId: data.contractorId,
+                projectId: data.projectId || null,
+                amount: typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount,
+                status: 'PENDING',
+                date: new Date(),
+                description: data.description || null,
+                dueDate: data.dueDate ? new Date(data.dueDate) : null
+            },
+            include: {
+                contractor: {
+                    select: {
+                        id: true,
+                        name: true,
+                        contactNumber: true
+                    }
+                },
+                project: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Update an invoice
+     */
+    static async updateInvoice(data: UpdateInvoiceDTO) {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: data.id }
+        });
+
+        if (!invoice) {
+            throw new AppError('Invoice not found', ErrorCode.NOT_FOUND, 404);
+        }
+
+        const updateData: Prisma.InvoiceUpdateInput & Record<string, unknown> = {};
+        if (data.status !== undefined) updateData.status = data.status;
+        if (data.amount !== undefined) updateData.amount = data.amount;
+        if (data.description !== undefined) updateData.description = data.description;
+        if (data.connectionTitle !== undefined) updateData.connectionTitle = data.connectionTitle;
+        if (data.agreementNumber !== undefined) updateData.agreementNumber = data.agreementNumber;
+        if (data.projectNumber !== undefined) updateData.projectNumber = data.projectNumber;
+        if (data.bomNumber !== undefined) updateData.bomNumber = data.bomNumber;
+        if (data.rtomArea !== undefined) updateData.rtomArea = data.rtomArea;
+        if (data.projectId !== undefined) updateData.projectId = data.projectId;
+
+        return await prisma.invoice.update({
+            where: { id: data.id },
+            data: updateData,
+            include: {
+                contractor: {
+                    select: {
+                        id: true,
+                        name: true,
+                        contactNumber: true
+                    }
+                },
+                project: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Delete an invoice (only PENDING status allowed)
+     */
+    static async deleteInvoice(id: string) {
+        const invoice = await prisma.invoice.findUnique({
+            where: { id }
+        });
+
+        if (!invoice) {
+            throw new AppError('Invoice not found', ErrorCode.NOT_FOUND, 404);
+        }
+
+        if (invoice.status === 'PAID') {
+            throw new AppError('Cannot delete paid invoices', ErrorCode.BAD_REQUEST, 400);
+        }
+
+        await prisma.invoice.delete({
+            where: { id }
+        });
+
+        return { success: true };
     }
 }

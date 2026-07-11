@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, ShieldAlert } from 'lucide-react';
+import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, ShieldAlert, Download, Settings } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { downloadExcelInvoice } from '@/lib/excel-invoice';
 
 interface Invoice {
     id: string;
@@ -94,9 +94,6 @@ export default function InvoicesPage() {
     const [loading, setLoading] = useState(true);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [statusFilter] = useState('ALL');
-    const [bomImportDialogOpen, setBomImportDialogOpen] = useState(false);
-    const [bomFile, setBomFile] = useState<File | null>(null);
-    const [importing, setImporting] = useState(false);
 
     const [generateParams, setGenerateParams] = useState({
         contractorId: '',
@@ -112,6 +109,14 @@ export default function InvoicesPage() {
         reason: 'MANUAL',
         description: '',
         serviceOrderId: ''
+    });
+    const [editKeyDataOpen, setEditKeyDataOpen] = useState(false);
+    const [keyDataForm, setKeyDataForm] = useState({
+        connectionTitle: '',
+        agreementNumber: '',
+        projectNumber: '',
+        bomNumber: '',
+        rtomArea: ''
     });
 
     useEffect(() => {
@@ -137,8 +142,9 @@ export default function InvoicesPage() {
 
             const res = await fetch(`/api/invoices?${params}`);
             if (!res.ok) throw new Error('Failed to fetch');
-            const data = await res.json();
-            setInvoices(data);
+            const json = await res.json();
+            const actualData = json?.success && Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : []);
+            setInvoices(actualData);
         } catch (error) {
             console.error('Error fetching invoices:', error);
         } finally {
@@ -185,122 +191,7 @@ export default function InvoicesPage() {
         }
     };
 
-    const handleBOMImport = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!bomFile) return;
 
-        setImporting(true);
-        try {
-            const reader = new FileReader();
-
-            if (bomFile.name.toLowerCase().endsWith('.csv')) {
-                reader.onload = async (evt) => {
-                    try {
-                        const csvText = evt.target?.result as string;
-                        const res = await fetch('/api/invoices/import-bom/csv', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ csvText })
-                        });
-
-                        const json = await res.json();
-                        if (!res.ok) {
-                            throw new Error(json.error || json.message || 'Import failed');
-                        }
-
-                        if (json.success) {
-                            let msg = `Successfully parsed SLT BOM CSV Sheet!\n\n`;
-                            msg += `- Matched connections (PAT Passed): ${json.matchedCount}\n`;
-                            msg += `- Generated Client Invoice: ${json.clientInvoiceNumber}\n`;
-                            msg += `- Total Recognized Project Revenue: ${json.totalRevenue.toLocaleString()} LKR\n`;
-                            
-                            if (json.warnings && json.warnings.length > 0) {
-                                msg += `\nWarnings (${json.warnings.length} unmatched connection SOs):\n`;
-                                msg += json.warnings.slice(0, 10).join('\n');
-                                if (json.warnings.length > 10) {
-                                    msg += `\n...and ${json.warnings.length - 10} more.`;
-                                }
-                            }
-                            alert(msg);
-                        } else {
-                            alert(`BOM Import Warning: ${json.warnings?.join('\n')}`);
-                        }
-                        setBomImportDialogOpen(false);
-                        setBomFile(null);
-                        fetchInvoices();
-                    } catch (err) {
-                        const error = err as Error;
-                        console.error(error);
-                        alert(`Error parsing/uploading BOM CSV: ${error.message}`);
-                    } finally {
-                        setImporting(false);
-                    }
-                };
-                reader.readAsText(bomFile);
-            } else {
-                const XLSX = await import('xlsx');
-                reader.onload = async (evt) => {
-                    try {
-                        const bstr = evt.target?.result;
-                        const wb = XLSX.read(bstr, { type: 'binary' });
-                        const wsname = wb.SheetNames[0];
-                        const ws = wb.Sheets[wsname];
-                        const data = XLSX.utils.sheet_to_json(ws);
-                        
-                        if (data.length === 0) {
-                            alert('No rows found in sheet');
-                            setImporting(false);
-                            return;
-                        }
-
-                        const res = await fetch('/api/invoices/import-bom', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ rows: data })
-                        });
-
-                        const json = await res.json();
-                        if (!res.ok) {
-                            throw new Error(json.error || json.message || 'Import failed');
-                        }
-
-                        if (json.success) {
-                            let msg = `Successfully parsed SLT BOM Sheet!\n\n`;
-                            msg += `- Matched connections (PAT Passed): ${json.matchedCount}\n`;
-                            msg += `- Generated Client Invoice: ${json.clientInvoiceNumber}\n`;
-                            msg += `- Total Recognized Project Revenue: ${json.totalRevenue.toLocaleString()} LKR\n`;
-                            
-                            if (json.warnings && json.warnings.length > 0) {
-                                msg += `\nWarnings (${json.warnings.length} unmatched connection SOs):\n`;
-                                msg += json.warnings.slice(0, 10).join('\n');
-                                if (json.warnings.length > 10) {
-                                    msg += `\n...and ${json.warnings.length - 10} more.`;
-                                }
-                            }
-                            alert(msg);
-                        } else {
-                            alert(`BOM Import Warning: ${json.warnings?.join('\n')}`);
-                        }
-                        setBomImportDialogOpen(false);
-                        setBomFile(null);
-                        fetchInvoices();
-                    } catch (err) {
-                        const error = err as Error;
-                        console.error(error);
-                        alert(`Error parsing/uploading BOM: ${error.message}`);
-                    } finally {
-                        setImporting(false);
-                    }
-                };
-                reader.readAsBinaryString(bomFile);
-            }
-        } catch (err) {
-            const error = err as Error;
-            console.error(error);
-            alert(`Error loading excel parser: ${error.message}`);
-            setImporting(false);
-        }
-    };
 
     const handleStatusChange = async (id: string, newStatus: string) => {
         try {
@@ -352,6 +243,62 @@ export default function InvoicesPage() {
             }
         } catch (e) {
             console.error('Error fetching penalties:', e);
+        }
+    };
+
+    const handleOpenEditKeyData = async (invoice: Invoice) => {
+        setSelectedInvoice(invoice);
+        setEditKeyDataOpen(true);
+        setKeyDataForm({
+            connectionTitle: '',
+            agreementNumber: '',
+            projectNumber: '',
+            bomNumber: '',
+            rtomArea: ''
+        });
+        try {
+            const res = await fetch(`/api/invoices/${invoice.id}/details`);
+            if (res.ok) {
+                const data = await res.json();
+                setKeyDataForm({
+                    connectionTitle: data.connectionTitle || '',
+                    agreementNumber: data.agreementNumber || '',
+                    projectNumber: data.projectNumber ? String(data.projectNumber) : '',
+                    bomNumber: data.bomNumber || '',
+                    rtomArea: data.rtomArea || ''
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching invoice details for editing:', err);
+        }
+    };
+
+    const handleSaveKeyData = async () => {
+        if (!selectedInvoice) return;
+        try {
+            setLoading(true);
+            const res = await fetch('/api/invoices', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedInvoice.id,
+                    connectionTitle: keyDataForm.connectionTitle || null,
+                    agreementNumber: keyDataForm.agreementNumber || null,
+                    projectNumber: keyDataForm.projectNumber ? parseInt(keyDataForm.projectNumber) : null,
+                    bomNumber: keyDataForm.bomNumber || null,
+                    rtomArea: keyDataForm.rtomArea || null
+                })
+            });
+
+            if (!res.ok) throw new Error('Failed to save key data');
+            alert('Key data saved successfully!');
+            setEditKeyDataOpen(false);
+            fetchInvoices();
+        } catch (error) {
+            console.error('Error saving key data:', error);
+            alert('Failed to save key data');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -809,19 +756,14 @@ export default function InvoicesPage() {
                         {/* Page Header */}
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <div className="space-y-0.5">
-                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Contractor Invoices</h1>
+                                <h1 className="text-xl font-black text-slate-900 tracking-tight">Submit Invoices (SLT)</h1>
                                 <p className="text-xs text-slate-500">Generate and manage 90/10 split invoices.</p>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 {userRole !== 'AREA_COORDINATOR' && userRole !== 'QC_OFFICER' && (
-                                    <>
-                                        <Button onClick={() => setBomImportDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-slate-800 hover:bg-slate-950 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
-                                            <FileText className="w-4 h-4 mr-1.5" /> Import BOM Sheet
-                                        </Button>
-                                        <Button onClick={() => setCreateDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
-                                            <Plus className="w-4 h-4 mr-1.5" /> Generate Monthly Invoice
-                                        </Button>
-                                    </>
+                                    <Button onClick={() => setCreateDialogOpen(true)} className="flex-1 sm:flex-none h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs transition-all shadow-sm">
+                                        <Plus className="w-4 h-4 mr-1.5" /> Generate Monthly Invoice
+                                    </Button>
                                 )}
                             </div>
                         </div>
@@ -952,12 +894,32 @@ export default function InvoicesPage() {
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
+                                                                onClick={() => downloadExcelInvoice(inv.id, inv.invoiceNumber)}
+                                                                className="h-7 w-7 p-0 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                                                                title="Download Excel Invoice"
+                                                            >
+                                                                <Download className="w-3.5 h-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
                                                                 onClick={() => handleOpenPenalties(inv)}
                                                                 className="h-7 w-7 p-0 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all"
                                                                 title="Manage Penalties"
                                                             >
                                                                 <ShieldAlert className="w-3.5 h-3.5" />
                                                             </Button>
+                                                            {['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OSP_MANAGER'].includes(userRole || '') && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleOpenEditKeyData(inv)}
+                                                                    className="h-7 w-7 p-0 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                    title="Edit Key Data"
+                                                                >
+                                                                    <Settings className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            )}
                                                             {inv.status === 'PENDING' && (
                                                                 <Button
                                                                     size="sm"
@@ -1215,73 +1177,71 @@ export default function InvoicesPage() {
                         )}
                     </div>
                 </DialogContent>
-            </Dialog>
-
-            {/* BOM Import Dialog */}
-            <Dialog open={bomImportDialogOpen} onOpenChange={setBomImportDialogOpen}>
-                <DialogContent className="sm:max-w-[450px] rounded-2xl">
+            </Dialog>            {/* Edit Key Data Dialog */}
+            <Dialog open={editKeyDataOpen} onOpenChange={setEditKeyDataOpen}>
+                <DialogContent className="max-w-md rounded-2xl">
                     <DialogHeader>
-                        <DialogTitle className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                            Import SLT BOM Sheet (Client Billing & PAT Sync)
-                        </DialogTitle>
+                        <DialogTitle className="text-lg font-black text-slate-900">Edit Invoice Key Data</DialogTitle>
                         <DialogDescription className="text-xs text-slate-500">
-                            Process SLT BOM CSV/Excel sheets to mark matched connections as PAT-passed and generate Client Invoices.
+                            Update Key parameters used for Excel template sheet generation.
                         </DialogDescription>
                     </DialogHeader>
-                    
-                    <Tabs defaultValue="file" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 bg-slate-100 rounded-xl p-1 mb-4">
-                            <TabsTrigger value="file" className="rounded-lg text-xs font-bold py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900">Upload File</TabsTrigger>
-                            <TabsTrigger value="sync" className="rounded-lg text-xs font-bold py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-900">Browser Sync</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="file">
-                            <form onSubmit={handleBOMImport} className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select BOM File (.csv, .xlsx, .xls)</Label>
-                                    <Input 
-                                        type="file" 
-                                        accept=".csv, .xlsx, .xls" 
-                                        required 
-                                        onChange={(e) => setBomFile(e.target.files?.[0] || null)}
-                                        className="h-10 rounded-lg bg-slate-50 border-none file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-350 cursor-pointer" 
-                                    />
-                                </div>
-                                <DialogFooter className="pt-2">
-                                    <Button 
-                                        type="submit" 
-                                        disabled={importing || !bomFile} 
-                                        className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 rounded-lg font-bold text-xs uppercase tracking-wider"
-                                    >
-                                        {importing ? 'Processing BOM...' : 'Import & Generate'}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </TabsContent>
-
-                        <TabsContent value="sync" className="space-y-4">
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">SLT Portal Auto-Sync Bookmarklet</h4>
-                                <p className="text-[11px] text-slate-600 leading-relaxed">
-                                    To sync BOM data directly from the SLT Service Portal without downloading and uploading CSV files manually:
-                                </p>
-                                <ol className="list-decimal list-inside text-[10px] text-slate-500 space-y-1.5">
-                                    <li>Drag the button below to your browser Bookmarks Bar.</li>
-                                    <li>Go to the SLT Service Portal page containing the BOM download link.</li>
-                                    <li>Click the <b>&quot;Sync to ERP&quot;</b> bookmark in your bookmarks bar.</li>
-                                    <li>Enter the BOM Path (e.g. <code className="bg-slate-200 text-slate-700 px-1 rounded">BOM/R-AD/2023-09-09-24030409</code>) when prompted.</li>
-                                </ol>
-                                
-                                <div className="pt-2 flex justify-center">
-                                     <div
-                                         dangerouslySetInnerHTML={{
-                                             __html: `<a href="javascript:(async()=>{const path=prompt('Enter BOM Path (e.g. BOM/R-AD/2023-09-09-24030409):');if(!path)return;const cleanPath=path.trim().replace(/\\//g,'-');const url=\`https://serviceportal.slt.lk/iShamp/files/\${cleanPath}.csv\`;alert('Fetching BOM CSV from SLT Portal...');try{const res=await fetch(url);if(!res.ok)throw new Error('Failed to fetch CSV from SLT portal. Make sure you are logged in.');const csvText=await res.text();alert('BOM CSV fetched successfully! Sending to SLTSERP...');const erpRes=await fetch(window.location.origin+'/api/invoices/import-bom/csv',{method:'POST',headers:{'Content-Type':'application/json','x-extension-key':'slt-bridge-secret-2026'},body:JSON.stringify({csvText})});const json=await erpRes.json();if(!erpRes.ok)throw new Error(json.error||json.message||'Import failed');alert('BOM sync successful!\\n- Matched connections: '+json.matchedCount+'\\n- Generated Client Invoice: '+json.clientInvoiceNumber+'\\n- Revenue: '+json.totalRevenue.toLocaleString()+' LKR');}catch(err){alert('Sync Error: '+err.message);}})();" class="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition-all select-none shadow-sm cursor-grab border-none" onclick="event.preventDefault()">Sync to ERP</a>`
-                                         }}
-                                     />
-                                 </div>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
+                    <div className="space-y-4 py-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Connection Title</Label>
+                            <Input
+                                value={keyDataForm.connectionTitle}
+                                onChange={(e) => setKeyDataForm({ ...keyDataForm, connectionTitle: e.target.value })}
+                                placeholder="e.g. FTTH & PeoTV Connections 2026"
+                                className="h-10 rounded-lg bg-slate-50 border-none"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Agreement Number</Label>
+                            <Input
+                                value={keyDataForm.agreementNumber}
+                                onChange={(e) => setKeyDataForm({ ...keyDataForm, agreementNumber: e.target.value })}
+                                placeholder="e.g. L/0733/2025"
+                                className="h-10 rounded-lg bg-slate-50 border-none"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Project Number</Label>
+                            <Input
+                                type="number"
+                                value={keyDataForm.projectNumber}
+                                onChange={(e) => setKeyDataForm({ ...keyDataForm, projectNumber: e.target.value })}
+                                placeholder="e.g. 260103"
+                                className="h-10 rounded-lg bg-slate-50 border-none"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">BOM Number</Label>
+                            <Input
+                                value={keyDataForm.bomNumber}
+                                onChange={(e) => setKeyDataForm({ ...keyDataForm, bomNumber: e.target.value })}
+                                placeholder="e.g. BOM-R-AD-2026-03-24-291729108"
+                                className="h-10 rounded-lg bg-slate-50 border-none"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">RTOM Area</Label>
+                            <Input
+                                value={keyDataForm.rtomArea}
+                                onChange={(e) => setKeyDataForm({ ...keyDataForm, rtomArea: e.target.value })}
+                                placeholder="e.g. Anuradhapura"
+                                className="h-10 rounded-lg bg-slate-50 border-none"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setEditKeyDataOpen(false)} className="rounded-lg h-9 text-xs font-bold">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSaveKeyData} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-9 text-xs font-bold px-4">
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

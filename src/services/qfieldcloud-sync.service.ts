@@ -707,4 +707,111 @@ export class QFieldCloudSyncService {
       take: 20,
     });
   }
+
+  /**
+   * Get synchronization status and aggregated survey point metrics
+   */
+  static async getSyncStatus(projectId: string) {
+    const [syncHistory, lastSync, surveyStats] = await Promise.all([
+      this.getSyncHistory(projectId),
+      prisma.qFieldCloudSyncLog.findFirst({
+        where: { projectId, status: 'COMPLETED' },
+        orderBy: { completedAt: 'desc' },
+        select: { completedAt: true, featuresCount: true, syncType: true },
+      }),
+      prisma.surveyPoint.groupBy({
+        by: ['layerId', 'verificationStatus'],
+        where: { projectId },
+        _count: { id: true },
+      }),
+    ]);
+
+    // Aggregate survey stats by layer
+    const layerStats = SURVEY_LAYERS.map((layer) => {
+      const layerPoints = surveyStats.filter((s) => s.layerId === layer.id);
+      const total = layerPoints.reduce((sum, s) => sum + s._count.id, 0);
+      const pending = layerPoints
+        .filter((s) => s.verificationStatus === 'PENDING_VERIFICATION')
+        .reduce((sum, s) => sum + s._count.id, 0);
+      const verified = layerPoints
+        .filter((s) => s.verificationStatus === 'VERIFIED')
+        .reduce((sum, s) => sum + s._count.id, 0);
+      const approved = layerPoints
+        .filter((s) => s.verificationStatus === 'APPROVED')
+        .reduce((sum, s) => sum + s._count.id, 0);
+
+      return {
+        layerId: layer.id,
+        label: layer.label,
+        icon: layer.icon,
+        color: layer.color,
+        total,
+        pending,
+        verified,
+        approved,
+      };
+    });
+
+    const totalPending = layerStats.reduce((sum, l) => sum + l.pending, 0);
+    const totalApproved = layerStats.reduce((sum, l) => sum + l.approved, 0);
+    const totalPoints = layerStats.reduce((sum, l) => sum + l.total, 0);
+
+    // Get active sessions
+    const activeSessions = await prisma.mobileSurveySession.findMany({
+      where: { projectId, status: 'IN_PROGRESS' },
+      select: {
+        id: true,
+        supervisorId: true,
+        startedAt: true,
+        pointsCount: true,
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    return {
+      projectId,
+      surveyLayers: layerStats,
+      summary: {
+        totalPoints,
+        totalPending,
+        totalApproved,
+        activeSessions: activeSessions.length,
+        lastSync: lastSync?.completedAt || null,
+        lastSyncFeatures: lastSync?.featuresCount || 0,
+      },
+      activeSessions,
+      syncHistory,
+    };
+  }
+
+  /**
+   * Create a QField project and register it in the project database metadata
+   */
+  static async createQFieldProjectForProject(projectId: string, template?: string) {
+    const service = new QFieldCloudSyncService();
+    const templateFile = template || 'QGIS Project Template/QGIS.qgz';
+    const qfieldProject = await service.createQFieldProject(projectId, templateFile);
+
+    // Push layers after project creation
+    await service.pushSurveyLayers(qfieldProject.id);
+
+    // Store QFieldCloud project reference — merge with existing gisMapping to preserve material mappings
+    const existingProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { gisMapping: true },
+    });
+    const existingGisMapping = (existingProject?.gisMapping as Record<string, unknown> | null) || {};
+    await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        gisMapping: { ...existingGisMapping, qfieldProjectId: qfieldProject.id },
+      },
+    });
+
+    return {
+      message: 'QFieldCloud project created with 12 survey layers',
+      qfieldProject,
+      layersCount: SURVEY_LAYERS.length,
+    };
+  }
 }

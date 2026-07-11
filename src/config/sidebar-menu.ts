@@ -307,7 +307,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
         submenu: [
             {
-                title: 'Contractor Invoices',
+                title: 'Submit Invoices (SLT)',
                 path: '/invoices',
                 icon: Receipt,
                 allowedRoles: [
@@ -318,25 +318,14 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 ]
             },
             {
-                title: 'BOM Sheets',
+                title: 'BOM Sheets (Imports)',
                 path: '/invoices/bom-sheets',
-                icon: FileText,
+                icon: Upload,
                 allowedRoles: [
                     ...ROLE_GROUPS.ADMINS,
                     ...ROLE_GROUPS.INVOICE,
                     ...ROLE_GROUPS.FINANCE,
-                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'
-                ]
-            },
-            {
-                title: 'Delay Sheets',
-                path: '/invoices/delay-sheets',
-                icon: ClipboardList,
-                allowedRoles: [
-                    ...ROLE_GROUPS.ADMINS,
-                    ...ROLE_GROUPS.INVOICE,
-                    ...ROLE_GROUPS.FINANCE,
-                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'
+                    'MANAGER', 'OSP_MANAGER'
                 ]
             },
             {

@@ -1,22 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/TripService';
+import { Trip } from '@/types/vehicle-management.types';
 
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
+/**
+ * GET: Retrieve trip details by ID
+ */
+export const GET = apiHandler<Trip, void>(
+    async (request: Request, params: { id: string }) => {
+        const { id } = params;
         const trip = await TripService.getTrip(id);
 
         if (!trip) {
-            return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: 'Trip not found' } }, { status: 404 });
+            throw new Error('Trip not found');
         }
 
-        return NextResponse.json({ success: true, data: trip });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
+        return trip;
     }
-}
-
+);

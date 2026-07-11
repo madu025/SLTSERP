@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { ProjectInvoiceService } from '../project/project-invoice.service';
+import { InvoiceGeneratorService } from '../invoice/invoice.generator.service';
 
 export class BOMInvoiceService {
     /**
@@ -10,27 +10,25 @@ export class BOMInvoiceService {
             throw new Error('NO_ROWS_PROVIDED');
         }
 
-        // 1. Find or create the default operational project
-        const defaultProject = await prisma.project.upsert({
-            where: { projectCode: 'OPS-SERV-GL' },
-            update: {},
-            create: {
-                projectCode: 'OPS-SERV-GL',
-                name: 'Operational Services & BOM Invoicing',
-                status: 'IN_PROGRESS',
-                type: 'OPERATIONAL',
-                description: 'System default project for operational and BOM-based billing'
-            }
+
+
+        // Helper to normalize keys to uppercase and trimmed strings
+        const cleanRows = rows.map(row => {
+            const cleanRow: Record<string, string> = {};
+            Object.entries(row).forEach(([key, val]) => {
+                cleanRow[key.trim().toUpperCase()] = String(val || '').trim();
+            });
+            return cleanRow;
         });
 
         // 2. Extract unique Service Order Numbers (soNum) from the sheet rows
-        const soNumsRaw = rows.map(row => {
+        const soNumsRaw = cleanRows.map(cleanRow => {
             return String(
-                row['SO Number'] ||
-                row['SO_NUM'] ||
-                row['Service Order'] ||
-                row['soNum'] ||
-                row['SOD'] ||
+                cleanRow['SOD'] ||
+                cleanRow['SO NUMBER'] ||
+                cleanRow['SO_NUM'] ||
+                cleanRow['SERVICE ORDER'] ||
+                cleanRow['SONUM'] ||
                 ''
             ).trim();
         });
@@ -41,7 +39,7 @@ export class BOMInvoiceService {
         }
 
         // 3. Query matching ServiceOrder records from the database
-        const serviceOrders = await prisma.serviceOrder.findMany({
+        let serviceOrders = await prisma.serviceOrder.findMany({
             where: {
                 soNum: {
                     in: uniqueSoNums
@@ -54,20 +52,218 @@ export class BOMInvoiceService {
 
         const matchedSoNums = new Set(serviceOrders.map(so => so.soNum.toLowerCase()));
         const unmatchedSoNums = uniqueSoNums.filter(soNum => !matchedSoNums.has(soNum.toLowerCase()));
-        const warnings = unmatchedSoNums.map(soNum => `Service Order "${soNum}" not found in database.`);
 
-        if (serviceOrders.length === 0) {
-            return {
-                success: false,
-                invoicesCreated: 0,
-                matchedCount: 0,
-                totalRevenue: 0,
-                warnings: [
-                    ...warnings,
-                    'All service connection orders from the sheet were unmatched. No invoice generated.'
-                ]
-            };
+        // Dynamically create/stub ServiceOrders that do not exist in the database (backlog backlog support)
+        if (unmatchedSoNums.length > 0) {
+            const opmcs = await prisma.oPMC.findMany();
+            const contractors = await prisma.contractor.findMany();
+            
+            const defaultOpmc = opmcs[0];
+            const defaultContractor = contractors.find(c => c.name.toUpperCase() === 'SLTS') || contractors[0];
+            
+            if (!defaultOpmc) {
+                throw new Error('NO_OPMCS_FOUND_IN_DATABASE');
+            }
+            if (!defaultContractor) {
+                throw new Error('NO_CONTRACTORS_FOUND_IN_DATABASE');
+            }
+
+            const stubsToCreate = [];
+
+            for (const soNum of unmatchedSoNums) {
+                // Find the first row matching this soNum
+                const row = cleanRows.find(r => {
+                    const rowSoNum = String(
+                        r['SOD'] ||
+                        r['SO NUMBER'] ||
+                        r['SO_NUM'] ||
+                        r['SERVICE ORDER'] ||
+                        r['SONUM'] ||
+                        ''
+                    ).trim();
+                    return rowSoNum.toLowerCase() === soNum.toLowerCase();
+                });
+
+                if (!row) continue;
+
+                // Parse properties
+                const voiceNumber = row['CIRCUIT'] || row['VOICE NUMBER'] || row['VOICENUMBER'] || row['TELEPHONE'] || null;
+                const rtom = row['RTOM'] || row['RTOM_AREA'] || row['RTOMAREA'] || 'GLOBAL';
+
+                // Find OPMC
+                let opmcId = defaultOpmc.id;
+                const rtomUpper = rtom.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                const matchedOpmc = opmcs.find(o => o.name.toUpperCase().replace(/[^A-Z0-9]/g, '').includes(rtomUpper));
+                if (matchedOpmc) {
+                    opmcId = matchedOpmc.id;
+                }
+
+                // Find Contractor
+                let contractorId = defaultContractor.id;
+                const contractorName = row['CONTRACTOR'] || row['CONTRACTOR_NAME'] || '';
+                if (contractorName) {
+                    const matchedContractor = contractors.find(c => c.name.toUpperCase() === contractorName.toUpperCase());
+                    if (matchedContractor) {
+                        contractorId = matchedContractor.id;
+                    }
+                }
+
+                // Drop wire distance
+                const dwVal = parseFloat(row['FTTH-DW (M)'] || row['FTTH-DW'] || row['DROP WIRE DISTANCE'] || row['DROP_WIRE'] || '0');
+                const dropWireDistance = isNaN(dwVal) ? 0 : dwVal;
+
+                stubsToCreate.push({
+                    soNum,
+                    voiceNumber,
+                    rtom,
+                    status: 'COMPLETED',
+                    sltsStatus: 'COMPLETED',
+                    sltsPatStatus: 'PAT_PASSED',
+                    hoPatStatus: 'APPROVED',
+                    isInvoicable: true,
+                    dropWireDistance,
+                    opmcId,
+                    contractorId,
+                    isLegacyImport: true,
+                    receivedDate: new Date(),
+                    completedDate: new Date(),
+                    comments: 'Auto-stubbed from BOM sheet backlog sync'
+                });
+            }
+
+            if (stubsToCreate.length > 0) {
+                await prisma.serviceOrder.createMany({
+                    data: stubsToCreate,
+                    skipDuplicates: true
+                });
+
+                // Retrieve the stubbed service orders to include in calculation
+                const newServiceOrders = await prisma.serviceOrder.findMany({
+                    where: {
+                        soNum: {
+                            in: unmatchedSoNums
+                        }
+                    },
+                    include: {
+                        opmc: true
+                    }
+                });
+
+                serviceOrders = [...serviceOrders, ...newServiceOrders];
+            }
         }
+
+        // 3.5. Extract and populate material usages for all matched and stubbed service orders
+        const allItems = await prisma.inventoryItem.findMany();
+        const metadataKeys = new Set([
+            'SOD', 'SO NUMBER', 'SO_NUM', 'SERVICE ORDER', 'SONUM',
+            'CIRCUIT', 'VOICE NUMBER', 'VOICENUMBER', 'TELEPHONE',
+            'RTOM', 'RTOM_AREA', 'RTOMAREA',
+            'CONTRACTOR', 'CONTRACTOR_NAME',
+            'FTTH-DW (M)', 'FTTH-DW', 'DROP WIRE DISTANCE', 'DROP_WIRE'
+        ]);
+
+        const isMetadataKey = (key: string) => {
+            const normKey = key.trim().toUpperCase().replace(/\s*\(.*\)$/, '').trim();
+            return metadataKeys.has(normKey) || normKey === 'FTTH-DW';
+        };
+
+        const resolveItemFromHeader = (header: string) => {
+            const cleanedHeader = header.replace(/\s*\(.*\)$/, '').trim().toUpperCase();
+            const normHeader = cleanedHeader.replace(/[^A-Z0-9]/g, '');
+
+            let item = allItems.find(i => i.code.toUpperCase() === cleanedHeader);
+            if (item) return item;
+
+            item = allItems.find(i => i.code.toUpperCase().replace(/[^A-Z0-9]/g, '') === normHeader);
+            if (item) return item;
+
+            item = allItems.find(i => i.importAliases.some(alias => alias.toUpperCase() === cleanedHeader));
+            if (item) return item;
+
+            item = allItems.find(i => i.importAliases.some(alias => alias.toUpperCase().replace(/[^A-Z0-9]/g, '') === normHeader));
+            if (item) return item;
+
+            const specialMappings: Record<string, string> = {
+                'PLC56L': 'OSP-POLE-5.6LL',
+                'PLC56CE': 'OSPCPL008',
+                'PLC67': 'OSP-POLE-6.7LL',
+                'PLC67CE': 'OSPCPL009',
+                'PLC75': 'OSPCPL004',
+                'PLC8': 'OSP-POLE-8MH',
+                'PLCPOLE': 'OSP-POLE-5.6LL',
+                'DWLH': 'OSPACC017',
+                'FAC1': 'OSP-HC-ACC-FAC',
+                'FWS1': 'OSPFTA007',
+                'DWRT': 'OSP-NC-ACC-DWRETNER',
+                'UTPTER': 'UTP-TER',
+                'SCC5': 'OSP-HC-CBL-DW'
+            };
+
+            const mappedCode = specialMappings[normHeader];
+            if (mappedCode) {
+                const itemMatch = allItems.find(i => i.code.toUpperCase() === mappedCode.toUpperCase());
+                if (itemMatch) return itemMatch;
+            }
+
+            const looseMatch = allItems.find(i => i.code.toUpperCase().includes(normHeader) || normHeader.includes(i.code.toUpperCase()));
+            if (looseMatch) return looseMatch;
+
+            return null;
+        };
+
+        const materialUsagesToCreate = [];
+
+        for (const so of serviceOrders) {
+            const row = cleanRows.find(r => {
+                const rowSoNum = String(
+                    r['SOD'] ||
+                    r['SO NUMBER'] ||
+                    r['SO_NUM'] ||
+                    r['SERVICE ORDER'] ||
+                    r['SONUM'] ||
+                    ''
+                ).trim();
+                return rowSoNum.toLowerCase() === so.soNum.toLowerCase();
+            });
+
+            if (!row) continue;
+
+            for (const [key, val] of Object.entries(row)) {
+                if (isMetadataKey(key)) continue;
+
+                const qty = parseFloat(String(val || '0'));
+                if (isNaN(qty) || qty <= 0) continue;
+
+                const item = resolveItemFromHeader(key);
+                if (item) {
+                    materialUsagesToCreate.push({
+                        serviceOrderId: so.id,
+                        itemId: item.id,
+                        quantity: qty,
+                        unit: item.unit || 'Nos',
+                        usageType: 'BOM_CLAIM'
+                    });
+                }
+            }
+        }
+
+        if (materialUsagesToCreate.length > 0) {
+            await prisma.sODMaterialUsage.deleteMany({
+                where: { 
+                    serviceOrderId: { in: serviceOrders.map(s => s.id) },
+                    usageType: 'BOM_CLAIM'
+                }
+            });
+
+            await prisma.sODMaterialUsage.createMany({
+                data: materialUsagesToCreate,
+                skipDuplicates: true
+            });
+        }
+
+        const warnings: string[] = []; // No warnings needed now, as unmatched items are stubbed dynamically.
+
 
         // 4. Fetch active OPMC revenue configs for flat billing rate calculation
         const revenueConfigs = await prisma.sODRevenueConfig.findMany({
@@ -122,22 +318,35 @@ export class BOMInvoiceService {
             }
         });
 
-        // 7. Create Client ProjectInvoice
-        const invoice = await ProjectInvoiceService.createInvoice({
-            projectId: defaultProject.id,
-            title: `SLT Client Billing (BOM Import) - ${new Date().toLocaleDateString()}`,
-            description: `Billing claim generated from SLT BOM sheet. Matches ${serviceOrders.length} PAT-passed connections.`,
-            type: 'CLIENT',
-            invoiceDate: new Date(),
-            dueDate: new Date(Date.now() + 30 * 24 * 3600 * 1000), // 30 days due
-            items: invoiceItems,
-            createdById: userId,
-            referenceNumber: bomPath || null
+        // 7. Create Client Invoice (SLT Submit Format)
+        const totalAmount = invoiceItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+        const regionName = serviceOrders[0]?.rtom || 'GLOBAL';
+        
+        const contractorId = serviceOrders.find(s => s.contractorId)?.contractorId;
+        if (!contractorId) {
+            throw new Error('NO_CONTRACTOR_FOUND_IN_MATCHED_SODS');
+        }
+
+        const invoiceNumber = `INV-${bomPath ? bomPath.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16) : Date.now()}-${regionName}`;
+        const now = new Date();
+
+        const invoice = await InvoiceGeneratorService.createRegionalInvoice({
+            invoiceNumber,
+            contractorId,
+            year: now.getFullYear(),
+            month: now.getMonth() + 1,
+            totalAmount,
+            regionName,
+            sodIds: matchedIds,
+            bomNumber: bomPath || null,
+            rtomArea: regionName,
+            description: `SLT Client Billing generated from BOM sheet. Matches ${serviceOrders.length} connections.`
         });
 
         return {
             success: true,
             invoicesCreated: 1,
+            invoiceId: invoice.id,
             clientInvoiceNumber: invoice.invoiceNumber,
             matchedCount: serviceOrders.length,
             totalRevenue: invoice.totalAmount,

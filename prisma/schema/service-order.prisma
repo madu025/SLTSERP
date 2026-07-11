@@ -45,6 +45,7 @@ model ServiceOrder {
   isInvoicable      Boolean            @default(false)
   invoiced          Boolean            @default(false)
   invoiceId         String?
+  projectInvoiceId  String?
   wiredOnly         Boolean            @default(false)
   delayReasons      Json?
   stbShortage       Boolean            @default(false)
@@ -72,6 +73,7 @@ model ServiceOrder {
   commentsHistory   ServiceOrderComment[]
   contractor        Contractor?        @relation(fields: [contractorId], references: [id])
   invoice           Invoice?           @relation(fields: [invoiceId], references: [id])
+  projectInvoice    ProjectInvoice?    @relation("ProjectInvoiceSODs", fields: [projectInvoiceId], references: [id])
   opmc              OPMC               @relation(fields: [opmcId], references: [id], onDelete: Cascade)
   team              ContractorTeam?    @relation(fields: [teamId], references: [id])
 
@@ -82,6 +84,7 @@ model ServiceOrder {
   @@index([soNum])
   @@index([scheduledDate])
   @@index([contractorId])
+  @@index([projectInvoiceId])
   @@index([teamId])
   @@index([sltsStatus])
   @@index([createdAt])

@@ -24,10 +24,15 @@ model Invoice {
   date          DateTime       @default(now())
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  connectionTitle String?
+  agreementNumber  String?
+  projectNumber    Int?
+  bomNumber        String?
+  rtomArea         String?
   contractor    Contractor     @relation(fields: [contractorId], references: [id])
-   project       Project?       @relation(fields: [projectId], references: [id])
-   sods          ServiceOrder[]
-   penalties     Penalty[]
+  project       Project?       @relation(fields: [projectId], references: [id])
+  sods          ServiceOrder[]
+  penalties     Penalty[]
 
    @@index([projectId])
    @@index([contractorId])
@@ -321,6 +326,7 @@ model ProjectInvoice {
   items             ProjectInvoiceItem[]
   payments          PaymentVoucher[]          @relation("InvoicePayments")
   retentions        ProjectRetention[]
+  sods              ServiceOrder[]            @relation("ProjectInvoiceSODs")
 
   @@index([projectId])
   @@index([status])

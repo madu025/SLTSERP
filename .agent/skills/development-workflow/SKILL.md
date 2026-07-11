@@ -7,6 +7,15 @@ description: Comprehensive development workflow for SLTSERP project including ty
 
 This skill provides a systematic, "agentic-first" approach to developing features, fixing bugs, and maintaining elite code quality in the SLTSERP project. It follows the **Antigravity Development Standard**—a high-performance, modular, and aesthetically premium architecture.
 
+## 🏆 Production-Level Development Guidelines
+When writing or modifying code in this workspace, all agents must adhere to the following rules to ensure production-level quality:
+1. **Decouple Controllers and Services**: Never import `prisma` or run database queries directly in dynamic API routes (`src/app/api/.../route.ts`). All business logic must be encapsulated in the Service layer (`src/services/`). API routes should only validate requests, invoke services, and return responses.
+2. **Unified Route Handling (`apiHandler`)**: Every API endpoint handling mutations (POST, PUT, PATCH, DELETE) or complex reads must be wrapped in the `apiHandler` helper to ensure proper request validation (Zod schema checking), Role-Based Access Control (RBAC), automatic audit trail logging, and standardized JSON outputs.
+3. **Strict Database Schema Relations**: Do not use "soft relationships" (saving mismatched keys/IDs without DB constraints). Ensure Prisma schemas define exact relational keys, mapping types correctly (e.g. `projectInvoiceId` referencing `ProjectInvoice`).
+4. **Strategic Performance Indexing**: Add `@@index` annotations to any lookup or sorting fields in Prisma models that will be queried in loops or tables.
+5. **Server-Side Pagination & Caching Checks**: Implement offset or cursor pagination at the database level for list pages. Prevent static caching issues on dynamic Next.js API routes by exporting `dynamic = 'force-dynamic'`.
+
+
 ## Project Overview
 
 SLTSERP is a Next.js-based ERP system for SLT (Sri Lanka Telecom) Outside Plant (OSP) operations with the following tech stack:

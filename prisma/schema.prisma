@@ -738,6 +738,11 @@ model Invoice {
   date          DateTime       @default(now())
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  connectionTitle String?
+  agreementNumber  String?
+  projectNumber    Int?
+  bomNumber        String?
+  rtomArea         String?
   contractor    Contractor     @relation(fields: [contractorId], references: [id])
   project       Project?       @relation(fields: [projectId], references: [id])
   sods          ServiceOrder[]

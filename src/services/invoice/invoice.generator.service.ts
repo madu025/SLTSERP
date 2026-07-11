@@ -52,17 +52,103 @@ export class InvoiceGeneratorService {
         sodIds: string[];
         penaltyTotal?: number;
         penaltiesList?: { amount: number; reason: string; description?: string; serviceOrderId?: string }[];
+        bomNumber?: string | null;
+        rtomArea?: string | null;
+        description?: string;
     }) {
         const { totalAmount, penaltyTotal = 0, penaltiesList = [], ...other } = data;
         const { amountA, amountB } = InvoiceCalculatorService.calculateSplit(totalAmount, penaltyTotal);
 
         return await prisma.$transaction(async (tx) => {
+            // Find any associated project invoice to extract the BOM reference number, project ID, and metadata
+            let bomNumber = other.bomNumber;
+            let projectId = null;
+            let projectNumber = null;
+            let connectionTitle = null;
+
+            const associatedSod = await tx.serviceOrder.findFirst({
+                where: {
+                    id: { in: other.sodIds },
+                    projectInvoiceId: { not: null }
+                },
+                include: {
+                    projectInvoice: {
+                        include: {
+                            project: true
+                        }
+                    }
+                }
+            });
+
+            if (associatedSod && associatedSod.projectInvoice) {
+                if (bomNumber === undefined || bomNumber === null) {
+                    bomNumber = associatedSod.projectInvoice.referenceNumber || null;
+                }
+                const project = associatedSod.projectInvoice.project;
+                if (project) {
+                    projectId = project.id;
+                    connectionTitle = `${project.name} - connections`;
+                    const digits = project.projectCode.match(/\d+/);
+                    if (digits) {
+                        projectNumber = parseInt(digits[0], 10);
+                    }
+                }
+            }
+
+            // Fallback: If no direct ProjectInvoice association is found, look up active projects
+            if (!projectId) {
+                let project = await tx.project.findFirst({
+                    where: { contractorId: other.contractorId },
+                    orderBy: { createdAt: 'desc' }
+                });
+                
+                if (!project) {
+                    project = await tx.project.findFirst({
+                        where: {
+                            OR: [
+                                { name: { contains: 'BOM' } },
+                                { name: { contains: 'Invoicing' } },
+                                { projectCode: { contains: 'SERV' } }
+                            ]
+                        }
+                    });
+                }
+
+                if (!project) {
+                    project = await tx.project.findFirst({
+                        orderBy: { createdAt: 'desc' }
+                    });
+                }
+
+                if (project) {
+                    projectId = project.id;
+                    connectionTitle = `${project.name} - connections`;
+                    const digits = project.projectCode.match(/\d+/);
+                    if (digits) {
+                        projectNumber = parseInt(digits[0], 10);
+                    } else {
+                        projectNumber = 260103; // standard fallback project number
+                    }
+                }
+            }
+
+            // Get the RTOM area name from the first SOD if not provided
+            let rtomArea = other.rtomArea;
+            if (!rtomArea) {
+                const firstSod = await tx.serviceOrder.findFirst({
+                    where: { id: { in: other.sodIds } },
+                    select: { rtom: true }
+                });
+                rtomArea = firstSod?.rtom || other.regionName;
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const invoice = await tx.invoice.create({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 data: {
                     invoiceNumber: other.invoiceNumber,
                     contractorId: other.contractorId,
+                    projectId,
                     year: other.year,
                     month: other.month,
                     totalAmount: totalAmount,
@@ -72,7 +158,11 @@ export class InvoiceGeneratorService {
                     amountB,
                     statusB: 'HOLD',
                     status: 'PENDING',
-                    description: `Monthly Invoice for ${other.regionName} - ${other.month}/${other.year}`,
+                    description: other.description || `Monthly Invoice for ${other.regionName} - ${other.month}/${other.year}`,
+                    bomNumber,
+                    rtomArea,
+                    connectionTitle,
+                    projectNumber,
                     sods: { connect: other.sodIds.map(id => ({ id })) },
                     penalties: {
                         create: penaltiesList.map(p => ({

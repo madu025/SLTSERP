@@ -1,10 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import TripService from '@/services/TripService';
 import { TripStatusEnum } from '@prisma/client';
+import { createTripSchema, CreateTripSchema } from '@/lib/validations/trip.schema';
+import { Trip } from '@/types/vehicle-management.types';
 
-export async function GET(request: Request) {
-    try {
+/**
+ * GET: List trips with filters
+ */
+export const GET = apiHandler<Trip[], void>(
+    async (request: Request) => {
         const { searchParams } = new URL(request.url);
         const vehicle_id = searchParams.get('vehicle_id');
         const driver_id = searchParams.get('driver_id');
@@ -14,7 +18,15 @@ export async function GET(request: Request) {
         const page = parseInt(searchParams.get('page') || '1');
         const limit = parseInt(searchParams.get('limit') || '20');
 
-        const filters: any = {};
+        const filters: {
+            vehicle_id?: string;
+            driver_id?: string;
+            trip_status?: TripStatusEnum;
+            from_date?: Date;
+            to_date?: Date;
+            page?: number;
+            limit?: number;
+        } = {};
         if (vehicle_id) filters.vehicle_id = vehicle_id;
         if (driver_id) filters.driver_id = driver_id;
         if (trip_status) filters.trip_status = trip_status as TripStatusEnum;
@@ -23,40 +35,27 @@ export async function GET(request: Request) {
         filters.page = page;
         filters.limit = limit;
 
-        const { data, total } = await TripService.listTrips(filters);
-
-        return NextResponse.json({
-            success: true,
-            data,
-            meta: { total, page, limit, pages: Math.ceil(total / limit) },
-        });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
+        const { data } = await TripService.listTrips(filters);
+        return data;
     }
-}
+);
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { vehicle_id, driver_id, start_location, end_location, scheduled_start_time, scheduled_end_time, trip_type } = body;
-
-        if (!vehicle_id || !driver_id || !start_location || !end_location || !trip_type) {
-            return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Missing required fields' } }, { status: 400 });
-        }
-
+/**
+ * POST: Create a new trip
+ */
+export const POST = apiHandler<Trip, CreateTripSchema>(
+    async (request: Request, params: unknown, body) => {
         const trip = await TripService.createTrip({
-            vehicle_id,
-            driver_id,
-            start_location,
-            end_location,
-            scheduled_start_time: new Date(scheduled_start_time),
-            scheduled_end_time: new Date(scheduled_end_time),
-            trip_type,
+            vehicle_id: body.vehicle_id,
+            driver_id: body.driver_id,
+            start_location: body.start_location,
+            end_location: body.end_location,
+            scheduled_start_time: new Date(body.scheduled_start_time),
+            scheduled_end_time: new Date(body.scheduled_end_time),
+            trip_type: body.trip_type,
         });
 
-        return NextResponse.json({ success: true, data: trip }, { status: 201 });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
-    }
-}
-
+        return trip;
+    },
+    { schema: createTripSchema }
+);

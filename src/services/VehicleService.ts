@@ -80,6 +80,26 @@ function getErrorMessage(error: unknown): string {
 
 export class VehicleService {
   /**
+   * Get list of active drivers
+   */
+  async getActiveDrivers(): Promise<Array<{ id: string; first_name: string; last_name: string; phone: string }>> {
+    try {
+      const dbDrivers = await (db as any).vMDriver.findMany({
+        where: { employment_status: 'ACTIVE' },
+        orderBy: { first_name: 'asc' },
+      });
+      return dbDrivers.map((d: any) => ({
+        id: d.id,
+        first_name: d.first_name,
+        last_name: d.last_name,
+        phone: d.phone || '',
+      }));
+    } catch (error) {
+      throw new Error(`Failed to fetch active drivers: ${getErrorMessage(error)}`);
+    }
+  }
+
+  /**
    * Create a new vehicle
    */
   async createVehicle(data: CreateVehicleDTO): Promise<Vehicle> {

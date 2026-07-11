@@ -4,3 +4,5 @@ export { GISGeoPackageService } from './gis/GISGeoPackageService';
 export { GISReconciliationService } from './gis/GISReconciliationService';
 export { GISAuditService } from './gis/gis-audit.service';
 export { GISRouteOptimizerService } from './gis/gis-optimizer.service';
+export { GISRouteService } from './gis/GISRouteService';
+

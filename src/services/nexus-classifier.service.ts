@@ -88,7 +88,26 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'VOUCHERS', text: 'pv pramanya' },
   { intent: 'VOUCHERS', text: 'payment voucher status' },
   { intent: 'VOUCHERS', text: 'approve karanna thiyena vouchers' },
-  { intent: 'VOUCHERS', text: 'payment voucher' }
+  { intent: 'VOUCHERS', text: 'payment voucher' },
+
+  // BOM_INVOICES
+  { intent: 'BOM_INVOICES', text: 'bom invoices details' },
+  { intent: 'BOM_INVOICES', text: 'slt client billing list' },
+  { intent: 'BOM_INVOICES', text: 'bom sheets uploaded kiyada' },
+  { intent: 'BOM_INVOICES', text: 'bom invoice status' },
+  { intent: 'BOM_INVOICES', text: 'pat passed sync connections' },
+  { intent: 'BOM_INVOICES', text: 'bom backlog details' },
+  { intent: 'BOM_INVOICES', text: 'show me bom sheets' },
+  { intent: 'BOM_INVOICES', text: 'client invoice summaries' },
+  { intent: 'BOM_INVOICES', text: 'how many connections synced' },
+  { intent: 'BOM_INVOICES', text: 'BOM invoices summary' },
+  { intent: 'BOM_INVOICES', text: 'bom summary' },
+  { intent: 'BOM_INVOICES', text: 'BOM invoices' },
+  { intent: 'BOM_INVOICES', text: 'which rtom has the most material mismatches' },
+  { intent: 'BOM_INVOICES', text: 'mismatch reports by area' },
+  { intent: 'BOM_INVOICES', text: 'rtom mismatch report' },
+  { intent: 'BOM_INVOICES', text: 'unbalanced connections by rtom' },
+  { intent: 'BOM_INVOICES', text: 'highest mismatched materials area' }
 ];
 
 const DYNAMIC_TRAINING_PATH = path.join(process.cwd(), 'src/services/nexus-training-data.json');
@@ -289,7 +308,7 @@ export class NexusClassifierService {
     let maxMatchCount = 0;
 
     // Simple word overlap fallback
-    for (const intent of ['FINANCE', 'PROJECTS', 'INVENTORY_LOW', 'CONTRACTORS', 'STORES', 'INVENTORY_ITEMS', 'PROCUREMENT', 'VOUCHERS']) {
+    for (const intent of ['FINANCE', 'PROJECTS', 'INVENTORY_LOW', 'CONTRACTORS', 'STORES', 'INVENTORY_ITEMS', 'PROCUREMENT', 'VOUCHERS', 'BOM_INVOICES']) {
       const examples = TRAINING_DATA.filter(t => t.intent === intent);
       let matchCount = 0;
 

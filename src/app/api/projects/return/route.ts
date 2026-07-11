@@ -1,69 +1,51 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { ProjectMaterialReturn } from '@prisma/client';
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectStockIssueService } from '@/services/project/project-stock-issue.service';
+import { createReturnSchema, CreateReturnSchema } from '@/lib/validations/project-stock.schema';
 
-// POST: Create Return Request
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { projectId, storeId, items, reason } = body;
+export const dynamic = 'force-dynamic';
 
+/**
+ * POST: Create a return request
+ */
+export const POST = apiHandler<ProjectMaterialReturn, CreateReturnSchema>(
+    async (request: Request, params: unknown, body) => {
         const userId = request.headers.get('x-user-id');
-
-        if (!projectId || !storeId || !items || !userId) {
-            return NextResponse.json({ error: 'Missing fields or unauthorized' }, { status: 400 });
+        if (!userId) {
+            throw new Error('Unauthorized');
         }
 
-        const count = await prisma.projectMaterialReturn.count();
-        const returnNumber = `PMRN-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
-
-        const returnReq = await prisma.projectMaterialReturn.create({
-            data: {
-                returnNumber,
-                projectId,
-                storeId,
-                returnedById: userId,
-                reason,
-                status: 'PENDING',
-                items: {
-                    create: items.map((item: any) => ({
-                        itemId: item.itemId,
-                        quantity: parseFloat(item.quantity),
-                        condition: item.condition || 'GOOD',
-                        remarks: item.remarks
-                    }))
-                }
-            }
+        const returnReq = await ProjectStockIssueService.createReturnRequest({
+            projectId: body.projectId,
+            storeId: body.storeId,
+            items: body.items,
+            reason: body.reason,
+            userId
         });
 
-        return NextResponse.json(returnReq);
-    } catch (error) {
-        console.error('Error creating return:', error);
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
-    }
-}
+        return returnReq;
+    },
+    { schema: createReturnSchema }
+);
 
-// GET: List Returns
-export async function GET(request: Request) {
-    try {
+/**
+ * GET: Retrieve returns for a project
+ */
+export const GET = apiHandler<unknown[], void>(
+    async (request: Request) => {
+        const userId = request.headers.get('x-user-id');
+        if (!userId) {
+            throw new Error('Unauthorized');
+        }
+
         const { searchParams } = new URL(request.url);
         const projectId = searchParams.get('projectId');
 
-        if (!projectId) return NextResponse.json({ error: 'Project ID required' }, { status: 400 });
+        if (!projectId) {
+            throw new Error('Project ID required');
+        }
 
-        const returns = await prisma.projectMaterialReturn.findMany({
-            where: { projectId },
-            include: {
-                store: { select: { name: true } },
-                items: { include: { item: { select: { code: true, name: true, unit: true } } } },
-                returnedBy: { select: { name: true } },
-                approvedBy: { select: { name: true } }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-
-        return NextResponse.json(returns);
-    } catch (error) {
-        console.error(error);
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+        const returns = await ProjectStockIssueService.getProjectReturns(projectId);
+        return returns;
     }
-}
+);
