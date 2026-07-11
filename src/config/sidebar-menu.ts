@@ -241,7 +241,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Finance & Accounts',
         path: '/admin/finance',
         icon: Banknote,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER', 'AREA_MANAGER', 'MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER'],
         submenu: [
             {
                 title: 'Vendor Registry',
@@ -280,6 +280,33 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE]
             },
             {
+                title: 'Contractor Pricing',
+                path: '/admin/contractor-payment',
+                icon: Receipt,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'Vendor Upload (HO)',
+                path: '/admin/finance/vendors/import',
+                icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            },
+            {
+                title: 'Bank Upload (HO)',
+                path: '/admin/finance/banks/import',
+                icon: Upload,
+                allowedRoles: ROLE_GROUPS.ADMINS
+            }
+        ]
+    },
+
+    {
+        title: 'Billing & Invoices',
+        path: '/invoices',
+        icon: Receipt,
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+        submenu: [
+            {
                 title: 'Contractor Invoices',
                 path: '/invoices',
                 icon: Receipt,
@@ -293,7 +320,18 @@ export const SIDEBAR_MENU: MenuItem[] = [
             {
                 title: 'BOM Sheets',
                 path: '/invoices/bom-sheets',
-                icon: Receipt,
+                icon: FileText,
+                allowedRoles: [
+                    ...ROLE_GROUPS.ADMINS,
+                    ...ROLE_GROUPS.INVOICE,
+                    ...ROLE_GROUPS.FINANCE,
+                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'
+                ]
+            },
+            {
+                title: 'Delay Sheets',
+                path: '/invoices/delay-sheets',
+                icon: ClipboardList,
                 allowedRoles: [
                     ...ROLE_GROUPS.ADMINS,
                     ...ROLE_GROUPS.INVOICE,
@@ -308,27 +346,9 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, 'OSP_MANAGER']
             },
             {
-                title: 'Contractor Pricing',
-                path: '/admin/contractor-payment',
-                icon: Receipt,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            },
-            {
                 title: 'SOD Revenue Config',
                 path: '/admin/sod-revenue',
                 icon: Receipt,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            },
-            {
-                title: 'Vendor Upload (HO)',
-                path: '/admin/finance/vendors/import',
-                icon: Upload,
-                allowedRoles: ROLE_GROUPS.ADMINS
-            },
-            {
-                title: 'Bank Upload (HO)',
-                path: '/admin/finance/banks/import',
-                icon: Upload,
                 allowedRoles: ROLE_GROUPS.ADMINS
             }
         ]

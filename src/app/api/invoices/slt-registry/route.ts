@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { SLTPortalAuthService } from '@/services/slt-portal-auth.service';
 
 const REGISTRY_FILE = path.join(process.cwd(), 'src/data/slt-boms.json');
 const CONFIG_FILE = path.join(process.cwd(), 'src/data/slt-config.json');
@@ -52,16 +53,9 @@ export async function GET() {
         }
     }
 
-    // Load SLT cookie configuration
-    if (fs.existsSync(CONFIG_FILE)) {
-        try {
-            const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-            sltCookie = config.cookie || '';
-            cookieSaved = !!sltCookie;
-        } catch (e) {
-            console.error('Failed to read slt-config:', e);
-        }
-    }
+    // Get or refresh SLT session cookie automatically
+    sltCookie = await SLTPortalAuthService.getOrRefreshCookie();
+    cookieSaved = !!sltCookie;
 
     if (sltCookie) {
         try {
@@ -114,8 +108,23 @@ export async function GET() {
     return NextResponse.json({ success: true, boms: cachedBoms, cookieSaved, source: 'cache' });
 }
 
+export async function OPTIONS() {
+    return new NextResponse(null, {
+        status: 204,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, x-user-id, x-user-role, x-extension-key',
+        },
+    });
+}
+
 export async function POST(request: Request) {
     try {
+        const extensionKey = request.headers.get('x-extension-key');
+        const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
+        const isExtension = extensionKey === extensionSecret;
+
         const body = await request.json();
         const { action, cookie, boms } = body;
 
@@ -127,7 +136,9 @@ export async function POST(request: Request) {
 
         if (action === 'save-cookie') {
             fs.writeFileSync(CONFIG_FILE, JSON.stringify({ cookie }, null, 2), 'utf-8');
-            return NextResponse.json({ success: true, message: 'SLT cookie configuration saved successfully' });
+            return NextResponse.json({ success: true, message: 'SLT cookie configuration saved successfully' }, {
+                headers: { 'Access-Control-Allow-Origin': '*' }
+            });
         }
 
         // Default: save scraped BOMs array
@@ -135,17 +146,19 @@ export async function POST(request: Request) {
         if (!listToSave || !Array.isArray(listToSave)) {
             return NextResponse.json(
                 { success: false, message: 'Invalid payload: boms must be an array' },
-                { status: 400 }
+                { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } }
             );
         }
 
         fs.writeFileSync(REGISTRY_FILE, JSON.stringify(listToSave, null, 2), 'utf-8');
-        return NextResponse.json({ success: true, count: listToSave.length });
+        return NextResponse.json({ success: true, count: listToSave.length }, {
+            headers: { 'Access-Control-Allow-Origin': '*' }
+        });
     } catch (error: unknown) {
         console.error('Failed to save request payload:', error);
         return NextResponse.json(
             { success: false, message: 'Failed to process request' },
-            { status: 500 }
+            { status: 500, headers: { 'Access-Control-Allow-Origin': '*' } }
         );
     }
 }

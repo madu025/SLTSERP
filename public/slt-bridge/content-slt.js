@@ -512,3 +512,247 @@ if (!document.getElementById('phoenix-hud')) {
         btn.onmouseout = () => btn.style.background = '#8b5cf6';
     }
 }
+
+// =========================================================================
+// SLT BOM LIST DIRECT SYNC SYSTEM (AUTOMATION)
+// =========================================================================
+function initializeBOMSyncSystem() {
+    if (!window.location.href.includes('/contr/bom_list')) return;
+
+    // Avoid double initialization
+    if (document.getElementById('bom-sync-style')) return;
+
+    console.log('%c[i-SHAMP-BRIDGE] BOM Sync Module Loaded', 'color: #10b981; font-weight: bold;');
+
+    const style = document.createElement('style');
+    style.id = 'bom-sync-style';
+    style.innerHTML = `
+        .slt-erp-sync-btn {
+            background-color: #10b981 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            padding: 4px 8px !important;
+            font-size: 10px !important;
+            font-weight: bold !important;
+            cursor: pointer !important;
+            margin-left: 6px !important;
+            transition: all 0.2s ease !important;
+        }
+        .slt-erp-sync-btn:hover {
+            background-color: #059669 !important;
+            transform: scale(1.05) !important;
+        }
+        .slt-erp-sync-btn:disabled {
+            background-color: #6b7280 !important;
+            cursor: not-allowed !important;
+        }
+        .slt-erp-status-badge {
+            font-size: 9px !important;
+            font-weight: bold !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+            margin-left: 6px !important;
+            display: inline-block !important;
+        }
+        .slt-erp-status-success {
+            background-color: #d1fae5 !important;
+            color: #065f46 !important;
+        }
+        .slt-erp-status-fail {
+            background-color: #fee2e2 !important;
+            color: #991b1b !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Function to run on each row to add the "Sync to ERP" button
+    function enrichRows() {
+        const rows = document.querySelectorAll('table tbody tr');
+        rows.forEach(row => {
+            // Check if already processed
+            if (row.querySelector('.slt-erp-sync-btn') || row.querySelector('.slt-erp-status-badge')) return;
+
+            const tds = row.querySelectorAll('td');
+            if (tds.length < 4) return;
+
+            const bomRef = tds[0].innerText.trim();
+            const actionTd = tds[3]; // The Action column
+
+            // Extract BOM path from download button
+            const downloadBtn = actionTd.querySelector('button, a');
+            if (!downloadBtn) return;
+
+            const onclickAttr = downloadBtn.getAttribute('onclick') || '';
+            const match = onclickAttr.match(/bomDwnload\('([^']+)'\)/);
+            const bomPath = match ? match[1] : bomRef;
+
+            if (!bomPath) return;
+
+            // Create Sync to ERP button
+            const syncBtn = document.createElement('button');
+            syncBtn.className = 'slt-erp-sync-btn';
+            syncBtn.innerText = 'Sync to ERP';
+            syncBtn.type = 'button';
+
+            syncBtn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                syncBtn.disabled = true;
+                syncBtn.innerText = 'Downloading...';
+
+                try {
+                    // 1. Download CSV from portal
+                    const cleanPath = bomPath.trim().replace(/\//g, '-');
+                    const downloadUrl = `https://serviceportal.slt.lk/iShamp/files/${cleanPath}.csv`;
+                    
+                    const res = await fetch(downloadUrl);
+                    if (!res.ok) throw new Error(`Download Failed (HTTP ${res.status})`);
+                    
+                    const csvText = await res.text();
+                    syncBtn.innerText = 'Syncing...';
+
+                    // Read dynamic ERP Origin from Chrome storage
+                    const stored = await new Promise(r => chrome.storage.local.get(['erpOrigin'], r));
+                    const origin = stored.erpOrigin || 'https://sltserp.vercel.app';
+
+                    // 2. Post to Local/Prod ERP Server
+                    const erpRes = await fetch(`${origin}/api/invoices/import-bom/csv`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-extension-key': 'slt-bridge-secret-2026'
+                        },
+                        body: JSON.stringify({ csvText, bomPath })
+                    });
+
+                    const erpResult = await erpRes.json();
+                    if (!erpRes.ok) throw new Error(erpResult.message || 'ERP sync error');
+
+                    // Success! Remove button and show success badge
+                    syncBtn.remove();
+                    const badge = document.createElement('span');
+                    badge.className = 'slt-erp-status-badge slt-erp-status-success';
+                    badge.innerText = `Synced (${erpResult.clientInvoiceNumber || 'OK'})`;
+                    actionTd.appendChild(badge);
+
+                } catch (err) {
+                    console.error('BOM Sync Error:', err);
+                    syncBtn.disabled = false;
+                    syncBtn.innerText = 'Sync to ERP';
+                    
+                    // Show temp error banner next to button
+                    const errLabel = document.createElement('span');
+                    errLabel.className = 'slt-erp-status-badge slt-erp-status-fail';
+                    errLabel.innerText = 'Failed';
+                    errLabel.title = err ? err.message : 'Unknown error';
+                    actionTd.appendChild(errLabel);
+                    setTimeout(() => errLabel.remove(), 4000);
+                }
+            };
+
+            actionTd.appendChild(syncBtn);
+        });
+    }
+
+    // Floating button to scrape and sync the current visible BOM page list
+    function addPageSyncButton() {
+        if (document.getElementById('slt-erp-page-sync-btn')) return;
+
+        const container = document.querySelector('.card-header, .box-header, .panel-heading') || document.body;
+        
+        const pageSyncBtn = document.createElement('button');
+        pageSyncBtn.id = 'slt-erp-page-sync-btn';
+        pageSyncBtn.style.cssText = `
+            float: right;
+            background-color: #8b5cf6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        `;
+        pageSyncBtn.innerText = 'Sync Page BOMs to ERP';
+        
+        pageSyncBtn.onclick = async () => {
+            pageSyncBtn.disabled = true;
+            pageSyncBtn.innerText = 'Syncing List...';
+            
+            try {
+                const boms = [];
+                const rows = document.querySelectorAll('table tbody tr');
+                rows.forEach(row => {
+                    const tds = row.querySelectorAll('td');
+                    if (tds.length < 3) return;
+                    
+                    const bomRef = tds[0].innerText.trim();
+                    const rtom = tds[1].innerText.trim();
+                    const contractor = tds[2].innerText.trim();
+                    
+                    const downloadBtn = tds[3]?.querySelector('button, a');
+                    const onclickAttr = downloadBtn?.getAttribute('onclick') || '';
+                    const match = onclickAttr.match(/bomDwnload\('([^']+)'\)/);
+                    const path = match ? match[1] : bomRef;
+                    
+                    if (bomRef) {
+                        boms.push({ bomRef, rtom, contractor, path });
+                    }
+                });
+
+                if (boms.length === 0) throw new Error('No BOM rows detected on current page.');
+
+                // Read dynamic ERP Origin from Chrome storage
+                const stored = await new Promise(r => chrome.storage.local.get(['erpOrigin'], r));
+                const origin = stored.erpOrigin || 'https://sltserp.vercel.app';
+
+                const res = await fetch(`${origin}/api/invoices/slt-registry`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-extension-key': 'slt-bridge-secret-2026'
+                    },
+                    body: JSON.stringify(boms)
+                });
+                
+                if (!res.ok) throw new Error('Failed to update ERP registry');
+                
+                pageSyncBtn.style.backgroundColor = '#10b981';
+                pageSyncBtn.innerText = 'List Synced!';
+                setTimeout(() => {
+                    pageSyncBtn.disabled = false;
+                    pageSyncBtn.style.backgroundColor = '#8b5cf6';
+                    pageSyncBtn.innerText = 'Sync Page BOMs to ERP';
+                }, 3000);
+            } catch (err) {
+                alert('BOM List Sync Error: ' + (err ? err.message : 'Unknown error'));
+                pageSyncBtn.disabled = false;
+                pageSyncBtn.innerText = 'Sync Page BOMs to ERP';
+            }
+        };
+
+        if (container === document.body) {
+            pageSyncBtn.style.position = 'fixed';
+            pageSyncBtn.style.bottom = '20px';
+            pageSyncBtn.style.right = '80px';
+            pageSyncBtn.style.zIndex = '9999';
+        }
+        
+        container.appendChild(pageSyncBtn);
+    }
+
+    // Run periodically to catch pagination / sorting updates
+    setInterval(() => {
+        enrichRows();
+        addPageSyncButton();
+    }, 1500);
+    
+    enrichRows();
+    addPageSyncButton();
+}
+
+initializeBOMSyncSystem();

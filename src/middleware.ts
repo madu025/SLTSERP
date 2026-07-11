@@ -24,7 +24,9 @@ const publicPaths = [
     '/api/service-orders/bridge-data',
     '/api/opmcs',
     '/presentation',
-    '/api/gis/auto-plan/rebuild'
+    '/api/gis/auto-plan/rebuild',
+    '/api/invoices/import-bom/csv',
+    '/api/invoices/slt-registry'
 ];
 
 export async function middleware(request: NextRequest) {

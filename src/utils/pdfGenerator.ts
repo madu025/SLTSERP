@@ -115,3 +115,73 @@ export const generateGatePassPDF = (request: any) => {
     // Save
     doc.save(`GatePass_${request.id.slice(-8)}.pdf`);
 };
+
+export const generateDelaySheetPDF = (month: string, rtom: string, orders: any[]) => {
+    const doc = new jsPDF('landscape');
+
+    // Header
+    doc.setFontSize(16);
+    doc.text("SRI LANKA TELECOM SERVICES", 14, 15);
+    doc.setFontSize(11);
+    doc.text(`MONTH-END SOD DELAY SHEET - ${month}`, 14, 22);
+    doc.text(`OPMC / RTOM: ${rtom}`, 14, 28);
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, 240, 28);
+    doc.setTextColor(0);
+
+    // Table
+    const tableColumn = ["#", "SO Number", "Voice Number", "RTOM", "Customer Name", "Received Date", "Delay Reasons", "Remarks / Comments"];
+    const tableRows: any[] = [];
+
+    orders.forEach((o: any, index: number) => {
+        tableRows.push([
+            index + 1,
+            o.soNum,
+            o.voiceNumber,
+            o.rtom,
+            o.customerName,
+            o.receivedDate,
+            o.reasons.join(", "),
+            o.comments || 'N/A'
+        ]);
+    });
+
+    autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 35,
+        theme: 'grid',
+        headStyles: { fillColor: [217, 119, 6] }, // Amber Orange
+        styles: { fontSize: 8 },
+        columnStyles: {
+            7: { cellWidth: 70 } // Remarks/Comments column
+        }
+    });
+
+    // Signatures
+    const finalY = (doc as any).lastAutoTable.finalY || 40;
+
+    let signY = finalY + 25;
+    if (signY + 15 > doc.internal.pageSize.height) {
+        doc.addPage();
+        signY = 30;
+    }
+
+    doc.setFontSize(9);
+    doc.text("___________________________", 14, signY);
+    doc.text("Prepared By (Contractor)", 14, signY + 6);
+    doc.text("Date: ____/____/________", 14, signY + 12);
+
+    doc.text("___________________________", 110, signY);
+    doc.text("Checked By (QC Officer / AE)", 110, signY + 6);
+    doc.text("Date: ____/____/________", 110, signY + 12);
+
+    doc.text("___________________________", 200, signY);
+    doc.text("Approved By (Area Coordinator / Manager)", 200, signY + 6);
+    doc.text("Date: ____/____/________", 200, signY + 12);
+
+    // Save
+    doc.save(`Delay_Sheet_${month}_${rtom}.pdf`);
+};
+

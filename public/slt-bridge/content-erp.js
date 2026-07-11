@@ -21,6 +21,11 @@
         detail: { version: version }
     }));
 
+    // Save ERP origin dynamically to chrome storage
+    chrome.storage.local.set({ erpOrigin: window.location.origin }, () => {
+        console.log(`[i-SHAMP-BRIDGE] Saved active ERP Origin: ${window.location.origin}`);
+    });
+
     // Sync Diagnostics
     chrome.storage.local.get(['lastScraped'], (res) => {
         const info = {

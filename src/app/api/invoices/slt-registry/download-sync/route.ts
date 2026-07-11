@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { BOMInvoiceService } from '@/services/finance/bom-invoice.service';
+import { SLTPortalAuthService } from '@/services/slt-portal-auth.service';
 
 const CONFIG_FILE = path.join(process.cwd(), 'src/data/slt-config.json');
 
@@ -28,20 +29,12 @@ export async function POST(request: Request) {
             );
         }
 
-        // Load SLT cookie configuration
-        let sltCookie = '';
-        if (fs.existsSync(CONFIG_FILE)) {
-            try {
-                const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
-                sltCookie = config.cookie || '';
-            } catch (e) {
-                console.error('Failed to read slt-config:', e);
-            }
-        }
+        // Get or refresh SLT session cookie automatically
+        const sltCookie = await SLTPortalAuthService.getOrRefreshCookie();
 
         if (!sltCookie) {
             return NextResponse.json(
-                { success: false, message: 'SLT portal session cookie not set. Please save your cookie in the settings first.' },
+                { success: false, message: 'SLT portal session cookie not set or could not be generated. Please save your cookie or SLT credentials.' },
                 { status: 400 }
             );
         }
