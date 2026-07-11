@@ -228,9 +228,10 @@ export default function InvoicesPage() {
                         setBomImportDialogOpen(false);
                         setBomFile(null);
                         fetchInvoices();
-                    } catch (err: any) {
-                        console.error(err);
-                        alert(`Error parsing/uploading BOM CSV: ${err.message}`);
+                    } catch (err) {
+                        const error = err as Error;
+                        console.error(error);
+                        alert(`Error parsing/uploading BOM CSV: ${error.message}`);
                     } finally {
                         setImporting(false);
                     }
@@ -283,18 +284,20 @@ export default function InvoicesPage() {
                         setBomImportDialogOpen(false);
                         setBomFile(null);
                         fetchInvoices();
-                    } catch (err: any) {
-                        console.error(err);
-                        alert(`Error parsing/uploading BOM: ${err.message}`);
+                    } catch (err) {
+                        const error = err as Error;
+                        console.error(error);
+                        alert(`Error parsing/uploading BOM: ${error.message}`);
                     } finally {
                         setImporting(false);
                     }
                 };
                 reader.readAsBinaryString(bomFile);
             }
-        } catch (err: any) {
-            console.error(err);
-            alert(`Error loading excel parser: ${err.message}`);
+        } catch (err) {
+            const error = err as Error;
+            console.error(error);
+            alert(`Error loading excel parser: ${error.message}`);
             setImporting(false);
         }
     };
@@ -1265,19 +1268,17 @@ export default function InvoicesPage() {
                                 <ol className="list-decimal list-inside text-[10px] text-slate-500 space-y-1.5">
                                     <li>Drag the button below to your browser Bookmarks Bar.</li>
                                     <li>Go to the SLT Service Portal page containing the BOM download link.</li>
-                                    <li>Click the <b>"Sync to ERP"</b> bookmark in your bookmarks bar.</li>
+                                    <li>Click the <b>&quot;Sync to ERP&quot;</b> bookmark in your bookmarks bar.</li>
                                     <li>Enter the BOM Path (e.g. <code className="bg-slate-200 text-slate-700 px-1 rounded">BOM/R-AD/2023-09-09-24030409</code>) when prompted.</li>
                                 </ol>
                                 
                                 <div className="pt-2 flex justify-center">
-                                    <a
-                                        href={`javascript:(async()=>{const path=prompt('Enter BOM Path (e.g. BOM/R-AD/2023-09-09-24030409):');if(!path)return;const cleanPath=path.trim().replace(/\\//g,'-');const url=\`/iShamp/files/\${cleanPath}.csv\`;alert('Fetching BOM CSV from SLT Portal...');try{const res=await fetch(url);if(!res.ok)throw new Error('Failed to fetch CSV from SLT portal. Make sure you are logged in.');const csvText=await res.text();alert('BOM CSV fetched successfully! Sending to SLTSERP...');const erpRes=await fetch('${typeof window !== 'undefined' ? window.location.origin : ''}/api/invoices/import-bom/csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({csvText})});const json=await erpRes.json();if(!erpRes.ok)throw new Error(json.error||json.message||'Import failed');alert('BOM sync successful!\\n- Matched connections: '+json.matchedCount+'\\n- Generated Client Invoice: '+json.clientInvoiceNumber+'\\n- Revenue: '+json.totalRevenue.toLocaleString()+' LKR');}catch(err){alert('Sync Error: '+err.message);}})();`}
-                                        className="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition-all select-none shadow-sm cursor-grab"
-                                        onClick={(e) => e.preventDefault()}
-                                    >
-                                        Sync to ERP
-                                    </a>
-                                </div>
+                                     <div
+                                         dangerouslySetInnerHTML={{
+                                             __html: `<a href="javascript:(async()=>{const path=prompt('Enter BOM Path (e.g. BOM/R-AD/2023-09-09-24030409):');if(!path)return;const cleanPath=path.trim().replace(/\\//g,'-');const url=\`https://serviceportal.slt.lk/iShamp/files/\${cleanPath}.csv\`;alert('Fetching BOM CSV from SLT Portal...');try{const res=await fetch(url);if(!res.ok)throw new Error('Failed to fetch CSV from SLT portal. Make sure you are logged in.');const csvText=await res.text();alert('BOM CSV fetched successfully! Sending to SLTSERP...');const erpRes=await fetch(window.location.origin+'/api/invoices/import-bom/csv',{method:'POST',headers:{'Content-Type':'application/json','x-extension-key':'slt-bridge-secret-2026'},body:JSON.stringify({csvText})});const json=await erpRes.json();if(!erpRes.ok)throw new Error(json.error||json.message||'Import failed');alert('BOM sync successful!\\n- Matched connections: '+json.matchedCount+'\\n- Generated Client Invoice: '+json.clientInvoiceNumber+'\\n- Revenue: '+json.totalRevenue.toLocaleString()+' LKR');}catch(err){alert('Sync Error: '+err.message);}})();" class="inline-flex items-center justify-center h-10 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition-all select-none shadow-sm cursor-grab border-none" onclick="event.preventDefault()">Sync to ERP</a>`
+                                         }}
+                                     />
+                                 </div>
                             </div>
                         </TabsContent>
                     </Tabs>
