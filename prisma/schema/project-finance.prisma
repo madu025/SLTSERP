@@ -293,6 +293,7 @@ model ProjectGoodsReceiptItem {
   goodsReceipt    ProjectGoodsReceipt  @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
 
   @@index([goodsReceiptId])
+  @@index([poItemId])
 }
 
 model ProjectInvoice {

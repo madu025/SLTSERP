@@ -1,41 +1,29 @@
-import { NextResponse } from "next/server";
-import { ProjectPermitService } from "@/services/project-permit.service";
+import { apiHandler } from '@/lib/api-handler';
+import { ProjectPermitService } from '@/services/project-permit.service';
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const projectId = searchParams.get("projectId");
+export const dynamic = 'force-dynamic';
 
-        const permits = await ProjectPermitService.getPermits(projectId);
-        return NextResponse.json(permits);
-    } catch (error: unknown) {
-        console.error("Error fetching permits:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch permits" },
-            { status: 500 }
-        );
+// GET permits list (rawResponse for compatibility)
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get("projectId");
+
+    return await ProjectPermitService.getPermits(projectId);
+}, {
+    rawResponse: true
+});
+
+// POST create permit
+export const POST = apiHandler(async (req, _params, body) => {
+    const { projectId, permitTypeId } = body;
+
+    if (!projectId || !permitTypeId) {
+        throw new Error("Missing required fields: projectId, permitTypeId");
     }
-}
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { projectId, permitTypeId } = body;
-
-        if (!projectId || !permitTypeId) {
-            return NextResponse.json(
-                { error: "Missing required fields: projectId, permitTypeId" },
-                { status: 400 }
-            );
-        }
-
-        const permit = await ProjectPermitService.createPermit(body);
-        return NextResponse.json(permit, { status: 201 });
-    } catch (error: unknown) {
-        console.error("Error creating permit:", error);
-        return NextResponse.json(
-            { error: "Failed to create permit" },
-            { status: 500 }
-        );
-    }
-}
+    return await ProjectPermitService.createPermit(body);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    audit: { action: 'CREATE', entity: 'PROJECT_PERMIT' },
+    rawResponse: true
+});

@@ -1,98 +1,65 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ProjectMilestoneService } from '@/services/project-milestone.service';
 
-// GET list milestones for a project
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const projectId = searchParams.get('projectId');
+export const dynamic = 'force-dynamic';
 
-        if (!projectId) {
-            return NextResponse.json(
-                { error: 'projectId query parameter is required' },
-                { status: 400 }
-            );
-        }
+// GET list milestones for a project (rawResponse for compatibility)
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('projectId');
 
-        const milestones = await ProjectMilestoneService.getMilestones(projectId);
-        return NextResponse.json(milestones);
-    } catch (error: unknown) {
-        console.error('Error fetching milestones:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch milestones' },
-            { status: 500 }
-        );
+    if (!projectId) {
+        throw new Error('projectId query parameter is required');
     }
-}
+
+    return await ProjectMilestoneService.getMilestones(projectId);
+}, {
+    rawResponse: true
+});
 
 // POST create milestone
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { projectId, name, targetDate } = body;
+export const POST = apiHandler(async (req, _params, body) => {
+    const { projectId, name, targetDate } = body;
 
-        if (!projectId || !name || !targetDate) {
-            return NextResponse.json(
-                { error: 'Project ID, Name and Target Date are required' },
-                { status: 400 }
-            );
-        }
-
-        const milestone = await ProjectMilestoneService.createMilestone(body);
-        return NextResponse.json(milestone);
-    } catch (error: unknown) {
-        console.error('Error creating milestone:', error);
-        return NextResponse.json(
-            { error: 'Failed to create milestone' },
-            { status: 500 }
-        );
+    if (!projectId || !name || !targetDate) {
+        throw new Error('Project ID, Name and Target Date are required');
     }
-}
+
+    return await ProjectMilestoneService.createMilestone(body);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    audit: { action: 'CREATE', entity: 'PROJECT_MILESTONE' },
+    rawResponse: true
+});
 
 // PATCH update milestone
-export async function PATCH(request: Request) {
-    try {
-        const body = await request.json();
-        const { id, ...updateData } = body;
+export const PATCH = apiHandler(async (req, _params, body) => {
+    const { id, ...updateData } = body;
 
-        if (!id) {
-            return NextResponse.json(
-                { error: 'Milestone ID required' },
-                { status: 400 }
-            );
-        }
-
-        const milestone = await ProjectMilestoneService.updateMilestone(id, updateData);
-        return NextResponse.json(milestone);
-    } catch (error: unknown) {
-        console.error('Error updating milestone:', error);
-        return NextResponse.json(
-            { error: 'Failed to update milestone' },
-            { status: 500 }
-        );
+    if (!id) {
+        throw new Error('Milestone ID required');
     }
-}
+
+    return await ProjectMilestoneService.updateMilestone(id, updateData);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    audit: { action: 'UPDATE', entity: 'PROJECT_MILESTONE' },
+    rawResponse: true
+});
 
 // DELETE milestone
-export async function DELETE(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
+export const DELETE = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
 
-        if (!id) {
-            return NextResponse.json(
-                { error: 'Milestone ID required' },
-                { status: 400 }
-            );
-        }
-
-        await ProjectMilestoneService.deleteMilestone(id);
-        return NextResponse.json({ success: true });
-    } catch (error: unknown) {
-        console.error('Error deleting milestone:', error);
-        return NextResponse.json(
-            { error: 'Failed to delete milestone' },
-            { status: 500 }
-        );
+    if (!id) {
+        throw new Error('Milestone ID required');
     }
-}
+
+    await ProjectMilestoneService.deleteMilestone(id);
+    return { success: true };
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
+    audit: { action: 'DELETE', entity: 'PROJECT_MILESTONE' },
+    rawResponse: true
+});

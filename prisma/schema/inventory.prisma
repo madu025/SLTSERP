@@ -236,6 +236,8 @@ model JournalEntry {
   date          DateTime      @default(now())
   createdAt     DateTime      @default(now())
   lines         JournalLine[]
+
+  @@index([referenceId, referenceType])
 }
 
 model JournalLine {

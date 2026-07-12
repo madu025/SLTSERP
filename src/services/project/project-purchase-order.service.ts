@@ -159,6 +159,11 @@ export class ProjectPurchaseOrderService {
             throw new Error('PURCHASE_ORDER_NOT_FOUND');
         }
 
+        const finalizedStatuses = ['FULLY_RECEIVED', 'CLOSED', 'CANCELLED'];
+        if (finalizedStatuses.includes(existing.status)) {
+            throw new Error('STATUS_LOCKED');
+        }
+
         const updateData: Record<string, unknown> = { status };
 
         switch (status) {

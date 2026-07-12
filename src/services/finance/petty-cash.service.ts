@@ -304,4 +304,29 @@ export class PettyCashService {
       return updatedReimbursement;
     });
   }
+
+  /**
+   * Get petty cash reimbursements
+   */
+  static async getReimbursements(accountId?: string) {
+    if (accountId) {
+      const account = await prisma.pettyCashAccount.findUnique({
+        where: { id: accountId }
+      });
+      if (!account) throw new Error('PETTY_CASH_ACCOUNT_NOT_FOUND');
+      return prisma.pettyCashReimbursement.findMany({
+        where: { accountId },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+
+    return prisma.pettyCashReimbursement.findMany({
+      include: {
+        account: {
+          select: { name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
 }

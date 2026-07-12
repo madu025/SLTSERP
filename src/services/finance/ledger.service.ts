@@ -553,4 +553,34 @@ export class LedgerService {
             }
         });
     }
+
+    /**
+     * Get paginated ledger entries
+     */
+    static async getLedgerEntries(pagination?: { page?: number; limit?: number }) {
+        const { prisma } = await import('@/lib/prisma');
+        const page = pagination?.page || 1;
+        const limit = pagination?.limit || 50;
+        const skip = (page - 1) * limit;
+
+        const [items, total] = await prisma.$transaction([
+            prisma.journalEntry.findMany({
+                include: { lines: true },
+                orderBy: { date: 'desc' },
+                skip,
+                take: limit
+            }),
+            prisma.journalEntry.count()
+        ]);
+
+        return {
+            items,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
 }

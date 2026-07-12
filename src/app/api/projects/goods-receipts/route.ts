@@ -1,78 +1,56 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { ProjectGoodsReceiptService } from '@/services/project-goods-receipt.service';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/projects/goods-receipts?projectId=xxx - List GRs by project
-export async function GET(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const projectId = searchParams.get('projectId');
-        const poId = searchParams.get('poId');
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('projectId') || undefined;
+    const poId = searchParams.get('poId') || undefined;
 
-        if (!projectId && !poId) {
-            return NextResponse.json({ error: 'projectId or poId is required' }, { status: 400 });
-        }
-
-        const goodsReceipts = await ProjectGoodsReceiptService.getGoodsReceipts(projectId, poId);
-        return NextResponse.json(goodsReceipts);
-    } catch (error: unknown) {
-        console.error('Error fetching goods receipts:', error);
-        return NextResponse.json({ error: 'Failed to fetch goods receipts' }, { status: 500 });
+    if (!projectId && !poId) {
+        throw new Error('projectId or poId is required');
     }
-}
+
+    return await ProjectGoodsReceiptService.getGoodsReceipts(projectId, poId);
+}, {
+    rawResponse: true
+});
 
 // POST /api/projects/goods-receipts - Create a new goods receipt
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const {
-            poId,
-            projectId,
-            receivedById,
-            items,
-        } = body;
+export const POST = apiHandler(async (req, _params, body) => {
+    const { poId, projectId, items } = body;
+    const userId = req.headers.get('x-user-id');
 
-        // Validate required fields
-        if (!poId || !projectId || !receivedById || !items?.length) {
-            return NextResponse.json(
-                { error: 'poId, projectId, receivedById, and items are required' },
-                { status: 400 }
-            );
-        }
-
-        const goodsReceipt = await ProjectGoodsReceiptService.createGoodsReceipt(body);
-        return NextResponse.json(goodsReceipt, { status: 201 });
-    } catch (error: unknown) {
-        console.error('Error creating goods receipt:', error);
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'PURCHASE_ORDER_NOT_FOUND') {
-            return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
-        }
-        const errorCode = (error as { code?: string }).code;
-        if (errorCode === 'P2002') {
-            return NextResponse.json({ error: 'GRN number already exists' }, { status: 400 });
-        }
-        return NextResponse.json({ error: 'Failed to create goods receipt' }, { status: 500 });
+    if (!poId || !projectId || !userId || !items?.length) {
+        throw new Error('poId, projectId, and items are required and user must be authenticated');
     }
-}
+
+    const payload = {
+        ...body,
+        receivedById: userId
+    };
+
+    return await ProjectGoodsReceiptService.createGoodsReceipt(payload);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORES_MANAGER'],
+    audit: { action: 'CREATE', entity: 'PROJECT_GOODS_RECEIPT' },
+    rawResponse: true
+});
 
 // PATCH /api/projects/goods-receipts - Approve/reject goods receipt
-export async function PATCH(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { id, status, approvedById } = body;
+export const PATCH = apiHandler(async (req, _params, body) => {
+    const { id, status } = body;
+    const userId = req.headers.get('x-user-id') || undefined;
 
-        if (!id || !status) {
-            return NextResponse.json({ error: 'id and status are required' }, { status: 400 });
-        }
-
-        const goodsReceipt = await ProjectGoodsReceiptService.updateGoodsReceiptStatus(id, status, approvedById);
-        return NextResponse.json(goodsReceipt);
-    } catch (error: unknown) {
-        console.error('Error updating goods receipt:', error);
-        const errorMsg = error instanceof Error ? error.message : '';
-        if (errorMsg === 'INVALID_STATUS') {
-            return NextResponse.json({ error: 'Invalid status transition' }, { status: 400 });
-        }
-        return NextResponse.json({ error: 'Failed to update goods receipt' }, { status: 500 });
+    if (!id || !status) {
+        throw new Error('id and status are required');
     }
-}
+
+    return await ProjectGoodsReceiptService.updateGoodsReceiptStatus(id, status, userId);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STORES_MANAGER'],
+    audit: { action: 'UPDATE_STATUS', entity: 'PROJECT_GOODS_RECEIPT' },
+    rawResponse: true
+});

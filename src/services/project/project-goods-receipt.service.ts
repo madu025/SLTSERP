@@ -235,6 +235,21 @@ export class ProjectGoodsReceiptService {
                     }
                 }
 
+                // Calculate total cost of items received/accepted in this GRN:
+                const totalCost = grn.items.reduce((sum, item) => {
+                    return sum + (item.unitPrice || 0) * (item.quantityReceived || 0);
+                }, 0);
+
+                if (totalCost > 0) {
+                    const { LedgerService } = await import('@/services/finance/ledger.service');
+                    await LedgerService.logGrnReceipt(
+                        tx,
+                        grn.id,
+                        totalCost,
+                        `Project Material Accrual (GRN: ${grn.grnNumber})`
+                    );
+                }
+
                 return grn;
             });
             return goodsReceipt;
