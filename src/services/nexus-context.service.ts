@@ -133,7 +133,7 @@ export class NexusContextService {
   // --- MODULAR INTENT-DRIVEN QUERY FUNCTIONS ---
 
   static async getFinanceContext() {
-    const [outstandingInvoices, pendingPVs, releasableInvoices] = await Promise.all([
+    const [outstandingInvoices, pendingPVs, releasableInvoices, outstandingInvoicesList] = await Promise.all([
       prisma.invoice.aggregate({
         _sum: { totalAmount: true },
         where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } }
@@ -153,6 +153,12 @@ export class NexusContextService {
           invoiceNumber: true,
           amountB: true
         }
+      }),
+      prisma.invoice.findMany({
+        where: { status: { notIn: ['PAID', 'CANCELLED', 'REJECTED'] } },
+        select: { invoiceNumber: true, totalAmount: true, status: true },
+        take: 10,
+        orderBy: { createdAt: 'desc' }
       })
     ]);
 
@@ -163,7 +169,12 @@ export class NexusContextService {
       pendingPVsCount: pendingPVs,
       releasableRetentionsCount: releasableInvoices.length,
       releasableRetentionsSum: releasableTotal,
-      releasableInvoicesList: releasableInvoices.map(i => `${i.invoiceNumber} (LKR ${Number(i.amountB).toLocaleString()})`)
+      releasableInvoicesList: releasableInvoices.map(i => `${i.invoiceNumber} (LKR ${Number(i.amountB).toLocaleString()})`),
+      outstandingInvoicesList: outstandingInvoicesList.map(i => ({
+        invoiceNumber: i.invoiceNumber,
+        totalAmount: Number(i.totalAmount),
+        status: i.status
+      }))
     };
   }
 
@@ -176,8 +187,8 @@ export class NexusContextService {
       }),
       prisma.project.findMany({
         where: { status: 'IN_PROGRESS' },
-        select: { id: true, name: true },
-        take: 5
+        select: { id: true, name: true, projectCode: true, progress: true },
+        take: 10
       })
     ]);
 
@@ -189,7 +200,17 @@ export class NexusContextService {
         }
     }
 
-    return { activeProjectsCount, overdueTasksCount, projectRisks };
+    return { 
+      activeProjectsCount, 
+      overdueTasksCount, 
+      projectRisks,
+      activeProjectsList: activeProjects.map(p => ({
+        id: p.id,
+        name: p.name,
+        projectCode: p.projectCode,
+        progress: Number(p.progress || 0)
+      }))
+    };
   }
 
   static async getInventoryLowStockContext() {
@@ -214,9 +235,13 @@ export class NexusContextService {
   static async getContractorsContext() {
     const [contractorsCount, contractors] = await Promise.all([
       prisma.contractor.count(),
-      prisma.contractor.findMany({ select: { name: true, type: true }, take: 5 })
+      prisma.contractor.findMany({ select: { id: true, name: true, type: true }, take: 20, orderBy: { name: 'asc' } })
     ]);
-    return { contractorsCount, list: contractors.map(c => `${c.name} (${c.type})`) };
+    return {
+      contractorsCount,
+      list: contractors.map(c => `${c.name} (${c.type})`),
+      contractorsList: contractors.map(c => ({ name: c.name, type: c.type }))
+    };
   }
 
   static async getStoresContext() {
@@ -235,27 +260,58 @@ export class NexusContextService {
   static async getInventoryItemsContext() {
     const [itemsCount, items] = await Promise.all([
       prisma.inventoryItem.count(),
-      prisma.inventoryItem.findMany({ select: { name: true, code: true }, take: 5 })
+      prisma.inventoryItem.findMany({ select: { name: true, code: true, unit: true }, take: 20, orderBy: { name: 'asc' } })
     ]);
-    return { itemsCount, list: items.map(i => `${i.name} [${i.code}]`) };
+    return {
+      itemsCount,
+      list: items.map(i => `${i.name} [${i.code}]`),
+      itemsList: items.map(i => ({ name: i.name, code: i.code, unit: i.unit || 'N/A' }))
+    };
   }
 
   static async getProcurementContext() {
-    const [pendingPRs, pendingPOs, pendingGRNs] = await Promise.all([
+    const [pendingPRs, pendingPOs, pendingGRNs, poList] = await Promise.all([
       prisma.projectRequisition.count({ where: { status: 'DRAFT' } }),
       prisma.projectPurchaseOrder.count({ where: { status: 'PENDING_APPROVAL' } }),
-      prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } })
+      prisma.projectGoodsReceipt.count({ where: { status: 'PENDING' } }),
+      prisma.projectPurchaseOrder.findMany({
+        where: { status: 'PENDING_APPROVAL' },
+        select: { poNumber: true, totalAmount: true, status: true },
+        take: 10,
+        orderBy: { createdAt: 'desc' }
+      })
     ]);
     return {
       pendingPRsCount: pendingPRs,
       pendingPOsCount: pendingPOs,
-      pendingGRNsCount: pendingGRNs
+      pendingGRNsCount: pendingGRNs,
+      pendingPOList: poList.map(p => ({
+        poNumber: p.poNumber,
+        totalAmount: Number(p.totalAmount || 0),
+        status: p.status
+      }))
     };
   }
 
   static async getVouchersContext() {
-    const pendingPVs = await prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } });
-    return { pendingPVsCount: pendingPVs };
+    const [pendingPVs, pvList] = await Promise.all([
+      prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.paymentVoucher.findMany({
+        where: { status: 'PENDING_APPROVAL' },
+        select: { pvNumber: true, amount: true, status: true, payeeName: true },
+        take: 10,
+        orderBy: { createdAt: 'desc' }
+      })
+    ]);
+    return {
+      pendingPVsCount: pendingPVs,
+      pendingVouchersList: pvList.map(v => ({
+        pvNumber: v.pvNumber,
+        amount: Number(v.amount || 0),
+        status: v.status,
+        payeeName: v.payeeName
+      }))
+    };
   }
 
   static async getBOMInvoicesContext() {
@@ -384,5 +440,41 @@ export class NexusContextService {
             topMismatchedItem: topItemCode
         };
     }).sort((a, b) => b.mismatchedSODs - a.mismatchedSODs);
+  }
+
+  static async getSummaryContext() {
+    const today = new Date();
+    const [
+      itemsCount,
+      storesCount,
+      activeProjectsCount,
+      overdueTasksCount,
+      pendingPVsCount,
+      contractorsCount
+    ] = await Promise.all([
+      prisma.inventoryItem.count(),
+      prisma.inventoryStore.count(),
+      prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
+      prisma.projectTask.count({
+        where: { status: { in: ['PENDING', 'IN_PROGRESS'] }, plannedEndDate: { lt: today } }
+      }),
+      prisma.paymentVoucher.count({ where: { status: 'PENDING_APPROVAL' } }),
+      prisma.contractor.count()
+    ]);
+
+    return {
+      inventory: {
+        itemsCount,
+        storesCount
+      },
+      projects: {
+        activeProjectsCount,
+        overdueTasksCount
+      },
+      finance: {
+        pendingPVsCount
+      },
+      contractorsCount
+    };
   }
 }

@@ -10,7 +10,7 @@ interface ModelData {
 const MODEL_PATH = path.join(process.cwd(), 'src/services/nexus-model.json');
 
 const TRAINING_DATA: { intent: string; text: string }[] = [
-  // FINANCE
+  // ===== FINANCE =====
   { intent: 'FINANCE', text: 'outstanding invoices monawada' },
   { intent: 'FINANCE', text: 'total payables' },
   { intent: 'FINANCE', text: 'finance details' },
@@ -21,8 +21,22 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'FINANCE', text: 'how much is outstanding' },
   { intent: 'FINANCE', text: 'outstanding value' },
   { intent: 'FINANCE', text: 'higa mudala' },
+  { intent: 'FINANCE', text: 'invoice excel sheet danna' },
+  { intent: 'FINANCE', text: 'outstanding invoices excel ekak danna' },
+  { intent: 'FINANCE', text: 'finance report export' },
+  { intent: 'FINANCE', text: 'invoice list download' },
+  { intent: 'FINANCE', text: 'finance summary export to excel' },
+  { intent: 'FINANCE', text: 'outstanding invoice download karanna' },
+  { intent: 'FINANCE', text: 'billing report' },
+  { intent: 'FINANCE', text: 'invoice report' },
+  { intent: 'FINANCE', text: 'payments due' },
+  { intent: 'FINANCE', text: 'total due amount' },
+  { intent: 'FINANCE', text: 'mula outstanding amount kiyada' },
+  { intent: 'FINANCE', text: 'invoice gana kiyanna' },
+  { intent: 'FINANCE', text: 'pending invoices' },
+  { intent: 'FINANCE', text: 'contractor bill status' },
 
-  // PROJECTS
+  // ===== PROJECTS =====
   { intent: 'PROJECTS', text: 'active projects details' },
   { intent: 'PROJECTS', text: 'overdue tasks' },
   { intent: 'PROJECTS', text: 'delayed projects' },
@@ -32,8 +46,23 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'PROJECTS', text: 'how many active projects' },
   { intent: 'PROJECTS', text: 'delayed tasks info' },
   { intent: 'PROJECTS', text: 'project delay' },
+  { intent: 'PROJECTS', text: 'projects report excel' },
+  { intent: 'PROJECTS', text: 'project list download' },
+  { intent: 'PROJECTS', text: 'active projects excel sheet' },
+  { intent: 'PROJECTS', text: 'project progress report' },
+  { intent: 'PROJECTS', text: 'current project status' },
+  { intent: 'PROJECTS', text: 'project completion progress' },
+  { intent: 'PROJECTS', text: 'karyantha progress kiyada' },
+  { intent: 'PROJECTS', text: 'in progress projects' },
+  { intent: 'PROJECTS', text: 'projects at risk' },
+  { intent: 'PROJECTS', text: 'project risks' },
+  { intent: 'PROJECTS', text: 'project completion report' },
+  { intent: 'PROJECTS', text: 'all active projects list' },
+  { intent: 'PROJECTS', text: 'how many projects running' },
+  { intent: 'PROJECTS', text: 'karyantha list danna' },
+  { intent: 'PROJECTS', text: 'project activity' },
 
-  // INVENTORY_LOW
+  // ===== INVENTORY_LOW =====
   { intent: 'INVENTORY_LOW', text: 'low stock items' },
   { intent: 'INVENTORY_LOW', text: 'adu stock thiyeda' },
   { intent: 'INVENTORY_LOW', text: 'low stock' },
@@ -42,8 +71,22 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'INVENTORY_LOW', text: 'low stock items list' },
   { intent: 'INVENTORY_LOW', text: 'stock adu wuna ewade' },
   { intent: 'INVENTORY_LOW', text: 'low stocks' },
+  { intent: 'INVENTORY_LOW', text: 'low stock excel download' },
+  { intent: 'INVENTORY_LOW', text: 'stock alert export' },
+  { intent: 'INVENTORY_LOW', text: 'low inventory report' },
+  { intent: 'INVENTORY_LOW', text: 'minimum stock breach items' },
+  { intent: 'INVENTORY_LOW', text: 'items below minimum level' },
+  { intent: 'INVENTORY_LOW', text: 'stock replenishment needed' },
+  { intent: 'INVENTORY_LOW', text: 'critical stock levels' },
+  { intent: 'INVENTORY_LOW', text: 'stock shortage report' },
+  { intent: 'INVENTORY_LOW', text: 'adu stock list excel' },
+  { intent: 'INVENTORY_LOW', text: 'shortage materials' },
+  { intent: 'INVENTORY_LOW', text: 'gabadawe adu wechcha dravya' },
+  { intent: 'INVENTORY_LOW', text: 'stock adu items excel' },
+  { intent: 'INVENTORY_LOW', text: 'reorder items' },
+  { intent: 'INVENTORY_LOW', text: 'items to restock' },
 
-  // CONTRACTORS
+  // ===== CONTRACTORS =====
   { intent: 'CONTRACTORS', text: 'how many registered contractors' },
   { intent: 'CONTRACTORS', text: 'contractors count' },
   { intent: 'CONTRACTORS', text: 'registered contractors list' },
@@ -52,8 +95,20 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'CONTRACTORS', text: 'how many contractors' },
   { intent: 'CONTRACTORS', text: 'registered contractors' },
   { intent: 'CONTRACTORS', text: 'registed contractors' },
+  { intent: 'CONTRACTORS', text: 'contractor excel download' },
+  { intent: 'CONTRACTORS', text: 'contractor list export' },
+  { intent: 'CONTRACTORS', text: 'show all contractors' },
+  { intent: 'CONTRACTORS', text: 'contractor names list' },
+  { intent: 'CONTRACTORS', text: 'contractors database' },
+  { intent: 'CONTRACTORS', text: 'contractors details' },
+  { intent: 'CONTRACTORS', text: 'who are the contractors' },
+  { intent: 'CONTRACTORS', text: 'contractor profile list' },
+  { intent: 'CONTRACTORS', text: 'liyapadi contractors excel' },
+  { intent: 'CONTRACTORS', text: 'sub contractor list' },
+  { intent: 'CONTRACTORS', text: 'contractors registered in system' },
+  { intent: 'CONTRACTORS', text: 'contractor information' },
 
-  // STORES
+  // ===== STORES =====
   { intent: 'STORES', text: 'how many active stores' },
   { intent: 'STORES', text: 'gabadu gana kiyada' },
   { intent: 'STORES', text: 'stores count' },
@@ -61,8 +116,21 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'STORES', text: 'gabadawa' },
   { intent: 'STORES', text: 'gabadawal kiyak thiyeda' },
   { intent: 'STORES', text: 'active store' },
+  { intent: 'STORES', text: 'stores list excel' },
+  { intent: 'STORES', text: 'warehouse list download' },
+  { intent: 'STORES', text: 'store locations report' },
+  { intent: 'STORES', text: 'show all stores' },
+  { intent: 'STORES', text: 'stores and warehouses' },
+  { intent: 'STORES', text: 'store names' },
+  { intent: 'STORES', text: 'gabadawal list' },
+  { intent: 'STORES', text: 'active store locations' },
+  { intent: 'STORES', text: 'stores by region' },
+  { intent: 'STORES', text: 'regional stores' },
+  { intent: 'STORES', text: 'store details report' },
+  { intent: 'STORES', text: 'all store information' },
+  { intent: 'STORES', text: 'depot list' },
 
-  // INVENTORY_ITEMS
+  // ===== INVENTORY_ITEMS =====
   { intent: 'INVENTORY_ITEMS', text: 'total materials info' },
   { intent: 'INVENTORY_ITEMS', text: 'items count' },
   { intent: 'INVENTORY_ITEMS', text: 'total inventory items' },
@@ -70,8 +138,20 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'INVENTORY_ITEMS', text: 'dravya kiyak thiyeda' },
   { intent: 'INVENTORY_ITEMS', text: 'materials list' },
   { intent: 'INVENTORY_ITEMS', text: 'inventory item' },
+  { intent: 'INVENTORY_ITEMS', text: 'all inventory items excel' },
+  { intent: 'INVENTORY_ITEMS', text: 'materials catalogue' },
+  { intent: 'INVENTORY_ITEMS', text: 'inventory catalogue export' },
+  { intent: 'INVENTORY_ITEMS', text: 'item master list' },
+  { intent: 'INVENTORY_ITEMS', text: 'full materials list' },
+  { intent: 'INVENTORY_ITEMS', text: 'item codes and names' },
+  { intent: 'INVENTORY_ITEMS', text: 'all items registered' },
+  { intent: 'INVENTORY_ITEMS', text: 'dravya list download' },
+  { intent: 'INVENTORY_ITEMS', text: 'equipment catalogue' },
+  { intent: 'INVENTORY_ITEMS', text: 'inventory materials report' },
+  { intent: 'INVENTORY_ITEMS', text: 'available materials' },
+  { intent: 'INVENTORY_ITEMS', text: 'what items are in inventory' },
 
-  // PROCUREMENT
+  // ===== PROCUREMENT =====
   { intent: 'PROCUREMENT', text: 'pending requisitions kiyada' },
   { intent: 'PROCUREMENT', text: 'purchase orders count' },
   { intent: 'PROCUREMENT', text: 'pr and po status' },
@@ -80,8 +160,20 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'PROCUREMENT', text: 'purchase order' },
   { intent: 'PROCUREMENT', text: 'goods receipt count' },
   { intent: 'PROCUREMENT', text: 'pr and po' },
+  { intent: 'PROCUREMENT', text: 'pending purchase orders excel' },
+  { intent: 'PROCUREMENT', text: 'procurement report download' },
+  { intent: 'PROCUREMENT', text: 'po status list' },
+  { intent: 'PROCUREMENT', text: 'purchase requisition status' },
+  { intent: 'PROCUREMENT', text: 'pending pr list' },
+  { intent: 'PROCUREMENT', text: 'grn status' },
+  { intent: 'PROCUREMENT', text: 'goods receipt pending' },
+  { intent: 'PROCUREMENT', text: 'procurement summary' },
+  { intent: 'PROCUREMENT', text: 'pending orders count' },
+  { intent: 'PROCUREMENT', text: 'purchase orders pending approval' },
+  { intent: 'PROCUREMENT', text: 'requisition list' },
+  { intent: 'PROCUREMENT', text: 'pending procurement documents' },
 
-  // VOUCHERS
+  // ===== VOUCHERS =====
   { intent: 'VOUCHERS', text: 'how many pending payment vouchers' },
   { intent: 'VOUCHERS', text: 'payment vouchers to approve' },
   { intent: 'VOUCHERS', text: 'pending pvs' },
@@ -89,8 +181,20 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'VOUCHERS', text: 'payment voucher status' },
   { intent: 'VOUCHERS', text: 'approve karanna thiyena vouchers' },
   { intent: 'VOUCHERS', text: 'payment voucher' },
+  { intent: 'VOUCHERS', text: 'voucher list excel download' },
+  { intent: 'VOUCHERS', text: 'pending pv report' },
+  { intent: 'VOUCHERS', text: 'payment vouchers list export' },
+  { intent: 'VOUCHERS', text: 'pv approval queue' },
+  { intent: 'VOUCHERS', text: 'payment voucher count' },
+  { intent: 'VOUCHERS', text: 'outstanding payment vouchers' },
+  { intent: 'VOUCHERS', text: 'pv summary' },
+  { intent: 'VOUCHERS', text: 'pending payment list' },
+  { intent: 'VOUCHERS', text: 'vouchers waiting for approval' },
+  { intent: 'VOUCHERS', text: 'pending pv kiyada' },
+  { intent: 'VOUCHERS', text: 'how many pvs pending' },
+  { intent: 'VOUCHERS', text: 'pending payment vouchers monawada' },
 
-  // BOM_INVOICES
+  // ===== BOM_INVOICES =====
   { intent: 'BOM_INVOICES', text: 'bom invoices details' },
   { intent: 'BOM_INVOICES', text: 'slt client billing list' },
   { intent: 'BOM_INVOICES', text: 'bom sheets uploaded kiyada' },
@@ -107,7 +211,14 @@ const TRAINING_DATA: { intent: string; text: string }[] = [
   { intent: 'BOM_INVOICES', text: 'mismatch reports by area' },
   { intent: 'BOM_INVOICES', text: 'rtom mismatch report' },
   { intent: 'BOM_INVOICES', text: 'unbalanced connections by rtom' },
-  { intent: 'BOM_INVOICES', text: 'highest mismatched materials area' }
+  { intent: 'BOM_INVOICES', text: 'highest mismatched materials area' },
+  { intent: 'BOM_INVOICES', text: 'bom invoice excel download' },
+  { intent: 'BOM_INVOICES', text: 'bom report export' },
+  { intent: 'BOM_INVOICES', text: 'bom mismatch excel' },
+  { intent: 'BOM_INVOICES', text: 'pat pass invoice report' },
+  { intent: 'BOM_INVOICES', text: 'synced sod count' },
+  { intent: 'BOM_INVOICES', text: 'rtom area billing' },
+  { intent: 'BOM_INVOICES', text: 'slt billing summary' },
 ];
 
 const DYNAMIC_TRAINING_PATH = path.join(process.cwd(), 'src/services/nexus-training-data.json');

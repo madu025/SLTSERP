@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 interface NexusAction {
-    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER';
+    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER' | 'EXPORT_EXCEL';
     itemId?: string;
     itemCode?: string;
     itemName?: string;
@@ -42,6 +42,9 @@ interface NexusAction {
     role?: string;
     rtomCode?: string;
     opmcId?: string;
+    reportType?: string;
+    reportData?: string;
+    fileName?: string;
 }
 
 interface Message {
@@ -230,6 +233,57 @@ export default function NexusAgent() {
     const handleExecuteAction = async (action: NexusAction, messageIdx: number, actionIdx: number) => {
         const key = `${messageIdx}-${actionIdx}`;
         setExecutingActionIdx(key);
+
+        if (action.type === 'EXPORT_EXCEL') {
+            const dataStr = action.reportData;
+            if (!dataStr) {
+                toast.error("No report data found to export.");
+                setExecutingActionIdx(null);
+                return;
+            }
+            try {
+                const data = JSON.parse(dataStr);
+                const rows = Array.isArray(data) ? data : [data];
+                if (rows.length === 0) {
+                    toast.error("Report data is empty.");
+                    setExecutingActionIdx(null);
+                    return;
+                }
+                
+                const headers = Object.keys(rows[0] || {});
+                const csvRows = [
+                    headers.join(','),
+                    ...rows.map(row => 
+                        headers.map(header => {
+                            const val = row[header] === null || row[header] === undefined ? '' : String(row[header]);
+                            return `"${val.replace(/"/g, '""')}"`;
+                        }).join(',')
+                    )
+                ];
+                
+                const csvContent = "\ufeff" + csvRows.join("\n");
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", action.fileName || `${action.reportType || 'Report'}_Export.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                setCompletedActions(prev => ({
+                    ...prev,
+                    [key]: `Excel export complete! File downloaded successfully.`
+                }));
+                toast.success("Excel report downloaded successfully.");
+            } catch (err) {
+                console.error("CSV Export failed:", err);
+                toast.error("Failed to generate Excel file.");
+            } finally {
+                setExecutingActionIdx(null);
+            }
+            return;
+        }
 
         try {
             const response = await fetch('/api/ai/copilot', {
@@ -465,7 +519,7 @@ export default function NexusAgent() {
                                                 >
                                                     <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
                                                         <span className="text-[9px] font-bold text-sky-400 uppercase tracking-wide">
-                                                            {action.type === 'STOCK_HEAL' ? '⚡ Autonomous Replenish' : action.type === 'STOCK_TRANSFER' ? '🔄 Stock Move' : action.type === 'CREATE_USER' ? '👤 Register User' : '💻 Custody Transfer'}
+                                                            {action.type === 'STOCK_HEAL' ? '⚡ Autonomous Replenish' : action.type === 'STOCK_TRANSFER' ? '🔄 Stock Move' : action.type === 'CREATE_USER' ? '👤 Register User' : action.type === 'EXPORT_EXCEL' ? '📊 Export Spreadsheet' : '💻 Custody Transfer'}
                                                         </span>
                                                         <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] h-3.5 px-1 py-0">Recommended</Badge>
                                                     </div>
@@ -508,6 +562,13 @@ export default function NexusAgent() {
                                                         </div>
                                                     )}
 
+                                                    {action.type === 'EXPORT_EXCEL' && (
+                                                        <div className="space-y-1 font-mono text-[10px] text-slate-300">
+                                                            <p><span className="text-slate-500">Report Type:</span> {action.reportType}</p>
+                                                            <p><span className="text-slate-500">File Name:</span> {action.fileName || 'Report.csv'}</p>
+                                                        </div>
+                                                    )}
+
                                                     {isCompleted ? (
                                                         <div className={`flex items-start gap-1.5 font-sans text-[10px] pt-1 ${completedActions[actionKey].startsWith('❌') ? 'text-rose-400' : 'text-emerald-400'}`}>
                                                             {!completedActions[actionKey].startsWith('❌') && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
@@ -522,7 +583,7 @@ export default function NexusAgent() {
                                                             {isExecuting ? (
                                                                 <Loader2 className="w-3 h-3 animate-spin" />
                                                             ) : (
-                                                                'Approve & Execute Action'
+                                                                action.type === 'EXPORT_EXCEL' ? '📥 Download Excel' : 'Approve & Execute Action'
                                                             )}
                                                         </Button>
                                                     )}

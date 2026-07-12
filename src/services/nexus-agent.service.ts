@@ -23,7 +23,7 @@ NexusClassifierService.train().then(() => {
 });
 
 export interface NexusAction {
-    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER';
+    type: 'STOCK_HEAL' | 'STOCK_TRANSFER' | 'ASSIGN_CUSTODY' | 'CREATE_USER' | 'EXPORT_EXCEL';
     itemId?: string;
     itemCode?: string;
     itemName?: string;
@@ -42,6 +42,10 @@ export interface NexusAction {
     role?: string;
     rtomCode?: string;
     opmcId?: string;
+    // Excel export params
+    reportType?: string;
+    reportData?: string; // stringified JSON array
+    fileName?: string;
 }
 
 export interface NexusResponse {
@@ -53,6 +57,44 @@ export interface NexusResponse {
 }
 
 export class NexusAgentService {
+    // In-memory query response cache
+    private static queryCache = new Map<string, { response: NexusResponse; timestamp: number }>();
+    private static CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
+
+    /**
+     * Intelligent AI Model Router: Dynamically selects the best model based on Role, Query Complexity, and Data Volume.
+     */
+    static selectAIModel(message: string, contextData: Record<string, unknown>, userRole: string): string {
+        // 1. Role Priority Check
+        const isPowerUser = [
+            'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 
+            'FINANCE_MANAGER', 'INVOICE_MANAGER', 'STORES_MANAGER', 'SA_MANAGER'
+        ].includes(userRole);
+        if (isPowerUser) return 'gemini-3.5-flash';
+
+        // 2. Query Complexity Check (Excel export, Audits, Forecasts, Reports)
+        const msgLower = message.toLowerCase();
+        const complexKeywords = [
+            'report', 'excel', 'export', 'sheet', 'audit', 'reconcile',
+            'forecast', 'optimize', 'ld penalty', 'retention', 'mismatch',
+            'summary', 'xlsx', 'csv', 'download', 'downlaod', 'exel', 'excl',
+            'විශ්ලේෂණය', 'වාර්තාව', 'සංසන්දනය'
+        ];
+        if (complexKeywords.some(kw => msgLower.includes(kw))) {
+            return 'gemini-3.5-flash';
+        }
+
+        // 3. Context Data Volume Check (Targeted for heavy reporting/Excel limits)
+        // If context size exceeds 12000 characters, route to 3.5 Flash to ensure attention accuracy over larger contexts.
+        const contextStr = JSON.stringify(contextData);
+        if (contextStr.length > 12000) {
+            return 'gemini-3.5-flash';
+        }
+
+        // Default to cost-efficient model for normal simple queries
+        return 'gemini-2.5-flash-lite';
+    }
+
     /**
      * Unified system context helper
      */
@@ -259,6 +301,18 @@ export class NexusAgentService {
      * Process user query using Google Gemini API or fallback matching
      */
     static async ask(message: string, userId: string): Promise<NexusResponse> {
+        const cacheKey = `${userId}:${message.trim().toLowerCase()}`;
+        const msgLower = message.toLowerCase();
+        const isForceRefresh = msgLower.includes('refresh') || msgLower.includes('update') || msgLower.includes('නැවත') || msgLower.includes('aluth') || msgLower.includes('reload');
+        
+        if (!isForceRefresh) {
+            const cached = this.queryCache.get(cacheKey);
+            if (cached && (Date.now() - cached.timestamp < this.CACHE_TTL_MS)) {
+                console.log(`[CACHE-HIT] Returning cached response for query: "${message}"`);
+                return cached.response;
+            }
+        }
+
         const apiKey = process.env.GEMINI_API_KEY;
         const { NexusMemoryService } = await import('./nexus-memory.service');
 
@@ -298,12 +352,21 @@ export class NexusAgentService {
         switch(intent) {
             case 'FINANCE': {
                 const fin = await NexusContextService.getFinanceContext();
-                contextText = `Outstanding Invoices: LKR ${fin.outstandingInvoicesSum.toLocaleString()}\nPending PVs: ${fin.pendingPVsCount}`;
+                contextText = `Outstanding Invoices Sum: LKR ${fin.outstandingInvoicesSum.toLocaleString()}\nPending PVs Count: ${fin.pendingPVsCount}\n`;
+                if (fin.outstandingInvoicesList && fin.outstandingInvoicesList.length > 0) {
+                    contextText += `Outstanding Invoices List:\n` + fin.outstandingInvoicesList.map(i => `- Invoice: ${i.invoiceNumber} | Amount: LKR ${i.totalAmount.toLocaleString()} | Status: ${i.status}`).join('\n');
+                }
+                if (fin.releasableInvoicesList && fin.releasableInvoicesList.length > 0) {
+                    contextText += `\nReleasable Retention Invoices:\n` + fin.releasableInvoicesList.join('\n');
+                }
                 break;
             }
             case 'PROJECTS': {
                 const proj = await NexusContextService.getProjectsContext();
-                contextText = `Active Projects: ${proj.activeProjectsCount}\nOverdue Tasks: ${proj.overdueTasksCount}`;
+                contextText = `Active Projects Count: ${proj.activeProjectsCount}\nOverdue Tasks Count: ${proj.overdueTasksCount}\n`;
+                if (proj.activeProjectsList && proj.activeProjectsList.length > 0) {
+                    contextText += `Active Projects List:\n` + proj.activeProjectsList.map(p => `- ${p.name} | Project Code: ${p.projectCode} | Progress: ${p.progress}%`).join('\n');
+                }
                 if (proj.projectRisks && proj.projectRisks.length > 0) {
                     contextText += `\nHigh Risk Projects:\n` + proj.projectRisks.map(p => `- ${p.name}: ${p.risks.join(', ')}`).join('\n');
                 }
@@ -326,27 +389,42 @@ export class NexusAgentService {
             }
             case 'CONTRACTORS': {
                 const cont = await NexusContextService.getContractorsContext();
-                contextText = `Registered Contractors: ${cont.contractorsCount}`;
+                contextText = `Registered Contractors Count: ${cont.contractorsCount}\n`;
+                if (cont.contractorsList && cont.contractorsList.length > 0) {
+                    contextText += `Contractors List:\n` + cont.contractorsList.map(c => `- ${c.name} | Type: ${c.type}`).join('\n');
+                }
                 break;
             }
             case 'STORES': {
                 const stores = await NexusContextService.getStoresContext();
-                contextText = `Active Stores: ${stores.storesCount}`;
+                contextText = `Active Stores Count: ${stores.storesCount}\n`;
+                if (stores.list && stores.list.length > 0) {
+                    contextText += `Stores List:\n` + stores.list.map(s => `- ${s}`).join('\n');
+                }
                 break;
             }
             case 'INVENTORY_ITEMS': {
                 const items = await NexusContextService.getInventoryItemsContext();
-                contextText = `Total Inventory Items: ${items.itemsCount}`;
+                contextText = `Total Inventory Items: ${items.itemsCount}\n`;
+                if (items.itemsList && items.itemsList.length > 0) {
+                    contextText += `Items List (top 20):\n` + items.itemsList.map(i => `- ${i.name} [${i.code}] | Unit: ${i.unit}`).join('\n');
+                }
                 break;
             }
             case 'PROCUREMENT': {
                 const proc = await NexusContextService.getProcurementContext();
-                contextText = `Pending PRs: ${proc.pendingPRsCount}\nPending POs: ${proc.pendingPOsCount}\nPending GRNs: ${proc.pendingGRNsCount}`;
+                contextText = `Pending PRs: ${proc.pendingPRsCount}\nPending POs: ${proc.pendingPOsCount}\nPending GRNs: ${proc.pendingGRNsCount}\n`;
+                if (proc.pendingPOList && proc.pendingPOList.length > 0) {
+                    contextText += `Pending Purchase Orders List:\n` + proc.pendingPOList.map(p => `- PO: ${p.poNumber} | Amount: LKR ${p.totalAmount.toLocaleString()} | Status: ${p.status}`).join('\n');
+                }
                 break;
             }
             case 'VOUCHERS': {
                 const vouchers = await NexusContextService.getVouchersContext();
-                contextText = `Pending PVs: ${vouchers.pendingPVsCount}`;
+                contextText = `Pending PVs Count: ${vouchers.pendingPVsCount}\n`;
+                if (vouchers.pendingVouchersList && vouchers.pendingVouchersList.length > 0) {
+                    contextText += `Pending Payment Vouchers List:\n` + vouchers.pendingVouchersList.map(v => `- PV: ${v.pvNumber} | Payee: ${v.payeeName} | Amount: LKR ${v.amount.toLocaleString()} | Status: ${v.status}`).join('\n');
+                }
                 break;
             }
             case 'BOM_INVOICES': {
@@ -366,29 +444,21 @@ export class NexusAgentService {
         if (apiKey) {
             const history = await NexusMemoryService.getConversation(userId);
             
-            // Fetch Unified complete system context so Gemini has global cross-module understanding
-            const fullContext = await NexusContextService.getContext();
-            
-            // Apply role-based data stripping
-            if (!hasFinanceAccess) {
-                fullContext.finance = {
-                    outstandingInvoicesSum: 0,
-                    pendingPVsCount: 0,
-                    totalRetentionHeld: 0,
-                    activePenaltiesSum: 0,
-                    releasableRetentionsCount: 0,
-                    releasableRetentionsSum: 0,
-                    releasableInvoicesList: []
+            // Fetch targeted context to minimize token cost
+            let contextData: Record<string, unknown>;
+            if (intent !== 'UNKNOWN') {
+                contextData = {
+                    intent,
+                    details: contextText
                 };
-                if ((fullContext as any).bomInvoices) {
-                    (fullContext as any).bomInvoices = {
-                        bomInvoicesCount: 0,
-                        bomRevenueSum: 0,
-                        syncedSODsCount: 0,
-                        recentBOMInvoices: []
-                    };
+            } else {
+                const summary = await NexusContextService.getSummaryContext();
+                if (!hasFinanceAccess) {
+                    summary.finance = { pendingPVsCount: 0 };
                 }
+                contextData = summary as unknown as Record<string, unknown>;
             }
+            
             const selfHealing = await this.getSelfHealingProposals();
             let healingPrompt = '';
             if (selfHealing.length > 0) {
@@ -406,6 +476,9 @@ CRITICAL INSTRUCTION:
 3. Your response MUST be a valid JSON object matching the following structure:
 {
   "reply": "Your natural language response here...",
+  "actions": [
+     // Include actions here if applicable (e.g. EXPORT_EXCEL), or leave empty if none
+  ],
   "suggestions": [
      "A relevant follow-up question the user might want to ask next based on your reply",
      "Another relevant follow-up question",
@@ -420,15 +493,22 @@ CRITICAL INSTRUCTION:
    - For Inventory Stock: [Stock Levels](/inventory/stock)
    - For Vehicles: [Vehicle Details](/vehicles/VehicleID)
    This is critical to let the user navigate directly to resources.
+6. EXCEL EXPORT ACTION: If the user requests an Excel download, spreadsheet, or report export (e.g., "export finance report to excel" or "give me stores report in spreadsheet"), you can add an action in the "actions" array of type "EXPORT_EXCEL".
+   - Set "reportType" (e.g., "FINANCE", "PROJECTS", "STORES", "INVENTORY").
+   - Set "fileName" (e.g., "Finance_Report.csv").
+   - Set "reportData" as a stringified JSON array containing rows of key-value data corresponding to the relevant items in the live system context (e.g., recent invoices, low-stock lists, or active projects). Format it as a valid JSON string inside the JSON property.
 Do not return any markdown wrapping or other text outside this JSON object.
 
 Complete Live ERP System Context:
-${JSON.stringify(fullContext, null, 2)}
+${JSON.stringify(contextData, null, 2)}
 ${healingPrompt}
 `;
             try {
+                // Determine optimal model dynamically using the Intelligent Model Router
+                const modelName = NexusAgentService.selectAIModel(message, contextData, userRole);
+
                 const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -437,7 +517,10 @@ ${healingPrompt}
                             contents: [
                                 ...history,
                                 { role: 'user', parts: [{ text: message }] }
-                            ]
+                            ],
+                            generationConfig: {
+                                responseMimeType: 'application/json'
+                            }
                         })
                     }
                 );
@@ -463,12 +546,21 @@ ${healingPrompt}
                             if (Array.isArray(parsed.suggestions)) {
                                 suggestions = parsed.suggestions;
                             }
+                            if (Array.isArray(parsed.actions)) {
+                                const validTypes = ['STOCK_HEAL', 'STOCK_TRANSFER', 'ASSIGN_CUSTODY', 'CREATE_USER', 'EXPORT_EXCEL'];
+                                const validActions = (parsed.actions as NexusAction[]).filter(
+                                    (a: NexusAction) => a && typeof a === 'object' && validTypes.includes(a.type)
+                                );
+                                actions.push(...validActions);
+                            }
                         }
                     } catch {
                         // Fail gracefully
                     }
 
-                    return { intent, query: message, response: parsedReply, actions, suggestions };
+                    const result = { intent, query: message, response: parsedReply, actions, suggestions };
+                    this.queryCache.set(cacheKey, { response: result, timestamp: Date.now() });
+                    return result;
                 }
             } catch (err) {
                 console.error("Gemini API call failed:", err);
@@ -596,6 +688,8 @@ ${healingPrompt}
             response = `ආයුබෝවන්! මම Nexus AI Agent. මට ඔබට Inventory, Projects, Finance, සහ Procurement ආශ්‍රිත සියලුම දත්ත ලබා දිය හැක. උදාහරණ:\n- "low stock items මොනවාද?"\n- "how many registered contractors?"`;
         }
 
-        return { intent, query: message, response, actions, suggestions };
+        const result = { intent, query: message, response, actions, suggestions };
+        this.queryCache.set(cacheKey, { response: result, timestamp: Date.now() });
+        return result;
     }
 }
