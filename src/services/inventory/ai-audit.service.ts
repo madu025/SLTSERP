@@ -32,17 +32,35 @@ export class AiAuditService {
 
         sodsAuditedCount = completedSods.length;
 
+        // Batch fetch GL Entries for completed SODs to eliminate N+1 query loop
+        const completedSodIds = completedSods.map(s => s.id);
+        const allGlEntries = completedSodIds.length > 0 
+            ? await prisma.journalEntry.findMany({
+                where: {
+                    referenceId: { in: completedSodIds },
+                    referenceType: 'SOD_CONSUMPTION'
+                },
+                include: { lines: true }
+              })
+            : [];
+
+        const glEntriesMap = new Map<string, typeof allGlEntries>();
+        for (const entry of allGlEntries) {
+            if (entry.referenceId) {
+                const list = glEntriesMap.get(entry.referenceId) || [];
+                list.push(entry);
+                glEntriesMap.set(entry.referenceId, list);
+            }
+        }
+
         for (const sod of completedSods) {
             const usages = sod.materialUsage || [];
             
             // Calculate actual total cost of materials from usage records
             const calculatedCost = usages.reduce((sum, u) => sum + (Number(u.costPrice || 0) * Number(u.quantity || 0)), 0);
 
-            // Fetch Journal Entries for this SOD
-            const glEntries = await prisma.journalEntry.findMany({
-                where: { referenceId: sod.id, referenceType: 'SOD_CONSUMPTION' },
-                include: { lines: true }
-            });
+            // Get pre-fetched GL Entries for this SOD
+            const glEntries = glEntriesMap.get(sod.id) || [];
 
             if (usages.length === 0) {
                 // If it's completed but has no usages registered, flag it if the order has revenue or should have materials
@@ -94,17 +112,38 @@ export class AiAuditService {
             where: { sltsStatus: 'RETURN' }
         });
 
+        // Batch fetch returned SOD entries to eliminate N+1 queries
+        const returnedSodIds = returnedSods.map(s => s.id);
+        const allReturnedEntries = returnedSodIds.length > 0 
+            ? await prisma.journalEntry.findMany({
+                where: {
+                    referenceId: { in: returnedSodIds },
+                    referenceType: { in: ['SOD_CONSUMPTION', 'SOD_CONSUMPTION_REVERSAL'] }
+                }
+              })
+            : [];
+
+        const returnedEntriesMap = new Map<string, { consumption: typeof allReturnedEntries; reversal: typeof allReturnedEntries }>();
+        for (const entry of allReturnedEntries) {
+            if (entry.referenceId) {
+                const key = entry.referenceId;
+                const state = returnedEntriesMap.get(key) || { consumption: [], reversal: [] };
+                if (entry.referenceType === 'SOD_CONSUMPTION') {
+                    state.consumption.push(entry);
+                } else if (entry.referenceType === 'SOD_CONSUMPTION_REVERSAL') {
+                    state.reversal.push(entry);
+                }
+                returnedEntriesMap.set(key, state);
+            }
+        }
+
         for (const sod of returnedSods) {
-            // Find consumption postings for this SOD
-            const consumptionEntries = await prisma.journalEntry.findMany({
-                where: { referenceId: sod.id, referenceType: 'SOD_CONSUMPTION' }
-            });
+            const entries = returnedEntriesMap.get(sod.id) || { consumption: [], reversal: [] };
+            const consumptionEntries = entries.consumption;
 
             if (consumptionEntries.length > 0) {
                 // There were consumption entries, so there MUST be a reversal entry
-                const reversalEntries = await prisma.journalEntry.findMany({
-                    where: { referenceId: sod.id, referenceType: 'SOD_CONSUMPTION_REVERSAL' }
-                });
+                const reversalEntries = entries.reversal;
 
                 if (reversalEntries.length === 0) {
                     discrepancies.push({
@@ -127,61 +166,90 @@ export class AiAuditService {
             }
         });
 
-        for (const stock of contractorStocks) {
-            // Calculate sum of issues from store to contractor
-            const issues = await prisma.contractorMaterialIssueItem.findMany({
-                where: {
-                    itemId: stock.itemId,
-                    issue: {
-                        is: {
-                            contractorId: stock.contractorId
-                        }
-                    }
-                }
-            });
-            const totalIssued = issues.reduce((sum, i) => sum + Number(i.quantity), 0);
+        const uniqueContractorIds = Array.from(new Set(contractorStocks.map(s => s.contractorId)));
+        const uniqueItemIds = Array.from(new Set(contractorStocks.map(s => s.itemId)));
 
-            // Calculate sum of usages on completed orders
-            const usages = await prisma.sODMaterialUsage.findMany({
-                where: {
-                    itemId: stock.itemId,
-                    serviceOrder: {
-                        is: {
-                            contractorId: stock.contractorId,
+        // Batch fetch issues, usages, wastages, and returns to avoid multiple queries inside loop
+        const [allIssues, allUsages, allWastages, allReturns] = await Promise.all([
+            uniqueContractorIds.length > 0 && uniqueItemIds.length > 0
+                ? prisma.contractorMaterialIssueItem.findMany({
+                    where: {
+                        itemId: { in: uniqueItemIds },
+                        issue: { contractorId: { in: uniqueContractorIds } }
+                    },
+                    include: { issue: true }
+                  })
+                : [],
+            uniqueContractorIds.length > 0 && uniqueItemIds.length > 0
+                ? prisma.sODMaterialUsage.findMany({
+                    where: {
+                        itemId: { in: uniqueItemIds },
+                        serviceOrder: {
+                            contractorId: { in: uniqueContractorIds },
                             sltsStatus: 'COMPLETED'
                         }
-                    }
-                }
-            });
-            const totalUsed = usages.reduce((sum, u) => sum + Number(u.quantity), 0);
-
-            // Calculate wastage
-            const wastages = await prisma.contractorWastageItem.findMany({
-                where: {
-                    itemId: stock.itemId,
-                    wastage: {
-                        is: {
-                            contractorId: stock.contractorId,
+                    },
+                    include: { serviceOrder: true }
+                  })
+                : [],
+            uniqueContractorIds.length > 0 && uniqueItemIds.length > 0
+                ? prisma.contractorWastageItem.findMany({
+                    where: {
+                        itemId: { in: uniqueItemIds },
+                        wastage: {
+                            contractorId: { in: uniqueContractorIds },
                             status: 'APPROVED'
                         }
-                    }
-                }
-            });
-            const totalWasted = wastages.reduce((sum, w) => sum + Number(w.quantity), 0);
-
-            // Calculate returned
-            const returns = await prisma.contractorMaterialReturnItem.findMany({
-                where: {
-                    itemId: stock.itemId,
-                    return: {
-                        is: {
-                            contractorId: stock.contractorId,
+                    },
+                    include: { wastage: true }
+                  })
+                : [],
+            uniqueContractorIds.length > 0 && uniqueItemIds.length > 0
+                ? prisma.contractorMaterialReturnItem.findMany({
+                    where: {
+                        itemId: { in: uniqueItemIds },
+                        return: {
+                            contractorId: { in: uniqueContractorIds },
                             status: 'ACCEPTED'
                         }
-                    }
-                }
-            });
-            const totalReturned = returns.reduce((sum, r) => sum + Number(r.quantity), 0);
+                    },
+                    include: { return: true }
+                  })
+                : []
+        ]);
+
+        const issuesMap = new Map<string, number>();
+        for (const issue of allIssues) {
+            const key = `${issue.issue.contractorId}_${issue.itemId}`;
+            issuesMap.set(key, (issuesMap.get(key) || 0) + Number(issue.quantity));
+        }
+
+        const usagesMap = new Map<string, number>();
+        for (const usage of allUsages) {
+            if (usage.serviceOrder?.contractorId) {
+                const key = `${usage.serviceOrder.contractorId}_${usage.itemId}`;
+                usagesMap.set(key, (usagesMap.get(key) || 0) + Number(usage.quantity));
+            }
+        }
+
+        const wastagesMap = new Map<string, number>();
+        for (const wastage of allWastages) {
+            const key = `${wastage.wastage.contractorId}_${wastage.itemId}`;
+            wastagesMap.set(key, (wastagesMap.get(key) || 0) + Number(wastage.quantity));
+        }
+
+        const returnsMap = new Map<string, number>();
+        for (const r of allReturns) {
+            const key = `${r.return.contractorId}_${r.itemId}`;
+            returnsMap.set(key, (returnsMap.get(key) || 0) + Number(r.quantity));
+        }
+
+        for (const stock of contractorStocks) {
+            const key = `${stock.contractorId}_${stock.itemId}`;
+            const totalIssued = issuesMap.get(key) || 0;
+            const totalUsed = usagesMap.get(key) || 0;
+            const totalWasted = wastagesMap.get(key) || 0;
+            const totalReturned = returnsMap.get(key) || 0;
 
             const expectedStock = totalIssued - totalUsed - totalWasted - totalReturned;
             const actualStock = Number(stock.quantity);

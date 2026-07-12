@@ -1,76 +1,68 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
-import { handleApiError } from '@/lib/api-utils';
-import { createItem, updateItem, deleteItem, patchBulkItemsAction } from '@/actions/inventory-actions';
+import { inventoryItemSchema } from '@/lib/validations/inventory.schema';
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const context = searchParams.get('context') || undefined;
-        const items = await InventoryService.getItems(context);
-        return NextResponse.json(items);
-    } catch (error) {
-        return handleApiError(error);
+export const dynamic = 'force-dynamic';
+
+// GET: Fetch all active items (rawResponse for compatibility)
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const context = searchParams.get('context') || undefined;
+    return await InventoryService.getItems(context);
+}, {
+    rawResponse: true
+});
+
+// POST: Create a new inventory item
+export const POST = apiHandler(async (req, _params, body) => {
+    const data = {
+        ...body,
+        description: body.description ?? undefined
+    };
+    return await InventoryService.createItem(data);
+}, {
+    schema: inventoryItemSchema,
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'CREATE', entity: 'ITEM' },
+    rawResponse: true
+});
+
+// PUT: Update an existing inventory item
+export const PUT = apiHandler(async (req, _params, body) => {
+    const { id, ...data } = body;
+    if (!id) {
+        throw new Error('ID_REQUIRED');
     }
-}
+    return await InventoryService.updateItem(id, data);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'UPDATE', entity: 'ITEM' },
+    rawResponse: true
+});
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const result = await createItem(body);
-        if (result.success) {
-            return NextResponse.json(result.data);
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error: any) {
-        return handleApiError(error);
+// PATCH: Bulk items update
+export const PATCH = apiHandler(async (req, _params, body) => {
+    const { updates } = body;
+    if (!updates) {
+        throw new Error('UPDATES_REQUIRED');
     }
-}
+    return await InventoryService.patchBulkItems(updates);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'BULK_UPDATE', entity: 'ITEM' },
+    rawResponse: true
+});
 
-export async function PUT(request: Request) {
-    try {
-        const body = await request.json();
-        const { id, ...data } = body;
-        const result = await updateItem(id, data);
-        if (result.success) {
-            return NextResponse.json(result.data);
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error: any) {
-        return handleApiError(error);
+// DELETE: Delete an item
+export const DELETE = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) {
+        throw new Error('ID_REQUIRED');
     }
-}
-
-export async function PATCH(request: Request) {
-    try {
-        const body = await request.json();
-        const { updates } = body;
-        const result = await patchBulkItemsAction(updates);
-        if (result.success) {
-            return NextResponse.json({ success: true });
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error: any) {
-        return handleApiError(error);
-    }
-}
-
-export async function DELETE(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-        if (!id) throw new Error('ID_REQUIRED');
-
-        const result = await deleteItem(id);
-        if (result.success) {
-            return NextResponse.json({ message: 'Item deleted' });
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error: any) {
-        return handleApiError(error);
-    }
-}
+    return await InventoryService.deleteItem(id);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'DELETE', entity: 'ITEM' },
+    rawResponse: true
+});

@@ -1,61 +1,44 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
-import { createStore, updateStore, deleteStore } from '@/actions/inventory-actions';
 
-export async function GET(request: Request) {
-    try {
-        const stores = await InventoryService.getStores();
-        return NextResponse.json(stores);
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to fetch stores' }, { status: 500 });
+export const dynamic = 'force-dynamic';
+
+// GET: Fetch all active stores (using rawResponse for backwards-compatibility with frontend)
+export const GET = apiHandler(async () => {
+    return await InventoryService.getStores();
+}, {
+    rawResponse: true
+});
+
+// POST: Create a new store (restricted to Stores/System Admins)
+export const POST = apiHandler(async (req, _params, body) => {
+    return await InventoryService.createStore(body);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN', 'STORES_MANAGER'],
+    audit: { action: 'CREATE', entity: 'STORE' }
+});
+
+// PUT: Update an existing store
+export const PUT = apiHandler(async (req, _params, body) => {
+    const { id, ...data } = body;
+    if (!id) {
+        throw new Error('ID_REQUIRED');
     }
-}
+    return await InventoryService.updateStore(id, data);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN', 'STORES_MANAGER'],
+    audit: { action: 'UPDATE', entity: 'STORE' }
+});
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const result = await createStore(body);
-        if (result.success) {
-            return NextResponse.json(result.data);
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to create store' }, { status: 500 });
+// DELETE: Terminate store record
+export const DELETE = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) {
+        throw new Error('ID_REQUIRED');
     }
-}
-
-export async function PUT(request: Request) {
-    try {
-        const body = await request.json();
-        const { id, ...data } = body;
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
-
-        const result = await updateStore(id, data);
-        if (result.success) {
-            return NextResponse.json(result.data);
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error) {
-        return NextResponse.json({ error: 'Failed to update store' }, { status: 500 });
-    }
-}
-
-export async function DELETE(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get('id');
-
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
-
-        const result = await deleteStore(id);
-        if (result.success) {
-            return NextResponse.json({ message: 'Store deleted' });
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error: any) {
-        return NextResponse.json({ error: 'Failed to delete store' }, { status: 500 });
-    }
-}
+    return await InventoryService.deleteStore(id);
+}, {
+    roles: ['ADMIN', 'SUPER_ADMIN', 'STORES_MANAGER'],
+    audit: { action: 'DELETE', entity: 'STORE' }
+});

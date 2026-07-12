@@ -32,6 +32,7 @@ export function apiHandler<T, B = any>(
             action: string;
             entity: string;
         };
+        rawResponse?: boolean;
     }
 ) {
     return async (req: Request, context: any) => {
@@ -82,6 +83,10 @@ export function apiHandler<T, B = any>(
                 }
 
                 // 5. Success Response
+                if (options?.rawResponse) {
+                    return NextResponse.json(result);
+                }
+
                 return NextResponse.json({
                     success: true,
                     data: result,
