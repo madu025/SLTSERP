@@ -25,7 +25,7 @@ export class InvoiceRetentionService {
             const sods = invoice.sods || [];
             if (sods.length === 0) continue;
 
-            const allPassed = sods.every((s) => s.hoPatStatus === 'PASS');
+            const allPassed = sods.every((s) => s.hoPatStatus === 'PAT_PASSED' || s.hoPatStatus === 'APPROVED');
             const anyRejected = sods.some((s) => s.hoPatStatus === 'REJECTED');
 
             if (allPassed) {

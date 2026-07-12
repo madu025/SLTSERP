@@ -125,6 +125,18 @@ export async function POST(request: Request) {
         const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
         const isExtension = extensionKey === extensionSecret;
 
+        // Fetch auth headers (from middleware if authenticated)
+        const userRole = request.headers.get('x-user-role');
+        const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER'];
+        const hasAllowedRole = userRole && allowedRoles.includes(userRole);
+
+        if (!isExtension && !hasAllowedRole) {
+            return NextResponse.json(
+                { success: false, message: 'Permission Denied: Unauthorized.' },
+                { status: 403, headers: { 'Access-Control-Allow-Origin': '*' } }
+            );
+        }
+
         const body = await request.json();
         const { action, cookie, boms } = body;
 

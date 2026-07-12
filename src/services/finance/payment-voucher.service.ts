@@ -22,6 +22,7 @@ export interface CreatePVInput {
   retentionReleaseId?: string | null;
   notes?: string | null;
   createdById?: string | null;
+  contractorInvoiceId?: string | null;
 }
 
 export interface UpdateVoucherStatusOptions {
@@ -136,12 +137,17 @@ export class PaymentVoucherService {
     const pvNumber = `PV-${year}-${(count + 1).toString().padStart(4, '0')}`;
     const calculatedNetAmount = data.amount - (data.taxWithheld || 0) - (data.retentionAmount || 0);
 
+    let finalDescription = data.description || null;
+    if (data.contractorInvoiceId) {
+      finalDescription = `BOM_INVOICING_REF:${data.contractorInvoiceId}${data.description ? ` - ${data.description}` : ''}`;
+    }
+
     return prisma.paymentVoucher.create({
       data: {
         pvNumber,
         projectId: data.projectId,
         title: data.title,
-        description: data.description || null,
+        description: finalDescription,
         type: data.type || 'CONTRACTOR',
         payeeName: data.payeeName,
         payeeId: data.payeeId || null,
@@ -188,6 +194,18 @@ export class PaymentVoucherService {
     const retentionAmount = data.retentionAmount !== undefined ? data.retentionAmount : existing.retentionAmount;
     const calculatedNetAmount = amount - taxWithheld - retentionAmount;
 
+    let finalDescription = data.description !== undefined ? data.description : existing.description;
+    if (data.contractorInvoiceId !== undefined) {
+      if (data.contractorInvoiceId) {
+        finalDescription = `BOM_INVOICING_REF:${data.contractorInvoiceId}${data.description ? ` - ${data.description}` : ''}`;
+      } else {
+        if (finalDescription && finalDescription.startsWith('BOM_INVOICING_REF:')) {
+          const parts = finalDescription.split(' - ');
+          finalDescription = parts.slice(1).join(' - ') || null;
+        }
+      }
+    }
+
     const targetInvoiceId = data.invoiceId !== undefined ? data.invoiceId : existing.invoiceId;
     if (targetInvoiceId) {
       const invoice = await prisma.projectInvoice.findUnique({
@@ -213,7 +231,7 @@ export class PaymentVoucherService {
       where: { id },
       data: {
         title: data.title,
-        description: data.description,
+        description: finalDescription,
         type: data.type,
         payeeName: data.payeeName,
         payeeId: data.payeeId,

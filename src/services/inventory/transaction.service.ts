@@ -203,7 +203,7 @@ export class TransactionService {
         const sods = await prisma.serviceOrder.findMany({
             where: {
                 contractorId,
-                sltsStatus: { in: ['COMPLETED', 'RETURN'] },
+                sltsStatus: 'COMPLETED',
                 completedDate: {
                     gte: usageStart,
                     lte: usageEnd

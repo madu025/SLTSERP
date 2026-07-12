@@ -179,7 +179,47 @@ body.dark-mode .glass-panel {
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* Dark mode layout and utility overrides to resolve hardcoded light-mode classes */
+.dark .bg-slate-50,
+body.dark-mode .bg-slate-50,
+.dark .bg-slate-100/50,
+body.dark-mode .bg-slate-100/50 {
+  background-color: var(--background) !important;
+}
+
+.dark .bg-white,
+body.dark-mode .bg-white {
+  background-color: var(--card) !important;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+body.dark-mode .text-slate-900,
+body.dark-mode .text-slate-800,
+body.dark-mode .text-slate-700 {
+  color: var(--foreground) !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-600,
+body.dark-mode .text-slate-500,
+body.dark-mode .text-slate-600 {
+  color: var(--muted-foreground) !important;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-100,
+body.dark-mode .border-slate-200,
+body.dark-mode .border-slate-100 {
+  border-color: var(--border) !important;
+}
+
+.dark .hover\:bg-slate-50\/50:hover,
+body.dark-mode .hover\:bg-slate-50\/50:hover {
+  background-color: var(--muted) !important;
 }
 
 @layer base {

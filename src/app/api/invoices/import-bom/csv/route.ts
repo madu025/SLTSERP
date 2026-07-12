@@ -32,7 +32,10 @@ export async function POST(request: Request) {
         const userId = request.headers.get('x-user-id') || 'ADMIN';
         const userRole = request.headers.get('x-user-role');
 
-        if (!isExtension && (userRole === 'AREA_COORDINATOR' || userRole === 'QC_OFFICER')) {
+        const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'STORES_MANAGER'];
+        const hasAllowedRole = userRole && allowedRoles.includes(userRole);
+
+        if (!isExtension && !hasAllowedRole) {
             return NextResponse.json(
                 { success: false, message: 'Permission Denied: Unauthorized to import BOM invoices.' },
                 { status: 403, headers: { 'Access-Control-Allow-Origin': '*' } }

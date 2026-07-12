@@ -19,10 +19,17 @@ export async function POST(request: Request) {
         }
 
         // Fetch auth headers
+        const extensionKey = request.headers.get('x-extension-key');
+        const extensionSecret = process.env.EXTENSION_SECRET || 'slt-bridge-secret-2026';
+        const isExtension = extensionKey === extensionSecret;
+
         const userId = request.headers.get('x-user-id') || 'ADMIN';
         const userRole = request.headers.get('x-user-role');
 
-        if (userRole === 'AREA_COORDINATOR' || userRole === 'QC_OFFICER') {
+        const allowedRoles = ['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'STORES_MANAGER'];
+        const hasAllowedRole = userRole && allowedRoles.includes(userRole);
+
+        if (!isExtension && !hasAllowedRole) {
             return NextResponse.json(
                 { success: false, message: 'Permission Denied: Unauthorized to import BOM invoices.' },
                 { status: 403 }

@@ -13,7 +13,7 @@ export class InvoiceQueryService {
             where: {
                 contractorId,
                 sltsStatus: 'COMPLETED',
-                sltsPatStatus: 'PASS',
+                sltsPatStatus: 'PAT_PASSED',
                 completedDate: { gte: startDate, lte: endDate },
                 invoiced: false
             },

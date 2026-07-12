@@ -1,14 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { primaryClient } from '@/lib/prisma';
 import { GISAutoPlanService } from '@/services/GISAutoPlanService';
 import { ProjectSurveyService } from '@/services/project-survey.service';
+import { requireAuth } from '@/lib/server-utils';
 
 export const dynamic = 'force-dynamic';
 // Cache buster comment to force Next.js route re-evaluation: 1783209356
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const projectId = 'cmr3b0q2a00f5si6khytg417j';
+    await requireAuth(['ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER']);
+
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get('projectId');
+
+    if (!projectId) {
+      return NextResponse.json({ error: 'projectId is required as a query parameter' }, { status: 400 });
+    }
     
     // 1. Find the existing route
     const existingRoute = await primaryClient.gISRoute.findFirst({
@@ -20,23 +28,32 @@ export async function GET() {
       return NextResponse.json({ error: 'No existing route found to rebuild.' }, { status: 404 });
     }
 
-    const metadata = existingRoute.metadata as any;
+    const metadata = existingRoute.metadata as Record<string, unknown> | null;
     if (!metadata || !metadata.polygon || !metadata.osmData) {
       return NextResponse.json({ error: 'Metadata is missing polygon or osmData.' }, { status: 400 });
     }
 
-    const { polygon, osmData, startDeviceType } = metadata;
+    const polygon = metadata.polygon as [number, number][];
+    const osmData = metadata.osmData;
+    const startDeviceType = metadata.startDeviceType as string | undefined;
     
     // Extract feedPoint coordinates from the GeoJSON of this route
     let feedPoint: { lat: number; lon: number } | undefined = undefined;
-    const geojson = existingRoute.geojsonData as any;
-    if (geojson && geojson.features) {
-      const feedPointFeature = geojson.features.find((f: any) => f.properties?.layer === 'FDP' && f.properties?.closureNumber === 0);
+    const geojson = existingRoute.geojsonData as Record<string, unknown> | null;
+    const features = geojson?.features as Array<Record<string, unknown>> | undefined;
+    if (geojson && features) {
+      const feedPointFeature = features.find((f) => {
+        const props = f.properties as Record<string, unknown> | undefined;
+        return props?.layer === 'FDP' && props?.closureNumber === 0;
+      });
       if (feedPointFeature) {
-        feedPoint = {
-          lat: feedPointFeature.geometry.coordinates[1],
-          lon: feedPointFeature.geometry.coordinates[0]
-        };
+        const geom = feedPointFeature.geometry as { coordinates: number[] } | undefined;
+        if (geom && geom.coordinates) {
+          feedPoint = {
+            lat: geom.coordinates[1],
+            lon: geom.coordinates[0]
+          };
+        }
       }
     }
 
@@ -180,8 +197,9 @@ export async function GET() {
       message: `Route updated successfully in place! Quality Score: ${plan.summary.engineeringQualityScore}`
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

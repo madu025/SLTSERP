@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { InvoiceGeneratorService } from '../invoice/invoice.generator.service';
+import { ProjectInvoiceService } from '../project/project-invoice.service';
 
 export class BOMInvoiceService {
     /**
@@ -307,18 +308,7 @@ export class BOMInvoiceService {
             itemType: 'SERVICE' as const
         }));
 
-        // 6. Update matched ServiceOrders to PAT_PASSED and mark as invoicable
-        await prisma.serviceOrder.updateMany({
-            where: { id: { in: matchedIds } },
-            data: {
-                sltsPatStatus: 'PAT_PASSED',
-                hoPatStatus: 'APPROVED',
-                isInvoicable: true,
-                sltsPatDate: new Date()
-            }
-        });
-
-        // 7. Create Client Invoice (SLT Submit Format)
+        // 7. Create Client Invoice (SLT Submit Format - ProjectInvoice)
         const totalAmount = invoiceItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
         const regionName = serviceOrders[0]?.rtom || 'GLOBAL';
         
@@ -327,20 +317,68 @@ export class BOMInvoiceService {
             throw new Error('NO_CONTRACTOR_FOUND_IN_MATCHED_SODS');
         }
 
-        const invoiceNumber = `INV-${bomPath ? bomPath.replace(/[^a-zA-Z0-9]/g, '').substring(0, 16) : Date.now()}-${regionName}`;
         const now = new Date();
 
-        const invoice = await InvoiceGeneratorService.createRegionalInvoice({
-            invoiceNumber,
-            contractorId,
-            year: now.getFullYear(),
-            month: now.getMonth() + 1,
-            totalAmount,
-            regionName,
-            sodIds: matchedIds,
-            bomNumber: bomPath || null,
-            rtomArea: regionName,
-            description: `SLT Client Billing generated from BOM sheet. Matches ${serviceOrders.length} connections.`
+        // Look up the active project ID associated with this contractor/BOM
+        let projectId: string | null = null;
+        let project = await prisma.project.findFirst({
+            where: { contractorId },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (!project) {
+            project = await prisma.project.findFirst({
+                where: {
+                    OR: [
+                        { name: { contains: 'BOM' } },
+                        { name: { contains: 'Invoicing' } },
+                        { projectCode: { contains: 'SERV' } }
+                    ]
+                }
+            });
+        }
+
+        if (!project) {
+            project = await prisma.project.findFirst({
+                orderBy: { createdAt: 'desc' }
+            });
+        }
+
+        if (project) {
+            projectId = project.id;
+        }
+
+        if (!projectId) {
+            throw new Error('NO_PROJECT_FOUND_FOR_BILLING');
+        }
+
+        // Create Client Invoice (ProjectInvoice table)
+        const invoice = await ProjectInvoiceService.createInvoice({
+            projectId,
+            title: `BOM Client Billing - ${regionName} - ${now.getMonth() + 1}/${now.getFullYear()}`,
+            description: `SLT Client Billing generated from BOM sheet. Matches ${serviceOrders.length} connections.`,
+            type: 'CLIENT',
+            invoiceDate: now,
+            referenceNumber: bomPath || null,
+            items: invoiceItems.map(item => ({
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                itemType: 'SERVICE'
+            }))
+        });
+
+        // 6. Update matched ServiceOrders to PAT_PASSED, mark as invoicable, and link to ProjectInvoice
+        // Note: Keep invoiced as false so the actual contractor can invoice SLTS for this work.
+        await prisma.serviceOrder.updateMany({
+            where: { id: { in: matchedIds } },
+            data: {
+                sltsPatStatus: 'PAT_PASSED',
+                hoPatStatus: 'APPROVED',
+                isInvoicable: true,
+                sltsPatDate: new Date(),
+                projectInvoiceId: invoice.id
+            }
         });
 
         return {
