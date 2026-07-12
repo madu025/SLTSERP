@@ -571,4 +571,24 @@ export class UserService {
 
         return { success: true };
     }
+
+    /**
+     * Updates basic user profile details (Name, Email)
+     */
+    static async updateProfile(userId: string, data: { name?: string; email?: string }) {
+        if (!userId) throw new Error('USER_ID_REQUIRED');
+        
+        return prisma.user.update({
+            where: { id: userId },
+            data: {
+                name: data.name,
+                email: data.email
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true
+            }
+        });
+    }
 }

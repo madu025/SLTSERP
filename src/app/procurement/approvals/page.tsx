@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Eye, Search } from "lucide-react";
+import { Loader2, Eye, Search, X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -22,7 +22,9 @@ import { cn } from "@/lib/utils";
 
 interface ApprovalRequestItem {
     id: string;
+    itemId?: string | null;
     requestedQty: number;
+    approvedQty?: number | null;
     make?: string | null;
     model?: string | null;
     item?: {
@@ -63,29 +65,68 @@ export default function ApprovalsPage() {
     const [typeFilter, setTypeFilter] = useState("ALL");
     const [activeTab, setActiveTab] = useState("PENDING");
 
+    // States for quantity editing and warehouse stocks
+    const [approvedQuantities, setApprovedQuantities] = useState<Record<string, number>>({});
+    const [stockLevels, setStockLevels] = useState<Record<string, number>>({});
+
     // Fetch Requests with filtering
     const { data: requests = [], isLoading } = useQuery<ApprovalRequest[]>({
         queryKey: ["approvals", activeTab],
         queryFn: async () => {
             if (activeTab === "PENDING") {
                 // PENDING: Only procurement requests awaiting manager approval
-                const url = "/api/inventory/requests?workflowStage=REQUEST&status=PENDING";
-                return (await fetch(url)).json();
+                const url = `/api/inventory/requests?workflowStage=REQUEST&status=PENDING&_t=${Date.now()}`;
+                return (await fetch(url, { cache: 'no-store' })).json();
             } else {
                 // HISTORY: Show ALL approved/rejected requests (procurement + internal transfers)
                 // This gives managers a unified view of all their approval decisions
-                const url = "/api/inventory/requests?status=APPROVED,REJECTED";
-                return (await fetch(url)).json();
+                const url = `/api/inventory/requests?status=APPROVED,REJECTED&_t=${Date.now()}`;
+                return (await fetch(url, { cache: 'no-store' })).json();
             }
         }
     });
 
+    // Initialize edited quantities and fetch stock levels when selection changes
+    useEffect(() => {
+        if (selectedRequest && selectedRequest.items) {
+            const initialQuantities: Record<string, number> = {};
+            selectedRequest.items.forEach(item => {
+                initialQuantities[item.id] = item.requestedQty;
+            });
+            setApprovedQuantities(initialQuantities);
+
+            if (selectedRequest.toStoreId) {
+                fetch(`/api/inventory/stock?storeId=${selectedRequest.toStoreId}&_t=${Date.now()}`, { cache: 'no-store' })
+                    .then(res => {
+                        if (!res.ok) throw new Error("Failed to fetch stock levels");
+                        return res.json();
+                    })
+                    .then((data: any[]) => {
+                        const levels: Record<string, number> = {};
+                        data.forEach(stock => {
+                            levels[stock.itemId] = stock.quantity;
+                        });
+                        setStockLevels(levels);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        setStockLevels({});
+                    });
+            } else {
+                setStockLevels({});
+            }
+        } else {
+            setApprovedQuantities({});
+            setStockLevels({});
+        }
+    }, [selectedRequest]);
+
     const approveMutation = useMutation({
-        mutationFn: async ({ id, action, remarks }: { id: string, action: string, remarks?: string }) => {
+        mutationFn: async ({ id, action, remarks, items }: { id: string, action: string, remarks?: string, items?: { id: string, approvedQty: number }[] }) => {
             const res = await fetch("/api/inventory/requests", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ requestId: id, action, remarks })
+                body: JSON.stringify({ requestId: id, action, remarks, items })
             });
             if (!res.ok) throw new Error("Action failed");
             return res.json();
@@ -99,8 +140,8 @@ export default function ApprovalsPage() {
         onError: () => toast.error("Operation failed")
     });
 
-    const handleAction = (id: string, action: 'MANAGER_APPROVE' | 'REJECT', remarks?: string) => {
-        approveMutation.mutate({ id, action, remarks });
+    const handleAction = (id: string, action: 'APPROVE' | 'REJECT', remarks?: string, items?: { id: string, approvedQty: number }[]) => {
+        approveMutation.mutate({ id, action, remarks, items });
     };
 
     const filteredRequests = requests.filter((req: ApprovalRequest) => {
@@ -206,6 +247,20 @@ export default function ApprovalsPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {(searchQuery || priorityFilter !== "ALL" || typeFilter !== "ALL") && (
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => {
+                                            setSearchQuery("");
+                                            setPriorityFilter("ALL");
+                                            setTypeFilter("ALL");
+                                        }}
+                                        className="h-8 text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all rounded-lg px-3 flex items-center gap-1.5"
+                                    >
+                                        <X className="w-3 h-3" />
+                                        Reset Filters
+                                    </Button>
+                                )}
                             </div>
                         </div>
 
@@ -336,24 +391,57 @@ export default function ApprovalsPage() {
                                         <thead className="bg-slate-50 font-bold border-b border-slate-200 text-slate-600">
                                             <tr>
                                                 <th className="px-3 py-2">Item Name / Code</th>
+                                                <th className="px-3 py-2 text-right">Warehouse Stock</th>
                                                 <th className="px-3 py-2 text-right">Requested Qty</th>
+                                                {activeTab === "HISTORY" && <th className="px-3 py-2 text-right">Approved Qty</th>}
+                                                {activeTab === "PENDING" && <th className="px-3 py-2 text-right w-32">Approved Qty</th>}
                                                 <th className="px-3 py-2">Make / Model</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
-                                            {selectedRequest.items?.map((item: ApprovalRequestItem) => (
-                                                <tr key={item.id} className="hover:bg-slate-50/30">
-                                                    <td className="px-3 py-2 font-medium text-slate-800">
-                                                        {item.item?.name} <span className="text-slate-400 font-mono text-[10px]">({item.item?.code || 'N/A'})</span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right font-semibold text-slate-900">
-                                                        {item.requestedQty} {item.item?.unit}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-slate-500 font-medium">
-                                                        {item.make || '-'} / {item.model || '-'}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {selectedRequest.items?.map((item: ApprovalRequestItem) => {
+                                                const itemId = item.itemId || item.item?.id || '';
+                                                const stock = stockLevels[itemId] !== undefined ? stockLevels[itemId] : 0;
+                                                return (
+                                                    <tr key={item.id} className="hover:bg-slate-50/30">
+                                                        <td className="px-3 py-2 font-medium text-slate-800">
+                                                            {item.item?.name} <span className="text-slate-400 font-mono text-[10px]">({item.item?.code || 'N/A'})</span>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right font-medium text-slate-600">
+                                                            {stock} {item.item?.unit}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right font-semibold text-slate-900">
+                                                            {item.requestedQty} {item.item?.unit}
+                                                        </td>
+                                                        {activeTab === "HISTORY" && (
+                                                            <td className="px-3 py-2 text-right font-semibold text-green-700">
+                                                                {item.approvedQty !== null && item.approvedQty !== undefined ? item.approvedQty : '-'} {item.item?.unit}
+                                                            </td>
+                                                        )}
+                                                        {activeTab === "PENDING" && (
+                                                            <td className="px-3 py-2 text-right">
+                                                                <Input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    max={item.requestedQty}
+                                                                    value={approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty}
+                                                                    onChange={(e) => {
+                                                                        const val = parseFloat(e.target.value);
+                                                                        setApprovedQuantities(prev => ({
+                                                                            ...prev,
+                                                                            [item.id]: isNaN(val) ? 0 : val
+                                                                        }));
+                                                                    }}
+                                                                    className="h-8 w-24 text-right inline-block text-xs bg-white focus-visible:ring-1 focus-visible:ring-blue-200"
+                                                                />
+                                                            </td>
+                                                        )}
+                                                        <td className="px-3 py-2 text-slate-500 font-medium">
+                                                            {item.make || '-'} / {item.model || '-'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -398,10 +486,16 @@ export default function ApprovalsPage() {
                                     </Button>
                                     <Button
                                         disabled={approveMutation.isPending}
-                                        onClick={() => handleAction(selectedRequest.id, 'MANAGER_APPROVE', remarks)}
+                                        onClick={() => {
+                                            const itemsPayload = selectedRequest.items?.map(item => ({
+                                                id: item.id,
+                                                approvedQty: approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty
+                                            }));
+                                            handleAction(selectedRequest.id, 'APPROVE', remarks, itemsPayload);
+                                        }}
                                         className="h-8 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg px-4"
                                     >
-                                        {approveMutation.isPending && approveMutation.variables?.action === 'MANAGER_APPROVE' && (
+                                        {approveMutation.isPending && approveMutation.variables?.action === 'APPROVE' && (
                                             <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                                         )}
                                         Approve &amp; Forward

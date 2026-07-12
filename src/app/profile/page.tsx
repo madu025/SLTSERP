@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -34,19 +35,23 @@ interface AccessibleOpmc {
 }
 
 export default function ProfilePage() {
-    const [user] = useState<ProfileUser | null>(() => {
-        if (typeof window !== 'undefined') {
+    const [user, setUser] = useState<ProfileUser | null>(null);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
             const storedUser = localStorage.getItem('user');
             if (storedUser) {
                 try {
-                    return JSON.parse(storedUser);
+                    setUser(JSON.parse(storedUser));
                 } catch (e) {
                     console.error("Failed to parse user from localStorage", e);
                 }
             }
-        }
-        return null;
-    });
+            setMounted(true);
+        }, 0);
+        return () => clearTimeout(timer);
+    }, []);
 
     const { data: profileDetails } = useQuery({
         queryKey: ["profile-details"],
@@ -57,6 +62,109 @@ export default function ProfilePage() {
         },
         enabled: !!user,
     });
+
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [pwdError, setPwdError] = useState('');
+    const [pwdSuccess, setPwdSuccess] = useState('');
+
+    const changePasswordMutation = useMutation({
+        mutationFn: async () => {
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                throw new Error('All fields are required');
+            }
+            if (newPassword !== confirmPassword) {
+                throw new Error('New password and confirmation do not match');
+            }
+            if (newPassword.length < 6) {
+                throw new Error('Password must be at least 6 characters long');
+            }
+
+            const res = await fetch('/api/profile/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Failed to change password');
+            }
+
+            return res.json();
+        },
+        onSuccess: () => {
+            setPwdSuccess('Password updated successfully!');
+            setPwdError('');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        },
+        onError: (err: Error) => {
+            setPwdError(err.message);
+            setPwdSuccess('');
+        }
+    });
+
+    const [editName, setEditName] = useState('');
+    const [editEmail, setEditEmail] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+    const [profileError, setProfileError] = useState('');
+    const [pushEnabled, setPushEnabled] = useState(true);
+
+    const updateProfileMutation = useMutation({
+        mutationFn: async () => {
+            if (!editName || !editEmail) {
+                throw new Error('Name and Email are required');
+            }
+            const res = await fetch('/api/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: editName, email: editEmail })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Failed to update profile');
+            }
+            return res.json();
+        },
+        onSuccess: (data) => {
+            setProfileError('');
+            setIsEditing(false);
+            if (typeof window !== 'undefined') {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    const parsed = JSON.parse(storedUser);
+                    parsed.name = data.name;
+                    localStorage.setItem('user', JSON.stringify(parsed));
+                }
+            }
+            window.location.reload();
+        },
+        onError: (err: Error) => {
+            setProfileError(err.message);
+        }
+    });
+
+    const exportAuditLogs = () => {
+        if (!profileDetails?.auditLogs || profileDetails.auditLogs.length === 0) return;
+        const headers = ['Action', 'Entity', 'Date'];
+        const rows = profileDetails.auditLogs.map((log: AuditLog) => [
+            log.action,
+            log.entity,
+            format(new Date(log.createdAt), 'yyyy-MM-dd HH:mm:ss')
+        ]);
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + [headers.join(','), ...rows.map((r: string[]) => r.join(','))].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `audit_log_${user?.username || 'user'}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const { data: notificationPrefs, refetch: refetchPrefs } = useQuery({
         queryKey: ["notification-preferences"],
@@ -96,7 +204,7 @@ export default function ProfilePage() {
         return pref ? pref.enabled : true; // Default to true if not set
     };
 
-    if (!user) return null;
+    if (!mounted || !user) return null;
 
     return (
         <div className="h-screen flex bg-[#f8fafc] overflow-hidden text-xs">
@@ -171,7 +279,65 @@ export default function ProfilePage() {
                                             </div>
                                         </div>
                                     </CardContent>
+                                    <CardContent className="border-t pt-4">
+                                        {isEditing ? (
+                                            <div className="space-y-4">
+                                                {profileError && (
+                                                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-semibold">
+                                                        {profileError}
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <div className="text-[10px] font-bold uppercase text-slate-500">Display Name</div>
+                                                        <Input 
+                                                            value={editName} 
+                                                            onChange={(e) => setEditName(e.target.value)} 
+                                                            className="h-10 rounded-xl text-slate-700 bg-white" 
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <div className="text-[10px] font-bold uppercase text-slate-500">Corporate Email</div>
+                                                        <Input 
+                                                            value={editEmail} 
+                                                            onChange={(e) => setEditEmail(e.target.value)} 
+                                                            className="h-10 rounded-xl text-slate-700 bg-white" 
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 justify-end">
+                                                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="rounded-xl h-9">
+                                                        Cancel
+                                                    </Button>
+                                                    <Button 
+                                                        size="sm" 
+                                                        onClick={() => updateProfileMutation.mutate()} 
+                                                        disabled={updateProfileMutation.isPending} 
+                                                        className="bg-slate-900 text-white rounded-xl h-9 hover:bg-slate-800"
+                                                    >
+                                                        {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-end">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="rounded-xl h-9 border-slate-200 text-slate-700 font-bold hover:bg-slate-50"
+                                                    onClick={() => {
+                                                        setEditName(profileDetails?.name || user?.name || '');
+                                                        setEditEmail(profileDetails?.email || '');
+                                                        setIsEditing(true);
+                                                    }}
+                                                >
+                                                    Edit Profile Details
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </CardContent>
                                 </Card>
+
 
                                 {/* Hierarchy Card */}
                                 <Card className="border-none shadow-sm rounded-3xl bg-blue-600 text-white overflow-hidden relative">
@@ -198,7 +364,7 @@ export default function ProfilePage() {
                                         <div className="space-y-2 pt-2 border-t border-white/10">
                                             <div className="text-[9px] uppercase font-bold opacity-60">Supervised Staff</div>
                                             <div className="text-2xl font-bold">{profileDetails?.subordinates?.length || 0}</div>
-                                            <div className="text-[10px] opacity-80 underline cursor-pointer">View Team Directory</div>
+                                            <Link href="/admin/staff" className="text-[10px] opacity-80 underline cursor-pointer hover:text-white/80">View Team Directory</Link>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -210,7 +376,7 @@ export default function ProfilePage() {
                                             <CardTitle className="text-sm font-bold">Recent System Activity</CardTitle>
                                             <CardDescription className="text-[10px]">Your latest administrative interactions</CardDescription>
                                         </div>
-                                        <Button variant="ghost" size="sm" className="text-xs h-7 px-2">Export Log</Button>
+                                        <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={exportAuditLogs}>Export Log</Button>
                                     </CardHeader>
                                     <CardContent className="p-0">
                                         <div className="divide-y border-t">
@@ -337,22 +503,54 @@ export default function ProfilePage() {
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-8 space-y-6">
+                                        {pwdError && (
+                                            <div className="p-3.5 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-semibold">
+                                                {pwdError}
+                                            </div>
+                                        )}
+                                        {pwdSuccess && (
+                                            <div className="p-3.5 bg-green-50 border border-green-100 rounded-xl text-green-600 text-xs font-semibold">
+                                                {pwdSuccess}
+                                            </div>
+                                        )}
                                         <div className="space-y-2">
                                             <div className="text-[10px] font-bold uppercase text-slate-500">Current Password</div>
-                                            <Input type="password" placeholder="••••••••" className="h-12 rounded-xl" />
+                                            <Input 
+                                                type="password" 
+                                                placeholder="••••••••" 
+                                                className="h-12 rounded-xl text-slate-700"
+                                                value={currentPassword}
+                                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                            />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <div className="text-[10px] font-bold uppercase text-slate-500">New Password</div>
-                                                <Input type="password" placeholder="••••••••" className="h-12 rounded-xl" />
+                                                <Input 
+                                                    type="password" 
+                                                    placeholder="••••••••" 
+                                                    className="h-12 rounded-xl text-slate-700"
+                                                    value={newPassword}
+                                                    onChange={(e) => setNewPassword(e.target.value)}
+                                                />
                                             </div>
                                             <div className="space-y-2">
                                                 <div className="text-[10px] font-bold uppercase text-slate-500">Confirm New</div>
-                                                <Input type="password" placeholder="••••••••" className="h-12 rounded-xl" />
+                                                <Input 
+                                                    type="password" 
+                                                    placeholder="••••••••" 
+                                                    className="h-12 rounded-xl text-slate-700"
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                />
                                             </div>
                                         </div>
-                                        <Button className="w-full h-12 bg-slate-900 rounded-xl font-bold shadow-xl shadow-slate-200 mt-4">
-                                            Update Password
+                                        <Button 
+                                            className="w-full h-12 bg-slate-900 rounded-xl font-bold shadow-xl shadow-slate-200 mt-4 text-white hover:bg-slate-800"
+                                            onClick={() => changePasswordMutation.mutate()}
+                                            disabled={changePasswordMutation.isPending}
+                                        >
+                                            {changePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
                                         </Button>
                                     </CardContent>
                                 </Card>
@@ -368,7 +566,10 @@ export default function ProfilePage() {
                                                 <div className="text-[10px] text-slate-400">Receive real-time alerts on system events</div>
                                             </div>
                                         </div>
-                                        <div className="w-12 h-6 bg-blue-600 rounded-full flex items-center justify-end px-1 cursor-pointer">
+                                        <div 
+                                            onClick={() => setPushEnabled(!pushEnabled)}
+                                            className={`w-12 h-6 rounded-full flex items-center px-1 cursor-pointer transition-all duration-200 ${pushEnabled ? 'bg-blue-600 justify-end' : 'bg-slate-300 justify-start'}`}
+                                        >
                                             <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
                                         </div>
                                     </CardContent>

@@ -184,11 +184,10 @@ body.dark-mode .glass-panel {
 /* Dark mode layout and utility overrides to resolve hardcoded light-mode classes */
 .dark .bg-slate-50,
 body.dark-mode .bg-slate-50,
-.dark .bg-slate-100/50,
-body.dark-mode .bg-slate-100/50 {
+.dark .bg-slate-100\/50,
+body.dark-mode .bg-slate-100\/50 {
   background-color: var(--background) !important;
 }
-
 .dark .bg-white,
 body.dark-mode .bg-white {
   background-color: var(--card) !important;

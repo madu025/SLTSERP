@@ -1,56 +1,48 @@
-import { NextResponse } from 'next/server';
+import { apiHandler } from '@/lib/api-handler';
 import { InventoryService } from '@/services/inventory.service';
 import { createStockRequest, processStockRequestAction } from '@/actions/inventory-actions';
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const result = await createStockRequest(body);
+export const dynamic = 'force-dynamic';
 
-        if (result.success) {
-            return NextResponse.json(result.data);
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error) {
-        console.error("Stock Request Creation Error:", error);
-        return NextResponse.json({ error: 'Failed to create request' }, { status: 500 });
+// GET all stock requests
+export const GET = apiHandler(async (req) => {
+    const { searchParams } = new URL(req.url);
+
+    const filters = {
+        storeId: searchParams.get('storeId') || undefined,
+        isApprover: searchParams.get('isApprover') === 'true',
+        status: searchParams.get('status') || undefined,
+        workflowStage: searchParams.get('workflowStage') || undefined
+    };
+
+    return await InventoryService.getStockRequests(filters);
+}, {
+    rawResponse: true
+});
+
+// POST: Create stock request
+export const POST = apiHandler(async (req, _params, body) => {
+    const result = await createStockRequest(body);
+    if (!result.success) {
+        throw new Error(result.error || 'Failed to create request');
     }
-}
+    return result.data;
+}, {
+    roles: ['AREA_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'ENGINEER', 'AREA_COORDINATOR', 'STORES_MANAGER'],
+    audit: { action: 'CREATE', entity: 'STOCK_REQUEST' },
+    rawResponse: true
+});
 
-// Approve / Reject / Allocate
-export async function PATCH(request: Request) {
-    try {
-        const body = await request.json();
-        const result = await processStockRequestAction(body);
-
-        if (result.success) {
-            return NextResponse.json(result.data);
-        } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
-        }
-    } catch (error: any) {
-        console.error("Stock Request Action Error:", error);
-        return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+// PATCH: Approve / Reject / Allocate stock request
+export const PATCH = apiHandler(async (req, _params, body) => {
+    const result = await processStockRequestAction(body);
+    if (!result.success) {
+        throw new Error(result.error || 'Failed to process request');
     }
-}
+    return result.data;
+}, {
+    roles: ['STORES_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN'],
+    audit: { action: 'UPDATE_STATUS', entity: 'STOCK_REQUEST' },
+    rawResponse: true
+});
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-
-        const filters = {
-            storeId: searchParams.get('storeId') || undefined,
-            isApprover: searchParams.get('isApprover') === 'true',
-            status: searchParams.get('status') || undefined,
-            workflowStage: searchParams.get('workflowStage') || undefined
-        };
-
-        const requests = await InventoryService.getStockRequests(filters);
-        return NextResponse.json(requests);
-
-    } catch (error) {
-        console.error("Stock Request Fetch Error:", error);
-        return NextResponse.json({ error: 'Failed to fetch requests' }, { status: 500 });
-    }
-}
