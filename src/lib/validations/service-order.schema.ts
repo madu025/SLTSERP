@@ -30,6 +30,11 @@ export const serviceOrderPatchSchema = z.object({
         exceedsLimit: z.boolean().optional(),
         comment: z.string().optional(),
         serialNumber: z.string().optional()
+    })).optional(),
+    collectedCpes: z.array(z.object({
+        deviceType: z.string(),
+        serialNumber: z.string(),
+        condition: z.string().default("FAULTY")
     })).optional()
 });
 

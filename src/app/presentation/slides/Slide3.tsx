@@ -64,12 +64,12 @@ export default function Slide3() {
                             <polygon points="165,20 160,17 160,23" fill="#475569" />
 
                             <rect x="170" y="10" width="55" height="20" rx="4" fill="#8b5cf6" opacity="0.3" stroke="#a78bfa" strokeWidth="0.5" />
-                            <text x="197" y="24" textAnchor="middle" fill="#c4b5fd" fontSize="6" fontWeight="bold" fontFamily="sans-serif">Audit</text>
+                            <text x="197" y="24" textAnchor="middle" fill="#c4b5fd" fontSize="6" fontWeight="bold" fontFamily="sans-serif">PAT Gate</text>
                             <line x1="225" y1="20" x2="245" y2="20" stroke="#475569" strokeWidth="1" />
                             <polygon points="245,20 240,17 240,23" fill="#475569" />
-
+ 
                             <rect x="250" y="10" width="55" height="20" rx="4" fill="#10b981" opacity="0.3" stroke="#34d399" strokeWidth="0.5" />
-                            <text x="277" y="24" textAnchor="middle" fill="#6ee7b7" fontSize="6" fontWeight="bold" fontFamily="sans-serif">Invoice</text>
+                            <text x="277" y="24" textAnchor="middle" fill="#6ee7b7" fontSize="6" fontWeight="bold" fontFamily="sans-serif">Billing</text>
                             
                             <circle cx="320" cy="20" r="8" fill="#10b981" opacity="0.4" stroke="#34d399" strokeWidth="0.5" />
                             <text x="320" y="23" textAnchor="middle" fill="#6ee7b7" fontSize="7" fontWeight="bold">✓</text>
@@ -85,7 +85,7 @@ export default function Slide3() {
                             <p className="text-xl font-black text-white mt-1">1,482</p>
                         </div>
                         <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-3">
-                            <p className="text-[9px] text-slate-500 uppercase tracking-wider">Pending Audit</p>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-wider">Pending PAT</p>
                             <p className="text-xl font-black text-amber-400 mt-1">87</p>
                         </div>
                         <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-3">
@@ -93,7 +93,7 @@ export default function Slide3() {
                             <p className="text-xl font-black text-emerald-400 mt-1">42</p>
                         </div>
                     </div>
-
+ 
                     {/* Workflow status steps */}
                     <div className="bg-slate-900/30 border border-slate-800/80 rounded-xl p-4 space-y-3">
                         <h4 className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">SOD Workflow Stages</h4>
@@ -111,11 +111,11 @@ export default function Slide3() {
                             </div>
                             <div className="flex flex-col items-center gap-1 bg-slate-950 px-2">
                                 <span className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center font-bold">3</span>
-                                <span>Material Audit</span>
+                                <span>3-Stage PAT</span>
                             </div>
                             <div className="flex flex-col items-center gap-1 bg-slate-950 px-2">
                                 <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">4</span>
-                                <span>Invoiced</span>
+                                <span>Billing BOM</span>
                             </div>
                         </div>
                     </div>

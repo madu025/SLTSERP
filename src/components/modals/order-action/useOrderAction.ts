@@ -29,13 +29,14 @@ export function useOrderAction(
     const [assignmentType, setAssignmentType] = useState<'CONTRACTOR' | 'DIRECT_TEAM'>('CONTRACTOR');
     const [directTeamName, setDirectTeamName] = useState("");
     const [extendedMaterialRows, setExtendedMaterialRows] = useState<MaterialUsageRow[]>([]);
-    const [activeTab, setActiveTab] = useState<'details' | 'materials' | 'finish'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'materials' | 'cpe' | 'finish'>('details');
     const [wiredOnly, setWiredOnly] = useState(false);
     const [stbShortage, setStbShortage] = useState(false);
     const [ontShortage, setOntShortage] = useState(false);
     const [delayReasons, setDelayReasons] = useState({
         ontShortage: false, stbShortage: false, nokia: false, system: false, opmc: false, cxDelay: false, sameDay: false, polePending: false
     });
+    const [collectedCpes, setCollectedCpes] = useState<Array<{ deviceType: string; serialNumber: string; condition: string }>>([]);
 
     const [prevOrderId, setPrevOrderId] = useState<string | null>(null);
 
@@ -110,6 +111,8 @@ export function useOrderAction(
 
         const iptvCount = orderData.iptv ? parseInt(orderData.iptv) : 0;
         setIptvSerials(orderData.iptvSerialNumbers || Array(iptvCount).fill(''));
+
+        setCollectedCpes(orderData.collectedCpes || []);
 
     }, [isOpen, orderData, prevOrderId, items]);
 
@@ -229,7 +232,8 @@ export function useOrderAction(
             teamId: selectedTeamId,
             directTeam: directTeamName,
             dpDetails,
-            completionMode
+            completionMode,
+            collectedCpes: collectedCpes.filter(c => c.serialNumber.trim() !== "")
         });
     };
 
@@ -238,7 +242,7 @@ export function useOrderAction(
             date, comment, reason, customReason, ontType, ontSerialNumber, iptvSerials, dpDetails,
             materialStatus, selectedContractorId, selectedTeamId, opmcPatStatus, sltsPatStatus,
             hoPatStatus, completionMode, assignmentType, directTeamName, extendedMaterialRows,
-            activeTab, wiredOnly, stbShortage, ontShortage, delayReasons
+            activeTab, wiredOnly, stbShortage, ontShortage, delayReasons, collectedCpes
         },
         controls: {
             setDate, setComment, setReason, setCustomReason, setOntType, setOntSerialNumber,
@@ -254,6 +258,13 @@ export function useOrderAction(
                 const r = [...extendedMaterialRows]; r[idx] = { ...r[idx], [field]: value }; setExtendedMaterialRows(r);
             },
             removeExtendedRow: (idx: number) => setExtendedMaterialRows(extendedMaterialRows.filter((_, i) => i !== idx)),
+            addCollectedCpeRow: () => setCollectedCpes([...collectedCpes, { deviceType: 'ONT', serialNumber: '', condition: 'FAULTY' }]),
+            updateCollectedCpeRow: (idx: number, field: 'deviceType' | 'serialNumber' | 'condition', value: string) => {
+                const c = [...collectedCpes];
+                c[idx] = { ...c[idx], [field]: value };
+                setCollectedCpes(c);
+            },
+            removeCollectedCpeRow: (idx: number) => setCollectedCpes(collectedCpes.filter((_, i) => i !== idx)),
             handlePortalImport,
             applyPreset,
             confirm

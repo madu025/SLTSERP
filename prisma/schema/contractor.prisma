@@ -57,6 +57,7 @@ model Contractor {
   balanceSheets           ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
   materialIssues          ContractorMaterialIssue[]        @relation("MaterialIssues")
   materialReturns         ContractorMaterialReturn[]       @relation("MaterialReturns")
+  collectedCPEs           CollectedCPE[]                   @relation("CollectedCPEs")
   stock                   ContractorStock[]
   teams                   ContractorTeam[]
   wastageReports          ContractorWastage[]

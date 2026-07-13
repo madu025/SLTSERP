@@ -69,13 +69,7 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         }, 400);
         return () => clearTimeout(handler);
     }, [searchTerm]);
-    const [showMetrics, setShowMetrics] = useState<boolean>(() => {
-        if (typeof window !== 'undefined') {
-            const val = localStorage.getItem('sod_show_metrics');
-            return val !== 'false';
-        }
-        return true;
-    });
+    const [showMetrics, setShowMetrics] = useState<boolean>(true);
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [patFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter] = useState("ALL");
@@ -93,12 +87,16 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [showExcelModal, setShowExcelModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
 
-    const [isSheetMode, setIsSheetMode] = useState<boolean>(() => {
-        if (typeof window !== "undefined") {
-            return localStorage.getItem("sod_sheet_mode") === "true";
+    const [isSheetMode, setIsSheetMode] = useState<boolean>(false);
+
+    useEffect(() => {
+        const storedShowMetrics = localStorage.getItem('sod_show_metrics');
+        if (storedShowMetrics === 'false') {
+            setShowMetrics(false);
         }
-        return false;
-    });
+        const storedSheetMode = localStorage.getItem('sod_sheet_mode') === 'true';
+        setIsSheetMode(storedSheetMode);
+    }, []);
 
     const toggleSheetMode = () => {
         setIsSheetMode(prev => {
@@ -141,7 +139,13 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
             const patParam = patFilter ? `&patFilter=${patFilter}` : '';
             const matParam = matFilter ? `&matFilter=${matFilter}` : '';
 
-            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}`);
+            const res = await fetch(`/api/service-orders?rtomId=${selectedRtomId}&filter=${filterType}${monthParam}${yearParam}${searchParam}${statusParam}${patParam}${matParam}&_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: {
+                    'Pragma': 'no-cache',
+                    'Cache-Control': 'no-cache'
+                }
+            });
             return (await res.json()) as { items: ServiceOrder[], summary: { totalSod: number, contractorAssigned: number, appointments: number, statusBreakdown: Record<string, number> } };
         },
         enabled: !!selectedRtomId

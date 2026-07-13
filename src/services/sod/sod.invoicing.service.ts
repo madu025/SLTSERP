@@ -48,11 +48,13 @@ export class SODInvoicingService {
      * Determine if an SOD is eligible for invoicing
      */
     static determineInvoicableStatus(
-        sltsPatStatus: string | undefined, 
-        currentInvoicable: boolean
+        sltsPatStatus: string | null | undefined,
+        opmcPatStatus: string | null | undefined,
+        hoPatStatus: string | null | undefined
     ): boolean {
-        // Business Rule: SOD is invoicable if SLTS PAT is PASSED
-        if (sltsPatStatus === 'PAT_PASSED') return true;
-        return currentInvoicable;
+        // Business Rule: SOD is invoicable if OPMC, HO, and SLT HQ (slts) PAT are all PASSED
+        return sltsPatStatus === 'PAT_PASSED' &&
+               opmcPatStatus === 'PAT_PASSED' &&
+               hoPatStatus === 'PAT_PASSED';
     }
 }

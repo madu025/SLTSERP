@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { ServiceOrderService } from '@/services/sod.service';
 import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
 
+export const dynamic = 'force-dynamic';
+
 // GET service orders with pagination and summary metrics
 export async function GET(request: Request) {
     try {

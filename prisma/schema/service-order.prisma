@@ -69,6 +69,7 @@ model ServiceOrder {
   restoreRequests   RestoreRequest[]
   materialUsage     SODMaterialUsage[]
   materialReturns   ContractorMaterialReturn[] @relation("SODMaterialReturns")  // GAP 4: physical returns linked to this SOD
+  collectedCPEs     CollectedCPE[]     @relation("CollectedCPEs")
   statusHistory     ServiceOrderStatusHistory[]
   commentsHistory   ServiceOrderComment[]
   contractor        Contractor?        @relation(fields: [contractorId], references: [id])
@@ -283,4 +284,26 @@ model PATPointResult {
 
   @@index([patSessionId])
   @@index([powerStatus])
+}
+
+model CollectedCPE {
+  id                  String       @id @default(cuid())
+  serviceOrderId      String
+  contractorId        String
+  deviceType          String       // e.g., "ONT", "STB", "PHONE"
+  serialNumber        String       // Serial number of the old device
+  condition           String       @default("FAULTY") // FAULTY, WORKING
+  status              String       @default("PENDING_HANDBACK") // PENDING_HANDBACK, HANDED_BACK
+  collectedDate       DateTime     @default(now())
+  handbackDate        DateTime?
+  handbackReference   String?      // Reference key from SLT handback receipt
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  serviceOrder        ServiceOrder @relation("CollectedCPEs", fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  contractor          Contractor   @relation("CollectedCPEs", fields: [contractorId], references: [id], onDelete: Cascade)
+
+  @@index([serviceOrderId])
+  @@index([contractorId])
+  @@index([status])
 }

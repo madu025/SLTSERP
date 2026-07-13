@@ -229,10 +229,9 @@ export class SLTApiService {
     /**
      * Fetch Head Office Rejected PAT Results
      */
-    async fetchHORejected(): Promise<SLTPATData[]> {
+    async fetchHORejected(dateStr?: string): Promise<SLTPATData[]> {
         try {
-            // Note: Uses dynamic_load.php as per user instructions
-            const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patreject&con=SLTS`;
+            const url = `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patreject&y=${dateStr || ''}&con=SLTS`;
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {

@@ -18,10 +18,10 @@ export default function Slide5() {
                         </span>
                     </div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent leading-tight">
-                        Completion & Payouts
+                        3-Stage PAT & Payouts
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                        Once an SOD is <strong className="text-white">PAT Passed</strong> (Post Installation Test), the system generates the contractor invoice automatically.
+                        To guarantee invoice compliance, an SOD must pass a strict <strong className="text-white">3-Stage PAT Gate</strong>: **OPMC PAT**, **Head Office PAT**, and **SLT HQ (slts) PAT** must all be passed before automated Billing BOM allocation occurs.
                     </p>
                     <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                         SLTS Nexus collects <strong className="text-emerald-400">fixed revenue from SLT</strong> per SOD. The contractor payment is calculated separately based on <strong className="text-white">drop wire distance</strong> (Rs. 3,500 – 6,500).

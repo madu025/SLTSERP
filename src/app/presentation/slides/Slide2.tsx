@@ -53,19 +53,19 @@ export default function Slide2() {
                     <ul className="space-y-3.5 text-slate-400">
                         <li className="flex gap-2">
                             <span className="text-red-400 font-bold">•</span>
-                            <span><strong>Messy spreadsheets:</strong> Excel sheets saved on different computers caused errors.</span>
+                            <span><strong>Offline spreadsheets:</strong> Fragmented stock lists on separate computers caused error logs.</span>
                         </li>
                         <li className="flex gap-2">
                             <span className="text-red-400 font-bold">•</span>
-                            <span><strong>Material wastage:</strong> No easy way to track materials given to contractors.</span>
+                            <span><strong>Material leakage:</strong> No trace of batch costs, FIFO rotation, or contractor wastage control.</span>
                         </li>
                         <li className="flex gap-2">
                             <span className="text-red-400 font-bold">•</span>
-                            <span><strong>Manual tracking:</strong> Managers spent hours calling field teams for updates.</span>
+                            <span><strong>Chasing PAT approvals:</strong> Manually calling offices to confirm OPMC and Head Office PAT status.</span>
                         </li>
                         <li className="flex gap-2">
                             <span className="text-red-400 font-bold">•</span>
-                            <span><strong>Slow vehicle audits:</strong> Odometer readings and fuel bills were checked by hand.</span>
+                            <span><strong>Manual vehicle logs:</strong> Drivers writing odometer values on paper logsheets, delaying fuel audits.</span>
                         </li>
                     </ul>
                 </div>
@@ -84,19 +84,19 @@ export default function Slide2() {
                     <ul className="space-y-3.5 text-slate-300">
                         <li className="flex gap-2">
                             <span className="text-emerald-400 font-bold">•</span>
-                            <span><strong>One central database:</strong> Real-time sync. Everyone sees the same data.</span>
+                            <span><strong>Central multi-store:</strong> Real-time inventory sync from Main/Sub Stores to contractor custody.</span>
                         </li>
                         <li className="flex gap-2">
                             <span className="text-emerald-400 font-bold">•</span>
-                            <span><strong>Automated splits:</strong> System auto-deducts SLT material costs from invoices.</span>
+                            <span><strong>FIFO batch costing:</strong> Precision pricing, automatic wastage approval write-offs, and MRN rollbacks.</span>
                         </li>
                         <li className="flex gap-2">
                             <span className="text-emerald-400 font-bold">•</span>
-                            <span><strong>Auto progress updates:</strong> Completed tasks sync up automatically to milestones.</span>
+                            <span><strong>3-Stage Portal Sync:</strong> Automated daily background queries for OPMC, HO, and SLT HQ PAT success/rejections.</span>
                         </li>
                         <li className="flex gap-2">
                             <span className="text-emerald-400 font-bold">•</span>
-                            <span><strong>QR vehicle logs:</strong> Drivers scan codes to log mileage instantly on mobile.</span>
+                            <span><strong>Mobile QR check-ins:</strong> Odometer values and driver lease payments computed instantly upon QR scans.</span>
                         </li>
                     </ul>
                 </div>

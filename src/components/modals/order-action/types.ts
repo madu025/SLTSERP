@@ -36,6 +36,11 @@ export interface OrderActionData {
         serialNumber?: string | null;
         comment?: string | null;
     }> | null;
+    collectedCpes?: Array<{
+        deviceType: string;
+        serialNumber: string;
+        condition: string;
+    }> | null;
 }
 
 export interface Contractor {
@@ -81,4 +86,9 @@ export interface OrderCompletionData {
     comment?: string;
     assignmentType?: string;
     materialStatus?: string;
+    collectedCpes?: Array<{
+        deviceType: string;
+        serialNumber: string;
+        condition: string;
+    }>;
 }

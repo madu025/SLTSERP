@@ -70,26 +70,26 @@ export default function Slide4() {
                         <table className="w-full text-left border-collapse text-[10px]">
                             <thead>
                                 <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-500 font-mono">
-                                    <th className="p-2 border-r border-slate-800">Order ID</th>
-                                    <th className="p-2 border-r border-slate-800">Client Name</th>
-                                    <th className="p-2 border-r border-slate-800">Contact No</th>
-                                    <th className="p-2">Location</th>
+                                    <th className="p-2 border-r border-slate-800">SO Number (SO_NUM)</th>
+                                    <th className="p-2 border-r border-slate-800">Voice Number</th>
+                                    <th className="p-2 border-r border-slate-800">S-Type</th>
+                                    <th className="p-2">Order Type</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr className="border-b border-slate-850 hover:bg-slate-800/20 text-slate-300">
-                                    <td className="p-2 border-r border-slate-800 font-mono text-blue-400">SO-2045</td>
+                                    <td className="p-2 border-r border-slate-800 font-mono text-blue-400">AD202511180037621</td>
                                     <td className="p-2 border-r border-slate-800 bg-blue-500/10 border-2 border-blue-500/50">
-                                        <input type="text" defaultValue="P. K. Silva" className="bg-transparent text-white w-full focus:outline-none" />
+                                        <input type="text" defaultValue="0252262646" className="bg-transparent text-white w-full focus:outline-none font-mono" />
                                     </td>
-                                    <td className="p-2 border-r border-slate-800">0771234567</td>
-                                    <td className="p-2">Kandy Central</td>
+                                    <td className="p-2 border-r border-slate-800 font-mono">AB-FTTH</td>
+                                    <td className="p-2 font-mono">CREATE</td>
                                 </tr>
                                 <tr className="border-b border-slate-850 hover:bg-slate-800/20 text-slate-300">
-                                    <td className="p-2 border-r border-slate-800 font-mono text-slate-500">SO-2046</td>
-                                    <td className="p-2 border-r border-slate-800">M. Perera</td>
-                                    <td className="p-2 border-r border-slate-800">0719876543</td>
-                                    <td className="p-2">Colombo 04</td>
+                                    <td className="p-2 border-r border-slate-800 font-mono text-slate-500">AD202506060034830</td>
+                                    <td className="p-2 border-r border-slate-800 font-mono">0252235892</td>
+                                    <td className="p-2 border-r border-slate-800 font-mono">AB-FTTH</td>
+                                    <td className="p-2 font-mono">MODIFY-LOCATION</td>
                                 </tr>
                             </tbody>
                         </table>

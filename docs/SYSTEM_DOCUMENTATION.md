@@ -71,133 +71,43 @@ graph TD
 
 ---
 
-## 3. Deployment & Infrastructure Setup
+## 3. Deployment & Infrastructure Architecture
 
-### 3.1 Local Development Setup (Docker)
-1. **Start Services:**
+Due to the extreme workload parameters of the SLTSERP system (**500 total users, 200 concurrent users, 200,000 JSON PAT pass writes/hour, 15-minute RTOM SOD syncs, Internal Reporting Services**), the architecture strictly utilizes sustained-CPU infrastructure with split read/write database nodes. AWS Lightsail is explicitly NOT recommended due to CPU burst-credit throttling under continuous load.
+
+### 3.1 Recommended Production Architecture
+
+#### Option A: Self-Hosted DigitalOcean Stack (Max Control)
+- **VPS 1 (App Node):** DO Droplet (4GB RAM, 2 vCPUs) - Runs Next.js, Redis, Nginx.
+- **VPS 2 (DB Write Master):** DO Droplet (4GB RAM) - Runs PostgreSQL Primary, handles the 200,000 JSON sync writes.
+- **VPS 3 (DB Read Replica):** DO Droplet (4GB RAM) - Handles Dashboard analytical queries to prevent write-locking.
+- **Storage:** DO Spaces (S3 Compatible).
+
+#### Option B: Hybrid Managed Cloud (Zero Maintenance)
+- **App Node:** DigitalOcean Droplet (4GB RAM, 2 vCPUs).
+- **Primary DB Node:** Supabase Pro Managed PostgreSQL.
+- **Replica DB Node:** Supabase Managed Read Replica.
+
+### 3.2 Local Development Setup
+1. **Start Services (Redis, etc):**
    ```bash
    docker compose up -d
    ```
 2. **Configure local `.env`:**
    ```env
-   DATABASE_URL="postgresql://sltserp_user:YourSecurePassword123!@localhost:5432/sltserp_db?pgbouncer=true&connection_limit=1"
-   DIRECT_URL="postgresql://sltserp_user:YourSecurePassword123!@localhost:5432/sltserp_db"
+   DATABASE_URL="postgresql://user:pass@localhost:5432/sltserp"
+   DIRECT_URL="postgresql://user:pass@localhost:5432/sltserp"
    ```
 3. **Database Client generation:**
    ```bash
    npx prisma db push
    npx prisma generate
    ```
-4. **Local pgAdmin Access:**
-   * **URL:** `http://localhost:5050`
-   * **Username:** `admin@sltserp.local` | **Password:** `admin123`
-   * **Database Host:** `postgres`
-
-### 3.2 Remote VPS Production Setup (Ubuntu/Debian)
-1. **Connect via SSH:**
-   ```bash
-   ssh -i /path/to/sltserpkey.pem ubuntu@your-server-ip
-   ```
-2. **Docker Installation Commands:**
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   sudo apt install -y apt-transport-https ca-certificates curl software-properties-common unzip
-   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-   sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-   sudo systemctl start docker && sudo systemctl enable docker
-   sudo usermod -aG docker $USER
-   ```
-3. **Firewall (UFW):**
-   ```bash
-   sudo ufw allow 22/tcp
-   sudo ufw allow 80/tcp
-   sudo ufw allow 443/tcp
-   sudo ufw enable
-   ```
 
 ### 3.3 CI/CD Deployment via GitHub Actions
-GitHub Repository Secrets required:
-* `SERVER_IP`, `SERVER_USER`, `SSH_PRIVATE_KEY`
-* `DATABASE_URL`, `DIRECT_URL`
-* `NEXTAUTH_SECRET`, `NEXT_PUBLIC_APP_URL`
+Every push to the `main` branch builds a **Next.js Standalone** package, bundles configs, copies via SCP to the DigitalOcean App Droplet, and restarts the runtimes.
 
-Every push to the `main` branch builds a **Next.js Standalone** package, bundles configs/Dockerfiles, copies via SCP, and restarts production compose stacks on the VPS:
-```bash
-sudo docker compose -f docker-compose.prod.yml up -d --build
-```
-
-### 3.4 Production Database Administration
-
-#### Seeding Initial Admin Account:
-```bash
-docker exec sltserp-app node prisma/seed.js
-# Admin Username: admin
-# Admin Password: Admin@123 (Change immediately!)
-```
-
-#### Automated Daily Backups Script (Cron):
-1. **Script Path:** `~/slts-erp/backup.sh`
-   ```bash
-   #!/bin/bash
-   BACKUP_DIR=~/slts-erp/backups
-   DATE=$(date +%Y%m%d_%H%M%S)
-   BACKUP_FILE="$BACKUP_DIR/sltserp_backup_$DATE.sql"
-   docker exec sltserp-postgres pg_dump -U sltserp_user sltserp_db > "$BACKUP_FILE"
-   gzip "$BACKUP_FILE"
-   find "$BACKUP_DIR" -name "*.sql.gz" -mtime +7 -delete
-   ```
-2. **Cron Entry (`crontab -e`):**
-   ```cron
-   0 2 * * * ~/slts-erp/backup.sh >> ~/slts-erp/backup.log 2>&1
-   ```
-
-#### PostgreSQL Performance Tuning (4GB+ RAM):
-Connect to DB shell `docker exec -it sltserp-postgres psql -U sltserp_user -d sltserp_db` and run:
-```sql
-ALTER SYSTEM SET shared_buffers = '1GB';
-ALTER SYSTEM SET effective_cache_size = '3GB';
-ALTER SYSTEM SET maintenance_work_mem = '256MB';
-SELECT pg_reload_conf();
-```
-
-#### Migrating Data from Supabase (Optional):
-```bash
-# Dump from Supabase
-pg_dump "postgresql://postgres.[project-id]:[password]@db.[project-id].supabase.co:5432/postgres" > supabase_backup.sql
-# Import to Docker PostgreSQL container
-docker exec -i sltserp-postgres psql -U sltserp_user -d sltserp_db < supabase_backup.sql
-```
-
-#### Backing Up Uploads Storage Volume:
-```bash
-docker run --rm -v sltserp_uploads_data:/data -v $(pwd):/backup alpine tar czf /backup/uploads_backup_$(date +%Y%m%d).tar.gz -C /data .
-```
-
-#### Securing & Exposing Remote PostgreSQL (for QGIS Desktop):
-1. **Expose Port in `docker-compose.prod.yml`:**
-   ```yaml
-   ports:
-     - "5432:5432"
-   ```
-2. **UFW Restrictions:**
-   ```bash
-   sudo ufw allow from YOUR_OFFICE_IP to any port 5432
-   ```
-3. **Generate SSL Certs & Configure:**
-   ```bash
-   openssl req -new -x509 -days 365 -nodes -text -out server.crt -keyout server.key -subj "/CN=sltserp-postgres"
-   docker cp server.crt sltserp-postgres:/var/lib/postgresql/
-   docker cp server.key sltserp-postgres:/var/lib/postgresql/
-   docker exec -u root sltserp-postgres chown postgres:postgres /var/lib/postgresql/server.crt /var/lib/postgresql/server.key
-   docker exec -u root sltserp-postgres chmod 600 /var/lib/postgresql/server.key
-   docker exec -it sltserp-postgres bash -c 'echo "ssl = on" >> /var/lib/postgresql/data/postgresql.conf'
-   docker exec -it sltserp-postgres bash -c 'echo "ssl_cert_file = '\''/var/lib/postgresql/server.crt'\''" >> /var/lib/postgresql/data/postgresql.conf'
-   docker exec -it sltserp-postgres bash -c 'echo "ssl_key_file = '\''/var/lib/postgresql/server.key'\''" >> /var/lib/postgresql/data/postgresql.conf'
-   docker compose -f docker-compose.prod.yml restart postgres
-   ```
-
-### 3.5 QFieldCloud Self-Hosted Deployment
+### 3.4 QFieldCloud Self-Hosted Deployment
 QFieldCloud runs in a dedicated stack on port `8100` via [docker-compose.qfield.yml](file:///d:/MyProject/SLTSERP/docker/qfieldcloud/docker-compose.qfield.yml):
 * `qfield-db` (Postgres/PostGIS for cloud sync data - Port `8102`)
 * `qfield-storage` (MinIO S3 for QGIS project `.qgz` files - Console Port `9001`)
@@ -312,24 +222,53 @@ docker stats
 
 ---
 
-## 8. Procurement & Material Request Workflows
+## 8. Stores & Inventory Management Module
 
-### 8.1 Material Request & Approval Process
-1. **Request:** Stores Manager creates a requisition list mapping the requested item IDs and quantities via `POST /api/inventory/requests`.
-2. **Approval:** OSP Manager reviews the request. They can edit quantities and add remarks:
-   * **Approved:** Status updates to `APPROVED` (if external) or `COMPLETED` (if internal store transfer).
-   * **Rejected:** Status updates to `REJECTED`.
-3. **Ordering:** Stores Manager exports the approved item list to email and triggers the request to the SLT Procurement team.
+The Stores and Inventory module tracks the lifecycle of materials from procurement forecasting and goods receipt (GRN) to FIFO-based contractor issuing, virtual swaps, and material return notes (MRN).
 
-### 8.2 Goods Receipt Note (GRN) Verification
-When materials arrive physically:
-1. Stores Manager opens the GRN form and selects the linked `StockRequest`.
-2. Inputs the actual received quantities and the **SLT Delivery Note ID** (`sltReferenceId`).
-3. **Prisma Compare Logic:**
-   The frontend automatically calculates the variance between approved quantities and actual received quantities to display a verification status:
-   * **EXACT:** Received quantity equals approved quantity.
-   * **SHORT:** Received quantity is less than approved quantity (shows negative variance).
+```mermaid
+graph TD
+    A[Procurement Forecast] -->|PO Generation| B(Main Store / Sub Store)
+    B -->|1. Physical Delivery & GRN| C{GRN Verification}
+    C -->|Exact / Short / Extra| D[Inventory Stock Batches]
+    D -->|2. Material Issue Request| E{FIFO Batch Picker}
+    E -->|Auto-allocate oldest stock first| F[Contractor / Team Custody]
+    F -->|3. Project Construction| G(SOD Material Usage)
+    F -->|4. Unused Inventory Returns| H(Material Return Notes - MRN)
+    F -->|5. Damaged Stock| I(Wastage Logging & Approval)
+    F -->|6. Virtual Swap| J(Bulk Inventory Swaps)
+```
+
+### 8.1 Requisition & Goods Receipt Note (GRN) Verification
+1. **Stock Request:** Stores Manager creates stock request mapping requested item IDs and quantities via `POST /api/inventory/requests` based on forecasted material limits.
+2. **Approval Gate:** OSP Manager reviews and updates status to `APPROVED` or `REJECTED`.
+3. **GRN Verification:** 
+   When materials arrive physically, the Stores Manager inputs actual received quantities and the **SLT Delivery Note ID** (`sltReferenceId`). The system automatically compares the approved and received amounts:
+   * **EXACT:** Received quantity matches approved request.
+   * **SHORT:** Received quantity is less than approved (flags negative variance).
    * **EXTRA:** Received items are not in the approved request list.
+
+### 8.2 FIFO-Based Stock Issuing (`pickStoreBatchesFIFO`)
+To prevent stock from expiring or being misplaced, the inventory system strictly enforces **FIFO (First In First Out)** logic:
+* When a contractor requests materials (cables, splices, poles), the system runs `pickStoreBatchesFIFO` or `pickContractorBatchesFIFO`.
+* It auto-queries active `StockBatch` records sorted by `createdAt ASC`.
+* It allocates the oldest batches first, decrementing store quantities and creating `StockTransaction` logs tracking batch history.
+
+### 8.3 Virtual Swaps & Wastage Control
+* **Virtual Swap (`executeBulkSwap`):** Allows bulk swap operations of physical items in contractor custody without manually rolling back individual SODs. It previews custody transitions to ensure no negative stock limits are reached.
+* **Wastage Logging (`recordWastage`):** Enables tracking of damaged or unusable items on the field. Requires OSP manager approval (`approveWastage`/`rejectWastage`) before writing off stock balances.
+
+### 8.4 Multi-Store Hierarchy & Inventory Auditing
+* **Hierarchy:** Stock flows from the **Main Depot Store** to **Sub-Stores/OPMC Stores** (via Stock Requests), which is then issued to **Contractor Custody** (using FIFO allocation).
+* **SLT-Direct Sourced Materials (ONT, STB, Phone):** Sourced directly from SLT to the **Area Coordinator**, bypassing the contractor's physical stores. The system logs their custody/serial codes (either one-by-one during construction/PAT or in bulk via Excel imports) to track allocation and verify usage.
+* **Collected CPE Recovery & Handback Tracking:** Customer Premises Equipment (CPE) collected during installations (old routers, STBs, or phones) are logged in the SOD completion wizard. These are held in contractor custody (status: `PENDING_HANDBACK`) and later handed back to SLT monthly. Upon handback, their status is updated to `HANDED_BACK` with a recorded `handbackReference` code from the SLT receipt.
+* **Inventory Transaction Logging (`TransactionService`):** Every single stock movement (GRN entry, contractor issue, MRN return, wastage write-off, virtual swap, SLT direct custody assignment) is logged in the `StockMovement` table to create a secure, immutable audit trail.
+
+### 8.5 Re-Order Points (ROP) & Outstanding Valuation Reports
+* **Low Stock Alerts (`checkLowStock`):** Monitored via the Re-Order Point (ROP) threshold. Triggered automatically when stock drops below the `minLevel` defined for an item.
+* **Costing & Breakdown Reports:** Because each item in stock is linked to a specific `InventoryBatch` with a recorded `costPrice`, the AI and reporting engines can generate real-time financial summaries on:
+  * **Outstanding Valuation:** Total millions of rupees of material currently in contractor custody (`quantity * batch.costPrice`).
+  * **Breakdown Reports:** Grouped by Contractor, OPMC Region, Splicing/Fiber type, or aging intervals (0-30 days, 30-90 days, >90 days) to prevent material freezing.
 
 ---
 
@@ -388,3 +327,50 @@ This module manages dispatch logs, expenses, driver overtime, and tax invoices f
 3. **Insurance & Warranty Compliance:** Manages multiple policies per vehicle (theft, accident), sending alerts prior to policy renewals or warranty expiration limits.
 4. **Hired Vehicles Fuel Limits:** Sets monthly fuel allocation quotas and tracks consumption efficiency (km/liter).
 5. **Tax & Invoice Ledger:** Computes VAT, taxes, and rental periods (daily/monthly contracts), maintaining payments ledgers.
+
+---
+
+## 11. SOD Module Workflow & Lifecycle
+
+The Service Order (SOD) module manages the end-to-end lifecycle of SLT service tasks, from import/sync to contractor completion, multi-stage PAT verification, and invoicing.
+
+```mermaid
+graph TD
+    A[SLT External API] -->|1. Sync Service Orders / syncPatResults| B(SLTSERP Database - In Progress)
+    B -->|2. Contractor Assignment| C(Contractor / Team Allocated)
+    C -->|3. Field Execution & Completion| D(SOD Marked Completed)
+    D -->|4. Materials Usage Tracking| E(SODMaterialUsage Recorded)
+    D -->|5. Multi-Stage PAT Verification| F{All Stages Passed?}
+    F -->|No: Rejected/Returned| H(SODMaterial Rollback & Ledger Reversal)
+    F -->|Stage 1: OPMC PAT Pass| G1(opmcPatStatus = PAT_PASSED)
+    G1 -->|Stage 2: Head Office PAT Pass| G2(hoPatStatus = PAT_PASSED)
+    G2 -->|Stage 3: SLT HQ PAT Pass| G3(sltsPatStatus = PAT_PASSED)
+    G3 -->|All 3 Passed| I(isInvoicable = true)
+    I -->|6. Billing BOM Allocation| J(Contractor & Revenue Accounts Updated in Ledger)
+```
+
+### 11.1 Lifecycle States (`sltsStatus`)
+1. **INPROGRESS:** Default state when synced/created. Managed by assigned contractor teams.
+2. **COMPLETED:** Marked by contractor upon task execution. Triggers material deduction validations.
+3. **SUSPENDED / DELAYED:** Flagged due to material shortages (e.g. `ontShortage`, `stbShortage`) or contractor delays.
+4. **CANCELLED:** Order cancelled via SLT master API updates.
+
+### 11.2 Periodic Sync Mechanism (`SODSyncService`)
+* **Interval:** Runs every 15 minutes per OPMC area.
+* **Pull Pipeline & External API Endpoints:** 
+  1. Calls `sltApiService.fetchServiceOrders(rtom)` to retrieve active orders.
+  2. Compares keys with local database (`soNum`).
+  3. Inserts new entries (defaulting to `INPROGRESS`) and updates status/details of existing entries.
+  4. Triggers `syncPatResults` by calling the following SLT portals to map third-party status overrides:
+     * **OPMC PAT Status Endpoint:** `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=opmcpatrej&z=SLTS_[RTOM]` (e.g. `z=SLTS_R-MD` for regional OPMC checks).
+     * **Head Office PAT Success Endpoint:** `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patsuccess&y=[DATE]&con=SLTS` (fetching successful/approved PATs globally or by date).
+     * **Head Office PAT Rejected Endpoint:** `https://serviceportal.slt.lk/iShamp/contr/dynamic_load.php?x=patreject&y=[DATE]&con=SLTS` (fetching rejected PATs globally or by date).
+* **Multi-Stage PAT Verification Rules:**
+  - An SOD's `isInvoicable` flag is evaluated ONLY when the status is `COMPLETED` and it satisfies the **Three-Stage PAT Gate**:
+    1. **OPMC PAT Pass (`opmcPatStatus === 'PAT_PASSED'`)**: Local/regional engineering check.
+    2. **Head Office PAT Pass (`hoPatStatus === 'PAT_PASSED'`)**: SLTS Head Office review.
+    3. **SLT HQ PAT Pass (`sltsPatStatus === 'PAT_PASSED'`)**: Sri Lanka Telecom HQ final sign-off.
+  - **Billing BOM Entry:** Only when all three gates are `'PAT_PASSED'` does the order become `isInvoicable` and trigger ledger updates.
+* **Financial & Material Alignment:**
+  - If an order's status changes from `COMPLETED` to `CANCELLED` or is rejected during sync, the system triggers `rollbackMaterialUsage()` to return deducted inventory items and calls `rollbackSodTransaction()` to reverse ledger allocations.
+

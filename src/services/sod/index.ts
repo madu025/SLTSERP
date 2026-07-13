@@ -111,6 +111,28 @@ export class ServiceOrderService {
                 updateData.materialUsage = materialUpdate;
             }
 
+            // Save collected CPEs
+            if (data.collectedCpes && Array.isArray(data.collectedCpes)) {
+                const contractorId = (data.contractorId || (updateData.contractorId as string | null) || oldOrder.contractorId) as string | null;
+                if (contractorId) {
+                    await tx.collectedCPE.deleteMany({
+                        where: { serviceOrderId: id }
+                    });
+                    if (data.collectedCpes.length > 0) {
+                        await tx.collectedCPE.createMany({
+                            data: data.collectedCpes.map(c => ({
+                                serviceOrderId: id,
+                                contractorId,
+                                deviceType: c.deviceType,
+                                serialNumber: c.serialNumber,
+                                condition: c.condition,
+                                status: "PENDING_HANDBACK"
+                            }))
+                        });
+                    }
+                }
+            }
+
             // Database update via Repository (Single Update)
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);
 
@@ -184,6 +206,10 @@ export class ServiceOrderService {
 
     static async syncHoApprovedResults() {
         return SODSyncService.syncHoApprovedResults();
+    }
+
+    static async syncHoRejectedResults() {
+        return SODSyncService.syncHoRejectedResults();
     }
 
     static async syncAllOpmcs() {

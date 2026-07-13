@@ -104,9 +104,14 @@ export class SODLifecycleService {
         }
 
         // Invoicable logic delegated to SODInvoicingService
+        const finalSltsPat = otherData.sltsPatStatus !== undefined ? otherData.sltsPatStatus : oldOrder.sltsPatStatus;
+        const finalOpmcPat = otherData.opmcPatStatus !== undefined ? otherData.opmcPatStatus : oldOrder.opmcPatStatus;
+        const finalHoPat = otherData.hoPatStatus !== undefined ? otherData.hoPatStatus : oldOrder.hoPatStatus;
+
         updateData.isInvoicable = SODInvoicingService.determineInvoicableStatus(
-            otherData.sltsPatStatus as string | undefined,
-            oldOrder.isInvoicable || false
+            finalSltsPat as string | null | undefined,
+            finalOpmcPat as string | null | undefined,
+            finalHoPat as string | null | undefined
         );
 
         return updateData;

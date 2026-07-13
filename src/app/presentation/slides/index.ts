@@ -30,6 +30,7 @@ import Slide12 from "./Slide12";
 import Slide13 from "./Slide13";
 import Slide14 from "./Slide14";
 import Slide15 from "./Slide15";
+import Slide16 from "./Slide16";
 
 export interface SlideMeta {
     id: number;
@@ -155,6 +156,14 @@ export const SLIDES: SlideMeta[] = [
     },
     {
         id: 15,
+        chapter: "System Architecture",
+        title: "🌐 Deployment & Infrastructure Costing",
+        subtitle: "Cost-efficient hosting options tailored for Sri Lanka Telecom regional hubs",
+        icon: Layers,
+        component: Slide16
+    },
+    {
+        id: 16,
         chapter: "Conclusion",
         title: "🎯 SLTS Nexus Pilot Deployment & Roadmap",
         subtitle: "Pilot-ready core, native offline apps, and automated scheduling",

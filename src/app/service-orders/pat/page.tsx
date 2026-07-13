@@ -48,7 +48,13 @@ export default function PATStatusPage() {
                 status: view,
                 limit: '20'
             });
-            const resp = await fetch(`/api/service-orders/pat?${params}`);
+            const resp = await fetch(`/api/service-orders/pat?${params}&_t=${Date.now()}`, {
+                cache: 'no-store',
+                headers: {
+                    'Pragma': 'no-cache',
+                    'Cache-Control': 'no-cache'
+                }
+            });
             if (!resp.ok) throw new Error('Failed to fetch PAT data');
             return resp.json();
         }

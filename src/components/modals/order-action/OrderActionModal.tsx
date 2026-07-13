@@ -132,10 +132,10 @@ export default function OrderActionModal({
                         <div className="flex flex-col w-full bg-slate-50/30">
                             {/* TABS */}
                             <div className="flex items-center px-4 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-                                {['details', 'materials', 'finish'].map((tab, idx) => (
+                                {['details', 'materials', 'cpe', 'finish'].map((tab, idx) => (
                                     <button
                                         key={tab}
-                                        onClick={() => controls.setActiveTab(tab as 'details' | 'materials' | 'finish')}
+                                        onClick={() => controls.setActiveTab(tab as 'details' | 'materials' | 'cpe' | 'finish')}
                                         className={cn(
                                             "px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-all",
                                             state.activeTab === tab
@@ -143,7 +143,7 @@ export default function OrderActionModal({
                                                 : "border-transparent text-slate-500 hover:text-slate-700"
                                         )}
                                     >
-                                        <span className="text-slate-400 font-mono mr-1.5">0{idx + 1}</span> {tab}
+                                        <span className="text-slate-400 font-mono mr-1.5">0{idx + 1}</span> {tab === 'cpe' ? 'CPE Recovery' : tab}
                                     </button>
                                 ))}
                             </div>
@@ -201,6 +201,69 @@ export default function OrderActionModal({
                                     />
                                 )}
 
+                                {state.activeTab === 'cpe' && (
+                                    <div className="max-w-2xl mx-auto space-y-4">
+                                        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                            <div className="flex justify-between items-center border-b pb-2">
+                                                <div>
+                                                    <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider">Collected Old CPE (CPE Recovery)</h3>
+                                                    <p className="text-[10px] text-slate-500">Log any old/faulty ONT, STB, or Telephone instruments collected from customer premises.</p>
+                                                </div>
+                                                <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold" onClick={controls.addCollectedCpeRow}>
+                                                    + Add Device
+                                                </Button>
+                                            </div>
+
+                                            {state.collectedCpes.length === 0 ? (
+                                                <div className="text-center py-6 text-slate-400 text-[11px] font-medium">
+                                                    No old CPE devices logged for collection. Click "+ Add Device" if you collected any.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {state.collectedCpes.map((cpe, idx) => (
+                                                        <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                                            <div className="col-span-3">
+                                                                <select
+                                                                    value={cpe.deviceType}
+                                                                    onChange={e => controls.updateCollectedCpeRow(idx, 'deviceType', e.target.value as any)}
+                                                                    className="w-full h-8 px-2 bg-white border border-slate-200 rounded text-[11px] focus:outline-none focus:border-blue-400 font-bold"
+                                                                >
+                                                                    <option value="ONT">ONT (Router)</option>
+                                                                    <option value="STB">STB (Set-Top Box)</option>
+                                                                    <option value="PHONE">Phone (Telephone)</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="col-span-6">
+                                                                <Input
+                                                                    placeholder="Old Device Serial Number"
+                                                                    value={cpe.serialNumber}
+                                                                    onChange={e => controls.updateCollectedCpeRow(idx, 'serialNumber', e.target.value)}
+                                                                    className="h-8 text-[11px] font-mono"
+                                                                />
+                                                            </div>
+                                                            <div className="col-span-2">
+                                                                <select
+                                                                    value={cpe.condition}
+                                                                    onChange={e => controls.updateCollectedCpeRow(idx, 'condition', e.target.value as any)}
+                                                                    className="w-full h-8 px-2 bg-white border border-slate-200 rounded text-[11px] focus:outline-none focus:border-blue-400"
+                                                                >
+                                                                    <option value="FAULTY">Faulty</option>
+                                                                    <option value="WORKING">Working</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="col-span-1 text-center">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:bg-rose-50" onClick={() => controls.removeCollectedCpeRow(idx)}>
+                                                                    ✕
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {state.activeTab === 'finish' && (
                                     <div className="max-w-2xl mx-auto space-y-4">
                                         <DeviceSerialSection 
@@ -220,16 +283,31 @@ export default function OrderActionModal({
                                 )}
                             </div>
 
-                            <div className="p-3 bg-white border-t border-slate-200 flex justify-between items-center z-20 shrink-0">
+                             <div className="p-3 bg-white border-t border-slate-200 flex justify-between items-center z-20 shrink-0">
                                 <Button variant="ghost" size="sm" onClick={onClose} className="h-9 text-xs">Cancel</Button>
                                 <div className="flex gap-2">
-                                    {state.activeTab !== 'details' && <Button variant="outline" size="sm" onClick={() => controls.setActiveTab(state.activeTab === 'finish' ? 'materials' : 'details')} className="h-9 text-xs">Back</Button>}
+                                    {state.activeTab !== 'details' && (
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => controls.setActiveTab(state.activeTab === 'finish' ? 'cpe' : (state.activeTab === 'cpe' ? 'materials' : 'details'))} 
+                                            className="h-9 text-xs"
+                                        >
+                                            Back
+                                        </Button>
+                                    )}
                                     {state.activeTab === 'finish' ? (
                                         <Button size="sm" onClick={controls.confirm} className="bg-emerald-600 hover:bg-emerald-700 px-6 h-9 text-xs font-bold uppercase">
                                             {orderData?.sltsStatus === 'COMPLETED' ? 'Update & Save' : 'Complete Order'}
                                         </Button>
                                     ) : (
-                                        <Button size="sm" onClick={() => controls.setActiveTab(state.activeTab === 'details' ? 'materials' : 'finish')} className="h-9 text-xs font-bold uppercase">Next</Button>
+                                        <Button 
+                                            size="sm" 
+                                            onClick={() => controls.setActiveTab(state.activeTab === 'details' ? 'materials' : (state.activeTab === 'materials' ? 'cpe' : 'finish'))} 
+                                            className="h-9 text-xs font-bold uppercase"
+                                        >
+                                            Next
+                                        </Button>
                                     )}
                                 </div>
                             </div>

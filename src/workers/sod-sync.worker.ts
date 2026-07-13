@@ -26,9 +26,10 @@ export const sodSyncWorker = new Worker(
                 return result;
             } else if (type as any === 'PERIODIC_GLOBAL_SYNC') {
                 console.log(`[SOD-SYNC-WORKER] Starting Periodic Global PAT Sync (Job ID: ${job.id})`);
-                const result = await ServiceOrderService.syncHoApprovedResults();
+                const approvedResult = await ServiceOrderService.syncHoApprovedResults();
+                const rejectedResult = await ServiceOrderService.syncHoRejectedResults();
                 console.log(`[SOD-SYNC-WORKER] Completed Periodic Global PAT Sync.`);
-                return result;
+                return { approvedResult, rejectedResult };
             } else if (type as any === 'PERIODIC_PENDING_SYNC') {
                 console.log(`[SOD-SYNC-WORKER] Starting Periodic Pending SOD Sync (Job ID: ${job.id})`);
                 const result = await ServiceOrderService.syncAllOpmcs();

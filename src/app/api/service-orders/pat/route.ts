@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { ServiceOrderService } from '@/services/sod.service';
 import { handleApiError } from '@/lib/api-utils';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);

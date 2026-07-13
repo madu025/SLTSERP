@@ -73,7 +73,7 @@ export class SODSyncService {
                     soNum: { in: soNums },
                     sltsStatus: 'COMPLETED'
                 },
-                select: { id: true, soNum: true, sltsPatStatus: true }
+                select: { id: true, soNum: true, sltsPatStatus: true, hoPatStatus: true }
             });
 
             for (const order of matchingOrders) {
@@ -85,7 +85,9 @@ export class SODSyncService {
                         data: {
                             opmcPatStatus: status,
                             opmcPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
-                            isInvoicable: order.sltsPatStatus === 'PAT_PASSED'
+                            isInvoicable: status === 'PAT_PASSED' && 
+                                          order.hoPatStatus === 'PAT_PASSED' && 
+                                          order.sltsPatStatus === 'PAT_PASSED'
                         }
                     });
                 }
@@ -196,6 +198,111 @@ export class SODSyncService {
             return { totalCached, totalUpdated };
         } catch (err) {
             console.error('[PAT-SYNC] HO Approved Sync Failed:', err);
+            return { totalCached: 0, totalUpdated: 0, error: String(err) };
+        }
+    }
+
+    /**
+     * Sync HO Rejected PAT results (Global)
+     */
+    static async syncHoRejectedResults() {
+        try {
+            let data = await sltApiService.fetchHORejected();
+            
+            const lastSyncSetting = await prisma.systemSetting.findUnique({ where: { key: 'LAST_HO_REJECTED_SYNC' } });
+            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2026-01-01');
+
+            if (!data || data.length === 0) return { totalCached: 0, totalUpdated: 0 };
+
+            const filteredData = data.filter((item: SLTPATData) => {
+                const sDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
+                return sDate && sDate >= filterDate;
+            });
+
+            if (filteredData.length === 0) return { totalCached: 0, totalUpdated: 0 };
+
+            const batchSize = 1000;
+            let totalCached = 0;
+            let totalUpdated = 0;
+
+            for (let i = 0; i < filteredData.length; i += batchSize) {
+                const batch = filteredData.slice(i, i + batchSize);
+                const cacheData = batch.map((app: SLTPATData) => ({
+                    soNum: app.SO_NUM,
+                    status: 'PAT_REJECTED',
+                    source: 'HO_REJECTED',
+                    rtom: app.RTOM,
+                    lea: app.LEA || '',
+                    voiceNumber: app.VOICENUMBER,
+                    sType: app.S_TYPE,
+                    orderType: app.ORDER_TYPE,
+                    task: app.CON_WORO_TASK_NAME || '',
+                    package: app.PKG || '',
+                    conName: app.CON_NAME || '',
+                    patUser: app.PAT_USER,
+                    statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE) as Date
+                }));
+
+                const soNums = batch.map((b: SLTPATData) => b.SO_NUM);
+
+                await prisma.sLTPATStatus.deleteMany({
+                    where: { soNum: { in: soNums } }
+                });
+
+                const result = await prisma.sLTPATStatus.createMany({
+                    data: cacheData as Prisma.SLTPATStatusCreateManyInput[]
+                });
+                totalCached += result.count;
+
+                const ordersToUpdate = await prisma.serviceOrder.findMany({
+                    where: {
+                        soNum: { in: soNums },
+                        hoPatStatus: { not: 'PAT_REJECTED' }
+                    },
+                    select: { id: true, soNum: true }
+                });
+
+                for (const order of ordersToUpdate) {
+                    const match = batch.find((b: SLTPATData) => b.SO_NUM === order.soNum);
+                    if (match) {
+                        await prisma.$transaction(async (tx) => {
+                            await tx.serviceOrder.update({
+                                where: { id: order.id },
+                                data: {
+                                    hoPatStatus: 'PAT_REJECTED',
+                                    hoPatDate: sltApiService.parseStatusDate(match.CON_STATUS_DATE),
+                                    isInvoicable: false
+                                }
+                            });
+                            // Trigger rollbacks since it got HO-rejected
+                            await SODMaterialService.rollbackMaterialUsage(tx, order.id, 'HO_REJECT');
+                            await LedgerService.rollbackSodTransaction(tx, order.id);
+                        });
+                        totalUpdated++;
+                    }
+                }
+            }
+
+            // Update sync settings timestamp
+            const latestStatusDate = filteredData.reduce((latest: Date, item: SLTPATData) => {
+                const sDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
+                return sDate && sDate > latest ? sDate : latest;
+            }, filterDate);
+
+            await prisma.systemSetting.upsert({
+                where: { key: 'LAST_HO_REJECTED_SYNC' },
+                update: { value: latestStatusDate.toISOString() },
+                create: { key: 'LAST_HO_REJECTED_SYNC', value: latestStatusDate.toISOString() }
+            });
+
+            const opmcs = await prisma.oPMC.findMany({ select: { id: true } });
+            for (const opmc of opmcs) {
+                await addJob(statsUpdateQueue, `stats-${opmc.id}`, { opmcId: opmc.id, type: 'SINGLE_OPMC' });
+            }
+
+            return { totalCached, totalUpdated };
+        } catch (err) {
+            console.error('[PAT-SYNC] HO Rejected Sync Failed:', err);
             return { totalCached: 0, totalUpdated: 0, error: String(err) };
         }
     }

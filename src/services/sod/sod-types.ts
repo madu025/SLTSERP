@@ -23,6 +23,12 @@ export interface MaterialUsageInput {
     serialNumber?: string;
 }
 
+export interface CollectedCpeInput {
+    deviceType: string;
+    serialNumber: string;
+    condition: string;
+}
+
 export interface ServiceOrderUpdateData {
     sltsStatus?: string;
     status?: string;
@@ -43,6 +49,7 @@ export interface ServiceOrderUpdateData {
     opmcPatStatus?: string | null;
     hoPatStatus?: string | null;
     materialUsage?: MaterialUsageInput[];
+    collectedCpes?: CollectedCpeInput[];
     returnReason?: string | null;
     wiredOnly?: boolean;
     scheduledDate?: string | null;
