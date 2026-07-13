@@ -638,7 +638,6 @@ export class SODSyncService {
         });
 
         if (ontVal) mapping.ontSerialNumber = ontVal;
-        if (iptvSerials.length > 0) mapping.iptvSerialNumbers = iptvSerials.join(', ');
 
         const serviceOrder = await prisma.serviceOrder.findUnique({
             where: { soNum },
@@ -764,6 +763,18 @@ export class SODSyncService {
                     data: dataToUpdate
                 });
 
+                if (iptvSerials.length > 0) {
+                    await tx.sODIptvSerial.deleteMany({
+                        where: { serviceOrderId: serviceOrder.id }
+                    });
+                    await tx.sODIptvSerial.createMany({
+                        data: iptvSerials.map(sn => ({
+                            serviceOrderId: serviceOrder.id,
+                            serialNumber: sn
+                        }))
+                    });
+                }
+
                 if (isReturning) {
                     await SODMaterialService.rollbackMaterialUsage(tx, serviceOrder.id, 'BRIDGE_SYNC');
                     await LedgerService.rollbackSodTransaction(tx, serviceOrder.id);
@@ -847,7 +858,10 @@ export class SODSyncService {
                     ...(dataToUpdate as Prisma.ServiceOrderUncheckedCreateInput),
                     soNum: soNum || "",
                     status: (dataToUpdate.status as string) || 'PENDING',
-                    sltsStatus: (dataToUpdate.sltsStatus as string) || 'INPROGRESS'
+                    sltsStatus: (dataToUpdate.sltsStatus as string) || 'INPROGRESS',
+                    iptvSerials: iptvSerials.length > 0 ? {
+                        create: iptvSerials.map(sn => ({ serialNumber: sn }))
+                    } : undefined
                 }
             });
         }

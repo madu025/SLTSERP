@@ -87,3 +87,28 @@ To ensure that UI data tables and dashboards refresh instantly after a resource 
   setExistingProjects((prev) => prev.filter((p) => p.id !== deletedId));
   ```
 
+## 📉 Database Egress & Bandwidth Optimization Standards
+
+To prevent high outbound data transfer costs and performance lag between Next.js APIs and the PostgreSQL database:
+
+### 1. Targeted Database Selects (Prevent Egress Regress)
+* **Never use broad `include` blocks** on models containing heavy JSON, metadata, history log, or blob columns (e.g. `ServiceOrder`, `ExtensionRawData`, `AuditLog`, `SODForensicAudit`).
+* Always define explicit `select` fields picking only the columns consumed by the consumer:
+  ```typescript
+  // ✅ DO: Selective fetching
+  const orders = await prisma.serviceOrder.findMany({
+      select: {
+          id: true,
+          rtom: true,
+          sltsStatus: true
+      }
+  });
+  ```
+
+### 2. DTO (Data Transfer Object) Pattern
+* Cleanse database response objects in the Service layer before sending them down route handler controller responses. Only serialize and return the specific fields requested by client components to reduce browser network payload sizes.
+
+### 3. Early and Active Pagination
+* Server-side pagination is mandatory for all listing data services returning records potentially exceeding 100 entries. Implement cursor-based pagination (for infinite scrolls) or offset pagination (for indexed tables) early in development.
+
+

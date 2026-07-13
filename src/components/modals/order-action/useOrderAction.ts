@@ -19,6 +19,7 @@ export function useOrderAction(
     const [ontSerialNumber, setOntSerialNumber] = useState("");
     const [iptvSerials, setIptvSerials] = useState<string[]>([]);
     const [dpDetails, setDpDetails] = useState("");
+    const [erectedPoles, setErectedPoles] = useState<Array<{ poleType: string; poleNumber: string; }>>([]);
     const [materialStatus, setMaterialStatus] = useState<string>("PENDING");
     const [selectedContractorId, setSelectedContractorId] = useState("");
     const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -52,7 +53,8 @@ export function useOrderAction(
         
         // Basic fields
         setDate(orderData.completedDate ? new Date(orderData.completedDate) : undefined);
-        setDpDetails(orderData.dp || "");
+        setDpDetails(orderData.dpDetails || orderData.dp || "");
+        setErectedPoles(orderData.erectedPoles || []);
         setOntSerialNumber(orderData.ontSerialNumber || "");
         setOpmcPatStatus(orderData.opmcPatStatus || "PENDING");
         setSltsPatStatus(orderData.sltsPatStatus || "PENDING");
@@ -110,7 +112,7 @@ export function useOrderAction(
         setExtendedMaterialRows(rows);
 
         const iptvCount = orderData.iptv ? parseInt(orderData.iptv) : 0;
-        setIptvSerials(orderData.iptvSerialNumbers || Array(iptvCount).fill(''));
+        setIptvSerials(orderData.iptvSerials?.map(s => s.serialNumber) || Array(iptvCount).fill(''));
 
         setCollectedCpes(orderData.collectedCpes || []);
 
@@ -232,6 +234,7 @@ export function useOrderAction(
             teamId: selectedTeamId,
             directTeam: directTeamName,
             dpDetails,
+            erectedPoles: erectedPoles.filter(p => p.poleNumber.trim() !== ""),
             completionMode,
             collectedCpes: collectedCpes.filter(c => c.serialNumber.trim() !== "")
         });
@@ -242,7 +245,7 @@ export function useOrderAction(
             date, comment, reason, customReason, ontType, ontSerialNumber, iptvSerials, dpDetails,
             materialStatus, selectedContractorId, selectedTeamId, opmcPatStatus, sltsPatStatus,
             hoPatStatus, completionMode, assignmentType, directTeamName, extendedMaterialRows,
-            activeTab, wiredOnly, stbShortage, ontShortage, delayReasons, collectedCpes
+            activeTab, wiredOnly, stbShortage, ontShortage, delayReasons, collectedCpes, erectedPoles
         },
         controls: {
             setDate, setComment, setReason, setCustomReason, setOntType, setOntSerialNumber,
@@ -265,6 +268,13 @@ export function useOrderAction(
                 setCollectedCpes(c);
             },
             removeCollectedCpeRow: (idx: number) => setCollectedCpes(collectedCpes.filter((_, i) => i !== idx)),
+            addErectedPoleRow: () => setErectedPoles([...erectedPoles, { poleType: 'PLC-5_6-CE', poleNumber: '' }]),
+            updateErectedPoleRow: (idx: number, field: 'poleType' | 'poleNumber', value: string) => {
+                const p = [...erectedPoles];
+                p[idx] = { ...p[idx], [field]: value };
+                setErectedPoles(p);
+            },
+            removeErectedPoleRow: (idx: number) => setErectedPoles(erectedPoles.filter((_, i) => i !== idx)),
             handlePortalImport,
             applyPreset,
             confirm

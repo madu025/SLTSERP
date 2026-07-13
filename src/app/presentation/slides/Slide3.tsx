@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { FileSpreadsheet, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import { FileSpreadsheet, CheckCircle2, Clock } from "lucide-react";
 
 export default function Slide3() {
     return (

@@ -314,11 +314,20 @@ export class ReportService {
             lte: endDate
           }
         },
-        include: {
-          opmc: true,
+        select: {
+          id: true,
+          rtom: true,
+          sltsStatus: true,
+          createdAt: true,
+          opmc: {
+            select: {
+              region: true,
+              province: true
+            }
+          },
           team: {
-            include: {
-              members: true
+            select: {
+              name: true
             }
           }
         }
@@ -417,7 +426,11 @@ export class ReportService {
     const endDate = getSriLankaEndOfDay(selectedDate);
 
     const opmcs = await prisma.oPMC.findMany({
-      include: {
+      select: {
+        id: true,
+        region: true,
+        province: true,
+        rtom: true,
         serviceOrders: {
           where: {
             OR: [
@@ -428,18 +441,43 @@ export class ReportService {
               { updatedAt: { gte: startDate, lte: endDate } }
             ]
           },
-          include: {
+          select: {
+            id: true,
+            createdAt: true,
+            status: true,
+            sltsStatus: true,
+            statusDate: true,
+            completedDate: true,
+            orderType: true,
+            package: true,
+            wiredOnly: true,
+            delayReasons: true,
+            teamId: true,
+            stbShortage: true,
+            ontShortage: true,
             materialUsage: {
-              include: {
-                item: true
+              select: {
+                quantity: true,
+                item: {
+                  select: {
+                    category: true,
+                    name: true,
+                    code: true
+                  }
+                }
               }
             },
-            statusHistory: true
+            statusHistory: {
+              select: {
+                status: true,
+                statusDate: true
+              }
+            }
           }
         },
         contractorTeams: {
-          include: {
-            members: true
+          select: {
+            id: true
           }
         }
       },

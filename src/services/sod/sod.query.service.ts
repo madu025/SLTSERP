@@ -164,7 +164,7 @@ export class SODQueryService {
                     dp: true,
                     iptv: true,
                     ontSerialNumber: true,
-                    iptvSerialNumbers: true,
+                    iptvSerials: { select: { serialNumber: true } },
                     dpDetails: true,
                     revenueAmount: true,
                     contractorAmount: true,

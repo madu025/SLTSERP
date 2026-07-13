@@ -33,7 +33,6 @@ model ServiceOrder {
   comments          String?
   completedDate     DateTime?
   ontSerialNumber   String?
-  iptvSerialNumbers String?
   dpDetails         String?
   patStatus         String?
   sltsPatStatus     String?            @default("PENDING")
@@ -70,6 +69,8 @@ model ServiceOrder {
   materialUsage     SODMaterialUsage[]
   materialReturns   ContractorMaterialReturn[] @relation("SODMaterialReturns")  // GAP 4: physical returns linked to this SOD
   collectedCPEs     CollectedCPE[]     @relation("CollectedCPEs")
+  erectedPoles      SODErectedPole[]
+  iptvSerials       SODIptvSerial[]
   statusHistory     ServiceOrderStatusHistory[]
   commentsHistory   ServiceOrderComment[]
   contractor        Contractor?        @relation(fields: [contractorId], references: [id])
@@ -307,3 +308,30 @@ model CollectedCPE {
   @@index([contractorId])
   @@index([status])
 }
+
+model SODErectedPole {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  poleType       String       // e.g. "PLC-5_6-CE", "PLC-6_7-CE", "PLC-8", "SLTPL"
+  poleNumber     String       // Unique serial painted on the pole
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([poleNumber])      // Prevent duplicate pole numbers globally
+  @@index([serviceOrderId])
+}
+
+model SODIptvSerial {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  serialNumber   String       // Unique serial of the IPTV STB box
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([serialNumber])    // Prevent duplicate IPTV box serial allocations globally
+  @@index([serviceOrderId])
+}
+
+

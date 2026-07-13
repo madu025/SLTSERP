@@ -63,11 +63,6 @@ export class SODLifecycleService {
 
         // Completion fields mapping
         if (otherData.ontSerialNumber) updateData.ontSerialNumber = otherData.ontSerialNumber;
-        if (otherData.iptvSerialNumbers) {
-            updateData.iptvSerialNumbers = Array.isArray(otherData.iptvSerialNumbers) 
-                ? JSON.stringify(otherData.iptvSerialNumbers) 
-                : otherData.iptvSerialNumbers;
-        }
         if (otherData.dpDetails !== undefined) updateData.dpDetails = otherData.dpDetails;
         if (otherData.dp !== undefined) updateData.dp = otherData.dp;
         if (otherData.voiceNumber !== undefined) updateData.voiceNumber = otherData.voiceNumber;

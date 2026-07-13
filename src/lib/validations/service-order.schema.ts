@@ -8,9 +8,13 @@ export const serviceOrderPatchSchema = z.object({
     comments: z.string().optional().nullable(),
     wiredOnly: z.boolean().optional(),
     ontSerialNumber: z.string().optional().nullable(),
-    iptvSerialNumbers: z.union([z.array(z.string()), z.string()]).optional().nullable(),
+    iptvSerialNumbers: z.array(z.string()).optional().nullable(),
     dpDetails: z.string().optional().nullable(),
     dp: z.string().optional().nullable(),
+    erectedPoles: z.array(z.object({
+        poleType: z.string().min(1, "Pole type is required"),
+        poleNumber: z.string().min(1, "Pole number is required")
+    })).optional().nullable(),
     voiceNumber: z.string().optional().nullable(),
     scheduledDate: z.string().optional().nullable(),
     scheduledTime: z.string().optional().nullable(),

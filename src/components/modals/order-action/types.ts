@@ -16,6 +16,8 @@ export interface OrderActionData {
     orderType?: string | null;
     iptv?: string | null;
     dp?: string | null;
+    dpDetails?: string | null;
+    erectedPoles?: Array<{ poleType: string; poleNumber: string; }> | null;
     voiceNumber?: string | null;
     contractorId?: string | null;
     comments?: string | null;
@@ -25,7 +27,7 @@ export interface OrderActionData {
     ontSerialNumber?: string | null;
     directTeam?: string | null;
     completionMode?: string | null;
-    iptvSerialNumbers?: string[] | null;
+    iptvSerials?: Array<{ serialNumber: string }> | null;
     opmcPatStatus?: string | null;
     sltsPatStatus?: string | null;
     hoPatStatus?: string | null;
@@ -82,6 +84,7 @@ export interface OrderCompletionData {
     ontSerialNumber?: string;
     iptvSerialNumbers?: string[];
     dpDetails?: string;
+    erectedPoles?: Array<{ poleType: string; poleNumber: string; }>;
     completionMode?: string;
     comment?: string;
     assignmentType?: string;

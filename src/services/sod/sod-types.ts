@@ -38,9 +38,10 @@ export interface ServiceOrderUpdateData {
     contractorId?: string | null;
     comments?: string | null;
     ontSerialNumber?: string | null;
-    iptvSerialNumbers?: string | string[] | null;
+    iptvSerialNumbers?: string[] | null;
     dpDetails?: string | null;
     dp?: string | null;
+    erectedPoles?: Array<{ poleType: string; poleNumber: string; }> | null;
     voiceNumber?: string | null;
     teamId?: string | null;
     directTeamName?: string | null;

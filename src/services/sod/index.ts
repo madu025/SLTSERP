@@ -132,6 +132,38 @@ export class ServiceOrderService {
                     }
                 }
             }
+            // Save erected poles
+            if (data.erectedPoles !== undefined) {
+                const erectedPoles = data.erectedPoles;
+
+                await tx.sODErectedPole.deleteMany({
+                    where: { serviceOrderId: id }
+                });
+                if (erectedPoles && erectedPoles.length > 0) {
+                    await tx.sODErectedPole.createMany({
+                        data: erectedPoles.map(p => ({
+                            serviceOrderId: id,
+                            poleType: p.poleType,
+                            poleNumber: p.poleNumber
+                        }))
+                    });
+                }
+            }
+            // Save IPTV serials relationally
+            if (data.iptvSerialNumbers !== undefined) {
+                const serials = data.iptvSerialNumbers || [];
+                await tx.sODIptvSerial.deleteMany({
+                    where: { serviceOrderId: id }
+                });
+                if (serials.length > 0) {
+                    await tx.sODIptvSerial.createMany({
+                        data: serials.map(sn => ({
+                            serviceOrderId: id,
+                            serialNumber: sn
+                        }))
+                    });
+                }
+            }
 
             // Database update via Repository (Single Update)
             const updatedOrder = await ServiceOrderRepository.update(id, updateData, tx);

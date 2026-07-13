@@ -2,7 +2,8 @@
 
 import React, { useMemo } from "react";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -167,9 +168,73 @@ export default function OrderActionModal({
                                                         </Popover>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">DP Details</Label>
-                                                        <Input value={state.dpDetails} onChange={e => controls.setDpDetails(e.target.value)} className="h-9 text-xs" />
-                                                    </div>
+                                                         <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">DP Details</Label>
+                                                         <Input value={state.dpDetails} onChange={e => controls.setDpDetails(e.target.value)} className="h-9 text-xs" />
+                                                     </div>
+
+                                                 {/* Relational Erected Poles Section */}
+                                                 <div className="space-y-3 bg-slate-50/50 border border-slate-200 rounded-xl p-4 mt-2">
+                                                     <div className="flex items-center justify-between">
+                                                         <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                                             Erected Poles
+                                                         </Label>
+                                                         <Button
+                                                             type="button"
+                                                             variant="outline"
+                                                             size="sm"
+                                                             onClick={controls.addErectedPoleRow}
+                                                             className="h-7 text-[10px] font-bold text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                                                         >
+                                                             + Add Pole
+                                                         </Button>
+                                                     </div>
+
+                                                     {state.erectedPoles && state.erectedPoles.length > 0 ? (
+                                                         <div className="space-y-2">
+                                                             {state.erectedPoles.map((pole, pIdx) => (
+                                                                 <div key={pIdx} className="flex gap-2 items-center">
+                                                                     <div className="w-[180px]">
+                                                                         <Select
+                                                                             value={pole.poleType}
+                                                                             onValueChange={(val) => controls.updateErectedPoleRow(pIdx, 'poleType', val)}
+                                                                         >
+                                                                             <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                                                                                 <SelectValue placeholder="Select Pole Type" />
+                                                                             </SelectTrigger>
+                                                                             <SelectContent>
+                                                                                 <SelectItem value="PLC-5_6-CE" className="text-xs">5.6m Concrete Pole (5_6-CE)</SelectItem>
+                                                                                 <SelectItem value="PLC-6_7-CE" className="text-xs">6.7m Concrete Pole (6_7-CE)</SelectItem>
+                                                                                 <SelectItem value="PLC-8" className="text-xs">8.0m Concrete Pole (PLC-8)</SelectItem>
+                                                                                 <SelectItem value="SLTPL" className="text-xs">SLT Provided Pole (SLTPL)</SelectItem>
+                                                                             </SelectContent>
+                                                                         </Select>
+                                                                     </div>
+                                                                     <div className="flex-1">
+                                                                         <Input
+                                                                             value={pole.poleNumber}
+                                                                             onChange={(e) => controls.updateErectedPoleRow(pIdx, 'poleNumber', e.target.value.toUpperCase())}
+                                                                             placeholder="Pole Number / Serial"
+                                                                             className="h-8 text-xs bg-white"
+                                                                         />
+                                                                     </div>
+                                                                     <Button
+                                                                         type="button"
+                                                                         variant="ghost"
+                                                                         size="icon"
+                                                                         onClick={() => controls.removeErectedPoleRow(pIdx)}
+                                                                         className="h-8 w-8 text-slate-400 hover:text-red-500 rounded-md"
+                                                                     >
+                                                                         <X className="w-3.5 h-3.5" />
+                                                                     </Button>
+                                                                 </div>
+                                                             ))}
+                                                         </div>
+                                                     ) : (
+                                                         <div className="text-[11px] text-slate-400 text-center py-2 italic bg-white border border-dashed rounded-lg border-slate-200">
+                                                             No poles erected for this service order.
+                                                         </div>
+                                                     )}
+                                                 </div>
                                                 </div>
                                                 <OrderAssignmentSection 
                                                     assignmentType={state.assignmentType}

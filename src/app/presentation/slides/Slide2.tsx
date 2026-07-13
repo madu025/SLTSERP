@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertCircle, CheckCircle2, ArrowRight, TrendingDown } from "lucide-react";
+import { AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 
 export default function Slide2() {
     const roiMetrics = [

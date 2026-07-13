@@ -39,6 +39,9 @@ model PettyCashVoucher {
   updatedAt      DateTime                @updatedAt
   account         PettyCashAccount        @relation(fields: [accountId], references: [id], onDelete: Cascade)
   reimbursement   PettyCashReimbursement? @relation(fields: [reimbursementId], references: [id])
+
+  @@index([accountId])
+  @@index([reimbursementId])
 }
 
 model PettyCashReimbursement {
@@ -53,4 +56,6 @@ model PettyCashReimbursement {
   updatedAt           DateTime           @updatedAt
   account             PettyCashAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
   vouchers            PettyCashVoucher[]
+
+  @@index([accountId])
 }
