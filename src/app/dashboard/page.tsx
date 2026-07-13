@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import {
@@ -9,6 +9,14 @@ import {
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Filter } from 'lucide-react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 interface Stats {
     monthly: {
@@ -55,6 +63,10 @@ interface Stats {
         range: string;
         count: number;
     }>;
+    availableRegions?: string[];
+    rtomRegionMap?: Record<string, string>;
+    userRole?: string;
+    userAccessibleRtoms?: string[];
 }
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
@@ -68,6 +80,8 @@ export default function DashboardPage() {
         return null;
     });
     const [mounted, setMounted] = useState(false);
+    const [selectedRegion, setSelectedRegion] = useState('ALL');
+    const [selectedRtom, setSelectedRtom] = useState('ALL');
 
     useEffect(() => {
         // Use a microtask to avoid synchronous setState warning while still handling hydration
@@ -76,10 +90,11 @@ export default function DashboardPage() {
 
 
     const { data: stats, isLoading } = useQuery<Stats>({
-        queryKey: ['dashboard-stats', user?.id || 'guest'],
+        queryKey: ['dashboard-stats', user?.id || 'guest', selectedRegion, selectedRtom],
         queryFn: async () => {
             if (!user?.id) return null;
-            const resp = await fetch(`/api/dashboard/stats?userId=${user.id}`);
+            const params = new URLSearchParams({ userId: user.id, region: selectedRegion, rtom: selectedRtom });
+            const resp = await fetch(`/api/dashboard/stats?${params}`);
             if (!resp.ok) throw new Error('Failed to fetch stats');
             return resp.json();
         },
@@ -87,6 +102,29 @@ export default function DashboardPage() {
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 30 * 60 * 1000, // 30 minutes
     });
+
+    const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
+    const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user.role);
+    const canFilterGlobally = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER'].includes(user.role);
+
+    // Compute available RTOMs based on selected region
+    const availableRtoms = useMemo(() => {
+        if (!stats?.rtomRegionMap) return [];
+        const map = stats.rtomRegionMap;
+        let rtoms = Object.keys(map).sort();
+        if (selectedRegion !== 'ALL') {
+            rtoms = rtoms.filter(r => map[r] === selectedRegion);
+        }
+        if (!canFilterGlobally && stats.userAccessibleRtoms) {
+            rtoms = rtoms.filter(r => stats.userAccessibleRtoms!.includes(r));
+        }
+        return rtoms;
+    }, [stats?.rtomRegionMap, selectedRegion, canFilterGlobally, stats?.userAccessibleRtoms]);
+
+    // Sort RTOM tables ascending
+    const sortedRtoms = useMemo(() => {
+        return [...(stats?.rtoms || [])].sort((a, b) => a.name.localeCompare(b.name));
+    }, [stats?.rtoms]);
 
     if (!mounted || (!user && !isLoading)) {
         return (
@@ -111,9 +149,6 @@ export default function DashboardPage() {
         { name: 'Pending', value: stats?.pat?.pending || 0 },
     ].filter(d => d.value > 0);
 
-    const isAreaCoordinator = user?.role === 'AREA_COORDINATOR';
-    const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user.role);
-
     return (
         <div className="min-h-screen flex bg-background text-foreground">
             <Sidebar />
@@ -126,20 +161,66 @@ export default function DashboardPage() {
                         <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
                                 <h1 className="text-xl md:text-2xl font-bold text-foreground">Welcome, {user?.name}</h1>
-                                <p className="text-muted-foreground text-xs md:text-sm mt-1">Here is the performance overview for {isAreaCoordinator ? 'your assigned areas' : 'all RTOMs'}.</p>
+                                <p className="text-muted-foreground text-xs md:text-sm mt-1">Here is the performance overview for {selectedRtom !== 'ALL' ? selectedRtom : selectedRegion !== 'ALL' ? selectedRegion : isAreaCoordinator ? 'your assigned areas' : 'all RTOMs'}.</p>
                             </div>
-                            {(stats?.pat?.rejected || 0) > 0 && (
-                                <a
-                                    href="/service-orders/pat"
-                                    className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm font-bold animate-pulse hover:bg-rose-500/20 transition-colors"
-                                >
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                                    </span>
-                                    {stats?.pat?.rejected} PAT REJECTIONS NEED ATTENTION
-                                </a>
-                            )}
+                            <div className="flex items-center gap-3 flex-wrap">
+                                {/* Region/RTOM Filter Dropdowns */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    {canFilterGlobally && (
+                                        <Select
+                                            value={selectedRegion}
+                                            onValueChange={(val) => {
+                                                setSelectedRegion(val);
+                                                setSelectedRtom('ALL');
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-9 w-[150px] text-xs font-bold rounded-xl border border-border/40 bg-card/60 text-foreground hover:bg-card/85 transition-colors focus:ring-1 focus:ring-primary/45">
+                                                <SelectValue placeholder="All Regions" />
+                                            </SelectTrigger>
+                                            <SelectContent className="border border-border/40 bg-card/95 text-foreground backdrop-blur-xl">
+                                                <SelectItem value="ALL">All Regions</SelectItem>
+                                                {stats?.availableRegions?.map(r => (
+                                                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                    <Select
+                                        value={selectedRtom}
+                                        onValueChange={(val) => setSelectedRtom(val)}
+                                    >
+                                        <SelectTrigger className="h-9 w-[150px] text-xs font-bold rounded-xl border border-border/40 bg-card/60 text-foreground hover:bg-card/85 transition-colors focus:ring-1 focus:ring-primary/45">
+                                            <SelectValue placeholder="All RTOMs" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-60 border border-border/40 bg-card/95 text-foreground backdrop-blur-xl">
+                                            <SelectItem value="ALL">All RTOMs</SelectItem>
+                                            {availableRtoms.map(r => (
+                                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {(selectedRegion !== 'ALL' || selectedRtom !== 'ALL') && (
+                                        <button
+                                            onClick={() => { setSelectedRegion('ALL'); setSelectedRtom('ALL'); }}
+                                            className="h-9 px-3 text-[10px] text-rose-400 hover:text-rose-300 font-bold uppercase tracking-wider bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/15 rounded-xl transition-all duration-200"
+                                        >
+                                            Clear Filters
+                                        </button>
+                                    )}
+                                </div>
+                                {(stats?.pat?.rejected || 0) > 0 && (
+                                    <a
+                                        href="/service-orders/pat"
+                                        className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm font-bold animate-pulse hover:bg-rose-500/20 transition-colors"
+                                    >
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                        </span>
+                                        {stats?.pat?.rejected} PAT REJECTIONS NEED ATTENTION
+                                    </a>
+                                )}
+                            </div>
                         </div>
 
                         {/* Top Stats Cards */}
@@ -364,7 +445,7 @@ export default function DashboardPage() {
                                                 {isLoading ? (
                                                     Array(3).fill(0).map((_, i) => <tr key={i} className="px-6 py-4"><td colSpan={5}><Skeleton className="h-4 w-full" /></td></tr>)
                                                 ) : (
-                                                    stats?.rtoms?.map((r, i) => (
+                                                    sortedRtoms.map((r, i) => (
                                                         <tr key={i} className="hover:bg-card-foreground/[0.02] transition-colors">
                                                             <td className="px-6 py-4 font-bold text-foreground">{r.name}</td>
                                                             <td className="px-6 py-4 text-emerald-500 font-bold">{r.completed}</td>
@@ -408,7 +489,7 @@ export default function DashboardPage() {
                                                 {isLoading ? (
                                                     Array(3).fill(0).map((_, i) => <tr key={i} className="px-6 py-4"><td colSpan={4}><Skeleton className="h-4 w-full" /></td></tr>)
                                                 ) : (
-                                                    stats?.rtoms?.map((r, i) => (
+                                                    sortedRtoms.map((r, i) => (
                                                         <tr key={i} className="hover:bg-card-foreground/[0.02] transition-colors">
                                                             <td className="px-6 py-4 font-bold text-foreground">{r.name}</td>
                                                             <td className="px-6 py-4 text-emerald-500 font-black">{r.patPassed || 0}</td>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useQuery } from '@tanstack/react-query';
@@ -9,8 +9,13 @@ import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-
-import { toast } from 'sonner';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 interface PATOrder {
     id: string;
@@ -26,26 +31,40 @@ interface PATOrder {
     patUser: string | null;
     status: string;
     statusDate: string | null;
+    hasDuplicate?: boolean;
 }
 
 export default function PATStatusPage() {
+    const [user] = useState<{ id: string; name: string; role: string } | null>(() => {
+        if (typeof window !== 'undefined') {
+            const storedUser = localStorage.getItem('user');
+            return storedUser ? JSON.parse(storedUser) : null;
+        }
+        return null;
+    });
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [view, setView] = useState('OPMC_REJECTED'); // REJECTED, OPMC_REJECTED
-
+    const [rtom, setRtom] = useState('ALL');
+    const [selectedRegion, setSelectedRegion] = useState('ALL');
 
     const tabs = [
         { id: 'OPMC_REJECTED', label: 'OPMC PAT REJECT' },
-        { id: 'REJECTED', label: 'SLT REJECTED' }
+        { id: 'REJECTED', label: 'SLT REJECTED' },
+        { id: 'ACCEPTED', label: 'SLT HQ PAT ACCEPTED' }
     ];
 
+    const canFilterGlobally = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER'].includes(user.role);
+
     const { data, isLoading } = useQuery({
-        queryKey: ['pat-orders-v6', page, search, view],
+        queryKey: ['pat-orders-v7', page, search, view, rtom, selectedRegion],
         queryFn: async () => {
             const params = new URLSearchParams({
                 page: page.toString(),
                 search,
                 status: view,
+                rtom,
+                region: selectedRegion,
                 limit: '20'
             });
             const resp = await fetch(`/api/service-orders/pat?${params}&_t=${Date.now()}`, {
@@ -59,6 +78,16 @@ export default function PATStatusPage() {
             return resp.json();
         }
     });
+
+    const availableRtoms = useMemo(() => {
+        if (!data?.rtomRegionMap) return [];
+        const map = data.rtomRegionMap as Record<string, string>;
+        let rtoms = Object.keys(map).sort();
+        if (selectedRegion !== 'ALL') {
+            rtoms = rtoms.filter(r => map[r] === selectedRegion);
+        }
+        return rtoms;
+    }, [data?.rtomRegionMap, selectedRegion]);
 
 
 
@@ -105,14 +134,61 @@ export default function PATStatusPage() {
 
                             </div>
 
-                            <div className="flex items-center gap-3">
-                                <span className="text-[13px] font-medium text-slate-500">Search:</span>
-                                <input
-                                    type="text"
-                                    className="w-48 h-9 px-3 bg-white border border-slate-200 rounded focus:outline-none focus:border-blue-400 text-[13px] shadow-sm"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
+                            <div className="flex items-center gap-4 flex-wrap">
+                                {canFilterGlobally && (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[13px] font-bold text-slate-500">Region:</span>
+                                        <Select
+                                            value={selectedRegion}
+                                            onValueChange={(val) => {
+                                                setSelectedRegion(val);
+                                                setRtom('ALL');
+                                                setPage(1);
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-9 w-[140px] text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">
+                                                <SelectValue placeholder="All Regions" />
+                                            </SelectTrigger>
+                                            <SelectContent className="border border-slate-200 bg-white text-slate-700">
+                                                <SelectItem value="ALL">All Regions</SelectItem>
+                                                {data?.availableRegions?.map((r: string) => (
+                                                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[13px] font-bold text-slate-500">RTOM:</span>
+                                    <Select
+                                        value={rtom}
+                                        onValueChange={(val) => {
+                                            setRtom(val);
+                                            setPage(1);
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-9 w-[140px] text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">
+                                            <SelectValue placeholder="All RTOMs" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-60 border border-slate-200 bg-white text-slate-700">
+                                            <SelectItem value="ALL">All RTOMs</SelectItem>
+                                            {availableRtoms.map((r: string) => (
+                                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[13px] font-medium text-slate-500">Search:</span>
+                                    <input
+                                        type="text"
+                                        className="w-48 h-9 px-3 bg-white border border-slate-200 rounded focus:outline-none focus:border-blue-400 text-[13px] shadow-sm font-medium text-slate-700"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -159,11 +235,25 @@ export default function PATStatusPage() {
                                                 </tr>
                                             ))
                                         ) : data?.orders?.map((order: PATOrder) => (
-                                            <tr key={order.id} className="hover:bg-slate-50 transition-colors divide-x divide-slate-50 h-12">
+                                            <tr key={order.id} className={cn(
+                                                "transition-colors divide-x divide-slate-50 h-12",
+                                                order.hasDuplicate 
+                                                    ? "bg-amber-50/50 hover:bg-amber-100/50" 
+                                                    : "hover:bg-slate-50"
+                                            )}>
                                                 {isOpmcReject ? (
                                                     <>
                                                         <td className="px-4 py-2 text-slate-600">{order.lea || order.rtom || '-'}</td>
-                                                        <td className="px-4 py-2"><a href={`/service-orders/${order.soNum}`} className="text-[#b71c1c] hover:underline font-bold">{order.soNum}</a></td>
+                                                        <td className="px-4 py-2">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[#b71c1c] font-mono font-bold">{order.soNum}</span>
+                                                                {order.hasDuplicate && (
+                                                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded-sm border border-amber-200 uppercase tracking-wide select-none" title="Multiple entries found in SLT Portal">
+                                                                        DUP
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td className="px-4 py-2 text-slate-700 font-medium">{order.voiceNumber || '-'}</td>
                                                         <td className="px-4 py-2 text-slate-600">{order.sType || '-'}</td>
                                                         <td className="px-4 py-2 text-slate-600">{order.orderType || '-'}</td>
@@ -175,7 +265,16 @@ export default function PATStatusPage() {
                                                 ) : (
                                                     <>
                                                         <td className="px-4 py-2 text-slate-600">{order.rtom || '-'}</td>
-                                                        <td className="px-4 py-2"><a href={`/service-orders/${order.soNum}`} className="text-[#1d56d1] hover:underline font-bold">{order.soNum}</a></td>
+                                                        <td className="px-4 py-2">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[#1d56d1] font-mono font-bold">{order.soNum}</span>
+                                                                {order.hasDuplicate && (
+                                                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded-sm border border-amber-200 uppercase tracking-wide select-none" title="Multiple entries found in SLT Portal">
+                                                                        DUP
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td className="px-4 py-2 text-slate-700 font-medium">{order.voiceNumber || '-'}</td>
                                                         <td className="px-4 py-2 text-slate-600">{order.sType || '-'}</td>
                                                         <td className="px-4 py-2 text-slate-600">{order.orderType || '-'}</td>

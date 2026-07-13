@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyJWT } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { redis } from '@/lib/redis';
 
 async function checkAdminAuth() {
     try {
@@ -55,32 +56,67 @@ export async function POST(request: Request) {
             });
         }
 
-        let log;
+        let acquired = false;
+        const lockKey = `lock:bridge-sync:${soNum}`;
         if (soNum) {
-            // Try to find existing row for this SO
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const existing = await (prisma as any).extensionRawData.findFirst({
-                where: { soNum: soNum }
-            });
+            const lockAcquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
+            acquired = !!lockAcquired;
+            if (!acquired) {
+                return NextResponse.json(
+                    { success: false, error: 'CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.' },
+                    { status: 409, headers: { 'Access-Control-Allow-Origin': '*' } }
+                );
+            }
+        }
 
-            if (existing) {
-                // Update existing row
+        try {
+            let log;
+            if (soNum) {
+                // Try to find existing row for this SO
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                log = await (prisma as any).extensionRawData.update({
-                    where: { id: existing.id },
-                    data: {
-                        sltUser: body.currentUser || null,
-                        activeTab: body.activeTab || null,
-                        url: body.url || null,
-                        scrapedData: body,
-                    }
+                const existing = await (prisma as any).extensionRawData.findFirst({
+                    where: { soNum: soNum }
                 });
+
+                if (existing) {
+                    // Update existing row
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    log = await (prisma as any).extensionRawData.update({
+                        where: { id: existing.id },
+                        data: {
+                            sltUser: body.currentUser || null,
+                            activeTab: body.activeTab || null,
+                            url: body.url || null,
+                            scrapedData: body,
+                        }
+                    });
+                } else {
+                    // Create new row
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    log = await (prisma as any).extensionRawData.create({
+                        data: {
+                            soNum: soNum,
+                            sltUser: body.currentUser || null,
+                            activeTab: body.activeTab || null,
+                            url: body.url || null,
+                            scrapedData: body,
+                        }
+                    });
+                }
+
+                // Automatically sync to ServiceOrder model if it has soNum
+                try {
+                    const { ServiceOrderService } = await import('@/services/sod.service');
+                    await ServiceOrderService.bridgeSync(body);
+                } catch (syncErr) {
+                    console.error('[EXTENSION-PUSH] Failed to trigger bridgeSync for ServiceOrder:', syncErr);
+                }
             } else {
-                // Create new row
+                // No soNum, just create (should not happen often with updated addon)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 log = await (prisma as any).extensionRawData.create({
                     data: {
-                        soNum: soNum,
+                        soNum: null,
                         sltUser: body.currentUser || null,
                         activeTab: body.activeTab || null,
                         url: body.url || null,
@@ -88,31 +124,23 @@ export async function POST(request: Request) {
                     }
                 });
             }
-        } else {
-            // No soNum, just create (should not happen often with updated addon)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            log = await (prisma as any).extensionRawData.create({
-                data: {
-                    soNum: null,
-                    sltUser: body.currentUser || null,
-                    activeTab: body.activeTab || null,
-                    url: body.url || null,
-                    scrapedData: body,
+
+            console.log(`[EXTENSION-PUSH] Updated data for SO: ${soNum}`);
+
+            return NextResponse.json({
+                success: true,
+                message: 'Data logged/updated successfully',
+                id: log.id
+            }, {
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
                 }
             });
-        }
-
-        console.log(`[EXTENSION-PUSH] Updated data for SO: ${soNum}`);
-
-        return NextResponse.json({
-            success: true,
-            message: 'Data logged/updated successfully',
-            id: log.id
-        }, {
-            headers: {
-                'Access-Control-Allow-Origin': '*',
+        } finally {
+            if (acquired) {
+                await redis.del(lockKey);
             }
-        });
+        }
 
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';

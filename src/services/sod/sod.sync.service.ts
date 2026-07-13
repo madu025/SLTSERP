@@ -115,7 +115,7 @@ export class SODSyncService {
             let data = await sltApiService.fetchHOApprovedGlobal();
             
             const lastSyncSetting = await prisma.systemSetting.findUnique({ where: { key: 'LAST_HO_APPROVED_SYNC' } });
-            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2026-01-01');
+            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2020-01-01');
 
             if (!data || data.length === 0) {
                 const dateStr = filterDate.toISOString().split('T')[0];
@@ -131,12 +131,39 @@ export class SODSyncService {
 
             if (filteredData.length === 0) return { totalCached: 0, totalUpdated: 0 };
 
+            // Identify duplicates first
+            const seenSoNums = new Set<string>();
+            const duplicateSoNums = new Set<string>();
+            for (const item of filteredData) {
+                if (seenSoNums.has(item.SO_NUM)) {
+                    duplicateSoNums.add(item.SO_NUM);
+                } else {
+                    seenSoNums.add(item.SO_NUM);
+                }
+            }
+
+            // Deduplicate by soNum (keeping the most recent statusDate)
+            const uniqueMap = new Map<string, SLTPATData>();
+            for (const item of filteredData) {
+                const existing = uniqueMap.get(item.SO_NUM);
+                if (!existing) {
+                    uniqueMap.set(item.SO_NUM, item);
+                } else {
+                    const existingDate = sltApiService.parseStatusDate(existing.CON_STATUS_DATE);
+                    const currentDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
+                    if (currentDate && existingDate && currentDate > existingDate) {
+                        uniqueMap.set(item.SO_NUM, item);
+                    }
+                }
+            }
+            const dedupedData = Array.from(uniqueMap.values());
+
             const batchSize = 1000;
             let totalCached = 0;
             let totalUpdated = 0;
 
-            for (let i = 0; i < filteredData.length; i += batchSize) {
-                const batch = filteredData.slice(i, i + batchSize);
+            for (let i = 0; i < dedupedData.length; i += batchSize) {
+                const batch = dedupedData.slice(i, i + batchSize);
                 const cacheData = batch.map((app: SLTPATData) => ({
                     soNum: app.SO_NUM,
                     status: 'PAT_PASSED',
@@ -150,7 +177,8 @@ export class SODSyncService {
                     package: app.PKG || '',
                     conName: app.CON_NAME || '',
                     patUser: app.PAT_USER,
-                    statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE) as Date
+                    statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE) as Date,
+                    hasDuplicate: duplicateSoNums.has(app.SO_NUM)
                 }));
 
                 const soNums = batch.map((b: SLTPATData) => b.SO_NUM);
@@ -192,7 +220,11 @@ export class SODSyncService {
 
             const opmcs = await prisma.oPMC.findMany({ select: { id: true } });
             for (const opmc of opmcs) {
-                await addJob(statsUpdateQueue, `stats-${opmc.id}`, { opmcId: opmc.id, type: 'SINGLE_OPMC' });
+                try {
+                    await addJob(statsUpdateQueue, `stats-${opmc.id}`, { opmcId: opmc.id, type: 'SINGLE_OPMC' });
+                } catch (queueErr) {
+                    console.warn(`[PAT-SYNC] Failed to queue stats update for OPMC ${opmc.id} (Workers might be disabled):`, queueErr);
+                }
             }
 
             return { totalCached, totalUpdated };
@@ -207,10 +239,10 @@ export class SODSyncService {
      */
     static async syncHoRejectedResults() {
         try {
-            let data = await sltApiService.fetchHORejected();
+            const data = await sltApiService.fetchHORejected();
             
             const lastSyncSetting = await prisma.systemSetting.findUnique({ where: { key: 'LAST_HO_REJECTED_SYNC' } });
-            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2026-01-01');
+            const filterDate = lastSyncSetting ? new Date(lastSyncSetting.value as string) : new Date('2020-01-01');
 
             if (!data || data.length === 0) return { totalCached: 0, totalUpdated: 0 };
 
@@ -221,12 +253,39 @@ export class SODSyncService {
 
             if (filteredData.length === 0) return { totalCached: 0, totalUpdated: 0 };
 
+            // Identify duplicates first
+            const seenSoNums = new Set<string>();
+            const duplicateSoNums = new Set<string>();
+            for (const item of filteredData) {
+                if (seenSoNums.has(item.SO_NUM)) {
+                    duplicateSoNums.add(item.SO_NUM);
+                } else {
+                    seenSoNums.add(item.SO_NUM);
+                }
+            }
+
+            // Deduplicate by soNum (keeping the most recent statusDate)
+            const uniqueMap = new Map<string, SLTPATData>();
+            for (const item of filteredData) {
+                const existing = uniqueMap.get(item.SO_NUM);
+                if (!existing) {
+                    uniqueMap.set(item.SO_NUM, item);
+                } else {
+                    const existingDate = sltApiService.parseStatusDate(existing.CON_STATUS_DATE);
+                    const currentDate = sltApiService.parseStatusDate(item.CON_STATUS_DATE);
+                    if (currentDate && existingDate && currentDate > existingDate) {
+                        uniqueMap.set(item.SO_NUM, item);
+                    }
+                }
+            }
+            const dedupedData = Array.from(uniqueMap.values());
+
             const batchSize = 1000;
             let totalCached = 0;
             let totalUpdated = 0;
 
-            for (let i = 0; i < filteredData.length; i += batchSize) {
-                const batch = filteredData.slice(i, i + batchSize);
+            for (let i = 0; i < dedupedData.length; i += batchSize) {
+                const batch = dedupedData.slice(i, i + batchSize);
                 const cacheData = batch.map((app: SLTPATData) => ({
                     soNum: app.SO_NUM,
                     status: 'PAT_REJECTED',
@@ -240,7 +299,8 @@ export class SODSyncService {
                     package: app.PKG || '',
                     conName: app.CON_NAME || '',
                     patUser: app.PAT_USER,
-                    statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE) as Date
+                    statusDate: sltApiService.parseStatusDate(app.CON_STATUS_DATE) as Date,
+                    hasDuplicate: duplicateSoNums.has(app.SO_NUM)
                 }));
 
                 const soNums = batch.map((b: SLTPATData) => b.SO_NUM);
@@ -297,7 +357,11 @@ export class SODSyncService {
 
             const opmcs = await prisma.oPMC.findMany({ select: { id: true } });
             for (const opmc of opmcs) {
-                await addJob(statsUpdateQueue, `stats-${opmc.id}`, { opmcId: opmc.id, type: 'SINGLE_OPMC' });
+                try {
+                    await addJob(statsUpdateQueue, `stats-${opmc.id}`, { opmcId: opmc.id, type: 'SINGLE_OPMC' });
+                } catch (queueErr) {
+                    console.warn(`[PAT-SYNC] Failed to queue stats update for OPMC ${opmc.id} (Workers might be disabled):`, queueErr);
+                }
             }
 
             return { totalCached, totalUpdated };
@@ -764,10 +828,11 @@ export class SODSyncService {
                 });
 
                 if (iptvSerials.length > 0) {
-                    await tx.sODIptvSerial.deleteMany({
+                    const txClient = tx as unknown as { sODIptvSerial: { deleteMany: (args: unknown) => Promise<unknown>; createMany: (args: unknown) => Promise<unknown> } };
+                    await txClient.sODIptvSerial.deleteMany({
                         where: { serviceOrderId: serviceOrder.id }
                     });
-                    await tx.sODIptvSerial.createMany({
+                    await txClient.sODIptvSerial.createMany({
                         data: iptvSerials.map(sn => ({
                             serviceOrderId: serviceOrder.id,
                             serialNumber: sn
@@ -853,9 +918,9 @@ export class SODSyncService {
                 timeout: 20000
             });
         } else {
-            syncedOrder = await prisma.serviceOrder.create({
+            syncedOrder = await (prisma.serviceOrder as unknown as { create: (args: { data: unknown }) => Promise<import('@prisma/client').ServiceOrder> }).create({
                 data: {
-                    ...(dataToUpdate as Prisma.ServiceOrderUncheckedCreateInput),
+                    ...dataToUpdate,
                     soNum: soNum || "",
                     status: (dataToUpdate.status as string) || 'PENDING',
                     sltsStatus: (dataToUpdate.sltsStatus as string) || 'INPROGRESS',
@@ -864,6 +929,36 @@ export class SODSyncService {
                     } : undefined
                 }
             });
+        }
+
+        // Sync comments list to ServiceOrderComment table if present in payload
+        const commentsList = (payload as any).commentsList || [];
+        if (syncedOrder && commentsList.length > 0) {
+            try {
+                for (const c of commentsList) {
+                    const parsedDate = c.date ? new Date(c.date) : new Date();
+                    const formattedComment = `[Portal Comment by ${c.user || 'Unknown'}]: ${c.comment || ''}`;
+
+                    const existingComment = await prisma.serviceOrderComment.findFirst({
+                        where: {
+                            serviceOrderId: syncedOrder.id,
+                            comment: formattedComment
+                        }
+                    });
+
+                    if (!existingComment) {
+                        await prisma.serviceOrderComment.create({
+                            data: {
+                                serviceOrderId: syncedOrder.id,
+                                comment: formattedComment,
+                                createdAt: isNaN(parsedDate.getTime()) ? new Date() : parsedDate
+                            }
+                        });
+                    }
+                }
+            } catch (commentErr) {
+                console.error('[BRIDGE-SYNC] Failed to sync comments history:', commentErr);
+            }
         }
 
         if (syncedOrder && syncedOrder.sltsStatus !== oldStatus) {

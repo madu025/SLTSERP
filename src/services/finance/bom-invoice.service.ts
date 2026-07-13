@@ -3,6 +3,17 @@ import { InvoiceGeneratorService } from '../invoice/invoice.generator.service';
 import { ProjectInvoiceService } from '../project/project-invoice.service';
 
 export class BOMInvoiceService {
+    private static parseDateFromSoNum(soNum: string): Date {
+        const match = soNum.match(/(202[3-6])(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/);
+        if (match) {
+            const year = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10) - 1; // 0-indexed
+            const day = parseInt(match[3], 10);
+            return new Date(Date.UTC(year, month, day, 12, 0, 0));
+        }
+        return new Date();
+    }
+
     /**
      * Parse SLT BOM Excel row data, update matched SODs to PAT_PASSED, and generate Client Invoice for SLT
      */
@@ -113,6 +124,8 @@ export class BOMInvoiceService {
                 const dwVal = parseFloat(row['FTTH-DW (M)'] || row['FTTH-DW'] || row['DROP WIRE DISTANCE'] || row['DROP_WIRE'] || '0');
                 const dropWireDistance = isNaN(dwVal) ? 0 : dwVal;
 
+                const parsedDate = BOMInvoiceService.parseDateFromSoNum(soNum);
+
                 stubsToCreate.push({
                     soNum,
                     voiceNumber,
@@ -126,8 +139,9 @@ export class BOMInvoiceService {
                     opmcId,
                     contractorId,
                     isLegacyImport: true,
-                    receivedDate: new Date(),
-                    completedDate: new Date(),
+                    receivedDate: parsedDate,
+                    completedDate: parsedDate,
+                    statusDate: parsedDate,
                     comments: 'Auto-stubbed from BOM sheet backlog sync'
                 });
             }

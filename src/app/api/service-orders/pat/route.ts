@@ -12,6 +12,7 @@ export async function GET(request: Request) {
         const search = searchParams.get('search') || '';
         const status = searchParams.get('status') || 'ALL';
         const rtom = searchParams.get('rtom') || 'ALL';
+        const region = searchParams.get('region') || 'ALL';
         const startDate = searchParams.get('startDate') || undefined;
         const endDate = searchParams.get('endDate') || undefined;
 
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
             search,
             status,
             rtom,
+            region,
             startDate,
             endDate
         });

@@ -266,6 +266,7 @@ export class ServiceOrderService {
         search?: string;
         status?: string;
         rtom?: string;
+        region?: string;
         startDate?: string;
         endDate?: string;
     }) {

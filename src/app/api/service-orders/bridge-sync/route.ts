@@ -2,6 +2,7 @@
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
 import { bridgeSyncSchema } from '@/lib/validations/service-order.schema';
+import { redis } from '@/lib/redis';
 
 export async function OPTIONS() {
     return new Response(null, {
@@ -38,7 +39,24 @@ export const GET = apiHandler(async (request: Request) => {
 });
 
 export const POST = apiHandler(async (_req, _params, payload: any) => {
-    return await ServiceOrderService.bridgeSync(payload);
+    const soNum = payload.soNum;
+    if (!soNum) {
+        throw new Error('Service Order Number is required for sync.');
+    }
+
+    const lockKey = `lock:bridge-sync:${soNum}`;
+    // Acquire distributed lock for 10 seconds to prevent concurrent updates on the same SOD
+    const acquired = await redis.set(lockKey, 'locked', 'PX', 10000, 'NX');
+
+    if (!acquired) {
+        throw new Error('CONCURRENT_SYNC_PREVENTED: This service order is currently being updated by another active session.');
+    }
+
+    try {
+        return await ServiceOrderService.bridgeSync(payload);
+    } finally {
+        await redis.del(lockKey);
+    }
 }, { 
     schema: bridgeSyncSchema,
     audit: { action: 'BRIDGE_SYNC', entity: 'ServiceOrder' }

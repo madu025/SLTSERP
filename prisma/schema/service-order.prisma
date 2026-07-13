@@ -234,6 +234,7 @@ model SLTPATStatus {
   status      String
   source      String
   statusDate  DateTime?
+  hasDuplicate Boolean   @default(false)
   updatedAt   DateTime  @updatedAt
 
   @@index([status])

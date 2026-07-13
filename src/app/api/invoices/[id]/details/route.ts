@@ -32,7 +32,9 @@ export async function GET(
                             include: {
                                 item: true
                             }
-                        }
+                        },
+                        erectedPoles: true,
+                        iptvSerials: true
                     },
                     orderBy: { completedDate: 'asc' }
                 },

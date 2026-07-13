@@ -24,6 +24,10 @@ interface ServiceOrder {
     comments?: string | null;
     dropWireDistance?: number | null;
     materialUsage?: SODMaterialUsage[];
+    ontSerialNumber?: string | null;
+    iptv?: string | null;
+    erectedPoles?: Array<{ poleType: string; poleNumber: string }>;
+    iptvSerials?: Array<{ serialNumber: string }>;
 }
 
 interface InvoiceDetails {
@@ -192,12 +196,12 @@ export async function downloadExcelInvoice(invoiceId: string, invoiceNumber: str
                 allocSheet[XLSX.utils.encode_cell({ r, c: 5 })] = { v: sod.voiceNumber || sod.techContact || '', t: 's' };
                 allocSheet[XLSX.utils.encode_cell({ r, c: 6 })] = { v: sod.orderType || sod.serviceType || 'FTTH New Connection', t: 's' };
                 allocSheet[XLSX.utils.encode_cell({ r, c: 7 })] = { v: sod.techContact || '', t: 's' };
-                allocSheet[XLSX.utils.encode_cell({ r, c: 8 })] = { v: '', t: 's' };
+                allocSheet[XLSX.utils.encode_cell({ r, c: 8 })] = { v: sod.iptv || '', t: 's' };
                 allocSheet[XLSX.utils.encode_cell({ r, c: 9 })] = { v: sod.dp || '', t: 's' };
-                allocSheet[XLSX.utils.encode_cell({ r, c: 10 })] = { v: '', t: 's' };
+                allocSheet[XLSX.utils.encode_cell({ r, c: 10 })] = { v: sod.iptvSerials?.map(ip => ip.serialNumber).join(', ') || '', t: 's' };
                 allocSheet[XLSX.utils.encode_cell({ r, c: 11 })] = { v: sod.receivedDate ? new Date(sod.receivedDate).toLocaleDateString('en-GB') : '', t: 's' };
                 allocSheet[XLSX.utils.encode_cell({ r, c: 12 })] = { v: sod.completedDate ? new Date(sod.completedDate).toLocaleDateString('en-GB') : '', t: 's' };
-                allocSheet[XLSX.utils.encode_cell({ r, c: 13 })] = { v: '', t: 's' };
+                allocSheet[XLSX.utils.encode_cell({ r, c: 13 })] = { v: sod.ontSerialNumber || '', t: 's' };
                 allocSheet[XLSX.utils.encode_cell({ r, c: 14 })] = { v: sod.comments || '', t: 's' };
             });
         }
@@ -243,6 +247,10 @@ export async function downloadExcelInvoice(invoiceId: string, invoiceNumber: str
                 poleSheet[XLSX.utils.encode_cell({ r, c: 2 })] = { v: sod.dp || '', t: 's' };
                 poleSheet[XLSX.utils.encode_cell({ r, c: 3 })] = { v: 0, t: 'n' };
                 poleSheet[XLSX.utils.encode_cell({ r, c: 4 })] = { v: sod.lea || '', t: 's' };
+                poleSheet[XLSX.utils.encode_cell({ r, c: 5 })] = { v: sod.erectedPoles?.[0]?.poleNumber || '', t: 's' };
+                poleSheet[XLSX.utils.encode_cell({ r, c: 6 })] = { v: sod.erectedPoles?.[1]?.poleNumber || '', t: 's' };
+                poleSheet[XLSX.utils.encode_cell({ r, c: 7 })] = { v: sod.erectedPoles?.[2]?.poleNumber || '', t: 's' };
+                poleSheet[XLSX.utils.encode_cell({ r, c: 8 })] = { v: sod.erectedPoles?.[3]?.poleNumber || '', t: 's' };
 
                 let pole56 = 0;
                 let pole67 = 0;

@@ -2,6 +2,51 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { GetServiceOrdersParams } from './sod-types';
 
+interface ServiceOrderItemWithIptv {
+    id: string;
+    soNum: string;
+    voiceNumber: string | null;
+    orderType: string;
+    serviceType: string;
+    customerName: string;
+    lea: string | null;
+    status: string;
+    statusDate: Date | null;
+    sltsStatus: string;
+    completedDate: Date | null;
+    contractorId: string | null;
+    contractor: { name: string } | null;
+    opmcPatStatus: string | null;
+    opmcPatDate: Date | null;
+    sltsPatStatus: string | null;
+    sltsPatDate: Date | null;
+    hoPatStatus: string | null;
+    hoPatDate: Date | null;
+    isInvoicable: boolean;
+    invoiced: boolean;
+    package: string | null;
+    address: string | null;
+    dp: string | null;
+    iptv: string | null;
+    ontSerialNumber: string | null;
+    iptvSerials: { serialNumber: string }[];
+    dpDetails: string | null;
+    revenueAmount: Prisma.Decimal | null;
+    contractorAmount: Prisma.Decimal | null;
+    dropWireDistance: Prisma.Decimal | null;
+    receivedDate: Date | null;
+    woroTaskName: string | null;
+    scheduledDate: Date | null;
+    techContact: string | null;
+    sales: string | null;
+    comments: string | null;
+    returnReason: string | null;
+    createdAt: Date;
+    _count: { commentsHistory: number };
+    materialUsage: { quantity: number; unitPrice: Prisma.Decimal; usageType: string; serialNumber: string | null; comment: string | null; item: { name: string; code: string; unit: string } }[];
+    forensicAudit: { auditData: string | null; voiceTestStatus: string | null } | null;
+}
+
 export class SODQueryService {
     /**
      * Get all service orders with filtering and sorting
@@ -135,7 +180,7 @@ export class SODQueryService {
         // Run queries (using optimized summaryWhereClause for metrics queries)
         const [total, items, statusGroups, contractorCount, appointmentCount, opmcGroups, hoGroups, sltGroups, returnCount] = await Promise.all([
             prisma.serviceOrder.count({ where: whereClause }),
-            prisma.serviceOrder.findMany({
+            (prisma.serviceOrder as unknown as { findMany: (args: unknown) => Promise<ServiceOrderItemWithIptv[]> }).findMany({
                 where: whereClause,
                 select: {
                     id: true,
@@ -278,7 +323,7 @@ export class SODQueryService {
      * Get unique service order by soNum with full details
      */
     static async getServiceOrderBySoNum(soNum: string) {
-        return await prisma.serviceOrder.findUnique({
+        const order = await prisma.serviceOrder.findUnique({
             where: { soNum },
             include: {
                 contractor: { select: { name: true } },
@@ -327,6 +372,54 @@ export class SODQueryService {
                 }
             }
         });
+
+        if (order) return order;
+
+        // Fallback: Check if it exists in PAT Statuses
+        const patStatus = await prisma.sLTPATStatus.findUnique({
+            where: { soNum }
+        });
+
+        if (patStatus) {
+            // Retrieve comments from raw scraper payload if present
+            const rawExt = await prisma.extensionRawData.findFirst({
+                where: { soNum },
+                orderBy: { createdAt: 'desc' }
+            });
+            const scraped = rawExt?.scrapedData as Record<string, unknown> | null;
+            const commentsList = ((scraped?.commentsList || []) as unknown) as { date?: string; user?: string; comment?: string }[];
+
+            return {
+                id: patStatus.id,
+                soNum: patStatus.soNum,
+                rtom: patStatus.rtom,
+                lea: patStatus.lea,
+                voiceNumber: patStatus.voiceNumber,
+                serviceType: patStatus.sType,
+                orderType: patStatus.orderType,
+                status: patStatus.status,
+                statusDate: patStatus.statusDate,
+                sltsStatus: 'NOT_IN_SYSTEM',
+                package: patStatus.package,
+                contractorId: null,
+                contractor: null,
+                team: null,
+                materialUsage: [],
+                forensicAudit: null,
+                statusHistory: [],
+                restoreRequests: [],
+                commentsHistory: commentsList.map((c, idx) => ({
+                    id: `scraped-${idx}`,
+                    comment: c.comment || '',
+                    createdAt: c.date ? new Date(c.date) : new Date(),
+                    author: { name: c.user || 'Portal User' }
+                })),
+                createdAt: patStatus.updatedAt,
+                updatedAt: patStatus.updatedAt
+            } as unknown as import('@prisma/client').ServiceOrder;
+        }
+
+        return null;
     }
 
     /**
@@ -348,10 +441,11 @@ export class SODQueryService {
         search?: string;
         status?: string;
         rtom?: string;
+        region?: string;
         startDate?: string;
         endDate?: string;
     }) {
-        const { page = 1, limit = 20, search = '', status = 'ALL', rtom = 'ALL', startDate, endDate } = params;
+        const { page = 1, limit = 20, search = '', status = 'ALL', rtom = 'ALL', region = 'ALL', startDate, endDate } = params;
         const skip = (page - 1) * limit;
 
         const where: Prisma.SLTPATStatusWhereInput = {};
@@ -362,6 +456,12 @@ export class SODQueryService {
 
         if (rtom !== 'ALL') {
             where.rtom = rtom;
+        } else if (region !== 'ALL') {
+            const regionOpmcs = await prisma.oPMC.findMany({
+                where: { region },
+                select: { rtom: true }
+            });
+            where.rtom = { in: regionOpmcs.map(o => o.rtom) };
         }
 
         if (startDate && endDate) {
@@ -375,11 +475,11 @@ export class SODQueryService {
             where.status = 'PAT_PASSED';
             where.source = 'HO_APPROVED';
         } else if (status === 'REJECTED') {
-            where.status = 'REJECTED';
+            where.status = { in: ['PAT_REJECTED', 'REJECTED'] };
             where.source = 'HO_REJECTED';
         } else if (status === 'OPMC_REJECTED') {
-            where.status = 'REJECTED';
-            where.source = 'OPMC_REJECTED';
+            where.status = { in: ['OPMC_REJECTED', 'REJECTED', 'PAT_OPMC_REJECTED'] };
+            where.source = { in: ['SYNC', 'OPMC_REJECTED'] };
         } else if (status !== 'ALL') {
             where.source = status;
         }
@@ -427,6 +527,7 @@ export class SODQueryService {
                 status: r.status,
                 statusDate: r.statusDate,
                 source: r.source,
+                hasDuplicate: (r as unknown as { hasDuplicate: boolean }).hasDuplicate,
                 // Internal metadata
                 sltsStatus: internal?.sltsStatus || 'NOT_IN_SYSTEM',
                 sltsPatStatus: internal?.sltsPatStatus || 'PENDING',
@@ -434,11 +535,26 @@ export class SODQueryService {
             };
         });
 
+        // Fetch all OPMCs for region mapping
+        const allOpmcs = await prisma.oPMC.findMany({
+            select: { rtom: true, region: true },
+            orderBy: { rtom: 'asc' }
+        });
+        const rtomRegionMap: Record<string, string> = {};
+        const availableRegionsSet = new Set<string>();
+        allOpmcs.forEach(o => {
+            rtomRegionMap[o.rtom] = o.region;
+            availableRegionsSet.add(o.region);
+        });
+        const availableRegions = Array.from(availableRegionsSet).sort();
+
         return {
             orders,
             total,
             totalPages: Math.ceil(total / limit),
-            rtoms: rtoms.map(r => r.rtom)
+            rtoms: rtoms.map(r => r.rtom),
+            availableRegions,
+            rtomRegionMap
         };
     }
 
