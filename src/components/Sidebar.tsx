@@ -33,6 +33,7 @@ export default function Sidebar() {
     const [mounted, setMounted] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+    const [expandedSubMenus, setExpandedSubMenus] = useState<string[]>([]);
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
     const pathname = usePathname();
 
@@ -57,7 +58,21 @@ export default function Sidebar() {
 
     useEffect(() => {
         SIDEBAR_MENU.forEach(item => {
-            if (item.submenu?.some(sub => pathname === sub.path || pathname.startsWith(sub.path + '/'))) {
+            const hasActiveChild = item.submenu?.some(sub => {
+                const isActiveSub = pathname === sub.path || pathname.startsWith(sub.path + '/');
+                const isActiveNested = sub.submenu?.some(child => pathname === child.path || pathname.startsWith(child.path + '/'));
+                
+                if (isActiveNested) {
+                    setExpandedSubMenus(prev => {
+                        if (!prev.includes(sub.title)) return [...prev, sub.title];
+                        return prev;
+                    });
+                }
+                
+                return isActiveSub || isActiveNested;
+            });
+            
+            if (hasActiveChild) {
                 setExpandedMenus(prev => {
                     if (!prev.includes(item.title)) return [...prev, item.title];
                     return prev;
@@ -68,6 +83,29 @@ export default function Sidebar() {
 
     const userRole = user?.role || '';
     const userInitials = user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+
+    // Extract all paths in the navigation tree to resolve route specificity collisions
+    const allPaths = SIDEBAR_MENU.flatMap(item => [
+        item.path,
+        ...(item.submenu?.flatMap(sub => [
+            sub.path,
+            ...(sub.submenu?.map(child => child.path) || [])
+        ]) || [])
+    ]).filter(p => p !== '#');
+
+    // Helper to determine if a route is active relative to pathname and all other specific routes
+    const checkActive = (itemPath: string) => {
+        if (!itemPath || itemPath === '#') return false;
+        if (pathname === itemPath) return true;
+        
+        // Match sub-routes (e.g. /helpdesk/tickets/123 matches /helpdesk)
+        // only if there isn't a more specific registered path in allPaths that matches
+        return pathname.startsWith(itemPath + '/') && !allPaths.some(otherPath => 
+            otherPath !== itemPath && 
+            otherPath.startsWith(itemPath + '/') && 
+            pathname.startsWith(otherPath)
+        );
+    };
     const roleLabel = ROLE_LABELS[userRole] || userRole?.replace(/_/g, ' ') || 'User';
 
     const handleLogout = () => {
@@ -180,10 +218,10 @@ export default function Sidebar() {
                         {mounted ? SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
                             const Icon = item.icon;
                             const hasSubmenu = item.submenu && item.submenu.length > 0;
-                            const isChildActive = hasSubmenu && item.submenu?.some(
-                                sub => pathname === sub.path || pathname.startsWith(sub.path + '/')
+                            const isChildActive = hasSubmenu && item.submenu?.some(sub => 
+                                checkActive(sub.path) || sub.submenu?.some(child => checkActive(child.path))
                             );
-                            const isActive = pathname === item.path || isChildActive;
+                            const isActive = checkActive(item.path) || isChildActive;
                             const isExpanded = expandedMenus.includes(item.title);
                             const isHovered = hoveredItem === item.title;
 
@@ -294,45 +332,103 @@ export default function Sidebar() {
                                         >
                                             {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => {
                                                 const siblingPaths = item.submenu!.map(s => s.path);
-                                                const isSubActive = pathname === sub.path || (
-                                                    pathname.startsWith(sub.path + '/') && 
-                                                    !siblingPaths.some(siblingPath => 
-                                                        siblingPath !== sub.path && 
-                                                        siblingPath.startsWith(sub.path + '/') && 
-                                                        pathname.startsWith(siblingPath)
-                                                    )
-                                                );
+                                                
+                                                const hasSubSubmenu = sub.submenu && sub.submenu.length > 0;
+                                                const isSubSubExpanded = expandedSubMenus.includes(sub.title);
+                                                
+                                                const isChildActive = hasSubSubmenu && sub.submenu?.some(child => checkActive(child.path));
+                                                const isSubActive = checkActive(sub.path) || isChildActive;
+
+                                                const handleSubMenuClick = (e: React.MouseEvent) => {
+                                                    if (hasSubSubmenu) {
+                                                        e.preventDefault();
+                                                        setExpandedSubMenus(prev =>
+                                                            prev.includes(sub.title) ? prev.filter(t => t !== sub.title) : [...prev, sub.title]
+                                                        );
+                                                    }
+                                                };
+
                                                 return (
-                                                    <Link
-                                                        key={sub.path}
-                                                        href={sub.path}
-                                                        className="flex items-center gap-1.5 px-2 py-[4px] rounded text-[11px] font-medium transition-all duration-150 group/sub"
-                                                        style={{
-                                                            color: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.4)',
-                                                            background: isSubActive ? 'rgba(0,114,187,0.1)' : 'transparent',
-                                                        }}
-                                                        onMouseEnter={e => {
-                                                            if (!isSubActive) {
-                                                                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.8)';
-                                                                (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.03)';
-                                                            }
-                                                        }}
-                                                        onMouseLeave={e => {
-                                                            if (!isSubActive) {
-                                                                (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.4)';
-                                                                (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
-                                                            }
-                                                        }}
-                                                    >
-                                                        <div
-                                                            className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all"
+                                                    <div key={`sub-${sub.title}-${sub.path}`}>
+                                                        <Link
+                                                            href={hasSubSubmenu ? '#' : sub.path}
+                                                            onClick={handleSubMenuClick}
+                                                            className="flex items-center justify-between px-2 py-[4px] rounded text-[11px] font-medium transition-all duration-150 group/sub"
                                                             style={{
-                                                                background: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.2)',
-                                                                boxShadow: isSubActive ? '0 0 6px rgba(0,174,239,0.6)' : 'none',
+                                                                color: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.4)',
+                                                                background: isSubActive ? 'rgba(0,114,187,0.1)' : 'transparent',
                                                             }}
-                                                        />
-                                                        <span className="truncate">{sub.title}</span>
-                                                    </Link>
+                                                            onMouseEnter={e => {
+                                                                if (!isSubActive) {
+                                                                    (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.8)';
+                                                                    (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.03)';
+                                                                }
+                                                            }}
+                                                            onMouseLeave={e => {
+                                                                if (!isSubActive) {
+                                                                    (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.4)';
+                                                                    (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
+                                                                }
+                                                            }}
+                                                        >
+                                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                                <div
+                                                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all"
+                                                                    style={{
+                                                                        background: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.2)',
+                                                                        boxShadow: isSubActive ? '0 0 6px rgba(0,174,239,0.6)' : 'none',
+                                                                    }}
+                                                                />
+                                                                <span className="truncate">{sub.title}</span>
+                                                            </div>
+                                                            {hasSubSubmenu && (
+                                                                <ChevronDown
+                                                                    className="w-3 h-3 flex-shrink-0 transition-transform duration-200"
+                                                                    style={{
+                                                                        color: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.3)',
+                                                                        transform: isSubSubExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                    }}
+                                                                />
+                                                            )}
+                                                        </Link>
+
+                                                        {/* NESTED 3RD LEVEL SUBMENU */}
+                                                        {hasSubSubmenu && isSubSubExpanded && (
+                                                            <div
+                                                                className="mt-0 ml-3.5 pl-2.5 space-y-0.5"
+                                                                style={{ borderLeft: '1px solid rgba(0,114,187,0.1)' }}
+                                                            >
+                                                                {sub.submenu!.filter(child => hasAccess(userRole, child.allowedRoles)).map(child => {
+                                                                    const isChildItemActive = pathname === child.path;
+                                                                    return (
+                                                                        <Link
+                                                                            key={child.path}
+                                                                            href={child.path}
+                                                                            className="flex items-center gap-1.5 px-2 py-[3px] rounded text-[10px] font-medium transition-all duration-150 group/child"
+                                                                            style={{
+                                                                                color: isChildItemActive ? '#00AEEF' : 'rgba(255,255,255,0.35)',
+                                                                                background: isChildItemActive ? 'rgba(0,114,187,0.1)' : 'transparent',
+                                                                            }}
+                                                                            onMouseEnter={e => {
+                                                                                if (!isChildItemActive) {
+                                                                                    (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.7)';
+                                                                                    (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.02)';
+                                                                                }
+                                                                            }}
+                                                                            onMouseLeave={e => {
+                                                                                if (!isChildItemActive) {
+                                                                                    (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.35)';
+                                                                                    (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <span className="truncate">{child.title}</span>
+                                                                        </Link>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 );
                                             })}
                                         </div>

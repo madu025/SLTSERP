@@ -161,6 +161,7 @@ model VMRentalVehicle {
   bank_account_number       String?
   bank_branch               String?
   bank_branch_code          String?
+  document_url              String?
 
   // Relations
   monthlySummaries          VMRentedVehicleMonthlySummary[]

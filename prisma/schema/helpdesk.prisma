@@ -1,0 +1,259 @@
+// ============================================================
+// Module: helpdesk / ITSM
+// Models: ITAsset, Ticket, TicketUpdate, KnowledgeBaseArticle
+// ============================================================
+
+enum ITDeviceType {
+  LAPTOP
+  DESKTOP
+  MOBILE
+  PRINTER
+  NETWORK
+  OTHER
+}
+
+enum ITAssetStatus {
+  ACTIVE
+  UNDER_REPAIR
+  DECOMMISSIONED
+  SPARE
+  FAULTY
+  DISPOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_FOR_USER
+  WAITING_FOR_PARTS
+  RESOLVED
+  CLOSED
+}
+
+enum IssueCategory {
+  PHYSICAL_DAMAGE
+  BROKEN_DISPLAY
+  PRINTER_ISSUE
+  NETWORK_ISSUE
+  SOFTWARE_ISSUE
+  EMAIL_ISSUE
+  EQUIPMENT_REQUEST
+  OTHER
+}
+
+model ITAsset {
+  id             String        @id @default(cuid())
+  assetNumber    String        @unique // e.g., SLT-IT-2026-001
+  serialNumber   String        @unique // Manufacturer serial
+  deviceType     ITDeviceType
+  brand          String
+  model          String
+  assignedStaffId String?
+  assignedStaff   Staff?        @relation("AssignedITAssets", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  department      String?
+  siteOfficeId    String?
+  siteOffice      SiteOffice?   @relation(fields: [siteOfficeId], references: [id], onDelete: SetNull)
+  location        String?       // Optional floor/room metadata
+  status          ITAssetStatus @default(ACTIVE)
+  purchaseDate    DateTime?
+  warrantyExpiry  DateTime?
+  purchaseCost    Float?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  tickets         Ticket[]
+  handoverLogs    AssetHandoverLog[]
+
+
+  @@index([assignedStaffId])
+  @@index([siteOfficeId])
+  @@index([deviceType])
+  @@index([status])
+}
+
+model Ticket {
+  id                 String          @id @default(cuid())
+  ticketNumber       String          @unique // e.g. IT-2026-0001
+  assetId            String?
+  asset              ITAsset?        @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  userId             String
+  user               User            @relation("CreatedTickets", fields: [userId], references: [id])
+  category           IssueCategory
+  description        String
+  priority           TicketPriority  @default(MEDIUM)
+  status             TicketStatus    @default(OPEN)
+  assignedToId       String?
+  assignedTo         User?           @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  anydeskId          String?
+  anydeskSession     String?         // Details of support session
+  photoUrls          String[]        @default([])
+  firstResponseAt    DateTime?
+  resolvedAt         DateTime?
+  satisfactionRating Int?
+  satisfactionNote   String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  updates            TicketUpdate[]
+
+  @@index([userId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model TicketUpdate {
+  id         String       @id @default(cuid())
+  ticketId   String
+  ticket     Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User         @relation("UserTicketUpdates", fields: [userId], references: [id])
+  message    String
+  statusFrom TicketStatus
+  statusTo   TicketStatus
+  photoUrls  String[]     @default([])
+  createdAt  DateTime     @default(now())
+
+  @@index([ticketId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model KnowledgeBaseArticle {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  category    String   // e.g. "VPN", "Outlook", "Printers", "Passwords", "Windows"
+  views       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
+model SiteOffice {
+  id             String                @id @default(cuid())
+  name           String                @unique // e.g., "Gampaha Site Office"
+  address        String
+  officeAdminId  String?
+  officeAdmin    User?                 @relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])
+  contactNo      String?
+  rentalCost     Float                 @default(0.0) // Monthly rental cost
+  landlordName   String?
+  landlordPhone  String?
+  assets         ITAsset[]
+  agreements     SiteOfficeAgreement[]
+  requests       SiteOfficeRequest[]
+  vehicles       SiteOfficeVehicle[]
+  tenders        SiteOfficeTender[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([officeAdminId])
+}
+
+model SiteOfficeAgreement {
+  id             String      @id @default(cuid())
+  siteOfficeId   String
+  siteOffice     SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  agreementType  String      // "RENTAL" | "LEASE" | "PURCHASE"
+  contractNumber String
+  startDate      DateTime
+  endDate        DateTime?
+  terms          String
+  monthlyRent    Float       @default(0.0)
+  landlordName   String?
+  landlordPhone  String?
+  documentUrl    String?
+  status         String      @default("ACTIVE") // "ACTIVE", "EXPIRED", "TERMINATED", "PENDING"
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([siteOfficeId])
+}
+
+model SiteOfficeRequest {
+  id             String      @id @default(cuid())
+  siteOfficeId   String
+  siteOffice     SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  requestedById  String
+  requestedBy    User        @relation("SiteOfficeRequests", fields: [requestedById], references: [id])
+  itemType       String      // "FURNITURE", "STATIONERY", "EQUIPMENT", "MAINTENANCE", "OTHER"
+  description    String
+  estimatedCost  Float       @default(0.0)
+  priority       String      @default("MEDIUM") // "LOW", "MEDIUM", "HIGH", "URGENT"
+  status         String      @default("PENDING") // "PENDING", "APPROVED", "DELIVERED", "REJECTED"
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([siteOfficeId])
+  @@index([requestedById])
+}
+
+model SiteOfficeVehicle {
+  id             String      @id @default(cuid())
+  siteOfficeId   String
+  siteOffice     SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  vehicleRegNo   String
+  makeModel      String
+  assignedDriver String?
+  driverPhone    String?
+  status         String      @default("ACTIVE") // "ACTIVE", "MAINTENANCE", "RETURNED"
+  allocationDate DateTime    @default(now())
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([siteOfficeId])
+}
+
+model SiteOfficeTender {
+  id              String      @id @default(cuid())
+  siteOfficeId    String
+  siteOffice      SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  tenderNo        String
+  title           String
+  description     String
+  budget          Float       @default(0.0)
+  publishDate     DateTime
+  closingDate     DateTime
+  status          String      @default("DRAFT") // "DRAFT", "OPEN", "UNDER_EVALUATION", "AWARDED"
+  winnerVendor    String?
+  winnerBidAmount Float?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([siteOfficeId])
+}
+
+enum AssetTransactionType {
+  ISSUED_TO_USER
+  RETURNED_TO_STORE
+  EXCHANGED
+}
+
+model AssetHandoverLog {
+  id              String               @id @default(cuid())
+  assetId         String
+  asset           ITAsset              @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  transactionType AssetTransactionType
+  performedById   String
+  performedBy     User                 @relation("HandoverPerformed", fields: [performedById], references: [id])
+  targetStaffId   String?
+  targetStaff     Staff?               @relation("HandoverReceived", fields: [targetStaffId], references: [id], onDelete: SetNull)
+  condition       String?
+  remarks         String?
+  date            DateTime             @default(now())
+
+  @@index([assetId])
+  @@index([performedById])
+  @@index([targetStaffId])
+}

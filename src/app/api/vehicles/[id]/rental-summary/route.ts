@@ -6,7 +6,7 @@ interface RouteParams {
 }
 
 interface RequestBody {
-  action: 'create' | 'submit' | 'check' | 'recommend' | 'approve' | 'reject';
+  action: 'create' | 'submit' | 'check' | 'recommend' | 'approve' | 'reject' | 'save-agreement';
   year?: number;
   month?: number;
   userId?: string;
@@ -69,7 +69,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       data: summaries,
-      meta: { rentalVehicleId: rentalVehicle.id, total: summaries.length },
+      meta: { 
+        rentalVehicleId: rentalVehicle.id, 
+        total: summaries.length,
+        rentalVehicle
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -91,6 +95,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { action, year, month, userId, userName, remarks } = body;
 
     const rentalVehicle = await rentalPaymentService.getRentalVehicleByVehicleId(id);
+
+    if (action === 'save-agreement') {
+      const result = await rentalPaymentService.upsertRentalVehicle(id, body);
+      return NextResponse.json({ success: true, data: result });
+    }
 
     if (!rentalVehicle) {
       return NextResponse.json(

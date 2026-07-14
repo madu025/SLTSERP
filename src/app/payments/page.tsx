@@ -87,14 +87,26 @@ export default function PaymentsPage() {
             const res = await fetch(`/api/payments?${params}`);
             if (!res.ok) throw new Error('Failed');
             const json = await res.json();
-            setPayments(json.data || []);
+            
+            // Extract the list from apiHandler wrapper
+            let list: Payment[] = [];
+            if (json.success && json.data) {
+                list = Array.isArray(json.data.data) ? json.data.data : (Array.isArray(json.data) ? json.data : []);
+            } else {
+                list = json.data && Array.isArray(json.data.data) ? json.data.data : (Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []));
+            }
+            setPayments(list);
         } catch (e) { console.error(e); } finally { setLoading(false); }
     }, [statusFilter, paymentTypeFilter]);
 
     const fetchInvoices = async () => {
         try {
             const res = await fetch('/api/invoices?limit=1000');
-            if (res.ok) { const d = await res.json(); setInvoices(Array.isArray(d) ? d : []); }
+            if (res.ok) {
+                const d = await res.json();
+                const invoicesList = d.success && Array.isArray(d.data) ? d.data : (Array.isArray(d) ? d : []);
+                setInvoices(invoicesList);
+            }
         } catch (e) { console.error(e); }
     };
 

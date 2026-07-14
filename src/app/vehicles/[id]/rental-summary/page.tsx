@@ -149,6 +149,8 @@ interface RentalVehicleInfo {
     bank_account_number: string | null;
     bank_branch: string | null;
     bank_branch_code: string | null;
+    document_url?: string | null;
+    driver_term?: string | null;
     vehicle: {
         id: string;
         registration_number: string;
@@ -156,6 +158,7 @@ interface RentalVehicleInfo {
         model: string;
         year: number;
         site?: { id: string; name: string } | null;
+        driver?: { id: string; first_name: string; last_name: string; phone: string; email: string; ot_hourly_rate?: number } | null;
     };
 }
 
@@ -247,9 +250,63 @@ export default function RentalSummaryPage() {
     }>({ open: false, action: '', summaryId: '' });
     const [remarks, setRemarks] = useState('');
 
+    // Agreement Form state
+    const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
+    const [agreementForm, setAgreementForm] = useState({
+        supplier_id: '',
+        supplier_contact: '',
+        rental_contract_id: '',
+        rental_start_date: '',
+        rental_end_date: '',
+        rental_cost_monthly: '',
+        rental_cost_daily: '',
+        driver_portion_monthly: '',
+        driver_term: 'WITH_DRIVER',
+        fuel_supplying: 'COMPANY',
+        expected_working_days: '26',
+        absent_deduction_rate: '1500',
+        fuel_allowance_per_km: '25',
+        mileage_limit_monthly: '3000',
+        excess_mileage_cost_per_km: '40',
+        fuel_efficiency: '10',
+        contract_terms: '',
+        bank_name: '',
+        bank_account_number: '',
+        bank_branch: '',
+        bank_branch_code: '',
+        document_url: '',
+    });
+
     // ========================================================================
     // Data Fetching
     // ========================================================================
+
+    const populateAgreementForm = (rv: any) => {
+        setAgreementForm({
+            supplier_id: rv.supplier_id || '',
+            supplier_contact: rv.supplier_contact || '',
+            rental_contract_id: rv.rental_contract_id || '',
+            rental_start_date: rv.rental_start_date ? new Date(rv.rental_start_date).toISOString().split('T')[0] : '',
+            rental_end_date: rv.rental_end_date ? new Date(rv.rental_end_date).toISOString().split('T')[0] : '',
+            rental_cost_monthly: rv.rental_cost_monthly !== null && rv.rental_cost_monthly !== undefined ? String(rv.rental_cost_monthly) : '',
+            rental_cost_daily: rv.rental_cost_daily !== null && rv.rental_cost_daily !== undefined ? String(rv.rental_cost_daily) : '',
+            driver_portion_monthly: rv.driver_portion_monthly !== null && rv.driver_portion_monthly !== undefined ? String(rv.driver_portion_monthly) : '',
+            driver_term: rv.driver_term || 'WITH_DRIVER',
+            fuel_supplying: rv.fuel_supplying || 'COMPANY',
+            expected_working_days: rv.expected_working_days !== null && rv.expected_working_days !== undefined ? String(rv.expected_working_days) : '26',
+            absent_deduction_rate: rv.absent_deduction_rate !== null && rv.absent_deduction_rate !== undefined ? String(rv.absent_deduction_rate) : '1500',
+            fuel_allowance_per_km: rv.fuel_allowance_per_km !== null && rv.fuel_allowance_per_km !== undefined ? String(rv.fuel_allowance_per_km) : '25',
+            mileage_limit_monthly: rv.mileage_limit_monthly !== null && rv.mileage_limit_monthly !== undefined ? String(rv.mileage_limit_monthly) : '3000',
+            excess_mileage_cost_per_km: rv.excess_mileage_cost_per_km !== null && rv.excess_mileage_cost_per_km !== undefined ? String(rv.excess_mileage_cost_per_km) : '40',
+            fuel_efficiency: rv.fuel_efficiency !== null && rv.fuel_efficiency !== undefined ? String(rv.fuel_efficiency) : '10',
+            contract_terms: rv.contract_terms || '',
+            bank_name: rv.bank_name || '',
+            bank_account_number: rv.bank_account_number || '',
+            bank_branch: rv.bank_branch || '',
+            bank_branch_code: rv.bank_branch_code || '',
+            document_url: rv.document_url || '',
+        });
+    };
 
     const fetchRentalVehicle = useCallback(async () => {
         try {
@@ -259,7 +316,6 @@ export default function RentalSummaryPage() {
             const json = await res.json();
             
             // We need rental vehicle data - fetch it through the rentals API
-            // For now, get rental info from the vehicle
             const vehicleData = json.data;
             
             // Fetch rental vehicle info via our new API
@@ -271,15 +327,23 @@ export default function RentalSummaryPage() {
                     // We already have summaries, set them
                     setSummariesList(rentalJson.data);
                 }
-                if (rentalJson.meta?.rentalVehicleId) {
+                if (rentalJson.meta?.rentalVehicle) {
+                    // We have rental vehicle details, set them!
+                    const rv = rentalJson.meta.rentalVehicle;
+                    setRentalVehicle({
+                        ...rv,
+                        vehicle: vehicleData
+                    });
+                    populateAgreementForm(rv);
+                } else if (rentalJson.meta?.rentalVehicleId) {
                     // Need to fetch rental vehicle details separately
                     fetchRentalVehicleDetails(vehicleId);
                 } else {
-                    // No rental vehicle found
-                    setLoadingVehicle(false);
+                    // No rental vehicle found - hydrate basic info from vehicleData
+                    fetchRentalVehicleDetails(vehicleId);
                 }
             } else {
-                setLoadingVehicle(false);
+                fetchRentalVehicleDetails(vehicleId);
             }
         } catch (err: any) {
             setError(err.message);
@@ -296,28 +360,29 @@ export default function RentalSummaryPage() {
                 // Check ownership type to confirm it's rental
                 if (json.data.ownership === 'RENTAL') {
                     // Set some basic info from the vehicle
-                    setRentalVehicle({
+                    const defaultRV = {
                         id: vid,
                         vehicle_id: vid,
-                        supplier_id: json.data.registration_number,
-                        supplier_contact: null,
-                        rental_contract_id: '',
-                        rental_start_date: '',
-                        rental_end_date: '',
-                        rental_cost_monthly: null,
+                        supplier_id: 'SUPPLIER-' + vid.slice(0, 5),
+                        supplier_contact: '',
+                        rental_contract_id: 'CONTRACT-' + vid.slice(0, 5),
+                        rental_start_date: new Date().toISOString().split('T')[0],
+                        rental_end_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+                        rental_cost_monthly: 0,
                         rental_cost_daily: 0,
                         fuel_included: false,
-                        driver_portion_monthly: null,
-                        expected_working_days: null,
-                        absent_deduction_rate: null,
-                        fuel_allowance_per_km: null,
-                        fuel_supplying: null,
-                        mileage_limit_monthly: null,
-                        fuel_efficiency: null,
-                        bank_name: null,
-                        bank_account_number: null,
-                        bank_branch: null,
-                        bank_branch_code: null,
+                        driver_portion_monthly: 0,
+                        expected_working_days: 26,
+                        absent_deduction_rate: 1500,
+                        fuel_allowance_per_km: 25,
+                        fuel_supplying: 'COMPANY',
+                        mileage_limit_monthly: 3000,
+                        fuel_efficiency: 10,
+                        bank_name: '',
+                        bank_account_number: '',
+                        bank_branch: '',
+                        bank_branch_code: '',
+                        document_url: '',
                         vehicle: {
                             id: json.data.id,
                             registration_number: json.data.registration_number,
@@ -326,7 +391,9 @@ export default function RentalSummaryPage() {
                             year: json.data.year,
                             site: json.data.site,
                         },
-                    });
+                    };
+                    setRentalVehicle(defaultRV);
+                    populateAgreementForm(defaultRV);
                 }
             }
         } catch (err) {
@@ -461,6 +528,42 @@ export default function RentalSummaryPage() {
                 const listJson = await listRes.json();
                 setSummariesList(listJson.data || []);
             }
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setLoadingAction(false);
+        }
+    };
+
+    const handleSaveAgreement = async () => {
+        setError(null);
+        setSuccessMessage(null);
+        setLoadingAction(true);
+
+        try {
+            const res = await fetch(`/api/vehicles/${vehicleId}/rental-summary`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save-agreement',
+                    ...agreementForm,
+                }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error?.message || 'Failed to save agreement details');
+            }
+
+            const json = await res.json();
+            setRentalVehicle({
+                ...json.data,
+                vehicle: rentalVehicle?.vehicle || null
+            });
+            populateAgreementForm(json.data);
+            setAgreementDialogOpen(false);
+            setSuccessMessage('Agreement and bank details saved successfully!');
+            fetchRentalVehicle();
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -616,6 +719,9 @@ export default function RentalSummaryPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold" onClick={() => setAgreementDialogOpen(true)}>
+                                <FileText className="w-4 h-4 mr-2" /> Agreement & Bank Info
+                            </Button>
                             <Button variant="outline" onClick={() => setViewMode(viewMode === 'calculator' ? 'history' : 'calculator')}>
                                 {viewMode === 'calculator' ? (
                                     <><History className="w-4 h-4 mr-2" /> History</>
@@ -690,6 +796,79 @@ export default function RentalSummaryPage() {
                                                 <><Calculator className="w-4 h-4 mr-2" /> Calculate Preview</>
                                             )}
                                         </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Agreement & Bank Details Card */}
+                            <Card className="print:hidden">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                                        <span>Rental Contract & Bank Details</span>
+                                        <Button size="sm" variant="ghost" className="h-7 text-xs font-bold text-sky-600 hover:text-sky-700 hover:bg-sky-50" onClick={() => setAgreementDialogOpen(true)}>
+                                            Edit Details
+                                        </Button>
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                                        <div className="space-y-2 border-r border-slate-100 pr-4">
+                                            <h4 className="font-bold text-slate-700 uppercase tracking-widest text-[9px]">Contract Parameters</h4>
+                                            <div className="flex justify-between py-1 border-b border-slate-50">
+                                                <span className="text-slate-400">Contract ID:</span>
+                                                <span className="font-semibold text-slate-800">{rentalVehicle?.rental_contract_id || '-'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1 border-b border-slate-50">
+                                                <span className="text-slate-400">Duration:</span>
+                                                <span className="font-semibold text-slate-800">
+                                                    {rentalVehicle?.rental_start_date ? new Date(rentalVehicle.rental_start_date).toLocaleDateString() : '-'} to {rentalVehicle?.rental_end_date ? new Date(rentalVehicle.rental_end_date).toLocaleDateString() : '-'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between py-1">
+                                                <span className="text-slate-400">Driver Term:</span>
+                                                <Badge className="font-extrabold uppercase leading-none border-none py-0.5 px-1.5 text-[8px] bg-sky-50 text-sky-700">
+                                                    {rentalVehicle?.driver_term?.replace('_', ' ') || 'WITH DRIVER'}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2 border-r border-slate-100 pr-4">
+                                            <h4 className="font-bold text-slate-700 uppercase tracking-widest text-[9px]">Rates & Overtime</h4>
+                                            <div className="flex justify-between py-1 border-b border-slate-50">
+                                                <span className="text-slate-400">Monthly Rent:</span>
+                                                <span className="font-bold text-slate-900">LKR {rentalVehicle?.rental_cost_monthly?.toLocaleString() || '0'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1 border-b border-slate-50">
+                                                <span className="text-slate-400">Driver Portion (Monthly):</span>
+                                                <span className="font-bold text-slate-900">LKR {rentalVehicle?.driver_portion_monthly?.toLocaleString() || '0'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1">
+                                                <span className="text-slate-400">Driver OT Rate (Hourly):</span>
+                                                <span className="font-bold text-slate-900">
+                                                    {rentalVehicle?.vehicle?.driver?.ot_hourly_rate ? `LKR ${rentalVehicle.vehicle.driver.ot_hourly_rate.toLocaleString()}` : '-'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <h4 className="font-bold text-slate-700 uppercase tracking-widest text-[9px]">Owner Bank Details</h4>
+                                            <div className="flex justify-between py-1 border-b border-slate-50">
+                                                <span className="text-slate-400">Bank / Branch:</span>
+                                                <span className="font-semibold text-slate-800">{rentalVehicle?.bank_name || '-'} / {rentalVehicle?.bank_branch || '-'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1 border-b border-slate-50">
+                                                <span className="text-slate-400">Account Number:</span>
+                                                <span className="font-mono font-bold text-slate-900">{rentalVehicle?.bank_account_number || '-'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1">
+                                                <span className="text-slate-400">Agreement Copy:</span>
+                                                {rentalVehicle?.document_url ? (
+                                                    <a href={rentalVehicle.document_url} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                                                        Download / View File
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-slate-400">No copy uploaded</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1136,6 +1315,131 @@ export default function RentalSummaryPage() {
                             >
                                 Confirm
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Agreement & Bank Details Dialog Overlay */}
+            {agreementDialogOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto p-4 print:hidden">
+                    <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto space-y-4">
+                        <div>
+                            <h3 className="text-lg font-black text-slate-900">Rental Agreement & Bank Details</h3>
+                            <p className="text-xs text-slate-500">Edit contract parameters, driver terms, and bank details for vehicle {vehicleInfo?.registration_number}.</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                            {/* Column 1: Contract Details */}
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-slate-700 border-b pb-1 uppercase tracking-widest text-[9px]">Contract Details</h4>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contract ID</Label>
+                                    <Input value={agreementForm.rental_contract_id} onChange={(e) => setAgreementForm({...agreementForm, rental_contract_id: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="e.g. CON-SLT-1234" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Supplier ID</Label>
+                                    <Input value={agreementForm.supplier_id} onChange={(e) => setAgreementForm({...agreementForm, supplier_id: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="Supplier code" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Supplier Contact</Label>
+                                    <Input value={agreementForm.supplier_contact} onChange={(e) => setAgreementForm({...agreementForm, supplier_contact: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="Phone or email" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Start Date</Label>
+                                        <Input type="date" value={agreementForm.rental_start_date} onChange={(e) => setAgreementForm({...agreementForm, rental_start_date: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none text-[11px]" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">End Date</Label>
+                                        <Input type="date" value={agreementForm.rental_end_date} onChange={(e) => setAgreementForm({...agreementForm, rental_end_date: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none text-[11px]" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Rent (LKR)</Label>
+                                        <Input type="number" value={agreementForm.rental_cost_monthly} onChange={(e) => setAgreementForm({...agreementForm, rental_cost_monthly: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="0.00" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Daily Rent (LKR)</Label>
+                                        <Input type="number" value={agreementForm.rental_cost_daily} onChange={(e) => setAgreementForm({...agreementForm, rental_cost_daily: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="0.00" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Column 2: Driver & Payments */}
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-slate-700 border-b pb-1 uppercase tracking-widest text-[9px]">Driver & Rates Details</h4>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Driver Term</Label>
+                                    <Select value={agreementForm.driver_term} onValueChange={(v) => setAgreementForm({...agreementForm, driver_term: v})}>
+                                        <SelectTrigger className="h-9 rounded-lg bg-slate-50 border-none text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="WITH_DRIVER">With Driver</SelectItem>
+                                            <SelectItem value="WITHOUT_DRIVER">Without Driver</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Driver Portion (Monthly)</Label>
+                                    <Input type="number" value={agreementForm.driver_portion_monthly} onChange={(e) => setAgreementForm({...agreementForm, driver_portion_monthly: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="0.00" disabled={agreementForm.driver_term === 'WITHOUT_DRIVER'} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Working Days</Label>
+                                        <Input type="number" value={agreementForm.expected_working_days} onChange={(e) => setAgreementForm({...agreementForm, expected_working_days: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Absence Deduct/Day</Label>
+                                        <Input type="number" value={agreementForm.absent_deduction_rate} onChange={(e) => setAgreementForm({...agreementForm, absent_deduction_rate: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mileage Limit (Month)</Label>
+                                        <Input type="number" value={agreementForm.mileage_limit_monthly} onChange={(e) => setAgreementForm({...agreementForm, mileage_limit_monthly: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Excess KM Rate</Label>
+                                        <Input type="number" value={agreementForm.excess_mileage_cost_per_km} onChange={(e) => setAgreementForm({...agreementForm, excess_mileage_cost_per_km: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 mt-2 text-xs">
+                            <h4 className="font-bold text-slate-700 border-b pb-1 uppercase tracking-widest text-[9px]">Owner Bank details & Document Copy</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bank Name</Label>
+                                        <Input value={agreementForm.bank_name} onChange={(e) => setAgreementForm({...agreementForm, bank_name: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="Bank name" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Account Number</Label>
+                                        <Input value={agreementForm.bank_account_number} onChange={(e) => setAgreementForm({...agreementForm, bank_account_number: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="Account no" />
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Branch Name</Label>
+                                        <Input value={agreementForm.bank_branch} onChange={(e) => setAgreementForm({...agreementForm, bank_branch: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="Branch" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Branch Code</Label>
+                                        <Input value={agreementForm.bank_branch_code} onChange={(e) => setAgreementForm({...agreementForm, bank_branch_code: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="e.g. 023" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-1 pt-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Agreement Copy Document URL (Doc/PDF Link)</Label>
+                                <Input value={agreementForm.document_url} onChange={(e) => setAgreementForm({...agreementForm, document_url: e.target.value})} className="h-9 rounded-lg bg-slate-50 border-none" placeholder="https://example.com/agreement.pdf" />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4 border-t">
+                            <Button variant="outline" className="h-10 rounded-lg text-xs" onClick={() => setAgreementDialogOpen(false)}>Cancel</Button>
+                            <Button className="bg-slate-900 hover:bg-slate-800 text-white h-10 rounded-lg font-bold text-xs uppercase tracking-wider" onClick={handleSaveAgreement} disabled={loadingAction}>{loadingAction ? 'Saving...' : 'Save Details'}</Button>
                         </div>
                     </div>
                 </div>

@@ -53,6 +53,12 @@ model User {
   assignedApprovalSteps         ProjectApprovalStep[]     @relation("StepAssignee")
   actionedApprovalSteps         ProjectApprovalStep[]     @relation("StepActioner")
   supervisorAssignments         ProjectSupervisorAssignment[]
+  createdTickets                Ticket[]                 @relation("CreatedTickets")
+  assignedTickets               Ticket[]                 @relation("AssignedTickets")
+  ticketUpdates                 TicketUpdate[]           @relation("UserTicketUpdates")
+  managedSiteOffices            SiteOffice[]             @relation("SiteOfficeAdmin")
+  siteOfficeRequests            SiteOfficeRequest[]      @relation("SiteOfficeRequests")
+  handoversPerformed            AssetHandoverLog[]       @relation("HandoverPerformed")
 
   @@index([role])
   @@index([supervisorId])
@@ -110,8 +116,10 @@ model Staff {
   opmc         OPMC?     @relation(fields: [opmcId], references: [id])
   reportsTo    Staff?    @relation("Hierarchy", fields: [reportsToId], references: [id])
   subordinates Staff[]   @relation("Hierarchy")
-  user         User?
-  serials      InventoryItemSerial[]
+  user              User?
+  serials           InventoryItemSerial[]
+  assignedITAssets  ITAsset[]             @relation("AssignedITAssets")
+  handoversReceived AssetHandoverLog[]    @relation("HandoverReceived")
 
   @@index([opmcId])
   @@index([reportsToId])

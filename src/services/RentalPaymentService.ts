@@ -43,6 +43,11 @@ interface DbRentalVehicle {
   fuel_efficiency: number | null;
   mileage_limit_monthly: number | null;
   excess_mileage_cost_per_km: number | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_branch: string | null;
+  bank_branch_code: string | null;
+  document_url: string | null;
   vehicle: {
     id: string;
     registration_number: string;
@@ -587,7 +592,7 @@ class RentalPaymentService {
    * Fetch a rental vehicle by vehicle registration ID
    */
   async getRentalVehicleByVehicleId(vehicleId: string): Promise<DbRentalVehicle | null> {
-    return (await prisma.vMRentalVehicle.findUnique({
+    return (await db.vMRentalVehicle.findUnique({
       where: { vehicle_id: vehicleId },
       include: {
         vehicle: {
@@ -597,6 +602,73 @@ class RentalPaymentService {
         },
       },
     })) as DbRentalVehicle | null;
+  }
+
+  /**
+   * Save or update vehicle rental agreement details
+   */
+  async upsertRentalVehicle(vehicleId: string, data: any): Promise<DbRentalVehicle> {
+    const existing = await db.vMRentalVehicle.findUnique({
+      where: { vehicle_id: vehicleId }
+    });
+
+    const payload = {
+      supplier_id: data.supplier_id || 'SUPPLIER-' + vehicleId.slice(0, 5),
+      supplier_contact: data.supplier_contact || null,
+      rental_contract_id: data.rental_contract_id || 'CONTRACT-' + vehicleId.slice(0, 5),
+      rental_start_date: data.rental_start_date ? new Date(data.rental_start_date) : new Date(),
+      rental_end_date: data.rental_end_date ? new Date(data.rental_end_date) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      rental_cost_daily: parseFloat(data.rental_cost_daily || '0'),
+      rental_cost_weekly: data.rental_cost_weekly ? parseFloat(data.rental_cost_weekly) : null,
+      rental_cost_monthly: data.rental_cost_monthly ? parseFloat(data.rental_cost_monthly) : null,
+      fuel_included: data.fuel_included === true || data.fuel_included === 'true',
+      maintenance_included: data.maintenance_included === true || data.maintenance_included === 'true',
+      insurance_included: data.insurance_included === true || data.insurance_included === 'true',
+      mileage_limit_monthly: data.mileage_limit_monthly ? parseInt(data.mileage_limit_monthly, 10) : null,
+      excess_mileage_cost_per_km: data.excess_mileage_cost_per_km ? parseFloat(data.excess_mileage_cost_per_km) : null,
+      contract_terms: data.contract_terms || '',
+      driver_portion_monthly: data.driver_portion_monthly ? parseFloat(data.driver_portion_monthly) : null,
+      expected_working_days: data.expected_working_days ? parseInt(data.expected_working_days, 10) : null,
+      rate_per_additional_km: data.rate_per_additional_km ? parseFloat(data.rate_per_additional_km) : null,
+      absent_deduction_rate: data.absent_deduction_rate ? parseFloat(data.absent_deduction_rate) : null,
+      fuel_allowance_per_km: data.fuel_allowance_per_km ? parseFloat(data.fuel_allowance_per_km) : null,
+      driver_term: data.driver_term || null,
+      fuel_supplying: data.fuel_supplying || null,
+      fuel_efficiency: data.fuel_efficiency ? parseFloat(data.fuel_efficiency) : null,
+      bank_name: data.bank_name || null,
+      bank_account_number: data.bank_account_number || null,
+      bank_branch: data.bank_branch || null,
+      bank_branch_code: data.bank_branch_code || null,
+      document_url: data.document_url || null,
+    };
+
+    if (existing) {
+      return (await db.vMRentalVehicle.update({
+        where: { vehicle_id: vehicleId },
+        data: payload,
+        include: {
+          vehicle: {
+            include: {
+              site: true,
+            },
+          },
+        },
+      })) as DbRentalVehicle;
+    } else {
+      return (await db.vMRentalVehicle.create({
+        data: {
+          vehicle_id: vehicleId,
+          ...payload
+        },
+        include: {
+          vehicle: {
+            include: {
+              site: true,
+            },
+          },
+        },
+      })) as DbRentalVehicle;
+    }
   }
 }
 
