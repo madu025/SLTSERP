@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { NotificationService } from '@/services/notification.service';
 
 // GET: Fetch approval requests with their steps for a project
 export async function GET(
@@ -65,7 +66,7 @@ export async function POST(
                 stepNumber: s.stepNumber,
                 roleRequired: s.roleRequired,
                 assignedUserId: s.assignedUserId || null,
-                status: s.stepNumber === 1 ? 'PENDING' : 'PENDING' // Future steps can also default to pending
+                status: 'PENDING'
             }));
 
             await tx.projectApprovalStep.createMany({
@@ -83,6 +84,39 @@ export async function POST(
             return req;
         });
 
+        // After transaction: notify first step assignee(s) - non-blocking
+        (async () => {
+            try {
+                const firstSteps = (steps as Array<{ stepNumber: number; assignedUserId?: string; roleRequired: string }>).filter(s => s.stepNumber === 1);
+
+                for (const s of firstSteps) {
+                    if (s.assignedUserId) {
+                        await NotificationService.send({
+                            userId: s.assignedUserId,
+                            title: '✅ Approval Required',
+                            message: `A new approval request "${title}" requires your action.`,
+                            type: 'PROJECT',
+                            priority: 'HIGH',
+                            link: `/projects/${projectId}/approvals`,
+                            metadata: { requestId: newRequest.id, projectId, approvalType: type }
+                        });
+                    } else {
+                        await NotificationService.notifyByRole({
+                            roles: [s.roleRequired],
+                            title: '✅ Approval Required',
+                            message: `A new approval request "${title}" requires your action as ${s.roleRequired.replace(/_/g, ' ')}.`,
+                            type: 'PROJECT',
+                            priority: 'HIGH',
+                            link: `/projects/${projectId}/approvals`,
+                            metadata: { requestId: newRequest.id, projectId, approvalType: type }
+                        });
+                    }
+                }
+            } catch (notifErr) {
+                console.error('Failed to send approval creation notifications:', notifErr);
+            }
+        })();
+
         return NextResponse.json(newRequest);
     } catch (error) {
         console.error('Error creating approval request:', error);
@@ -96,6 +130,7 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: projectId } = await params;
         const body = await request.json();
         const { stepId, action, comment, actionedById } = body; // Action: APPROVED, REJECTED
 
@@ -111,6 +146,8 @@ export async function PATCH(
         if (!step) {
             return NextResponse.json({ error: 'Approval step not found' }, { status: 404 });
         }
+
+        const currentStepNumber = step.stepNumber;
 
         const updatedRequest = await prisma.$transaction(async (tx) => {
             // 1. Update the current step
@@ -129,13 +166,15 @@ export async function PATCH(
                 orderBy: { stepNumber: 'asc' }
             });
 
+            // Re-evaluate current step as approved in memory (DB write above is in-tx)
+            const stepsWithCurrent = allSteps.map(s => s.id === stepId ? { ...s, status: action } : s);
+
             let finalStatus = 'PENDING';
 
             if (action === 'REJECTED') {
                 finalStatus = 'REJECTED';
             } else {
-                // Check if all steps are approved
-                const allApproved = allSteps.every(s => s.status === 'APPROVED');
+                const allApproved = stepsWithCurrent.every(s => s.status === 'APPROVED');
                 if (allApproved) {
                     finalStatus = 'APPROVED';
                 }
@@ -160,9 +199,109 @@ export async function PATCH(
             // Return updated request with steps
             return await tx.projectApprovalRequest.findUnique({
                 where: { id: step.requestId },
-                include: { steps: true }
+                include: { steps: { orderBy: { stepNumber: 'asc' } } }
             });
         });
+
+        // After transaction: fire notifications asynchronously - non-blocking
+        (async () => {
+            try {
+                const requestTitle = step.request.title;
+                const approvalLink = `/projects/${projectId}/approvals`;
+
+                // Fetch project info for creator notification
+                const project = await prisma.project.findUnique({
+                    where: { id: projectId },
+                    select: { areaManagerId: true, name: true }
+                });
+
+                if (action === 'REJECTED') {
+                    // Notify project creator
+                    if (project?.areaManagerId) {
+                        await NotificationService.send({
+                            userId: project.areaManagerId,
+                            title: '❌ Approval Rejected',
+                            message: `Approval request "${requestTitle}" for project "${project.name}" was rejected at step ${currentStepNumber}.${comment ? ` Reason: ${comment}` : ''}`,
+                            type: 'PROJECT',
+                            priority: 'CRITICAL',
+                            link: approvalLink,
+                            metadata: { requestId: step.requestId, projectId, stepNumber: currentStepNumber }
+                        });
+                    }
+                    // Also broadcast to managers
+                    await NotificationService.notifyByRole({
+                        roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'],
+                        title: '❌ Project Approval Rejected',
+                        message: `Approval "${requestTitle}" was rejected at step ${currentStepNumber}.${comment ? ` Reason: ${comment}` : ''}`,
+                        type: 'PROJECT',
+                        priority: 'HIGH',
+                        link: approvalLink,
+                        metadata: { requestId: step.requestId, projectId }
+                    });
+
+                } else if (action === 'APPROVED') {
+                    const allSteps = updatedRequest?.steps || [];
+                    const allApproved = allSteps.every((s: { status: string }) => s.status === 'APPROVED');
+
+                    if (allApproved) {
+                        // Notify project creator that all steps are done
+                        if (project?.areaManagerId) {
+                            await NotificationService.send({
+                                userId: project.areaManagerId,
+                                title: '🎉 Approval Fully Completed',
+                                message: `All approval steps for "${requestTitle}" (project: ${project.name}) have been fully approved.`,
+                                type: 'PROJECT',
+                                priority: 'HIGH',
+                                link: approvalLink,
+                                metadata: { requestId: step.requestId, projectId }
+                            });
+                        }
+                        // Broadcast to OSP/Admin
+                        await NotificationService.notifyByRole({
+                            roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER'],
+                            title: '🎉 Approval Completed',
+                            message: `All approval steps for "${requestTitle}" have been completed.`,
+                            type: 'PROJECT',
+                            priority: 'MEDIUM',
+                            link: approvalLink,
+                            metadata: { requestId: step.requestId, projectId }
+                        });
+                    } else {
+                        // Unlock next step — notify next step assignee
+                        const nextStep = (updatedRequest?.steps || []).find(
+                            (s: { stepNumber: number; status: string }) =>
+                                s.stepNumber === currentStepNumber + 1
+                        ) as { assignedUserId?: string | null; roleRequired: string; stepNumber: number } | undefined;
+
+                        if (nextStep) {
+                            if (nextStep.assignedUserId) {
+                                await NotificationService.send({
+                                    userId: nextStep.assignedUserId,
+                                    title: '✅ Approval Required — Your Turn',
+                                    message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires your approval (Step ${nextStep.stepNumber}).`,
+                                    type: 'PROJECT',
+                                    priority: 'HIGH',
+                                    link: approvalLink,
+                                    metadata: { requestId: step.requestId, projectId, stepNumber: nextStep.stepNumber }
+                                });
+                            } else {
+                                await NotificationService.notifyByRole({
+                                    roles: [nextStep.roleRequired],
+                                    title: '✅ Approval Required — Your Turn',
+                                    message: `Step ${currentStepNumber} was approved. "${requestTitle}" now requires approval from ${nextStep.roleRequired.replace(/_/g, ' ')} (Step ${nextStep.stepNumber}).`,
+                                    type: 'PROJECT',
+                                    priority: 'HIGH',
+                                    link: approvalLink,
+                                    metadata: { requestId: step.requestId, projectId, stepNumber: nextStep.stepNumber }
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (notifErr) {
+                console.error('Failed to send approval step notifications:', notifErr);
+            }
+        })();
 
         return NextResponse.json(updatedRequest);
     } catch (error) {

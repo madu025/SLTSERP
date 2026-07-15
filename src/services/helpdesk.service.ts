@@ -381,7 +381,7 @@ export class HelpdeskService {
       userId,
       title: 'Ticket Submitted',
       message: `Your IT support ticket ${ticket.ticketNumber} has been successfully created.`,
-      type: 'SYSTEM',
+      type: 'HELPDESK',
       priority: 'LOW',
       link: `/helpdesk`
     });
@@ -391,7 +391,7 @@ export class HelpdeskService {
       roles: ['ENGINEER', 'ADMIN', 'SUPER_ADMIN'],
       title: 'New Help Desk Ticket',
       message: `A new ${ticket.priority} priority ticket (${ticket.ticketNumber}) has been submitted: "${ticket.description.substring(0, 50)}..."`,
-      type: 'SYSTEM',
+      type: 'HELPDESK',
       priority: ticket.priority === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
       link: `/helpdesk/admin`
     });
@@ -528,7 +528,7 @@ export class HelpdeskService {
         userId: oldTicket.userId,
         title: 'Ticket Status Updated',
         message: `Your ticket ${oldTicket.ticketNumber} is now "${data.status}".`,
-        type: 'SYSTEM',
+        type: 'HELPDESK',
         priority: 'MEDIUM',
         link: `/helpdesk`
       });
@@ -540,7 +540,7 @@ export class HelpdeskService {
         userId: data.assignedToId,
         title: 'New Helpdesk Assignment',
         message: `You have been assigned ticket ${oldTicket.ticketNumber}.`,
-        type: 'SYSTEM',
+        type: 'HELPDESK',
         priority: 'MEDIUM',
         link: `/helpdesk/admin`
       });
@@ -643,7 +643,7 @@ export class HelpdeskService {
           userId: ticket.assignedToId,
           title: 'New Customer Response',
           message: `User commented on ticket ${ticket.ticketNumber}: "${data.message.substring(0, 30)}..."`,
-          type: 'SYSTEM',
+          type: 'HELPDESK',
           priority: 'MEDIUM',
           link: `/helpdesk/admin`
         });
@@ -654,7 +654,7 @@ export class HelpdeskService {
         userId: ticket.userId,
         title: 'New Message from Support',
         message: `Support replied to your ticket ${ticket.ticketNumber}: "${data.message.substring(0, 30)}..."`,
-        type: 'SYSTEM',
+        type: 'HELPDESK',
         priority: 'MEDIUM',
         link: `/helpdesk`
       });

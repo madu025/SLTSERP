@@ -35,6 +35,27 @@ export class GRNService {
         const { storeId, sourceType, supplier, receivedById, items, requestId, sltReferenceId } = data;
 
         return await prisma.$transaction(async (tx: TransactionClient) => {
+            // Promote CUSTOM/Unregistered items to standard SLTS type
+            const rawItemIds = items.map((i) => i.itemId);
+            const dbItems = await tx.inventoryItem.findMany({
+                where: { id: { in: rawItemIds } }
+            });
+            for (const dbItem of dbItems) {
+                if (dbItem.type === 'CUSTOM' || dbItem.code.startsWith('UNREG-')) {
+                    const newCode = `MAT-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+                    await tx.inventoryItem.update({
+                        where: { id: dbItem.id },
+                        data: {
+                            type: 'SLTS',
+                            code: newCode,
+                            description: dbItem.description 
+                                ? `${dbItem.description} (Registered via GRN)`
+                                : `Registered via GRN`
+                        }
+                    });
+                }
+            }
+
             // 1. Create GRN
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const grn = await (tx as any).gRN.create({
@@ -269,6 +290,6 @@ export class GRNService {
 
             emitSystemEvent('INVENTORY_UPDATE');
             return grn;
-        });
+        }, { timeout: 30000 });
     }
 }

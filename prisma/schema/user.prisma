@@ -59,6 +59,7 @@ model User {
   managedSiteOffices            SiteOffice[]             @relation("SiteOfficeAdmin")
   siteOfficeRequests            SiteOfficeRequest[]      @relation("SiteOfficeRequests")
   handoversPerformed            AssetHandoverLog[]       @relation("HandoverPerformed")
+  pushSubscriptions             PushSubscription[]
 
   @@index([role])
   @@index([supervisorId])
@@ -136,5 +137,19 @@ model NotificationPreference {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
+  @@index([userId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
   @@index([userId])
 }

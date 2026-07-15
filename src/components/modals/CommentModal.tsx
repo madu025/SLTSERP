@@ -7,7 +7,6 @@ import * as z from "zod";
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { MessageSquare, History } from "lucide-react";
+import { MessageSquare, History, X } from "lucide-react";
 import { DetailedServiceOrder, ServiceOrderComment } from "@/types/service-order";
 
 const commentSchema = z.object({
@@ -83,13 +82,25 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-6 pb-2">
-                    <DialogTitle className="text-xl font-black uppercase tracking-tight text-slate-900 flex items-center gap-2">
+            <DialogContent 
+                showCloseButton={false}
+                className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+            >
+                <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                    <div className="absolute top-0 right-0 p-5">
+                        <button 
+                            type="button"
+                            onClick={onClose} 
+                            className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                         <MessageSquare className="w-5 h-5 text-rose-600" />
                         Add Internal Note
                     </DialogTitle>
-                </DialogHeader>
+                </div>
 
                 <div className="flex-1 overflow-y-auto px-6 space-y-6 pb-6">
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
@@ -147,7 +158,7 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
                     </div>
                 </div>
 
-                <div className="px-6 pb-6 border-t pt-4">
+                <div className="p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                     <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                         <FormField
@@ -168,7 +179,7 @@ export default function CommentModal({ isOpen, onClose, onSubmit, selectedOrder,
                             )}
                         />
 
-                        <div className="flex gap-3 justify-end pt-4">
+                        <div className="flex gap-3 justify-end pt-2">
                             <Button type="button" variant="outline" onClick={onClose}>
                                 Cancel
                             </Button>

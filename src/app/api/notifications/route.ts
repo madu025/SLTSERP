@@ -1,46 +1,43 @@
-import { NextResponse } from 'next/server';
-import { NotificationService, AppointmentNotificationService } from '@/services/notification.service';
+import { apiHandler } from '@/lib/api-handler';
+import { NotificationService } from '@/services/notification.service';
 
-export async function GET(request: Request) {
-    try {
-        const userId = request.headers.get('x-user-id');
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+import { prisma } from '@/lib/prisma';
 
-        // Trigger today's appointments and reminder checks in background
-        AppointmentNotificationService.checkAndNotify(userId).catch(err => {
-            console.error('Failed to run appointment notification check:', err);
+export const dynamic = 'force-dynamic';
+
+export const PATCH = apiHandler(async (request, context, { user }) => {
+    const { searchParams } = new URL(request.url);
+    const link = searchParams.get('link');
+    const type = searchParams.get('type');
+    let opmcId = searchParams.get('opmcId');
+    const rtom = searchParams.get('rtom');
+
+    if (rtom) {
+        const opmc = await prisma.oPMC.findUnique({
+            where: { rtom },
+            select: { id: true }
         });
-
-        const notifications = await NotificationService.getUserNotifications(userId);
-        return NextResponse.json(notifications);
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: message }, { status: 500 });
+        if (opmc) {
+            opmcId = opmc.id;
+        }
     }
-}
 
-export async function PATCH(request: Request) {
-    try {
-        const userId = request.headers.get('x-user-id');
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-        await NotificationService.markAllAsRead(userId);
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: message }, { status: 500 });
+    if (link) {
+        await NotificationService.markLinkAsRead(user.id, link, opmcId);
+    } else if (type) {
+        await NotificationService.markTypeAsRead(user.id, type);
+    } else {
+        await NotificationService.markAllAsRead(user.id);
     }
-}
+    return { success: true };
+});
 
-export async function DELETE(request: Request) {
-    try {
-        const userId = request.headers.get('x-user-id');
-        if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-        await NotificationService.deleteAll(userId);
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return NextResponse.json({ error: message }, { status: 500 });
+export const DELETE = apiHandler(async (request, context, { user }) => {
+    await NotificationService.deleteAll(user.id);
+    return { success: true };
+}, {
+    audit: {
+        action: 'DELETE',
+        entity: 'Notification'
     }
-}
+});

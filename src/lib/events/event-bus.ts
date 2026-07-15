@@ -1,11 +1,18 @@
 import { redis } from '../redis';
 import Redis from 'ioredis';
 import { EventBus } from './event-bus.interface';
+import { EventEmitter } from 'events';
 
 export class RedisEventBus implements EventBus {
     private subscriber: Redis | null = null;
+    private localEmitter = new EventEmitter();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private handlers = new Map<string, Set<(data: any) => void>>();
+
+    constructor() {
+        // Set higher limits for local event listeners if needed
+        this.localEmitter.setMaxListeners(100);
+    }
 
     private getSubscriber(): Redis {
         if (!this.subscriber) {
@@ -48,15 +55,28 @@ export class RedisEventBus implements EventBus {
     }
 
     async publish(channel: string, data: unknown): Promise<void> {
+        // Always emit locally first to support seamless local development without active Redis
+        try {
+            this.localEmitter.emit(channel, data);
+        } catch (err) {
+            console.error(`Failed to publish event locally on channel ${channel}:`, err);
+        }
+
         try {
             await redis.publish(channel, JSON.stringify(data));
         } catch (err) {
-            console.error(`Failed to publish event to channel ${channel}:`, err);
+            // Only log redis errors in production or when explicitly debugging
+            if (process.env.NODE_ENV === 'production') {
+                console.error(`Failed to publish event to Redis channel ${channel}:`, err);
+            }
         }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     subscribe(channel: string, callback: (data: any) => void): () => void {
+        // Register local handler
+        this.localEmitter.on(channel, callback);
+
         const sub = this.getSubscriber();
 
         let set = this.handlers.get(channel);
@@ -64,19 +84,25 @@ export class RedisEventBus implements EventBus {
             set = new Set();
             this.handlers.set(channel, set);
             sub.subscribe(channel).catch(err => {
-                console.error(`Redis subscription failed for channel ${channel}:`, err);
+                if (process.env.NODE_ENV === 'production') {
+                    console.error(`Redis subscription failed for channel ${channel}:`, err);
+                }
             });
         }
         set.add(callback);
 
         return () => {
+            this.localEmitter.off(channel, callback);
+
             const currentSet = this.handlers.get(channel);
             if (currentSet) {
                 currentSet.delete(callback);
                 if (currentSet.size === 0) {
                     this.handlers.delete(channel);
                     sub.unsubscribe(channel).catch(err => {
-                        console.error(`Redis unsubscribe failed for channel ${channel}:`, err);
+                        if (process.env.NODE_ENV === 'production') {
+                            console.error(`Redis unsubscribe failed for channel ${channel}:`, err);
+                        }
                     });
                 }
             }

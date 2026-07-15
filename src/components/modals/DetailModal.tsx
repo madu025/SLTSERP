@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,8 @@ import {
     Smartphone,
     User,
     GitBranch,
-    MessageSquare
+    MessageSquare,
+    X
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -144,9 +144,21 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-4xl h-[90vh] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
-                <DialogHeader className="p-6 pb-0">
-                    <div className="flex items-center justify-between">
+            <DialogContent 
+                showCloseButton={false}
+                className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] md:w-[65vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+            >
+                <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                    <div className="absolute top-0 right-0 p-5">
+                        <button 
+                            type="button"
+                            onClick={onClose} 
+                            className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <div className="flex items-center justify-between mr-8">
                         <div>
                             <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
                                 <Box className="w-5 h-5 text-blue-600" />
@@ -163,7 +175,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                             </Badge>
                         </div>
                     </div>
-                </DialogHeader>
+                </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
                     <div className="px-6 border-b">
@@ -741,7 +753,7 @@ export default function DetailModal({ isOpen, onClose, selectedOrder }: DetailMo
                     </ScrollArea>
                 </Tabs>
 
-                <div className="p-4 border-t flex justify-between items-center bg-slate-50">
+                <div className="p-5 border-t flex justify-between items-center bg-slate-50 dark:bg-slate-900/20 shrink-0">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
                         PHOENIX ERP v4.1.0 • Forensic Capture Suite
                     </p>

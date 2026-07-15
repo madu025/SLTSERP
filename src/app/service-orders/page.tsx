@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
@@ -36,6 +37,9 @@ const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportMo
 
 export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'completed' | 'return'; pageTitle?: string; }) {
     const queryClient = useQueryClient();
+    const searchParams = useSearchParams();
+    const urlSearch = searchParams.get('search');
+    const urlRtom = searchParams.get('rtom');
 
     const getStatusColorClass = (status: string) => {
         const s = status ? status.toUpperCase() : '';
@@ -60,8 +64,8 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [selectedRtom, setSelectedRtom] = useState<string>("");
     const [selectedMonth] = useState<string>(String(new Date().getMonth() + 1));
     const [selectedYear] = useState<string>(String(new Date().getFullYear()));
-    const [searchTerm, setSearchTerm] = useState("");
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(urlSearch || "");
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(urlSearch || "");
 
     useEffect(() => {
         const handler = setTimeout(() => {
@@ -69,7 +73,13 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
         }, 400);
         return () => clearTimeout(handler);
     }, [searchTerm]);
-    const [showMetrics, setShowMetrics] = useState<boolean>(true);
+    const [showMetrics, setShowMetrics] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const storedShowMetrics = localStorage.getItem('sod_show_metrics');
+            return storedShowMetrics !== 'false';
+        }
+        return true;
+    });
     const [statusFilter, setStatusFilter] = useState(filterType === 'completed' ? 'ALL' : 'DEFAULT');
     const [patFilter] = useState(pageTitle === 'Invoicable Service Orders' ? 'READY' : "ALL");
     const [matFilter] = useState("ALL");
@@ -87,24 +97,34 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     const [showExcelModal, setShowExcelModal] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<ServiceOrder | null>(null);
 
-    const [isSheetMode, setIsSheetMode] = useState<boolean>(false);
+    const isSheetMode = true;
+
+    const clearSodNotifications = React.useCallback(async () => {
+        if (!selectedRtomId) return;
+        try {
+            await fetch(`/api/notifications?link=/service-orders&opmcId=${selectedRtomId}&_t=${Date.now()}`, {
+                method: 'PATCH'
+            });
+            window.dispatchEvent(new Event('slts-notification'));
+        } catch (err) {
+            console.error("Failed to clear SOD notifications:", err);
+        }
+    }, [selectedRtomId]);
 
     useEffect(() => {
-        const storedShowMetrics = localStorage.getItem('sod_show_metrics');
-        if (storedShowMetrics === 'false') {
-            setShowMetrics(false);
-        }
-        const storedSheetMode = localStorage.getItem('sod_sheet_mode') === 'true';
-        setIsSheetMode(storedSheetMode);
-    }, []);
+        clearSodNotifications();
+    }, [filterType, clearSodNotifications]);
 
-    const toggleSheetMode = () => {
-        setIsSheetMode(prev => {
-            const next = !prev;
-            localStorage.setItem("sod_sheet_mode", String(next));
-            return next;
-        });
-    };
+    useEffect(() => {
+        const handleNotification = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail) {
+                clearSodNotifications();
+            }
+        };
+        window.addEventListener('slts-notification', handleNotification);
+        return () => window.removeEventListener('slts-notification', handleNotification);
+    }, [clearSodNotifications]);
 
     // --- HOOKS ---
     const { syncMutation, addOrderMutation, updateStatusMutation, scheduleMutation, commentMutation } = useSODOperations(selectedRtomId, selectedRtom);
@@ -191,15 +211,36 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
     useEffect(() => {
         // Only set default if one isn't already set and we have OPMCs
         if (safeOpmcs.length > 0 && !selectedRtomId && !hasSetDefault.current) {
-            const firstOpmc = safeOpmcs[0];
+            const matchedOpmc = urlRtom ? safeOpmcs.find(o => o.rtom === urlRtom) : null;
+            const defaultOpmc = matchedOpmc || safeOpmcs[0];
             hasSetDefault.current = true;
             // Use setTimeout to avoid synchronous setState warning and cascading renders
             setTimeout(() => {
-                setSelectedRtomId(firstOpmc.id);
-                setSelectedRtom(firstOpmc.rtom);
+                setSelectedRtomId(defaultOpmc.id);
+                setSelectedRtom(defaultOpmc.rtom);
             }, 0);
         }
-    }, [safeOpmcs, selectedRtomId]);
+    }, [safeOpmcs, selectedRtomId, urlRtom]);
+
+    useEffect(() => {
+        if (urlSearch && urlSearch !== searchTerm) {
+            setTimeout(() => {
+                setSearchTerm(urlSearch);
+            }, 0);
+        }
+    }, [urlSearch, searchTerm]);
+
+    useEffect(() => {
+        if (urlRtom && safeOpmcs.length > 0) {
+            const matchedOpmc = safeOpmcs.find(o => o.rtom === urlRtom);
+            if (matchedOpmc && matchedOpmc.id !== selectedRtomId) {
+                setTimeout(() => {
+                    setSelectedRtomId(matchedOpmc.id);
+                    setSelectedRtom(matchedOpmc.rtom);
+                }, 0);
+            }
+        }
+    }, [urlRtom, safeOpmcs, selectedRtomId]);
 
     const handleOpmcChange = (value: string) => {
         const opmc = safeOpmcs.find(o => o.id === value);
@@ -250,19 +291,6 @@ export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 
                                 <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground mt-0.5">Service Order Management</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button
-                                    variant={isSheetMode ? "default" : "outline"}
-                                    size="sm"
-                                    className={`h-8 font-bold shadow-sm ${
-                                        isSheetMode 
-                                            ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30' 
-                                            : 'border-border/40 hover:bg-muted text-foreground'
-                                    }`}
-                                    onClick={toggleSheetMode}
-                                >
-                                    <FileSpreadsheet className="w-3.5 h-3.5 mr-2" />
-                                    {isSheetMode ? 'Standard View' : 'Google Sheet Mode'}
-                                </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"

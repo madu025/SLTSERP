@@ -94,10 +94,14 @@ export class SODSyncService {
             }
 
             if (matchingOrders.length > 0) {
-                await addJob(statsUpdateQueue, `stats-${opmcId}`, {
-                    opmcId,
-                    type: 'SINGLE_OPMC'
-                });
+                try {
+                    await addJob(statsUpdateQueue, `stats-${opmcId}`, {
+                        opmcId,
+                        type: 'SINGLE_OPMC'
+                    });
+                } catch (queueErr) {
+                    console.warn(`[PAT-SYNC] Failed to queue stats update for OPMC ${opmcId}:`, queueErr);
+                }
             }
 
             return { total: sltData.length, updated: matchingOrders.length };
@@ -583,7 +587,29 @@ export class SODSyncService {
         }
 
         if (created > 0 || updated > 0) {
-            await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+            try {
+                await addJob(statsUpdateQueue, `stats-${opmcId}`, { opmcId, type: 'SINGLE_OPMC' });
+            } catch (queueErr) {
+                console.warn(`[SYNC] Failed to queue stats update for OPMC ${opmcId} (Redis offline):`, queueErr);
+            }
+        }
+
+        if (created > 0) {
+            try {
+                const { NotificationService } = await import('@/services/notification.service');
+                await NotificationService.notifyByRole({
+                    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT'],
+                    title: 'New Service Orders Synced',
+                    message: `${created} new pending service orders were synced in the latest portal update.`,
+                    type: 'SYSTEM',
+                    priority: 'MEDIUM',
+                    link: '/service-orders',
+                    opmcId,
+                    metadata: { count: created, opmcId }
+                });
+            } catch (err) {
+                console.error('[SYNC-NOTIFY] Failed to broadcast new SOD notifications:', err);
+            }
         }
 
         return { created, updated };
@@ -640,6 +666,7 @@ export class SODSyncService {
         currentUser?: string;
         activeTab?: string;
         url?: string;
+        commentsList?: { date?: string; user?: string; comment?: string }[];
     }) {
         const { soNum, allTabs, teamDetails, forensicAudit } = payload;
         const MATERIAL_MAP: Record<string, string> = {
@@ -932,7 +959,7 @@ export class SODSyncService {
         }
 
         // Sync comments list to ServiceOrderComment table if present in payload
-        const commentsList = (payload as any).commentsList || [];
+        const commentsList = payload.commentsList || [];
         if (syncedOrder && commentsList.length > 0) {
             try {
                 for (const c of commentsList) {
@@ -969,14 +996,14 @@ export class SODSyncService {
                 if (syncedOrder.sltsStatus === 'RETURN') {
                     const { NotificationService } = await import('@/services/notification.service');
                     await NotificationService.notifyByRole({
-                        roles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER'],
+                        roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER', 'SA_MANAGER', 'SA_ASSISTANT'],
                         title: 'SOD Returned (Bridge Sync)',
                         message: `Service Order ${syncedOrder.soNum} was marked as RETURN via Extension. Reason: ${mapping.returnReason || 'N/A'}.`,
                         type: 'PROJECT',
                         priority: 'HIGH',
                         link: '/service-orders/return',
                         opmcId: syncedOrder.opmcId,
-                        metadata: { soNum: syncedOrder.soNum, id: syncedOrder.id }
+                        metadata: { soNum: syncedOrder.soNum, id: syncedOrder.id, opmcId: syncedOrder.opmcId }
                     });
                 }
             } catch { /* ignore */ }

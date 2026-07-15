@@ -20,7 +20,7 @@ export class StockRequestService {
     static async createStockRequest(data: {
         fromStoreId: string;
         requestedById: string;
-        items: { itemId: string; requestedQty: string | number; remarks?: string; make?: string; model?: string; suggestedVendor?: string }[];
+        items: { itemId: string; requestedQty: string | number; remarks?: string; make?: string; model?: string; suggestedVendor?: string; isCustom?: boolean; customName?: string }[];
         toStoreId?: string;
         priority?: string;
         requiredDate?: string;
@@ -29,8 +29,9 @@ export class StockRequestService {
         projectTypes?: string[];
         maintenanceMonths?: string;
         irNumber?: string;
+        sltReferenceId?: string; // Used for saving memo/attachment URL
     }): Promise<StockRequest> {
-        const { fromStoreId, toStoreId, requestedById, items, priority, requiredDate, purpose, sourceType, projectTypes, maintenanceMonths, irNumber } = data;
+        const { fromStoreId, toStoreId, requestedById, items, priority, requiredDate, purpose, sourceType, projectTypes, maintenanceMonths, irNumber, sltReferenceId } = data;
 
         const fromStore = await InventoryRepository.findStoreById(fromStoreId);
         if (!fromStore) throw new Error("INVALID_STORE");
@@ -50,6 +51,37 @@ export class StockRequestService {
 
         const initialWorkflowStage = fromStore.type === 'SUB' ? 'ARM_APPROVAL' : 'OSP_MANAGER_APPROVAL';
 
+        // Process items: create ad-hoc InventoryItems for custom/unregistered items
+        const processedItems = [];
+        for (const i of items) {
+            let finalItemId = i.itemId;
+            if (i.isCustom || i.itemId === 'custom') {
+                const customName = i.customName || (typeof i.remarks === 'string' ? i.remarks : 'Unregistered Item');
+                const randomId = Math.floor(1000 + Math.random() * 9000);
+                const code = `UNREG-${Date.now()}-${randomId}`;
+                const customItem = await prisma.inventoryItem.create({
+                    data: {
+                        code,
+                        name: customName,
+                        description: `Ad-hoc Unregistered Item requested via Requisition ${code}`,
+                        unit: 'Nos',
+                        type: 'CUSTOM',
+                        category: 'OTHERS'
+                    }
+                });
+                finalItemId = customItem.id;
+            }
+
+            processedItems.push({
+                itemId: finalItemId,
+                requestedQty: parseFloat(i.requestedQty.toString()),
+                remarks: i.remarks || null,
+                make: i.make || null,
+                model: i.model || null,
+                suggestedVendor: i.suggestedVendor || null
+            });
+        }
+
         const req = await StockRequestRepository.create({
             requestNr: StockRequestService.generateRequestId(),
             fromStoreId,
@@ -64,15 +96,9 @@ export class StockRequestService {
             projectTypes: projectTypes || [],
             maintenanceMonths: maintenanceMonths || null,
             irNumber: irNumber || null,
+            sltReferenceId: sltReferenceId || null, // Attachment URL stored here
             items: {
-                create: items.map((i) => ({
-                    itemId: i.itemId,
-                    requestedQty: parseFloat(i.requestedQty.toString()),
-                    remarks: i.remarks || null,
-                    make: i.make || null,
-                    model: i.model || null,
-                    suggestedVendor: i.suggestedVendor || null
-                }))
+                create: processedItems
             }
         });
 

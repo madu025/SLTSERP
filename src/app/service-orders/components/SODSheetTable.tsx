@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
-import { Info, MessageSquare, CheckCircle2, Loader2, Check } from "lucide-react";
+import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SODSheetTableProps {
@@ -917,6 +917,15 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             {order.comments && (
                                                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
                                             )}
+                                        </Button>
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-6 w-6 hover:bg-indigo-500/10"
+                                            title="Schedule Appointment"
+                                            onClick={() => onOpenModal(order, "schedule")}
+                                        >
+                                            <Calendar className="w-3.5 h-3.5 text-indigo-400" />
                                         </Button>
                                         <Button
                                             size="icon"

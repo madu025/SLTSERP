@@ -30,6 +30,7 @@ export default function NotificationBell() {
     const queryClient = useQueryClient();
     const [userId, setUserId] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [animateBell, setAnimateBell] = useState(false);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -77,6 +78,8 @@ export default function NotificationBell() {
                     // 2. Handle User Notifications
                     const newNotification = data;
                     console.log("New real-time notification received:", newNotification);
+                    setAnimateBell(true);
+                    setTimeout(() => setAnimateBell(false), 600);
 
                     // Play Notification Sound
                     try {
@@ -142,16 +145,16 @@ export default function NotificationBell() {
             try {
                 const res = await fetch(`/api/notifications`);
                 if (!res.ok) return [];
-                const data = await res.json();
-                return Array.isArray(data) ? data : [];
+                const json = await res.json();
+                return Array.isArray(json.data) ? json.data : [];
             } catch (err) {
                 console.error("Fetch notifications error:", err);
                 return [];
             }
         },
         enabled: !!userId,
-        staleTime: 300000, // 👈 Optimized: Keep cached notifications fresh for 5 minutes
-        refetchOnWindowFocus: false // 👈 Optimized: SSE handles real-time updates, no need to refetch on focus
+        staleTime: 15000, // 15 seconds cache freshness for quick fallback
+        refetchOnWindowFocus: true
     });
 
     const safeNotifications = Array.isArray(notifications) ? notifications : [];
@@ -235,15 +238,36 @@ export default function NotificationBell() {
 
     return (
         <Popover>
+            <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes badgePulse {
+                    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+                    70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                }
+                @keyframes bellWiggle {
+                    0%, 100% { transform: rotate(0); }
+                    15% { transform: rotate(-15deg); }
+                    30% { transform: rotate(10deg); }
+                    45% { transform: rotate(-10deg); }
+                    60% { transform: rotate(5deg); }
+                    75% { transform: rotate(-5deg); }
+                }
+                .animate-badge-pulse {
+                    animation: badgePulse 2s infinite;
+                }
+                .animate-bell-wiggle {
+                    animation: bellWiggle 0.6s ease-in-out;
+                }
+            `}} />
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="relative transition-all hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full w-9 h-9">
+                    <Bell className={`h-5 w-5 text-slate-600 dark:text-slate-300 ${animateBell ? 'animate-bell-wiggle' : ''}`} />
                     {unreadCount > 0 && (
-                        <Badge
-                            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs"
+                        <span
+                            className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1.5 flex items-center justify-center bg-gradient-to-br from-red-500 to-rose-600 text-white font-bold rounded-full text-[9px] border-2 border-white dark:border-slate-900 shadow-md shadow-red-500/30 animate-badge-pulse"
                         >
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                        </Badge>
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
                     )}
                 </Button>
             </PopoverTrigger>

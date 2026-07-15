@@ -240,6 +240,39 @@ export function useOrderAction(
         });
     };
 
+    const quickAddMaterial = (item: InventoryItem) => {
+        const isDropWire = item.code === 'OSPFTA003';
+        const field = isDropWire ? 'f1Qty' : 'usedQty';
+        
+        setExtendedMaterialRows(prev => {
+            const existingIdx = prev.findIndex(r => r.itemId === item.id);
+            if (existingIdx >= 0) {
+                const currentVal = parseFloat(prev[existingIdx][field] || '0');
+                const increment = isDropWire ? 10 : 1;
+                const updated = [...prev];
+                updated[existingIdx] = {
+                    ...updated[existingIdx],
+                    [field]: String(currentVal + increment)
+                };
+                return updated;
+            } else {
+                return [
+                    ...prev,
+                    {
+                        itemId: item.id,
+                        usedQty: isDropWire ? "" : "1",
+                        f1Qty: isDropWire ? "10" : "",
+                        g1Qty: "",
+                        wastageQty: "",
+                        wastageReason: "",
+                        serialNumber: ""
+                    }
+                ];
+            }
+        });
+        toast.success(`Added ${item.name}`);
+    };
+
     return {
         state: {
             date, comment, reason, customReason, ontType, ontSerialNumber, iptvSerials, dpDetails,
@@ -257,11 +290,13 @@ export function useOrderAction(
             setAssignmentType, setDirectTeamName, setActiveTab, setWiredOnly, setStbShortage, setOntShortage,
             setDelayReasons,
             addExtendedRow: () => setExtendedMaterialRows([...extendedMaterialRows, { itemId: '', usedQty: '', wastageQty: '', wastageReason: '', serialNumber: '' }]),
+            quickAddMaterial,
             updateExtendedRow: (idx: number, field: keyof MaterialUsageRow, value: string) => {
                 const r = [...extendedMaterialRows]; r[idx] = { ...r[idx], [field]: value }; setExtendedMaterialRows(r);
             },
             removeExtendedRow: (idx: number) => setExtendedMaterialRows(extendedMaterialRows.filter((_, i) => i !== idx)),
             addCollectedCpeRow: () => setCollectedCpes([...collectedCpes, { deviceType: 'ONT', serialNumber: '', condition: 'FAULTY' }]),
+            addCollectedCpeWithType: (type: 'ONT' | 'STB' | 'PHONE') => setCollectedCpes([...collectedCpes, { deviceType: type, serialNumber: '', condition: 'FAULTY' }]),
             updateCollectedCpeRow: (idx: number, field: 'deviceType' | 'serialNumber' | 'condition', value: string) => {
                 const c = [...collectedCpes];
                 c[idx] = { ...c[idx], [field]: value };

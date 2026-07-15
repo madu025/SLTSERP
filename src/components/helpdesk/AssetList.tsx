@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw } from "lucide-react";
+import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateAssetSchema, UpdateAssetSchema, CreateAssetHandoverSchema } from "@/lib/validations/helpdesk.schema";
@@ -307,11 +307,24 @@ export default function AssetList({
                 Register Asset
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border border-border/50 shadow-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-base font-bold">Register New IT Device</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 mt-2 text-xs">
+            <DialogContent 
+              showCloseButton={false}
+              className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+            >
+              <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                <div className="absolute top-0 right-0 p-5">
+                  <button 
+                    type="button"
+                    onClick={() => setIsOpen(false)} 
+                    className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white">Register New IT Device</DialogTitle>
+              </div>
+              <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-grow overflow-hidden text-xs">
+                <div className="flex-grow overflow-y-auto p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase">Asset Number</label>
@@ -465,7 +478,8 @@ export default function AssetList({
                   </Select>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2">
+                </div>
+                <div className="flex justify-end gap-2 p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                   <Button type="button" variant="outline" size="sm" onClick={() => setIsOpen(false)} className="h-8 text-xs">
                     Cancel
                   </Button>
@@ -570,14 +584,27 @@ export default function AssetList({
         </Table>
       </div>
 
-      {/* Edit Asset Dialog */}
+      {/* Edit Asset Drawer */}
       <Dialog open={!!editAsset} onOpenChange={(open) => !open && setEditAsset(null)}>
         {editAsset && (
-          <DialogContent className="max-w-lg bg-card/95 backdrop-blur-xl border border-border/50 shadow-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-sm font-bold">Edit Asset — {editAsset.assetNumber}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-3 mt-1 text-xs">
+          <DialogContent 
+            showCloseButton={false}
+            className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+          >
+            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+              <div className="absolute top-0 right-0 p-5">
+                <button 
+                  type="button"
+                  onClick={() => setEditAsset(null)} 
+                  className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white">Edit Asset — {editAsset.assetNumber}</DialogTitle>
+            </div>
+            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="flex flex-col flex-grow overflow-hidden text-xs">
+              <div className="flex-grow overflow-y-auto p-6 space-y-4 mt-0">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase">Asset No</label>
@@ -679,7 +706,8 @@ export default function AssetList({
                   </Select>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
+              </div>
+              <div className="flex justify-end gap-2 p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                 <Button type="button" variant="outline" size="sm" onClick={() => setEditAsset(null)} className="h-8 text-xs">Cancel</Button>
                 <Button type="submit" size="sm" disabled={editSubmitting} className="h-8 text-xs text-white bg-primary">
                   {editSubmitting ? "Saving..." : "Save Changes"}
@@ -713,19 +741,32 @@ export default function AssetList({
         )}
       </Dialog>
 
-      {/* Asset Handover Dialog */}
+      {/* Asset Handover Drawer */}
       <Dialog open={!!handoverAsset} onOpenChange={(open) => !open && setHandoverAsset(null)}>
         {handoverAsset && (
-          <DialogContent className="max-w-xl bg-card/95 backdrop-blur-xl border border-border/50 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            <DialogHeader className="border-b border-border/40 pb-3">
-              <DialogTitle className="text-sm font-bold flex items-center gap-2">
+          <DialogContent 
+            showCloseButton={false}
+            className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+          >
+            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+              <div className="absolute top-0 right-0 p-5">
+                <button 
+                  type="button"
+                  onClick={() => setHandoverAsset(null)} 
+                  className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <ClipboardList className="h-4 w-4 text-primary" />
-                Handover Log — {handoverAsset.assetNumber} ({handoverAsset.brand} {handoverAsset.model})
+                Handover Log
               </DialogTitle>
-            </DialogHeader>
+              <p className="text-[10px] text-muted-foreground mt-1">Asset: {handoverAsset.assetNumber} ({handoverAsset.brand} {handoverAsset.model})</p>
+            </div>
             
-            <div className="flex-1 overflow-y-auto pr-2 pb-2">
-              <form onSubmit={handoverForm.handleSubmit(handleHandoverSubmit)} className="space-y-3 mt-3 text-xs bg-muted/10 p-3 rounded border border-border/40">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <form onSubmit={handoverForm.handleSubmit(handleHandoverSubmit)} className="space-y-3 text-xs bg-muted/10 p-3 rounded border border-border/40">
                 <h4 className="font-bold uppercase text-[10px] text-muted-foreground">Log New Transaction</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -813,7 +854,7 @@ export default function AssetList({
                 )}
               </div>
             </div>
-            <div className="pt-3 border-t border-border/40 flex justify-end">
+            <div className="p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0 flex justify-end">
                <Button variant="outline" size="sm" onClick={() => setHandoverAsset(null)} className="h-8 text-xs">Close</Button>
             </div>
           </DialogContent>

@@ -16,7 +16,8 @@ import {
     AlertTriangle, 
     UserCheck,
     RefreshCw,
-    Laptop
+    Laptop,
+    X
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -372,130 +373,298 @@ export default function AssetCustodyPage() {
                 </main>
             </div>
 
-            {/* ASSIGN ASSET DIALOG */}
+            {/* ASSIGN ASSET DRAWER - Premium Design */}
             <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-                <DialogContent className="bg-[#1E293B] border-slate-700 text-slate-100">
-                    <DialogHeader>
-                        <DialogTitle>Assign Asset Custody</DialogTitle>
-                    </DialogHeader>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-slate-900 border-l border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-slate-100"
+                >
                     {selectedSerial && (
-                        <div className="space-y-4 py-2">
-                            <div className="p-3 bg-[#0F172A] rounded border border-slate-700 text-xs space-y-1">
-                                <p><span className="font-bold text-slate-400">Asset Serial:</span> {selectedSerial.serialNumber}</p>
-                                <p><span className="font-bold text-slate-400">Item Name:</span> {selectedSerial.item?.name}</p>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 uppercase">Select Recipient Staff</label>
-                                <select 
-                                    className="w-full mt-1 bg-[#0F172A] border border-slate-700 text-sm text-slate-300 rounded p-2 outline-none"
-                                    value={targetStaffId}
-                                    onChange={e => setTargetStaffId(e.target.value)}
-                                >
-                                    <option value="">Choose Staff Member...</option>
-                                    {staffList.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name} ({s.employeeId})</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800" onClick={() => setShowAssignDialog(false)}>Cancel</Button>
-                        <Button className="bg-[#0072BB] hover:bg-[#005B96]" onClick={handleAssign} disabled={assignMutation.isPending}>
-                            {assignMutation.isPending ? 'Assigning...' : 'Confirm Assignment'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* HANDOVER ASSET DIALOG */}
-            <Dialog open={showHandoverDialog} onOpenChange={setShowHandoverDialog}>
-                <DialogContent className="bg-[#1E293B] border-slate-700 text-slate-100">
-                    <DialogHeader>
-                        <DialogTitle>Transfer Custody (Handover)</DialogTitle>
-                    </DialogHeader>
-                    {selectedSerial && (
-                        <div className="space-y-4 py-2">
-                            <div className="p-3 bg-[#0F172A] rounded border border-slate-700 text-xs space-y-2">
-                                <p><span className="font-bold text-slate-400">Asset Serial:</span> {selectedSerial.serialNumber}</p>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-slate-400">Current Custodian:</span>
-                                    <span className="text-emerald-400 font-semibold">{selectedSerial.assignedStaff?.name}</span>
-                                </div>
-                            </div>
-                            <div className="flex justify-center text-slate-500">
-                                <ArrowRight className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 uppercase">Select Target Staff</label>
-                                <select 
-                                    className="w-full mt-1 bg-[#0F172A] border border-slate-700 text-sm text-slate-300 rounded p-2 outline-none"
-                                    value={targetStaffId}
-                                    onChange={e => setTargetStaffId(e.target.value)}
-                                >
-                                    <option value="">Choose Recipient Staff...</option>
-                                    {staffList.filter(s => s.id !== selectedSerial.assignedStaffId).map(s => (
-                                        <option key={s.id} value={s.id}>{s.name} ({s.employeeId})</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    )}
-                    <DialogFooter>
-                        <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800" onClick={() => setShowHandoverDialog(false)}>Cancel</Button>
-                        <Button className="bg-[#0072BB] hover:bg-[#005B96]" onClick={handleHandover} disabled={handoverMutation.isPending}>
-                            {handoverMutation.isPending ? 'Transferring...' : 'Transfer Custody'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* RETIRE / RETURN ASSET DIALOG */}
-            <Dialog open={showRetireDialog} onOpenChange={setShowRetireDialog}>
-                <DialogContent className="bg-[#1E293B] border-slate-700 text-slate-100">
-                    <DialogHeader>
-                        <DialogTitle>Retire or Return Serial Asset</DialogTitle>
-                    </DialogHeader>
-                    {selectedSerial && (
-                        <div className="space-y-4 py-2">
-                            <div className="p-3 bg-[#0F172A] rounded border border-slate-700 text-xs space-y-1">
-                                <p><span className="font-bold text-slate-400">Asset Serial:</span> {selectedSerial.serialNumber}</p>
-                                <p><span className="font-bold text-slate-400">Item Name:</span> {selectedSerial.item?.name}</p>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 uppercase">Action/Status</label>
-                                <select 
-                                    className="w-full mt-1 bg-[#0F172A] border border-slate-700 text-sm text-slate-300 rounded p-2 outline-none"
-                                    value={retireStatus}
-                                    onChange={e => setRetireStatus(e.target.value as 'FAULTY' | 'IN_STORE')}
-                                >
-                                    <option value="FAULTY">Retire as Faulty (Broken)</option>
-                                    <option value="IN_STORE">Return to Inventory Store</option>
-                                </select>
-                            </div>
-                            {retireStatus === 'IN_STORE' && (
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase">Select Target Store</label>
-                                    <select 
-                                        className="w-full mt-1 bg-[#0F172A] border border-slate-700 text-sm text-slate-300 rounded p-2 outline-none"
-                                        value={targetStoreId}
-                                        onChange={e => setTargetStoreId(e.target.value)}
+                        <>
+                            {/* Header */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-950/60 border-b border-slate-800/80">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowAssignDialog(false)} 
+                                        className="p-2 rounded-full hover:bg-slate-850 text-slate-400 hover:text-slate-200 transition-colors"
                                     >
-                                        <option value="">Select target store...</option>
-                                        {stores.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name}</option>
-                                        ))}
-                                    </select>
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
-                            )}
-                        </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Asset Management</span>
+                                        <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] px-2 py-0 font-bold rounded-full">
+                                            Assign Custody
+                                        </Badge>
+                                    </div>
+                                    <h2 className="text-xl font-black text-white leading-tight">
+                                        Assign Asset Custody
+                                    </h2>
+                                    <p className="text-xs text-slate-400">
+                                        Assign a serialized asset to an active staff member for field deployment.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Body Split */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-950/20">
+                                {/* Left Panel */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-800/50">
+                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Recipient Staff</label>
+                                            <select 
+                                                className="w-full h-10 bg-slate-950 border border-slate-800 text-xs text-slate-350 rounded-xl px-3 outline-none focus:ring-1 focus:ring-sky-500"
+                                                value={targetStaffId}
+                                                onChange={e => setTargetStaffId(e.target.value)}
+                                            >
+                                                <option value="">Choose Staff Member...</option>
+                                                {staffList.map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name} ({s.employeeId})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Panel */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-950/40 border-l border-slate-800/50">
+                                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Laptop className="w-3.5 h-3.5 text-sky-500" /> Asset Profile
+                                        </h4>
+                                        <div className="space-y-3.5 text-xs">
+                                            <div className="pb-3 border-b border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Serial Number</span>
+                                                <span className="font-mono font-bold text-slate-200 text-xs">{selectedSerial.serialNumber}</span>
+                                            </div>
+                                            <div className="pb-3 border-b border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Material Name</span>
+                                                <span className="font-bold text-slate-200 text-xs">{selectedSerial.item?.name}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Product Code</span>
+                                                <span className="font-mono font-bold text-slate-400 text-xs">{selectedSerial.item?.code}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
+                                <Button variant="outline" onClick={() => setShowAssignDialog(false)} className="h-9 px-4 text-xs font-bold rounded-xl border-slate-800 hover:bg-slate-850 text-slate-300">
+                                    Cancel
+                                </Button>
+                                <Button className="h-9 px-5 text-xs font-bold text-white rounded-xl bg-sky-600 hover:bg-sky-700 shadow-sm" onClick={handleAssign} disabled={assignMutation.isPending}>
+                                    {assignMutation.isPending ? 'Assigning...' : 'Confirm Assignment'}
+                                </Button>
+                            </div>
+                        </>
                     )}
-                    <DialogFooter>
-                        <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800" onClick={() => setShowRetireDialog(false)}>Cancel</Button>
-                        <Button className="bg-rose-600 hover:bg-rose-700" onClick={handleRetire} disabled={retireMutation.isPending}>
-                            {retireMutation.isPending ? 'Updating...' : 'Confirm Update'}
-                        </Button>
-                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* HANDOVER ASSET DRAWER - Premium Design */}
+            <Dialog open={showHandoverDialog} onOpenChange={setShowHandoverDialog}>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-slate-900 border-l border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-slate-100"
+                >
+                    {selectedSerial && (
+                        <>
+                            {/* Header */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-950/60 border-b border-slate-800/80">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowHandoverDialog(false)} 
+                                        className="p-2 rounded-full hover:bg-slate-850 text-slate-400 hover:text-slate-200 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Asset Management</span>
+                                        <Badge className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[9px] px-2 py-0 font-bold rounded-full">
+                                            Transfer Custody
+                                        </Badge>
+                                    </div>
+                                    <h2 className="text-xl font-black text-white leading-tight">
+                                        Transfer Custody (Handover)
+                                    </h2>
+                                    <p className="text-xs text-slate-400">
+                                        Transfer ownership and accountability of this asset from one staff member to another.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Body Split */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-950/20">
+                                {/* Left Panel */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-800/50">
+                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Recipient Staff</label>
+                                            <select 
+                                                className="w-full h-10 bg-slate-950 border border-slate-800 text-xs text-slate-350 rounded-xl px-3 outline-none focus:ring-1 focus:ring-sky-500"
+                                                value={targetStaffId}
+                                                onChange={e => setTargetStaffId(e.target.value)}
+                                            >
+                                                <option value="">Choose Recipient Staff...</option>
+                                                {staffList.filter(s => s.id !== selectedSerial.assignedStaffId).map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name} ({s.employeeId})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Panel */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-950/40 border-l border-slate-800/50">
+                                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Laptop className="w-3.5 h-3.5 text-sky-500" /> Asset Profile
+                                        </h4>
+                                        <div className="space-y-3.5 text-xs">
+                                            <div className="pb-3 border-b border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Serial Number</span>
+                                                <span className="font-mono font-bold text-slate-200 text-xs">{selectedSerial.serialNumber}</span>
+                                            </div>
+                                            <div className="pb-3 border-b border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Current Custodian</span>
+                                                <span className="font-bold text-emerald-400 text-xs">{selectedSerial.assignedStaff?.name}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Item Name</span>
+                                                <span className="font-bold text-slate-350 text-xs">{selectedSerial.item?.name}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
+                                <Button variant="outline" onClick={() => setShowHandoverDialog(false)} className="h-9 px-4 text-xs font-bold rounded-xl border-slate-800 hover:bg-slate-850 text-slate-300">
+                                    Cancel
+                                </Button>
+                                <Button className="h-9 px-5 text-xs font-bold text-white rounded-xl bg-sky-600 hover:bg-sky-700 shadow-sm" onClick={handleHandover} disabled={handoverMutation.isPending}>
+                                    {handoverMutation.isPending ? 'Transferring...' : 'Transfer Custody'}
+                                </Button>
+                            </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* RETIRE / RETURN ASSET DRAWER - Premium Design */}
+            <Dialog open={showRetireDialog} onOpenChange={setShowRetireDialog}>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-slate-900 border-l border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-slate-100"
+                >
+                    {selectedSerial && (
+                        <>
+                            {/* Header */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-950/60 border-b border-slate-800/80">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowRetireDialog(false)} 
+                                        className="p-2 rounded-full hover:bg-slate-850 text-slate-400 hover:text-slate-200 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Asset Management</span>
+                                        <Badge className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] px-2 py-0 font-bold rounded-full">
+                                            Return / Retire
+                                        </Badge>
+                                    </div>
+                                    <h2 className="text-xl font-black text-white leading-tight">
+                                        Retire or Return Serial Asset
+                                    </h2>
+                                    <p className="text-xs text-slate-400">
+                                        Change asset status to faulty or return it to inventory stores database.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Body Split */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-950/20">
+                                {/* Left Panel */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-800/50">
+                                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Action / Status</label>
+                                            <select 
+                                                className="w-full h-10 bg-slate-950 border border-slate-800 text-xs text-slate-350 rounded-xl px-3 outline-none focus:ring-1 focus:ring-sky-500"
+                                                value={retireStatus}
+                                                onChange={e => setRetireStatus(e.target.value as 'FAULTY' | 'IN_STORE')}
+                                            >
+                                                <option value="FAULTY">Retire as Faulty (Broken)</option>
+                                                <option value="IN_STORE">Return to Inventory Store</option>
+                                            </select>
+                                        </div>
+
+                                        {retireStatus === 'IN_STORE' && (
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Target Store</label>
+                                                <select 
+                                                    className="w-full h-10 bg-slate-950 border border-slate-800 text-xs text-slate-350 rounded-xl px-3 outline-none focus:ring-1 focus:ring-sky-500"
+                                                    value={targetStoreId}
+                                                    onChange={e => setTargetStoreId(e.target.value)}
+                                                >
+                                                    <option value="">Select target store...</option>
+                                                    {stores.map(s => (
+                                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Panel */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-950/40 border-l border-slate-800/50">
+                                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Laptop className="w-3.5 h-3.5 text-sky-500" /> Asset Profile
+                                        </h4>
+                                        <div className="space-y-3.5 text-xs">
+                                            <div className="pb-3 border-b border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Serial Number</span>
+                                                <span className="font-mono font-bold text-slate-200 text-xs">{selectedSerial.serialNumber}</span>
+                                            </div>
+                                            <div className="pb-3 border-b border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-500 block uppercase">Item Name</span>
+                                                <span className="font-bold text-slate-200 text-xs">{selectedSerial.item?.name}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
+                                <Button variant="outline" onClick={() => setShowRetireDialog(false)} className="h-9 px-4 text-xs font-bold rounded-xl border-slate-800 hover:bg-slate-850 text-slate-300">
+                                    Cancel
+                                </Button>
+                                <Button className="h-9 px-5 text-xs font-bold text-white rounded-xl bg-rose-600 hover:bg-rose-700 shadow-sm" onClick={handleRetire} disabled={retireMutation.isPending}>
+                                    {retireMutation.isPending ? 'Updating...' : 'Confirm Update'}
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>

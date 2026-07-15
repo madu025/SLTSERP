@@ -1,17 +1,30 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
 import SyncStatus from './SyncStatus';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Bell, X, CheckCheck } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface User {
+    id: string;
     name: string;
     role: string;
     username: string;
+}
+
+interface SidebarNotification {
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    priority: string;
+    link?: string;
+    isRead: boolean;
+    createdAt: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -36,6 +49,216 @@ export default function Sidebar() {
     const [expandedSubMenus, setExpandedSubMenus] = useState<string[]>([]);
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const currentRtom = searchParams.get('rtom');
+
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [notifications, setNotifications] = useState<SidebarNotification[]>([]);
+    const [showDrawer, setShowDrawer] = useState(false);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+    const [menuCounts, setMenuCounts] = useState<Record<string, number>>({
+        approvals: 0,
+        serviceOrders: 0,
+        helpdesk: 0,
+        procurementApprovals: 0,
+        contractorApprovals: 0,
+        materialRequests: 0,
+        materialApprovals: 0
+    });
+
+    const fetchMenuCounts = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            const res = await fetch(`/api/notifications/sidebar-counts?_t=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success && data.data) {
+                    setMenuCounts(data.data);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch sidebar menu counts:", err);
+        }
+    }, [user?.id]);
+
+    const getMenuCount = (title: string) => {
+        switch (title) {
+            case 'Service Orders': return menuCounts.serviceOrders;
+            case 'Inventory / Stores': return menuCounts.materialRequests + menuCounts.materialApprovals;
+            case 'Approvals': return menuCounts.procurementApprovals + menuCounts.contractorApprovals;
+            case 'Projects': return menuCounts.approvals; // project approval steps pending
+            case 'IT Help Desk': return menuCounts.helpdesk;
+            default: return 0;
+        }
+    };
+
+    const getSubMenuCount = (title: string) => {
+        switch (title) {
+            case 'Pending SOD': return menuCounts.serviceOrders;
+            case 'Material Requests': return menuCounts.materialRequests;
+            case 'Material Approvals': return menuCounts.materialApprovals;
+            case 'Procurement Approvals': return menuCounts.procurementApprovals;
+            case 'Contractor Registration Approvals': return menuCounts.contractorApprovals;
+            case 'IT Dashboard (Staff)': return menuCounts.helpdesk;
+            case 'Project Approvals': return menuCounts.approvals;
+            default: return 0;
+        }
+    };
+
+    const fetchNotifications = useCallback(async () => {
+        if (!user?.id) return;
+        setLoadingNotifications(true);
+        try {
+            const res = await fetch(`/api/notifications?_t=${Date.now()}`);
+            if (res.ok) {
+                const json = await res.json();
+                const list = Array.isArray(json.data) ? json.data : [];
+                setNotifications(list.slice(0, 8)); // latest 8 notifications in sidebar drawer
+                setUnreadCount(list.filter((n: SidebarNotification) => !n.isRead).length);
+            }
+        } catch (err) {
+            console.error("Failed to fetch notifications in sidebar:", err);
+        } finally {
+            setLoadingNotifications(false);
+        }
+    }, [user?.id]);
+
+    const handleMarkAllRead = async () => {
+        try {
+            const res = await fetch('/api/notifications', { method: 'PATCH' });
+            if (res.ok) {
+                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                setUnreadCount(0);
+                toast.success("All notifications marked as read");
+            }
+        } catch (err) {
+            console.error("Failed to mark all notifications read:", err);
+        }
+    };
+
+    const handleNotificationClick = async (n: SidebarNotification) => {
+        if (!n.isRead) {
+            try {
+                await fetch(`/api/notifications/${n.id}`, { method: 'PATCH' });
+                setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            } catch (err) {
+                console.error("Failed to mark notification as read:", err);
+            }
+        }
+        setShowDrawer(false);
+        if (n.link) {
+            window.location.href = n.link;
+        }
+    };
+
+    const formatTime = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
+    };
+
+    // Auto-clear notifications when navigating to their respective pages
+    useEffect(() => {
+        if (!mounted || !user?.id) return;
+
+        const matchedLinks = [
+            '/service-orders',
+            '/helpdesk',
+            '/procurement/approvals',
+            '/inventory/stock',
+            '/projects',
+            '/contractors',
+            '/invoices',
+            '/payments'
+        ];
+
+        const match = matchedLinks.find(link => pathname.startsWith(link));
+        if (match) {
+            let url = `/api/notifications?link=${match}`;
+            if (match === '/service-orders' && currentRtom) {
+                url += `&rtom=${currentRtom}`;
+            }
+            fetch(url, { method: 'PATCH' })
+                .then(res => {
+                    if (res.ok) {
+                        fetchNotifications();
+                        fetchMenuCounts();
+                    }
+                })
+                .catch(err => console.error("Failed to auto-clear notifications for link:", err));
+        }
+    }, [pathname, currentRtom, user?.id, mounted, fetchNotifications, fetchMenuCounts]);
+
+    useEffect(() => {
+        if (!mounted || !user?.id) return;
+        
+        fetchNotifications();
+        fetchMenuCounts();
+
+        // SSE Connection for real-time sidebar notifications & counts
+        let eventSource: EventSource | null = null;
+        let reconnectTimeout: NodeJS.Timeout;
+
+        const connectSSE = () => {
+            eventSource = new EventSource(`/api/notifications/stream?userId=${user.id}`);
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data._isSystem) {
+                        // Refresh counts on global system events (like SOD_UPDATE)
+                        fetchMenuCounts();
+                    } else {
+                        // It's a user notification, refresh drawer & counts
+                        fetchNotifications();
+                        fetchMenuCounts();
+                        window.dispatchEvent(new CustomEvent('slts-notification', { detail: data }));
+                    }
+                } catch (e) {
+                    console.error("Failed to parse SSE notification:", e);
+                }
+            };
+
+            eventSource.onerror = () => {
+                if (eventSource) eventSource.close();
+                reconnectTimeout = setTimeout(connectSSE, 5000);
+            };
+        };
+
+        connectSSE();
+
+        // Also listen to window event just in case NotificationBell dispatches it first
+        const handleNewNotification = () => {
+            fetchNotifications();
+            fetchMenuCounts();
+        };
+        window.addEventListener('slts-notification', handleNewNotification);
+
+        return () => {
+            window.removeEventListener('slts-notification', handleNewNotification);
+            if (eventSource) eventSource.close();
+            clearTimeout(reconnectTimeout);
+        };
+    }, [mounted, user, fetchMenuCounts, fetchNotifications]);
+
+    useEffect(() => {
+        if (mounted && user?.id) {
+            fetchNotifications();
+            fetchMenuCounts();
+        }
+    }, [pathname, mounted, user?.id, fetchMenuCounts, fetchNotifications]);
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -267,32 +490,58 @@ export default function Sidebar() {
                                                 />
                                             )}
 
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <div
-                                                    className="flex-shrink-0 flex items-center justify-center rounded transition-all duration-150"
-                                                    style={{
-                                                        width: '28px',
-                                                        height: '28px',
-                                                        background: isActive
-                                                            ? 'rgba(0,114,187,0.3)'
-                                                            : 'rgba(255,255,255,0.03)',
-                                                        border: isActive
-                                                            ? '1px solid rgba(0,174,239,0.25)'
-                                                            : '1px solid rgba(255,255,255,0.04)',
-                                                        color: isActive ? '#00AEEF' : isHovered ? '#fff' : 'rgba(255,255,255,0.45)',
-                                                    }}
-                                                >
-                                                    <Icon className="w-3.5 h-3.5 transition-colors" />
+                                             <div className="flex items-center justify-between flex-grow min-w-0">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div
+                                                        className="flex-shrink-0 flex items-center justify-center rounded transition-all duration-150 relative"
+                                                        style={{
+                                                            width: '28px',
+                                                            height: '28px',
+                                                            background: isActive
+                                                                ? 'rgba(0,114,187,0.3)'
+                                                                : 'rgba(255,255,255,0.03)',
+                                                            border: isActive
+                                                                ? '1px solid rgba(0,174,239,0.25)'
+                                                                : '1px solid rgba(255,255,255,0.04)',
+                                                            color: isActive ? '#00AEEF' : isHovered ? '#fff' : 'rgba(255,255,255,0.45)',
+                                                        }}
+                                                    >
+                                                        <Icon className="w-3.5 h-3.5 transition-colors" />
+                                                        
+                                                        {isCollapsed && getMenuCount(item.title) > 0 && (
+                                                            <div
+                                                                className="absolute -top-1 -right-1 h-3.5 min-w-[14px] px-0.5 rounded-full flex items-center justify-center text-[7.5px] font-black text-white shadow-sm border border-slate-900"
+                                                                style={{
+                                                                    background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                                                                    boxShadow: '0 2px 4px rgba(239,68,68,0.4)',
+                                                                }}
+                                                            >
+                                                                {getMenuCount(item.title) > 99 ? '99+' : getMenuCount(item.title)}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {!isCollapsed && (
+                                                        <span
+                                                            className="text-[11px] font-medium truncate transition-colors"
+                                                            style={{ color: isActive ? '#fff' : isHovered ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)' }}
+                                                        >
+                                                            {item.title}
+                                                        </span>
+                                                    )}
                                                 </div>
 
-                                                {!isCollapsed && (
-                                                    <span
-                                                        className="text-[11px] font-medium truncate transition-colors"
-                                                        style={{ color: isActive ? '#fff' : isHovered ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.55)' }}
-                                                    >
-                                                        {item.title}
-                                                    </span>
-                                                )}
+                                                 {!isCollapsed && getMenuCount(item.title) > 0 && !isExpanded && (
+                                                     <div
+                                                         className="ml-2 flex items-center justify-center h-4 min-w-[16px] rounded-full text-[8.5px] font-black text-white px-1.5 shadow-sm flex-shrink-0 mr-1 border border-[#ffffff10]"
+                                                         style={{
+                                                             background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                                                             boxShadow: '0 2px 6px rgba(239,68,68,0.4)',
+                                                         }}
+                                                     >
+                                                         {getMenuCount(item.title)}
+                                                     </div>
+                                                 )}
                                             </div>
 
                                             {!isCollapsed && hasSubmenu && (
@@ -331,8 +580,6 @@ export default function Sidebar() {
                                             style={{ borderLeft: '1px solid rgba(0,114,187,0.15)' }}
                                         >
                                             {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => {
-                                                const siblingPaths = item.submenu!.map(s => s.path);
-                                                
                                                 const hasSubSubmenu = sub.submenu && sub.submenu.length > 0;
                                                 const isSubSubExpanded = expandedSubMenus.includes(sub.title);
                                                 
@@ -371,16 +618,31 @@ export default function Sidebar() {
                                                                 }
                                                             }}
                                                         >
-                                                            <div className="flex items-center gap-1.5 min-w-0">
-                                                                <div
-                                                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all"
-                                                                    style={{
-                                                                        background: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.2)',
-                                                                        boxShadow: isSubActive ? '0 0 6px rgba(0,174,239,0.6)' : 'none',
-                                                                    }}
-                                                                />
-                                                                <span className="truncate">{sub.title}</span>
-                                                            </div>
+                                                             <div className="flex items-center justify-between flex-grow min-w-0">
+                                                                 <div className="flex items-center gap-1.5 min-w-0">
+                                                                     <div
+                                                                         className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all"
+                                                                         style={{
+                                                                             background: isSubActive ? '#00AEEF' : 'rgba(255,255,255,0.2)',
+                                                                             boxShadow: isSubActive ? '0 0 6px rgba(0,174,239,0.6)' : 'none',
+                                                                         }}
+                                                                     />
+                                                                     <span className="truncate">{sub.title}</span>
+                                                                 </div>
+                                                                 
+                                                                 {/* Submenu item count badge */}
+                                                                 {getSubMenuCount(sub.title) > 0 && (
+                                                                     <div
+                                                                         className="ml-2 flex items-center justify-center h-3.5 min-w-[14px] rounded-full text-[7.5px] font-black text-white px-1.5 shadow-sm flex-shrink-0 mr-1 border border-[#ffffff10]"
+                                                                         style={{
+                                                                             background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                                                                             boxShadow: '0 2px 4px rgba(239,68,68,0.4)',
+                                                                         }}
+                                                                     >
+                                                                         {getSubMenuCount(sub.title)}
+                                                                     </div>
+                                                                 )}
+                                                             </div>
                                                             {hasSubSubmenu && (
                                                                 <ChevronDown
                                                                     className="w-3 h-3 flex-shrink-0 transition-transform duration-200"
@@ -447,6 +709,61 @@ export default function Sidebar() {
                         )}
                     </div>
                 </nav>
+
+                {/* NOTIFICATIONS TRIGGER BUTTON */}
+                {mounted && user && (
+                    <div className="px-3 py-1 flex-shrink-0">
+                        <button
+                            onClick={() => setShowDrawer(!showDrawer)}
+                            className="w-full flex items-center justify-between p-2 rounded-xl transition-all duration-200 group/notif cursor-pointer relative"
+                            style={{
+                                background: showDrawer ? 'rgba(0, 114, 187, 0.2)' : 'transparent',
+                                border: showDrawer ? '1px solid rgba(0, 114, 187, 0.3)' : '1px solid transparent',
+                                color: showDrawer ? '#00AEEF' : 'rgba(255, 255, 255, 0.55)',
+                                justifyContent: isCollapsed ? 'center' : 'space-between',
+                            }}
+                            onMouseEnter={e => {
+                                if (!showDrawer) {
+                                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.03)';
+                                    (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                                }
+                            }}
+                            onMouseLeave={e => {
+                                if (!showDrawer) {
+                                    (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                                    (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255, 255, 255, 0.55)';
+                                }
+                            }}
+                        >
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div
+                                    className="flex-shrink-0 flex items-center justify-center rounded transition-all duration-150"
+                                    style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        background: showDrawer ? 'rgba(0, 114, 187, 0.3)' : 'rgba(255, 255, 255, 0.03)',
+                                        border: showDrawer ? '1px solid rgba(0, 174, 239, 0.25)' : '1px solid rgba(255, 255, 255, 0.04)',
+                                        color: showDrawer ? '#00AEEF' : 'rgba(255, 255, 255, 0.45)',
+                                    }}
+                                >
+                                    <Bell className="w-3.5 h-3.5" />
+                                </div>
+                                {!isCollapsed && (
+                                    <span className="text-[11px] font-semibold truncate">Notifications</span>
+                                )}
+                            </div>
+                            
+                            {unreadCount > 0 && (
+                                <div
+                                    className={`${isCollapsed ? 'absolute -top-1 -right-1' : 'relative'} flex items-center justify-center h-4.5 min-w-[18px] rounded-full text-[9px] font-extrabold text-white px-1 shadow-md`}
+                                    style={{ background: '#EF4444' }}
+                                >
+                                    {unreadCount}
+                                </div>
+                            )}
+                        </button>
+                    </div>
+                )}
 
                 {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN']) && (
                     <SyncStatus isCollapsed={isCollapsed} />
@@ -529,6 +846,123 @@ export default function Sidebar() {
                     </Link>
                 </div>
             </aside>
+
+            {/* NOTIFICATIONS SLIDE-OUT DRAWER */}
+            {mounted && user && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: isCollapsed ? '56px' : '220px',
+                        width: '320px',
+                        height: '100vh',
+                        background: '#0D1B2A',
+                        borderRight: '1px solid rgba(0, 114, 187, 0.15)',
+                        boxShadow: '8px 0 24px rgba(0, 0, 0, 0.4)',
+                        zIndex: 30,
+                        transform: showDrawer ? 'translateX(0)' : 'translateX(-105%)',
+                        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s ease-in-out',
+                        display: 'flex',
+                        flexDirection: 'column',
+                    }}
+                >
+                    {/* Drawer Header */}
+                    <div
+                        className="p-3.5 flex items-center justify-between flex-shrink-0"
+                        style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
+                    >
+                        <div>
+                            <h3 className="text-xs font-black text-white">Notifications</h3>
+                            <p className="text-[9px] text-primary/70 uppercase font-bold tracking-wider mt-0.5">{unreadCount} Unread Activities</p>
+                        </div>
+                        <div className="flex gap-1">
+                            {unreadCount > 0 && (
+                                <button
+                                    onClick={handleMarkAllRead}
+                                    className="p-1 rounded hover:bg-white/5 text-primary transition-colors cursor-pointer"
+                                    title="Mark all read"
+                                >
+                                    <CheckCheck className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowDrawer(false)}
+                                className="p-1 rounded hover:bg-white/5 text-white/40 hover:text-white transition-colors cursor-pointer"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Drawer Content */}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                        {loadingNotifications ? (
+                            <div className="flex items-center justify-center py-10 text-[10px] text-white/40">
+                                Loading notifications...
+                            </div>
+                        ) : notifications.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center text-[10px] text-white/40 space-y-2">
+                                <span>🔔</span>
+                                <span>No notifications found</span>
+                            </div>
+                        ) : (
+                            notifications.map((n: SidebarNotification) => (
+                                <div
+                                    key={n.id}
+                                    onClick={() => handleNotificationClick(n)}
+                                    className="p-2.5 rounded-lg border cursor-pointer transition-all duration-200 text-left relative overflow-hidden flex gap-2.5"
+                                    style={{
+                                        background: n.isRead ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 114, 187, 0.06)',
+                                        borderColor: n.isRead ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 114, 187, 0.15)',
+                                    }}
+                                    onMouseEnter={e => {
+                                        (e.currentTarget as HTMLDivElement).style.background = n.isRead ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 114, 187, 0.1)';
+                                        (e.currentTarget as HTMLDivElement).style.borderColor = n.isRead ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 114, 187, 0.25)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        (e.currentTarget as HTMLDivElement).style.background = n.isRead ? 'rgba(255, 255, 255, 0.01)' : 'rgba(0, 114, 187, 0.06)';
+                                        (e.currentTarget as HTMLDivElement).style.borderColor = n.isRead ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 114, 187, 0.15)';
+                                    }}
+                                >
+                                    <div
+                                        className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                                        }}
+                                    >
+                                        {n.type === 'INVENTORY' ? '📦' : n.type === 'CONTRACTOR' ? '🛡️' : n.type === 'PROJECT' ? '🏗️' : n.type === 'FINANCE' ? '💰' : n.type === 'HELPDESK' ? '🎫' : '⚙️'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-start gap-1">
+                                            <p className="text-[10px] font-black text-white truncate leading-tight">{n.title}</p>
+                                            {n.priority === 'CRITICAL' && (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0 mt-0.5" />
+                                            )}
+                                        </div>
+                                        <p className="text-[9px] text-white/60 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
+                                        <span className="text-[8px] text-white/30 block mt-1">{formatTime(n.createdAt)}</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Drawer Footer */}
+                    <div
+                        className="p-2 bg-muted/5 flex-shrink-0 text-center"
+                        style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}
+                    >
+                        <Link
+                            href="/notifications"
+                            onClick={() => setShowDrawer(false)}
+                            className="block py-1.5 text-[10px] font-black text-[#00AEEF] hover:text-[#00AEEF]/80 hover:bg-white/5 rounded-lg transition-all"
+                        >
+                            Open Notification Manager
+                        </Link>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

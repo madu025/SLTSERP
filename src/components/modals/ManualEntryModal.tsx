@@ -7,7 +7,6 @@ import * as z from "zod";
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { X } from "lucide-react";
 
 // Validation Schema
 const serviceOrderSchema = z.object({
@@ -78,14 +78,27 @@ export default function ManualEntryModal({ isOpen, onClose, onSubmit }: ManualEn
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Add Service Order</DialogTitle>
-                </DialogHeader>
+            <DialogContent 
+                showCloseButton={false}
+                className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+            >
+                <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                    <div className="absolute top-0 right-0 p-5">
+                        <button 
+                            type="button"
+                            onClick={onClose} 
+                            className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white">Add Service Order</DialogTitle>
+                </div>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-grow overflow-hidden text-xs">
+                        <div className="flex-grow overflow-y-auto p-6 space-y-4">
+                            <div className="grid grid-cols-1 gap-4">
                             <FormField
                                 control={form.control}
                                 name="soNum"
@@ -248,8 +261,9 @@ export default function ManualEntryModal({ isOpen, onClose, onSubmit }: ManualEn
                                 )}
                             />
                         </div>
+                        </div>
 
-                        <div className="flex gap-3 justify-end pt-4">
+                        <div className="flex gap-3 justify-end p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                             <Button type="button" variant="outline" onClick={onClose}>
                                 Cancel
                             </Button>

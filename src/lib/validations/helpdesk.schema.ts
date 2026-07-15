@@ -21,6 +21,9 @@ export const IssueCategorySchema = z.enum([
   "SOFTWARE_ISSUE",
   "EMAIL_ISSUE",
   "EQUIPMENT_REQUEST",
+  "HARDWARE_REPLACEMENT",
+  "AUDIO_SPEAKER_ISSUE",
+  "HOUSING_BODY_DAMAGE",
   "OTHER"
 ]);
 

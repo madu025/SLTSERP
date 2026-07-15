@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   Building2, Plus, Pencil, Trash2, Phone, User, Landmark, DollarSign, Search, 
-  RefreshCw, FileText, ShoppingCart, Car, FileSignature, Layers, Eye, Calendar, AlertCircle
+  RefreshCw, FileText, ShoppingCart, Car, FileSignature, Layers, Eye, Calendar, AlertCircle,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -492,60 +493,74 @@ export default function SiteOfficesPage() {
                     Register Site
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border border-border/50">
-                  <DialogHeader>
-                    <DialogTitle className="text-base font-bold">Register Site Office</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={createForm.handleSubmit(handleRegisterOffice)} className="space-y-3.5 mt-2 text-xs">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Office Name</label>
-                      <Input {...createForm.register("name")} placeholder="e.g. Gampaha Site Office" className="h-8 text-xs bg-muted/20 border-border" />
-                      {createForm.formState.errors.name && <p className="text-[10px] text-red-500">{createForm.formState.errors.name.message}</p>}
+                <DialogContent 
+                  showCloseButton={false}
+                  className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+                >
+                  <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                    <div className="absolute top-0 right-0 p-5">
+                      <button 
+                        type="button"
+                        onClick={() => setIsOpen(false)} 
+                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Address</label>
-                      <Input {...createForm.register("address")} placeholder="e.g. 10/A, Colombo Road, Gampaha" className="h-8 text-xs bg-muted/20 border-border" />
-                      {createForm.formState.errors.address && <p className="text-[10px] text-red-500">{createForm.formState.errors.address.message}</p>}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
+                    <DialogTitle className="text-base font-extrabold">Register Site Office</DialogTitle>
+                  </div>
+                  <form onSubmit={createForm.handleSubmit(handleRegisterOffice)} className="flex flex-col flex-grow overflow-hidden text-xs">
+                    <div className="flex-grow overflow-y-auto p-6 space-y-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">Site Administrator</label>
-                        <select
-                          className="h-8 w-full rounded border border-border bg-muted/20 text-xs px-2.5 outline-none focus:ring-1 focus:ring-primary text-foreground"
-                          onChange={(e) => createForm.setValue("officeAdminId", e.target.value)}
-                        >
-                          <option value="">Select Admin...</option>
-                          {usersList.map((u) => (
-                            <option key={u.id} value={u.id}>{u.name || u.username}</option>
-                          ))}
-                        </select>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">Office Name</label>
+                        <Input {...createForm.register("name")} placeholder="e.g. Gampaha Site Office" className="h-8 text-xs bg-muted/20 border-border" />
+                        {createForm.formState.errors.name && <p className="text-[10px] text-red-500">{createForm.formState.errors.name.message}</p>}
                       </div>
+
                       <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">Site Contact No</label>
-                        <Input {...createForm.register("contactNo")} placeholder="e.g. 0332212345" className="h-8 text-xs bg-muted/20 border-border" />
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">Address</label>
+                        <Input {...createForm.register("address")} placeholder="e.g. 10/A, Colombo Road, Gampaha" className="h-8 text-xs bg-muted/20 border-border" />
+                        {createForm.formState.errors.address && <p className="text-[10px] text-red-500">{createForm.formState.errors.address.message}</p>}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-semibold text-muted-foreground uppercase">Site Administrator</label>
+                          <select
+                            className="h-8 w-full rounded border border-border bg-muted/20 text-xs px-2.5 outline-none focus:ring-1 focus:ring-primary text-foreground"
+                            onChange={(e) => createForm.setValue("officeAdminId", e.target.value)}
+                          >
+                            <option value="">Select Admin...</option>
+                            {usersList.map((u) => (
+                              <option key={u.id} value={u.id}>{u.name || u.username}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-semibold text-muted-foreground uppercase">Site Contact No</label>
+                          <Input {...createForm.register("contactNo")} placeholder="e.g. 0332212345" className="h-8 text-xs bg-muted/20 border-border" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">Monthly Rental Cost (LKR)</label>
+                        <Input type="number" {...createForm.register("rentalCost", { valueAsNumber: true })} placeholder="e.g. 45000" className="h-8 text-xs bg-muted/20 border-border" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-lg border border-border/40">
+                        <div className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase">Landlord Details</div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-semibold text-muted-foreground">Landlord Name</label>
+                          <Input {...createForm.register("landlordName")} placeholder="Landlord name" className="h-8 text-xs bg-card border-border" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-semibold text-muted-foreground">Landlord Contact</label>
+                          <Input {...createForm.register("landlordPhone")} placeholder="Landlord phone" className="h-8 text-xs bg-card border-border" />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Monthly Rental Cost (LKR)</label>
-                      <Input type="number" {...createForm.register("rentalCost", { valueAsNumber: true })} placeholder="e.g. 45000" className="h-8 text-xs bg-muted/20 border-border" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-lg border border-border/40">
-                      <div className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase">Landlord Details</div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-semibold text-muted-foreground">Landlord Name</label>
-                        <Input {...createForm.register("landlordName")} placeholder="Landlord name" className="h-8 text-xs bg-card border-border" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-semibold text-muted-foreground">Landlord Contact</label>
-                        <Input {...createForm.register("landlordPhone")} placeholder="Landlord phone" className="h-8 text-xs bg-card border-border" />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
+                    <div className="flex justify-end gap-2 p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                       <Button type="button" variant="outline" size="sm" onClick={() => setIsOpen(false)} className="h-8 text-xs">Cancel</Button>
                       <Button type="submit" size="sm" disabled={submitting} className="h-8 text-xs text-white bg-primary">
                         {submitting ? "Registering..." : "Register Office"}
@@ -717,61 +732,75 @@ export default function SiteOfficesPage() {
         </main>
       </div>
 
-      {/* Edit Site Office Dialog */}
+      {/* Edit Site Office Drawer */}
       <Dialog open={!!editOffice} onOpenChange={(open) => !open && setEditOffice(null)}>
         {editOffice && (
-          <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border border-border/50 text-foreground">
-            <DialogHeader>
-              <DialogTitle className="text-sm font-bold">Edit OSP Site Office — {editOffice.name}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={editForm.handleSubmit(handleEditOffice)} className="space-y-3.5 mt-2 text-xs">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Office Name</label>
-                <Input {...editForm.register("name")} className="h-8 text-xs bg-muted/20" />
+          <DialogContent 
+            showCloseButton={false}
+            className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+          >
+            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+              <div className="absolute top-0 right-0 p-5">
+                <button 
+                  type="button"
+                  onClick={() => setEditOffice(null)} 
+                  className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Address</label>
-                <Input {...editForm.register("address")} className="h-8 text-xs bg-muted/20" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white">Edit OSP Site Office</DialogTitle>
+            </div>
+            <form onSubmit={editForm.handleSubmit(handleEditOffice)} className="flex flex-col flex-grow overflow-hidden text-xs">
+              <div className="flex-grow overflow-y-auto p-6 space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Site Administrator</label>
-                  <select
-                    className="h-8 w-full rounded border border-border bg-muted/20 text-xs px-2.5 outline-none focus:ring-1 focus:ring-primary text-foreground"
-                    defaultValue={editOffice.officeAdminId || ""}
-                    onChange={(e) => editForm.setValue("officeAdminId", e.target.value)}
-                  >
-                    <option value="">Select Admin...</option>
-                    {usersList.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name || u.username}</option>
-                    ))}
-                  </select>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Office Name</label>
+                  <Input {...editForm.register("name")} className="h-8 text-xs bg-muted/20" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Site Contact No</label>
-                  <Input {...editForm.register("contactNo")} className="h-8 text-xs bg-muted/20" />
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Address</label>
+                  <Input {...editForm.register("address")} className="h-8 text-xs bg-muted/20" />
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Monthly Rental Cost (LKR)</label>
-                <Input type="number" {...editForm.register("rentalCost", { valueAsNumber: true })} className="h-8 text-xs bg-muted/20" />
-              </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Site Administrator</label>
+                    <select
+                      className="h-8 w-full rounded border border-border bg-muted/20 text-xs px-2.5 outline-none focus:ring-1 focus:ring-primary text-foreground"
+                      defaultValue={editOffice.officeAdminId || ""}
+                      onChange={(e) => editForm.setValue("officeAdminId", e.target.value)}
+                    >
+                      <option value="">Select Admin...</option>
+                      {usersList.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name || u.username}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Site Contact No</label>
+                    <Input {...editForm.register("contactNo")} className="h-8 text-xs bg-muted/20" />
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-lg border border-border/40">
-                <div className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase">Landlord Details</div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-semibold text-muted-foreground">Landlord Name</label>
-                  <Input {...editForm.register("landlordName")} className="h-8 text-xs bg-card border-border" />
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Monthly Rental Cost (LKR)</label>
+                  <Input type="number" {...editForm.register("rentalCost", { valueAsNumber: true })} className="h-8 text-xs bg-muted/20" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-semibold text-muted-foreground">Landlord Contact</label>
-                  <Input {...editForm.register("landlordPhone")} className="h-8 text-xs bg-card border-border" />
+
+                <div className="grid grid-cols-2 gap-3 p-3 bg-muted/10 rounded-lg border border-border/40">
+                  <div className="col-span-2 text-[10px] font-bold text-muted-foreground uppercase">Landlord Details</div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-semibold text-muted-foreground">Landlord Name</label>
+                    <Input {...editForm.register("landlordName")} className="h-8 text-xs bg-card border-border" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-semibold text-muted-foreground">Landlord Contact</label>
+                    <Input {...editForm.register("landlordPhone")} className="h-8 text-xs bg-card border-border" />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border/40">
+              <div className="flex justify-end gap-2 p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                 <Button type="button" variant="outline" size="sm" onClick={() => setEditOffice(null)} className="h-8 text-xs">Cancel</Button>
                 <Button type="submit" size="sm" disabled={editSubmitting} className="h-8 text-xs text-white bg-primary">
                   {editSubmitting ? "Saving..." : "Save Changes"}
@@ -803,11 +832,23 @@ export default function SiteOfficesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Site Operations Console Detail Modal */}
+      {/* Site Operations Console Detail Drawer */}
       <Dialog open={!!detailOfficeId} onOpenChange={(open) => !open && setDetailOfficeId(null)}>
         {detailOfficeId && (
-          <DialogContent className="max-w-4xl bg-card/95 backdrop-blur-xl border border-border/50 text-foreground max-h-[90vh] flex flex-col">
-            <DialogHeader className="flex-shrink-0 border-b border-border/40 pb-3">
+          <DialogContent 
+            showCloseButton={false}
+            className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] md:w-[65vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+          >
+            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+              <div className="absolute top-0 right-0 p-5">
+                <button 
+                  type="button"
+                  onClick={() => setDetailOfficeId(null)} 
+                  className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
               <div className="flex items-center gap-2.5">
                 <div className="bg-primary/10 text-primary p-2 rounded-lg">
                   <Building2 className="h-5 w-5" />
@@ -817,7 +858,7 @@ export default function SiteOfficesPage() {
                   <p className="text-[10px] text-muted-foreground mt-0.5">{detailOffice?.address}</p>
                 </div>
               </div>
-            </DialogHeader>
+            </div>
 
             {loadingDetail ? (
               <div className="py-20 text-center flex-grow flex flex-col justify-center items-center">
@@ -826,9 +867,9 @@ export default function SiteOfficesPage() {
               </div>
             ) : (
               detailOffice && (
-                <div className="flex-grow overflow-hidden flex flex-col md:flex-row mt-3 gap-4">
+                <div className="flex-grow overflow-hidden flex flex-col md:flex-row mt-0 gap-0">
                   {/* Tabs Selector Left */}
-                  <div className="w-full md:w-48 flex flex-row md:flex-col gap-1 border-b md:border-b-0 md:border-r border-border/40 pb-3 md:pb-0 pr-0 md:pr-4 flex-shrink-0 overflow-x-auto md:overflow-x-visible">
+                  <div className="w-full md:w-48 flex flex-row md:flex-col gap-1 border-b md:border-b-0 md:border-r border-border/40 p-4 pb-3 md:pb-4 flex-shrink-0 overflow-x-auto md:overflow-x-visible bg-slate-50/50 dark:bg-slate-900/10">
                     <button
                       onClick={() => { setActiveTab("overview"); setActiveSubForm(null); }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left text-xs font-semibold transition-all ${
@@ -877,7 +918,7 @@ export default function SiteOfficesPage() {
                   </div>
 
                   {/* Tab Contents Right */}
-                  <div className="flex-grow overflow-y-auto pr-1 text-xs">
+                  <div className="flex-grow overflow-y-auto p-6 text-xs bg-white dark:bg-slate-950">
                     
                     {/* OVERVIEW TAB */}
                     {activeTab === "overview" && (
@@ -1442,7 +1483,7 @@ export default function SiteOfficesPage() {
               )
             )}
 
-            <div className="flex justify-end gap-2 border-t border-border/40 pt-3 flex-shrink-0">
+            <div className="flex justify-end gap-2 p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
               <Button size="sm" onClick={() => setDetailOfficeId(null)} className="h-8 text-xs font-semibold">Close Panel</Button>
             </div>
           </DialogContent>

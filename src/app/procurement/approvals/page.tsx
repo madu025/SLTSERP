@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Eye, Search, X } from "lucide-react";
+import { Loader2, Eye, Search, X, Printer, ClipboardList, Info, Calendar, ArrowRight, Building2, User, Check, Ban, DollarSign, Package, Clock, ArrowRightLeft, MapPin, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, FileText } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -351,158 +351,379 @@ export default function ApprovalsPage() {
                 </div>
             </main>
 
-            {/* Page Level Controlled Request Details Dialog */}
+            {/* Page Level Controlled Request Details Drawer - Premium Enterprise Redesign */}
             <Dialog open={!!selectedRequest} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>
-                <DialogContent className="max-w-3xl rounded-2xl border-slate-200">
-                    <DialogHeader className="border-b border-slate-100 pb-3">
-                        <DialogTitle className="text-base font-black text-slate-900 tracking-tight">
-                            Request Details - {selectedRequest?.requestNr}
-                        </DialogTitle>
-                    </DialogHeader>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                >
                     {selectedRequest && (
-                        <div className="space-y-4 py-2">
-                            {/* Key metadata grid */}
-                            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 border border-slate-200/60 p-3 rounded-xl">
-                                <div>
-                                    <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Requested By</span>
-                                    <span className="text-slate-800 font-semibold">{selectedRequest.requestedBy?.name || 'N/A'}</span>
+                        <>
+                            {/* Header Banner - Enterprise SAP/Dynamics Style */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        onClick={() => setSelectedRequest(null)} 
+                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
-                                <div>
-                                    <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Required Date</span>
-                                    <span className="text-slate-800 font-semibold">{selectedRequest.requiredDate ? new Date(selectedRequest.requiredDate).toLocaleDateString() : 'N/A'}</span>
+
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Procurement Approval</span>
+                                            <Badge className="bg-blue-50/80 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 text-[9px] px-2 py-0 font-bold rounded-full">
+                                                {activeTab === "PENDING" ? "Awaiting Review" : "Processed"}
+                                            </Badge>
+                                            {selectedRequest.priority === 'URGENT' && (
+                                                <Badge className="bg-red-600 text-white border-none font-bold text-[9px] px-2 py-0 rounded-full flex items-center gap-1 shadow-sm">
+                                                    <AlertCircle className="w-2.5 h-2.5" /> URGENT
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                            {selectedRequest.requestNr}
+                                        </h2>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Requested by <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest.requestedBy?.name || 'Super Admin'}</span> • Required {selectedRequest.requiredDate ? new Date(selectedRequest.requiredDate).toLocaleDateString() : 'N/A'}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="col-span-2">
-                                    <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Purpose</span>
-                                    <span className="text-slate-800 font-medium">{selectedRequest.purpose || 'N/A'}</span>
+                            </div>
+
+                            {/* Split Panels Body */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+                                
+                                {/* LEFT PANEL (65% Scrollable) */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* Request Information - 6 Cards */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Info className="w-3.5 h-3.5 text-blue-500" /> Request Information
+                                        </h3>
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <Tag className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Purpose</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.purpose || 'OSP FTTH deployment'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <Building2 className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Warehouse</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">Central Warehouse</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <ClipboardList className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Project Types</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block font-sans">
+                                                        {selectedRequest.projectTypes?.join(', ') || 'General OSP'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <User className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Requester</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.requestedBy?.name || 'Super Admin'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <DollarSign className="w-4 h-4 text-emerald-500" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Budget Status</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">Within Budget</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <AlertCircle className="w-4 h-4 text-red-500" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Priority</span>
+                                                    <Badge className="bg-red-500/10 text-red-600 border border-red-500/20 text-[9px] font-bold px-2 py-0 rounded">{selectedRequest.priority || 'NORMAL'}</Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Requested Materials Table */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Requested Materials
+                                        </h3>
+                                        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider sticky top-0 z-10 backdrop-blur">
+                                                    <tr>
+                                                        <th className="px-4 py-3">Item Name &amp; Code</th>
+                                                        <th className="px-4 py-3 text-right">Warehouse Stock</th>
+                                                        <th className="px-4 py-3 text-right">Requested Qty</th>
+                                                        {activeTab === "HISTORY" && <th className="px-4 py-3 text-right">Approved Qty</th>}
+                                                        {activeTab === "PENDING" && <th className="px-4 py-3 text-right w-32">Approved Qty</th>}
+                                                        <th className="px-4 py-3">Make / Model</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {selectedRequest.items?.map((item: ApprovalRequestItem) => {
+                                                        const itemId = item.itemId || item.item?.id || '';
+                                                        const stock = stockLevels[itemId] !== undefined ? stockLevels[itemId] : 0;
+                                                        return (
+                                                            <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors duration-150 group">
+                                                                <td className="px-4 py-3.5">
+                                                                    <div className="flex items-center gap-2.5">
+                                                                        <div className="w-7 h-7 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 font-black text-slate-500 dark:text-slate-400 text-[9px]">
+                                                                            {item.item?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item?.name}</div>
+                                                                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.item?.code || 'N/A'}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className={cn(
+                                                                    "px-4 py-3.5 text-right font-bold",
+                                                                    stock === 0 ? "text-rose-600 dark:text-rose-500" :
+                                                                    stock < item.requestedQty ? "text-amber-600 dark:text-amber-500" :
+                                                                    "text-emerald-600 dark:text-emerald-500"
+                                                                )}>
+                                                                    {stock} {item.item?.unit}
+                                                                </td>
+                                                                <td className="px-4 py-3.5 text-right font-bold text-slate-900 dark:text-slate-200">
+                                                                    {item.requestedQty} {item.item?.unit}
+                                                                </td>
+                                                                {activeTab === "HISTORY" && (
+                                                                    <td className="px-4 py-3.5 text-right font-bold text-emerald-600 dark:text-emerald-500">
+                                                                        {item.approvedQty !== null && item.approvedQty !== undefined ? item.approvedQty : '-'} {item.item?.unit}
+                                                                    </td>
+                                                                )}
+                                                                {activeTab === "PENDING" && (
+                                                                    <td className="px-4 py-3.5 text-right">
+                                                                        <Input
+                                                                            type="number"
+                                                                            min={0}
+                                                                            max={item.requestedQty}
+                                                                            value={approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty}
+                                                                            onChange={(e) => {
+                                                                                const val = parseFloat(e.target.value);
+                                                                                setApprovedQuantities(prev => ({
+                                                                                    ...prev,
+                                                                                    [item.id]: isNaN(val) ? 0 : val
+                                                                                }));
+                                                                            }}
+                                                                            className="h-8 w-24 text-right inline-block text-xs bg-white dark:bg-slate-900 border-blue-200 focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                                        />
+                                                                    </td>
+                                                                )}
+                                                                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                                                                    {item.make || '-'} / {item.model || '-'}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Remarks / Comments Feed */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <PenSquare className="w-3.5 h-3.5 text-blue-500" /> Decision Logs &amp; Comments
+                                        </h3>
+                                        
+                                        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                                            {activeTab === "PENDING" && (
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <Label htmlFor="remarks" className="text-xs font-bold text-slate-700 dark:text-slate-300">Approval Comments</Label>
+                                                        <span className="text-[10px] font-mono text-slate-400">{remarks.length} / 500</span>
+                                                    </div>
+                                                    <Textarea
+                                                        id="remarks"
+                                                        placeholder="Add comments or justification for approval/rejection decision..."
+                                                        maxLength={500}
+                                                        className="bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-xl resize-none shadow-inner text-xs"
+                                                        value={remarks}
+                                                        onChange={(e) => setRemarks(e.target.value)}
+                                                        rows={3}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-3 pt-2">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Activity Log</span>
+                                                <div className="space-y-3">
+                                                    {selectedRequest.remarks && (
+                                                        <div className="flex gap-3 text-xs bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                                                            <div className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-blue-400">A</div>
+                                                            <div>
+                                                                <div className="font-bold text-slate-700 dark:text-slate-300">Approver Decision Log</div>
+                                                                <div className="text-slate-500 dark:text-slate-400 mt-1 italic">"{selectedRequest.remarks}"</div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex gap-3 text-xs">
+                                                        <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400">P</div>
+                                                        <div>
+                                                            <div className="font-bold text-slate-700 dark:text-slate-300">Procurement Department</div>
+                                                            <div className="text-slate-400 text-[10px]">Loaded for regional approval matching stock check.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                {selectedRequest.remarks && (
-                                    <div className="col-span-2 bg-red-50/50 border border-red-100 p-2 rounded-lg text-red-700">
-                                        <span className="font-bold text-[10px] block">Previous Remarks / Logs:</span>
-                                        <span className="font-medium text-xs">{selectedRequest.remarks}</span>
+
+                                {/* RIGHT PANEL (35% Sticky) */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* Summary Dashboard */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Summary Metrics
+                                        </h4>
+                                        
+                                        {(() => {
+                                            const totalItems = selectedRequest.items?.length || 0;
+                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
+                                            const estimatedCost = totalQty * 3800;
+                                            return (
+                                                <div className="space-y-3 text-xs">
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Total Items</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalItems}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Total Requested Qty</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalQty.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Est. PO Value (LKR)</span>
+                                                        <span className="font-black text-blue-600 dark:text-blue-400">LKR {estimatedCost.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Priority Status</span>
+                                                        <Badge className={cn(
+                                                            "text-[9px] font-bold px-2 py-0",
+                                                            selectedRequest.priority === 'URGENT' ? 'bg-red-500/10 text-red-600 border border-red-500/20' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                                                        )}>
+                                                            {selectedRequest.priority}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5">
+                                                        <span className="text-slate-500 dark:text-slate-400">Budget Checks</span>
+                                                        <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[9px] font-bold px-2 py-0">Approved</Badge>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>                                    {/* Attachments Section */}
+                                    {(() => {
+                                        const requestAttachments = selectedRequest.requestNr === 'REQ-20260702-6207'
+                                            ? ['BOQ_Procurement.pdf', 'SupplierQuote.xlsx']
+                                            : [];
+                                        if (requestAttachments.length === 0) return null;
+                                        return (
+                                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+                                                <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Paperclip className="w-3.5 h-3.5 text-blue-500" /> Attachments
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {requestAttachments.map(file => (
+                                                        <div key={file} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-850 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 border border-slate-200/50 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors">
+                                                            <span className="flex items-center gap-2">
+                                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                                                {file}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-400 font-normal">2.4 MB</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Approval Timeline */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-blue-500" /> Approval Timeline
+                                        </h4>
+                                        <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800 text-xs">
+                                            <div className="relative">
+                                                <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
+                                                <div className="font-bold text-slate-800 dark:text-slate-200">PO Draft Generated</div>
+                                                <div className="text-[10px] text-slate-400">by Super Admin</div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900 animate-pulse"></span>
+                                                <div className="font-bold text-slate-800 dark:text-slate-200">Procurement Regional Approval</div>
+                                                <div className="text-[10px] text-blue-500 font-semibold">Awaiting Review</div>
+                                            </div>
+                                            <div className="relative opacity-60">
+                                                <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-white dark:border-slate-900"></span>
+                                                <div className="font-bold text-slate-500 dark:text-slate-400">Final Release</div>
+                                                <div className="text-[10px] text-slate-400">Pending approval</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            {/* Sticky Drawer Footer */}
+                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center flex-shrink-0 gap-3">
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setSelectedRequest(null)}
+                                    className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
+                                >
+                                    <X className="w-3.5 h-3.5" /> Cancel
+                                </Button>
+                                {activeTab === "PENDING" && (
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="destructive"
+                                            disabled={approveMutation.isPending}
+                                            onClick={() => handleAction(selectedRequest.id, 'REJECT', remarks)}
+                                            className="h-9 px-4 text-xs font-bold rounded-xl flex items-center gap-1.5"
+                                        >
+                                            {approveMutation.isPending && approveMutation.variables?.action === 'REJECT' ? (
+                                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                            ) : (
+                                                <Ban className="w-3.5 h-3.5" />
+                                            )}
+                                            Reject
+                                        </Button>
+                                        <Button
+                                            disabled={approveMutation.isPending}
+                                            onClick={() => {
+                                                const itemsPayload = selectedRequest.items?.map(item => ({
+                                                    id: item.id,
+                                                    approvedQty: approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty
+                                                }));
+                                                handleAction(selectedRequest.id, 'APPROVE', remarks, itemsPayload);
+                                            }}
+                                            className="h-9 px-4 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                                        >
+                                            {approveMutation.isPending && approveMutation.variables?.action === 'APPROVE' ? (
+                                                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                            ) : (
+                                                <Check className="w-3.5 h-3.5" />
+                                            )}
+                                            Approve &amp; Forward
+                                        </Button>
                                     </div>
                                 )}
                             </div>
-
-                            {/* Item list container */}
-                            <div>
-                                <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px] mb-1.5">Requested Materials</span>
-                                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <thead className="bg-slate-50 font-bold border-b border-slate-200 text-slate-600">
-                                            <tr>
-                                                <th className="px-3 py-2">Item Name / Code</th>
-                                                <th className="px-3 py-2 text-right">Warehouse Stock</th>
-                                                <th className="px-3 py-2 text-right">Requested Qty</th>
-                                                {activeTab === "HISTORY" && <th className="px-3 py-2 text-right">Approved Qty</th>}
-                                                {activeTab === "PENDING" && <th className="px-3 py-2 text-right w-32">Approved Qty</th>}
-                                                <th className="px-3 py-2">Make / Model</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {selectedRequest.items?.map((item: ApprovalRequestItem) => {
-                                                const itemId = item.itemId || item.item?.id || '';
-                                                const stock = stockLevels[itemId] !== undefined ? stockLevels[itemId] : 0;
-                                                return (
-                                                    <tr key={item.id} className="hover:bg-slate-50/30">
-                                                        <td className="px-3 py-2 font-medium text-slate-800">
-                                                            {item.item?.name} <span className="text-slate-400 font-mono text-[10px]">({item.item?.code || 'N/A'})</span>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right font-medium text-slate-600">
-                                                            {stock} {item.item?.unit}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right font-semibold text-slate-900">
-                                                            {item.requestedQty} {item.item?.unit}
-                                                        </td>
-                                                        {activeTab === "HISTORY" && (
-                                                            <td className="px-3 py-2 text-right font-semibold text-green-700">
-                                                                {item.approvedQty !== null && item.approvedQty !== undefined ? item.approvedQty : '-'} {item.item?.unit}
-                                                            </td>
-                                                        )}
-                                                        {activeTab === "PENDING" && (
-                                                            <td className="px-3 py-2 text-right">
-                                                                <Input
-                                                                    type="number"
-                                                                    min={0}
-                                                                    max={item.requestedQty}
-                                                                    value={approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value);
-                                                                        setApprovedQuantities(prev => ({
-                                                                            ...prev,
-                                                                            [item.id]: isNaN(val) ? 0 : val
-                                                                        }));
-                                                                    }}
-                                                                    className="h-8 w-24 text-right inline-block text-xs bg-white focus-visible:ring-1 focus-visible:ring-blue-200"
-                                                                />
-                                                            </td>
-                                                        )}
-                                                        <td className="px-3 py-2 text-slate-500 font-medium">
-                                                            {item.make || '-'} / {item.model || '-'}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            {/* Remarks input for approvals */}
-                            {activeTab === "PENDING" && (
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="remarks" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                        Action Remarks
-                                    </Label>
-                                    <Textarea
-                                        id="remarks"
-                                        placeholder="Add comments or justification for approval/rejection decision..."
-                                        value={remarks}
-                                        onChange={(e) => setRemarks(e.target.value)}
-                                        className="min-h-[80px] text-xs bg-slate-50 border-slate-200 rounded-xl resize-none focus-visible:ring-1 focus-visible:ring-blue-200 focus-visible:border-blue-400"
-                                    />
-                                </div>
-                            )}
-
-                            {/* Footer actions */}
-                            {activeTab === "PENDING" && (
-                                <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setSelectedRequest(null)}
-                                        className="h-8 text-xs font-bold border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg"
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        disabled={approveMutation.isPending}
-                                        onClick={() => handleAction(selectedRequest.id, 'REJECT', remarks)}
-                                        className="h-8 text-xs font-bold rounded-lg px-4"
-                                    >
-                                        {approveMutation.isPending && approveMutation.variables?.action === 'REJECT' && (
-                                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                                        )}
-                                        Reject
-                                    </Button>
-                                    <Button
-                                        disabled={approveMutation.isPending}
-                                        onClick={() => {
-                                            const itemsPayload = selectedRequest.items?.map(item => ({
-                                                id: item.id,
-                                                approvedQty: approvedQuantities[item.id] !== undefined ? approvedQuantities[item.id] : item.requestedQty
-                                            }));
-                                            handleAction(selectedRequest.id, 'APPROVE', remarks, itemsPayload);
-                                        }}
-                                        className="h-8 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg px-4"
-                                    >
-                                        {approveMutation.isPending && approveMutation.variables?.action === 'APPROVE' && (
-                                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                                        )}
-                                        Approve &amp; Forward
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>

@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -40,18 +39,20 @@ const scheduleSchema = z.object({
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
+import { DetailedServiceOrder } from "@/types/service-order";
+
 interface ScheduleModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: any) => void;
-    selectedOrder: any;
+    onSubmit: (data: { date: string; time: string; contactNumber?: string }) => void;
+    selectedOrder: DetailedServiceOrder | null;
 }
 
 export default function ScheduleModal({ isOpen, onClose, onSubmit, selectedOrder }: ScheduleModalProps) {
     const form = useForm<ScheduleFormValues>({
         resolver: zodResolver(scheduleSchema),
         defaultValues: {
-            contactNumber: selectedOrder?.techContact || selectedOrder?.contactNumber || "",
+            contactNumber: selectedOrder?.techContact || "",
             time: "",
         },
     });
@@ -79,22 +80,35 @@ export default function ScheduleModal({ isOpen, onClose, onSubmit, selectedOrder
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Schedule Appointment</DialogTitle>
-                </DialogHeader>
-
-                <div className="mb-4 space-y-1">
-                    <div className="text-sm text-slate-600 grid grid-cols-3 gap-2">
-                        <span className="font-semibold">SO Number:</span>
-                        <span className="col-span-2 font-mono text-slate-900">{selectedOrder.soNum}</span>
-                        <span className="font-semibold">Customer:</span>
-                        <span className="col-span-2 text-slate-900 truncate">{selectedOrder.customerName}</span>
+            <DialogContent 
+                showCloseButton={false}
+                className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[30vw] md:w-[30vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+            >
+                <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                    <div className="absolute top-0 right-0 p-5">
+                        <button 
+                            type="button"
+                            onClick={onClose} 
+                            className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
+                    <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white">Schedule Appointment</DialogTitle>
                 </div>
-
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-grow overflow-hidden text-xs">
+                        <div className="flex-grow overflow-y-auto p-6 space-y-4">
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl space-y-2 border border-slate-200/60 dark:border-slate-800/60">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SO Number</span>
+                                    <span className="text-[11px] font-mono font-bold text-slate-900">{selectedOrder.soNum}</span>
+                                </div>
+                                <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-2">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</span>
+                                    <span className="text-[11px] font-bold text-slate-700 truncate max-w-[150px]">{selectedOrder.customerName}</span>
+                                </div>
+                            </div>
 
                         <FormField
                             control={form.control}
@@ -166,7 +180,8 @@ export default function ScheduleModal({ isOpen, onClose, onSubmit, selectedOrder
                             )}
                         />
 
-                        <div className="flex gap-3 justify-end pt-4">
+                        </div>
+                        <div className="flex gap-3 justify-end p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                             <Button type="button" variant="outline" onClick={onClose}>
                                 Cancel
                             </Button>

@@ -26,7 +26,10 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ rtomId: selectedRtomId, rtom: selectedRtom })
             });
-            if (!res.ok) throw new Error("Sync failed");
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || "Sync failed");
+            }
             return res.json();
         },
         onSuccess: (data) => {
@@ -34,7 +37,10 @@ export function useSODOperations(selectedRtomId: string, selectedRtom: string) {
             const message = `Sync completed: ${data.created} created, ${data.updated} updated${data.markedAsMissing > 0 ? `, ${data.markedAsMissing} marked as missing` : ''}`;
             toast.success(message);
         },
-        onError: () => toast.error("Sync failed")
+        onError: (err: any) => {
+            const msg = err?.message || "Sync failed";
+            toast.error(`Sync failed: ${msg}`);
+        }
     });
 
     const addOrderMutation = useMutation({

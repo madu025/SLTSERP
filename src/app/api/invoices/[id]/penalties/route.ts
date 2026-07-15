@@ -57,7 +57,7 @@ export async function POST(
         // Get invoice number for notification
         const invoice = await prisma.invoice.findUnique({
             where: { id },
-            select: { invoiceNumber: true }
+            select: { invoiceNumber: true, contractorId: true }
         });
         const invNum = invoice?.invoiceNumber || id;
 
@@ -67,6 +67,16 @@ export async function POST(
                 roles: ['AREA_MANAGER', 'SUPER_ADMIN', 'ADMIN'],
                 title: 'New Penalty Proposed',
                 message: `A penalty of LKR ${parseFloat(amount).toFixed(2)} has been proposed for Invoice ${invNum} by ${proposerName}. Reason: ${reason || 'MANUAL'}.`,
+                type: 'FINANCE',
+                priority: 'HIGH',
+                link: '/invoices'
+            });
+        } else if (status === 'APPROVED' && invoice?.contractorId) {
+            // If auto-approved (proposed by manager), notify contractor immediately
+            await NotificationService.send({
+                userId: invoice.contractorId,
+                title: 'Penalty Applied',
+                message: `A penalty of LKR ${parseFloat(amount).toFixed(2)} has been applied to Invoice ${invNum}. Reason: ${reason || 'MANUAL'}.`,
                 type: 'FINANCE',
                 priority: 'HIGH',
                 link: '/invoices'
@@ -114,7 +124,7 @@ export async function PATCH(
         // Notify about decision
         const invoice = await prisma.invoice.findUnique({
             where: { id },
-            select: { invoiceNumber: true }
+            select: { invoiceNumber: true, contractorId: true }
         });
         const invNum = invoice?.invoiceNumber || id;
 
@@ -126,6 +136,18 @@ export async function PATCH(
             priority: 'MEDIUM',
             link: '/invoices'
         });
+
+        // Notify Contractor if penalty was approved
+        if (status === 'APPROVED' && invoice?.contractorId) {
+            await NotificationService.send({
+                userId: invoice.contractorId,
+                title: 'Penalty Applied',
+                message: `A proposed penalty of LKR ${updatedPenalty.amount.toFixed(2)} has been approved and applied to your Invoice ${invNum}.`,
+                type: 'FINANCE',
+                priority: 'HIGH',
+                link: '/invoices'
+            });
+        }
 
         return NextResponse.json({ success: true, penalty: updatedPenalty });
     } catch (error) {

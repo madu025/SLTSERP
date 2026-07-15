@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Package, CheckCircle, Eye } from "lucide-react";
+import { Package, CheckCircle, Eye, Info, Calendar, Building2, User, AlertCircle, PenSquare, Tag, TrendingUp, X, Clock, ClipboardList, Loader2, FileText, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { createGRN } from "@/actions/inventory-actions";
 
 interface GRNItem {
@@ -414,189 +415,446 @@ export default function GRNPage() {
                 </div>
             </main>
 
-            {/* Create GRN Dialog */}
+            {/* Create GRN Form Drawer */}
             <Dialog open={showGRNDialog} onOpenChange={setShowGRNDialog}>
-                <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
-                    <DialogHeader className="px-6 py-4 border-b">
-                        <DialogTitle>Record Goods Receipt</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 no-scrollbar">
-                        {selectedRequest && (
-                            <div className="space-y-4">
-                                {/* GRN Header Info */}
-                                <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 rounded">
-                                    <div className="text-sm">
-                                        <span className="font-bold">Request No:</span> {selectedRequest.requestNr}
-                                    </div>
-                                    <div className="text-sm">
-                                        <span className="font-bold">PO Number:</span> {selectedRequest.poNumber}
-                                    </div>
-                                    <div className="text-sm">
-                                        <span className="font-bold">Vendor:</span> {selectedRequest.vendor}
-                                    </div>
-                                    <div className="text-sm">
-                                        <span className="font-bold">Source:</span> {selectedRequest.sourceType}
-                                    </div>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                >
+                    {selectedRequest && (
+                        <>
+                            {/* Header Banner */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        onClick={handleCloseGRNDialog} 
+                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
 
-                                {/* GRN Form */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-600 uppercase">GRN Reference No. (Auto)</label>
-                                        <Input
-                                            className="mt-1 bg-slate-50 text-slate-500 font-mono cursor-not-allowed border-dashed"
-                                            value={grnNumber}
-                                            readOnly
-                                        />
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Inventory Ledger Update</span>
+                                        <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-955/20 text-[9px] px-2 py-0 font-bold rounded-full">
+                                            Goods Receipt Note
+                                        </Badge>
                                     </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-600 uppercase">Received Date</label>
-                                        <Input
-                                            type="date"
-                                            className="mt-1"
-                                            value={receivedDate}
-                                            onChange={e => setReceivedDate(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Items Table */}
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 uppercase mb-2 block">Received Items</label>
-                                    <div className="border rounded overflow-hidden">
-                                        <table className="w-full text-xs">
-                                            <thead className="bg-slate-100">
-                                                <tr>
-                                                    <th className="px-3 py-2 text-left">Item</th>
-                                                    <th className="px-3 py-2 text-center">Ordered Qty</th>
-                                                    <th className="px-3 py-2 text-center">Received Qty</th>
-                                                    <th className="px-3 py-2 text-left">Batch / Notes</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y">
-                                                {receivedItems.map((item, idx) => (
-                                                    <tr key={idx}>
-                                                        <td className="px-3 py-2">{item.itemName}</td>
-                                                        <td className="px-3 py-2 text-center font-medium">{item.requestedQty}</td>
-                                                        <td className="px-3 py-2">
-                                                            <Input
-                                                                type="number"
-                                                                className="h-8 text-center"
-                                                                value={item.receivedQty}
-                                                                onChange={e => updateReceivedQty(idx, e.target.value)}
-                                                            />
-                                                        </td>
-                                                        <td className="px-3 py-2 flex flex-col gap-2">
-                                                            <Input
-                                                                className="h-8 text-xs font-mono"
-                                                                placeholder="Batch ID (optional)"
-                                                                value={item.remarks}
-                                                                onChange={e => updateItemRemarks(idx, e.target.value)}
-                                                            />
-                                                            <div className="flex flex-col gap-1">
-                                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Expiry Date (optional)</span>
-                                                                <Input
-                                                                    type="date"
-                                                                    className="h-8 text-xs font-mono"
-                                                                    value={item.expiryDate || ''}
-                                                                    onChange={e => {
-                                                                        const updated = [...receivedItems];
-                                                                        updated[idx].expiryDate = e.target.value;
-                                                                        setReceivedItems(updated);
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                            {item.hasSerial && (
-                                                                <div className="mt-2 space-y-1 bg-slate-50 p-2 rounded border border-slate-200">
-                                                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Serial Numbers Required:</label>
-                                                                    {Array.from({ length: Math.ceil(item.receivedQty) }).map((_, sIdx) => (
-                                                                        <Input
-                                                                            key={sIdx}
-                                                                            className="h-7 text-[10px] font-mono bg-white"
-                                                                            placeholder={`Serial #${sIdx + 1}`}
-                                                                            value={item.serials?.[sIdx] || ''}
-                                                                            onChange={e => {
-                                                                                const updatedSerials = [...(item.serials || [])];
-                                                                                updatedSerials[sIdx] = e.target.value;
-                                                                                const updatedItems = [...receivedItems];
-                                                                                updatedItems[idx].serials = updatedSerials;
-                                                                                setReceivedItems(updatedItems);
-                                                                            }}
-                                                                        />
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                {/* GRN Remarks */}
-                                <div>
-                                    <label className="text-xs font-bold text-slate-600 uppercase">Additional Notes</label>
-                                    <Textarea
-                                        className="mt-1"
-                                        rows={3}
-                                        value={grnRemarks}
-                                        onChange={e => setGRNRemarks(e.target.value)}
-                                        placeholder="Quality check notes, delivery condition, etc."
-                                    />
+                                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                        Record Goods Receipt (GRN)
+                                    </h2>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Verify ordered materials and register them to store inventory.
+                                    </p>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                    <DialogFooter className="px-6 py-4 border-t bg-slate-50">
-                        <Button variant="outline" onClick={handleCloseGRNDialog}>Cancel</Button>
-                        <Button
-                            onClick={handleCreateGRN}
-                            disabled={createGRNMutation.isPending}
-                            className="bg-green-600 hover:bg-green-700"
-                        >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            {createGRNMutation.isPending ? 'Saving...' : 'Confirm & Update Stock'}
-                        </Button>
-                    </DialogFooter>
+
+                            {/* Split Panels Body */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+                                
+                                {/* LEFT PANEL (65% Scrollable Form) */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* GRN References */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">GRN Reference (Auto-Generated)</label>
+                                                <Input
+                                                    className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-mono font-bold text-slate-500 cursor-not-allowed border-dashed"
+                                                    value={grnNumber}
+                                                    readOnly
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Received Date</label>
+                                                <Input
+                                                    type="date"
+                                                    className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-semibold px-3 focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                    value={receivedDate}
+                                                    onChange={e => setReceivedDate(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Received Items Checklist */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Items Verification List
+                                        </h3>
+
+                                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider">
+                                                    <tr>
+                                                        <th className="px-4 py-3">Material Description</th>
+                                                        <th className="px-4 py-3 text-center w-28">Ordered Qty</th>
+                                                        <th className="px-4 py-3 text-center w-36">Received Qty</th>
+                                                        <th className="px-4 py-3">Batch &amp; Expiry Registry</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {receivedItems.map((item, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50/30 dark:hover:bg-slate-900/20 transition-colors">
+                                                            <td className="px-4 py-3.5">
+                                                                <div className="font-bold text-slate-900 dark:text-white">{item.itemName}</div>
+                                                                <div className="text-[9px] text-slate-400 mt-0.5">Item Registry Code</div>
+                                                            </td>
+                                                            <td className="px-4 py-3.5 text-center font-black text-slate-600 dark:text-slate-400">
+                                                                {item.requestedQty}
+                                                            </td>
+                                                            <td className="px-4 py-3.5">
+                                                                <Input
+                                                                    type="number"
+                                                                    className="h-8 text-right font-black text-xs"
+                                                                    value={item.receivedQty}
+                                                                    onChange={e => updateReceivedQty(idx, e.target.value)}
+                                                                />
+                                                            </td>
+                                                            <td className="px-4 py-3.5 space-y-3">
+                                                                <Input
+                                                                    className="h-8 text-xs font-mono"
+                                                                    placeholder="Batch Number (optional)"
+                                                                    value={item.remarks}
+                                                                    onChange={e => updateItemRemarks(idx, e.target.value)}
+                                                                />
+                                                                <div className="space-y-1">
+                                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Expiry Date</span>
+                                                                    <Input
+                                                                        type="date"
+                                                                        className="h-8 text-xs font-mono font-semibold"
+                                                                        value={item.expiryDate || ''}
+                                                                        onChange={e => {
+                                                                            const updated = [...receivedItems];
+                                                                            updated[idx].expiryDate = e.target.value;
+                                                                            setReceivedItems(updated);
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                {item.hasSerial && (
+                                                                    <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 space-y-2">
+                                                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Assign Serial Numbers:</span>
+                                                                        <div className="space-y-1.5">
+                                                                            {Array.from({ length: Math.ceil(item.receivedQty) || 0 }).map((_, sIdx) => (
+                                                                                <Input
+                                                                                    key={sIdx}
+                                                                                    className="h-8 text-[10px] font-mono bg-white dark:bg-slate-950 font-bold"
+                                                                                    placeholder={`Serial #${sIdx + 1}`}
+                                                                                    value={item.serials?.[sIdx] || ''}
+                                                                                    onChange={e => {
+                                                                                        const updatedSerials = [...(item.serials || [])];
+                                                                                        updatedSerials[sIdx] = e.target.value;
+                                                                                        const updatedItems = [...receivedItems];
+                                                                                        updatedItems[idx].serials = updatedSerials;
+                                                                                        setReceivedItems(updatedItems);
+                                                                                    }}
+                                                                                />
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Remarks */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">Additional Notes / Quality Inspection</label>
+                                        <Textarea
+                                            rows={2}
+                                            value={grnRemarks}
+                                            onChange={e => setGRNRemarks(e.target.value)}
+                                            placeholder="Write any comments regarding quality checking, visual inspect status, damaged goods if any..."
+                                            className="text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-xl resize-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* RIGHT PANEL (35% Sticky Request Details) */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* Request Context Info */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Info className="w-3.5 h-3.5 text-blue-500" /> Reference Information
+                                        </h4>
+                                        <div className="space-y-3.5 text-xs">
+                                            <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Request No</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.requestNr}</span>
+                                            </div>
+                                            <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.poNumber || 'N/A'}</span>
+                                            </div>
+                                            <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier Partner</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{selectedRequest.vendor || 'N/A'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Source Type</span>
+                                                <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[9px] font-bold px-2 py-0 mt-0.5 rounded">{selectedRequest.sourceType}</Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Verification Metrics */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Intake Estimator
+                                        </h4>
+                                        {(() => {
+                                            const totalItems = receivedItems.length;
+                                            const totalOrdered = receivedItems.reduce((sum, item) => sum + item.requestedQty, 0);
+                                            const totalReceived = receivedItems.reduce((sum, item) => sum + (parseFloat(item.receivedQty as any) || 0), 0);
+                                            return (
+                                                <div className="space-y-3 text-xs">
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80 font-semibold">
+                                                        <span className="text-slate-400">Materials In GRN</span>
+                                                        <span className="text-slate-800 dark:text-slate-200 font-bold">{totalItems}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80 font-semibold">
+                                                        <span className="text-slate-400">Total Ordered Qty</span>
+                                                        <span className="text-slate-800 dark:text-slate-200 font-bold">{totalOrdered.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 font-bold">
+                                                        <span className="text-slate-400">Total Received Qty</span>
+                                                        <span className="text-blue-600 dark:text-blue-400">{totalReceived.toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sticky Footer */}
+                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
+                                <Button variant="outline" onClick={handleCloseGRNDialog} className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5">
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleCreateGRN}
+                                    disabled={createGRNMutation.isPending}
+                                    className="h-9 px-5 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm shadow-green-500/10 font-sans"
+                                >
+                                    {createGRNMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5" /> Confirm Receipt</>}
+                                </Button>
+                            </div>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
 
-            {/* Details Dialog */}
+            {/* Details Drawer - Premium Enterprise Redesign */}
             <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Request Details</DialogTitle>
-                    </DialogHeader>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                >
                     {selectedRequest && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded">
-                                <div><span className="font-bold">Request No:</span> {selectedRequest.requestNr}</div>
-                                <div><span className="font-bold">PO Number:</span> {selectedRequest.poNumber}</div>
-                                <div><span className="font-bold">Vendor:</span> {selectedRequest.vendor}</div>
-                                <div><span className="font-bold">Source:</span> {selectedRequest.sourceType}</div>
+                        <>
+                            {/* Header Banner */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        onClick={() => setShowDetailsDialog(false)} 
+                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">GRN Inventory Intake</span>
+                                        <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-955/20 text-[9px] px-2 py-0 font-bold rounded-full">
+                                            {activeTab === 'COMPLETED' ? 'Completed & In Stock' : 'Awaiting Receipt Verification'}
+                                        </Badge>
+                                    </div>
+                                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                        {selectedRequest.requestNr}
+                                    </h2>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        PO Reference: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{selectedRequest.poNumber || 'N/A'}</span>
+                                    </p>
+                                </div>
                             </div>
-                            <table className="w-full text-xs border">
-                                <thead className="bg-slate-100">
-                                    <tr>
-                                        <th className="p-2 border text-left">Item</th>
-                                        <th className="p-2 border text-center">Quantity</th>
-                                        <th className="p-2 border text-left">Batch No.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {selectedRequest.items?.map((item) => (
-                                        <tr key={item.id}>
-                                            <td className="p-2 border">{item.item?.name}</td>
-                                            <td className="p-2 border text-center">{item.requestedQty}</td>
-                                            <td className="p-2 border font-mono text-[10px] text-blue-600">
-                                                {item.batch?.batchNumber || (activeTab === 'COMPLETED' ? 'System Assigned' : '-')}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+
+                            {/* Split Panels Body */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+                                
+                                {/* LEFT PANEL (65% Scrollable) */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* GRN Information - 6 Cards */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Info className="w-3.5 h-3.5 text-blue-500" /> Intake Details
+                                        </h3>
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <Tag className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Request No</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.requestNr}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <ClipboardList className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.poNumber || 'N/A'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <Building2 className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Supplier</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.vendor || 'N/A'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <Tag className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Source Type</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.sourceType}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <AlertCircle className="w-4 h-4 text-emerald-500" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Intake Status</span>
+                                                    <Badge className={cn(
+                                                        "text-[9px] font-bold px-2 py-0 rounded",
+                                                        activeTab === 'COMPLETED' ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                                    )}>
+                                                        {activeTab === 'COMPLETED' ? 'COMPLETED' : 'AWAITING VERIFICATION'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5 font-sans">
+                                                <Calendar className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Expected Delivery</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">
+                                                        {selectedRequest.expectedDelivery ? new Date(selectedRequest.expectedDelivery).toLocaleDateString() : 'Immediate'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Items Table */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Intake Material Registry
+                                        </h3>
+                                        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider sticky top-0 z-10 backdrop-blur">
+                                                    <tr>
+                                                        <th className="px-4 py-3">Material / Item</th>
+                                                        <th className="px-4 py-3 text-right">Quantity</th>
+                                                        <th className="px-4 py-3">Batch Number</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {selectedRequest.items?.map((item) => (
+                                                        <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors duration-150 group">
+                                                            <td className="px-4 py-3.5">
+                                                                <div className="flex items-center gap-2.5">
+                                                                    <div className="w-7 h-7 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 font-black text-slate-500 dark:text-slate-400 text-[9px]">
+                                                                        {item.item?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                                                    </div>
+                                                                    <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item?.name}</div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-4 py-3.5 text-right font-black text-slate-800 dark:text-slate-200">
+                                                                {item.requestedQty} {item.item?.unit}
+                                                            </td>
+                                                            <td className="px-4 py-3.5">
+                                                                <span className="font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                                                                    {item.batch?.batchNumber || (activeTab === 'COMPLETED' ? 'System Assigned' : 'Awaiting Allocation')}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* RIGHT PANEL (35% Sticky) */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* Summary card */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Summary Metrics
+                                        </h4>
+                                        {(() => {
+                                            const totalItems = selectedRequest.items?.length || 0;
+                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
+                                            return (
+                                                <div className="space-y-3 text-xs">
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Total Items Catalogued</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalItems}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5">
+                                                        <span className="text-slate-500 dark:text-slate-400">Total Intake Qty</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalQty.toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+
+                                    {/* Intake timeline */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-blue-500" /> Intake Timeline
+                                        </h4>
+                                        <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800 text-xs">
+                                            <div className="relative">
+                                                <span className="absolute -left-6 top-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
+                                                <div className="font-bold text-slate-800 dark:text-slate-200">PO Raised &amp; Supplier Assigned</div>
+                                                <div className="text-[10px] text-slate-400">Authorized by procurement team</div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className={cn(
+                                                    "absolute -left-6 top-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900",
+                                                    activeTab === 'COMPLETED' ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-800"
+                                                )}></span>
+                                                <div className="font-bold text-slate-800 dark:text-slate-200">Goods Receipt Certified</div>
+                                                <div className="text-[10px] text-slate-400">
+                                                    {activeTab === 'COMPLETED' ? 'Store check validated and updated' : 'Pending verification check'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setShowDetailsDialog(false)}
+                                    className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
+                                >
+                                    <X className="w-3.5 h-3.5" /> Close Details
+                                </Button>
+                            </div>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>

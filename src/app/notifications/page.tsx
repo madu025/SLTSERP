@@ -1,32 +1,33 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import {
+    Bell, CheckCheck, Trash2, Filter, Search, X,
+    AlertTriangle, Package, Shield, Building2, Briefcase,
+    Clock, ArrowUpDown, Settings, RefreshCw, MessageSquare,
+    Wrench, DollarSign, Calendar, Router, User,
+    ChevronDown, ChevronUp, SlidersHorizontal, Eye, EyeOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { 
-    Bell, 
-    Settings, 
-    Trash2, 
-    CheckCheck, 
-    Search, 
-    ChevronRight, 
-    Warehouse, 
-    HardHat, 
-    FolderKanban, 
-    Receipt, 
-    AlertCircle, 
-    Calendar,
-    BellOff
-} from "lucide-react";
-import { format } from 'date-fns';
+import Sidebar from "@/components/Sidebar";
+import Header from "@/components/Header";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
+// Types
 interface Notification {
     id: string;
     type: string;
@@ -36,454 +37,682 @@ interface Notification {
     link?: string;
     isRead: boolean;
     createdAt: string;
+    metadata?: Record<string, unknown>;
 }
 
-interface Preference {
+interface NotificationPreference {
     id: string;
+    userId: string;
     type: string;
     enabled: boolean;
 }
 
-export default function NotificationManagerPage() {
+// Type definitions with colors
+const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+    SYSTEM: { label: "System", color: "text-slate-600", bg: "bg-slate-100", icon: <Settings className="w-3.5 h-3.5" /> },
+    INVENTORY: { label: "Inventory", color: "text-orange-600", bg: "bg-orange-100", icon: <Package className="w-3.5 h-3.5" /> },
+    CONTRACTOR: { label: "Contractors", color: "text-blue-600", bg: "bg-blue-100", icon: <Shield className="w-3.5 h-3.5" /> },
+    PROJECT: { label: "Projects", color: "text-purple-600", bg: "bg-purple-100", icon: <Building2 className="w-3.5 h-3.5" /> },
+    FINANCE: { label: "Finance", color: "text-emerald-600", bg: "bg-emerald-100", icon: <DollarSign className="w-3.5 h-3.5" /> },
+    HELPDESK: { label: "Helpdesk", color: "text-rose-600", bg: "bg-rose-100", icon: <Wrench className="w-3.5 h-3.5" /> },
+};
+
+const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
+    CRITICAL: { label: "Critical", color: "text-red-600", dot: "bg-red-600 animate-pulse" },
+    HIGH: { label: "High", color: "text-orange-600", dot: "bg-orange-500" },
+    MEDIUM: { label: "Medium", color: "text-yellow-600", dot: "bg-yellow-400" },
+    LOW: { label: "Low", color: "text-slate-400", dot: "bg-slate-300" },
+};
+
+// Group notifications by type
+function groupNotifications(notifications: Notification[]): Map<string, Notification[]> {
+    const grouped = new Map<string, Notification[]>();
+    for (const n of notifications) {
+        const key = n.type;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(n);
+    }
+    return grouped;
+}
+
+function formatTime(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" });
+}
+
+export default function NotificationCenterPage() {
+    const router = useRouter();
     const queryClient = useQueryClient();
     const [userId, setUserId] = useState<string | null>(null);
-    const [mounted, setMounted] = useState(false);
-    const [activeTab, setActiveTab] = useState<string>('ALL');
-    const [statusFilter, setStatusFilter] = useState<'ALL' | 'UNREAD'>('ALL');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterType, setFilterType] = useState<string>("ALL");
+    const [filterPriority, setFilterPriority] = useState<string>("ALL");
+    const [filterStatus, setFilterStatus] = useState<string>("ALL");
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "priority">("newest");
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [groupByType, setGroupByType] = useState(true);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setMounted(true);
-            const storedUser = localStorage.getItem('user');
-            if (storedUser) {
-                try {
-                    setUserId(JSON.parse(storedUser).id);
-                } catch (e) {
-                    console.error("Failed to parse user", e);
-                }
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            try {
+                setUserId(JSON.parse(storedUser).id);
+            } catch {
+                // ignore
             }
-        }, 0);
-        return () => clearTimeout(timer);
+        }
     }, []);
 
-    // 1. Fetch user notifications
-    const { data: notifications = [] } = useQuery<Notification[]>({
+    // Fetch notifications
+    const { data: notifications = [], isLoading } = useQuery<Notification[]>({
         queryKey: ["notifications", userId],
         queryFn: async () => {
             if (!userId) return [];
-            const res = await fetch(`/api/notifications`);
+            const res = await fetch("/api/notifications?limit=200");
             if (!res.ok) return [];
-            return res.json();
+            const json = await res.json();
+            return Array.isArray(json.data) ? json.data : [];
         },
         enabled: !!userId,
+        staleTime: 10000,
     });
 
-    // 2. Fetch notification preferences
-    const { data: preferences = [], refetch: refetchPreferences } = useQuery<Preference[]>({
-        queryKey: ["notification-preferences"],
+    // Fetch preferences
+    const { data: preferences = [] } = useQuery<NotificationPreference[]>({
+        queryKey: ["notification-preferences", userId],
         queryFn: async () => {
+            if (!userId) return [];
             const res = await fetch("/api/notifications/preferences");
             if (!res.ok) return [];
-            return res.json();
+            const json = await res.json();
+            return Array.isArray(json.data) ? json.data : [];
         },
         enabled: !!userId,
     });
 
-    // --- MUTATIONS ---
-    
-    // Toggle preferences
-    const toggleMutation = useMutation({
-        mutationFn: async ({ type, enabled }: { type: string; enabled: boolean }) => {
-            const res = await fetch("/api/notifications/preferences", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ type, enabled }),
-            });
-            if (!res.ok) throw new Error("Failed to update preference");
-            return res.json();
-        },
-        onSuccess: () => {
-            refetchPreferences();
-            toast.success("Preferences updated successfully");
-        },
-        onError: () => {
-            toast.error("Failed to update preferences");
-        }
-    });
-
-    // Mark as read
+    // Mark as read mutation
     const markAsReadMutation = useMutation({
-        mutationFn: async (id: string) => {
-            const res = await fetch(`/api/notifications/${id}`, {
-                method: "PATCH"
-            });
-            if (!res.ok) throw new Error("Failed to mark as read");
+        mutationFn: async (notificationId: string) => {
+            await fetch(`/api/notifications/${notificationId}`, { method: "PATCH" });
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        }
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
     });
 
     // Mark all as read
     const markAllReadMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch("/api/notifications", {
-                method: "PATCH"
-            });
-            if (!res.ok) throw new Error("Failed to mark all as read");
+            await fetch("/api/notifications", { method: "PATCH" });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             toast.success("All notifications marked as read");
-        }
+        },
     });
 
-    // Delete single notification
+    // Delete single
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const res = await fetch(`/api/notifications/${id}`, {
-                method: "DELETE"
-            });
-            if (!res.ok) throw new Error("Failed to delete notification");
+            await fetch(`/api/notifications/${id}`, { method: "DELETE" });
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
-            toast.success("Notification deleted");
-        }
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
     });
 
-    // Clear all notifications
-    const clearAllMutation = useMutation({
+    // Delete selected
+    const deleteSelectedMutation = useMutation({
+        mutationFn: async (ids: string[]) => {
+            await Promise.all(ids.map(id => fetch(`/api/notifications/${id}`, { method: "DELETE" })));
+        },
+        onSuccess: () => {
+            setSelectedIds(new Set());
+            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            toast.success("Selected notifications deleted");
+        },
+    });
+
+    // Delete all
+    const deleteAllMutation = useMutation({
         mutationFn: async () => {
-            const res = await fetch("/api/notifications", {
-                method: "DELETE"
-            });
-            if (!res.ok) throw new Error("Failed to clear notifications");
+            await fetch("/api/notifications", { method: "DELETE" });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
-            toast.success("All notifications cleared");
-        }
+            toast.success("All notifications deleted");
+        },
     });
 
-    // --- LOGIC / FILTERING ---
-
-    const getPrefLabel = (type: string) => {
-        const labels: Record<string, string> = {
-            'INVENTORY': 'Inventory & Stock Alerts',
-            'PROJECT': 'SOD & Project Updates',
-            'CONTRACTOR': 'Contractor Registrations',
-            'SYSTEM': 'System Notifications',
-            'FINANCE': 'Finance & Invoices'
-        };
-        return labels[type] || type;
-    };
-
-    const isPrefEnabled = (type: string) => {
-        const pref = preferences.find(p => p.type === type);
-        return pref ? pref.enabled : true;
-    };
-
-    const getNotificationIcon = (type: string) => {
-        switch (type) {
-            case 'INVENTORY': return <Warehouse className="w-4 h-4 text-orange-500" />;
-            case 'CONTRACTOR': return <HardHat className="w-4 h-4 text-blue-500" />;
-            case 'PROJECT': return <FolderKanban className="w-4 h-4 text-purple-500" />;
-            case 'FINANCE': return <Receipt className="w-4 h-4 text-emerald-500" />;
-            default: return <Bell className="w-4 h-4 text-slate-500" />;
-        }
-    };
-
-    const getNotificationColor = (type: string) => {
-        switch (type) {
-            case 'INVENTORY': return 'bg-orange-50 border-orange-200/50 dark:bg-orange-950/10 dark:border-orange-500/20';
-            case 'CONTRACTOR': return 'bg-blue-50 border-blue-200/50 dark:bg-blue-950/10 dark:border-blue-500/20';
-            case 'PROJECT': return 'bg-purple-50 border-purple-200/50 dark:bg-purple-950/10 dark:border-purple-500/20';
-            case 'FINANCE': return 'bg-emerald-50 border-emerald-200/50 dark:bg-emerald-950/10 dark:border-emerald-500/20';
-            default: return 'bg-slate-50 border-slate-200/50 dark:bg-slate-900/10 dark:border-slate-800/20';
-        }
-    };
-
-    // Filter notifications based on tabs, search and status
-    const filteredNotifications = notifications.filter(n => {
-        // Tab Category Filter
-        if (activeTab !== 'ALL' && n.type !== activeTab) return false;
-        
-        // Read/Unread Filter
-        if (statusFilter === 'UNREAD' && n.isRead) return false;
-
-        // Search Filter
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            const titleMatch = n.title?.toLowerCase().includes(query) || false;
-            const msgMatch = n.message?.toLowerCase().includes(query) || false;
-            return titleMatch || msgMatch;
-        }
-
-        return true;
+    // Toggle preference
+    const togglePreferenceMutation = useMutation({
+        mutationFn: async ({ type, enabled }: { type: string; enabled: boolean }) => {
+            await fetch("/api/notifications/preferences", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type, enabled }),
+            });
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notification-preferences"] }),
     });
+
+    // Filtered & sorted notifications
+    const filteredNotifications = useMemo(() => {
+        let filtered = [...notifications];
+
+        // Search
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            filtered = filtered.filter(
+                n =>
+                    n.title.toLowerCase().includes(term) ||
+                    n.message.toLowerCase().includes(term),
+            );
+        }
+
+        // Type filter
+        if (filterType !== "ALL") {
+            filtered = filtered.filter(n => n.type === filterType);
+        }
+
+        // Priority filter
+        if (filterPriority !== "ALL") {
+            filtered = filtered.filter(n => n.priority === filterPriority);
+        }
+
+        // Status filter
+        if (filterStatus === "UNREAD") {
+            filtered = filtered.filter(n => !n.isRead);
+        } else if (filterStatus === "READ") {
+            filtered = filtered.filter(n => n.isRead);
+        }
+
+        // Sort
+        if (sortOrder === "newest") {
+            filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } else if (sortOrder === "oldest") {
+            filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        } else if (sortOrder === "priority") {
+            const priorityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+            filtered.sort((a, b) => (priorityOrder[a.priority as keyof typeof priorityOrder] || 99) - (priorityOrder[b.priority as keyof typeof priorityOrder] || 99));
+        }
+
+        return filtered;
+    }, [notifications, searchTerm, filterType, filterPriority, filterStatus, sortOrder]);
+
+    // Grouped notifications
+    const groupedNotifications = useMemo(() => {
+        if (!groupByType) return null;
+        return groupNotifications(filteredNotifications);
+    }, [filteredNotifications, groupByType]);
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleExpandGroup = (groupKey: string) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupKey)) next.delete(groupKey);
+            else next.add(groupKey);
+            return next;
+        });
+    };
+
+    const handleNotificationClick = useCallback((notification: Notification) => {
+        if (!notification.isRead) {
+            markAsReadMutation.mutate(notification.id);
+        }
+        if (notification.link) {
+            router.push(notification.link);
+        }
+    }, [markAsReadMutation, router]);
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
+    const typeList = Object.keys(TYPE_CONFIG);
 
-    if (!mounted || !userId) return null;
+    const getTypeIcon = (type: string) => {
+        return TYPE_CONFIG[type]?.icon || <Bell className="w-3.5 h-3.5" />;
+    };
+
+    if (!userId) {
+        return (
+            <div className="h-screen flex bg-[#f8fafc] overflow-hidden text-xs">
+                <Sidebar />
+                <div className="flex-1 flex flex-col min-w-0">
+                    <Header />
+                    <div className="flex items-center justify-center flex-1">
+                        <p className="text-slate-500">Loading user session...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-screen flex bg-[#f8fafc] overflow-hidden text-xs">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0">
                 <Header />
-                <main className="flex-1 overflow-y-auto pt-0">
-
-                    {/* Gradient Header Hero */}
-                    <div className="h-44 bg-slate-900 relative">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/30 via-sky-600/10 to-transparent" />
-                        <div className="max-w-5xl mx-auto px-8 h-full flex items-end pb-8 relative z-10">
-                            <div className="flex items-center gap-5">
-                                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md shadow-2xl flex items-center justify-center text-white border border-white/20">
-                                    <Bell className="w-7 h-7 text-sky-400 animate-swing" />
-                                </div>
-                                <div className="text-white space-y-1">
-                                    <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                <main className="flex-1 overflow-y-auto p-6 md:p-8">
+                    <div className="max-w-5xl mx-auto">
+                        {/* Header */}
+                        <div className="mb-8">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                                         Notification Center
                                     </h1>
-                                    <p className="text-[10px] text-slate-300 font-medium uppercase tracking-wider">
-                                        Manage your system alerts and notification preferences
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        {unreadCount} unread · {notifications.length} total
                                     </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => markAllReadMutation.mutate()}
+                                        disabled={unreadCount === 0}
+                                        className="gap-1.5"
+                                    >
+                                        <CheckCheck className="w-4 h-4" />
+                                        Mark All Read
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => deleteAllMutation.mutate()}
+                                        className="gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                        Clear All
+                                    </Button>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="max-w-5xl mx-auto px-8 -mt-8 relative z-20 pb-12">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Toolbar */}
+                        <div className="flex flex-wrap items-center gap-3 mb-6 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <Input
+                                    placeholder="Search notifications..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="pl-9 h-9 text-sm rounded-xl"
+                                />
+                                {searchTerm && (
+                                    <button
+                                        onClick={() => setSearchTerm("")}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
 
-                            {/* Left Panel: Notifications List & Tabs */}
-                            <div className="lg:col-span-2 space-y-5">
-                                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white">
-                                    <CardHeader className="pb-4 border-b">
-                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                            <div className="flex items-center gap-2">
-                                                <CardTitle className="text-sm font-bold">Activity Log</CardTitle>
-                                                {unreadCount > 0 && (
-                                                    <Badge className="bg-red-500 text-white font-bold border-none text-[9px] px-1.5 py-0.5">
-                                                        {unreadCount} New
-                                                    </Badge>
+                            <Select value={filterType} onValueChange={setFilterType}>
+                                <SelectTrigger className="w-[140px] h-9 text-xs rounded-xl">
+                                    <Filter className="w-3 h-3 mr-1" />
+                                    <SelectValue placeholder="Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">All Types</SelectItem>
+                                    {typeList.map(type => (
+                                        <SelectItem key={type} value={type}>
+                                            {TYPE_CONFIG[type]?.label || type}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <Select value={filterPriority} onValueChange={setFilterPriority}>
+                                <SelectTrigger className="w-[130px] h-9 text-xs rounded-xl">
+                                    <AlertTriangle className="w-3 h-3 mr-1" />
+                                    <SelectValue placeholder="Priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">All Priorities</SelectItem>
+                                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                                    <SelectItem value="HIGH">High</SelectItem>
+                                    <SelectItem value="MEDIUM">Medium</SelectItem>
+                                    <SelectItem value="LOW">Low</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                <SelectTrigger className="w-[130px] h-9 text-xs rounded-xl">
+                                    <Eye className="w-3 h-3 mr-1" />
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="ALL">All</SelectItem>
+                                    <SelectItem value="UNREAD">Unread</SelectItem>
+                                    <SelectItem value="READ">Read</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Select value={sortOrder} onValueChange={(v: string) => setSortOrder(v as typeof sortOrder)}>
+                                <SelectTrigger className="w-[130px] h-9 text-xs rounded-xl">
+                                    <ArrowUpDown className="w-3 h-3 mr-1" />
+                                    <SelectValue placeholder="Sort" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="newest">Newest First</SelectItem>
+                                    <SelectItem value="oldest">Oldest First</SelectItem>
+                                    <SelectItem value="priority">By Priority</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 rounded-xl"
+                                onClick={() => setGroupByType(!groupByType)}
+                                title={groupByType ? "Ungroup" : "Group by type"}
+                            >
+                                <SlidersHorizontal className={cn("w-4 h-4", groupByType && "text-blue-600")} />
+                            </Button>
+
+                            {selectedIds.size > 0 && (
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => deleteSelectedMutation.mutate(Array.from(selectedIds))}
+                                    className="gap-1.5 h-9 rounded-xl"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete ({selectedIds.size})
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Preferences Quick Setting */}
+                        <div className="mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Settings className="w-4 h-4 text-blue-600" />
+                                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Channel Preferences</h3>
+                            </div>
+                            <div className="flex flex-wrap gap-4">
+                                {typeList.map(type => {
+                                    const pref = preferences.find(p => p.type === type);
+                                    const isEnabled = pref?.enabled ?? true;
+                                    return (
+                                        <label key={type} className="flex items-center gap-2 cursor-pointer text-xs">
+                                            <Checkbox
+                                                checked={isEnabled}
+                                                onCheckedChange={() =>
+                                                    togglePreferenceMutation.mutate({ type, enabled: !isEnabled })
+                                                }
+                                                className="w-3.5 h-3.5"
+                                            />
+                                            {getTypeIcon(type)}
+                                            <span className="font-medium text-slate-600 dark:text-slate-400">
+                                                {TYPE_CONFIG[type]?.label || type}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+                            {typeList.map(type => {
+                                const count = notifications.filter(n => n.type === type && !n.isRead).length;
+                                const config = TYPE_CONFIG[type] || { label: type, color: "text-slate-600", bg: "bg-slate-100" };
+                                return (
+                                    <button
+                                        key={type}
+                                        onClick={() => { setFilterType(type); setFilterStatus("UNREAD"); }}
+                                        className={cn(
+                                            "p-3 rounded-xl text-center transition-all border",
+                                            filterType === type
+                                                ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-sm"
+                                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300"
+                                        )}
+                                    >
+                                        <div className={cn("text-xs font-bold", config.color)}>{count}</div>
+                                        <div className="text-[10px] text-slate-500 font-medium mt-0.5">{config.label}</div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Notification List */}
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+                            </div>
+                        ) : filteredNotifications.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                                <Bell className="w-16 h-16 mb-4 opacity-20" />
+                                <p className="text-lg font-bold text-slate-500">No notifications found</p>
+                                <p className="text-sm mt-1">
+                                    {searchTerm || filterType !== "ALL" || filterPriority !== "ALL" || filterStatus !== "ALL"
+                                        ? "Try adjusting your filters"
+                                        : "You're all caught up! 🎉"}
+                                </p>
+                            </div>
+                        ) : groupByType && groupedNotifications ? (
+                            /* Grouped View */
+                            <div className="space-y-4">
+                                {Array.from(groupedNotifications.entries()).map(([type, items]) => {
+                                    const config = TYPE_CONFIG[type] || { label: type, color: "text-slate-600", bg: "bg-slate-100" };
+                                    const isExpanded = expandedGroups.has(type) || expandedGroups.size === 0;
+                                    const unreadInGroup = items.filter(n => !n.isRead).length;
+
+                                    return (
+                                        <div key={type} className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-950">
+                                            <button
+                                                onClick={() => toggleExpandGroup(type)}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between p-4 transition-colors",
+                                                    "hover:bg-slate-50 dark:hover:bg-slate-900/50",
+                                                    config.bg, "bg-opacity-50 dark:bg-opacity-10"
                                                 )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    disabled={unreadCount === 0 || markAllReadMutation.isPending}
-                                                    onClick={() => markAllReadMutation.mutate()}
-                                                    className="h-8 px-2.5 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl"
-                                                >
-                                                    <CheckCheck className="w-3.5 h-3.5 mr-1" /> Mark All Read
-                                                </Button>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    disabled={notifications.length === 0 || clearAllMutation.isPending}
-                                                    onClick={() => {
-                                                        if (confirm("Are you sure you want to delete all notifications?")) {
-                                                            clearAllMutation.mutate();
-                                                        }
-                                                    }}
-                                                    className="h-8 px-2.5 text-[10px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Clear All
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Filters Controls */}
-                                        <div className="flex flex-col md:flex-row gap-3 pt-3">
-                                            <div className="relative flex-1">
-                                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                                                <Input 
-                                                    type="text" 
-                                                    placeholder="Search notifications..."
-                                                    value={searchQuery}
-                                                    onChange={e => setSearchQuery(e.target.value)}
-                                                    className="h-9 pl-9 pr-4 text-[11px] rounded-xl border-slate-200/80 focus:border-blue-500 placeholder:opacity-50"
-                                                />
-                                            </div>
-                                            <div className="flex bg-slate-100 p-1 rounded-xl gap-1 h-9">
-                                                <button
-                                                    onClick={() => setStatusFilter('ALL')}
-                                                    className={`px-3 py-1 rounded-lg font-bold text-[10px] transition-all ${
-                                                        statusFilter === 'ALL' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
-                                                    }`}
-                                                >
-                                                    All
-                                                </button>
-                                                <button
-                                                    onClick={() => setStatusFilter('UNREAD')}
-                                                    className={`px-3 py-1 rounded-lg font-bold text-[10px] transition-all ${
-                                                        statusFilter === 'UNREAD' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
-                                                    }`}
-                                                >
-                                                    Unread
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Categories horizontal scroll tabs */}
-                                        <div className="flex items-center gap-1.5 overflow-x-auto py-1 pt-3 border-t border-slate-100 no-scrollbar">
-                                            {[
-                                                { id: 'ALL', label: 'All', icon: Bell },
-                                                { id: 'SYSTEM', label: 'System', icon: Settings },
-                                                { id: 'INVENTORY', label: 'Inventory', icon: Warehouse },
-                                                { id: 'CONTRACTOR', label: 'Contractors', icon: HardHat },
-                                                { id: 'PROJECT', label: 'SOD/Projects', icon: FolderKanban },
-                                                { id: 'FINANCE', label: 'Finance', icon: Receipt }
-                                            ].map(tab => {
-                                                const TabIcon = tab.icon;
-                                                return (
-                                                    <button
-                                                        key={tab.id}
-                                                        onClick={() => setActiveTab(tab.id)}
-                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
-                                                            activeTab === tab.id 
-                                                                ? 'bg-slate-900 border-slate-900 text-white shadow-md' 
-                                                                : 'bg-white border-slate-100 hover:border-slate-200 text-slate-500 hover:text-slate-700'
-                                                        }`}
-                                                    >
-                                                        <TabIcon className="w-3.5 h-3.5" />
-                                                        {tab.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-0">
-                                        <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto custom-scrollbar">
-                                            {filteredNotifications.length > 0 ? (
-                                                filteredNotifications.map((n, index) => (
-                                                    <div 
-                                                        key={n.id}
-                                                        className={`p-4 hover:bg-slate-50/80 transition-all flex items-start justify-between gap-4 border-l-4 group ${
-                                                            n.isRead ? 'border-l-transparent' : 'border-l-blue-600 bg-blue-50/30'
-                                                        }`}
-                                                        style={{
-                                                            animation: 'fadeIn 0.3s ease-out forwards',
-                                                            animationDelay: `${index * 0.05}s`
-                                                        }}
-                                                    >
-                                                        <div className="flex gap-3.5 flex-1 min-w-0">
-                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm border ${getNotificationColor(n.type)}`}>
-                                                                {getNotificationIcon(n.type)}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <h3 className={`text-xs font-bold truncate ${n.isRead ? 'text-slate-700' : 'text-slate-900'}`}>
-                                                                        {n.title}
-                                                                    </h3>
-                                                                    {n.priority === 'CRITICAL' && (
-                                                                        <Badge className="bg-red-500 text-[8px] font-black uppercase text-white px-1.5 py-0">Critical</Badge>
-                                                                    )}
-                                                                </div>
-                                                                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed break-words">
-                                                                    {n.message}
-                                                                </p>
-                                                                <div className="flex items-center gap-2.5 mt-2">
-                                                                    <span className="text-[9px] font-bold uppercase text-slate-400">{n.type}</span>
-                                                                    <span className="text-slate-200 font-bold">•</span>
-                                                                    <div className="flex items-center text-slate-400 gap-1">
-                                                                        <Calendar className="w-3 h-3" />
-                                                                        <span className="text-[9px]">{format(new Date(n.createdAt), 'MMM dd, yyyy HH:mm')}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            {!n.isRead && (
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    size="icon" 
-                                                                    onClick={() => markAsReadMutation.mutate(n.id)}
-                                                                    title="Mark as Read"
-                                                                    className="h-7 w-7 text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                                                                >
-                                                                    <CheckCheck className="w-4 h-4" />
-                                                                </Button>
-                                                            )}
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
-                                                                onClick={() => deleteMutation.mutate(n.id)}
-                                                                title="Delete Alert"
-                                                                className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </Button>
-                                                            {n.link && (
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    size="icon" 
-                                                                    onClick={() => window.location.href = n.link!}
-                                                                    title="Open Link"
-                                                                    className="h-7 w-7 text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
-                                                                >
-                                                                    <ChevronRight className="w-4 h-4" />
-                                                                </Button>
-                                                            )}
-                                                        </div>
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", config.bg)}>
+                                                        {getTypeIcon(type)}
                                                     </div>
-                                                ))
-                                            ) : (
-                                                <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-                                                    <BellOff className="w-12 h-12 text-slate-300 stroke-1" />
-                                                    <div>
-                                                        <div className="font-bold text-slate-500">No Notifications Found</div>
-                                                        <div className="text-[10px] text-slate-400 mt-1">There are no updates matching your current filters</div>
+                                                    <div className="text-left">
+                                                        <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                                                            {config.label} Notifications
+                                                        </h3>
+                                                        <p className="text-[11px] text-slate-500">
+                                                            {items.length} total · {unreadInGroup} unread
+                                                        </p>
                                                     </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {unreadInGroup > 0 && (
+                                                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-[10px] h-5">
+                                                            {unreadInGroup}
+                                                        </Badge>
+                                                    )}
+                                                    {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                                </div>
+                                            </button>
+                                            {isExpanded && (
+                                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {items.map(notification => (
+                                                        <NotificationRow
+                                                            key={notification.id}
+                                                            notification={notification}
+                                                            isSelected={selectedIds.has(notification.id)}
+                                                            onToggleSelect={toggleSelect}
+                                                            onClick={handleNotificationClick}
+                                                            onMarkRead={id => markAsReadMutation.mutate(id)}
+                                                            onDelete={id => deleteMutation.mutate(id)}
+                                                        />
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                    );
+                                })}
                             </div>
-
-                            {/* Right Panel: Settings & Preferences */}
-                            <div className="space-y-5">
-                                <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-slate-900 text-white relative">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-700/20 via-transparent to-slate-950" />
-                                    <CardHeader className="relative z-10 pb-4 border-b border-white/5">
-                                        <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                            <Settings className="w-4 h-4 text-sky-400" /> Preferences
-                                        </CardTitle>
-                                        <CardDescription className="text-[10px] text-slate-400">Configure which event categories you want to monitor</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="relative z-10 p-0 divide-y divide-white/5">
-                                        {['SYSTEM', 'INVENTORY', 'CONTRACTOR', 'PROJECT', 'FINANCE'].map(type => (
-                                            <div key={type} className="p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-                                                <div className="space-y-0.5">
-                                                    <div className="font-bold text-white text-xs">{getPrefLabel(type)}</div>
-                                                    <div className="text-[9px] text-slate-400">Enable/disable triggers for this category</div>
-                                                </div>
-                                                <Switch 
-                                                    checked={isPrefEnabled(type)}
-                                                    onCheckedChange={(checked) => toggleMutation.mutate({ type, enabled: checked })}
-                                                    disabled={toggleMutation.isPending}
-                                                    className="data-[state=checked]:bg-sky-500"
-                                                />
-                                            </div>
-                                        ))}
-                                    </CardContent>
-                                    <div className="p-4 bg-sky-500/10 border-t border-white/5 relative z-10 flex items-start gap-2.5">
-                                        <AlertCircle className="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5" />
-                                        <p className="text-[9.5px] text-sky-200 leading-normal">
-                                            Critical admin security events and mandatory password updates are always bypass toggles and will notify you regardless.
-                                        </p>
-                                    </div>
-                                </Card>
+                        ) : (
+                            /* Flat View */
+                            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-950">
+                                {filteredNotifications.map(notification => (
+                                    <NotificationRow
+                                        key={notification.id}
+                                        notification={notification}
+                                        isSelected={selectedIds.has(notification.id)}
+                                        onToggleSelect={toggleSelect}
+                                        onClick={handleNotificationClick}
+                                        onMarkRead={id => markAsReadMutation.mutate(id)}
+                                        onDelete={id => deleteMutation.mutate(id)}
+                                    />
+                                ))}
                             </div>
+                        )}
 
+                        {/* Footer */}
+                        <div className="mt-6 text-center">
+                            <p className="text-[11px] text-slate-400">
+                                Notifications older than 30 days are automatically cleaned up.
+                            </p>
                         </div>
                     </div>
                 </main>
+            </div>
+        </div>
+    );
+}
+
+// Notification Row Component
+function NotificationRow({
+    notification,
+    isSelected,
+    onToggleSelect,
+    onClick,
+    onMarkRead,
+    onDelete,
+}: {
+    notification: Notification;
+    isSelected: boolean;
+    onToggleSelect: (id: string) => void;
+    onClick: (n: Notification) => void;
+    onMarkRead: (id: string) => void;
+    onDelete: (id: string) => void;
+}) {
+    const config = TYPE_CONFIG[notification.type] || { label: notification.type, color: "text-slate-600", bg: "bg-slate-100" };
+    const priorityConfig = PRIORITY_CONFIG[notification.priority] || { label: notification.priority, color: "text-slate-400", dot: "bg-slate-300" };
+
+    return (
+        <div
+            className={cn(
+                "group flex items-start gap-3 p-4 transition-all cursor-pointer",
+                "hover:bg-slate-50 dark:hover:bg-slate-900/30",
+                notification.isRead
+                    ? "bg-white dark:bg-slate-950"
+                    : "bg-blue-50/30 dark:bg-blue-900/10 border-l-[3px] border-l-blue-500",
+                isSelected && "ring-2 ring-blue-400 bg-blue-50/50"
+            )}
+        >
+            {/* Checkbox */}
+            <div className="pt-0.5" onClick={e => e.stopPropagation()}>
+                <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onToggleSelect(notification.id)}
+                    className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity data-[state=checked]:opacity-100"
+                />
+            </div>
+
+            {/* Icon */}
+            <div
+                className="flex-shrink-0"
+                onClick={() => onClick(notification)}
+            >
+                <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    config.bg, "bg-opacity-60"
+                )}>
+                    {TYPE_CONFIG[notification.type]?.icon || <Bell className="w-4 h-4" />}
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0" onClick={() => onClick(notification)}>
+                <div className="flex items-start justify-between gap-2">
+                    <h4 className={cn(
+                        "text-sm font-semibold truncate",
+                        notification.isRead ? "text-slate-600 dark:text-slate-400" : "text-slate-900 dark:text-white"
+                    )}>
+                        {notification.title}
+                    </h4>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        {!notification.isRead && (
+                            <span className="flex h-2 w-2 rounded-full bg-blue-600"></span>
+                        )}
+                        {notification.priority === "CRITICAL" && (
+                            <span className="flex h-2 w-2 rounded-full bg-red-600 animate-pulse"></span>
+                        )}
+                    </div>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                    {notification.message}
+                </p>
+                <div className="flex items-center gap-2 mt-1.5">
+                    <Badge
+                        variant="outline"
+                        className="text-[9px] px-1.5 py-0 h-4 font-medium rounded-md"
+                    >
+                        {config.label}
+                    </Badge>
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            "text-[9px] px-1.5 py-0 h-4 font-bold rounded-md",
+                            priorityConfig.color
+                        )}
+                    >
+                        {priorityConfig.label}
+                    </Badge>
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatTime(notification.createdAt)}
+                    </span>
+                </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!notification.isRead && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg"
+                        onClick={e => { e.stopPropagation(); onMarkRead(notification.id); }}
+                        title="Mark as read"
+                    >
+                        <EyeOff className="w-3.5 h-3.5 text-blue-500" />
+                    </Button>
+                )}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg hover:text-red-500"
+                    onClick={e => { e.stopPropagation(); onDelete(notification.id); }}
+                    title="Delete"
+                >
+                    <Trash2 className="w-3.5 h-3.5" />
+                </Button>
             </div>
         </div>
     );

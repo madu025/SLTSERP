@@ -11,6 +11,7 @@ import { MaterialUsageRow, InventoryItem } from "./types";
 interface MaterialUsageSectionProps {
     rows: MaterialUsageRow[];
     onAddRow: () => void;
+    onQuickAdd: (item: InventoryItem) => void;
     onUpdateRow: (index: number, field: keyof MaterialUsageRow, value: string) => void;
     onRemoveRow: (index: number) => void;
     onPortalImport: () => void;
@@ -23,6 +24,7 @@ interface MaterialUsageSectionProps {
 export function MaterialUsageSection({
     rows,
     onAddRow,
+    onQuickAdd,
     onUpdateRow,
     onRemoveRow,
     onPortalImport,
@@ -59,47 +61,24 @@ export function MaterialUsageSection({
                 </div>
             </div>
 
-            {/* Quick Access Block */}
-            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {quickItems.map(({ label, item }) => {
-                    const existingRow = rows.find(r => r.itemId === item.id);
-                    const isDropWire = item.code === 'OSPFTA003';
-                    const val = existingRow ? (isDropWire ? (existingRow.f1Qty || '') : (existingRow.usedQty || '')) : '';
-
-                    return (
-                        <div key={label} className="space-y-1">
-                            <Label className="text-[9px] uppercase tracking-widest text-slate-500 font-bold block truncate" title={label}>{label}</Label>
-                            <div className="flex gap-1 items-center group">
-                                <div className="relative flex-1">
-                                    <Input 
-                                        className="h-8 pr-6 bg-white transition-all focus:ring-emerald-500 text-xs" 
-                                        placeholder="Used"
-                                        value={val}
-                                        onChange={(e) => {
-                                            const index = rows.findIndex(r => r.itemId === item.id);
-                                            if (index >= 0) {
-                                                onUpdateRow(index, isDropWire ? 'f1Qty' : 'usedQty', e.target.value);
-                                            }
-                                        }}
-                                    />
-                                    <span className="absolute right-1 top-2 text-[8px] font-black text-slate-400 uppercase">{item.unit}</span>
-                                </div>
-                                <div className="w-12">
-                                    <Input 
-                                        className="h-8 px-1 bg-red-50/30 border-red-100 focus:ring-red-500 text-[10px] text-center font-bold" 
-                                        placeholder="W" 
-                                        title="Wastage Qty"
-                                        value={existingRow?.wastageQty || ''}
-                                        onChange={(e) => {
-                                            const index = rows.findIndex(r => r.itemId === item.id);
-                                            if (index >= 0) onUpdateRow(index, 'wastageQty', e.target.value);
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
+            {/* Quick Add Shortcuts */}
+            <div className="space-y-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Quick Add Items</span>
+                <div className="flex flex-wrap gap-2 bg-slate-50/50 p-4 border border-slate-200/60 rounded-xl">
+                    {quickItems.map(({ label, item }) => (
+                        <Button
+                            key={label}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onQuickAdd(item)}
+                            className="h-8 text-xs hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors bg-white font-bold"
+                        >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            {label}
+                        </Button>
+                    ))}
+                </div>
             </div>
 
             {/* Detailed Usage Table */}
@@ -107,10 +86,10 @@ export function MaterialUsageSection({
                 <table className="w-full text-xs">
                     <thead className="bg-slate-50 border-b">
                         <tr className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                            <th className="px-3 py-2 text-left w-[240px]">Item</th>
-                            <th className="px-2 py-2 text-center w-[120px]">Usage</th>
-                            <th className="px-2 py-2 text-center w-[160px]">Wastage / Reason</th>
-                            <th className="px-2 py-2 text-center">Serial #</th>
+                            <th className="px-3 py-2 text-left w-[360px]">Item</th>
+                            <th className="px-2 py-2 text-center w-[110px]">Usage</th>
+                            <th className="px-2 py-2 text-center w-[340px]">Wastage & Reason</th>
+                            <th className="px-2 py-2 text-center w-[170px]">Serial #</th>
                             <th className="px-2 py-2 text-center w-[40px]"></th>
                         </tr>
                     </thead>
@@ -120,7 +99,7 @@ export function MaterialUsageSection({
                             const isDW = currentItem?.code === 'OSPFTA003';
                             return (
                                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-3 py-1.5">
+                                    <td className="px-3 py-1.5 w-[360px]">
                                         <Select 
                                             value={row.itemId} 
                                             onValueChange={(val) => onUpdateRow(idx, 'itemId', val)}
@@ -137,7 +116,7 @@ export function MaterialUsageSection({
                                             </SelectContent>
                                         </Select>
                                     </td>
-                                    <td className="px-2 py-1.5">
+                                    <td className="px-2 py-1.5 w-[110px]">
                                         {isDW ? (
                                             <div className="flex gap-1">
                                                 <Input 
@@ -162,36 +141,38 @@ export function MaterialUsageSection({
                                             />
                                         )}
                                     </td>
-                                    <td className="px-2 py-1.5">
-                                        <div className="flex flex-col gap-1">
+                                    <td className="px-2 py-1.5 w-[340px]">
+                                        <div className="flex items-center gap-1.5">
                                             <Input 
                                                 placeholder="Wastage" 
                                                 value={row.wastageQty || ""} 
                                                 onChange={(e) => onUpdateRow(idx, 'wastageQty', e.target.value)}
-                                                className="h-7 text-center text-[10px] font-bold bg-red-50/20 border-red-50"
+                                                className="h-8 w-20 text-center text-xs bg-red-50/10 dark:bg-red-950/5 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350"
+                                                disabled={currentItem?.isWastageAllowed === false}
                                             />
                                             <Input 
-                                                placeholder="Reason" 
+                                                placeholder="Wastage Reason" 
                                                 value={row.wastageReason || ""} 
                                                 onChange={(e) => onUpdateRow(idx, 'wastageReason', e.target.value)}
-                                                className="h-6 text-[9px] px-1.5 italic bg-slate-50 border-none rounded-md"
+                                                className="h-8 flex-1 text-xs bg-slate-50/40 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350"
+                                                disabled={currentItem?.isWastageAllowed === false}
                                             />
-                                            {currentItem?.maxWastagePercentage !== undefined && (
-                                                <span className="text-[8px] text-slate-400 text-center leading-none">Max {currentItem.maxWastagePercentage}%</span>
-                                            )}
                                         </div>
+                                        {currentItem?.maxWastagePercentage !== undefined && currentItem?.isWastageAllowed !== false && (
+                                            <span className="text-[8px] text-slate-400 text-center leading-none mt-0.5 block">Max {currentItem.maxWastagePercentage}% allowed</span>
+                                        )}
                                     </td>
-                                    <td className="px-2 py-1.5">
+                                    <td className="px-2 py-1.5 w-[170px]">
                                         <Input 
-                                            placeholder="Serial" 
+                                            placeholder="Serial Number" 
                                             value={row.serialNumber || ""} 
                                             onChange={(e) => onUpdateRow(idx, 'serialNumber', e.target.value.toUpperCase())}
                                             className="h-8 text-xs font-mono"
                                             disabled={currentItem?.hasSerial === false}
                                         />
                                     </td>
-                                    <td className="px-2 py-1.5 text-center">
-                                        <Button variant="ghost" size="icon" onClick={() => onRemoveRow(idx)} className="h-7 w-7 text-slate-400 hover:text-red-500 rounded-md">
+                                    <td className="px-2 py-1.5 text-center w-[40px]">
+                                        <Button variant="ghost" size="icon" onClick={() => onRemoveRow(idx)} className="h-8 w-8 text-slate-400 hover:text-red-500 rounded-md">
                                             <X className="w-3.5 h-3.5" />
                                         </Button>
                                     </td>

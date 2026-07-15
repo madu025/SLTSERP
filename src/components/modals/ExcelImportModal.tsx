@@ -5,14 +5,13 @@ import * as XLSX from "xlsx";
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, FileSpreadsheet, Check, AlertCircle, Loader2, Clipboard, XCircle, AlertTriangle } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, AlertCircle, Loader2, Clipboard, XCircle, AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 
 interface ExcelImportModalProps {
@@ -25,12 +24,12 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
     const [file, setFile] = useState<File | null>(null);
     const [pastedData, setPastedData] = useState("");
     const [isUploading, setIsUploading] = useState(false);
-    const [preview, setPreview] = useState<any[]>([]);
+    const [preview, setPreview] = useState<Record<string, unknown>[]>([]);
     const [importMode, setImportMode] = useState<"file" | "paste">("file");
     const [importErrors, setImportErrors] = useState<string[]>([]);
     const [stats, setStats] = useState<{ created: number; failed: number } | null>(null);
 
-    const processJsonData = (jsonData: any[]) => {
+    const processJsonData = (jsonData: Record<string, unknown>[]) => {
         setPreview(jsonData.slice(0, 15)); // Show a bit more for preview
         setImportErrors([]);
         setStats(null);
@@ -74,9 +73,9 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                         }
                     }
 
-                    const jsonData = XLSX.utils.sheet_to_json(ws, { range: startRow, raw: false, defval: "" });
+                    const jsonData = XLSX.utils.sheet_to_json(ws, { range: startRow, raw: false, defval: "" }) as Record<string, unknown>[];
                     processJsonData(jsonData);
-                } catch (err) {
+                } catch {
                     toast.error("Failed to read file preview");
                 }
             };
@@ -103,7 +102,7 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
             const headers = rows[0].split(delimiter).map(h => h.trim());
             const data = rows.slice(1).map(row => {
                 const cells = row.split(delimiter);
-                const obj: any = {};
+                const obj: Record<string, string> = {};
                 headers.forEach((h, i) => {
                     if (h) obj[h] = cells[i]?.trim() || "";
                 });
@@ -117,7 +116,7 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
     };
 
     const handleImport = async () => {
-        let finalData: any[] = [];
+        let finalData: Record<string, unknown>[] = [];
         setImportErrors([]);
         setStats(null);
 
@@ -155,9 +154,9 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                         }
                     }
 
-                    finalData = XLSX.utils.sheet_to_json(ws, { range: startRow, raw: false, defval: "" });
+                    finalData = XLSX.utils.sheet_to_json(ws, { range: startRow, raw: false, defval: "" }) as Record<string, unknown>[];
                     await submitImport(finalData);
-                } catch (err) {
+                } catch {
                     setIsUploading(false);
                     toast.error("Process failed");
                 }
@@ -171,7 +170,7 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
             const headers = rows[0].split(delimiter).map(h => h.trim());
             finalData = rows.slice(1).map(row => {
                 const cells = row.split(delimiter);
-                const obj: any = {};
+                const obj: Record<string, string> = {};
                 headers.forEach((h, i) => {
                     if (h) obj[h] = cells[i]?.trim() || "";
                 });
@@ -181,7 +180,7 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
         }
     };
 
-    const submitImport = async (rows: any[]) => {
+    const submitImport = async (rows: Record<string, unknown>[]) => {
         try {
             const response = await fetch("/api/service-orders/bulk-import", {
                 method: "POST",
@@ -204,32 +203,45 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
             } else {
                 toast.error(result.message || "Import failed");
             }
-        } catch (error) {
+        } catch {
             toast.error("Import error occurred");
         } finally {
             setIsUploading(false);
         }
     };
 
-    const getVal = (row: any, key: string) => {
+    const getVal = (row: Record<string, unknown>, key: string) => {
         const foundKey = Object.keys(row).find(rk => rk.trim().toUpperCase() === key.toUpperCase());
         return foundKey ? String(row[foundKey]) : null;
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
+            <DialogContent 
+                showCloseButton={false}
+                className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[60vw] md:w-[60vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+            >
+                <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                    <div className="absolute top-0 right-0 p-5">
+                        <button 
+                            type="button"
+                            onClick={onClose} 
+                            className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                         <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
                         Bulk SOD Import
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs text-slate-500 font-medium mt-1">
                         Import Service Orders by uploading an Excel file or pasting data directly.
                     </DialogDescription>
-                </DialogHeader>
+                </div>
+                <div className="flex-grow overflow-y-auto p-6 space-y-4">
 
-                <Tabs defaultValue="file" value={importMode} onValueChange={(v) => { setImportMode(v as any); setPreview([]); setImportErrors([]); setStats(null); }}>
+                <Tabs defaultValue="file" value={importMode} onValueChange={(v) => { setImportMode(v as "file" | "paste"); setPreview([]); setImportErrors([]); setStats(null); }}>
                     <TabsList className="grid w-full grid-cols-2 mb-4">
                         <TabsTrigger value="file" className="flex items-center gap-2">
                             <Upload className="w-3.5 h-3.5" /> Upload File
@@ -328,13 +340,14 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                                             <tr key={i} className="hover:bg-slate-50/80 transition-colors">
                                                 {Object.keys(preview[0]).map((key) => {
                                                     const val = row[key];
+                                                    const displayVal = val !== null && val !== undefined ? String(val) : "";
                                                     const isSod = key.toUpperCase().trim() === 'SOD';
                                                     const isRtom = key.toUpperCase().trim() === 'RTOM';
-                                                    const isMissing = !val && (isSod || isRtom);
+                                                    const isMissing = !displayVal && (isSod || isRtom);
 
                                                     return (
                                                         <td key={key} className={`px-3 py-1.5 whitespace-nowrap border-r last:border-0 ${isSod ? 'font-mono text-emerald-600 font-medium' : 'text-slate-600'} ${isMissing ? 'bg-red-50 text-red-500 italic' : ''}`}>
-                                                            {val || (isMissing ? "MISSING" : "-")}
+                                                            {displayVal || (isMissing ? "MISSING" : "-")}
                                                         </td>
                                                     );
                                                 })}
@@ -360,7 +373,8 @@ export default function ExcelImportModal({ isOpen, onClose, onImportSuccess }: E
                     </div>
                 )}
 
-                <div className="flex gap-2 justify-end pt-3 border-t mt-4">
+                </div>
+                <div className="flex gap-2 justify-end p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                     <Button variant="ghost" size="sm" onClick={onClose} disabled={isUploading}>
                         Cancel
                     </Button>

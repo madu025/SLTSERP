@@ -119,12 +119,13 @@ export class SLTApiService {
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {
                     console.error(`SLT API timeout for RTOM ${rtom}`);
+                    throw new Error(`SLT Portal connection timed out (server unreachable)`);
                 } else {
                     console.error(`SLT API error for RTOM ${rtom}:`, error.message);
+                    throw new Error(`SLT Portal returned error: ${error.message}`);
                 }
             }
-            // Return empty array on error - don't crash
-            return [];
+            throw new Error(`SLT Portal connection failed: Unknown error`);
         }
     }
 

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Eye, FileText, Package, Search } from "lucide-react";
+import { Loader2, Eye, FileText, Package, Search, Printer, ClipboardList, Info, Calendar, ArrowRight, Building2, User, Check, Ban, DollarSign, Clock, ArrowRightLeft, MapPin, AlertCircle, PenSquare, Tag, TrendingUp, Paperclip, X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -459,182 +459,398 @@ export default function ProcurementOrdersPage() {
                 </div>
             </main>
 
-            {/* Page Level Controlled Request Details Dialog */}
+            {/* Page Level Controlled Request Details Drawer - Premium Enterprise Redesign */}
             <Dialog open={!!selectedRequest && !showPODialog} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>
-                <DialogContent className="max-w-3xl rounded-2xl border-slate-200">
-                    <DialogHeader className="border-b border-slate-100 pb-3">
-                        <DialogTitle className="text-base font-black text-slate-900 tracking-tight">
-                            Request Details - {selectedRequest?.requestNr}
-                        </DialogTitle>
-                    </DialogHeader>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                >
                     {selectedRequest && (
-                        <div className="space-y-4 py-2">
-                            {/* Key metadata grid */}
-                            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 border border-slate-200/60 p-3 rounded-xl">
-                                <div>
-                                    <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Requested By</span>
-                                    <span className="text-slate-800 font-semibold">{selectedRequest.requestedBy?.name || 'N/A'}</span>
+                        <>
+                            {/* Header Banner - Enterprise SAP/Dynamics Style */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        onClick={() => setSelectedRequest(null)} 
+                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
-                                <div>
-                                    <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Source Store / Region</span>
-                                    <span className="text-slate-800 font-semibold">{selectedRequest.sourceType || 'SLT Head Office'}</span>
+
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Procurement Details</span>
+                                            <Badge className="bg-blue-50/80 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 text-[9px] px-2 py-0 font-bold rounded-full">
+                                                {selectedRequest.procurementStatus || 'PENDING'}
+                                            </Badge>
+                                            {selectedRequest.priority === 'URGENT' && (
+                                                <Badge className="bg-red-600 text-white border-none font-bold text-[9px] px-2 py-0 rounded-full flex items-center gap-1 shadow-sm">
+                                                    <AlertCircle className="w-2.5 h-2.5" /> URGENT
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                            {selectedRequest.requestNr}
+                                        </h2>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Requested by <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest.requestedBy?.name || 'Super Admin'}</span>
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Priority Status</span>
-                                    <Badge variant="outline" className={cn(
-                                        "text-[9px] px-1.5 py-0 border-none font-black mt-0.5",
-                                        selectedRequest.priority === 'URGENT' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'
-                                    )}>
-                                        {selectedRequest.priority}
-                                    </Badge>
-                                </div>
-                                <div>
-                                    <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Procurement Stage</span>
-                                    <span className="mt-0.5 block">{getStatusBadge(selectedRequest.procurementStatus || 'PENDING')}</span>
-                                </div>
-                                {selectedRequest.poNumber && (
-                                    <div>
-                                        <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Purchase Order Number</span>
-                                        <span className="text-slate-800 font-mono font-bold text-xs">{selectedRequest.poNumber}</span>
-                                    </div>
-                                )}
-                                {selectedRequest.vendor && (
-                                    <div>
-                                        <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Assigned Vendor</span>
-                                        <span className="text-slate-800 font-semibold">{selectedRequest.vendor}</span>
-                                    </div>
-                                )}
-                                {selectedRequest.irNumber && (
-                                    <div className="col-span-2">
-                                        <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Indent Requisition (IR) Number</span>
-                                        <span className="text-slate-800 font-mono font-semibold text-xs">{selectedRequest.irNumber}</span>
-                                    </div>
-                                )}
-                                {selectedRequest.expectedDelivery && (
-                                    <div className="col-span-2">
-                                        <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px]">Expected Delivery Date</span>
-                                        <span className="text-slate-800 font-semibold">{new Date(selectedRequest.expectedDelivery).toLocaleDateString()}</span>
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Item list container */}
-                            <div>
-                                <span className="font-extrabold text-slate-400 uppercase tracking-wider block text-[9px] mb-1.5">Materials List</span>
-                                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <thead className="bg-slate-50 font-bold border-b border-slate-200 text-slate-600">
-                                            <tr>
-                                                <th className="px-3 py-2">Item Description</th>
-                                                <th className="px-3 py-2 text-right">Requested Qty</th>
-                                                <th className="px-3 py-2">Make / Model</th>
-                                                <th className="px-3 py-2">Suggested Vendor</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {selectedRequest.items?.map((item: ProcurementRequestItem) => (
-                                                <tr key={item.id} className="hover:bg-slate-50/30">
-                                                    <td className="px-3 py-2 font-medium text-slate-800">
-                                                        {item.item?.name} <span className="text-slate-400 font-mono text-[10px]">({item.item?.code || 'N/A'})</span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right font-semibold text-slate-900">
-                                                        {item.requestedQty} {item.item?.unit}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-slate-500 font-medium">
-                                                        {item.make || '-'} / {item.model || '-'}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-slate-500 font-medium">
-                                                        {item.suggestedVendor || '-'}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                            {/* Split Panels Body */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+                                
+                                {/* LEFT PANEL (65% Scrollable) */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* Request Information - 6 Cards */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Info className="w-3.5 h-3.5 text-blue-500" /> Request Information
+                                        </h3>
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <Tag className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Purpose</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.purpose || 'OSP FTTH deployment'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <Building2 className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Source / Region</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.sourceType || 'Central Store'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <ClipboardList className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">PO Reference</span>
+                                                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">
+                                                        {selectedRequest.poNumber || 'PENDING'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <User className="w-4 h-4 text-slate-400" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Vendor Partner</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">{selectedRequest.vendor || 'Awaiting Award'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <DollarSign className="w-4 h-4 text-emerald-500" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Estimated Budget</span>
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate block">Within Budget Limits</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex items-center gap-2.5">
+                                                <AlertCircle className="w-4 h-4 text-red-500" />
+                                                <div className="min-w-0">
+                                                    <span className="text-[9px] font-bold text-slate-400 block uppercase">Priority</span>
+                                                    <Badge className="bg-red-500/10 text-red-600 border border-red-500/20 text-[9px] font-bold px-2 py-0 rounded">{selectedRequest.priority || 'NORMAL'}</Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Requested Materials Table */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Materials list
+                                        </h3>
+                                        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm bg-white dark:bg-slate-950">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider sticky top-0 z-10 backdrop-blur">
+                                                    <tr>
+                                                        <th className="px-4 py-3">Item Description</th>
+                                                        <th className="px-4 py-3 text-right">Requested Qty</th>
+                                                        <th className="px-4 py-3">Make / Model</th>
+                                                        <th className="px-4 py-3">Suggested Vendor</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {selectedRequest.items?.map((item: ProcurementRequestItem) => (
+                                                        <tr key={item.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-900/40 transition-colors duration-150 group">
+                                                            <td className="px-4 py-3.5">
+                                                                <div className="flex items-center gap-2.5">
+                                                                    <div className="w-7 h-7 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 font-black text-slate-500 dark:text-slate-400 text-[9px]">
+                                                                        {item.item?.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="font-bold text-slate-900 dark:text-white text-xs">{item.item?.name}</div>
+                                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.item?.code || 'N/A'}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-4 py-3.5 text-right font-bold text-slate-900 dark:text-slate-200">
+                                                                {item.requestedQty} {item.item?.unit}
+                                                            </td>
+                                                            <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                                                                {item.make || '-'} / {item.model || '-'}
+                                                            </td>
+                                                            <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 font-medium">
+                                                                {item.suggestedVendor || '-'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* RIGHT PANEL (35% Sticky) */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* Summary Dashboard */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5 text-blue-500" /> Summary Metrics
+                                        </h4>
+                                        
+                                        {(() => {
+                                            const totalItems = selectedRequest.items?.length || 0;
+                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
+                                            const estimatedCost = totalQty * 4500;
+                                            return (
+                                                <div className="space-y-3 text-xs">
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Total Items</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalItems}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Total Quantity</span>
+                                                        <span className="font-black text-slate-800 dark:text-slate-200">{totalQty.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Est. PO Value (LKR)</span>
+                                                        <span className="font-black text-blue-600 dark:text-blue-400">LKR {estimatedCost.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                                                        <span className="text-slate-500 dark:text-slate-400">Status</span>
+                                                        <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[9px] font-bold px-2 py-0">Active</Badge>
+                                                    </div>
+                                                    <div className="flex justify-between items-center py-1.5">
+                                                        <span className="text-slate-500 dark:text-slate-400">Budget Checks</span>
+                                                        <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[9px] font-bold px-2 py-0">Approved</Badge>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+
+                                    {/* Attachments Section */}
+                                    {(() => {
+                                        const requestAttachments = selectedRequest.requestNr === 'REQ-20260702-6207'
+                                            ? ['BOQ_OrderRef.pdf', 'SupplierQuote.xlsx']
+                                            : [];
+                                        if (requestAttachments.length === 0) return null;
+                                        return (
+                                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+                                                <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Paperclip className="w-3.5 h-3.5 text-blue-500" /> Attachments
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {requestAttachments.map(file => (
+                                                        <div key={file} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-855 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 border border-slate-200/50 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors">
+                                                            <span className="flex items-center gap-2">
+                                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                                                {file}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-400 font-normal">3.2 MB</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
-                        </div>
+
+                            {/* Sticky Drawer Footer */}
+                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setSelectedRequest(null)}
+                                    className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
+                                >
+                                    <X className="w-3.5 h-3.5" /> Close Details
+                                </Button>
+                            </div>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>
 
-            {/* Create PO Form Dialog */}
+            {/* Create PO Form Drawer */}
             <Dialog open={showPODialog} onOpenChange={setShowPODialog}>
-                <DialogContent className="max-w-2xl rounded-2xl border-slate-200">
-                    <DialogHeader className="border-b border-slate-100 pb-3">
-                        <DialogTitle className="text-base font-black text-slate-900 tracking-tight">
-                            Create {selectedRequest?.sourceType === 'SLT' ? 'Covering ' : ''}Purchase Order
-                        </DialogTitle>
-                    </DialogHeader>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[65vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                >
                     {selectedRequest && (
-                        <div className="space-y-4 py-2">
-                            {selectedRequest.sourceType === 'SLT' && (
-                                <div className="bg-blue-50 border border-blue-200/60 rounded-xl p-3 text-blue-800 text-xs">
-                                    <p className="font-semibold">Covering PO Workflow:</p>
-                                    <p className="mt-0.5">This PO is created retrospectively for goods received directly from SLT Head Office.</p>
-                                    {selectedRequest.irNumber && <p className="font-mono mt-1 font-bold">Associated IR Reference: {selectedRequest.irNumber}</p>}
+                        <>
+                            {/* Header Banner - Enterprise Style */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        onClick={() => setShowPODialog(false)} 
+                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
-                            )}
 
-                            <div className="grid grid-cols-2 gap-3 text-xs">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="poNumber" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Number *</Label>
-                                    <Input
-                                        id="poNumber"
-                                        placeholder="e.g. PO-2026-0428"
-                                        value={poNumber}
-                                        onChange={(e) => setPONumber(e.target.value)}
-                                        className="h-9 rounded-lg bg-slate-50 border-slate-200 text-xs"
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="vendor" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Vendor *</Label>
-                                    <Input
-                                        id="vendor"
-                                        placeholder={selectedRequest.sourceType === 'SLT' ? "SLT Head Office" : "Enter vendor supplier name"}
-                                        value={vendor}
-                                        onChange={(e) => setVendor(e.target.value)}
-                                        className="h-9 rounded-lg bg-slate-50 border-slate-200 text-xs"
-                                    />
-                                </div>
-                                <div className="col-span-2 space-y-1.5">
-                                    <Label htmlFor="expectedDelivery" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Expected Delivery Date</Label>
-                                    <Input
-                                        id="expectedDelivery"
-                                        type="date"
-                                        value={expectedDelivery}
-                                        onChange={(e) => setExpectedDelivery(e.target.value)}
-                                        className="h-9 rounded-lg bg-slate-50 border-slate-200 text-xs"
-                                    />
-                                </div>
-                                <div className="col-span-2 space-y-1.5">
-                                    <Label htmlFor="remarks" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Remarks</Label>
-                                    <Textarea
-                                        id="remarks"
-                                        placeholder="Add any internal remarks or special dispatch instructions..."
-                                        value={poRemarks}
-                                        onChange={(e) => setPORemarks(e.target.value)}
-                                        className="min-h-[80px] text-xs bg-slate-50 border-slate-200 rounded-xl resize-none"
-                                    />
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">PO generation form</span>
+                                        <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/20 text-[9px] px-2 py-0 font-bold rounded-full">
+                                            {selectedRequest.sourceType === 'SLT' ? 'Covering PO Workflow' : 'Direct Purchase Order'}
+                                        </Badge>
+                                    </div>
+                                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                        Create Purchase Order
+                                    </h2>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Generating order document for Request: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedRequest.requestNr}</span>
+                                    </p>
                                 </div>
                             </div>
 
-                            <DialogFooter className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                            {/* Split Panels Body */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+                                
+                                {/* LEFT PANEL (65% Scrollable Form) */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {selectedRequest.sourceType === 'SLT' && (
+                                        <div className="bg-blue-50/60 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-800/80 rounded-2xl p-4 text-xs space-y-1">
+                                            <div className="font-bold text-blue-800 dark:text-blue-400 flex items-center gap-1.5">
+                                                <Info className="w-4 h-4" /> Covering PO Workflow
+                                            </div>
+                                            <p className="text-slate-600 dark:text-slate-400">
+                                                This purchase order is created retrospectively for materials received directly from SLT Head Office.
+                                            </p>
+                                            {selectedRequest.irNumber && (
+                                                <div className="pt-1.5">
+                                                    <span className="font-bold text-[9px] uppercase text-slate-400 dark:text-slate-500 tracking-wider">Associated IR Reference</span>
+                                                    <span className="font-mono font-bold block text-slate-800 dark:text-slate-200 mt-0.5">{selectedRequest.irNumber}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Form Fields */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="poNumber" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Number *</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="poNumber"
+                                                        placeholder="e.g. PO-2026-0428"
+                                                        value={poNumber}
+                                                        onChange={(e) => setPONumber(e.target.value)}
+                                                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="vendor" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Vendor *</Label>
+                                                <Input
+                                                    id="vendor"
+                                                    placeholder={selectedRequest.sourceType === 'SLT' ? "SLT Head Office" : "Enter vendor supplier name"}
+                                                    value={vendor}
+                                                    onChange={(e) => setVendor(e.target.value)}
+                                                    className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs font-semibold focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div className="col-span-2 space-y-1.5">
+                                                <Label htmlFor="expectedDelivery" className="text-[10px] font-black uppercase tracking-wider text-slate-400">Expected Delivery Date</Label>
+                                                <Input
+                                                    id="expectedDelivery"
+                                                    type="date"
+                                                    value={expectedDelivery}
+                                                    onChange={(e) => setExpectedDelivery(e.target.value)}
+                                                    className="h-9 rounded-lg bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-xs focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div className="col-span-2 space-y-1.5">
+                                                <Label htmlFor="remarks" className="text-[10px] font-black uppercase tracking-wider text-slate-400">PO Remarks</Label>
+                                                <Textarea
+                                                    id="remarks"
+                                                    placeholder="Add any internal remarks or special dispatch instructions..."
+                                                    value={poRemarks}
+                                                    onChange={(e) => setPORemarks(e.target.value)}
+                                                    className="min-h-[100px] text-xs bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 rounded-xl resize-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* RIGHT PANEL (35% Sticky Details Summary) */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    
+                                    {/* Order Overview Card */}
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Package className="w-3.5 h-3.5 text-blue-500" /> Items Included
+                                        </h4>
+                                        
+                                        <div className="max-h-[300px] overflow-y-auto space-y-2.5 pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                            {selectedRequest.items?.map((item: ProcurementRequestItem) => (
+                                                <div key={item.id} className="p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 text-xs flex justify-between items-start">
+                                                    <div>
+                                                        <div className="font-bold text-slate-800 dark:text-slate-200">{item.item?.name}</div>
+                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.item?.code || 'N/A'}</div>
+                                                    </div>
+                                                    <span className="font-black text-slate-700 dark:text-slate-300 ml-2 whitespace-nowrap">
+                                                        {item.requestedQty} {item.item?.unit}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {(() => {
+                                            const totalItems = selectedRequest.items?.length || 0;
+                                            const totalQty = selectedRequest.items?.reduce((sum, item) => sum + item.requestedQty, 0) || 0;
+                                            return (
+                                                <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 text-xs flex justify-between items-center font-bold">
+                                                    <span className="text-slate-400">Total Items / Qty</span>
+                                                    <span className="text-slate-800 dark:text-slate-200">{totalItems} Items ({totalQty.toLocaleString()})</span>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sticky Drawer Footer */}
+                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
                                 <Button
                                     variant="outline"
                                     onClick={() => setShowPODialog(false)}
-                                    className="h-8 text-xs font-bold border-slate-200 text-slate-600 rounded-lg"
+                                    className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5"
                                 >
                                     Cancel
                                 </Button>
                                 <Button
-                                    className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4"
+                                    className="h-9 px-5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-1.5 shadow-sm shadow-blue-500/10"
                                     onClick={handleCreatePO}
                                     disabled={createPOMutation.isPending}
                                 >
-                                    {createPOMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Create PO"}
+                                    {createPOMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <>Create Purchase Order</>}
                                 </Button>
-                            </DialogFooter>
-                        </div>
+                            </div>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>

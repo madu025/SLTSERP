@@ -7,8 +7,8 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Eye, Edit, X, Clock, AlertTriangle, FileText } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface RequestItemData {
     id: string;
@@ -179,47 +179,132 @@ export default function MyRequestsPage() {
                 </div>
             </main>
 
-            {/* Details Dialog */}
+            {/* Details Drawer - Premium Design */}
             <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Request Details - {selectedRequest?.requestNr}</DialogTitle>
-                    </DialogHeader>
+                <DialogContent 
+                    showCloseButton={false}
+                    className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[80vw] !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none"
+                >
                     {selectedRequest && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded">
-                                <div><span className="font-bold">Source:</span> {selectedRequest.sourceType}</div>
-                                <div><span className="font-bold">Priority:</span> <Badge>{selectedRequest.priority}</Badge></div>
-                                <div><span className="font-bold">Status:</span> {getStatusBadge(selectedRequest.status, selectedRequest.workflowStage)}</div>
-                                <div><span className="font-bold">Created:</span> {new Date(selectedRequest.createdAt).toLocaleString()}</div>
-                                {selectedRequest.remarks && (
-                                    <div className="col-span-2">
-                                        <span className="font-bold">Remarks:</span>
-                                        <p className="text-red-600 mt-1">{selectedRequest.remarks}</p>
+                        <>
+                            {/* Header */}
+                            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+                                <div className="absolute top-0 right-0 p-5">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowDetailsDialog(false)} 
+                                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">My Requests</span>
+                                        <Badge className="bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-955/20 text-[9px] px-2 py-0 font-bold rounded-full">
+                                            {selectedRequest.requestNr}
+                                        </Badge>
                                     </div>
-                                )}
+                                    <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+                                        Request Details
+                                    </h2>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Track the workflow progress and specifications of your submitted material request.
+                                    </p>
+                                </div>
                             </div>
-                            <table className="w-full text-xs border">
-                                <thead className="bg-slate-100 font-bold">
-                                    <tr>
-                                        <th className="p-2 border">Item</th>
-                                        <th className="p-2 border">Qty</th>
-                                        <th className="p-2 border">Make/Model</th>
-                                        <th className="p-2 border">Vendor</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {selectedRequest.items?.map((item: RequestItemData) => (
-                                        <tr key={item.id}>
-                                            <td className="p-2 border">{item.item?.name}</td>
-                                            <td className="p-2 border">{item.requestedQty} {item.item?.unit}</td>
-                                            <td className="p-2 border">{item.make} {item.model}</td>
-                                            <td className="p-2 border">{item.suggestedVendor || '-'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+
+                            {/* Body Split */}
+                            <div className="flex-1 flex overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+                                {/* Left Panel */}
+                                <div className="w-[65%] h-full overflow-y-auto p-6 space-y-6 border-r border-slate-200/50 dark:border-slate-800/50 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full">
+                                    {/* Info Grid */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 p-4 rounded-xl shadow-sm">
+                                            <span className="text-[9px] font-bold text-slate-400 block uppercase">Source Type</span>
+                                            <span className="font-bold text-slate-850 dark:text-slate-200 text-xs mt-1 block">{selectedRequest.sourceType || 'SLT'}</span>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 p-4 rounded-xl shadow-sm">
+                                            <span className="text-[9px] font-bold text-slate-400 block uppercase">Priority Level</span>
+                                            <Badge className="mt-1 bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-955/20 text-[9px] font-bold">
+                                                {selectedRequest.priority || 'MEDIUM'}
+                                            </Badge>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 p-4 rounded-xl shadow-sm">
+                                            <span className="text-[9px] font-bold text-slate-400 block uppercase">Submission Date</span>
+                                            <span className="font-bold text-slate-850 dark:text-slate-200 text-xs mt-1 block">{new Date(selectedRequest.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Remarks if Rejected */}
+                                    {selectedRequest.remarks && (
+                                        <div className="p-4 bg-rose-50 dark:bg-rose-955/15 border border-rose-200 dark:border-rose-900 rounded-xl flex gap-3 text-rose-800 dark:text-rose-400">
+                                            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                                            <div className="space-y-1">
+                                                <span className="text-[10px] font-black uppercase tracking-wider block">Approval / Rejection Remarks</span>
+                                                <p className="text-xs leading-normal">{selectedRequest.remarks}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Materials Table */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                            <FileText className="w-3.5 h-3.5 text-blue-500" /> Requested Items List
+                                        </h3>
+                                        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto shadow-sm bg-white dark:bg-slate-950">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase tracking-wider">
+                                                    <tr>
+                                                        <th className="px-4 py-3">Material Description</th>
+                                                        <th className="px-4 py-3 text-right">Requested Qty</th>
+                                                        <th className="px-4 py-3">Make / Model</th>
+                                                        <th className="px-4 py-3">Suggested Vendor</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {selectedRequest.items?.map((item: RequestItemData) => (
+                                                        <tr key={item.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-900/20 transition-colors">
+                                                            <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-250">{item.item?.name}</td>
+                                                            <td className="px-4 py-3 text-right font-black text-slate-900 dark:text-white font-mono">{item.requestedQty} {item.item?.unit}</td>
+                                                            <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{item.make || '-'} / {item.model || '-'}</td>
+                                                            <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{item.suggestedVendor || '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Panel */}
+                                <div className="w-[35%] h-full overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-900/10 border-l border-slate-200/50 dark:border-slate-800/50">
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-blue-500" /> Status Overview
+                                        </h4>
+                                        <div className="space-y-3.5 text-xs">
+                                            <div className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Workflow Stage</span>
+                                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs block mt-1">{selectedRequest.workflowStage}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-bold text-slate-400 block uppercase">Current Status</span>
+                                                <div className="mt-1">{getStatusBadge(selectedRequest.status, selectedRequest.workflowStage)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end items-center flex-shrink-0 gap-3">
+                                <Button variant="outline" onClick={() => setShowDetailsDialog(false)} className="h-9 px-4 text-xs font-bold rounded-xl border-slate-200 hover:bg-slate-50 text-slate-700">
+                                    Close Details
+                                </Button>
+                            </div>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>

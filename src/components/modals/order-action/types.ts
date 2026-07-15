@@ -11,6 +11,7 @@ export interface MaterialUsageRow {
 export interface OrderActionData {
     id: string;
     soNum?: string;
+    customerName?: string | null;
     package?: string | null;
     serviceType?: string | null;
     orderType?: string | null;

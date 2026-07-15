@@ -245,11 +245,8 @@ export default function ApprovalsPage() {
 
     if (isLoading) {
         return (
-            <div className="flex h-screen bg-slate-50">
-                <Sidebar />
-                <main className="flex-1 flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                </main>
+            <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
             </div>
         );
     }

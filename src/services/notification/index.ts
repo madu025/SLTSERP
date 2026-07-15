@@ -4,7 +4,7 @@ import { emitNotification } from '@/lib/events';
 import { prisma } from '@/lib/prisma';
 
 export type NotificationPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type NotificationType = 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE';
+export type NotificationType = 'SYSTEM' | 'INVENTORY' | 'CONTRACTOR' | 'PROJECT' | 'FINANCE' | 'HELPDESK';
 
 export class NotificationService {
     /**
@@ -131,14 +131,14 @@ export class NotificationService {
                 metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : undefined
             }));
 
-            const result = await NotificationRepository.createMany(data);
+            const createdNotifications = await NotificationRepository.createManyAndReturn(data);
 
-            // Emit events for each user
-            filteredUserIds.forEach(userId => {
-                emitNotification(userId, { title, message, type, priority, link, metadata, createdAt: new Date() });
+            // Emit events for each user with the full database object (including id)
+            createdNotifications.forEach((notification: any) => {
+                emitNotification(notification.userId, notification);
             });
 
-            return result;
+            return { count: createdNotifications.length };
         } catch (error) {
             console.error('Failed to broadcast notifications:', error);
             return null;
@@ -221,6 +221,31 @@ export class NotificationService {
      */
     static async markAllAsRead(userId: string) {
         return await NotificationRepository.updateMany({ userId, isRead: false }, { isRead: true });
+    }
+
+    /**
+     * Mark specific link notifications as read for a user
+     */
+    static async markLinkAsRead(userId: string, link: string, opmcId?: string | null) {
+        if (opmcId && opmcId !== 'ALL') {
+            return await NotificationRepository.updateMany({
+                userId,
+                link,
+                isRead: false,
+                metadata: {
+                    path: ['opmcId'],
+                    equals: opmcId
+                }
+            }, { isRead: true });
+        }
+        return await NotificationRepository.updateMany({ userId, link, isRead: false }, { isRead: true });
+    }
+
+    /**
+     * Mark specific type notifications as read for a user
+     */
+    static async markTypeAsRead(userId: string, type: string) {
+        return await NotificationRepository.updateMany({ userId, type, isRead: false }, { isRead: true });
     }
 
     /**

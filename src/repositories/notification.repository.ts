@@ -20,6 +20,11 @@ export class NotificationRepository {
         return client.notification.createMany({ data });
     }
 
+    static async createManyAndReturn(data: Prisma.NotificationUncheckedCreateInput[], tx?: any) {
+        const client = tx || prisma;
+        return client.notification.createManyAndReturn({ data });
+    }
+
     static async update(id: string, data: Prisma.NotificationUncheckedUpdateInput, tx?: any) {
         const client = tx || prisma;
         return client.notification.update({ where: { id }, data });

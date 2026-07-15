@@ -1,3 +1,10 @@
 export { NotificationService } from './notification';
 export { AppointmentNotificationService } from './notification/appointment-notification.service';
+export { NotificationPolicyService } from './notification/notification-policy.service';
+export { DomainNotificationPolicies } from './notification/domain-policies.service';
+export { NotificationRetryService } from './notification/retry.service';
+export { PushNotificationService } from './notification/push/push.service';
+export { ReminderSchedulerService } from './notification/reminder-scheduler.service';
+export { NotificationAnalyticsService } from './notification/analytics.service';
+export { EmailService } from './notification/email.service';
 export type { NotificationPriority, NotificationType } from './notification';

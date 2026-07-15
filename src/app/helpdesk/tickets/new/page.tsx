@@ -223,7 +223,7 @@ export default function CreateTicketPage() {
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                   Issue Category
                 </label>
-                <Select onValueChange={(v) => setValue("category", v as "PHYSICAL_DAMAGE" | "BROKEN_DISPLAY" | "PRINTER_ISSUE" | "NETWORK_ISSUE" | "SOFTWARE_ISSUE" | "EMAIL_ISSUE" | "EQUIPMENT_REQUEST" | "OTHER")} defaultValue="SOFTWARE_ISSUE">
+                <Select onValueChange={(v) => setValue("category", v as "PHYSICAL_DAMAGE" | "BROKEN_DISPLAY" | "PRINTER_ISSUE" | "NETWORK_ISSUE" | "SOFTWARE_ISSUE" | "EMAIL_ISSUE" | "EQUIPMENT_REQUEST" | "HARDWARE_REPLACEMENT" | "AUDIO_SPEAKER_ISSUE" | "HOUSING_BODY_DAMAGE" | "OTHER")} defaultValue="SOFTWARE_ISSUE">
                   <SelectTrigger className="h-9.5 text-xs bg-muted/20 border-border/70">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
@@ -235,6 +235,9 @@ export default function CreateTicketPage() {
                     <SelectItem value="SOFTWARE_ISSUE">Software / System lockups</SelectItem>
                     <SelectItem value="EMAIL_ISSUE">Outlook / Email sync problems</SelectItem>
                     <SelectItem value="EQUIPMENT_REQUEST">New Equipment Request</SelectItem>
+                    <SelectItem value="HARDWARE_REPLACEMENT">Hardware Replacement (Battery/RAM/Keyboard)</SelectItem>
+                    <SelectItem value="AUDIO_SPEAKER_ISSUE">Audio / Speaker Issue</SelectItem>
+                    <SelectItem value="HOUSING_BODY_DAMAGE">Housing / Body Damage</SelectItem>
                     <SelectItem value="OTHER">Other Technical Problem</SelectItem>
                   </SelectContent>
                 </Select>

@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Loader2 } from "lucide-react";
+import { Plus, Trash2, Send, Loader2, Paperclip, CheckCircle2 } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { cn } from "@/lib/utils";
 
 interface InventoryItem {
     id: string;
@@ -26,6 +27,8 @@ interface RequestItem {
     make: string;
     model: string;
     suggestedVendor: string;
+    isCustom?: boolean;
+    customName?: string;
 }
 
 interface StoreOption {
@@ -50,6 +53,7 @@ interface CreateRequestPayload {
     maintenanceMonths: string;
     irNumber: string | null;
     purpose: string;
+    sltReferenceId: string | null;
     items: {
         itemId: string;
         requestedQty: number;
@@ -57,6 +61,8 @@ interface CreateRequestPayload {
         make: string;
         model: string;
         suggestedVendor: string;
+        isCustom?: boolean;
+        customName?: string;
     }[];
 }
 
@@ -78,6 +84,10 @@ export default function MaterialRequestPage() {
     const [maintenanceMonths, setMaintenanceMonths] = useState<string>("");
     const [otherReason, setOtherReason] = useState("");
     const [irNumber, setIrNumber] = useState(""); // IR Number for SLT requests
+
+    // Attachment State
+    const [attachmentUrl, setAttachmentUrl] = useState<string>("");
+    const [isUploading, setIsUploading] = useState<boolean>(false);
 
     const [requestItems, setRequestItems] = useState<RequestItem[]>([]);
 
@@ -138,6 +148,7 @@ export default function MaterialRequestPage() {
             setOtherReason("");
             setIrNumber("");
             setSourceType("SLT");
+            setAttachmentUrl("");
             // Keep Store and Date
         },
         onError: () => toast.error("Failed to create request")
@@ -145,16 +156,17 @@ export default function MaterialRequestPage() {
 
     // --- HANDLERS ---
     const addNewRow = () => {
-        setRequestItems([...requestItems, { itemId: "", requestedQty: "", remarks: "", make: "", model: "", suggestedVendor: "" }]);
+        setRequestItems([...requestItems, { itemId: "", requestedQty: "", remarks: "", make: "", model: "", suggestedVendor: "", isCustom: false, customName: "" }]);
     };
 
     const removeItem = (index: number) => {
         setRequestItems(requestItems.filter((_, i) => i !== index));
     };
 
-    const updateItem = (index: number, field: keyof RequestItem, value: string) => {
+    const updateItem = (index: number, field: keyof RequestItem, value: string | boolean) => {
         const updated = [...requestItems];
-        updated[index][field] = value;
+        const item = updated[index] as unknown as Record<string, string | boolean | undefined>;
+        item[field as string] = value;
         setRequestItems(updated);
     };
 
@@ -163,12 +175,37 @@ export default function MaterialRequestPage() {
         else setProjectTypes([...projectTypes, type]);
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsUploading(true);
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) throw new Error("Upload failed");
+            const data = await res.json();
+            setAttachmentUrl(data.url);
+            toast.success("Memo approval attached successfully!");
+        } catch {
+            toast.error("Failed to upload memo document");
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const handleSubmit = () => {
         if (!selectedStore) { toast.error("Please select a store"); return; }
         const user = localStorage.getItem('user');
         if (!user) { toast.error("Authenticated user required"); return; }
 
-        const validItems = requestItems.filter(i => i.itemId && parseFloat(i.requestedQty) > 0);
+        const validItems = requestItems.filter(i => (i.itemId || (i.isCustom && i.customName)) && parseFloat(i.requestedQty) > 0);
         if (validItems.length === 0) { toast.error("Add at least one item with Quantity"); return; }
 
         const purposeDesc = [
@@ -188,13 +225,16 @@ export default function MaterialRequestPage() {
             maintenanceMonths,
             irNumber: sourceType === 'SLT' ? irNumber : null, // Only for SLT requests
             purpose: purposeDesc,
+            sltReferenceId: attachmentUrl || null, // Stores uploaded attachment URL
             items: validItems.map(item => ({
-                itemId: item.itemId,
+                itemId: item.isCustom ? 'custom' : item.itemId,
                 requestedQty: parseFloat(item.requestedQty),
                 remarks: item.remarks,
                 make: item.make,
                 model: item.model,
-                suggestedVendor: item.suggestedVendor
+                suggestedVendor: item.suggestedVendor,
+                isCustom: item.isCustom,
+                customName: item.isCustom ? item.customName : undefined
             }))
         };
 
@@ -225,7 +265,7 @@ export default function MaterialRequestPage() {
                         <Card className="border border-slate-200 bg-white rounded-xl shadow-sm">
                             <CardContent className="p-3 space-y-3">
                                 {/* Top Row Inputs */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Requesting Store</label>
                                         <select className="flex h-8 w-full rounded border-slate-200 border bg-white px-2 text-xs focus:ring-1 focus:ring-blue-500" value={selectedStore} onChange={e => {
@@ -279,6 +319,28 @@ export default function MaterialRequestPage() {
                                             <option value="URGENT">Urgent</option>
                                         </select>
                                     </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Memo Approval Attachment</label>
+                                        <div className="flex items-center gap-1.5 h-8 bg-slate-50 border border-slate-200 rounded px-2 relative cursor-pointer hover:bg-slate-100 transition-colors">
+                                            {isUploading ? (
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                                            ) : attachmentUrl ? (
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                            ) : (
+                                                <Paperclip className="w-3.5 h-3.5 text-slate-400" />
+                                            )}
+                                            <span className="text-[10px] text-slate-650 font-bold truncate max-w-[100px]">
+                                                {attachmentUrl ? "Memo Attached" : "Upload Memo..."}
+                                            </span>
+                                            <input 
+                                                type="file" 
+                                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                                accept="application/pdf,image/*"
+                                                onChange={handleFileUpload}
+                                                disabled={isUploading}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Project / Reason Grid */}
@@ -329,13 +391,13 @@ export default function MaterialRequestPage() {
                                     <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                                         <tr>
                                             <th className="px-3 py-2 w-8 text-center">#</th>
-                                            <th className="px-2 py-2 min-w-[180px]">Item</th>
+                                            <th className="px-2 py-2 min-w-[200px]">Item Description</th>
                                             <th className="px-2 py-2 w-[70px]">Stock</th>
                                             <th className="px-2 py-2 w-[100px]">Make</th>
                                             <th className="px-2 py-2 w-[100px]">Model</th>
                                             <th className="px-2 py-2 w-[120px] text-right bg-blue-50/30">Qty</th>
-                                            <th className="px-2 py-2 w-[120px]">Vendor</th>
-                                            <th className="px-2 py-2 w-[150px]">Remarks</th>
+                                            <th className="px-2 py-2 w-[120px]">Suggested Vendor</th>
+                                            <th className="px-2 py-2 w-[150px]">Remarks / Custom Name</th>
                                             <th className="px-2 py-2 w-8"></th>
                                         </tr>
                                     </thead>
@@ -353,18 +415,46 @@ export default function MaterialRequestPage() {
                                                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors duration-150">
                                                     <td className="px-3 py-1 text-center text-slate-400">{idx + 1}</td>
                                                     <td className="px-2 py-1">
-                                                        <select className="w-full h-7 rounded border-transparent bg-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white text-xs px-1 -ml-1 focus:outline-none" value={item.itemId} onChange={e => updateItem(idx, 'itemId', e.target.value)}>
-                                                            <option value="">Select Item...</option>
-                                                            {sortedItems.map(i => (
-                                                                <option
-                                                                    key={i.id}
-                                                                    value={i.id}
-                                                                    style={{ backgroundColor: i.type === 'SLT' ? '#dbeafe' : 'white' }}
-                                                                >
-                                                                    {i.name} ({i.code})
-                                                                </option>
-                                                            ))}
-                                                        </select>
+                                                        <div className="flex gap-2 items-center w-full">
+                                                            {item.isCustom ? (
+                                                                <Input 
+                                                                    className="h-7 text-xs bg-white border border-slate-200 focus:border-blue-500 w-full"
+                                                                    placeholder="Type unregistered item name..."
+                                                                    value={item.customName}
+                                                                    onChange={e => updateItem(idx, 'customName', e.target.value)}
+                                                                />
+                                                            ) : (
+                                                                <select className="w-full h-7 rounded border-transparent bg-transparent hover:border-slate-200 focus:border-blue-500 focus:bg-white text-xs px-1 -ml-1 focus:outline-none" value={item.itemId} onChange={e => updateItem(idx, 'itemId', e.target.value)}>
+                                                                    <option value="">Select Item...</option>
+                                                                    {sortedItems.map(i => (
+                                                                        <option
+                                                                            key={i.id}
+                                                                            value={i.id}
+                                                                            style={{ backgroundColor: i.type === 'SLT' ? '#dbeafe' : 'white' }}
+                                                                        >
+                                                                            {i.name} ({i.code})
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            )}
+                                                            <label className={cn("flex items-center gap-1 text-[10px] font-bold shrink-0 cursor-pointer px-1 rounded hover:bg-slate-100", item.isCustom ? "text-blue-600" : "text-slate-400 hover:text-slate-650")}>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={item.isCustom || false} 
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.checked;
+                                                                        updateItem(idx, 'isCustom', val);
+                                                                        if (val) {
+                                                                            updateItem(idx, 'itemId', 'custom');
+                                                                        } else {
+                                                                            updateItem(idx, 'itemId', '');
+                                                                        }
+                                                                    }}
+                                                                    className="rounded w-3 h-3 text-blue-650" 
+                                                                />
+                                                                Unreg.
+                                                            </label>
+                                                        </div>
                                                     </td>
                                                     <td className="px-2 py-1 text-slate-500 font-mono text-[10px]">{stock}</td>
                                                     <td className="px-2 py-1"><Input className="h-6 text-xs px-2 border-transparent hover:border-slate-200 focus:border-blue-500 bg-transparent focus:bg-white" placeholder="-" value={item.make} onChange={e => updateItem(idx, 'make', e.target.value)} /></td>
