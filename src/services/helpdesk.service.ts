@@ -101,6 +101,8 @@ export class HelpdeskService {
       purchaseDate?: string | Date | null;
       warrantyExpiry?: string | Date | null;
       purchaseCost?: number | null;
+      newCustodianName?: string | null;
+      newCustodianEmpNo?: string | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -118,13 +120,41 @@ export class HelpdeskService {
     }
 
     const asset = await prisma.$transaction(async (tx) => {
+      let finalAssignedStaffId = data.assignedStaffId;
+
+      // Handle on-the-fly unregistered custodian creation
+      if (data.newCustodianName && data.newCustodianEmpNo) {
+        const cleanEmpNo = data.newCustodianEmpNo.trim();
+        const cleanName = data.newCustodianName.trim();
+        
+        let staff = await tx.staff.findUnique({
+          where: { employeeId: cleanEmpNo }
+        });
+
+        if (!staff) {
+          staff = await tx.staff.create({
+            data: {
+              name: cleanName,
+              employeeId: cleanEmpNo,
+              designation: "ENGINEER"
+            }
+          });
+        } else if (staff.name.trim() !== cleanName) {
+          staff = await tx.staff.update({
+            where: { id: staff.id },
+            data: { name: cleanName }
+          });
+        }
+        finalAssignedStaffId = staff.id;
+      }
+
       const created = await HelpdeskRepository.createAsset({
         assetNumber: data.assetNumber,
         serialNumber: data.serialNumber,
         deviceType: data.deviceType,
         brand: data.brand,
         model: data.model,
-        assignedStaffId: data.assignedStaffId || undefined,
+        assignedStaffId: finalAssignedStaffId === null ? null : (finalAssignedStaffId || undefined),
         department: data.department || undefined,
         siteOfficeId: data.siteOfficeId || undefined,
         location: data.location || undefined,
@@ -134,8 +164,8 @@ export class HelpdeskService {
         purchaseCost: data.purchaseCost ?? undefined
       }, tx);
 
-      if (data.assignedStaffId) {
-        await HelpdeskService.ensureUserAccountForStaff(data.assignedStaffId, tx);
+      if (finalAssignedStaffId) {
+        await HelpdeskService.ensureUserAccountForStaff(finalAssignedStaffId, tx);
       }
 
       return created;

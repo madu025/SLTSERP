@@ -84,7 +84,9 @@ export const CreateAssetSchema = z.object({
   status: ITAssetStatusSchema.default("ACTIVE"),
   purchaseDate: z.string().or(z.date()).optional().nullable(),
   warrantyExpiry: z.string().or(z.date()).optional().nullable(),
-  purchaseCost: emptyToNullNumber
+  purchaseCost: emptyToNullNumber,
+  newCustodianName: z.string().optional().nullable(),
+  newCustodianEmpNo: z.string().optional().nullable()
 });
 
 export const UpdateAssetSchema = z.object({

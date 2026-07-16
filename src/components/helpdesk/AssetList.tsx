@@ -79,6 +79,8 @@ export default function AssetList({
   const [deleting, setDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isUnregistered, setIsUnregistered] = useState(false);
+  const [editSearchQuery, setEditSearchQuery] = useState("");
+  const [editIsUnregistered, setEditIsUnregistered] = useState(false);
 
   // Handover Log States
   const [handoverAsset, setHandoverAsset] = useState<ITAsset | null>(null);
@@ -116,7 +118,9 @@ export default function AssetList({
       status: "ACTIVE" as const,
       purchaseDate: "",
       warrantyExpiry: "",
-      purchaseCost: 0
+      purchaseCost: 0,
+      newCustodianName: "",
+      newCustodianEmpNo: ""
     }
   });
   const { register, handleSubmit, setValue, reset, formState: { errors } } = createForm;
@@ -190,8 +194,8 @@ export default function AssetList({
 
   const openEditDialog = (asset: ITAsset) => {
     setEditAsset(asset);
-    setSearchQuery("");
-    setIsUnregistered(false);
+    setEditSearchQuery("");
+    setEditIsUnregistered(false);
     
     // Format dates to YYYY-MM-DD for standard html5 input
     const formatInputDate = (d: string | Date | null | undefined) => {
@@ -437,6 +441,8 @@ export default function AssetList({
       const success = await onAddAsset(formatted);
       if (success) {
         reset();
+        setSearchQuery("");
+        setIsUnregistered(false);
         setIsOpen(false);
       }
     } catch (err) {
@@ -449,6 +455,11 @@ export default function AssetList({
   const filteredUsers = searchQuery ? usersList.filter(u =>
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
+  ).slice(0, 5) : [];
+
+  const editFilteredUsers = editSearchQuery ? usersList.filter(u =>
+    u.name.toLowerCase().includes(editSearchQuery.toLowerCase()) ||
+    u.employeeId.toLowerCase().includes(editSearchQuery.toLowerCase())
   ).slice(0, 5) : [];
 
   const currentAssignedStaffId = editForm.watch("assignedStaffId");
@@ -548,19 +559,120 @@ export default function AssetList({
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-muted-foreground uppercase">Assign to Staff (Custodian)</label>
-                  <Select onValueChange={(v) => setValue("assignedStaffId", v)}>
-                    <SelectTrigger className="h-8 text-xs bg-muted/20 border-border">
-                      <SelectValue placeholder="Select Employee..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card">
-                      <SelectItem value="">Unassigned (Keep as Spare)</SelectItem>
-                      {usersList.map((usr) => (
-                        <SelectItem key={usr.id} value={usr.id}>{usr.name} ({usr.employeeId})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Custodian Section for Register */}
+                <div className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
+                  <div className="flex justify-between items-center pb-1.5 border-b border-border">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Custodian Details</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        id="registerIsUnregistered"
+                        checked={isUnregistered}
+                        onChange={(e) => {
+                          setIsUnregistered(e.target.checked);
+                          if (e.target.checked) {
+                            setValue("assignedStaffId", "");
+                          } else {
+                            setValue("newCustodianName", "");
+                            setValue("newCustodianEmpNo", "");
+                          }
+                        }}
+                        className="rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary h-3.5 w-3.5"
+                      />
+                      <label htmlFor="registerIsUnregistered" className="text-[10px] font-semibold text-muted-foreground select-none cursor-pointer">
+                        Unregistered Custodian?
+                      </label>
+                    </div>
+                  </div>
+
+                  {!isUnregistered ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-grow">
+                          <Input
+                            placeholder="Search custodian name or EPF..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-8 text-xs bg-muted/20 border-border"
+                          />
+                        </div>
+                        {createForm.watch("assignedStaffId") && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setValue("assignedStaffId", "");
+                              setSearchQuery("");
+                            }}
+                            className="h-8 px-2 text-xs text-red-500 hover:text-red-600"
+                          >
+                            Clear Custodian
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Search Results */}
+                      {searchQuery && (
+                        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-900 z-10 relative">
+                          {filteredUsers.length > 0 ? (
+                            filteredUsers.map((u) => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => {
+                                  setValue("assignedStaffId", u.id);
+                                  setSearchQuery("");
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs flex justify-between items-center transition-colors"
+                              >
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">{u.name}</span>
+                                <span className="text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-900 dark:text-slate-400 px-1.5 py-0.5 rounded">EPF: {u.employeeId}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-2 text-[10px] text-slate-500 dark:text-slate-400 italic">No staff found matching query.</div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Current Custodian Badge */}
+                      <div className="text-xs pt-1 flex items-center justify-between">
+                        <span className="text-slate-500">Selected Custodian:</span>
+                        {createForm.watch("assignedStaffId") ? (
+                          <span className="font-bold text-primary bg-primary/10 dark:bg-primary/20 px-3 py-1 rounded-full flex items-center gap-1.5">
+                            {usersList.find(u => u.id === createForm.watch("assignedStaffId")) ? (
+                              `${usersList.find(u => u.id === createForm.watch("assignedStaffId"))?.name} (EPF: ${usersList.find(u => u.id === createForm.watch("assignedStaffId"))?.employeeId})`
+                            ) : (
+                              "Selected Staff"
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full font-semibold">
+                            None (Spare / In Stores)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Unregistered Name</label>
+                        <Input
+                          {...register("newCustodianName")}
+                          placeholder="e.g. John Silva"
+                          className="h-8 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Employee EPF No</label>
+                        <Input
+                          {...register("newCustodianEmpNo")}
+                          placeholder="e.g. 1928"
+                          className="h-8 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -936,10 +1048,10 @@ export default function AssetList({
                   <div className="flex items-center gap-1.5">
                     <input
                       type="checkbox"
-                      id="isUnregistered"
-                      checked={isUnregistered}
+                      id="editIsUnregistered"
+                      checked={editIsUnregistered}
                       onChange={(e) => {
-                        setIsUnregistered(e.target.checked);
+                        setEditIsUnregistered(e.target.checked);
                         if (e.target.checked) {
                           editForm.setValue("assignedStaffId", "");
                         } else {
@@ -949,20 +1061,20 @@ export default function AssetList({
                       }}
                       className="rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary h-3.5 w-3.5"
                     />
-                    <label htmlFor="isUnregistered" className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 select-none cursor-pointer">
+                    <label htmlFor="editIsUnregistered" className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 select-none cursor-pointer">
                       Unregistered Custodian?
                     </label>
                   </div>
                 </div>
 
-                {!isUnregistered ? (
+                {!editIsUnregistered ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div className="relative flex-grow">
                         <Input
                           placeholder="Search custodian name or EPF..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
+                          value={editSearchQuery}
+                          onChange={(e) => setEditSearchQuery(e.target.value)}
                           className="h-8 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
                         />
                       </div>
@@ -972,7 +1084,7 @@ export default function AssetList({
                           variant="ghost"
                           onClick={() => {
                             editForm.setValue("assignedStaffId", "");
-                            setSearchQuery("");
+                            setEditSearchQuery("");
                           }}
                           className="h-8 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
                         >
@@ -982,16 +1094,16 @@ export default function AssetList({
                     </div>
 
                     {/* Search Results */}
-                    {searchQuery && (
+                    {editSearchQuery && (
                       <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md shadow-lg max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-900 z-10 relative">
-                        {filteredUsers.length > 0 ? (
-                          filteredUsers.map((u) => (
+                        {editFilteredUsers.length > 0 ? (
+                          editFilteredUsers.map((u) => (
                             <button
                               key={u.id}
                               type="button"
                               onClick={() => {
                                 editForm.setValue("assignedStaffId", u.id);
-                                setSearchQuery("");
+                                setEditSearchQuery("");
                               }}
                               className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs flex justify-between items-center transition-colors"
                             >
