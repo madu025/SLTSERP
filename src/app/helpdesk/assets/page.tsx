@@ -139,10 +139,10 @@ export default function HelpdeskAssetManagementPage() {
 
       if (!res.ok) {
         const errJson = await res.json();
-        if (errJson.error?.code === "ASSET_NUMBER_TAKEN") {
+        if (errJson.error?.code === "ASSET_NUMBER_TAKEN" || errJson.error?.message === "ASSET_NUMBER_TAKEN") {
           throw new Error("Asset number is already registered.");
         }
-        if (errJson.error?.code === "SERIAL_NUMBER_TAKEN") {
+        if (errJson.error?.code === "SERIAL_NUMBER_TAKEN" || errJson.error?.message === "SERIAL_NUMBER_TAKEN") {
           throw new Error("Serial number is already registered.");
         }
         throw new Error("Failed to register device");
@@ -169,10 +169,10 @@ export default function HelpdeskAssetManagementPage() {
       });
       if (!res.ok) {
         const errJson = await res.json();
-        if (errJson.error?.code === "ASSET_NUMBER_TAKEN") {
+        if (errJson.error?.code === "ASSET_NUMBER_TAKEN" || errJson.error?.message === "ASSET_NUMBER_TAKEN") {
           throw new Error("Asset number is already registered.");
         }
-        if (errJson.error?.code === "SERIAL_NUMBER_TAKEN") {
+        if (errJson.error?.code === "SERIAL_NUMBER_TAKEN" || errJson.error?.message === "SERIAL_NUMBER_TAKEN") {
           throw new Error("Serial number is already registered.");
         }
         throw new Error(errJson.error?.message || "Failed to update asset");
