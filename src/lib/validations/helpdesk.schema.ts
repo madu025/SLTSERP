@@ -55,10 +55,10 @@ export const CreateTicketUpdateSchema = z.object({
 
 const emptyToNullCuid = z
   .string()
-  .cuid()
   .optional()
   .nullable()
-  .transform((val) => (val === "" ? null : val));
+  .transform((val) => (val === "" ? null : val))
+  .pipe(z.string().cuid().optional().nullable());
 
 const emptyToNullNumber = z
   .union([z.number(), z.string()])
@@ -106,7 +106,8 @@ export const UpdateAssetSchema = z.object({
   newCustodianEmpNo: z.string().optional().nullable(),
   isExchange: z.boolean().optional().nullable(),
   oldLaptopSerial: z.string().optional().nullable(),
-  oldLaptopStatus: z.enum(["DECOMMISSIONED", "FAULTY", "SPARE", "ACTIVE"]).optional().nullable()
+  oldLaptopStatus: z.enum(["DECOMMISSIONED", "FAULTY", "SPARE", "ACTIVE"]).optional().nullable(),
+  repairRemarks: z.string().optional().nullable()
 });
 
 // KB Article Schemas

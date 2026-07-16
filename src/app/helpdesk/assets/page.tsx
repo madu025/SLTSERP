@@ -106,11 +106,16 @@ export default function HelpdeskAssetManagementPage() {
     setPage(1);
   };
 
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+
   useEffect(() => {
     if (mounted && user) {
       fetchAssets();
     }
-  }, [mounted, user, typeFilter, statusFilter, page]);
+  }, [mounted, user, typeFilter, statusFilter, page, search]);
 
   useEffect(() => {
     if (mounted && user) {
@@ -121,7 +126,6 @@ export default function HelpdeskAssetManagementPage() {
 
   const handleSearchKeyPress = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
   };
 
   const handleAddAsset = async (data: Record<string, unknown>) => {
@@ -226,7 +230,7 @@ export default function HelpdeskAssetManagementPage() {
                 <Input
                   placeholder="Search Asset No, S/N, brand, model, department, location..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-8.5 text-xs h-8.5 bg-card border border-border/60"
                 />
               </div>

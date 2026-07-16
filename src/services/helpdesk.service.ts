@@ -40,10 +40,17 @@ export class HelpdeskService {
     });
 
     if (existingUser) {
+      const updates: Prisma.UserUncheckedUpdateInput = {};
       if (!existingUser.staffId) {
+        updates.staffId = staff.id;
+      }
+      if (existingUser.name !== staff.name) {
+        updates.name = staff.name;
+      }
+      if (Object.keys(updates).length > 0) {
         await db.user.update({
           where: { id: existingUser.id },
-          data: { staffId: staff.id }
+          data: updates
         });
       }
       return;
@@ -173,6 +180,7 @@ export class HelpdeskService {
       isExchange?: boolean | null;
       oldLaptopSerial?: string | null;
       oldLaptopStatus?: string | null;
+      repairRemarks?: string | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -278,6 +286,11 @@ export class HelpdeskService {
               designation: "ENGINEER"
             }
           });
+        } else if (staff.name.trim() !== cleanName) {
+          staff = await tx.staff.update({
+            where: { id: staff.id },
+            data: { name: cleanName }
+          });
         }
         finalAssignedStaffId = staff.id;
       }
@@ -296,7 +309,8 @@ export class HelpdeskService {
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : (data.purchaseDate === null ? null : undefined),
         warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : (data.warrantyExpiry === null ? null : undefined),
         purchaseCost: data.purchaseCost === null ? null : data.purchaseCost,
-        agreementReceived: data.agreementReceived === null ? null : (data.agreementReceived ?? undefined)
+        agreementReceived: data.agreementReceived === null ? null : (data.agreementReceived ?? undefined),
+        repairRemarks: data.status === 'UNDER_REPAIR' ? (data.repairRemarks === null ? null : (data.repairRemarks || undefined)) : null
       } as unknown as Parameters<typeof HelpdeskRepository.updateAsset>[1], tx);
 
       // Create handover log for the current (new) asset to record exchange

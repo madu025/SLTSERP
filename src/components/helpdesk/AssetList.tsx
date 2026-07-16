@@ -221,7 +221,8 @@ export default function AssetList({
       newCustodianEmpNo: "",
       isExchange: false,
       oldLaptopSerial: "",
-      oldLaptopStatus: "DECOMMISSIONED"
+      oldLaptopStatus: "DECOMMISSIONED",
+      repairRemarks: (asset as any).repairRemarks || ""
     });
   };
 
@@ -240,7 +241,8 @@ export default function AssetList({
         purchaseCost: data.purchaseCost ? Number(data.purchaseCost) : null,
         isExchange: data.isExchange || false,
         oldLaptopSerial: data.oldLaptopSerial || null,
-        oldLaptopStatus: data.oldLaptopStatus || null
+        oldLaptopStatus: data.oldLaptopStatus || null,
+        repairRemarks: data.repairRemarks || null
       };
       await onEditAsset(editAsset.id, formatted);
       setEditAsset(null);
@@ -446,6 +448,9 @@ export default function AssetList({
 
   const currentAssignedStaffId = editForm.watch("assignedStaffId");
   const currentStaff = usersList.find(u => u.id === currentAssignedStaffId);
+  const editStatus = editForm.watch("status");
+  const editDeviceType = editForm.watch("deviceType");
+  const editIsExchange = editForm.watch("isExchange");
 
   return (
     <div className="space-y-4">
@@ -885,8 +890,13 @@ export default function AssetList({
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase">Status</label>
                   <Select
-                    value={editForm.watch("status") || "ACTIVE"}
-                    onValueChange={(v) => editForm.setValue("status", v as ITAsset["status"])}
+                    value={editStatus || "ACTIVE"}
+                    onValueChange={(v) => {
+                      editForm.setValue("status", v as ITAsset["status"]);
+                      if (v !== "UNDER_REPAIR") {
+                        editForm.setValue("repairRemarks", "");
+                      }
+                    }}
                   >
                     <SelectTrigger className="h-8 text-xs bg-muted/20">
                       <SelectValue />
@@ -901,6 +911,17 @@ export default function AssetList({
                     </SelectContent>
                   </Select>
                 </div>
+
+                {editStatus === "UNDER_REPAIR" && (
+                  <div className="space-y-1 animate-fade-in">
+                    <label className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase">Repair Details / Comment</label>
+                    <Input
+                      {...editForm.register("repairRemarks")}
+                      placeholder="e.g. Broken display, motherboard issue"
+                      className="h-8 text-xs bg-white dark:bg-slate-950 border-red-200 dark:border-red-900 focus-visible:ring-red-500"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Custodian & Agreement Section */}
@@ -1016,13 +1037,13 @@ export default function AssetList({
                 )}
 
                 {/* Laptop Exchange Registry Section */}
-                {editForm.watch("deviceType") === "LAPTOP" && (
+                {editDeviceType === "LAPTOP" && (
                   <div className="bg-amber-500/5 p-4 rounded-lg border border-amber-500/20 space-y-3 mt-3">
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
                         id="isExchange"
-                        checked={editForm.watch("isExchange") || false}
+                        checked={editIsExchange || false}
                         onChange={(e) => {
                           editForm.setValue("isExchange", e.target.checked);
                           if (!e.target.checked) {
@@ -1036,7 +1057,7 @@ export default function AssetList({
                       </label>
                     </div>
 
-                    {editForm.watch("isExchange") && (
+                    {editIsExchange && (
                       <div className="grid grid-cols-2 gap-3 pt-1 animate-fade-in">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase">Old Laptop Serial No</label>
