@@ -129,7 +129,7 @@ export default function HelpdeskAssetManagementPage() {
     e.preventDefault();
   };
 
-  const handleAddAsset = async (data: Record<string, unknown>) => {
+  const handleAddAsset = async (data: Record<string, unknown>): Promise<boolean> => {
     try {
       const res = await fetch("/api/helpdesk/assets", {
         method: "POST",
@@ -152,15 +152,17 @@ export default function HelpdeskAssetManagementPage() {
       if (json.success) {
         toast.success(`IT Asset ${json.data.assetNumber} successfully registered!`);
         fetchAssets();
+        return true;
       }
+      return false;
     } catch (err: unknown) {
       const error = err as Error;
       toast.error(error.message || "Failed to add asset");
-      throw err; // rethrow to keep modal open
+      return false;
     }
   };
 
-  const handleEditAsset = async (id: string, data: Record<string, unknown>) => {
+  const handleEditAsset = async (id: string, data: Record<string, unknown>): Promise<boolean> => {
     try {
       const res = await fetch(`/api/helpdesk/assets/${id}`, {
         method: "PUT",
@@ -182,11 +184,13 @@ export default function HelpdeskAssetManagementPage() {
         toast.success(`Asset ${json.data.assetNumber} updated successfully!`);
         fetchAssets();
         fetchStaff();
+        return true;
       }
+      return false;
     } catch (err: unknown) {
       const error = err as Error;
       toast.error(error.message || "Failed to update asset");
-      throw err;
+      return false;
     }
   };
 

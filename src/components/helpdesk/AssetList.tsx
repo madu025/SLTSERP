@@ -39,6 +39,7 @@ export interface ITAsset {
   warrantyExpiry?: string | Date | null;
   purchaseCost?: number | null;
   agreementReceived?: boolean;
+  repairRemarks?: string | null;
   _count?: {
     units: number;
   };
@@ -53,8 +54,8 @@ export interface StaffSummary {
 
 interface AssetListProps {
   assets: ITAsset[];
-  onAddAsset: (data: z.infer<typeof CreateAssetSchema>) => Promise<void>;
-  onEditAsset?: (id: string, data: z.infer<typeof UpdateAssetSchema>) => Promise<void>;
+  onAddAsset: (data: z.infer<typeof CreateAssetSchema>) => Promise<boolean>;
+  onEditAsset?: (id: string, data: z.infer<typeof UpdateAssetSchema>) => Promise<boolean>;
   onDeleteAsset?: (id: string) => Promise<void>;
   usersList: StaffSummary[];
   siteOfficesList?: { id: string; name: string }[];
@@ -222,7 +223,7 @@ export default function AssetList({
       isExchange: false,
       oldLaptopSerial: "",
       oldLaptopStatus: "DECOMMISSIONED",
-      repairRemarks: (asset as any).repairRemarks || ""
+      repairRemarks: asset.repairRemarks || ""
     });
   };
 
@@ -244,8 +245,10 @@ export default function AssetList({
         oldLaptopStatus: data.oldLaptopStatus || null,
         repairRemarks: data.repairRemarks || null
       };
-      await onEditAsset(editAsset.id, formatted);
-      setEditAsset(null);
+      const success = await onEditAsset(editAsset.id, formatted);
+      if (success) {
+        setEditAsset(null);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -431,9 +434,11 @@ export default function AssetList({
         warrantyExpiry: data.warrantyExpiry || null,
         purchaseCost: data.purchaseCost ? Number(data.purchaseCost) : null
       };
-      await onAddAsset(formatted);
-      reset();
-      setIsOpen(false);
+      const success = await onAddAsset(formatted);
+      if (success) {
+        reset();
+        setIsOpen(false);
+      }
     } catch (err) {
       console.error(err);
     } finally {
