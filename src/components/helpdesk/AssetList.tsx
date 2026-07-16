@@ -787,7 +787,13 @@ export default function AssetList({
               </div>
               <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white">Edit Asset — {editAsset.assetNumber}</DialogTitle>
             </div>
-            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="flex flex-col flex-grow overflow-hidden text-xs">
+            <form 
+              onSubmit={editForm.handleSubmit(handleEditSubmit, (err) => {
+                console.error("IT Asset Edit Form validation errors:", err);
+                toast.error("Please correct the validation errors in the form.");
+              })} 
+              className="flex flex-col flex-grow overflow-hidden text-xs"
+            >
               <div className="flex-grow overflow-y-auto p-6 space-y-4 mt-0">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">

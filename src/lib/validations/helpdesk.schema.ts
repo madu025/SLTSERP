@@ -53,6 +53,16 @@ export const CreateTicketUpdateSchema = z.object({
   photoUrls: z.array(z.string()).default([])
 });
 
+const emptyToNullCuid = z.preprocess(
+  (val) => (val === "" ? null : val),
+  z.string().cuid().optional().nullable()
+) as any;
+
+const emptyToNullNumber = z.preprocess(
+  (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
+  z.number().optional().nullable()
+) as any;
+
 // IT Asset Schemas
 export const CreateAssetSchema = z.object({
   assetNumber: z.string().min(1, "Asset number is required"),
@@ -60,14 +70,14 @@ export const CreateAssetSchema = z.object({
   deviceType: ITDeviceTypeSchema,
   brand: z.string().min(1, "Brand is required"),
   model: z.string().min(1, "Model identifier is required"),
-  assignedStaffId: z.string().cuid().optional().nullable(),
+  assignedStaffId: emptyToNullCuid,
   department: z.string().optional().nullable(),
-  siteOfficeId: z.string().cuid().optional().nullable(),
+  siteOfficeId: emptyToNullCuid,
   location: z.string().optional().nullable(),
   status: ITAssetStatusSchema.default("ACTIVE"),
   purchaseDate: z.string().or(z.date()).optional().nullable(),
   warrantyExpiry: z.string().or(z.date()).optional().nullable(),
-  purchaseCost: z.number().optional().nullable()
+  purchaseCost: emptyToNullNumber
 });
 
 export const UpdateAssetSchema = z.object({
@@ -76,14 +86,14 @@ export const UpdateAssetSchema = z.object({
   deviceType: ITDeviceTypeSchema.optional(),
   brand: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
-  assignedStaffId: z.string().cuid().optional().nullable(),
+  assignedStaffId: emptyToNullCuid,
   department: z.string().optional().nullable(),
-  siteOfficeId: z.string().cuid().optional().nullable(),
+  siteOfficeId: emptyToNullCuid,
   location: z.string().optional().nullable(),
   status: ITAssetStatusSchema.optional(),
   purchaseDate: z.string().or(z.date()).optional().nullable(),
   warrantyExpiry: z.string().or(z.date()).optional().nullable(),
-  purchaseCost: z.number().optional().nullable(),
+  purchaseCost: emptyToNullNumber,
   agreementReceived: z.boolean().optional().nullable(),
   newCustodianName: z.string().optional().nullable(),
   newCustodianEmpNo: z.string().optional().nullable()

@@ -88,6 +88,7 @@ export class HelpdeskService {
       model: string;
       assignedStaffId?: string | null;
       department?: string | null;
+      siteOfficeId?: string | null;
       location?: string | null;
       status?: ITAssetStatus;
       purchaseDate?: string | Date | null;
@@ -118,6 +119,7 @@ export class HelpdeskService {
         model: data.model,
         assignedStaffId: data.assignedStaffId || undefined,
         department: data.department || undefined,
+        siteOfficeId: data.siteOfficeId || undefined,
         location: data.location || undefined,
         status: data.status || 'ACTIVE',
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : undefined,
@@ -159,6 +161,7 @@ export class HelpdeskService {
       model?: string;
       assignedStaffId?: string | null;
       department?: string | null;
+      siteOfficeId?: string | null;
       location?: string | null;
       status?: ITAssetStatus;
       purchaseDate?: string | Date | null;
@@ -218,6 +221,7 @@ export class HelpdeskService {
         model: data.model,
         assignedStaffId: finalAssignedStaffId === null ? null : (finalAssignedStaffId || undefined),
         department: data.department === null ? null : (data.department || undefined),
+        siteOfficeId: data.siteOfficeId === null ? null : (data.siteOfficeId || undefined),
         location: data.location === null ? null : (data.location || undefined),
         status: data.status,
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : (data.purchaseDate === null ? null : undefined),
