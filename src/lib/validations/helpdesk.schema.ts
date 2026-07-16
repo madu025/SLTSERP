@@ -53,15 +53,22 @@ export const CreateTicketUpdateSchema = z.object({
   photoUrls: z.array(z.string()).default([])
 });
 
-const emptyToNullCuid = z.preprocess(
-  (val) => (val === "" ? null : val),
-  z.string().cuid().optional().nullable()
-) as any;
+const emptyToNullCuid = z
+  .string()
+  .cuid()
+  .optional()
+  .nullable()
+  .transform((val) => (val === "" ? null : val));
 
-const emptyToNullNumber = z.preprocess(
-  (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
-  z.number().optional().nullable()
-) as any;
+const emptyToNullNumber = z
+  .union([z.number(), z.string()])
+  .optional()
+  .nullable()
+  .transform((val) => {
+    if (val === "" || val === null || val === undefined) return null;
+    const num = Number(val);
+    return isNaN(num) ? undefined : num;
+  });
 
 // IT Asset Schemas
 export const CreateAssetSchema = z.object({
@@ -96,7 +103,10 @@ export const UpdateAssetSchema = z.object({
   purchaseCost: emptyToNullNumber,
   agreementReceived: z.boolean().optional().nullable(),
   newCustodianName: z.string().optional().nullable(),
-  newCustodianEmpNo: z.string().optional().nullable()
+  newCustodianEmpNo: z.string().optional().nullable(),
+  isExchange: z.boolean().optional().nullable(),
+  oldLaptopSerial: z.string().optional().nullable(),
+  oldLaptopStatus: z.enum(["DECOMMISSIONED", "FAULTY", "SPARE", "ACTIVE"]).optional().nullable()
 });
 
 // KB Article Schemas

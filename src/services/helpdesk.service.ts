@@ -170,6 +170,9 @@ export class HelpdeskService {
       agreementReceived?: boolean | null;
       newCustodianName?: string | null;
       newCustodianEmpNo?: string | null;
+      isExchange?: boolean | null;
+      oldLaptopSerial?: string | null;
+      oldLaptopStatus?: string | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -191,6 +194,72 @@ export class HelpdeskService {
 
     const updated = await prisma.$transaction(async (tx) => {
       let finalAssignedStaffId = data.assignedStaffId;
+
+      // Handle Laptop Exchange logic
+      if (data.isExchange && data.oldLaptopSerial) {
+        const cleanOldSerial = data.oldLaptopSerial.trim();
+        const oldCustodianId = oldAsset.assignedStaffId;
+
+        if (oldCustodianId) {
+          // Check if old laptop already exists
+          let oldLaptop = await tx.iTAsset.findUnique({
+            where: { serialNumber: cleanOldSerial }
+          });
+
+          if (!oldLaptop) {
+            // Create the old laptop in database for history preservation
+            oldLaptop = await tx.iTAsset.create({
+              data: {
+                assetNumber: `OLD-LAP-${cleanOldSerial}`,
+                serialNumber: cleanOldSerial,
+                deviceType: 'LAPTOP',
+                brand: oldAsset.brand || 'HP',
+                model: oldAsset.model || 'Notebook',
+                assignedStaffId: oldCustodianId,
+                department: oldAsset.department,
+                siteOfficeId: oldAsset.siteOfficeId,
+                location: oldAsset.location,
+                status: (data.oldLaptopStatus as any) || 'DECOMMISSIONED',
+                purchaseCost: null,
+                agreementReceived: true
+              }
+            });
+
+            // Write initial issue log to user for history
+            await tx.assetHandoverLog.create({
+              data: {
+                assetId: oldLaptop.id,
+                transactionType: 'ISSUED_TO_USER',
+                performedById: userId,
+                targetStaffId: oldCustodianId,
+                condition: 'Used',
+                remarks: 'Historical registry during exchange'
+              }
+            });
+          }
+
+          // Return old laptop to store (update assignedStaffId to null and status to oldLaptopStatus)
+          await tx.iTAsset.update({
+            where: { id: oldLaptop.id },
+            data: {
+              assignedStaffId: null,
+              status: (data.oldLaptopStatus as any) || 'DECOMMISSIONED'
+            }
+          });
+
+          // Write handover log for return
+          await tx.assetHandoverLog.create({
+            data: {
+              assetId: oldLaptop.id,
+              transactionType: 'RETURNED_TO_STORE',
+              performedById: userId,
+              targetStaffId: oldCustodianId,
+              condition: 'Returned during exchange',
+              remarks: `Exchanged for new laptop: ${data.assetNumber || oldAsset.assetNumber}`
+            }
+          });
+        }
+      }
 
       // Handle on-the-fly unregistered custodian creation
       if (data.newCustodianName && data.newCustodianEmpNo) {
@@ -229,6 +298,20 @@ export class HelpdeskService {
         purchaseCost: data.purchaseCost === null ? null : data.purchaseCost,
         agreementReceived: data.agreementReceived === null ? null : (data.agreementReceived ?? undefined)
       } as unknown as Parameters<typeof HelpdeskRepository.updateAsset>[1], tx);
+
+      // Create handover log for the current (new) asset to record exchange
+      if (data.isExchange && data.oldLaptopSerial && oldAsset.assignedStaffId) {
+        await tx.assetHandoverLog.create({
+          data: {
+            assetId: id,
+            transactionType: 'EXCHANGED',
+            performedById: userId,
+            targetStaffId: oldAsset.assignedStaffId,
+            condition: 'Good',
+            remarks: `Exchanged with old laptop S/N: ${data.oldLaptopSerial}`
+          }
+        });
+      }
 
       if (finalAssignedStaffId) {
         await HelpdeskService.ensureUserAccountForStaff(finalAssignedStaffId, tx);

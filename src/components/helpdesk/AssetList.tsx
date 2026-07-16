@@ -218,7 +218,10 @@ export default function AssetList({
       purchaseCost: asset.purchaseCost || 0,
       agreementReceived: asset.agreementReceived || false,
       newCustodianName: "",
-      newCustodianEmpNo: ""
+      newCustodianEmpNo: "",
+      isExchange: false,
+      oldLaptopSerial: "",
+      oldLaptopStatus: "DECOMMISSIONED"
     });
   };
 
@@ -234,7 +237,10 @@ export default function AssetList({
         location: data.location || null,
         purchaseDate: data.purchaseDate || null,
         warrantyExpiry: data.warrantyExpiry || null,
-        purchaseCost: data.purchaseCost ? Number(data.purchaseCost) : null
+        purchaseCost: data.purchaseCost ? Number(data.purchaseCost) : null,
+        isExchange: data.isExchange || false,
+        oldLaptopSerial: data.oldLaptopSerial || null,
+        oldLaptopStatus: data.oldLaptopStatus || null
       };
       await onEditAsset(editAsset.id, formatted);
       setEditAsset(null);
@@ -1006,6 +1012,58 @@ export default function AssetList({
                         className="h-8 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* Laptop Exchange Registry Section */}
+                {editForm.watch("deviceType") === "LAPTOP" && (
+                  <div className="bg-amber-500/5 p-4 rounded-lg border border-amber-500/20 space-y-3 mt-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="isExchange"
+                        checked={editForm.watch("isExchange") || false}
+                        onChange={(e) => {
+                          editForm.setValue("isExchange", e.target.checked);
+                          if (!e.target.checked) {
+                            editForm.setValue("oldLaptopSerial", "");
+                          }
+                        }}
+                        className="rounded border-slate-300 dark:border-slate-700 text-amber-600 focus:ring-amber-500 h-4 w-4"
+                      />
+                      <label htmlFor="isExchange" className="text-xs font-bold text-amber-800 dark:text-amber-300 select-none cursor-pointer">
+                        Laptop Exchanged? (Returned an old laptop)
+                      </label>
+                    </div>
+
+                    {editForm.watch("isExchange") && (
+                      <div className="grid grid-cols-2 gap-3 pt-1 animate-fade-in">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase">Old Laptop Serial No</label>
+                          <Input
+                            {...editForm.register("oldLaptopSerial")}
+                            placeholder="e.g. CND9123DSP"
+                            className="h-8 text-xs bg-white dark:bg-slate-950 border-amber-200 dark:border-amber-900 focus-visible:ring-amber-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-amber-800 dark:text-amber-400 uppercase">Old Laptop Returned Status</label>
+                          <Select
+                            value={editForm.watch("oldLaptopStatus") || "DECOMMISSIONED"}
+                            onValueChange={(v) => editForm.setValue("oldLaptopStatus", v as "DECOMMISSIONED" | "FAULTY" | "SPARE" | "ACTIVE")}
+                          >
+                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-slate-950 border-amber-200 dark:border-amber-900">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card">
+                              <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
+                              <SelectItem value="FAULTY">Faulty / Broken</SelectItem>
+                              <SelectItem value="SPARE">Spare (Returned to Stock)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
