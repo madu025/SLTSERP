@@ -643,3 +643,11 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         </div>
     );
 }
+
+export default function ServiceOrdersPage(props: any) {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground text-xs font-medium">Loading Service Orders...</div>}>
+            <ServiceOrdersContent {...props} />
+        </Suspense>
+    );
+}
