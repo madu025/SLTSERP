@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,7 +35,7 @@ const OrderActionModal = dynamic(() => import("@/components/modals/OrderActionMo
 const ExcelImportModal = dynamic(() => import("@/components/modals/ExcelImportModal"), { ssr: false });
 
 
-export default function ServiceOrdersPage({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'completed' | 'return'; pageTitle?: string; }) {
+function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Orders' }: { filterType?: 'pending' | 'completed' | 'return'; pageTitle?: string; }) {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
     const urlSearch = searchParams.get('search');
