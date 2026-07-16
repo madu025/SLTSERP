@@ -123,25 +123,43 @@ export default function TicketDetailsDialog({
   const sla = (() => {
     const created = new Date(ticket.createdAt).getTime();
     
-    // Response SLA: 4 hours
-    const responseTarget = 4;
-    const currentResponseTime = ticket.firstResponseAt 
-      ? (new Date(ticket.firstResponseAt).getTime() - created) / (1000 * 60 * 60)
-      : (Date.now() - created) / (1000 * 60 * 60);
-    const responseBreached = currentResponseTime > responseTarget && (!ticket.firstResponseAt && !['CLOSED', 'RESOLVED'].includes(ticket.status));
+    let responseDeadlineTime = ticket.slaResponseDeadline ? new Date(ticket.slaResponseDeadline).getTime() : null;
+    let resolutionDeadlineTime = ticket.slaResolutionDeadline ? new Date(ticket.slaResolutionDeadline).getTime() : null;
 
-    // Resolution SLA: 24 hours
-    const resolutionTarget = 24;
-    const currentResolutionTime = ticket.resolvedAt
-      ? (new Date(ticket.resolvedAt).getTime() - created) / (1000 * 60 * 60)
-      : (Date.now() - created) / (1000 * 60 * 60);
-    const resolutionBreached = currentResolutionTime > resolutionTarget && (!ticket.resolvedAt && !['CLOSED', 'RESOLVED'].includes(ticket.status));
+    if (!responseDeadlineTime) {
+      let hours = 4;
+      if (ticket.priority === 'CRITICAL') hours = 1;
+      else if (ticket.priority === 'HIGH') hours = 2;
+      else if (ticket.priority === 'LOW') hours = 8;
+      responseDeadlineTime = created + hours * 60 * 60 * 1000;
+    }
+
+    if (!resolutionDeadlineTime) {
+      let hours = 24;
+      if (ticket.priority === 'CRITICAL') hours = 4;
+      else if (ticket.priority === 'HIGH') hours = 8;
+      else if (ticket.priority === 'LOW') hours = 72;
+      resolutionDeadlineTime = created + hours * 60 * 60 * 1000;
+    }
+
+    const firstResponseTime = ticket.firstResponseAt ? new Date(ticket.firstResponseAt).getTime() : null;
+    const resolvedTime = ticket.resolvedAt ? new Date(ticket.resolvedAt).getTime() : null;
+
+    const responseBreached = ticket.slaResponseBreached !== undefined && ticket.slaResponseBreached !== null
+      ? ticket.slaResponseBreached
+      : (firstResponseTime ? firstResponseTime > responseDeadlineTime : Date.now() > responseDeadlineTime);
+
+    const resolutionBreached = ticket.slaResolutionBreached !== undefined && ticket.slaResolutionBreached !== null
+      ? ticket.slaResolutionBreached
+      : (resolvedTime ? resolvedTime > resolutionDeadlineTime : Date.now() > resolutionDeadlineTime);
 
     return {
       responseBreached,
       resolutionBreached,
-      currentResponseTime,
-      currentResolutionTime
+      responseDeadline: new Date(responseDeadlineTime),
+      resolutionDeadline: new Date(resolutionDeadlineTime),
+      hasResponded: !!ticket.firstResponseAt,
+      hasResolved: !!ticket.resolvedAt
     };
   })();
 
@@ -292,6 +310,94 @@ export default function TicketDetailsDialog({
               </div>
             </div>
           )}
+
+          {/* SLA Performance Tracking Card */}
+          <div className="bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5" /> SLA Performance Tracking
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Response SLA */}
+              <div className={`p-4 rounded-xl border flex flex-col justify-between ${
+                sla.responseBreached 
+                  ? "bg-rose-500/5 border-rose-200 dark:border-rose-500/20 text-rose-800 dark:text-rose-400" 
+                  : sla.hasResponded 
+                    ? "bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-400"
+                    : "bg-slate-500/5 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-400"
+              }`}>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider">First Response SLA</span>
+                    {sla.hasResponded ? (
+                      <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">Responded</span>
+                    ) : sla.responseBreached ? (
+                      <span className="text-[9px] font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full animate-pulse">Breached</span>
+                    ) : (
+                      <span className="text-[9px] font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                    Deadline: {sla.responseDeadline.toLocaleTimeString()} {sla.responseDeadline.toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="mt-3 text-xs font-bold">
+                  {sla.hasResponded ? (
+                    <p className="text-emerald-600 dark:text-emerald-400">
+                      Responded {formatDistanceToNow(new Date(ticket.firstResponseAt), { addSuffix: true })}
+                    </p>
+                  ) : sla.responseBreached ? (
+                    <p className="text-rose-600 dark:text-rose-400">
+                      Breached {formatDistanceToNow(sla.responseDeadline, { addSuffix: false })} ago
+                    </p>
+                  ) : (
+                    <p className="text-slate-700 dark:text-slate-300">
+                      Due in {formatDistanceToNow(sla.responseDeadline, { addSuffix: false })}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Resolution SLA */}
+              <div className={`p-4 rounded-xl border flex flex-col justify-between ${
+                sla.resolutionBreached 
+                  ? "bg-rose-500/5 border-rose-200 dark:border-rose-500/20 text-rose-800 dark:text-rose-400" 
+                  : sla.hasResolved 
+                    ? "bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-400"
+                    : "bg-slate-500/5 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-400"
+              }`}>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider">Resolution SLA</span>
+                    {sla.hasResolved ? (
+                      <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">Resolved</span>
+                    ) : sla.resolutionBreached ? (
+                      <span className="text-[9px] font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full animate-pulse">Breached</span>
+                    ) : (
+                      <span className="text-[9px] font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                    Deadline: {sla.resolutionDeadline.toLocaleTimeString()} {sla.resolutionDeadline.toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="mt-3 text-xs font-bold">
+                  {sla.hasResolved ? (
+                    <p className="text-emerald-600 dark:text-emerald-400">
+                      Resolved {formatDistanceToNow(new Date(ticket.resolvedAt), { addSuffix: true })}
+                    </p>
+                  ) : sla.resolutionBreached ? (
+                    <p className="text-rose-600 dark:text-rose-400">
+                      Breached {formatDistanceToNow(sla.resolutionDeadline, { addSuffix: false })} ago
+                    </p>
+                  ) : (
+                    <p className="text-slate-700 dark:text-slate-300">
+                      Due in {formatDistanceToNow(sla.resolutionDeadline, { addSuffix: false })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* AnyDesk Support Section */}
           <div className="relative overflow-hidden border border-rose-200 dark:border-rose-500/20 bg-gradient-to-br from-rose-50/50 to-white dark:from-rose-500/5 dark:to-slate-900 p-5 rounded-2xl shadow-sm space-y-4">

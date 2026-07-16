@@ -73,6 +73,7 @@ model ITAsset {
   updatedAt       DateTime      @updatedAt
   tickets         Ticket[]
   handoverLogs    AssetHandoverLog[]
+  softwareAssignments SoftwareLicenseAssignment[] @relation("AssetSoftwareLicenses")
 
 
   @@index([assignedStaffId])
@@ -97,19 +98,27 @@ model Ticket {
   anydeskId          String?
   anydeskSession     String?         // Details of support session
   photoUrls          String[]        @default([])
-  firstResponseAt    DateTime?
-  resolvedAt         DateTime?
-  satisfactionRating Int?
-  satisfactionNote   String?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  updates            TicketUpdate[]
+  firstResponseAt       DateTime?
+  resolvedAt            DateTime?
+  satisfactionRating    Int?
+  satisfactionNote      String?
+  slaResponseDeadline   DateTime?
+  slaResolutionDeadline DateTime?
+  slaResponseBreached   Boolean        @default(false)
+  slaResolutionBreached Boolean        @default(false)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  updates               TicketUpdate[]
 
   @@index([userId])
   @@index([assignedToId])
   @@index([status])
   @@index([priority])
   @@index([createdAt])
+  @@index([slaResponseDeadline])
+  @@index([slaResolutionDeadline])
+  @@index([slaResponseBreached])
+  @@index([slaResolutionBreached])
 }
 
 model TicketUpdate {
@@ -259,4 +268,40 @@ model AssetHandoverLog {
   @@index([assetId])
   @@index([performedById])
   @@index([targetStaffId])
+}
+
+model SoftwareLicense {
+  id             String                      @id @default(cuid())
+  name           String                      // e.g., "Microsoft Office 2026", "AutoCAD LT"
+  key            String?                     // License key / serial number
+  vendor         String?                     // Vendor name
+  purchaseDate   DateTime?
+  expiryDate     DateTime?
+  purchaseCost   Float?
+  totalLicenses  Int                         @default(1)
+  status         String                      @default("ACTIVE") // ACTIVE, EXPIRED, DECOMMISSIONED
+  remarks        String?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  assignments    SoftwareLicenseAssignment[]
+
+  @@index([status])
+  @@index([expiryDate])
+}
+
+model SoftwareLicenseAssignment {
+  id                String          @id @default(cuid())
+  softwareLicenseId String
+  softwareLicense   SoftwareLicense @relation(fields: [softwareLicenseId], references: [id], onDelete: Cascade)
+  assignedStaffId   String?
+  assignedStaff     Staff?          @relation("StaffSoftwareLicenses", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  assignedAssetId   String?
+  assignedAsset     ITAsset?        @relation("AssetSoftwareLicenses", fields: [assignedAssetId], references: [id], onDelete: SetNull)
+  assignedAt        DateTime        @default(now())
+  assignedEmail     String?
+  remarks           String?
+
+  @@index([softwareLicenseId])
+  @@index([assignedStaffId])
+  @@index([assignedAssetId])
 }

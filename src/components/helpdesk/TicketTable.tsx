@@ -44,19 +44,35 @@ export default function TicketTable({ tickets, onViewDetails, isStaff = false }:
   const checkSLA = (ticket: any) => {
     const created = new Date(ticket.createdAt).getTime();
     
-    // Response check: 4 hours
-    const responseTarget = 4;
-    const currentResponseTime = ticket.firstResponseAt 
-      ? (new Date(ticket.firstResponseAt).getTime() - created) / (1000 * 60 * 60)
-      : (Date.now() - created) / (1000 * 60 * 60);
-    const responseBreached = currentResponseTime > responseTarget && (!ticket.firstResponseAt && !['CLOSED', 'RESOLVED'].includes(ticket.status));
+    let responseDeadlineTime = ticket.slaResponseDeadline ? new Date(ticket.slaResponseDeadline).getTime() : null;
+    let resolutionDeadlineTime = ticket.slaResolutionDeadline ? new Date(ticket.slaResolutionDeadline).getTime() : null;
 
-    // Resolution check: 24 hours
-    const resolutionTarget = 24;
-    const currentResolutionTime = ticket.resolvedAt
-      ? (new Date(ticket.resolvedAt).getTime() - created) / (1000 * 60 * 60)
-      : (Date.now() - created) / (1000 * 60 * 60);
-    const resolutionBreached = currentResolutionTime > resolutionTarget && (!ticket.resolvedAt && !['CLOSED', 'RESOLVED'].includes(ticket.status));
+    if (!responseDeadlineTime) {
+      let hours = 4;
+      if (ticket.priority === 'CRITICAL') hours = 1;
+      else if (ticket.priority === 'HIGH') hours = 2;
+      else if (ticket.priority === 'LOW') hours = 8;
+      responseDeadlineTime = created + hours * 60 * 60 * 1000;
+    }
+
+    if (!resolutionDeadlineTime) {
+      let hours = 24;
+      if (ticket.priority === 'CRITICAL') hours = 4;
+      else if (ticket.priority === 'HIGH') hours = 8;
+      else if (ticket.priority === 'LOW') hours = 72;
+      resolutionDeadlineTime = created + hours * 60 * 60 * 1000;
+    }
+
+    const firstResponseTime = ticket.firstResponseAt ? new Date(ticket.firstResponseAt).getTime() : null;
+    const resolvedTime = ticket.resolvedAt ? new Date(ticket.resolvedAt).getTime() : null;
+
+    const responseBreached = ticket.slaResponseBreached !== undefined && ticket.slaResponseBreached !== null
+      ? ticket.slaResponseBreached
+      : (firstResponseTime ? firstResponseTime > responseDeadlineTime : Date.now() > responseDeadlineTime) && (!ticket.firstResponseAt && !['CLOSED', 'RESOLVED'].includes(ticket.status));
+
+    const resolutionBreached = ticket.slaResolutionBreached !== undefined && ticket.slaResolutionBreached !== null
+      ? ticket.slaResolutionBreached
+      : (resolvedTime ? resolvedTime > resolutionDeadlineTime : Date.now() > resolutionDeadlineTime) && (!ticket.resolvedAt && !['CLOSED'].includes(ticket.status));
 
     return { responseBreached, resolutionBreached };
   };

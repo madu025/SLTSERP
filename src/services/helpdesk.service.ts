@@ -258,9 +258,9 @@ export class HelpdeskService {
     const asset = await HelpdeskRepository.findAssetById(assetId);
     if (!asset) throw new Error('ASSET_NOT_FOUND');
 
-    return await prisma.$transaction(async (tx) => {
+    const log = await prisma.$transaction(async (tx) => {
       // Create handover log
-      const log = await tx.assetHandoverLog.create({
+      const createdLog = await tx.assetHandoverLog.create({
         data: {
           assetId,
           transactionType: data.transactionType,
@@ -284,22 +284,24 @@ export class HelpdeskService {
           data: { assignedStaffId: null }
         });
       }
-      
-      // Audit Log
-      await AuditService.log({
-        userId,
-        action: 'CREATE',
-        entity: 'AssetHandoverLog' as any,
-        entityId: log.id,
-        newValue: log,
-        ipAddress,
-        userAgent
-      });
 
-      return log;
+      return createdLog;
     }, {
       timeout: 15000
     });
+
+    // Audit Log (executed outside the transaction transaction to prevent pool starvation deadlock)
+    await AuditService.log({
+      userId,
+      action: 'CREATE',
+      entity: 'AssetHandoverLog' as any,
+      entityId: log.id,
+      newValue: log,
+      ipAddress,
+      userAgent
+    });
+
+    return log;
   }
 
   // ==========================================
@@ -343,6 +345,29 @@ export class HelpdeskService {
     const seq = String(countToday + 1).padStart(4, '0');
     const ticketNumber = `IT-${dateStr}-${seq}`;
 
+    // Calculate SLA Targets based on Ticket Priority
+    const now = new Date();
+    let responseHours = 4; // default MEDIUM
+    let resolutionHours = 24; // default MEDIUM
+    const priority = data.priority || 'MEDIUM';
+
+    if (priority === 'CRITICAL') {
+      responseHours = 1;
+      resolutionHours = 4;
+    } else if (priority === 'HIGH') {
+      responseHours = 2;
+      resolutionHours = 8;
+    } else if (priority === 'MEDIUM') {
+      responseHours = 4;
+      resolutionHours = 24;
+    } else if (priority === 'LOW') {
+      responseHours = 8;
+      resolutionHours = 72;
+    }
+
+    const slaResponseDeadline = new Date(now.getTime() + responseHours * 60 * 60 * 1000);
+    const slaResolutionDeadline = new Date(now.getTime() + resolutionHours * 60 * 60 * 1000);
+
     // Create the ticket inside transaction
     const ticket = await prisma.$transaction(async (tx) => {
       const created = await HelpdeskRepository.createTicket(
@@ -352,9 +377,11 @@ export class HelpdeskService {
           userId,
           category: data.category || 'OTHER',
           description: data.description || 'No description provided.',
-          priority: data.priority || 'MEDIUM',
+          priority,
           anydeskId: data.anydeskId || undefined,
-          photoUrls: data.photoUrls || []
+          photoUrls: data.photoUrls || [],
+          slaResponseDeadline,
+          slaResolutionDeadline
         },
         tx
       );
@@ -467,25 +494,65 @@ export class HelpdeskService {
     let resolvedAt: Date | null | undefined = undefined;
 
     // First Response: when changing from OPEN to IN_PROGRESS or ASSIGNED for the first time
+    let slaResponseBreached: boolean | undefined = undefined;
     if (
       !oldTicket.firstResponseAt &&
       oldTicket.status === 'OPEN' &&
       (statusTo === 'IN_PROGRESS' || statusTo === 'ASSIGNED')
     ) {
       firstResponseAt = new Date();
+      if (oldTicket.slaResponseDeadline) {
+        slaResponseBreached = firstResponseAt.getTime() > new Date(oldTicket.slaResponseDeadline).getTime();
+      }
     }
 
     // Resolution time: when status changes to RESOLVED or CLOSED for the first time
+    let slaResolutionBreached: boolean | undefined = undefined;
     if (
       !oldTicket.resolvedAt &&
       (statusTo === 'RESOLVED' || statusTo === 'CLOSED')
     ) {
       resolvedAt = new Date();
+      if (oldTicket.slaResolutionDeadline) {
+        slaResolutionBreached = resolvedAt.getTime() > new Date(oldTicket.slaResolutionDeadline).getTime();
+      }
     } else if (
       oldTicket.resolvedAt &&
       (statusTo === 'OPEN' || statusTo === 'IN_PROGRESS')
     ) {
       resolvedAt = null; // Reopened, clear resolvedAt
+      slaResolutionBreached = false;
+    }
+
+    // Dynamic SLA Deadlines update on priority change (only if not already met)
+    let slaResponseDeadline: Date | undefined = undefined;
+    let slaResolutionDeadline: Date | undefined = undefined;
+
+    if (data.priority && data.priority !== oldTicket.priority) {
+      const priority = data.priority;
+      let responseHours = 4;
+      let resolutionHours = 24;
+      if (priority === 'CRITICAL') {
+        responseHours = 1;
+        resolutionHours = 4;
+      } else if (priority === 'HIGH') {
+        responseHours = 2;
+        resolutionHours = 8;
+      } else if (priority === 'MEDIUM') {
+        responseHours = 4;
+        resolutionHours = 24;
+      } else if (priority === 'LOW') {
+        responseHours = 8;
+        resolutionHours = 72;
+      }
+
+      const created = new Date(oldTicket.createdAt);
+      if (!oldTicket.firstResponseAt) {
+        slaResponseDeadline = new Date(created.getTime() + responseHours * 60 * 60 * 1000);
+      }
+      if (!oldTicket.resolvedAt) {
+        slaResolutionDeadline = new Date(created.getTime() + resolutionHours * 60 * 60 * 1000);
+      }
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -500,7 +567,11 @@ export class HelpdeskService {
           satisfactionRating: data.satisfactionRating === null ? null : data.satisfactionRating,
           satisfactionNote: data.satisfactionNote === null ? null : data.satisfactionNote,
           firstResponseAt: firstResponseAt || undefined,
-          resolvedAt: resolvedAt !== undefined ? resolvedAt : undefined
+          resolvedAt: resolvedAt !== undefined ? resolvedAt : undefined,
+          slaResponseBreached,
+          slaResolutionBreached,
+          slaResponseDeadline,
+          slaResolutionDeadline
         },
         tx
       );
@@ -603,32 +674,60 @@ export class HelpdeskService {
         tx
       );
 
-      // If statusTo is different, update the ticket
-      if (statusTo !== statusFrom) {
-        const updatePayload: any = { status: statusTo };
-        
-        // Calculate firstResponseAt if transitioning from OPEN to IN_PROGRESS/ASSIGNED for the first time
-        if (
-          !ticket.firstResponseAt &&
-          statusFrom === 'OPEN' &&
-          (statusTo === 'IN_PROGRESS' || statusTo === 'ASSIGNED')
-        ) {
-          updatePayload.firstResponseAt = new Date();
-        }
+      // Determine update payload
+      const updatePayload: any = {};
+      let needsUpdate = false;
 
-        // Calculate resolvedAt
+      if (statusTo !== statusFrom) {
+        updatePayload.status = statusTo;
+        needsUpdate = true;
+      }
+
+      // Check for first response by staff (commenter is not ticket owner)
+      if (!ticket.firstResponseAt && userId !== ticket.userId) {
+        const responseTime = new Date();
+        updatePayload.firstResponseAt = responseTime;
+        needsUpdate = true;
+        if (ticket.slaResponseDeadline) {
+          updatePayload.slaResponseBreached = responseTime.getTime() > new Date(ticket.slaResponseDeadline).getTime();
+        }
+      } else if (
+        !ticket.firstResponseAt &&
+        statusFrom === 'OPEN' &&
+        (statusTo === 'IN_PROGRESS' || statusTo === 'ASSIGNED')
+      ) {
+        // Also capture first response if status transitions out of OPEN
+        const responseTime = new Date();
+        updatePayload.firstResponseAt = responseTime;
+        needsUpdate = true;
+        if (ticket.slaResponseDeadline) {
+          updatePayload.slaResponseBreached = responseTime.getTime() > new Date(ticket.slaResponseDeadline).getTime();
+        }
+      }
+
+      // Calculate resolvedAt and check resolution breach
+      if (statusTo !== statusFrom) {
         if (
           !ticket.resolvedAt &&
           (statusTo === 'RESOLVED' || statusTo === 'CLOSED')
         ) {
-          updatePayload.resolvedAt = new Date();
+          const resolveTime = new Date();
+          updatePayload.resolvedAt = resolveTime;
+          if (ticket.slaResolutionDeadline) {
+            updatePayload.slaResolutionBreached = resolveTime.getTime() > new Date(ticket.slaResolutionDeadline).getTime();
+          }
+          needsUpdate = true;
         } else if (
           ticket.resolvedAt &&
           (statusTo === 'OPEN' || statusTo === 'IN_PROGRESS')
         ) {
           updatePayload.resolvedAt = null; // Reopened, clear resolvedAt
+          updatePayload.slaResolutionBreached = false;
+          needsUpdate = true;
         }
+      }
 
+      if (needsUpdate) {
         await HelpdeskRepository.updateTicket(ticketId, updatePayload, tx);
       }
 

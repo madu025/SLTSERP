@@ -528,6 +528,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
             },
             {
+                title: 'Software Licenses',
+                path: '/helpdesk/software-licenses',
+                icon: FileText,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
+            },
+            {
                 title: 'Help Desk Reports',
                 path: '/helpdesk/reports',
                 icon: BarChart3,

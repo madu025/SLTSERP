@@ -102,3 +102,37 @@ export const CreateAssetHandoverSchema = z.object({
   condition: z.string().optional().nullable(),
   remarks: z.string().optional().nullable()
 });
+
+// Software License Schemas
+export const SoftwareLicenseStatusSchema = z.enum(["ACTIVE", "EXPIRED", "DECOMMISSIONED"]);
+
+export const CreateSoftwareLicenseSchema = z.object({
+  name: z.string().min(1, "Software name is required"),
+  key: z.string().optional().nullable(),
+  vendor: z.string().optional().nullable(),
+  purchaseDate: z.string().or(z.date()).optional().nullable(),
+  expiryDate: z.string().or(z.date()).optional().nullable(),
+  purchaseCost: z.number().optional().nullable(),
+  totalLicenses: z.number().int().positive().default(1),
+  status: SoftwareLicenseStatusSchema.default("ACTIVE"),
+  remarks: z.string().optional().nullable()
+});
+
+export const UpdateSoftwareLicenseSchema = z.object({
+  name: z.string().min(1).optional(),
+  key: z.string().optional().nullable(),
+  vendor: z.string().optional().nullable(),
+  purchaseDate: z.string().or(z.date()).optional().nullable(),
+  expiryDate: z.string().or(z.date()).optional().nullable(),
+  purchaseCost: z.number().optional().nullable(),
+  totalLicenses: z.number().int().positive().optional(),
+  status: SoftwareLicenseStatusSchema.optional(),
+  remarks: z.string().optional().nullable()
+});
+
+export const CreateSoftwareLicenseAssignmentSchema = z.object({
+  assignedStaffId: z.string().cuid().optional().nullable(),
+  assignedAssetId: z.string().cuid().optional().nullable(),
+  assignedEmail: z.string().email().or(z.string().length(0)).optional().nullable(),
+  remarks: z.string().optional().nullable()
+});

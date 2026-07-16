@@ -121,6 +121,7 @@ model Staff {
   serials           InventoryItemSerial[]
   assignedITAssets  ITAsset[]             @relation("AssignedITAssets")
   handoversReceived AssetHandoverLog[]    @relation("HandoverReceived")
+  softwareAssignments SoftwareLicenseAssignment[] @relation("StaffSoftwareLicenses")
 
   @@index([opmcId])
   @@index([reportsToId])
