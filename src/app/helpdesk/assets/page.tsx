@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { ITAsset, Staff, SiteOffice } from "@prisma/client";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import AssetList from "@/components/helpdesk/AssetList";
@@ -13,9 +14,9 @@ import { toast } from "sonner";
 export default function HelpdeskAssetManagementPage() {
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
-  const [assets, setAssets] = useState<any[]>([]);
-  const [usersList, setUsersList] = useState<any[]>([]);
-  const [siteOfficesList, setSiteOfficesList] = useState<any[]>([]);
+  const [assets, setAssets] = useState<ITAsset[]>([]);
+  const [usersList, setUsersList] = useState<Staff[]>([]);
+  const [siteOfficesList, setSiteOfficesList] = useState<SiteOffice[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Pagination States
@@ -36,7 +37,7 @@ export default function HelpdeskAssetManagementPage() {
     }
   }, []);
 
-  const fetchAssets = async () => {
+  const fetchAssets = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -60,9 +61,9 @@ export default function HelpdeskAssetManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, typeFilter, statusFilter, page]);
 
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
     if (!user) return;
     try {
       const res = await fetch("/api/staff", {
@@ -81,9 +82,9 @@ export default function HelpdeskAssetManagementPage() {
     } catch (err) {
       console.error("Failed to load staff directory:", err);
     }
-  };
+  }, [user]);
 
-  const fetchSiteOffices = async () => {
+  const fetchSiteOffices = useCallback(async () => {
     try {
       const res = await fetch("/api/helpdesk/site-offices?limit=1000");
       if (!res.ok) throw new Error("Failed to fetch site offices");
@@ -94,7 +95,7 @@ export default function HelpdeskAssetManagementPage() {
     } catch (err) {
       console.error("Failed to load OSP site offices:", err);
     }
-  };
+  }, []);
 
   const handleTypeFilterChange = (val: string) => {
     setTypeFilter(val);
@@ -115,14 +116,14 @@ export default function HelpdeskAssetManagementPage() {
     if (mounted && user) {
       fetchAssets();
     }
-  }, [mounted, user, typeFilter, statusFilter, page, search]);
+  }, [mounted, user, fetchAssets]);
 
   useEffect(() => {
     if (mounted && user) {
       fetchStaff();
       fetchSiteOffices();
     }
-  }, [mounted, user]);
+  }, [mounted, user, fetchStaff, fetchSiteOffices]);
 
   const handleSearchKeyPress = (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,7 +167,16 @@ export default function HelpdeskAssetManagementPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       });
-      if (!res.ok) throw new Error("Failed to update asset");
+      if (!res.ok) {
+        const errJson = await res.json();
+        if (errJson.error?.code === "ASSET_NUMBER_TAKEN") {
+          throw new Error("Asset number is already registered.");
+        }
+        if (errJson.error?.code === "SERIAL_NUMBER_TAKEN") {
+          throw new Error("Serial number is already registered.");
+        }
+        throw new Error(errJson.error?.message || "Failed to update asset");
+      }
       const json = await res.json();
       if (json.success) {
         toast.success(`Asset ${json.data.assetNumber} updated successfully!`);
