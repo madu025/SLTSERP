@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ClipboardCheck, CheckCircle, XCircle, AlertTriangle, Activity } from "lucide-react";
 
+import { Suspense } from "react";
+
 interface Inspection { date: string; project: string; inspector: string; result: string; notes: string; }
 interface QualityTrend { month: string; passRate: number; inspections: number; }
 interface QaqcData { totalInspections: number; passedInspections: number; failedInspections: number; passRate: number; openNCRs: number; pendingReviews: number; recentInspections: Inspection[]; qualityTrend: QualityTrend[]; }
 
-export default function QAQCDashboardPage() {
+function QAQCDashboard() {
     const [data, setData] = useState<QaqcData | null>(null);
     const [loading, setLoading] = useState(true);
     useEffect(() => {
@@ -85,5 +87,13 @@ export default function QAQCDashboardPage() {
                 </div>
             </main>
         </div>
+    );
+}
+
+export default function QAQCDashboardPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground text-xs font-medium">Loading Dashboard...</div>}>
+            <QAQCDashboard />
+        </Suspense>
     );
 }

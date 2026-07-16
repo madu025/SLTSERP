@@ -69,11 +69,13 @@ model ITAsset {
   purchaseDate    DateTime?
   warrantyExpiry  DateTime?
   purchaseCost    Float?
+  agreementReceived Boolean     @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   tickets         Ticket[]
   handoverLogs    AssetHandoverLog[]
   softwareAssignments SoftwareLicenseAssignment[] @relation("AssetSoftwareLicenses")
+  units           ITAssetUnit[]
 
 
   @@index([assignedStaffId])
@@ -304,4 +306,22 @@ model SoftwareLicenseAssignment {
   @@index([softwareLicenseId])
   @@index([assignedStaffId])
   @@index([assignedAssetId])
+}
+
+model ITAssetUnit {
+  id              String      @id @default(cuid())
+  assetId         String
+  asset           ITAsset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  serialNumber    String      @unique
+  unitNumber      String?     @unique
+  status          String      @default("IN_HAND_STORES") // IN_HAND_STORES, ASSIGNED_TO_USER, REPAIR_MODE, DISPOSABLE
+  assignedStaffId String?
+  assignedStaff   Staff?      @relation("StaffITAssetUnits", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  remarks         String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([assetId])
+  @@index([assignedStaffId])
+  @@index([status])
 }

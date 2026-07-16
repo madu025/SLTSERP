@@ -1,0 +1,173 @@
+{
+  "distributionsCount": 85,
+  "returnsCount": 65,
+  "redistributionsCount": 38,
+  "headOfficeReturnsCount": 1,
+  "unrepairableCount": 0,
+  "sampleRedistributions": [
+    {
+      "rowNum": 2,
+      "returnedBy": {
+        "name": "V.ENOJAN",
+        "empNo": "662"
+      },
+      "serialNumber": "4ZJMYH3",
+      "condition": "",
+      "redistributeBrand": "DELL",
+      "assignedTo": {
+        "name": "Lathushanan",
+        "empNo": "1706",
+        "srm": "Mr.Mishara"
+      }
+    },
+    {
+      "rowNum": 10,
+      "returnedBy": {
+        "name": "P.H.R.W.M R.S.K KADUWELA",
+        "empNo": "1046"
+      },
+      "serialNumber": "5CG81SSDK-HP",
+      "condition": "",
+      "redistributeBrand": "HP",
+      "assignedTo": {
+        "name": "D.K.R LAKSHAN",
+        "empNo": "INC199300203809",
+        "srm": ""
+      }
+    },
+    {
+      "rowNum": 11,
+      "returnedBy": {
+        "name": "H.R WIJESIRIWARDHENA",
+        "empNo": "546"
+      },
+      "serialNumber": "5CG6110FGK-HP",
+      "condition": "",
+      "redistributeBrand": "HP",
+      "assignedTo": {
+        "name": "P.U.I Rajapaksha",
+        "empNo": "995",
+        "srm": "MR.LAKMAL"
+      }
+    },
+    {
+      "rowNum": 15,
+      "returnedBy": {
+        "name": "R.G.M THARAKA",
+        "empNo": "934"
+      },
+      "serialNumber": "CND9123DW4",
+      "condition": "",
+      "redistributeBrand": "HP",
+      "assignedTo": {
+        "name": "CHERANGA LAKSHAN",
+        "empNo": "1185",
+        "srm": "MR.VENURA"
+      }
+    },
+    {
+      "rowNum": 17,
+      "returnedBy": {
+        "name": "S.P.H.S KUMARASINGHE",
+        "empNo": "1192"
+      },
+      "serialNumber": "CND6123713",
+      "condition": "",
+      "redistributeBrand": "hp",
+      "assignedTo": {
+        "name": "Athula Abeyrathna",
+        "empNo": "1624",
+        "srm": "MS.LANKA"
+      }
+    },
+    {
+      "rowNum": 19,
+      "returnedBy": {
+        "name": "J.A.D ANURANGA",
+        "empNo": "1118"
+      },
+      "serialNumber": "2GHB4L2",
+      "condition": "",
+      "redistributeBrand": "DELL",
+      "assignedTo": {
+        "name": "S.M HALGAHAWELA",
+        "empNo": "501",
+        "srm": ""
+      }
+    },
+    {
+      "rowNum": 21,
+      "returnedBy": {
+        "name": "L.A KAVINDU BANDARA",
+        "empNo": "1398"
+      },
+      "serialNumber": "5CG8203J36",
+      "condition": "",
+      "redistributeBrand": "HP",
+      "assignedTo": {
+        "name": "W.M.K.S MADUBASHANA",
+        "empNo": "1312",
+        "srm": "MS.LANKA"
+      }
+    },
+    {
+      "rowNum": 23,
+      "returnedBy": {
+        "name": "K.M NISHA HIRUNI",
+        "empNo": "1088"
+      },
+      "serialNumber": "PF0ETZY4",
+      "condition": "",
+      "redistributeBrand": "LENOVO",
+      "assignedTo": {
+        "name": "lakni shalika-mh",
+        "empNo": "",
+        "srm": "tem"
+      }
+    },
+    {
+      "rowNum": 24,
+      "returnedBy": {
+        "name": "DASUN PIYUMAL",
+        "empNo": "883"
+      },
+      "serialNumber": "CND61236PN",
+      "condition": "",
+      "redistributeBrand": "HP",
+      "assignedTo": {
+        "name": "A.A.K.N AMARASHIGHE",
+        "empNo": "1649",
+        "srm": "MR.GAYAN"
+      }
+    },
+    {
+      "rowNum": 25,
+      "returnedBy": {
+        "name": "D.R.P Sampath",
+        "empNo": "475"
+      },
+      "serialNumber": "CND9123DD2",
+      "condition": "PF4EW88E-R,D,H Eranda 7440-951311561v",
+      "redistributeBrand": "HP",
+      "assignedTo": {
+        "name": "U.G CHATHUKA NADIRANGA",
+        "empNo": "1344",
+        "srm": "MR.LAKMAL"
+      }
+    }
+  ],
+  "sampleHeadOffice": [
+    {
+      "rowNum": 7,
+      "returnedBy": {
+        "name": "E.U.P.B UDAWATHTHA",
+        "empNo": "1368"
+      },
+      "serialNumber": "CND8508MNO",
+      "condition": "",
+      "redistributeBrand": "HP",
+      "destination": "send to head office"
+    }
+  ],
+  "sampleUnrepairable": []
+}

@@ -18,6 +18,11 @@ export default function HelpdeskAssetManagementPage() {
   const [siteOfficesList, setSiteOfficesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination States
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalAssets, setTotalAssets] = useState(0);
+
   // Filters
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
@@ -38,12 +43,16 @@ export default function HelpdeskAssetManagementPage() {
       if (search) params.append("search", search);
       if (typeFilter !== "ALL") params.append("deviceType", typeFilter);
       if (statusFilter !== "ALL") params.append("status", statusFilter);
+      params.append("page", page.toString());
+      params.append("limit", "25");
 
       const res = await fetch(`/api/helpdesk/assets?${params.toString()}&_t=${Date.now()}`);
       if (!res.ok) throw new Error("Failed to fetch assets");
       const json = await res.json();
       if (json.success) {
         setAssets(json.data.assets || []);
+        setTotalPages(Math.ceil((json.data.total || 0) / 25) || 1);
+        setTotalAssets(json.data.total || 0);
       }
     } catch (err) {
       console.error(err);
@@ -87,17 +96,32 @@ export default function HelpdeskAssetManagementPage() {
     }
   };
 
+  const handleTypeFilterChange = (val: string) => {
+    setTypeFilter(val);
+    setPage(1);
+  };
+
+  const handleStatusFilterChange = (val: string) => {
+    setStatusFilter(val);
+    setPage(1);
+  };
+
   useEffect(() => {
     if (mounted && user) {
       fetchAssets();
+    }
+  }, [mounted, user, typeFilter, statusFilter, page]);
+
+  useEffect(() => {
+    if (mounted && user) {
       fetchStaff();
       fetchSiteOffices();
     }
-  }, [mounted, user, typeFilter, statusFilter]);
+  }, [mounted, user]);
 
   const handleSearchKeyPress = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchAssets();
+    setPage(1);
   };
 
   const handleAddAsset = async (data: Record<string, unknown>) => {
@@ -143,6 +167,7 @@ export default function HelpdeskAssetManagementPage() {
       if (json.success) {
         toast.success(`Asset ${json.data.assetNumber} updated successfully!`);
         fetchAssets();
+        fetchStaff();
       }
     } catch (err: unknown) {
       const error = err as Error;
@@ -209,7 +234,7 @@ export default function HelpdeskAssetManagementPage() {
 
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-muted-foreground uppercase">Device Category</label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
                 <SelectTrigger className="h-8.5 text-xs bg-card border-border/60">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
@@ -227,7 +252,7 @@ export default function HelpdeskAssetManagementPage() {
 
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-muted-foreground uppercase">Operational Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="h-8.5 text-xs bg-card border-border/60">
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
@@ -252,15 +277,54 @@ export default function HelpdeskAssetManagementPage() {
               ))}
             </div>
           ) : (
-            <AssetList
-              assets={assets}
-              onAddAsset={handleAddAsset}
-              onEditAsset={handleEditAsset}
-              onDeleteAsset={handleDeleteAsset}
-              usersList={usersList}
-              siteOfficesList={siteOfficesList}
-              isStaff={isITStaff}
-            />
+            <>
+              <AssetList
+                assets={assets}
+                onAddAsset={handleAddAsset}
+                onEditAsset={handleEditAsset}
+                onDeleteAsset={handleDeleteAsset}
+                usersList={usersList}
+                siteOfficesList={siteOfficesList}
+                isStaff={isITStaff}
+              />
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="bg-card/70 border border-border/40 p-3.5 rounded-xl flex items-center justify-between shadow-sm text-xs">
+                  <span className="text-muted-foreground font-medium">
+                    Showing <span className="font-bold text-foreground">{(page - 1) * 25 + 1}</span> to{" "}
+                    <span className="font-bold text-foreground">
+                      {Math.min(page * 25, totalAssets)}
+                    </span>{" "}
+                    of <span className="font-bold text-foreground">{totalAssets}</span> registered devices
+                  </span>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-semibold"
+                      disabled={page === 1}
+                      onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-muted-foreground font-medium px-2">
+                      Page <span className="font-bold text-foreground">{page}</span> of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs font-semibold"
+                      disabled={page === totalPages}
+                      onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>

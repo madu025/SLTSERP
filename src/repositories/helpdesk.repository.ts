@@ -15,7 +15,15 @@ export class HelpdeskRepository {
         assignedStaff: {
           select: { id: true, name: true, employeeId: true, designation: true }
         },
-        siteOffice: true
+        siteOffice: true,
+        units: {
+          include: {
+            assignedStaff: {
+              select: { id: true, name: true, employeeId: true }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
       }
     });
   }
@@ -75,6 +83,16 @@ export class HelpdeskRepository {
           siteOffice: {
             name: { contains: search, mode: 'insensitive' }
           }
+        },
+        {
+          units: {
+            some: {
+              OR: [
+                { serialNumber: { contains: search, mode: 'insensitive' } },
+                { unitNumber: { contains: search, mode: 'insensitive' } }
+              ]
+            }
+          }
         }
       ];
     }
@@ -90,7 +108,10 @@ export class HelpdeskRepository {
           assignedStaff: {
             select: { id: true, name: true, employeeId: true, designation: true }
           },
-          siteOffice: true
+          siteOffice: true,
+          _count: {
+            select: { units: true }
+          }
         }
       })
     ]);

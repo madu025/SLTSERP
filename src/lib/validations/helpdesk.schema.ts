@@ -83,7 +83,10 @@ export const UpdateAssetSchema = z.object({
   status: ITAssetStatusSchema.optional(),
   purchaseDate: z.string().or(z.date()).optional().nullable(),
   warrantyExpiry: z.string().or(z.date()).optional().nullable(),
-  purchaseCost: z.number().optional().nullable()
+  purchaseCost: z.number().optional().nullable(),
+  agreementReceived: z.boolean().optional().nullable(),
+  newCustodianName: z.string().optional().nullable(),
+  newCustodianEmpNo: z.string().optional().nullable()
 });
 
 // KB Article Schemas
@@ -134,5 +137,22 @@ export const CreateSoftwareLicenseAssignmentSchema = z.object({
   assignedStaffId: z.string().cuid().optional().nullable(),
   assignedAssetId: z.string().cuid().optional().nullable(),
   assignedEmail: z.string().email().or(z.string().length(0)).optional().nullable(),
+  remarks: z.string().optional().nullable()
+});
+
+export const CreateITAssetUnitSchema = z.object({
+  serialNumber: z.string().min(1, "Serial number is required"),
+  unitNumber: z.string().optional().nullable(),
+  status: z.string().default("IN_HAND_STORES"),
+  assignedStaffId: z.string().optional().nullable(),
+  remarks: z.string().optional().nullable()
+});
+
+export const UpdateITAssetUnitSchema = z.object({
+  unitId: z.string(),
+  serialNumber: z.string().optional(),
+  unitNumber: z.string().optional().nullable(),
+  status: z.string().optional(),
+  assignedStaffId: z.string().optional().nullable(),
   remarks: z.string().optional().nullable()
 });

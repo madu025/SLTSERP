@@ -122,6 +122,7 @@ model Staff {
   assignedITAssets  ITAsset[]             @relation("AssignedITAssets")
   handoversReceived AssetHandoverLog[]    @relation("HandoverReceived")
   softwareAssignments SoftwareLicenseAssignment[] @relation("StaffSoftwareLicenses")
+  assignedITAssetUnits ITAssetUnit[]        @relation("StaffITAssetUnits")
 
   @@index([opmcId])
   @@index([reportsToId])

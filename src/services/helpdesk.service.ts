@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { HelpdeskRepository } from '@/repositories/helpdesk.repository';
 import { AuditService } from '@/services/audit.service';
 import { NotificationService } from '@/services/notification.service';
 import { prisma } from '@/lib/prisma';
-import { TicketStatus, TicketPriority, IssueCategory, ITDeviceType, ITAssetStatus } from '@prisma/client';
+import { Prisma, TicketStatus, TicketPriority, IssueCategory, ITDeviceType, ITAssetStatus } from '@prisma/client';
+const prismaDb = prisma as unknown as { iTAssetUnit: Prisma.ITAssetUnitDelegate };
+type TxClient = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 import bcrypt from 'bcryptjs';
 
 export class HelpdeskService {
@@ -14,7 +17,10 @@ export class HelpdeskService {
     return HelpdeskRepository.findAssetById(id);
   }
 
-  static async ensureUserAccountForStaff(staffId: string, tx?: any) {
+  static async ensureUserAccountForStaff(
+    staffId: string,
+    tx?: TxClient
+  ) {
     const db = tx || prisma;
 
     // Fetch Staff details
@@ -158,6 +164,9 @@ export class HelpdeskService {
       purchaseDate?: string | Date | null;
       warrantyExpiry?: string | Date | null;
       purchaseCost?: number | null;
+      agreementReceived?: boolean | null;
+      newCustodianName?: string | null;
+      newCustodianEmpNo?: string | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -178,23 +187,47 @@ export class HelpdeskService {
     }
 
     const updated = await prisma.$transaction(async (tx) => {
+      let finalAssignedStaffId = data.assignedStaffId;
+
+      // Handle on-the-fly unregistered custodian creation
+      if (data.newCustodianName && data.newCustodianEmpNo) {
+        const cleanEmpNo = data.newCustodianEmpNo.trim();
+        const cleanName = data.newCustodianName.trim();
+        
+        let staff = await tx.staff.findUnique({
+          where: { employeeId: cleanEmpNo }
+        });
+
+        if (!staff) {
+          staff = await tx.staff.create({
+            data: {
+              name: cleanName,
+              employeeId: cleanEmpNo,
+              designation: "ENGINEER"
+            }
+          });
+        }
+        finalAssignedStaffId = staff.id;
+      }
+
       const updatedAsset = await HelpdeskRepository.updateAsset(id, {
         assetNumber: data.assetNumber,
         serialNumber: data.serialNumber,
         deviceType: data.deviceType,
         brand: data.brand,
         model: data.model,
-        assignedStaffId: data.assignedStaffId === null ? null : (data.assignedStaffId || undefined),
+        assignedStaffId: finalAssignedStaffId === null ? null : (finalAssignedStaffId || undefined),
         department: data.department === null ? null : (data.department || undefined),
         location: data.location === null ? null : (data.location || undefined),
         status: data.status,
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : (data.purchaseDate === null ? null : undefined),
         warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : (data.warrantyExpiry === null ? null : undefined),
-        purchaseCost: data.purchaseCost === null ? null : data.purchaseCost
-      }, tx);
+        purchaseCost: data.purchaseCost === null ? null : data.purchaseCost,
+        agreementReceived: data.agreementReceived === null ? null : (data.agreementReceived ?? undefined)
+      } as unknown as Parameters<typeof HelpdeskRepository.updateAsset>[1], tx);
 
-      if (data.assignedStaffId) {
-        await HelpdeskService.ensureUserAccountForStaff(data.assignedStaffId, tx);
+      if (finalAssignedStaffId) {
+        await HelpdeskService.ensureUserAccountForStaff(finalAssignedStaffId, tx);
       }
 
       return updatedAsset;
@@ -237,6 +270,174 @@ export class HelpdeskService {
     });
 
     return result;
+  }
+
+  // ==========================================
+  // IT ASSET UNITS BUSINESS LOGIC
+  // ==========================================
+
+  static async createAssetUnit(
+    userId: string,
+    assetId: string,
+    data: {
+      serialNumber: string;
+      unitNumber?: string | null;
+      status?: string;
+      assignedStaffId?: string | null;
+      remarks?: string | null;
+    },
+    ipAddress?: string,
+    userAgent?: string
+  ) {
+    const existing = await prismaDb.iTAssetUnit.findUnique({
+      where: { serialNumber: data.serialNumber }
+    });
+    if (existing) {
+      throw new Error('SERIAL_NUMBER_TAKEN');
+    }
+
+    if (data.unitNumber) {
+      const existingUnitNo = await prismaDb.iTAssetUnit.findUnique({
+        where: { unitNumber: data.unitNumber }
+      });
+      if (existingUnitNo) {
+        throw new Error('UNIT_NUMBER_TAKEN');
+      }
+    }
+
+    const unit = await prismaDb.iTAssetUnit.create({
+      data: {
+        assetId,
+        serialNumber: data.serialNumber,
+        unitNumber: data.unitNumber || null,
+        status: data.status || 'IN_HAND_STORES',
+        assignedStaffId: data.assignedStaffId || null,
+        remarks: data.remarks || null
+      },
+      include: {
+        assignedStaff: {
+          select: { id: true, name: true, employeeId: true }
+        }
+      }
+    });
+
+    if (data.assignedStaffId) {
+      await HelpdeskService.ensureUserAccountForStaff(data.assignedStaffId);
+    }
+
+    await AuditService.log({
+      userId,
+      action: 'CREATE',
+      entity: 'ITAssetUnit' as unknown as 'ITAsset',
+      entityId: unit.id,
+      newValue: unit,
+      ipAddress,
+      userAgent
+    });
+
+    return unit;
+  }
+
+  static async updateAssetUnit(
+    userId: string,
+    unitId: string,
+    data: {
+      serialNumber?: string;
+      unitNumber?: string | null;
+      status?: string;
+      assignedStaffId?: string | null;
+      remarks?: string | null;
+    },
+    ipAddress?: string,
+    userAgent?: string
+  ) {
+    const old = await prismaDb.iTAssetUnit.findUnique({
+      where: { id: unitId }
+    });
+    if (!old) {
+      throw new Error('UNIT_NOT_FOUND');
+    }
+
+    if (data.serialNumber && data.serialNumber !== old.serialNumber) {
+      const existing = await prismaDb.iTAssetUnit.findUnique({
+        where: { serialNumber: data.serialNumber }
+      });
+      if (existing) {
+        throw new Error('SERIAL_NUMBER_TAKEN');
+      }
+    }
+
+    if (data.unitNumber && data.unitNumber !== old.unitNumber) {
+      const existing = await prismaDb.iTAssetUnit.findUnique({
+        where: { unitNumber: data.unitNumber }
+      });
+      if (existing) {
+        throw new Error('UNIT_NUMBER_TAKEN');
+      }
+    }
+
+    const unit = await prismaDb.iTAssetUnit.update({
+      where: { id: unitId },
+      data: {
+        serialNumber: data.serialNumber,
+        unitNumber: data.unitNumber,
+        status: data.status,
+        assignedStaffId: data.assignedStaffId,
+        remarks: data.remarks
+      },
+      include: {
+        assignedStaff: {
+          select: { id: true, name: true, employeeId: true }
+        }
+      }
+    });
+
+    if (data.assignedStaffId && data.assignedStaffId !== old.assignedStaffId) {
+      await HelpdeskService.ensureUserAccountForStaff(data.assignedStaffId);
+    }
+
+    await AuditService.log({
+      userId,
+      action: 'UPDATE',
+      entity: 'ITAssetUnit' as unknown as 'ITAsset',
+      entityId: unit.id,
+      oldValue: old,
+      newValue: unit,
+      ipAddress,
+      userAgent
+    });
+
+    return unit;
+  }
+
+  static async deleteAssetUnit(
+    userId: string,
+    unitId: string,
+    ipAddress?: string,
+    userAgent?: string
+  ) {
+    const old = await prismaDb.iTAssetUnit.findUnique({
+      where: { id: unitId }
+    });
+    if (!old) {
+      throw new Error('UNIT_NOT_FOUND');
+    }
+
+    await prismaDb.iTAssetUnit.delete({
+      where: { id: unitId }
+    });
+
+    await AuditService.log({
+      userId,
+      action: 'DELETE',
+      entity: 'ITAssetUnit' as unknown as 'ITAsset',
+      entityId: unitId,
+      oldValue: old,
+      ipAddress,
+      userAgent
+    });
+
+    return { id: unitId };
   }
 
   // ==========================================
@@ -294,7 +495,7 @@ export class HelpdeskService {
     await AuditService.log({
       userId,
       action: 'CREATE',
-      entity: 'AssetHandoverLog' as any,
+      entity: 'AssetHandoverLog' as unknown as 'ITAsset',
       entityId: log.id,
       newValue: log,
       ipAddress,
@@ -382,7 +583,7 @@ export class HelpdeskService {
           photoUrls: data.photoUrls || [],
           slaResponseDeadline,
           slaResolutionDeadline
-        },
+        } as unknown as Parameters<typeof HelpdeskRepository.createTicket>[0],
         tx
       );
 
@@ -572,7 +773,7 @@ export class HelpdeskService {
           slaResolutionBreached,
           slaResponseDeadline,
           slaResolutionDeadline
-        },
+        } as unknown as Parameters<typeof HelpdeskRepository.updateTicket>[1],
         tx
       );
 
@@ -675,7 +876,7 @@ export class HelpdeskService {
       );
 
       // Determine update payload
-      const updatePayload: any = {};
+      const updatePayload: Record<string, unknown> = {};
       let needsUpdate = false;
 
       if (statusTo !== statusFrom) {

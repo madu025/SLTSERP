@@ -1,7 +1,7 @@
 "use client";
 
 import { ContractorStatus } from "@prisma/client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -69,7 +69,7 @@ interface Contractor {
     agreementSigned?: boolean;
 }
 
-export default function ContractorApprovalsPage() {
+function ContractorApprovals() {
     const queryClient = useQueryClient();
     const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null);
 
@@ -739,5 +739,13 @@ export default function ContractorApprovalsPage() {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+export default function ContractorApprovalsPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground text-xs font-medium">Loading Approvals...</div>}>
+            <ContractorApprovals />
+        </Suspense>
     );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
@@ -41,7 +41,7 @@ const ROLE_LABELS: Record<string, string> = {
     MANAGER: 'Manager',
 };
 
-export default function Sidebar() {
+function SidebarContent() {
     const [user, setUser] = useState<User | null>(null);
     const [mounted, setMounted] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -964,5 +964,13 @@ export default function Sidebar() {
                 </div>
             )}
         </>
+    );
+}
+
+export default function Sidebar() {
+    return (
+        <Suspense fallback={<div className="w-64 bg-[#0a0f1d] border-r border-[#1e293b]" />}>
+            <SidebarContent />
+        </Suspense>
     );
 }
