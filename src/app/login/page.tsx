@@ -264,38 +264,40 @@ export default function LoginPage() {
             </form>
           </Form>
 
-          {/* Quick Test Login */}
-          <div className="slt-test-section">
-            <div className="slt-test-header">
-              <span className="slt-test-badge">🧪 Quick Test Login</span>
-              <span className="slt-test-note">Development &amp; Testing Phase Only</span>
+          {/* Quick Test Login (Development environment only) */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="slt-test-section">
+              <div className="slt-test-header">
+                <span className="slt-test-badge">🧪 Quick Test Login</span>
+                <span className="slt-test-note">Development &amp; Testing Phase Only</span>
+              </div>
+              <div className="slt-test-grid">
+                {[
+                  { username: 'admin',        role: 'Super Admin',  cls: 'slt-role-violet'  },
+                  { username: 'testadmin',    role: 'Admin',        cls: 'slt-role-blue'    },
+                  { username: 'ospmanager',   role: 'OSP Manager',  cls: 'slt-role-emerald' },
+                  { username: 'areamanager',  role: 'Area Manager', cls: 'slt-role-orange'  },
+                  { username: 'storesmanager',role: 'Stores Mgr',   cls: 'slt-role-cyan'    },
+                  { username: 'coordinator',  role: 'Coordinator',  cls: 'slt-role-pink'    },
+                  { username: 'qcofficer',    role: 'QC Officer',   cls: 'slt-role-indigo'  },
+                ].map((u) => (
+                  <button
+                    key={u.username}
+                    type="button"
+                    className={`slt-role-btn ${u.cls}`}
+                    onClick={() => {
+                      form.setValue('username', u.username);
+                      form.setValue('password', 'Admin@123');
+                      setTimeout(() => form.handleSubmit(onSubmit)(), 200);
+                    }}
+                  >
+                    {u.role}
+                  </button>
+                ))}
+              </div>
+              <p className="slt-test-pw">Password: Admin@123 &bull; Click to auto-login</p>
             </div>
-            <div className="slt-test-grid">
-              {[
-                { username: 'admin',        role: 'Super Admin',  cls: 'slt-role-violet'  },
-                { username: 'testadmin',    role: 'Admin',        cls: 'slt-role-blue'    },
-                { username: 'ospmanager',   role: 'OSP Manager',  cls: 'slt-role-emerald' },
-                { username: 'areamanager',  role: 'Area Manager', cls: 'slt-role-orange'  },
-                { username: 'storesmanager',role: 'Stores Mgr',   cls: 'slt-role-cyan'    },
-                { username: 'coordinator',  role: 'Coordinator',  cls: 'slt-role-pink'    },
-                { username: 'qcofficer',    role: 'QC Officer',   cls: 'slt-role-indigo'  },
-              ].map((u) => (
-                <button
-                  key={u.username}
-                  type="button"
-                  className={`slt-role-btn ${u.cls}`}
-                  onClick={() => {
-                    form.setValue('username', u.username);
-                    form.setValue('password', 'Admin@123');
-                    setTimeout(() => form.handleSubmit(onSubmit)(), 200);
-                  }}
-                >
-                  {u.role}
-                </button>
-              ))}
-            </div>
-            <p className="slt-test-pw">Password: Admin@123 &bull; Click to auto-login</p>
-          </div>
+          )}
 
           {/* Footer status */}
           <div className="slt-footer">
