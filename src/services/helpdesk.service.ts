@@ -8,6 +8,15 @@ const prismaDb = prisma as unknown as { iTAssetUnit: Prisma.ITAssetUnitDelegate 
 type TxClient = Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 import bcrypt from 'bcryptjs';
 
+const REPAIR_CATEGORIES = [
+  'PHYSICAL_DAMAGE',
+  'BROKEN_DISPLAY',
+  'PRINTER_ISSUE',
+  'HARDWARE_REPLACEMENT',
+  'AUDIO_SPEAKER_ISSUE',
+  'HOUSING_BODY_DAMAGE'
+];
+
 export class HelpdeskService {
   // ==========================================
   // IT ASSETS BUSINESS LOGIC
@@ -726,9 +735,20 @@ export class HelpdeskService {
           photoUrls: data.photoUrls || [],
           slaResponseDeadline,
           slaResolutionDeadline
-        } as unknown as Parameters<typeof HelpdeskRepository.createTicket>[0],
+        } as any,
         tx
       );
+
+      // If the ticket has a linked asset and the category is hardware-related, auto-transition the asset to UNDER_REPAIR
+      if (data.assetId && REPAIR_CATEGORIES.includes(data.category || 'OTHER')) {
+        await tx.iTAsset.update({
+          where: { id: data.assetId },
+          data: {
+            status: 'UNDER_REPAIR',
+            repairRemarks: `[Ticket ${ticketNumber}] ${data.description || 'Under Repair'}`
+          }
+        });
+      }
 
       // Create initial timeline entry
       await HelpdeskRepository.createTicketUpdate(
@@ -931,6 +951,34 @@ export class HelpdeskService {
         },
         tx
       );
+
+      // Handle asset status transition on ticket status changes
+      if (oldTicket.assetId) {
+        const isResolvedOrClosed = statusTo === 'RESOLVED' || statusTo === 'CLOSED';
+        const isReopened = (statusTo === 'OPEN' || statusTo === 'IN_PROGRESS') && (statusFrom === 'RESOLVED' || statusFrom === 'CLOSED');
+
+        if (isResolvedOrClosed) {
+          const asset = await tx.iTAsset.findUnique({ where: { id: oldTicket.assetId } });
+          if (asset && asset.status === 'UNDER_REPAIR') {
+            const nextStatus = asset.assignedStaffId ? 'ACTIVE' : 'SPARE';
+            await tx.iTAsset.update({
+              where: { id: oldTicket.assetId },
+              data: {
+                status: nextStatus,
+                repairRemarks: `Repaired & resolved via ticket ${oldTicket.ticketNumber}.`
+              }
+            });
+          }
+        } else if (isReopened) {
+          await tx.iTAsset.update({
+            where: { id: oldTicket.assetId },
+            data: {
+              status: 'UNDER_REPAIR',
+              repairRemarks: `Reopened via ticket ${oldTicket.ticketNumber}.`
+            }
+          });
+        }
+      }
 
       return ticketRes;
     }, {
