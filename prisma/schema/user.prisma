@@ -13,11 +13,12 @@ model User {
   staffId                       String?                  @unique
   securityQuestion              String?
   securityAnswer                String?
-  employeeId                    String?
+  employeeId                    String?                  @unique
   supervisorId                  String?
   assignedStoreId               String?
   permissions                   String?
   mustChangePassword            Boolean                  @default(false)
+  status                        String                   @default("active")
   createdAt                     DateTime                 @default(now())
   updatedAt                     DateTime                 @updatedAt
   auditLogs                     AuditLog[]
@@ -61,6 +62,8 @@ model User {
   siteOfficeRequests            SiteOfficeRequest[]      @relation("SiteOfficeRequests")
   handoversPerformed            AssetHandoverLog[]       @relation("HandoverPerformed")
   pushSubscriptions             PushSubscription[]
+  assignedITAssets              ITAsset[]                @relation("AssignedITAssetsToUser")
+  softwareAssignments           SoftwareLicenseAssignment[] @relation("UserSoftwareLicenses")
 
   @@index([role])
   @@index([supervisorId])
@@ -122,7 +125,6 @@ model Staff {
   serials           InventoryItemSerial[]
   assignedITAssets  ITAsset[]             @relation("AssignedITAssets")
   handoversReceived AssetHandoverLog[]    @relation("HandoverReceived")
-  softwareAssignments SoftwareLicenseAssignment[] @relation("StaffSoftwareLicenses")
   assignedITAssetUnits ITAssetUnit[]        @relation("StaffITAssetUnits")
 
   @@index([opmcId])

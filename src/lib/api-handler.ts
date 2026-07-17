@@ -84,6 +84,9 @@ export function apiHandler<T, B = any>(
 
                 // 5. Success Response
                 if (options?.rawResponse) {
+                    if (result instanceof Response) {
+                        return result;
+                    }
                     return NextResponse.json(result);
                 }
 

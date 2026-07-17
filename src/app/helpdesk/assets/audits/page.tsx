@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, CheckCircle, ArrowLeft, X } from "lucide-react";
+import { RefreshCw, CheckCircle, ArrowLeft, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -174,6 +174,26 @@ export default function AdminAuditReviewPage() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to reject audit");
+    }
+  };
+
+  const handleDelete = async (auditId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this audit submission from the system? This action cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/helpdesk/assets/audits?auditId=${auditId}`, {
+        method: "DELETE"
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Audit submission permanently deleted.");
+        setAudits((prev) => prev.filter(a => a.id !== auditId));
+        setIsOpen(false);
+      } else {
+        toast.error(json.error?.message || "Delete failed");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete audit");
     }
   };
 
@@ -362,21 +382,32 @@ export default function AdminAuditReviewPage() {
                           {a.remarks || "—"}
                         </TableCell>
                         <TableCell className="text-right">
-                          {a.isSynced ? (
-                            <div className="flex justify-end items-center gap-1 text-emerald-600 text-xs font-semibold mr-3">
-                              <CheckCircle className="h-4 w-4" />
-                              Synced
-                            </div>
-                          ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            {a.isSynced ? (
+                              <div className="flex items-center gap-1 text-emerald-600 text-xs font-semibold mr-1">
+                                <CheckCircle className="h-4 w-4" />
+                                Synced
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenReconcile(a)}
+                                className="h-7 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                              >
+                                Reconcile
+                              </Button>
+                            )}
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => handleOpenReconcile(a)}
-                              className="h-7 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                              variant="ghost"
+                              onClick={() => handleDelete(a.id)}
+                              className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-950/20"
+                              title="Delete Submission"
                             >
-                              Reconcile
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -414,7 +445,15 @@ export default function AdminAuditReviewPage() {
               <>
                 {/* Drawer Header */}
                 <div className="relative p-5 pb-4 flex-shrink-0 bg-slate-950 border-b border-slate-800">
-                  <div className="absolute top-0 right-0 p-4.5">
+                  <div className="absolute top-0 right-0 p-4.5 flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => handleDelete(selectedAudit.id)}
+                      className="p-1.5 rounded-full hover:bg-red-950/30 text-red-400 hover:text-red-300 transition-colors"
+                      title="Delete Submission"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                     <button 
                       type="button"
                       onClick={() => setIsOpen(false)} 

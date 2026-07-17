@@ -31,7 +31,8 @@ const publicPaths = [
     '/api/public/staff',
     '/api/auth/agent-login',
     '/api/assets/sync',
-    '/api/assets/register'
+    '/api/assets/register',
+    '/api/agent/version'
 ];
 
 export async function middleware(request: NextRequest) {

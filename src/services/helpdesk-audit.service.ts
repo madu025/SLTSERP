@@ -152,6 +152,12 @@ export class HelpdeskAuditService {
     });
   }
 
+  static async deleteAudit(auditId: string) {
+    return prisma.iTAssetAudit.delete({
+      where: { id: auditId }
+    });
+  }
+
   static async syncAuditToInventory(auditId: string, updatedData?: {
     brand?: string;
     model?: string;

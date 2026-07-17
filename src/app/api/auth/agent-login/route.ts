@@ -1,32 +1,40 @@
+import { apiHandler } from '@/lib/api-handler';
+import { rateLimit, getClientIp } from '@/lib/agent-auth';
+import { AgentSyncService } from '@/services/agent-sync.service';
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
-import { signJWT } from '@/lib/auth';
 
-const AGENT_API_KEY = process.env.AGENT_API_KEY || 'slts-agent-secure-sync-key-2026';
+export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const { apiKey } = body;
+const LoginSchema = z.object({
+    apiKey: z.string().min(1, 'API key is required')
+});
 
-    if (!apiKey || apiKey !== AGENT_API_KEY) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid credentials' },
-        { status: 401 }
-      );
+export const POST = apiHandler(async (req, _params, body) => {
+    const ip = getClientIp(req);
+    
+    // 1. Rate Limit Check (10 requests per minute)
+    const isAllowed = await rateLimit(ip, 10, 60);
+    if (!isAllowed) {
+        return NextResponse.json(
+            { success: false, message: 'Too many requests. Please try again later.' },
+            { status: 429 }
+        );
     }
-
-    const token = await signJWT({ isAgent: true }, '24h');
-
-    return NextResponse.json({
-      success: true,
-      token,
-      expiresIn: 86400
-    });
-  } catch (error: any) {
-    console.error('[AGENT-LOGIN-ERROR]', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
+    
+    const { apiKey } = body;
+    const result = await AgentSyncService.authenticateAgent(apiKey);
+    
+    if (!result) {
+        console.warn(`[AGENT_LOGIN_FAILED] Invalid API key attempt from IP: ${ip}`);
+        return NextResponse.json(
+            { success: false, message: 'Invalid credentials' },
+            { status: 401 }
+        );
+    }
+    
+    return result;
+}, {
+    schema: LoginSchema,
+    rawResponse: true
+});

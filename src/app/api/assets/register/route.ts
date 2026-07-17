@@ -1,94 +1,46 @@
+import { apiHandler } from '@/lib/api-handler';
+import { validateAgentAuth, rateLimit, getClientIp } from '@/lib/agent-auth';
+import { AgentSyncService } from '@/services/agent-sync.service';
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyJWT } from '@/lib/auth';
 
-const AGENT_API_KEY = process.env.AGENT_API_KEY || 'slts-agent-secure-sync-key-2026';
+export const dynamic = 'force-dynamic';
 
-async function isAuthorized(req: Request): Promise<boolean> {
-  const apiKey = req.headers.get('x-api-key');
-  if (apiKey && apiKey === AGENT_API_KEY) {
-    return true;
-  }
+const RegisterAssetSchema = z.object({
+    computerName: z.string().min(1, 'computerName is required'),
+    serialNumber: z.string().min(1, 'serialNumber is required'),
+    osVersion: z.string().min(1, 'osVersion is required'),
+    employeeUsername: z.string().min(1, 'employeeUsername is required'),
+    employeeNumber: z.string().min(1, 'employeeNumber is required'),
+    department: z.string().optional(),
+    location: z.string().optional(),
+    brand: z.string().optional(),
+    model: z.string().optional()
+});
 
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    const payload = await verifyJWT(token);
-    if (payload && payload.isAgent === true) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export async function POST(req: Request) {
-  try {
-    if (!(await isAuthorized(req))) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
+export const POST = apiHandler(async (req, _params, body) => {
+    // 1. Authenticate Request
+    const auth = await validateAgentAuth(req);
+    if (!auth.success) {
+        return auth.errorResponse!;
     }
 
-    const body = await req.json();
-    const {
-      computerName,
-      serialNumber,
-      osVersion,
-      employeeUsername,
-      department,
-      location
-    } = body;
-
-    if (!serialNumber) {
-      return NextResponse.json(
-        { success: false, message: 'serialNumber is required' },
-        { status: 400 }
-      );
+    const ip = getClientIp(req);
+    
+    // 2. Rate Limit Check
+    const isAllowed = await rateLimit(ip, 60, 60);
+    if (!isAllowed) {
+        return NextResponse.json(
+            { success: false, message: 'Too many requests. Please try again later.' },
+            { status: 429 }
+        );
     }
 
-    // Check if it already exists
-    let asset = await prisma.iTAsset.findUnique({
-      where: { serialNumber }
-    });
+    // 3. Register Asset
+    const result = await AgentSyncService.registerAsset(body);
 
-    if (asset) {
-      return NextResponse.json({
-        success: true,
-        message: 'Asset already registered',
-        assetId: asset.assetNumber
-      });
-    }
-
-    // Create the asset
-    const assetNumber = `AGENT-${serialNumber}`;
-    asset = await prisma.iTAsset.create({
-      data: {
-        assetNumber,
-        serialNumber,
-        deviceType: 'LAPTOP', // Default to LAPTOP
-        brand: 'Unknown',
-        model: 'PC',
-        status: 'ACTIVE',
-        computerName,
-        osVersion,
-        employeeUsername,
-        department,
-        location,
-        lastSyncedAt: new Date()
-      }
-    });
-
-    return NextResponse.json({
-      success: true,
-      assetId: asset.assetNumber
-    }, { status: 201 });
-  } catch (error: any) {
-    console.error('[AGENT-REGISTER-ERROR]', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
+    return NextResponse.json(result, { status: 201 });
+}, {
+    schema: RegisterAssetSchema,
+    rawResponse: true
+});

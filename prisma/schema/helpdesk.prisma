@@ -82,6 +82,12 @@ model ITAsset {
   ipAddress        String?
   macAddress       String?
   lastSyncedAt     DateTime?
+  assignedUserId   String?
+  assignedUser     User?         @relation("AssignedITAssetsToUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  pendingAssignmentReview Boolean @default(false)
+  lastSeenEmployeeUsername String?
+  lastSeenEmployeeNumber String?
+  syncLogs         AssetSyncLog[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   tickets         Ticket[]
@@ -91,6 +97,7 @@ model ITAsset {
 
 
   @@index([assignedStaffId])
+  @@index([assignedUserId])
   @@index([siteOfficeId])
   @@index([deviceType])
   @@index([status])
@@ -286,8 +293,8 @@ model SoftwareLicenseAssignment {
   id                String          @id @default(cuid())
   softwareLicenseId String
   softwareLicense   SoftwareLicense @relation(fields: [softwareLicenseId], references: [id], onDelete: Cascade)
-  assignedStaffId   String?
-  assignedStaff     Staff?          @relation("StaffSoftwareLicenses", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  assignedUserId    String?
+  assignedUser      User?           @relation("UserSoftwareLicenses", fields: [assignedUserId], references: [id], onDelete: SetNull)
   assignedAssetId   String?
   assignedAsset     ITAsset?        @relation("AssetSoftwareLicenses", fields: [assignedAssetId], references: [id], onDelete: SetNull)
   assignedAt        DateTime        @default(now())
@@ -295,7 +302,7 @@ model SoftwareLicenseAssignment {
   remarks           String?
 
   @@index([softwareLicenseId])
-  @@index([assignedStaffId])
+  @@index([assignedUserId])
   @@index([assignedAssetId])
 }
 

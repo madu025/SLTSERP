@@ -1,100 +1,57 @@
+import { apiHandler } from '@/lib/api-handler';
+import { validateAgentAuth, rateLimit, getClientIp } from '@/lib/agent-auth';
+import { AgentSyncService } from '@/services/agent-sync.service';
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyJWT } from '@/lib/auth';
 
-const AGENT_API_KEY = process.env.AGENT_API_KEY || 'slts-agent-secure-sync-key-2026';
+export const dynamic = 'force-dynamic';
 
-async function isAuthorized(req: Request): Promise<boolean> {
-  const apiKey = req.headers.get('x-api-key');
-  if (apiKey && apiKey === AGENT_API_KEY) {
-    return true;
-  }
+const SyncAssetSchema = z.object({
+    computerName: z.string().min(1, 'computerName is required'),
+    serialNumber: z.string().min(1, 'serialNumber is required'),
+    osVersion: z.string().min(1, 'osVersion is required'),
+    employeeUsername: z.string().min(1, 'employeeUsername is required'),
+    employeeNumber: z.string().min(1, 'employeeNumber is required'),
+    ipAddress: z.string().min(1, 'ipAddress is required'),
+    macAddress: z.string().min(1, 'macAddress is required'),
+    brand: z.string().optional(),
+    model: z.string().optional()
+});
 
-  const authHeader = req.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-    const payload = await verifyJWT(token);
-    if (payload && payload.isAgent === true) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export async function POST(req: Request) {
-  try {
-    if (!(await isAuthorized(req))) {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized' },
-        { status: 401 }
-      );
+export const POST = apiHandler(async (req, _params, body) => {
+    // 1. Authenticate Request
+    const auth = await validateAgentAuth(req);
+    if (!auth.success) {
+        return auth.errorResponse!;
     }
 
-    const body = await req.json();
-    const {
-      computerName,
-      serialNumber,
-      osVersion,
-      employeeUsername,
-      employeeId,
-      ipAddress,
-      macAddress,
-    } = body;
-
-    if (!serialNumber) {
-      return NextResponse.json(
-        { success: false, message: 'serialNumber is required' },
-        { status: 400 }
-      );
+    const ip = getClientIp(req);
+    
+    // 2. Rate Limit Check (60 requests per minute)
+    const isAllowed = await rateLimit(ip, 60, 60);
+    if (!isAllowed) {
+        return NextResponse.json(
+            { success: false, message: 'Too many requests. Please try again later.' },
+            { status: 429 }
+        );
     }
 
-    const asset = await prisma.iTAsset.findUnique({
-      where: { serialNumber }
-    });
+    // 3. Perform Sync Logic
+    const result = await AgentSyncService.syncAsset(body, ip);
 
-    if (!asset) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Asset not registered. Contact IT.',
-          requiresRegistration: true
-        },
-        { status: 404 }
-      );
+    if (!result) {
+        return NextResponse.json(
+            {
+                success: false,
+                message: 'Asset not registered. Contact IT.',
+                requiresRegistration: true
+            },
+            { status: 404 }
+        );
     }
 
-    // Check if any fields changed
-    const hasChanges =
-      asset.computerName !== computerName ||
-      asset.osVersion !== osVersion ||
-      asset.employeeUsername !== employeeUsername ||
-      asset.ipAddress !== ipAddress ||
-      asset.macAddress !== macAddress;
-
-    // Update the asset
-    await prisma.iTAsset.update({
-      where: { id: asset.id },
-      data: {
-        computerName: computerName || asset.computerName,
-        osVersion: osVersion || asset.osVersion,
-        employeeUsername: employeeUsername || asset.employeeUsername,
-        ipAddress: ipAddress || asset.ipAddress,
-        macAddress: macAddress || asset.macAddress,
-        lastSyncedAt: new Date()
-      }
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: hasChanges ? 'Asset record updated' : 'No changes detected',
-      assetId: asset.assetNumber
-    });
-  } catch (error: any) {
-    console.error('[AGENT-SYNC-ERROR]', error);
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
+    return result;
+}, {
+    schema: SyncAssetSchema,
+    rawResponse: true
+});

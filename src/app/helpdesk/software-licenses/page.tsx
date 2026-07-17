@@ -35,11 +35,13 @@ import {
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
-interface Staff {
+interface UserRecord {
   id: string;
-  name: string;
-  employeeId: string;
-  designation?: string;
+  name: string | null;
+  username: string;
+  email: string;
+  employeeId: string | null;
+  role: string;
 }
 
 interface ITAsset {
@@ -52,12 +54,12 @@ interface ITAsset {
 interface SoftwareLicenseAssignment {
   id: string;
   softwareLicenseId: string;
-  assignedStaffId?: string | null;
+  assignedUserId?: string | null;
   assignedAssetId?: string | null;
   assignedEmail?: string | null;
   remarks?: string | null;
   assignedAt: string;
-  assignedStaff?: Staff | null;
+  assignedUser?: UserRecord | null;
   assignedAsset?: ITAsset | null;
 }
 
@@ -86,7 +88,7 @@ export default function SoftwareLicensesDashboard() {
   
   // Data lists
   const [licenses, setLicenses] = useState<SoftwareLicense[]>([]);
-  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [usersList, setUsersList] = useState<UserRecord[]>([]);
   const [assetsList, setAssetsList] = useState<ITAsset[]>([]);
   
   // States
@@ -115,7 +117,7 @@ export default function SoftwareLicensesDashboard() {
 
   // Form states - Assignment
   const [assignmentForm, setAssignmentForm] = useState({
-    assignedStaffId: "",
+    assignedUserId: "",
     assignedAssetId: "",
     assignedEmail: "",
     remarks: ""
@@ -134,6 +136,38 @@ export default function SoftwareLicensesDashboard() {
     status: "ACTIVE",
     remarks: ""
   });
+
+  // User search states
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [selectedUserRecord, setSelectedUserRecord] = useState<UserRecord | null>(null);
+
+  const handleUserSearch = async (query: string) => {
+    setUserSearchQuery(query);
+    if (query.trim().length < 3) {
+      setUsersList([]);
+      return;
+    }
+    
+    setSearchingUsers(true);
+    try {
+      const res = await fetch(`/api/users?limit=50&search=${encodeURIComponent(query)}`, {
+        headers: { "x-user-role": user?.role || "" }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.users && Array.isArray(json.users)) {
+          setUsersList(json.users);
+        } else if (Array.isArray(json)) {
+          setUsersList(json);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to search users", err);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -164,18 +198,21 @@ export default function SoftwareLicensesDashboard() {
     }
   }, [search, statusFilter]);
 
-  const fetchStaff = async (role: string) => {
+  const fetchUsers = async (role: string) => {
     try {
-      const res = await fetch("/api/staff", {
+      const res = await fetch("/api/users?limit=1000", {
         headers: { "x-user-role": role }
       });
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json)) setStaffList(json);
-        else if (json.success && Array.isArray(json.data)) setStaffList(json.data);
+        if (json.users && Array.isArray(json.users)) {
+          setUsersList(json.users);
+        } else if (Array.isArray(json)) {
+          setUsersList(json);
+        }
       }
     } catch (err) {
-      console.error("Failed to load staff list", err);
+      console.error("Failed to load users list", err);
     }
   };
 
@@ -196,7 +233,6 @@ export default function SoftwareLicensesDashboard() {
   useEffect(() => {
     if (mounted && user) {
       fetchLicenses();
-      fetchStaff(user.role);
       fetchAssets();
     }
   }, [mounted, user, fetchLicenses]);
@@ -211,6 +247,17 @@ export default function SoftwareLicensesDashboard() {
         setSelectedLicense(json.data);
         setIsDetailsOpen(true);
         setIsEditing(false); // Reset edit state on load
+        
+        // Reset search states
+        setUserSearchQuery("");
+        setUsersList([]);
+        setSelectedUserRecord(null);
+        setAssignmentForm({
+          assignedUserId: "",
+          assignedAssetId: "",
+          assignedEmail: "",
+          remarks: ""
+        });
         
         // Initialize edit form values
         const lic = json.data;
@@ -327,8 +374,8 @@ export default function SoftwareLicensesDashboard() {
   const handleAssignLicense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLicense) return;
-    if (!assignmentForm.assignedStaffId && !assignmentForm.assignedAssetId) {
-      toast.error("Please select a target Staff or IT Asset to assign");
+    if (!assignmentForm.assignedUserId && !assignmentForm.assignedAssetId) {
+      toast.error("Please select a target User or IT Asset to assign");
       return;
     }
 
@@ -338,9 +385,9 @@ export default function SoftwareLicensesDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          assignedStaffId: assignmentForm.assignedStaffId || null,
+          assignedUserId: assignmentForm.assignedUserId || null,
           assignedAssetId: assignmentForm.assignedAssetId || null,
-          assignedEmail: assignmentForm.assignedEmail || null,
+          assignedEmail: selectedUserRecord ? selectedUserRecord.email : null,
           remarks: assignmentForm.remarks || null
         })
       });
@@ -350,7 +397,7 @@ export default function SoftwareLicensesDashboard() {
       }
 
       toast.success("License seat assigned successfully");
-      setAssignmentForm({ assignedStaffId: "", assignedAssetId: "", assignedEmail: "", remarks: "" });
+      setAssignmentForm({ assignedUserId: "", assignedAssetId: "", assignedEmail: "", remarks: "" });
       handleViewDetails(selectedLicense.id);
       fetchLicenses();
     } catch (err) {
@@ -989,7 +1036,7 @@ export default function SoftwareLicensesDashboard() {
                     {selectedLicense.assignments?.map((as: SoftwareLicenseAssignment) => (
                       <div key={as.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-3">
-                          {as.assignedStaff ? (
+                          {as.assignedUser ? (
                             <div className="flex items-center gap-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 p-1.5 rounded-lg">
                               <User className="h-4 w-4" />
                             </div>
@@ -1000,10 +1047,10 @@ export default function SoftwareLicensesDashboard() {
                           )}
                           <div>
                             <span className="font-bold text-slate-800 dark:text-slate-200">
-                              {as.assignedStaff ? as.assignedStaff.name : `Hardware: ${as.assignedAsset?.assetNumber}`}
+                              {as.assignedUser ? (as.assignedUser.name || as.assignedUser.username) : `Hardware: ${as.assignedAsset?.assetNumber}`}
                             </span>
-                            {as.assignedStaff && (
-                              <p className="text-[9.5px] text-slate-400 font-mono mt-0.5">Emp ID: {as.assignedStaff.employeeId}</p>
+                            {as.assignedUser && (
+                              <p className="text-[9.5px] text-slate-400 font-mono mt-0.5">Emp ID: {as.assignedUser.employeeId || "—"} ({as.assignedUser.role})</p>
                             )}
                             {as.assignedEmail && (
                               <p className="text-[9.5px] text-sky-600 dark:text-sky-400 font-medium select-all mt-0.5">{as.assignedEmail}</p>
@@ -1044,30 +1091,86 @@ export default function SoftwareLicensesDashboard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase text-slate-400">Assign to Staff</label>
-                        <Select
-                          value={assignmentForm.assignedStaffId}
-                          onValueChange={(val) => setAssignmentForm({ ...assignmentForm, assignedStaffId: val, assignedAssetId: "" })}
-                        >
-                          <SelectTrigger className="h-8.5 text-xs bg-slate-50 dark:bg-slate-950 border-border/50 rounded-lg">
-                            <SelectValue placeholder="Select Staff member" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border-border/40 rounded-xl max-h-[250px]">
-                            <SelectItem value="none" className="text-xs italic text-slate-400">None</SelectItem>
-                            {staffList.map((st) => (
-                              <SelectItem key={st.id} value={st.id} className="text-xs">
-                                {st.name} ({st.employeeId})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <label className="text-[9px] font-black uppercase text-slate-400">Assign to User</label>
+                        {selectedUserRecord ? (
+                          <div className="flex items-center justify-between p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-xs">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                              <div>
+                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                                  {selectedUserRecord.name || selectedUserRecord.username}
+                                </span>
+                                <span className="text-[9.5px] text-slate-400 block font-mono">
+                                  Emp ID: {selectedUserRecord.employeeId || "—"} ({selectedUserRecord.role})
+                                </span>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedUserRecord(null);
+                                setAssignmentForm({ ...assignmentForm, assignedUserId: "" });
+                              }}
+                              className="h-6 w-6 p-0 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-full"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <Input
+                              type="text"
+                              value={userSearchQuery}
+                              onChange={(e) => handleUserSearch(e.target.value)}
+                              placeholder="Search by name, email, or Emp No..."
+                              className="h-8.5 text-xs bg-slate-50 dark:bg-slate-950 border-border/50 rounded-lg"
+                            />
+                            {searchingUsers && (
+                              <div className="absolute right-2 top-2.5">
+                                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                              </div>
+                            )}
+
+                            {userSearchQuery.trim().length >= 3 && usersList.length > 0 && (
+                              <div className="absolute left-0 right-0 mt-1 bg-card border border-border/40 rounded-xl shadow-xl max-h-[180px] overflow-y-auto z-50 divide-y divide-border/20">
+                                {usersList.map((usr) => (
+                                  <button
+                                    key={usr.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedUserRecord(usr);
+                                      setAssignmentForm({ ...assignmentForm, assignedUserId: usr.id, assignedAssetId: "" });
+                                      setUsersList([]);
+                                    }}
+                                    className="w-full p-2.5 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-colors flex flex-col"
+                                  >
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                                      {usr.name || usr.username}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                      Emp ID: {usr.employeeId || "—"} | {usr.email} | {usr.role}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {userSearchQuery.trim().length >= 3 && usersList.length === 0 && !searchingUsers && (
+                              <div className="absolute left-0 right-0 mt-1 p-3 text-center bg-card border border-border/40 rounded-xl shadow-xl text-[11px] text-slate-400 z-50">
+                                No matching users found.
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-1">
                         <label className="text-[9px] font-black uppercase text-slate-400">Assign to Asset (Laptop etc.)</label>
                         <Select
                           value={assignmentForm.assignedAssetId}
-                          onValueChange={(val) => setAssignmentForm({ ...assignmentForm, assignedAssetId: val, assignedStaffId: "" })}
+                          onValueChange={(val) => setAssignmentForm({ ...assignmentForm, assignedAssetId: val === "none" ? "" : val, assignedUserId: "" })}
                         >
                           <SelectTrigger className="h-8.5 text-xs bg-slate-50 dark:bg-slate-950 border-border/50 rounded-lg">
                             <SelectValue placeholder="Select OSP Asset" />
@@ -1085,27 +1188,14 @@ export default function SoftwareLicensesDashboard() {
 
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase text-slate-400">Registered Email</label>
-                        <Input
-                          type="email"
-                          placeholder="e.g. name@slts.lk"
-                          value={assignmentForm.assignedEmail}
-                          onChange={(e) => setAssignmentForm({ ...assignmentForm, assignedEmail: e.target.value })}
-                          className="h-8.5 text-xs bg-slate-50 dark:bg-slate-950 border-border/50 rounded-lg"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase text-slate-400">Assignment notes</label>
-                        <Input
-                          placeholder="e.g. GIS team, project reference..."
-                          value={assignmentForm.remarks}
-                          onChange={(e) => setAssignmentForm({ ...assignmentForm, remarks: e.target.value })}
-                          className="h-8.5 text-xs bg-slate-50 dark:bg-slate-950 border-border/50 rounded-lg"
-                        />
-                      </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Assignment notes</label>
+                      <Input
+                        placeholder="e.g. GIS team, project reference..."
+                        value={assignmentForm.remarks}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, remarks: e.target.value })}
+                        className="h-8.5 text-xs bg-slate-50 dark:bg-slate-950 border-border/50 rounded-lg"
+                      />
                     </div>
 
                     <Button

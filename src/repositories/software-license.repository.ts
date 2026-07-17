@@ -10,8 +10,8 @@ export class SoftwareLicenseRepository {
       include: {
         assignments: {
           include: {
-            assignedStaff: {
-              select: { id: true, name: true, employeeId: true, designation: true }
+            assignedUser: {
+              select: { id: true, name: true, employeeId: true, role: true }
             },
             assignedAsset: {
               select: { id: true, assetNumber: true, brand: true, model: true }
@@ -58,7 +58,7 @@ export class SoftwareLicenseRepository {
               OR: [
                 { assignedEmail: { contains: search, mode: 'insensitive' } },
                 {
-                  assignedStaff: {
+                  assignedUser: {
                     OR: [
                       { name: { contains: search, mode: 'insensitive' } },
                       { employeeId: { contains: search, mode: 'insensitive' } }
@@ -117,7 +117,7 @@ export class SoftwareLicenseRepository {
     return db.softwareLicenseAssignment.create({
       data,
       include: {
-        assignedStaff: {
+        assignedUser: {
           select: { id: true, name: true, employeeId: true }
         },
         assignedAsset: {

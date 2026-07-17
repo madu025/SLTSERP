@@ -165,7 +165,7 @@ export const UpdateSoftwareLicenseSchema = z.object({
 });
 
 export const CreateSoftwareLicenseAssignmentSchema = z.object({
-  assignedStaffId: z.string().cuid().optional().nullable(),
+  assignedUserId: z.string().cuid().optional().nullable(),
   assignedAssetId: z.string().cuid().optional().nullable(),
   assignedEmail: z.string().email().or(z.string().length(0)).optional().nullable(),
   remarks: z.string().optional().nullable()

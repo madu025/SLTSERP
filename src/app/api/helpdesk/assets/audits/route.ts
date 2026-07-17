@@ -84,3 +84,24 @@ export const PATCH = apiHandler(
     }
   }
 );
+
+// DELETE: Delete an audit response completely (Admin only)
+export const DELETE = apiHandler(
+  async (req) => {
+    const url = new URL(req.url);
+    const auditId = url.searchParams.get("auditId");
+
+    if (!auditId) {
+      throw new Error("Audit ID is required");
+    }
+
+    return await HelpdeskAuditService.deleteAudit(auditId);
+  },
+  {
+    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
+    audit: {
+      action: "DELETE",
+      entity: "ITAssetAudit"
+    }
+  }
+);

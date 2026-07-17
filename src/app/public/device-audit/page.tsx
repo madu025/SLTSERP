@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, Building, HelpCircle, Check, ArrowRight, ArrowLeft } from "lucide-react";
+import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, Building, HelpCircle, Check, ArrowRight, ArrowLeft, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 const LAPTOP_BRANDS = ["HP", "Lenovo", "Dell", "Asus", "Acer", "MSI", "Apple"];
@@ -569,6 +569,25 @@ export default function PublicDeviceAuditPage() {
 
               {laptopMode === "COMPANY" && (
                 <div className="space-y-4">
+                  {/* Quick Sync Agent Recommendation Banner */}
+                  <div className="bg-gradient-to-r from-sky-500/10 to-indigo-500/10 border border-sky-500/20 rounded-lg p-3 space-y-1.5 text-[11px] text-sky-850 dark:text-sky-400">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <ShieldCheck className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                      <span>Quick Sync Option (නිර්දේශිතයි)</span>
+                    </div>
+                    <p className="text-[10px] leading-relaxed">
+                      ලැප්ටොප් පරිගණකයේ විස්තර ස්වයංක්‍රීයවම ERP පද්ධතියට ඇතුළත් කිරීමට, පහත සබැඳියෙන් <strong>Asset Sync Agent (Setup)</strong> බාගත කර ස්ථාපනය කරන්න. ඉන්පසු මෙම පෝරමය (Form) පිරවීම අවශ්‍ය නොවේ.
+                    </p>
+                    <a
+                      href="https://sltelecomservices-my.sharepoint.com/:u:/g/personal/prasad_slts_lk/IQB9Wk4AeMExTIo5BucEDSp9ASnv1QSbhs7IWfPvyF0Ms9k?e=44Gcg7"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-350 underline"
+                    >
+                      Download Setup Agent (MSI Installer) <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+
                   {laptopFound && !laptopUseDifferent ? (
                     <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-3 rounded-lg flex justify-between items-start gap-2 animate-fade-in">
                       <div className="flex gap-2.5 items-start">

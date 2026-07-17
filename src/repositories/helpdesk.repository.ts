@@ -97,27 +97,46 @@ export class HelpdeskRepository {
       ];
     }
 
-    const [total, assets] = await Promise.all([
-      db.iTAsset.count({ where }),
-      db.iTAsset.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          assignedStaff: {
-            select: { id: true, name: true, employeeId: true, designation: true }
-          },
-          siteOffice: true,
-          _count: {
-            select: { units: true }
-          }
+    const allAssets = await db.iTAsset.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        assignedStaff: {
+          select: { id: true, name: true, employeeId: true, designation: true }
+        },
+        siteOffice: {
+          select: { id: true, name: true }
+        },
+        _count: {
+          select: { units: true }
         }
-      })
-    ]);
+      }
+    });
+
+    const STATUS_ORDER: Record<string, number> = {
+      ACTIVE: 1,
+      SPARE: 2,
+      UNDER_REPAIR: 3,
+      FAULTY: 4,
+      DECOMMISSIONED: 5,
+      DISPOSED: 6,
+      TRANSFERRED: 7
+    };
+
+    allAssets.sort((a: any, b: any) => {
+      const orderA = STATUS_ORDER[a.status as string] || 99;
+      const orderB = STATUS_ORDER[b.status as string] || 99;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    const total = allAssets.length;
+    const paginatedAssets = allAssets.slice(skip, skip + limit);
 
     // Query matched, synced audits to flag which items are verified
-    const serialNumbers = assets.map((a: any) => a.serialNumber);
+    const serialNumbers = paginatedAssets.map((a: any) => a.serialNumber);
     const syncedAudits = await db.iTAssetAudit.findMany({
       where: {
         serialNumber: { in: serialNumbers },
@@ -130,7 +149,7 @@ export class HelpdeskRepository {
 
     const auditedSerials = new Set(syncedAudits.map((sa: any) => sa.serialNumber.toLowerCase()));
 
-    const assetsWithAudit = assets.map((asset: any) => ({
+    const assetsWithAudit = paginatedAssets.map((asset: any) => ({
       ...asset,
       isAudited: auditedSerials.has(asset.serialNumber.toLowerCase())
     }));

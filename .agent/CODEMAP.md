@@ -11,6 +11,15 @@
 
 ## 1. Business Logic Services (src/services)
 
+### [agent-sync.service.ts](src/services/agent-sync.service.ts)
+* **Class**: `AgentSyncService`
+  * **Methods**:
+    * `authenticateAgent(apiKey: string): Promise<{ success: boolean; token?: string; expiresIn?: number } | null>`
+    * `syncAsset(data: SyncAssetPayload, clientIp: string): any`
+    * `registerAsset(data: RegisterAssetPayload): any`
+* **Exported Functions**:
+  * `generateAssetId(serialNumber: string): string`
+
 ### [ai-prediction.service.ts](src/services/ai-prediction.service.ts)
 * **Class**: `AiPredictionService`
   * **Methods**:
@@ -466,6 +475,7 @@
   }): any`
     * `getAudits(): any`
     * `rejectAudit(auditId: string): any`
+    * `deleteAudit(auditId: string): any`
     * `syncAuditToInventory(auditId: string, updatedData?: {
     brand?: string;
     model?: string;
@@ -512,6 +522,7 @@
       imei2?: string | null;
       simNumber?: string | null;
       mdmEnrolled?: boolean | null;
+      physicallyInStores?: boolean | null;
     }, ipAddress?: string, userAgent?: string): any`
     * `updateAsset(userId: string, id: string, data: {
       assetNumber?: string;
@@ -537,6 +548,7 @@
       imei2?: string | null;
       simNumber?: string | null;
       mdmEnrolled?: boolean | null;
+      physicallyInStores?: boolean | null;
     }, ipAddress?: string, userAgent?: string): any`
     * `deleteAsset(userId: string, id: string, ipAddress?: string, userAgent?: string): any`
     * `createAssetUnit(userId: string, assetId: string, data: {
@@ -1784,7 +1796,7 @@
     }, ipAddress?: string, userAgent?: string): any`
     * `deleteLicense(userId: string, id: string, ipAddress?: string, userAgent?: string): any`
     * `assignLicense(userId: string, licenseId: string, data: {
-      assignedStaffId?: string | null;
+      assignedUserId?: string | null;
       assignedAssetId?: string | null;
       assignedEmail?: string | null;
       remarks?: string | null;
@@ -1842,7 +1854,7 @@
 * **Class**: `UserService`
   * **Methods**:
     * `login({ username, password }: LoginCredentials): any`
-    * `getUsers(page: number, limit: number): any`
+    * `getUsers(page: number, limit: number, search?: string): any`
     * `createUser(data: CreateUserData, currentUserId: string): any`
     * `updateUser(id: string, data: UpdateUserData, currentUserId: string): any`
     * `deleteUser(id: string): any`
@@ -1935,9 +1947,13 @@
 | `/api/admin/users/[userId]/sections` | [route.ts](src/app/api/admin/users/[userId]/sections/route.ts) | `GET`, `POST` |
 | `/api/admin/users/[userId]/sections/[assignmentId]` | [route.ts](src/app/api/admin/users/[userId]/sections/[assignmentId]/route.ts) | `DELETE` |
 | `/api/admin/workers` | [route.ts](src/app/api/admin/workers/route.ts) | `GET` |
+| `/api/agent/version` | [route.ts](src/app/api/agent/version/route.ts) | `GET` |
 | `/api/ai/alerts` | [route.ts](src/app/api/ai/alerts/route.ts) | `GET`, `PATCH` |
 | `/api/ai/copilot` | [route.ts](src/app/api/ai/copilot/route.ts) | `GET`, `POST` |
 | `/api/ai/feedback` | [route.ts](src/app/api/ai/feedback/route.ts) | `POST` |
+| `/api/assets/register` | [route.ts](src/app/api/assets/register/route.ts) | `POST` |
+| `/api/assets/sync` | [route.ts](src/app/api/assets/sync/route.ts) | `POST` |
+| `/api/auth/agent-login` | [route.ts](src/app/api/auth/agent-login/route.ts) | `POST` |
 | `/api/auth/forgot-password/reset` | [route.ts](src/app/api/auth/forgot-password/reset/route.ts) | `POST` |
 | `/api/auth/forgot-password/verify` | [route.ts](src/app/api/auth/forgot-password/verify/route.ts) | `POST` |
 | `/api/auth/forgot-password/verify-answer` | [route.ts](src/app/api/auth/forgot-password/verify-answer/route.ts) | `POST` |
@@ -1994,7 +2010,7 @@
 | `/api/gis/upload` | [route.ts](src/app/api/gis/upload/route.ts) | `POST` |
 | `/api/gis/wms/[[...path]]` | [route.ts](src/app/api/gis/wms/[[...path]]/route.ts) | `GET`, `POST`, `OPTIONS` |
 | `/api/health` | [route.ts](src/app/api/health/route.ts) | `GET` |
-| `/api/helpdesk/assets/audits` | [route.ts](src/app/api/helpdesk/assets/audits/route.ts) | `GET`, `POST`, `PUT`, `PATCH` |
+| `/api/helpdesk/assets/audits` | [route.ts](src/app/api/helpdesk/assets/audits/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `/api/helpdesk/assets` | [route.ts](src/app/api/helpdesk/assets/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/assets/search-by-serial` | [route.ts](src/app/api/helpdesk/assets/search-by-serial/route.ts) | `GET` |
 | `/api/helpdesk/assets/stats` | [route.ts](src/app/api/helpdesk/assets/stats/route.ts) | `GET` |
@@ -2203,6 +2219,16 @@
 | `/api/vendors/[id]` | [route.ts](src/app/api/vendors/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 
 ## 3. Database Models (prisma/schema)
+
+### [AssetSyncLog](prisma/schema/agent-sync.prisma)
+* **Fields**:
+  * `id: Int` `[@id @default(autoincrement())]`
+  * `assetId: String?` `[@map("asset_id")]`
+  * `asset: ITAsset?` `[@relation(fields: [assetId], references: [id], onDelete: Cascade)]`
+  * `reportedEmployeeNumber: String?` `[@map("reported_employee_number")]`
+  * `reportedEmployeeUsername: String?` `[@map("reported_employee_username")]`
+  * `ipAddress: String?` `[@map("ip_address")]`
+  * `syncedAt: DateTime` `[@default(now()) @map("synced_at")]`
 
 ### [Contractor](prisma/schema/contractor.prisma)
 * **Fields**:
@@ -2667,6 +2693,19 @@
   * `imei2: String?` `[// Secondary IMEI for dual SIM mobile devices]`
   * `simNumber: String?` `[// SIM Card mobile phone number or SIM ID]`
   * `mdmEnrolled: Boolean` `[@default(false) // Mobile Device Management status]`
+  * `physicallyInStores: Boolean` `[@default(false)]`
+  * `computerName: String?`
+  * `osVersion: String?`
+  * `employeeUsername: String?`
+  * `ipAddress: String?`
+  * `macAddress: String?`
+  * `lastSyncedAt: DateTime?`
+  * `assignedUserId: String?`
+  * `assignedUser: User?` `[@relation("AssignedITAssetsToUser", fields: [assignedUserId], references: [id], onDelete: SetNull)]`
+  * `pendingAssignmentReview: Boolean` `[@default(false)]`
+  * `lastSeenEmployeeUsername: String?`
+  * `lastSeenEmployeeNumber: String?`
+  * `syncLogs: AssetSyncLog[]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `tickets: Ticket[]`
@@ -2827,8 +2866,8 @@
   * `id: String` `[@id @default(cuid())]`
   * `softwareLicenseId: String`
   * `softwareLicense: SoftwareLicense` `[@relation(fields: [softwareLicenseId], references: [id], onDelete: Cascade)]`
-  * `assignedStaffId: String?`
-  * `assignedStaff: Staff?` `[@relation("StaffSoftwareLicenses", fields: [assignedStaffId], references: [id], onDelete: SetNull)]`
+  * `assignedUserId: String?`
+  * `assignedUser: User?` `[@relation("UserSoftwareLicenses", fields: [assignedUserId], references: [id], onDelete: SetNull)]`
   * `assignedAssetId: String?`
   * `assignedAsset: ITAsset?` `[@relation("AssetSoftwareLicenses", fields: [assignedAssetId], references: [id], onDelete: SetNull)]`
   * `assignedAt: DateTime` `[@default(now())]`
@@ -5403,10 +5442,12 @@
   * `staffId: String?` `[@unique]`
   * `securityQuestion: String?`
   * `securityAnswer: String?`
-  * `employeeId: String?`
+  * `employeeId: String?` `[@unique]`
   * `supervisorId: String?`
   * `assignedStoreId: String?`
+  * `permissions: String?`
   * `mustChangePassword: Boolean` `[@default(false)]`
+  * `status: String` `[@default("active")]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `auditLogs: AuditLog[]`
@@ -5450,6 +5491,8 @@
   * `siteOfficeRequests: SiteOfficeRequest[]` `[@relation("SiteOfficeRequests")]`
   * `handoversPerformed: AssetHandoverLog[]` `[@relation("HandoverPerformed")]`
   * `pushSubscriptions: PushSubscription[]`
+  * `assignedITAssets: ITAsset[]` `[@relation("AssignedITAssetsToUser")]`
+  * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("UserSoftwareLicenses")]`
 
 ### [Notification](prisma/schema/user.prisma)
 * **Fields**:
@@ -5500,7 +5543,6 @@
   * `serials: InventoryItemSerial[]`
   * `assignedITAssets: ITAsset[]` `[@relation("AssignedITAssets")]`
   * `handoversReceived: AssetHandoverLog[]` `[@relation("HandoverReceived")]`
-  * `softwareAssignments: SoftwareLicenseAssignment[]` `[@relation("StaffSoftwareLicenses")]`
   * `assignedITAssetUnits: ITAssetUnit[]` `[@relation("StaffITAssetUnits")]`
 
 ### [NotificationPreference](prisma/schema/user.prisma)
@@ -6186,6 +6228,7 @@
   * `employeeId: String?`
   * `supervisorId: String?`
   * `assignedStoreId: String?`
+  * `permissions: String?`
   * `mustChangePassword: Boolean` `[@default(false)]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`

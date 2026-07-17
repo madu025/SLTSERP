@@ -247,7 +247,12 @@ export default function UserRegistrationPage() {
 
                 <UserFormDialog 
                     open={showModal}
-                    onOpenChange={setShowModal}
+                    onOpenChange={(open) => {
+                        setShowModal(open);
+                        if (!open) {
+                            setSelectedUser(null);
+                        }
+                    }}
                     onSubmit={handleFormSubmit}
                     isSubmitting={upsertMutation.isPending}
                     initialData={selectedUser ? {

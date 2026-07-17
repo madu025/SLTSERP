@@ -28,62 +28,116 @@ export const GET = apiHandler(async (req) => {
     throw new Error("Unauthorized");
   }
 
-  // 1. Project/Workflow approvals (assigned to this user or their role)
-  const approvalsCount = await prisma.projectApprovalStep.count({
-    where: {
-      status: "PENDING",
-      OR: [
-        { assignedUserId: userId },
-        {
-          AND: [
-            { assignedUserId: null },
-            { roleRequired: userRole }
-          ]
-        }
-      ]
-    }
-  });
-
-  // 2. IT Help Desk (ITSM)
   const isITStaff = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(userRole);
-  const helpdeskCount = await prisma.ticket.count({
-    where: isITStaff
-      ? {
-          status: {
-            in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_FOR_USER", "WAITING_FOR_PARTS"]
-          }
-        }
-      : {
-          userId,
-          status: {
-            in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_FOR_USER", "WAITING_FOR_PARTS"]
-          }
-        }
-  });
+  const stage = getWorkflowStageFilter(userRole);
 
-  // Get user's accessible OPMCs to filter counts regionally
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      accessibleOpmcs: {
-        select: { id: true }
+  // Run all independent count and select queries concurrently to minimize DB latency
+  const [
+    approvalsCount,
+    helpdeskCount,
+    user,
+    unreadSodNotifications,
+    procurementApprovalsCount,
+    contractorApprovalsCount,
+    materialRequestsCount,
+    materialApprovalsCount
+  ] = await Promise.all([
+    // 1. Project/Workflow approvals
+    prisma.projectApprovalStep.count({
+      where: {
+        status: "PENDING",
+        OR: [
+          { assignedUserId: userId },
+          {
+            AND: [
+              { assignedUserId: null },
+              { roleRequired: userRole }
+            ]
+          }
+        ]
       }
-    }
-  });
-  const accessibleOpmcIds = user?.accessibleOpmcs.map(o => o.id) || [];
-  const isAdmin = ["SUPER_ADMIN", "ADMIN"].includes(userRole);
+    }),
 
-  // 3. Service Orders (Unread notification count of newly synced SODs)
-  const unreadSodNotifications = await prisma.notification.findMany({
-    where: {
-      userId,
-      link: "/service-orders",
-      isRead: false
-    },
-    select: {
-      metadata: true
-    }
-  });
+    // 2. IT Help Desk
+    prisma.ticket.count({
+      where: isITStaff
+        ? {
+            status: {
+              in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_FOR_USER", "WAITING_FOR_PARTS"]
+            }
+          }
+        : {
+            userId,
+            status: {
+              in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_FOR_USER", "WAITING_FOR_PARTS"]
+            }
+          }
+    }),
+
+    // 3. User Accessible OPMCs
+    prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        accessibleOpmcs: {
+          select: { id: true }
+        }
+      }
+    }),
+
+    // 4. Service Orders notifications
+    prisma.notification.findMany({
+      where: {
+        userId,
+        link: "/service-orders",
+        isRead: false
+      },
+      select: {
+        metadata: true
+      }
+    }),
+
+    // 5. Procurement Approvals
+    prisma.stockRequest.count({
+      where: {
+        workflowStage: "REQUEST",
+        status: "PENDING"
+      }
+    }),
+
+    // 6. Contractor Registration Approvals
+    prisma.contractor.count({
+      where: {
+        status: {
+          in: ["ARM_PENDING", "OSP_PENDING"]
+        }
+      }
+    }),
+
+    // 7. Material Requests
+    prisma.stockRequest.count({
+      where: {
+        requestedById: userId,
+        status: "PENDING"
+      }
+    }),
+
+    // 8. Material Approvals
+    userRole === 'SUPER_ADMIN'
+      ? prisma.stockRequest.count({
+          where: {
+            status: "PENDING",
+            workflowStage: {
+              in: ['ARM_APPROVAL', 'STORES_MANAGER_APPROVAL', 'OSP_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'SUB_STORE_RECEIVE']
+            }
+          }
+        })
+      : prisma.stockRequest.count({
+          where: {
+            workflowStage: stage,
+            status: "PENDING"
+          }
+        })
+  ]);
 
   let serviceOrdersCount = 0;
   unreadSodNotifications.forEach(n => {
@@ -98,52 +152,6 @@ export const GET = apiHandler(async (req) => {
       serviceOrdersCount += 1;
     }
   });
-
-  // 4. Procurement Approvals (workflowStage = REQUEST)
-  const procurementApprovalsCount = await prisma.stockRequest.count({
-    where: {
-      workflowStage: "REQUEST",
-      status: "PENDING"
-    }
-  });
-
-  // 5. Contractor Registration Approvals
-  const contractorApprovalsCount = await prisma.contractor.count({
-    where: {
-      status: {
-        in: ["ARM_PENDING", "OSP_PENDING"]
-      }
-    }
-  });
-
-  // 6. Material Requests (created by the user)
-  const materialRequestsCount = await prisma.stockRequest.count({
-    where: {
-      requestedById: userId,
-      status: "PENDING"
-    }
-  });
-
-  // 7. Material Approvals (awaiting approval from the user's role)
-  let materialApprovalsCount = 0;
-  if (userRole === 'SUPER_ADMIN') {
-    materialApprovalsCount = await prisma.stockRequest.count({
-      where: {
-        status: "PENDING",
-        workflowStage: {
-          in: ['ARM_APPROVAL', 'STORES_MANAGER_APPROVAL', 'OSP_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'SUB_STORE_RECEIVE']
-        }
-      }
-    });
-  } else {
-    const stage = getWorkflowStageFilter(userRole);
-    materialApprovalsCount = await prisma.stockRequest.count({
-      where: {
-        workflowStage: stage,
-        status: "PENDING"
-      }
-    });
-  }
 
   return {
     approvals: approvalsCount,

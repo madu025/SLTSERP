@@ -133,7 +133,7 @@ export class SoftwareLicenseService {
     userId: string,
     licenseId: string,
     data: {
-      assignedStaffId?: string | null;
+      assignedUserId?: string | null;
       assignedAssetId?: string | null;
       assignedEmail?: string | null;
       remarks?: string | null;
@@ -149,13 +149,13 @@ export class SoftwareLicenseService {
     // Run transaction
     const assignment = await prisma.$transaction(async (tx) => {
       // Check if assignment target is provided
-      if (!data.assignedStaffId && !data.assignedAssetId) {
+      if (!data.assignedUserId && !data.assignedAssetId) {
         throw new Error('ASSIGNMENT_TARGET_REQUIRED');
       }
 
       return await SoftwareLicenseRepository.createAssignment({
         softwareLicenseId: licenseId,
-        assignedStaffId: data.assignedStaffId || null,
+        assignedUserId: data.assignedUserId || null,
         assignedAssetId: data.assignedAssetId || null,
         assignedEmail: data.assignedEmail || null,
         remarks: data.remarks || null

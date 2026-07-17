@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { signJWT } from '@/lib/auth';
 import { SystemService } from '@/services/system.service';
 import { sign, verify, JwtPayload } from 'jsonwebtoken';
-import { Role } from '@prisma/client';
+import { Role, Prisma } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -167,14 +167,25 @@ export class UserService {
     }
 
     /**
-     * Retrieves all users with pagination
+     * Retrieves all users with pagination and search
      */
-    static async getUsers(page: number, limit: number) {
+    static async getUsers(page: number, limit: number, search?: string) {
         const skip = (page - 1) * limit;
 
+        const where: Prisma.UserWhereInput = {};
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { employeeId: { contains: search, mode: 'insensitive' } },
+                { username: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
         const [total, users] = await Promise.all([
-            prisma.user.count(),
+            prisma.user.count({ where }),
             prisma.user.findMany({
+                where,
                 select: {
                     id: true,
                     username: true,
@@ -258,7 +269,7 @@ export class UserService {
                             ? opmcIds.map((id: string) => ({ id }))
                             : []
                     },
-                    supervisor: supervisorId ? { connect: { id: supervisorId } } : undefined
+                    supervisor: supervisorId && supervisorId !== 'none' ? { connect: { id: supervisorId } } : undefined
                 },
                 include: {
                     accessibleOpmcs: { select: { rtom: true } }
@@ -448,7 +459,7 @@ export class UserService {
                         set: [],
                         connect: opmcIds ? opmcIds.map((oid: string) => ({ id: oid })) : []
                     },
-                    supervisor: supervisorId ? { connect: { id: supervisorId } } : { disconnect: true }
+                    supervisor: supervisorId && supervisorId !== 'none' ? { connect: { id: supervisorId } } : { disconnect: true }
                 }
             });
             return updatedUser;

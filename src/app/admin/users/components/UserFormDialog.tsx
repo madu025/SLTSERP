@@ -98,7 +98,7 @@ export function UserFormDialog({
             setTimeout(() => { setSelectedSection(null); setStep(1); }, 0);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
+    }, [open, initialData?.id]);
 
     // --- AUTO-SUPERVISOR LOGIC ---
     useEffect(() => {

@@ -7,6 +7,7 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const page = parseInt(searchParams.get('page') || '1');
         const limit = parseInt(searchParams.get('limit') || '50');
+        const search = searchParams.get('search') || undefined;
 
         // Security Check: Role Based Access Control
         const role = request.headers.get('x-user-role');
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
             );
         }
 
-        const result = await UserService.getUsers(page, limit);
+        const result = await UserService.getUsers(page, limit, search);
         return NextResponse.json(result);
     } catch (error: unknown) {
         console.error('Error fetching users:', error);
