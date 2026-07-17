@@ -9,13 +9,15 @@ import { Button } from '@/components/ui/button';
 interface RoleGuardProps {
     children: React.ReactNode;
     allowedRoles: string[];
+    permissionId?: string;
 }
 
 interface GuardUser {
     role: string;
+    permissions?: string[];
 }
 
-export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
+export default function RoleGuard({ children, allowedRoles, permissionId }: RoleGuardProps) {
     const router = useRouter();
     const [user] = useState<GuardUser | null>(() => {
         if (typeof window !== 'undefined') {
@@ -25,7 +27,7 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
         return null;
     });
 
-    const isAuthorized = user ? hasAccess(user.role, allowedRoles) : null;
+    const isAuthorized = user ? hasAccess(user.role, allowedRoles, true, undefined, permissionId, user.permissions) : null;
 
     useEffect(() => {
         if (typeof window !== 'undefined' && !localStorage.getItem('user')) {

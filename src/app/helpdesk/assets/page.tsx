@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Laptop, RefreshCw, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function HelpdeskAssetManagementPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
   const [assets, setAssets] = useState<ITAsset[]>([]);
@@ -53,9 +55,17 @@ export default function HelpdeskAssetManagementPage() {
     setMounted(true);
     const stored = localStorage.getItem("user");
     if (stored) {
-      setUser(JSON.parse(stored));
+      const parsedUser = JSON.parse(stored);
+      setUser(parsedUser);
+      const allowedRoles = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"];
+      if (!parsedUser.role || !allowedRoles.includes(parsedUser.role)) {
+        toast.error("Unauthorized access.");
+        router.push("/login");
+      }
+    } else {
+      router.push("/login");
     }
-  }, []);
+  }, [router]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -250,7 +260,13 @@ export default function HelpdeskAssetManagementPage() {
 
   const isITStaff = !!(user?.role && ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(user.role));
 
-  if (!mounted) return null;
+  if (!mounted || !user || !isITStaff) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-background text-foreground animate-fade-in">

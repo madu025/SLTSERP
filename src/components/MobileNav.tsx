@@ -11,6 +11,7 @@ interface User {
     name: string;
     role: string;
     username: string;
+    permissions?: string[];
 }
 
 export default function MobileNav() {
@@ -126,7 +127,7 @@ export default function MobileNav() {
                         Menu
                     </div>
 
-                    {SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
+                    {SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions)).map((item) => {
                         const Icon = item.icon;
                         const hasSubmenu = item.submenu && item.submenu.length > 0;
                         const isExpanded = expandedMenus.includes(item.title);
@@ -147,15 +148,6 @@ export default function MobileNav() {
                                             <Icon className="w-5 h-5 mr-3" />
                                             <span>{item.title}</span>
                                         </div>
-                                        {/* Dynamic Chevron Import would be better, but assuming component context allows additional icons */}
-                                        {/* Using simple text arrow if import missing, or I must ensure imports. 
-                                            I'll edit imports in separate tool call if needed or assume user has them. 
-                                            Wait, I am replacing whole function, I need to check imports.
-                                            I will use a second tool call for imports or update the replace to include imports if I could.
-                                            I can't edit top of file with this call targeting lines 15+.
-                                            I'll rely on lucide-react being standard. I'll add ChevronDown/Up via separate replace if needed.
-                                            Let's blindly use ChevronDown/ChevronRight and fix imports later.
-                                         */}
                                         <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                                         </svg>
@@ -163,7 +155,7 @@ export default function MobileNav() {
 
                                     {isExpanded && (
                                         <div className="pl-4 space-y-1">
-                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map((sub) => {
+                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles, !!user, sub.title, sub.permissionId || item.permissionId, user?.permissions)).map((sub) => {
                                                 const isSubActive = pathname === sub.path;
                                                 return (
                                                     <Link

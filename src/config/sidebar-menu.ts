@@ -75,6 +75,7 @@ export interface MenuItem {
     path: string;
     icon: React.ComponentType<{ className?: string }>;
     allowedRoles: string[]; // List of roles allowed to see this item
+    permissionId?: string; // Dynamic permission ID
     submenu?: MenuItem[];
 }
 
@@ -83,7 +84,8 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
-        allowedRoles: ['ALL'] // Special keyword for public/all access
+        allowedRoles: ['ALL'], // Special keyword for public/all access
+        permissionId: 'dashboard'
     },
     {
         title: 'Service Orders',
@@ -91,6 +93,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         icon: FileText,
         // Service Orders are main work for New Connection & Ops
         allowedRoles: ROLE_GROUPS.ALL_OPS,
+        permissionId: 'service-orders',
         submenu: [
             {
                 title: 'Pending SOD',
@@ -129,6 +132,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/admin/contractors',
         icon: HardHat,
         allowedRoles: [...ROLE_GROUPS.OSP_PROJECTS, ...ROLE_GROUPS.NEW_CONNECTION, ...ROLE_GROUPS.OFFICE_ADMINS],
+        permissionId: 'contractors',
         submenu: [
             {
                 title: 'All Contractors',
@@ -149,6 +153,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/projects',
         icon: FolderKanban,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OSP_PROJECTS],
+        permissionId: 'service-orders',
         submenu: [
             {
                 title: 'All Projects',
@@ -206,6 +211,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/admin/finance',
         icon: Banknote,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.FINANCE, ...ROLE_GROUPS.OFFICE_ADMINS, 'OSP_MANAGER'],
+        permissionId: 'invoices',
         submenu: [
             {
                 title: 'Vendor Registry',
@@ -269,6 +275,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/invoices',
         icon: Receipt,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+        permissionId: 'invoices',
         submenu: [
             {
                 title: 'Submit Invoices (SLT)',
@@ -312,6 +319,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/inventory',
         icon: Warehouse,
         allowedRoles: ROLE_GROUPS.STORES,
+        permissionId: 'inventory',
         submenu: [
             // 1. Setup & Master Data
             {
@@ -422,6 +430,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/procurement/approvals',
         icon: FileSignature,
         allowedRoles: ['SUPER_ADMIN', 'ADMIN', 'OSP_MANAGER', 'MANAGER', ...ROLE_GROUPS.ALL_OPS],
+        permissionId: 'restore_requests',
         submenu: [
             {
                 title: 'Procurement Approvals',
@@ -442,6 +451,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/procurement',
         icon: ShoppingCart,
         allowedRoles: [...ROLE_GROUPS.PROCUREMENT, ...ROLE_GROUPS.STORES],
+        permissionId: 'procurement',
         submenu: [
             {
                 title: 'Overview',
@@ -518,31 +528,31 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 title: 'IT Dashboard (Staff)',
                 path: '/helpdesk/admin',
                 icon: Shield,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
             },
             {
                 title: 'Asset Management',
                 path: '/helpdesk/assets',
                 icon: Laptop,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
             },
             {
                 title: 'Device Audits',
                 path: '/helpdesk/assets/audits',
                 icon: ClipboardCheck,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
             },
             {
                 title: 'Software Licenses',
                 path: '/helpdesk/software-licenses',
                 icon: FileText,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
             },
             {
                 title: 'Help Desk Reports',
                 path: '/helpdesk/reports',
                 icon: BarChart3,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN']
             }
         ]
     },
@@ -551,6 +561,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/vehicles',
         icon: Car,
         allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'],
+        permissionId: 'administration',
         submenu: [
             {
                 title: 'All Vehicles',
@@ -583,6 +594,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         path: '/admin',
         icon: UserCog,
         allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.OFFICE_ADMINS],
+        permissionId: 'administration',
         submenu: [
             {
                 title: 'User Management',
@@ -650,7 +662,24 @@ export const SIDEBAR_MENU: MenuItem[] = [
 ];
 
 // Helper function to check if a user has access
-export const hasAccess = (userRole: string, allowedRoles: string[]) => {
+export const hasAccess = (
+    userRole: string,
+    allowedRoles: string[],
+    isLoggedIn: boolean = true,
+    itemTitle?: string,
+    permissionId?: string,
+    userPermissions?: string[]
+) => {
+    if (!isLoggedIn) {
+        // Only allow public Guest items in sidebar/navigation
+        return !!itemTitle && ['IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
+    }
+    
+    // If the user has dynamic permissions configured, prioritize them
+    if (userPermissions && userPermissions.length > 0 && permissionId) {
+        return userPermissions.includes(permissionId);
+    }
+
     if (allowedRoles.includes('ALL')) return true;
     return allowedRoles.includes(userRole);
 };

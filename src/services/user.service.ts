@@ -48,7 +48,14 @@ export class UserService {
 
         const user = await prisma.user.findUnique({
             where: { username: username.toLowerCase() },
-            include: { accessibleOpmcs: { select: { id: true, name: true } } }
+            include: {
+                accessibleOpmcs: { select: { id: true, name: true } },
+                sectionAssignments: {
+                    include: {
+                        role: true
+                    }
+                }
+            }
         });
 
         if (!user) {
@@ -68,6 +75,16 @@ export class UserService {
             role: user.role,
         });
 
+        const perms: string[] = (user.sectionAssignments as any[] || []).flatMap((a: any) => {
+            try {
+                const parsed = JSON.parse(a.role.permissions || '[]');
+                return Array.isArray(parsed) ? (parsed as string[]) : [];
+            } catch {
+                return [];
+            }
+        });
+        const permissions = [...new Set(perms)];
+
         return {
             token,
             user: {
@@ -76,7 +93,8 @@ export class UserService {
                 name: user.name,
                 role: user.role,
                 accessibleOpmcs: user.accessibleOpmcs,
-                mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword
+                mustChangePassword: (user as unknown as { mustChangePassword: boolean }).mustChangePassword,
+                permissions
             }
         };
     }

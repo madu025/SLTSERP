@@ -527,9 +527,13 @@ export class HelpdeskRepository {
         },
         user: {
           select: {
-            assignedITAssets: {
-              select: { department: true },
-              take: 1
+            staff: {
+              select: {
+                assignedITAssets: {
+                  select: { department: true },
+                  take: 1
+                }
+              }
             }
           }
         }
@@ -541,7 +545,7 @@ export class HelpdeskRepository {
       // Priority: linked asset dept > user's primary asset dept > 'General'
       const dept =
         t.asset?.department ||
-        t.user?.assignedITAssets?.[0]?.department ||
+        t.user?.staff?.assignedITAssets?.[0]?.department ||
         'General';
       deptCounts[dept] = (deptCounts[dept] || 0) + 1;
     });

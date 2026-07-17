@@ -1,15 +1,15 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Clock,
     AlertCircle,
     CheckCircle2,
-    Hammer,
     FileText
 } from "lucide-react";
 
@@ -20,12 +20,31 @@ const pendingTasks = [
     { id: 'REQ-882', title: 'Material Request for Team A', due: '2026-01-18', priority: 'Normal', status: 'Waiting Approval' },
 ];
 
-const completedRecently = [
-    { id: 'SOD-102', title: 'Installation at Main St', date: '2026-01-15', status: 'Approved' },
-    { id: 'SOD-105', title: 'Cabling work - Zone 2', date: '2026-01-14', status: 'Completed' },
-];
+
 
 export default function UserReportsPage() {
+    const router = useRouter();
+    const [mounted, setMounted] = useState(false);
+    const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
+
+    useEffect(() => {
+        Promise.resolve().then(() => setMounted(true));
+        const stored = localStorage.getItem("user");
+        if (stored) {
+            setUser(JSON.parse(stored));
+        } else {
+            router.push("/login");
+        }
+    }, [router]);
+
+    if (!mounted || !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+        );
+    }
+
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
             <Sidebar />

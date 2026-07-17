@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, CheckCircle, ArrowLeft, X } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -60,7 +61,9 @@ interface AuditRecord {
 }
 
 export default function AdminAuditReviewPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<{ id: string; name: string; role: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -87,7 +90,19 @@ export default function AdminAuditReviewPage() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const stored = localStorage.getItem("user");
+    if (stored) {
+      const parsedUser = JSON.parse(stored);
+      setUser(parsedUser);
+      const allowedRoles = ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"];
+      if (!parsedUser.role || !allowedRoles.includes(parsedUser.role)) {
+        toast.error("Unauthorized access.");
+        router.push("/login");
+      }
+    } else {
+      router.push("/login");
+    }
+  }, [router]);
 
   const fetchSiteOffices = useCallback(async () => {
     try {
@@ -120,11 +135,11 @@ export default function AdminAuditReviewPage() {
   }, []);
 
   useEffect(() => {
-    if (mounted) {
+    if (mounted && user) {
       fetchAudits();
       fetchSiteOffices();
     }
-  }, [mounted, fetchAudits, fetchSiteOffices]);
+  }, [mounted, user, fetchAudits, fetchSiteOffices]);
 
   const handleOpenReconcile = (audit: AuditRecord) => {
     setSelectedAudit(audit);
@@ -219,7 +234,15 @@ export default function AdminAuditReviewPage() {
     }
   };
 
-  if (!mounted) return null;
+  const isITStaff = !!(user?.role && ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"].includes(user.role));
+
+  if (!mounted || !user || !isITStaff) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   // Calculate metrics
   const total = audits.length;

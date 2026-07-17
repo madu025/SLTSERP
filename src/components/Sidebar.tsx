@@ -14,6 +14,7 @@ interface User {
     name: string;
     role: string;
     username: string;
+    permissions?: string[];
 }
 
 interface SidebarNotification {
@@ -438,7 +439,7 @@ function SidebarContent() {
                     )}
 
                     <div className="px-1.5 space-y-0">
-                        {mounted ? SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles)).map((item) => {
+                        {mounted ? SIDEBAR_MENU.filter(item => hasAccess(userRole, item.allowedRoles, !!user, item.title, item.permissionId, user?.permissions)).map((item) => {
                             const Icon = item.icon;
                             const hasSubmenu = item.submenu && item.submenu.length > 0;
                             const isChildActive = hasSubmenu && item.submenu?.some(sub => 
@@ -579,7 +580,7 @@ function SidebarContent() {
                                             className="mt-0 ml-3 pl-2 space-y-0"
                                             style={{ borderLeft: '1px solid rgba(0,114,187,0.15)' }}
                                         >
-                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles)).map(sub => {
+                                            {item.submenu!.filter(sub => hasAccess(userRole, sub.allowedRoles, !!user, sub.title, sub.permissionId || item.permissionId, user?.permissions)).map(sub => {
                                                 const hasSubSubmenu = sub.submenu && sub.submenu.length > 0;
                                                 const isSubSubExpanded = expandedSubMenus.includes(sub.title);
                                                 
@@ -660,7 +661,7 @@ function SidebarContent() {
                                                                 className="mt-0 ml-3.5 pl-2.5 space-y-0.5"
                                                                 style={{ borderLeft: '1px solid rgba(0,114,187,0.1)' }}
                                                             >
-                                                                {sub.submenu!.filter(child => hasAccess(userRole, child.allowedRoles)).map(child => {
+                                                                {sub.submenu!.filter(child => hasAccess(userRole, child.allowedRoles, !!user, child.title, child.permissionId || sub.permissionId || item.permissionId, user?.permissions)).map(child => {
                                                                     const isChildItemActive = pathname === child.path;
                                                                     return (
                                                                         <Link
@@ -765,7 +766,7 @@ function SidebarContent() {
                     </div>
                 )}
 
-                {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN']) && (
+                {mounted && hasAccess(userRole, ['SUPER_ADMIN', 'ADMIN'], !!user, 'SyncStatus', undefined, user?.permissions) && (
                     <SyncStatus isCollapsed={isCollapsed} />
                 )}
 

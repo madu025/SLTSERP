@@ -3,13 +3,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { useRouter } from 'next/navigation';
 import {
     Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Filter } from 'lucide-react';
+import Link from 'next/link';
 import {
     Select,
     SelectContent,
@@ -72,6 +73,7 @@ interface Stats {
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
 export default function DashboardPage() {
+    const router = useRouter();
     const [user] = useState<{ id: string; name: string; role: string } | null>(() => {
         if (typeof window !== 'undefined') {
             const storedUser = localStorage.getItem('user');
@@ -84,9 +86,11 @@ export default function DashboardPage() {
     const [selectedRtom, setSelectedRtom] = useState('ALL');
 
     useEffect(() => {
-        // Use a microtask to avoid synchronous setState warning while still handling hydration
         Promise.resolve().then(() => setMounted(true));
-    }, []);
+        if (!user) {
+            router.push("/login");
+        }
+    }, [user, router]);
 
 
     const { data: stats, isLoading } = useQuery<Stats>({
@@ -107,19 +111,21 @@ export default function DashboardPage() {
     const isHigherManagement = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'AREA_MANAGER'].includes(user.role);
     const canFilterGlobally = !!user?.role && ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SA_MANAGER', 'OSP_MANAGER'].includes(user.role);
 
+    const rtomRegionMap = stats?.rtomRegionMap;
+    const userAccessibleRtoms = stats?.userAccessibleRtoms;
+
     // Compute available RTOMs based on selected region
     const availableRtoms = useMemo(() => {
-        if (!stats?.rtomRegionMap) return [];
-        const map = stats.rtomRegionMap;
-        let rtoms = Object.keys(map).sort();
+        if (!rtomRegionMap) return [];
+        let rtoms = Object.keys(rtomRegionMap).sort();
         if (selectedRegion !== 'ALL') {
-            rtoms = rtoms.filter(r => map[r] === selectedRegion);
+            rtoms = rtoms.filter(r => rtomRegionMap[r] === selectedRegion);
         }
-        if (!canFilterGlobally && stats.userAccessibleRtoms) {
-            rtoms = rtoms.filter(r => stats.userAccessibleRtoms!.includes(r));
+        if (!canFilterGlobally && userAccessibleRtoms) {
+            rtoms = rtoms.filter(r => userAccessibleRtoms.includes(r));
         }
         return rtoms;
-    }, [stats?.rtomRegionMap, selectedRegion, canFilterGlobally, stats?.userAccessibleRtoms]);
+    }, [rtomRegionMap, selectedRegion, canFilterGlobally, userAccessibleRtoms]);
 
     // Sort RTOM tables ascending
     const sortedRtoms = useMemo(() => {
@@ -148,6 +154,14 @@ export default function DashboardPage() {
         { name: 'PAT Rejected', value: stats?.pat?.rejected || 0 },
         { name: 'Pending', value: stats?.pat?.pending || 0 },
     ].filter(d => d.value > 0);
+
+    if (!mounted || !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex bg-background text-foreground">
@@ -209,7 +223,7 @@ export default function DashboardPage() {
                                     )}
                                 </div>
                                 {(stats?.pat?.rejected || 0) > 0 && (
-                                    <a
+                                    <Link
                                         href="/service-orders/pat"
                                         className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-sm font-bold animate-pulse hover:bg-rose-500/20 transition-colors"
                                     >
@@ -218,7 +232,7 @@ export default function DashboardPage() {
                                             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
                                         </span>
                                         {stats?.pat?.rejected} PAT REJECTIONS NEED ATTENTION
-                                    </a>
+                                    </Link>
                                 )}
                             </div>
                         </div>
@@ -473,7 +487,7 @@ export default function DashboardPage() {
                                             <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
                                             RTOM PAT Summary
                                         </h3>
-                                        <a href="/service-orders/pat" className="text-xs text-primary font-bold hover:underline">View All</a>
+                                        <Link href="/service-orders/pat" className="text-xs text-primary font-bold hover:underline">View All</Link>
                                     </div>
                                     <div className="overflow-x-auto">
                                         <table className="w-full">
