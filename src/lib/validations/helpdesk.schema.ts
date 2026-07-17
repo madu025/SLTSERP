@@ -89,7 +89,8 @@ export const CreateAssetSchema = z.object({
   newCustodianEmpNo: z.string().optional().nullable(),
   imei2: z.string().optional().nullable(),
   simNumber: z.string().optional().nullable(),
-  mdmEnrolled: z.boolean().default(false).optional().nullable()
+  mdmEnrolled: z.boolean().default(false).optional().nullable(),
+  physicallyInStores: z.boolean().default(false).optional().nullable()
 });
 
 export const UpdateAssetSchema = z.object({
@@ -115,7 +116,8 @@ export const UpdateAssetSchema = z.object({
   repairRemarks: z.string().optional().nullable(),
   imei2: z.string().optional().nullable(),
   simNumber: z.string().optional().nullable(),
-  mdmEnrolled: z.boolean().optional().nullable()
+  mdmEnrolled: z.boolean().optional().nullable(),
+  physicallyInStores: z.boolean().optional().nullable()
 });
 
 // KB Article Schemas

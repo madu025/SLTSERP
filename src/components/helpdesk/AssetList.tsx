@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search } from "lucide-react";
+import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateAssetSchema, UpdateAssetSchema, CreateAssetHandoverSchema } from "@/lib/validations/helpdesk.schema";
@@ -47,6 +47,7 @@ export interface ITAsset {
   imei2?: string | null;
   simNumber?: string | null;
   mdmEnrolled?: boolean | null;
+  physicallyInStores?: boolean | null;
 }
 
 export interface StaffSummary {
@@ -138,10 +139,12 @@ export default function AssetList({
       warrantyExpiry: "",
       purchaseCost: 0,
       newCustodianName: "",
-      newCustodianEmpNo: ""
+      newCustodianEmpNo: "",
+      physicallyInStores: false
     }
   });
   const { register, handleSubmit, setValue, reset, formState: { errors } } = createForm;
+  const createStatus = createForm.watch("status");
 
   // Edit form with UpdateAssetSchema
   const editForm = useForm({
@@ -248,7 +251,8 @@ export default function AssetList({
       repairRemarks: asset.repairRemarks || "",
       imei2: asset.imei2 || "",
       simNumber: asset.simNumber || "",
-      mdmEnrolled: asset.mdmEnrolled || false
+      mdmEnrolled: asset.mdmEnrolled || false,
+      physicallyInStores: asset.physicallyInStores || false
     });
   };
 
@@ -427,7 +431,7 @@ export default function AssetList({
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, physicallyInStores?: boolean | null) => {
     switch (status) {
       case "ACTIVE":
         return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-200 text-[10px]">ACTIVE</Badge>;
@@ -443,7 +447,16 @@ export default function AssetList({
         return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200 text-[10px]">TRANSFERRED</Badge>;
       case "DECOMMISSIONED":
       default:
-        return <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-200 text-[10px]">DECOMMISSIONED</Badge>;
+        return (
+          <div className="flex items-center gap-1.5">
+            <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-200 text-[10px]">DECOMMISSIONED</Badge>
+            {physicallyInStores && (
+              <span title="Physically in Stores" className="cursor-help">
+                <Store className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              </span>
+            )}
+          </div>
+        );
     }
   };
 
@@ -869,6 +882,21 @@ export default function AssetList({
                   </Select>
                 </div>
 
+                {createStatus === "DECOMMISSIONED" && (
+                  <div className="flex items-center gap-2 pt-1.5 pb-2">
+                    <input
+                      type="checkbox"
+                      id="physicallyInStoresCreate"
+                      checked={createForm.watch("physicallyInStores") || false}
+                      onChange={(e) => createForm.setValue("physicallyInStores", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary h-3.5 w-3.5"
+                    />
+                    <label htmlFor="physicallyInStoresCreate" className="text-[10px] font-semibold text-muted-foreground select-none cursor-pointer">
+                      Physically In Stores / Storage?
+                    </label>
+                  </div>
+                )}
+
                 </div>
                 <div className="flex justify-end gap-2 p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0">
                   <Button type="button" variant="outline" size="sm" onClick={() => setIsOpen(false)} className="h-8 text-xs">
@@ -970,7 +998,7 @@ export default function AssetList({
                     {asset.siteOffice?.name || "HQ"}
                     {asset.location ? ` - ${asset.location}` : ""}
                   </TableCell>
-                  <TableCell className="py-2.5">{getStatusBadge(asset.status)}</TableCell>
+                  <TableCell className="py-2.5">{getStatusBadge(asset.status, asset.physicallyInStores)}</TableCell>
                   {isStaff && (
                     <TableCell className="py-2.5">
                       <div className="flex items-center gap-1">
@@ -1200,6 +1228,21 @@ export default function AssetList({
                       placeholder="e.g. Broken display, motherboard issue"
                       className="h-8 text-xs bg-white dark:bg-slate-950 border-red-200 dark:border-red-900 focus-visible:ring-red-500"
                     />
+                  </div>
+                )}
+
+                {editStatus === "DECOMMISSIONED" && (
+                  <div className="flex items-center gap-2 pt-1.5 pb-2">
+                    <input
+                      type="checkbox"
+                      id="physicallyInStoresEdit"
+                      checked={editForm.watch("physicallyInStores") || false}
+                      onChange={(e) => editForm.setValue("physicallyInStores", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary h-3.5 w-3.5"
+                    />
+                    <label htmlFor="physicallyInStoresEdit" className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 select-none cursor-pointer">
+                      Physically In Stores / Storage?
+                    </label>
                   </div>
                 )}
               </div>

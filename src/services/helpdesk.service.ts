@@ -115,6 +115,7 @@ export class HelpdeskService {
       imei2?: string | null;
       simNumber?: string | null;
       mdmEnrolled?: boolean | null;
+      physicallyInStores?: boolean | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -176,7 +177,8 @@ export class HelpdeskService {
         purchaseCost: data.purchaseCost ?? undefined,
         imei2: data.imei2 || undefined,
         simNumber: data.simNumber || undefined,
-        mdmEnrolled: data.mdmEnrolled ?? undefined
+        mdmEnrolled: data.mdmEnrolled ?? undefined,
+        physicallyInStores: data.physicallyInStores ?? undefined
       }, tx);
 
       if (finalAssignedStaffId) {
@@ -229,6 +231,7 @@ export class HelpdeskService {
       imei2?: string | null;
       simNumber?: string | null;
       mdmEnrolled?: boolean | null;
+      physicallyInStores?: boolean | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -361,7 +364,8 @@ export class HelpdeskService {
         repairRemarks: data.status === 'UNDER_REPAIR' ? (data.repairRemarks === null ? null : (data.repairRemarks || undefined)) : null,
         imei2: data.imei2 === null ? null : (data.imei2 || undefined),
         simNumber: data.simNumber === null ? null : (data.simNumber || undefined),
-        mdmEnrolled: data.mdmEnrolled === null ? null : (data.mdmEnrolled ?? undefined)
+        mdmEnrolled: data.mdmEnrolled === null ? null : (data.mdmEnrolled ?? undefined),
+        physicallyInStores: data.physicallyInStores === null ? null : (data.physicallyInStores ?? undefined)
       } as unknown as Parameters<typeof HelpdeskRepository.updateAsset>[1], tx);
 
       // Create handover log for the current (new) asset to record exchange
