@@ -25,7 +25,9 @@ const publicPaths = [
     '/api/opmcs',
     '/presentation',
     '/api/invoices/import-bom/csv',
-    '/api/invoices/slt-registry'
+    '/api/invoices/slt-registry',
+    '/api/helpdesk/assets/search-by-serial',
+    '/api/public/site-offices'
 ];
 
 export async function middleware(request: NextRequest) {
@@ -41,7 +43,9 @@ export async function middleware(request: NextRequest) {
     requestHeaders.delete('x-user-role');
 
     // Check if the path is public
+    const isPublicAuditSubmit = pathname === '/api/helpdesk/assets/audits' && request.method === 'POST';
     if (
+        isPublicAuditSubmit ||
         publicPaths.some((path) => pathname.startsWith(path)) ||
         pathname.startsWith('/_next') ||
         pathname.startsWith('/static') ||

@@ -56,7 +56,7 @@ model User {
   createdTickets                Ticket[]                 @relation("CreatedTickets")
   assignedTickets               Ticket[]                 @relation("AssignedTickets")
   ticketUpdates                 TicketUpdate[]           @relation("UserTicketUpdates")
-  managedSiteOffices            SiteOffice[]             @relation("SiteOfficeAdmin")
+  managedSiteOffices            InventoryStore[]         @relation("SiteOfficeAdmin")
   siteOfficeRequests            SiteOfficeRequest[]      @relation("SiteOfficeRequests")
   handoversPerformed            AssetHandoverLog[]       @relation("HandoverPerformed")
   pushSubscriptions             PushSubscription[]

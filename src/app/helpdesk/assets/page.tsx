@@ -1,15 +1,14 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { ITAsset, Staff, SiteOffice } from "@prisma/client";
+import { ITAsset, Staff, InventoryStore as SiteOffice } from "@prisma/client";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import AssetList from "@/components/helpdesk/AssetList";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Laptop, Search, RefreshCw } from "lucide-react";
+import { Laptop, RefreshCw, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 export default function HelpdeskAssetManagementPage() {
   const [mounted, setMounted] = useState(false);
@@ -23,11 +22,32 @@ export default function HelpdeskAssetManagementPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalAssets, setTotalAssets] = useState(0);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Filters
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+
+  const [stats, setStats] = useState({
+    total: 0,
+    ACTIVE: 0,
+    SPARE: 0,
+    UNDER_REPAIR: 0,
+    FAULTY: 0,
+    DECOMMISSIONED: 0,
+    DISPOSED: 0,
+    TRANSFERRED: 0
+  });
+
+  // Debounce search input changes to prevent API spamming & UI layout shifting
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     setMounted(true);
@@ -37,11 +57,30 @@ export default function HelpdeskAssetManagementPage() {
     }
   }, []);
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/helpdesk/assets/stats?_t=${Date.now()}`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      const json = await res.json();
+      if (json.success) {
+        setStats(json.data);
+      }
+    } catch (err) {
+      console.error("Failed to load asset stats:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      fetchStats();
+    }
+  }, [mounted, fetchStats]);
+
   const fetchAssets = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search) params.append("search", search);
+      if (debouncedSearch) params.append("search", debouncedSearch);
       if (typeFilter !== "ALL") params.append("deviceType", typeFilter);
       if (statusFilter !== "ALL") params.append("status", statusFilter);
       params.append("page", page.toString());
@@ -54,14 +93,17 @@ export default function HelpdeskAssetManagementPage() {
         setAssets(json.data.assets || []);
         setTotalPages(Math.ceil((json.data.total || 0) / 25) || 1);
         setTotalAssets(json.data.total || 0);
+        // Refresh metrics cards dynamically
+        fetchStats();
       }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load IT asset list");
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
-  }, [search, typeFilter, statusFilter, page]);
+  }, [debouncedSearch, typeFilter, statusFilter, page, fetchStats]);
 
   const fetchStaff = useCallback(async () => {
     if (!user) return;
@@ -125,9 +167,6 @@ export default function HelpdeskAssetManagementPage() {
     }
   }, [mounted, user, fetchStaff, fetchSiteOffices]);
 
-  const handleSearchKeyPress = (e: React.FormEvent) => {
-    e.preventDefault();
-  };
 
   const handleAddAsset = async (data: Record<string, unknown>): Promise<boolean> => {
     try {
@@ -201,6 +240,7 @@ export default function HelpdeskAssetManagementPage() {
       toast.success("Asset deleted successfully.");
       // Optimistic update
       setAssets((prev) => prev.filter((a) => a.id !== id));
+      fetchStats();
     } catch (err: unknown) {
       const error = err as Error;
       toast.error(error.message || "Failed to delete asset");
@@ -229,66 +269,70 @@ export default function HelpdeskAssetManagementPage() {
                 <p className="text-[10px] text-muted-foreground">Register company laptops, desktops, and mobile devices.</p>
               </div>
             </div>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs bg-card" onClick={fetchAssets}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh list
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link href="/helpdesk/assets/audits">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs bg-card">
+                  <ClipboardList className="h-3.5 w-3.5 text-slate-500" />
+                  Review Audits
+                </Button>
+              </Link>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs bg-card" onClick={fetchAssets}>
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh list
+              </Button>
+            </div>
           </div>
 
-          {/* Filtering Panel */}
-          <form onSubmit={handleSearchKeyPress} className="bg-card/75 border border-border/50 rounded-xl p-4 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-3 items-end text-xs">
-            <div className="space-y-1 sm:col-span-2">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase">Search devices</label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search Asset No, S/N, brand, model, department, location..."
-                  value={search}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="pl-8.5 text-xs h-8.5 bg-card border border-border/60"
-                />
+          {/* Stats Cards Section */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Card 1: Total Assets */}
+            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total IT Assets</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-2xl font-black text-foreground">{stats.total}</span>
+                <span className="text-[10px] text-muted-foreground">registered</span>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase">Device Category</label>
-              <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
-                <SelectTrigger className="h-8.5 text-xs bg-card border-border/60">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent className="bg-card">
-                  <SelectItem value="ALL">All Categories</SelectItem>
-                  <SelectItem value="LAPTOP">Laptops</SelectItem>
-                  <SelectItem value="DESKTOP">Desktops</SelectItem>
-                  <SelectItem value="MOBILE">Mobile Phones</SelectItem>
-                  <SelectItem value="PRINTER">Printers</SelectItem>
-                  <SelectItem value="NETWORK">Network Devices</SelectItem>
-                  <SelectItem value="OTHER">Other Equipment</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Card 2: Active */}
+            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-emerald-500">
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Active Devices</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.ACTIVE}</span>
+                <span className="text-[10px] text-muted-foreground">in-use</span>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase">Operational Status</label>
-              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="h-8.5 text-xs bg-card border-border/60">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent className="bg-card">
-                  <SelectItem value="ALL">All Statuses</SelectItem>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="UNDER_REPAIR">Under Repair</SelectItem>
-                  <SelectItem value="SPARE">Spare / In Stock</SelectItem>
-                  <SelectItem value="FAULTY">Faulty</SelectItem>
-                  <SelectItem value="DISPOSED">Disposed</SelectItem>
-                  <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Card 3: Spare / Stores */}
+            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-blue-500">
+              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Spare in Stores</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{stats.SPARE}</span>
+                <span className="text-[10px] text-muted-foreground">ready to issue</span>
+              </div>
             </div>
-          </form>
+
+            {/* Card 4: Under Repair / Faulty */}
+            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-amber-500">
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Repair & Faulty</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{stats.UNDER_REPAIR + stats.FAULTY}</span>
+                <span className="text-[10px] text-muted-foreground">inactive</span>
+              </div>
+            </div>
+
+            {/* Card 5: Disposed & Decommissioned */}
+            <div className="bg-card border border-border/60 p-4 rounded-xl shadow-sm flex flex-col justify-between border-l-4 border-l-slate-400">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Disposed / Retired</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-2xl font-black text-slate-500">{stats.DISPOSED + stats.DECOMMISSIONED + stats.TRANSFERRED}</span>
+                <span className="text-[10px] text-muted-foreground">decommissioned</span>
+              </div>
+            </div>
+          </div>
 
           {/* Asset List Render */}
-          {loading ? (
+          {initialLoading ? (
             <div className="space-y-2.5">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="h-11 bg-card/60 rounded-lg animate-pulse border border-border/30" />
@@ -296,15 +340,28 @@ export default function HelpdeskAssetManagementPage() {
             </div>
           ) : (
             <>
-              <AssetList
-                assets={assets}
-                onAddAsset={handleAddAsset}
-                onEditAsset={handleEditAsset}
-                onDeleteAsset={handleDeleteAsset}
-                usersList={usersList}
-                siteOfficesList={siteOfficesList}
-                isStaff={isITStaff}
-              />
+              <div className="relative">
+                {loading && (
+                  <div className="absolute inset-0 bg-background/25 backdrop-blur-[0.5px] z-10 flex items-center justify-center rounded-lg">
+                    <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+                  </div>
+                )}
+                <AssetList
+                  assets={assets}
+                  onAddAsset={handleAddAsset}
+                  onEditAsset={handleEditAsset}
+                  onDeleteAsset={handleDeleteAsset}
+                  usersList={usersList}
+                  siteOfficesList={siteOfficesList}
+                  isStaff={isITStaff}
+                  search={search}
+                  onSearchChange={handleSearchChange}
+                  typeFilter={typeFilter}
+                  onTypeFilterChange={handleTypeFilterChange}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={handleStatusFilterChange}
+                />
+              </div>
               
               {/* Pagination Controls */}
               {totalPages > 1 && (

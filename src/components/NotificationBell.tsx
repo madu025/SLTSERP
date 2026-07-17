@@ -116,12 +116,12 @@ export default function NotificationBell() {
 
                     window.dispatchEvent(new CustomEvent('slts-notification', { detail: newNotification }));
                 } catch (error) {
-                    console.error("Failed to parse SSE notification:", error);
+                    console.warn("Failed to parse SSE notification:", error);
                 }
             };
 
             eventSource.onerror = () => {
-                console.error("SSE Connection Error, attempting to reconnect...");
+                console.warn("SSE Connection lost, attempting to reconnect...");
                 if (eventSource) eventSource.close();
                 // Attempt to reconnect after 5 seconds
                 reconnectTimeout = setTimeout(connect, 5000);

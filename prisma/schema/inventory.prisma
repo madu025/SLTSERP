@@ -8,7 +8,10 @@ model InventoryStore {
   name            String
   type            String                           @default("SUB")
   location        String?
+  gpsLocation     String?
+  coveringRt      String?
   managerId       String?
+  officeAdminId   String?
   createdAt       DateTime                         @default(now())
   updatedAt       DateTime                         @updatedAt
   balanceSheets   ContractorMaterialBalanceSheet[] @relation("BalanceSheets")
@@ -19,6 +22,7 @@ model InventoryStore {
   batchStocks     InventoryBatchStock[]
   stocks          InventoryStock[]
   manager         User?                            @relation(fields: [managerId], references: [id])
+  officeAdmin     User?                            @relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])
   transactions    InventoryTransaction[]
   mrns            MRN[]
   opmcs           OPMC[]
@@ -29,6 +33,11 @@ model InventoryStore {
   teamAssignments TeamStoreAssignment[]
   assignedUsers   User[]                           @relation("UserAssignedStore")
   serials         InventoryItemSerial[]
+  itAssets        ITAsset[]
+  agreements      SiteOfficeAgreement[]
+  requests        SiteOfficeRequest[]
+  vehicles        SiteOfficeVehicle[]
+  tenders         SiteOfficeTender[]
 
   @@index([type])
   @@index([managerId])

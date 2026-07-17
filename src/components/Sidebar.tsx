@@ -227,7 +227,7 @@ function SidebarContent() {
                         window.dispatchEvent(new CustomEvent('slts-notification', { detail: data }));
                     }
                 } catch (e) {
-                    console.error("Failed to parse SSE notification:", e);
+                    console.warn("Failed to parse SSE notification:", e);
                 }
             };
 

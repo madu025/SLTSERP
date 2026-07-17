@@ -12,7 +12,8 @@
     "test:e2e": "npx playwright test",
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:debug": "npx playwright test --debug",
-    "test:types": "tsc --noEmit"
+    "test:types": "tsc --noEmit",
+    "codemap:update": "tsx scripts/generate-codemap.ts"
   },
   "dependencies": {
     "@datastructures-js/priority-queue": "^6.3.5",

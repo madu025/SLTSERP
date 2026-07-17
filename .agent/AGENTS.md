@@ -112,3 +112,21 @@ To prevent high outbound data transfer costs and performance lag between Next.js
 * Server-side pagination is mandatory for all listing data services returning records potentially exceeding 100 entries. Implement cursor-based pagination (for infinite scrolls) or offset pagination (for indexed tables) early in development.
 
 
+## 🗺️ Codebase Map & Token Optimization Standards
+
+To keep context windows clean and save tokens, agents must use the codebase structural map file:
+
+### 1. Consult the Map First
+* Before performing broad workspace search queries or reading entire target directories, search the map file `.agent/CODEMAP.md` to locate classes, service methods, API routes, or database models.
+* **CRITICAL TOKEN WARNING**: Never use `view_file` to read the entire `.agent/CODEMAP.md` file, as it is very large and will exhaust the context limit.
+* Instead, always use `grep_search` to find the line numbers of the desired class/method/model in `.agent/CODEMAP.md`, then load only a small range of lines around it (e.g. using `StartLine` and `EndLine` in `view_file`).
+
+### 2. Keep the Map Synced
+* Whenever you modify files that alter method signatures, class exports, API routes, or Prisma schemas, you **MUST** run the updater command:
+  ```bash
+  npm run codemap:update
+  ```
+* Ensure this command runs successfully and commits any updates to `.agent/CODEMAP.md` along with your code changes.
+
+
+

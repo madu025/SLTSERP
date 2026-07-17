@@ -32,7 +32,6 @@ import {
     Landmark,
     ShieldAlert,
     LifeBuoy,
-    BookOpen,
     Laptop
 } from 'lucide-react';
 
@@ -528,6 +527,12 @@ export const SIDEBAR_MENU: MenuItem[] = [
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
             },
             {
+                title: 'Device Audits',
+                path: '/helpdesk/assets/audits',
+                icon: ClipboardCheck,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'ENGINEER']
+            },
+            {
                 title: 'Software Licenses',
                 path: '/helpdesk/software-licenses',
                 icon: FileText,
@@ -542,59 +547,33 @@ export const SIDEBAR_MENU: MenuItem[] = [
         ]
     },
     {
-        title: 'Office Administration',
-        path: '/helpdesk/site-offices',
-        icon: Building,
+        title: 'Vehicle & Fleet Management',
+        path: '/vehicles',
+        icon: Car,
         allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'],
         submenu: [
             {
-                title: 'Site Offices & Rental',
-                path: '/helpdesk/site-offices',
-                icon: Building2,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
-            },
-            {
-                title: 'Vehicle Management',
-                path: '#',
+                title: 'All Vehicles',
+                path: '/vehicles',
                 icon: Car,
-                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'],
-                submenu: [
-                    {
-                        title: 'All Vehicles',
-                        path: '/vehicles',
-                        icon: Car,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
-                    },
-                    {
-                        title: 'Drivers Directory',
-                        path: '/drivers',
-                        icon: Users,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
-                    },
-                    {
-                        title: 'Fleet Payments',
-                        path: '/payments',
-                        icon: Banknote,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
-                    },
-                    {
-                        title: 'Fleet Reports',
-                        path: '/reports/fleet',
-                        icon: BarChart3,
-                        allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
-                    }
-                ]
-            },
-            {
-                title: 'Goods Requisitions',
-                path: '/helpdesk/site-offices?tab=requests',
-                icon: ShoppingCart,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             },
             {
-                title: 'Procurement Tenders',
-                path: '/helpdesk/site-offices?tab=tenders',
-                icon: FileSignature,
+                title: 'Drivers Directory',
+                path: '/drivers',
+                icon: Users,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
+            },
+            {
+                title: 'Fleet Payments',
+                path: '/payments',
+                icon: Banknote,
+                allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
+            },
+            {
+                title: 'Fleet Reports',
+                path: '/reports/fleet',
+                icon: BarChart3,
                 allowedRoles: [...ROLE_GROUPS.ADMINS, 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT']
             }
         ]

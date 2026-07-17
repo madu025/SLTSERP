@@ -19,6 +19,7 @@ enum ITAssetStatus {
   SPARE
   FAULTY
   DISPOSED
+  TRANSFERRED
 }
 
 enum TicketPriority {
@@ -63,7 +64,7 @@ model ITAsset {
   assignedStaff   Staff?        @relation("AssignedITAssets", fields: [assignedStaffId], references: [id], onDelete: SetNull)
   department      String?
   siteOfficeId    String?
-  siteOffice      SiteOffice?   @relation(fields: [siteOfficeId], references: [id], onDelete: SetNull)
+  siteOffice      InventoryStore?   @relation(fields: [siteOfficeId], references: [id], onDelete: SetNull)
   location        String?       // Optional floor/room metadata
   status          ITAssetStatus @default(ACTIVE)
   purchaseDate    DateTime?
@@ -153,31 +154,10 @@ model KnowledgeBaseArticle {
   @@index([category])
 }
 
-model SiteOffice {
-  id             String                @id @default(cuid())
-  name           String                @unique // e.g., "Gampaha Site Office"
-  address        String
-  officeAdminId  String?
-  officeAdmin    User?                 @relation("SiteOfficeAdmin", fields: [officeAdminId], references: [id])
-  contactNo      String?
-  rentalCost     Float                 @default(0.0) // Monthly rental cost
-  landlordName   String?
-  landlordPhone  String?
-  assets         ITAsset[]
-  agreements     SiteOfficeAgreement[]
-  requests       SiteOfficeRequest[]
-  vehicles       SiteOfficeVehicle[]
-  tenders        SiteOfficeTender[]
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-
-  @@index([officeAdminId])
-}
-
 model SiteOfficeAgreement {
   id             String      @id @default(cuid())
   siteOfficeId   String
-  siteOffice     SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  siteOffice     InventoryStore  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
   agreementType  String      // "RENTAL" | "LEASE" | "PURCHASE"
   contractNumber String
   startDate      DateTime
@@ -197,7 +177,7 @@ model SiteOfficeAgreement {
 model SiteOfficeRequest {
   id             String      @id @default(cuid())
   siteOfficeId   String
-  siteOffice     SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  siteOffice     InventoryStore  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
   requestedById  String
   requestedBy    User        @relation("SiteOfficeRequests", fields: [requestedById], references: [id])
   itemType       String      // "FURNITURE", "STATIONERY", "EQUIPMENT", "MAINTENANCE", "OTHER"
@@ -216,7 +196,7 @@ model SiteOfficeRequest {
 model SiteOfficeVehicle {
   id             String      @id @default(cuid())
   siteOfficeId   String
-  siteOffice     SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  siteOffice     InventoryStore  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
   vehicleRegNo   String
   makeModel      String
   assignedDriver String?
@@ -233,7 +213,7 @@ model SiteOfficeVehicle {
 model SiteOfficeTender {
   id              String      @id @default(cuid())
   siteOfficeId    String
-  siteOffice      SiteOffice  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
+  siteOffice      InventoryStore  @relation(fields: [siteOfficeId], references: [id], onDelete: Cascade)
   tenderNo        String
   title           String
   description     String
@@ -325,4 +305,29 @@ model ITAssetUnit {
   @@index([assetId])
   @@index([assignedStaffId])
   @@index([status])
+}
+
+model ITAssetAudit {
+  id               String        @id @default(cuid())
+  serialNumber     String        
+  assetNumber      String?       
+  deviceType       ITDeviceType
+  brand            String
+  model            String
+  employeeNo       String        // Custodian Employee No / EPF
+  custodianName    String        // Custodian Name
+  department       String?
+  siteOfficeId     String?
+  location         String?
+  status           ITAssetStatus @default(ACTIVE)
+  remarks          String?       
+  isConfirmed      Boolean       @default(false) // User confirmed existing info matches
+  isMatched        Boolean       @default(false) // Matches existing record in DB perfectly
+  isSynced         Boolean       @default(false) // Admin approved and synced
+  isRejected       Boolean       @default(false) // Admin rejected/ignored this report
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([employeeNo])
+  @@index([serialNumber])
 }

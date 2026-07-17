@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Enum schemas matching the Prisma models
 export const ITDeviceTypeSchema = z.enum(["LAPTOP", "DESKTOP", "MOBILE", "PRINTER", "NETWORK", "OTHER"]);
-export const ITAssetStatusSchema = z.enum(["ACTIVE", "UNDER_REPAIR", "DECOMMISSIONED", "SPARE", "FAULTY", "DISPOSED"]);
+export const ITAssetStatusSchema = z.enum(["ACTIVE", "UNDER_REPAIR", "DECOMMISSIONED", "SPARE", "FAULTY", "DISPOSED", "TRANSFERRED"]);
 export const TicketPrioritySchema = z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 export const TicketStatusSchema = z.enum([
   "OPEN",

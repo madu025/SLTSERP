@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers } from "lucide-react";
+import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateAssetSchema, UpdateAssetSchema, CreateAssetHandoverSchema } from "@/lib/validations/helpdesk.schema";
@@ -34,7 +34,7 @@ export interface ITAsset {
     name: string;
   } | null;
   location?: string | null;
-  status: "ACTIVE" | "UNDER_REPAIR" | "DECOMMISSIONED" | "SPARE" | "FAULTY" | "DISPOSED";
+  status: "ACTIVE" | "UNDER_REPAIR" | "DECOMMISSIONED" | "SPARE" | "FAULTY" | "DISPOSED" | "TRANSFERRED";
   purchaseDate?: string | Date | null;
   warrantyExpiry?: string | Date | null;
   purchaseCost?: number | null;
@@ -60,6 +60,12 @@ interface AssetListProps {
   usersList: StaffSummary[];
   siteOfficesList?: { id: string; name: string }[];
   isStaff?: boolean;
+  search: string;
+  onSearchChange: (val: string) => void;
+  typeFilter: string;
+  onTypeFilterChange: (val: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (val: string) => void;
 }
 
 export default function AssetList({
@@ -69,7 +75,13 @@ export default function AssetList({
   onDeleteAsset,
   usersList,
   siteOfficesList = [],
-  isStaff = false
+  isStaff = false,
+  search,
+  onSearchChange,
+  typeFilter,
+  onTypeFilterChange,
+  statusFilter,
+  onStatusFilterChange
 }: AssetListProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -418,6 +430,8 @@ export default function AssetList({
         return <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-200 border-rose-200 text-[10px]">FAULTY</Badge>;
       case "DISPOSED":
         return <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200 text-[10px]">DISPOSED</Badge>;
+      case "TRANSFERRED":
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200 text-[10px]">TRANSFERRED</Badge>;
       case "DECOMMISSIONED":
       default:
         return <Badge className="bg-slate-100 text-slate-800 hover:bg-slate-200 border-slate-200 text-[10px]">DECOMMISSIONED</Badge>;
@@ -471,18 +485,70 @@ export default function AssetList({
   return (
     <div className="space-y-4">
       {isStaff && (
-        <div className="flex justify-between items-center bg-card/60 backdrop-blur-md p-4 rounded-lg border border-border/50">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/60 backdrop-blur-md p-4 rounded-lg border border-border/50">
           <div>
             <h2 className="text-sm font-bold text-foreground">Registered Company IT Assets</h2>
             <p className="text-xs text-muted-foreground">List of laptops, printers, and network devices.</p>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-8 gap-1.5 transition-all hover:scale-103 bg-primary hover:bg-primary/95 text-xs text-white">
-                <Plus className="h-4 w-4" />
-                Register Asset
-              </Button>
-            </DialogTrigger>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-3 text-xs w-full md:w-auto md:justify-end flex-grow max-w-4xl">
+            {/* Search */}
+            <div className="relative flex-grow max-w-md w-full">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search Asset No, S/N, brand..."
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-8 text-xs h-8.5 bg-card border border-border/60 w-full"
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto shrink-0">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Category</span>
+              <Select value={typeFilter} onValueChange={onTypeFilterChange}>
+                <SelectTrigger className="h-8.5 text-xs bg-card border-border/60 w-full sm:w-32">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent className="bg-card">
+                  <SelectItem value="ALL">All Categories</SelectItem>
+                  <SelectItem value="LAPTOP">Laptops</SelectItem>
+                  <SelectItem value="DESKTOP">Desktops</SelectItem>
+                  <SelectItem value="MOBILE">Mobile Phones</SelectItem>
+                  <SelectItem value="PRINTER">Printers</SelectItem>
+                  <SelectItem value="NETWORK">Network Devices</SelectItem>
+                  <SelectItem value="OTHER">Other Equipment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto shrink-0">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Status</span>
+              <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+                <SelectTrigger className="h-8.5 text-xs bg-card border-border/60 w-full sm:w-44">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent className="bg-card">
+                  <SelectItem value="ALL">All Statuses</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="UNDER_REPAIR">Under Repair</SelectItem>
+                  <SelectItem value="SPARE">Spare / In Stock</SelectItem>
+                  <SelectItem value="FAULTY">Faulty</SelectItem>
+                  <SelectItem value="DISPOSED">Disposed</SelectItem>
+                  <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
+                  <SelectItem value="TRANSFERRED">Transferred to Head Office</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="h-8.5 gap-1.5 transition-all hover:scale-103 bg-primary hover:bg-primary/95 text-xs text-white shrink-0 w-full sm:w-auto">
+                  <Plus className="h-4 w-4" />
+                  Register Asset
+                </Button>
+              </DialogTrigger>
             <DialogContent 
               showCloseButton={false}
               className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
@@ -751,6 +817,7 @@ export default function AssetList({
                       <SelectItem value="FAULTY">Faulty (Needs Inspection)</SelectItem>
                       <SelectItem value="DISPOSED">Disposed / Scrapped</SelectItem>
                       <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
+                      <SelectItem value="TRANSFERRED">Transferred to Head Office</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -767,6 +834,7 @@ export default function AssetList({
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
       )}
 
@@ -1025,6 +1093,7 @@ export default function AssetList({
                       <SelectItem value="FAULTY">Faulty</SelectItem>
                       <SelectItem value="DISPOSED">Disposed</SelectItem>
                       <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
+                      <SelectItem value="TRANSFERRED">Transferred to Head Office</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -14,6 +14,7 @@ When writing or modifying code in this workspace, all agents must adhere to the 
 3. **Strict Database Schema Relations**: Do not use "soft relationships" (saving mismatched keys/IDs without DB constraints). Ensure Prisma schemas define exact relational keys, mapping types correctly (e.g. `projectInvoiceId` referencing `ProjectInvoice`).
 4. **Strategic Performance Indexing**: Add `@@index` annotations to any lookup or sorting fields in Prisma models that will be queried in loops or tables.
 5. **Server-Side Pagination & Caching Checks**: Implement offset or cursor pagination at the database level for list pages. Prevent static caching issues on dynamic Next.js API routes by exporting `dynamic = 'force-dynamic'`.
+6. **Codebase Structural Map Integration**: Always consult the codebase map file `.agent/CODEMAP.md` to locate services, functions, database models, and API routes before performing broad searches or loading entire files. To conserve tokens, do not read the entire map file directly; instead, use `grep_search` to pinpoint the matching line numbers and load only the required slice. Run `npm run codemap:update` after making any structural changes to keep the map in sync.
 
 
 ## Project Overview

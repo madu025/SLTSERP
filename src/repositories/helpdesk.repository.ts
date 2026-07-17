@@ -553,13 +553,13 @@ export class HelpdeskRepository {
 
   static async findSiteOfficeById(id: string, tx?: any) {
     const db = tx || prisma;
-    return db.siteOffice.findUnique({
+    const store = await db.inventoryStore.findUnique({
       where: { id },
       include: {
         officeAdmin: {
           select: { id: true, name: true, email: true, username: true }
         },
-        assets: {
+        itAssets: {
           select: { id: true, assetNumber: true, brand: true, model: true }
         },
         agreements: {
@@ -581,13 +581,40 @@ export class HelpdeskRepository {
         }
       }
     });
+
+    if (!store) return null;
+
+    return {
+      id: store.id,
+      name: store.name,
+      address: store.location,
+      officeAdminId: store.officeAdminId,
+      officeAdmin: store.officeAdmin,
+      contactNo: null,
+      rentalCost: 0,
+      landlordName: null,
+      landlordPhone: null,
+      assets: store.itAssets,
+      agreements: store.agreements,
+      requests: store.requests,
+      vehicles: store.vehicles,
+      tenders: store.tenders,
+      createdAt: store.createdAt,
+      updatedAt: store.updatedAt
+    };
   }
 
   static async findSiteOfficeByName(name: string, tx?: any) {
     const db = tx || prisma;
-    return db.siteOffice.findUnique({
-      where: { name }
+    const store = await db.inventoryStore.findFirst({
+      where: {
+        name: {
+          equals: name,
+          mode: 'insensitive'
+        }
+      }
     });
+    return store ? { id: store.id, name: store.name } : null;
   }
 
   static async findAllSiteOffices(
@@ -601,14 +628,13 @@ export class HelpdeskRepository {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-        { landlordName: { contains: search, mode: 'insensitive' } }
+        { location: { contains: search, mode: 'insensitive' } }
       ];
     }
 
-    const [total, siteOffices] = await Promise.all([
-      db.siteOffice.count({ where }),
-      db.siteOffice.findMany({
+    const [total, stores] = await Promise.all([
+      db.inventoryStore.count({ where }),
+      db.inventoryStore.findMany({
         where,
         skip,
         take: limit,
@@ -618,43 +644,99 @@ export class HelpdeskRepository {
             select: { id: true, name: true, email: true, username: true }
           },
           _count: {
-            select: { assets: true }
+            select: { itAssets: true }
           }
         }
       })
     ]);
+
+    const siteOffices = stores.map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      address: s.location,
+      officeAdminId: s.officeAdminId,
+      officeAdmin: s.officeAdmin,
+      contactNo: null,
+      rentalCost: 0,
+      landlordName: null,
+      landlordPhone: null,
+      assets: s.itAssets,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+      _count: {
+        assets: s._count.itAssets
+      }
+    }));
 
     return { total, siteOffices };
   }
 
   static async createSiteOffice(data: any, tx?: any) {
     const db = tx || prisma;
-    return db.siteOffice.create({
-      data,
+    const { address, name, officeAdminId } = data;
+    const store = await db.inventoryStore.create({
+      data: {
+        name,
+        location: address,
+        officeAdminId
+      },
       include: {
         officeAdmin: {
           select: { id: true, name: true, email: true }
         }
       }
     });
+
+    return {
+      id: store.id,
+      name: store.name,
+      address: store.location,
+      officeAdminId: store.officeAdminId,
+      officeAdmin: store.officeAdmin,
+      contactNo: null,
+      rentalCost: 0,
+      landlordName: null,
+      landlordPhone: null,
+      createdAt: store.createdAt,
+      updatedAt: store.updatedAt
+    };
   }
 
   static async updateSiteOffice(id: string, data: any, tx?: any) {
     const db = tx || prisma;
-    return db.siteOffice.update({
+    const { address, name, officeAdminId } = data;
+    const store = await db.inventoryStore.update({
       where: { id },
-      data,
+      data: {
+        name,
+        location: address,
+        officeAdminId
+      },
       include: {
         officeAdmin: {
           select: { id: true, name: true, email: true }
         }
       }
     });
+
+    return {
+      id: store.id,
+      name: store.name,
+      address: store.location,
+      officeAdminId: store.officeAdminId,
+      officeAdmin: store.officeAdmin,
+      contactNo: null,
+      rentalCost: 0,
+      landlordName: null,
+      landlordPhone: null,
+      createdAt: store.createdAt,
+      updatedAt: store.updatedAt
+    };
   }
 
   static async deleteSiteOffice(id: string, tx?: any) {
     const db = tx || prisma;
-    return db.siteOffice.delete({
+    return db.inventoryStore.delete({
       where: { id }
     });
   }
