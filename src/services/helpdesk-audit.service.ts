@@ -136,7 +136,10 @@ export class HelpdeskAuditService {
             id: asset.assignedStaff.id,
             employeeId: asset.assignedStaff.employeeId,
             name: asset.assignedStaff.name
-          } : null
+          } : null,
+          imei2: asset.imei2,
+          simNumber: asset.simNumber,
+          mdmEnrolled: asset.mdmEnrolled
         } : null
       };
     });
@@ -158,7 +161,10 @@ export class HelpdeskAuditService {
     siteOfficeId?: string | null;
     location?: string | null;
     status?: ITAssetStatus;
-  }) {
+    imei2?: string | null;
+    simNumber?: string | null;
+    mdmEnrolled?: boolean | null;
+  }, adminUserId?: string | null) {
     const audit = await prisma.iTAssetAudit.findUnique({
       where: { id: auditId }
     });
@@ -180,6 +186,9 @@ export class HelpdeskAuditService {
     const siteOfficeId = updatedData?.siteOfficeId !== undefined ? (updatedData.siteOfficeId?.trim() || null) : audit.siteOfficeId;
     const location = updatedData?.location !== undefined ? (updatedData.location?.trim() || null) : audit.location;
     const status = updatedData?.status || audit.status;
+    const imei2 = updatedData?.imei2 !== undefined ? (updatedData.imei2?.trim() || null) : null;
+    const simNumber = updatedData?.simNumber !== undefined ? (updatedData.simNumber?.trim() || null) : null;
+    const mdmEnrolled = updatedData?.mdmEnrolled !== undefined ? !!updatedData.mdmEnrolled : false;
 
     return prisma.$transaction(async (tx) => {
       // 1. Find or create staff member
@@ -245,9 +254,11 @@ export class HelpdeskAuditService {
         }
       });
 
+      let targetAssetId = "";
+
       if (existingAsset) {
         // Update existing asset details and custodian
-        await tx.iTAsset.update({
+        const updated = await tx.iTAsset.update({
           where: { id: existingAsset.id },
           data: {
             assetNumber: assetNumber || existingAsset.assetNumber,
@@ -258,7 +269,23 @@ export class HelpdeskAuditService {
             department,
             siteOfficeId,
             location,
-            assignedStaffId: staff.id
+            assignedStaffId: staff.id,
+            imei2,
+            simNumber,
+            mdmEnrolled
+          }
+        });
+        targetAssetId = updated.id;
+
+        // Log the handover update inside logs
+        await tx.assetHandoverLog.create({
+          data: {
+            assetId: targetAssetId,
+            transactionType: 'ISSUED_TO_USER',
+            performedById: adminUserId || 'SYSTEM',
+            targetStaffId: staff.id,
+            condition: 'Good',
+            remarks: `Audit Reconciled & Synced (Custodian verified/updated)`
           }
         });
       } else {
@@ -273,7 +300,7 @@ export class HelpdeskAuditService {
         }
 
         // Create new asset
-        await tx.iTAsset.create({
+        const created = await tx.iTAsset.create({
           data: {
             assetNumber: targetAssetNo,
             serialNumber: audit.serialNumber,
@@ -284,7 +311,23 @@ export class HelpdeskAuditService {
             department,
             siteOfficeId,
             location,
-            assignedStaffId: staff.id
+            assignedStaffId: staff.id,
+            imei2,
+            simNumber,
+            mdmEnrolled
+          }
+        });
+        targetAssetId = created.id;
+
+        // Create handover log
+        await tx.assetHandoverLog.create({
+          data: {
+            assetId: targetAssetId,
+            transactionType: 'ISSUED_TO_USER',
+            performedById: adminUserId || 'SYSTEM',
+            targetStaffId: staff.id,
+            condition: 'Good',
+            remarks: `Audit Reconciled & Synced (New Asset registration)`
           }
         });
       }

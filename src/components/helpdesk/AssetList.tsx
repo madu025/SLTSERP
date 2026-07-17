@@ -43,6 +43,10 @@ export interface ITAsset {
   _count?: {
     units: number;
   };
+  isAudited?: boolean;
+  imei2?: string | null;
+  simNumber?: string | null;
+  mdmEnrolled?: boolean | null;
 }
 
 export interface StaffSummary {
@@ -66,6 +70,7 @@ interface AssetListProps {
   onTypeFilterChange: (val: string) => void;
   statusFilter: string;
   onStatusFilterChange: (val: string) => void;
+  onRefresh?: () => void;
 }
 
 export default function AssetList({
@@ -81,7 +86,8 @@ export default function AssetList({
   typeFilter,
   onTypeFilterChange,
   statusFilter,
-  onStatusFilterChange
+  onStatusFilterChange,
+  onRefresh
 }: AssetListProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -192,10 +198,10 @@ export default function AssetList({
       handoverForm.reset();
       fetchHandoverLogs(handoverAsset.id);
       
-      // We rely on the parent component reloading to fetch new assignedUser from API
-      // Since it's a structural change, we can alert the parent or let the user refresh.
-      // But we will manually trigger a page reload for simplicity since we don't have a direct `fetchAssets` callback exposed inside AssetList except from parent `assets` prop changing, wait, the parent `assets/page.tsx` listens to `typeFilter` but doesn't pass a `onUpdate` prop.
-      toast.success("Handover logged! Please refresh the page to see the updated custodian in the main list.");
+      toast.success("Handover transaction logged successfully!");
+      if (onRefresh) {
+        onRefresh();
+      }
       
     } catch {
       toast.error("Failed to log asset transaction.");
@@ -239,7 +245,10 @@ export default function AssetList({
       isExchange: false,
       oldLaptopSerial: "",
       oldLaptopStatus: "DECOMMISSIONED",
-      repairRemarks: asset.repairRemarks || ""
+      repairRemarks: asset.repairRemarks || "",
+      imei2: asset.imei2 || "",
+      simNumber: asset.simNumber || "",
+      mdmEnrolled: asset.mdmEnrolled || false
     });
   };
 
@@ -625,6 +634,44 @@ export default function AssetList({
                   </div>
                 </div>
 
+                {createForm.watch("deviceType") === "MOBILE" && (
+                  <div className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
+                    <div className="flex justify-between items-center pb-1.5 border-b border-border">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase text-teal-600 dark:text-teal-400">Mobile Specifications</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">Secondary IMEI (IMEI 2)</label>
+                        <Input
+                          {...createForm.register("imei2")}
+                          placeholder="Secondary IMEI"
+                          className="h-8 text-xs bg-muted/20 border-border"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase">SIM Phone Number</label>
+                        <Input
+                          {...createForm.register("simNumber")}
+                          placeholder="e.g. +94 77 XXXXXXX"
+                          className="h-8 text-xs bg-muted/20 border-border"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="mdmEnrolledAdd"
+                        checked={createForm.watch("mdmEnrolled") || false}
+                        onChange={(e) => createForm.setValue("mdmEnrolled", e.target.checked)}
+                        className="rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary h-3.5 w-3.5"
+                      />
+                      <label htmlFor="mdmEnrolledAdd" className="text-[10px] font-semibold text-muted-foreground select-none cursor-pointer">
+                        Enrolled in Mobile Device Management (MDM)
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 {/* Custodian Section for Register */}
                 <div className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
                   <div className="flex justify-between items-center pb-1.5 border-b border-border">
@@ -864,7 +911,16 @@ export default function AssetList({
             ) : (
               assets.map((asset) => (
                 <TableRow key={asset.id} className="hover:bg-muted/30 border-b border-border/40 text-xs">
-                  <TableCell className="font-semibold py-2.5">{asset.assetNumber}</TableCell>
+                  <TableCell className="font-semibold py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span>{asset.assetNumber}</span>
+                      {asset.isAudited && (
+                        <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-1 py-0.5 rounded text-[9px] font-bold">
+                          ✓ Audited
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="py-2.5">
                     <div className="flex items-center gap-1.5 capitalize text-muted-foreground">
                       {getDeviceIcon(asset.deviceType)}
@@ -1057,6 +1113,44 @@ export default function AssetList({
                 <label className="text-[10px] font-bold text-muted-foreground uppercase">Room / Desk Location Metadata (Opt)</label>
                 <Input {...editForm.register("location")} className="h-8 text-xs bg-muted/20" />
               </div>
+
+              {editDeviceType === "MOBILE" && (
+                <div className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
+                  <div className="flex justify-between items-center pb-1.5 border-b border-border">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase text-teal-600 dark:text-teal-400">Mobile Specifications</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Secondary IMEI (IMEI 2)</label>
+                      <Input
+                        {...editForm.register("imei2")}
+                        placeholder="Secondary IMEI"
+                        className="h-8 text-xs bg-muted/20 border-border"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">SIM Phone Number</label>
+                      <Input
+                        {...editForm.register("simNumber")}
+                        placeholder="e.g. +94 77 XXXXXXX"
+                        className="h-8 text-xs bg-muted/20 border-border"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="mdmEnrolledEdit"
+                      checked={editForm.watch("mdmEnrolled") || false}
+                      onChange={(e) => editForm.setValue("mdmEnrolled", e.target.checked)}
+                      className="rounded border-slate-300 dark:border-slate-700 text-primary focus:ring-primary h-3.5 w-3.5"
+                    />
+                    <label htmlFor="mdmEnrolledEdit" className="text-[10px] font-semibold text-muted-foreground select-none cursor-pointer">
+                      Enrolled in Mobile Device Management (MDM)
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase">Purchase Date</label>

@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription
 } from "@/components/ui/dialog";
@@ -54,6 +53,9 @@ interface AuditRecord {
       employeeId: string;
       name: string;
     } | null;
+    imei2?: string | null;
+    simNumber?: string | null;
+    mdmEnrolled?: boolean | null;
   } | null;
 }
 
@@ -79,6 +81,9 @@ export default function AdminAuditReviewPage() {
   const [editSiteOfficeId, setEditSiteOfficeId] = useState("");
   const [editLocation, setEditLocation] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [editImei2, setEditImei2] = useState("");
+  const [editSimNumber, setEditSimNumber] = useState("");
+  const [editMdmEnrolled, setEditMdmEnrolled] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -131,6 +136,9 @@ export default function AdminAuditReviewPage() {
     setEditSiteOfficeId(audit.siteOfficeId || "");
     setEditLocation(audit.location || "");
     setEditStatus(audit.status);
+    setEditImei2(audit.existingAsset?.imei2 || "");
+    setEditSimNumber(audit.existingAsset?.simNumber || "");
+    setEditMdmEnrolled(audit.existingAsset?.mdmEnrolled || false);
     setIsOpen(true);
   };
 
@@ -165,7 +173,10 @@ export default function AdminAuditReviewPage() {
         department: editDepartment || null,
         siteOfficeId: editSiteOfficeId || null,
         location: editLocation || null,
-        status: editStatus
+        status: editStatus,
+        imei2: editImei2 || null,
+        simNumber: editSimNumber || null,
+        mdmEnrolled: editMdmEnrolled
       };
 
       const res = await fetch(`/api/helpdesk/assets/audits?auditId=${auditId}`, {
@@ -187,7 +198,7 @@ export default function AdminAuditReviewPage() {
               isMatched: true,
               brand: editBrand,
               model: editModel,
-              deviceType: editDeviceType as any,
+              deviceType: editDeviceType as AuditRecord["deviceType"],
               assetNumber: editAssetNumber || null,
               department: editDepartment || null,
               siteOfficeId: editSiteOfficeId || null,
@@ -620,6 +631,44 @@ export default function AdminAuditReviewPage() {
                           </Select>
                         </div>
                       </div>
+
+                      {editDeviceType === "MOBILE" && (
+                        <div className="space-y-3.5 pt-2.5 border-t border-slate-800/60">
+                          <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Mobile Specifications</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase">Secondary IMEI (IMEI 2)</label>
+                              <Input 
+                                value={editImei2} 
+                                onChange={e => setEditImei2(e.target.value)} 
+                                placeholder="Secondary IMEI if Dual SIM"
+                                className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus-visible:ring-emerald-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase">SIM Phone Number</label>
+                              <Input 
+                                value={editSimNumber} 
+                                onChange={e => setEditSimNumber(e.target.value)} 
+                                placeholder="e.g. +94 77 XXXXXXX"
+                                className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus-visible:ring-emerald-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-1">
+                            <input 
+                              type="checkbox"
+                              id="mdmEnrolled"
+                              checked={editMdmEnrolled}
+                              onChange={e => setEditMdmEnrolled(e.target.checked)}
+                              className="h-3.5 w-3.5 rounded border-slate-800 bg-slate-900 text-emerald-500 focus:ring-emerald-500 accent-emerald-500"
+                            />
+                            <label htmlFor="mdmEnrolled" className="text-[10px] font-bold text-slate-300 cursor-pointer select-none">
+                              Enrolled in Mobile Device Management (MDM)
+                            </label>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

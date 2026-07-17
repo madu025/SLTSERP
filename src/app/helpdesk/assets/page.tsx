@@ -360,6 +360,7 @@ export default function HelpdeskAssetManagementPage() {
                   onTypeFilterChange={handleTypeFilterChange}
                   statusFilter={statusFilter}
                   onStatusFilterChange={handleStatusFilterChange}
+                  onRefresh={fetchAssets}
                 />
               </div>
               

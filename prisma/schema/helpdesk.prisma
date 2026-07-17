@@ -72,6 +72,9 @@ model ITAsset {
   purchaseCost    Float?
   agreementReceived Boolean     @default(false)
   repairRemarks  String?
+  imei2          String?       // Secondary IMEI for dual SIM mobile devices
+  simNumber      String?       // SIM Card mobile phone number or SIM ID
+  mdmEnrolled    Boolean       @default(false) // Mobile Device Management status
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   tickets         Ticket[]

@@ -86,7 +86,10 @@ export const CreateAssetSchema = z.object({
   warrantyExpiry: z.string().or(z.date()).optional().nullable(),
   purchaseCost: emptyToNullNumber,
   newCustodianName: z.string().optional().nullable(),
-  newCustodianEmpNo: z.string().optional().nullable()
+  newCustodianEmpNo: z.string().optional().nullable(),
+  imei2: z.string().optional().nullable(),
+  simNumber: z.string().optional().nullable(),
+  mdmEnrolled: z.boolean().default(false).optional().nullable()
 });
 
 export const UpdateAssetSchema = z.object({
@@ -109,7 +112,10 @@ export const UpdateAssetSchema = z.object({
   isExchange: z.boolean().optional().nullable(),
   oldLaptopSerial: z.string().optional().nullable(),
   oldLaptopStatus: z.enum(["DECOMMISSIONED", "FAULTY", "SPARE", "ACTIVE"]).optional().nullable(),
-  repairRemarks: z.string().optional().nullable()
+  repairRemarks: z.string().optional().nullable(),
+  imei2: z.string().optional().nullable(),
+  simNumber: z.string().optional().nullable(),
+  mdmEnrolled: z.boolean().optional().nullable()
 });
 
 // KB Article Schemas

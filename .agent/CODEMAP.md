@@ -475,7 +475,10 @@
     siteOfficeId?: string | null;
     location?: string | null;
     status?: ITAssetStatus;
-  }): any`
+    imei2?: string | null;
+    simNumber?: string | null;
+    mdmEnrolled?: boolean | null;
+  }, adminUserId?: string | null): any`
 
 ### [helpdesk.service.ts](src/services/helpdesk.service.ts)
 * **Class**: `HelpdeskService`
@@ -506,6 +509,9 @@
       purchaseCost?: number | null;
       newCustodianName?: string | null;
       newCustodianEmpNo?: string | null;
+      imei2?: string | null;
+      simNumber?: string | null;
+      mdmEnrolled?: boolean | null;
     }, ipAddress?: string, userAgent?: string): any`
     * `updateAsset(userId: string, id: string, data: {
       assetNumber?: string;
@@ -528,6 +534,9 @@
       oldLaptopSerial?: string | null;
       oldLaptopStatus?: string | null;
       repairRemarks?: string | null;
+      imei2?: string | null;
+      simNumber?: string | null;
+      mdmEnrolled?: boolean | null;
     }, ipAddress?: string, userAgent?: string): any`
     * `deleteAsset(userId: string, id: string, ipAddress?: string, userAgent?: string): any`
     * `createAssetUnit(userId: string, assetId: string, data: {
@@ -2655,6 +2664,9 @@
   * `purchaseCost: Float?`
   * `agreementReceived: Boolean` `[@default(false)]`
   * `repairRemarks: String?`
+  * `imei2: String?` `[// Secondary IMEI for dual SIM mobile devices]`
+  * `simNumber: String?` `[// SIM Card mobile phone number or SIM ID]`
+  * `mdmEnrolled: Boolean` `[@default(false) // Mobile Device Management status]`
   * `createdAt: DateTime` `[@default(now())]`
   * `updatedAt: DateTime` `[@updatedAt]`
   * `tickets: Ticket[]`

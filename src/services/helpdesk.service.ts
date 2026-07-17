@@ -103,6 +103,9 @@ export class HelpdeskService {
       purchaseCost?: number | null;
       newCustodianName?: string | null;
       newCustodianEmpNo?: string | null;
+      imei2?: string | null;
+      simNumber?: string | null;
+      mdmEnrolled?: boolean | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -161,7 +164,10 @@ export class HelpdeskService {
         status: data.status || 'ACTIVE',
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : undefined,
         warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : undefined,
-        purchaseCost: data.purchaseCost ?? undefined
+        purchaseCost: data.purchaseCost ?? undefined,
+        imei2: data.imei2 || undefined,
+        simNumber: data.simNumber || undefined,
+        mdmEnrolled: data.mdmEnrolled ?? undefined
       }, tx);
 
       if (finalAssignedStaffId) {
@@ -211,6 +217,9 @@ export class HelpdeskService {
       oldLaptopSerial?: string | null;
       oldLaptopStatus?: string | null;
       repairRemarks?: string | null;
+      imei2?: string | null;
+      simNumber?: string | null;
+      mdmEnrolled?: boolean | null;
     },
     ipAddress?: string,
     userAgent?: string
@@ -340,7 +349,10 @@ export class HelpdeskService {
         warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : (data.warrantyExpiry === null ? null : undefined),
         purchaseCost: data.purchaseCost === null ? null : data.purchaseCost,
         agreementReceived: data.agreementReceived === null ? null : (data.agreementReceived ?? undefined),
-        repairRemarks: data.status === 'UNDER_REPAIR' ? (data.repairRemarks === null ? null : (data.repairRemarks || undefined)) : null
+        repairRemarks: data.status === 'UNDER_REPAIR' ? (data.repairRemarks === null ? null : (data.repairRemarks || undefined)) : null,
+        imei2: data.imei2 === null ? null : (data.imei2 || undefined),
+        simNumber: data.simNumber === null ? null : (data.simNumber || undefined),
+        mdmEnrolled: data.mdmEnrolled === null ? null : (data.mdmEnrolled ?? undefined)
       } as unknown as Parameters<typeof HelpdeskRepository.updateAsset>[1], tx);
 
       // Create handover log for the current (new) asset to record exchange

@@ -47,12 +47,13 @@ export const PUT = apiHandler(
   async (req, _params, body) => {
     const url = new URL(req.url);
     const auditId = url.searchParams.get("auditId");
+    const userId = req.headers.get("x-user-id");
 
     if (!auditId) {
       throw new Error("Audit ID is required");
     }
 
-    return await HelpdeskAuditService.syncAuditToInventory(auditId, body || undefined);
+    return await HelpdeskAuditService.syncAuditToInventory(auditId, body || undefined, userId);
   },
   {
     roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],

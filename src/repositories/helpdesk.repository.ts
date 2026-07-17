@@ -116,7 +116,26 @@ export class HelpdeskRepository {
       })
     ]);
 
-    return { total, assets };
+    // Query matched, synced audits to flag which items are verified
+    const serialNumbers = assets.map((a: any) => a.serialNumber);
+    const syncedAudits = await db.iTAssetAudit.findMany({
+      where: {
+        serialNumber: { in: serialNumbers },
+        isSynced: true
+      },
+      select: {
+        serialNumber: true
+      }
+    });
+
+    const auditedSerials = new Set(syncedAudits.map((sa: any) => sa.serialNumber.toLowerCase()));
+
+    const assetsWithAudit = assets.map((asset: any) => ({
+      ...asset,
+      isAudited: auditedSerials.has(asset.serialNumber.toLowerCase())
+    }));
+
+    return { total, assets: assetsWithAudit };
   }
 
   static async createAsset(data: Prisma.ITAssetUncheckedCreateInput, tx?: any) {
