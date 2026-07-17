@@ -274,7 +274,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
         title: 'Billing & Invoices',
         path: '/invoices',
         icon: Receipt,
-        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'],
+        allowedRoles: [...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'],
         permissionId: 'invoices',
         submenu: [
             {
@@ -285,7 +285,7 @@ export const SIDEBAR_MENU: MenuItem[] = [
                     ...ROLE_GROUPS.ADMINS,
                     ...ROLE_GROUPS.INVOICE,
                     ...ROLE_GROUPS.FINANCE,
-                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER', 'ENGINEER', 'ASSISTANT_ENGINEER', 'AREA_COORDINATOR', 'QC_OFFICER'
+                    'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER'
                 ]
             },
             {

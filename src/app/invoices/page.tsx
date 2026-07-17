@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Check, Trash2, Printer, Banknote, ShieldCheck, Users, FileText, ShieldAlert, Download, Settings } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { downloadExcelInvoice } from '@/lib/excel-invoice';
+import RoleGuard from '@/components/RoleGuard';
+import { ROLE_GROUPS } from '@/config/sidebar-menu';
 
 interface Invoice {
     id: string;
@@ -746,7 +748,11 @@ export default function InvoicesPage() {
     }, 0);
 
     return (
-        <div className="erp-page-wrapper flex-row overflow-hidden">
+        <RoleGuard 
+            allowedRoles={[...ROLE_GROUPS.ADMINS, ...ROLE_GROUPS.INVOICE, ...ROLE_GROUPS.FINANCE, 'MANAGER', 'OSP_MANAGER', 'AREA_MANAGER']} 
+            permissionId="invoices"
+        >
+            <div className="erp-page-wrapper flex-row overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
                 <Header />
@@ -1244,6 +1250,7 @@ export default function InvoicesPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+            </div>
+        </RoleGuard>
     );
 }

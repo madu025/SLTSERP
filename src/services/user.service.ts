@@ -36,6 +36,30 @@ interface UpdateUserData {
     assignedStoreId?: string;
 }
 
+const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+    SUPER_ADMIN: ['dashboard', 'service-orders', 'contractors', 'restore-requests', 'invoices', 'inventory', 'procurement', 'administration'],
+    ADMIN: ['dashboard', 'service-orders', 'contractors', 'restore-requests', 'invoices', 'inventory', 'procurement', 'administration'],
+    OSP_MANAGER: ['dashboard', 'service-orders', 'contractors'],
+    AREA_MANAGER: ['dashboard', 'service-orders', 'contractors'],
+    ENGINEER: ['dashboard', 'service-orders', 'contractors'],
+    ASSISTANT_ENGINEER: ['dashboard', 'service-orders', 'contractors'],
+    AREA_COORDINATOR: ['dashboard', 'service-orders', 'contractors'],
+    QC_OFFICER: ['dashboard', 'service-orders', 'contractors'],
+    MANAGER: ['dashboard', 'service-orders', 'contractors'],
+    STORES_MANAGER: ['dashboard', 'inventory'],
+    STORES_ASSISTANT: ['dashboard', 'inventory'],
+    PROCUREMENT_OFFICER: ['dashboard', 'procurement', 'inventory'],
+    FINANCE_MANAGER: ['dashboard', 'invoices'],
+    FINANCE_ASSISTANT: ['dashboard', 'invoices'],
+    INVOICE_MANAGER: ['dashboard', 'invoices'],
+    INVOICE_ASSISTANT: ['dashboard', 'invoices'],
+    SA_MANAGER: ['dashboard', 'restore-requests'],
+    SA_ASSISTANT: ['dashboard', 'restore-requests'],
+    OFFICE_ADMIN: ['dashboard', 'contractors', 'administration'],
+    OFFICE_ADMIN_ASSISTANT: ['dashboard', 'contractors', 'administration'],
+    SITE_OFFICE_STAFF: ['dashboard', 'contractors']
+};
+
 export class UserService {
     /**
      * Authenticates a user and returns a token and user details.
@@ -197,33 +221,33 @@ export class UserService {
                     accessibleOpmcs: { select: { rtom: true } }
                 }
             });
-
-            // 3. Auto-assign to Section based on Role
-            const sectionMapping: Record<string, string> = {
-                'OSP_MANAGER': 'PROJECTS',
-                'AREA_MANAGER': 'PROJECTS',
-                'ENGINEER': 'PROJECTS',
-                'ASSISTANT_ENGINEER': 'PROJECTS',
-                'AREA_COORDINATOR': 'PROJECTS',
-                'QC_OFFICER': 'PROJECTS',
-                'MANAGER': 'NEW_CONNECTION',
-                'SA_MANAGER': 'SERVICE_ASSURANCE',
-                'SA_ASSISTANT': 'SERVICE_ASSURANCE',
-                'STORES_MANAGER': 'STORES',
-                'STORES_ASSISTANT': 'STORES',
-                'PROCUREMENT_OFFICER': 'PROCUREMENT',
-                'FINANCE_MANAGER': 'FINANCE',
-                'FINANCE_ASSISTANT': 'FINANCE',
-                'INVOICE_MANAGER': 'INVOICE',
-                'INVOICE_ASSISTANT': 'INVOICE',
-                'OFFICE_ADMIN': 'OFFICE_ADMIN',
-                'OFFICE_ADMIN_ASSISTANT': 'OFFICE_ADMIN',
-                'SUPER_ADMIN': 'ADMIN',
-                'ADMIN': 'ADMIN'
+            // 3. Auto-assign to Sections based on Role (Multi-section support)
+            const sectionMapping: Record<string, string[]> = {
+                'OSP_MANAGER': ['PROJECTS'],
+                'AREA_MANAGER': ['PROJECTS'],
+                'ENGINEER': ['PROJECTS'],
+                'ASSISTANT_ENGINEER': ['PROJECTS'],
+                'AREA_COORDINATOR': ['PROJECTS'],
+                'QC_OFFICER': ['PROJECTS'],
+                'MANAGER': ['NEW_CONNECTION'],
+                'SA_MANAGER': ['SERVICE_ASSURANCE'],
+                'SA_ASSISTANT': ['SERVICE_ASSURANCE'],
+                'STORES_MANAGER': ['STORES'],
+                'STORES_ASSISTANT': ['STORES'],
+                'PROCUREMENT_OFFICER': ['PROCUREMENT', 'STORES'],
+                'FINANCE_MANAGER': ['FINANCE'],
+                'FINANCE_ASSISTANT': ['FINANCE'],
+                'INVOICE_MANAGER': ['INVOICE'],
+                'INVOICE_ASSISTANT': ['INVOICE'],
+                'OFFICE_ADMIN': ['OFFICE_ADMIN'],
+                'OFFICE_ADMIN_ASSISTANT': ['OFFICE_ADMIN'],
+                'SITE_OFFICE_STAFF': ['OFFICE_ADMIN'],
+                'SUPER_ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN'],
+                'ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN']
             };
 
-            const sectionCode = sectionMapping[role];
-            if (sectionCode) {
+            const sectionCodes = sectionMapping[role] || [];
+            for (const sectionCode of sectionCodes) {
                 let section = await tx.section.findUnique({ where: { code: sectionCode } });
                 if (!section) {
                     section = await tx.section.create({
@@ -242,19 +266,37 @@ export class UserService {
                             name: role.replace(/_/g, ' '),
                             code: roleCode,
                             sectionId: section.id,
-                            permissions: JSON.stringify(['dashboard'])
+                            permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
                         }
+                    });
+                } else {
+                    // Update permissions in case the default seed changed or role template is updated
+                    await tx.systemRole.update({
+                        where: { id: systemRole.id },
+                        data: { permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard']) }
                     });
                 }
 
-                await tx.userSectionAssignment.create({
-                    data: {
-                        userId: user.id,
-                        sectionId: section.id,
-                        roleId: systemRole.id,
-                        isPrimary: true
+                // Check for existing assignment to prevent duplicates
+                const existingAssignment = await tx.userSectionAssignment.findUnique({
+                    where: {
+                        userId_sectionId: {
+                            userId: user.id,
+                            sectionId: section.id
+                        }
                     }
                 });
+
+                if (!existingAssignment) {
+                    await tx.userSectionAssignment.create({
+                        data: {
+                            userId: user.id,
+                            sectionId: section.id,
+                            roleId: systemRole.id,
+                            isPrimary: sectionCode === sectionCodes[0]
+                        }
+                    });
+                }
             }
 
             return user;
