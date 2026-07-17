@@ -28,7 +28,10 @@ const publicPaths = [
     '/api/invoices/slt-registry',
     '/api/helpdesk/assets/search-by-serial',
     '/api/public/site-offices',
-    '/api/public/staff'
+    '/api/public/staff',
+    '/api/auth/agent-login',
+    '/api/assets/sync',
+    '/api/assets/register'
 ];
 
 export async function middleware(request: NextRequest) {

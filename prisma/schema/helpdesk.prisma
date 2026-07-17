@@ -76,6 +76,12 @@ model ITAsset {
   simNumber      String?       // SIM Card mobile phone number or SIM ID
   mdmEnrolled    Boolean       @default(false) // Mobile Device Management status
   physicallyInStores Boolean   @default(false)
+  computerName     String?
+  osVersion        String?
+  employeeUsername String?
+  ipAddress        String?
+  macAddress       String?
+  lastSyncedAt     DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   tickets         Ticket[]
