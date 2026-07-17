@@ -22,7 +22,7 @@ export const PUT = apiHandler(
   },
   {
     schema: UpdateAssetSchema,
-    roles: ["SUPER_ADMIN", "ADMIN", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
+    roles: ["SUPER_ADMIN", "ADMIN", "ENGINEER", "OFFICE_ADMIN", "OFFICE_ADMIN_ASSISTANT"],
     audit: {
       action: "UPDATE",
       entity: "ITAsset"
