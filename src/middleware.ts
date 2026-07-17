@@ -27,7 +27,8 @@ const publicPaths = [
     '/api/invoices/import-bom/csv',
     '/api/invoices/slt-registry',
     '/api/helpdesk/assets/search-by-serial',
-    '/api/public/site-offices'
+    '/api/public/site-offices',
+    '/api/public/staff'
 ];
 
 export async function middleware(request: NextRequest) {

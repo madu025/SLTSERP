@@ -459,6 +459,7 @@
     status: ITAssetStatus;
     remarks?: string | null;
     isConfirmed?: boolean;
+    isPersonal?: boolean;
     department?: string | null;
     siteOfficeId?: string | null;
     location?: string | null;
@@ -2154,6 +2155,7 @@
 | `/api/projects/[id]/workflow/stages` | [route.ts](src/app/api/projects/[id]/workflow/stages/route.ts) | `POST` |
 | `/api/projects/[id]/workflow/tasks` | [route.ts](src/app/api/projects/[id]/workflow/tasks/route.ts) | `POST` |
 | `/api/public/site-offices` | [route.ts](src/app/api/public/site-offices/route.ts) | `GET` |
+| `/api/public/staff` | [route.ts](src/app/api/public/staff/route.ts) | `GET` |
 | `/api/reports/analytics` | [route.ts](src/app/api/reports/analytics/route.ts) | `GET` |
 | `/api/reports/daily-operational` | [route.ts](src/app/api/reports/daily-operational/route.ts) | `GET` |
 | `/api/reports/payments` | [route.ts](src/app/api/reports/payments/route.ts) | `GET` |
@@ -2852,6 +2854,7 @@
   * `remarks: String?`
   * `isConfirmed: Boolean` `[@default(false) // User confirmed existing info matches]`
   * `isMatched: Boolean` `[@default(false) // Matches existing record in DB perfectly]`
+  * `isPersonal: Boolean` `[@default(false) // Marks if this is a personal device]`
   * `isSynced: Boolean` `[@default(false) // Admin approved and synced]`
   * `isRejected: Boolean` `[@default(false) // Admin rejected/ignored this report]`
   * `createdAt: DateTime` `[@default(now())]`

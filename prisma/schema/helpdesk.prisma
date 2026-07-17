@@ -323,6 +323,7 @@ model ITAssetAudit {
   remarks          String?       
   isConfirmed      Boolean       @default(false) // User confirmed existing info matches
   isMatched        Boolean       @default(false) // Matches existing record in DB perfectly
+  isPersonal       Boolean       @default(false) // Marks if this is a personal device
   isSynced         Boolean       @default(false) // Admin approved and synced
   isRejected       Boolean       @default(false) // Admin rejected/ignored this report
   createdAt        DateTime      @default(now())

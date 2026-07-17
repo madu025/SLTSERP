@@ -14,49 +14,57 @@ export class HelpdeskAuditService {
     status: ITAssetStatus;
     remarks?: string | null;
     isConfirmed?: boolean;
+    isPersonal?: boolean;
     department?: string | null;
     siteOfficeId?: string | null;
     location?: string | null;
   }) {
-    const serial = data.serialNumber.trim();
+    const isPers = data.isPersonal ?? false;
     const empNo = data.employeeNo.trim();
+    const serial = isPers ? `PERSONAL-${data.deviceType}-${empNo}` : data.serialNumber.trim();
+    const brand = isPers ? "Personal" : data.brand.trim();
+    const model = isPers ? "Personal Device" : data.model.trim();
+    
     const custName = data.custodianName.trim();
     const dept = data.department?.trim() || null;
     const siteId = data.siteOfficeId?.trim() || null;
     const loc = data.location?.trim() || null;
 
-    // Check if the device exists in active inventory
-    const existingAsset = await prisma.iTAsset.findFirst({
-      where: {
-        serialNumber: {
-          equals: serial,
-          mode: 'insensitive'
-        }
-      },
-      include: {
-        assignedStaff: true
-      }
-    });
-
     let isMatched = false;
-    if (existingAsset) {
-      const brandMatch = existingAsset.brand.toLowerCase().trim() === data.brand.toLowerCase().trim();
-      const modelMatch = existingAsset.model.toLowerCase().trim() === data.model.toLowerCase().trim();
-      const staffMatch = existingAsset.assignedStaff?.employeeId?.toLowerCase().trim() === empNo.toLowerCase();
-      const deptMatch = (existingAsset.department || "").toLowerCase().trim() === (dept || "").toLowerCase().trim();
-      const siteMatch = (existingAsset.siteOfficeId || "") === (siteId || "");
-      const locMatch = (existingAsset.location || "").toLowerCase().trim() === (loc || "").toLowerCase().trim();
-      isMatched = brandMatch && modelMatch && staffMatch && deptMatch && siteMatch && locMatch;
+    
+    if (!isPers) {
+      // Check if the device exists in active inventory
+      const existingAsset = await prisma.iTAsset.findFirst({
+        where: {
+          serialNumber: {
+            equals: serial,
+            mode: 'insensitive'
+          }
+        },
+        include: {
+          assignedStaff: true
+        }
+      });
+
+      if (existingAsset) {
+        const brandMatch = existingAsset.brand.toLowerCase().trim() === brand.toLowerCase().trim();
+        const modelMatch = existingAsset.model.toLowerCase().trim() === model.toLowerCase().trim();
+        const staffMatch = existingAsset.assignedStaff?.employeeId?.toLowerCase().trim() === empNo.toLowerCase();
+        const deptMatch = (existingAsset.department || "").toLowerCase().trim() === (dept || "").toLowerCase().trim();
+        const siteMatch = (existingAsset.siteOfficeId || "") === (siteId || "");
+        const locMatch = (existingAsset.location || "").toLowerCase().trim() === (loc || "").toLowerCase().trim();
+        isMatched = brandMatch && modelMatch && staffMatch && deptMatch && siteMatch && locMatch;
+      }
     }
 
     // Save submission
     const auditRecord = await prisma.iTAssetAudit.create({
       data: {
         serialNumber: serial,
-        assetNumber: data.assetNumber?.trim() || null,
+        assetNumber: isPers ? null : (data.assetNumber?.trim() || null),
         deviceType: data.deviceType,
-        brand: data.brand.trim(),
-        model: data.model.trim(),
+        brand: brand,
+        model: model,
         employeeNo: empNo,
         custodianName: custName,
         department: dept,
@@ -65,6 +73,7 @@ export class HelpdeskAuditService {
         status: data.status,
         remarks: data.remarks || null,
         isConfirmed: data.isConfirmed ?? false,
+        isPersonal: isPers,
         isMatched,
         isRejected: false
       }
@@ -162,14 +171,14 @@ export class HelpdeskAuditService {
       throw new Error("Audit record is already synchronized");
     }
 
-    // Merge submitted details with optional admin updates
+    // Merge submitted details with optional admin updates & sanitize empty strings to null
     const brand = updatedData?.brand?.trim() || audit.brand;
     const model = updatedData?.model?.trim() || audit.model;
     const deviceType = updatedData?.deviceType || audit.deviceType;
     const assetNumber = updatedData?.assetNumber !== undefined ? (updatedData.assetNumber?.trim() || null) : audit.assetNumber;
-    const department = updatedData?.department !== undefined ? updatedData.department : audit.department;
-    const siteOfficeId = updatedData?.siteOfficeId !== undefined ? updatedData.siteOfficeId : audit.siteOfficeId;
-    const location = updatedData?.location !== undefined ? updatedData.location : audit.location;
+    const department = updatedData?.department !== undefined ? (updatedData.department?.trim() || null) : audit.department;
+    const siteOfficeId = updatedData?.siteOfficeId !== undefined ? (updatedData.siteOfficeId?.trim() || null) : audit.siteOfficeId;
+    const location = updatedData?.location !== undefined ? (updatedData.location?.trim() || null) : audit.location;
     const status = updatedData?.status || audit.status;
 
     return prisma.$transaction(async (tx) => {
@@ -196,7 +205,37 @@ export class HelpdeskAuditService {
       // Provision user account for staff member if not exists
       await HelpdeskService.ensureUserAccountForStaff(staff.id, tx as any);
 
-      // 2. Find or create ITAsset
+      if (audit.isPersonal) {
+        // Skip ITAsset inventory syncing for personal devices
+        const updatedAudit = await tx.iTAssetAudit.update({
+          where: { id: auditId },
+          data: {
+            isSynced: true,
+            isMatched: true
+          }
+        });
+        return updatedAudit;
+      }
+
+      // 2. Validate Duplicate Asset Number
+      if (assetNumber) {
+        const duplicateAsset = await tx.iTAsset.findFirst({
+          where: {
+            assetNumber: {
+              equals: assetNumber,
+              mode: 'insensitive'
+            },
+            serialNumber: {
+              not: audit.serialNumber
+            }
+          }
+        });
+        if (duplicateAsset) {
+          throw new Error(`Asset Number "${assetNumber}" is already assigned to a device with Serial Number: "${duplicateAsset.serialNumber}"`);
+        }
+      }
+
+      // 3. Find or create ITAsset
       const existingAsset = await tx.iTAsset.findFirst({
         where: {
           serialNumber: {
@@ -223,11 +262,14 @@ export class HelpdeskAuditService {
           }
         });
       } else {
-        // Generate a valid asset number if none provided
+        // Generate a type-specific asset number if none provided
         let targetAssetNo = assetNumber?.trim();
         if (!targetAssetNo) {
-          const count = await tx.iTAsset.count();
-          targetAssetNo = `SLT-AUDIT-${1000 + count + 1}`;
+          const typePrefix = deviceType === "LAPTOP" ? "LAP" : deviceType === "MOBILE" ? "MOB" : "AST";
+          const count = await tx.iTAsset.count({
+            where: { deviceType }
+          });
+          targetAssetNo = `SLT-${typePrefix}-${1000 + count + 1}`;
         }
 
         // Create new asset
@@ -247,7 +289,7 @@ export class HelpdeskAuditService {
         });
       }
 
-      // 3. Mark audit as synced and matched
+      // 4. Mark audit as synced and matched
       const updatedAudit = await tx.iTAssetAudit.update({
         where: { id: auditId },
         data: {

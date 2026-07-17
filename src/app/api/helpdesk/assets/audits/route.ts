@@ -16,6 +16,7 @@ const CreateAuditSchema = z.object({
   status: ITAssetStatusSchema.default("ACTIVE"),
   remarks: z.string().optional().nullable(),
   isConfirmed: z.boolean().default(false),
+  isPersonal: z.boolean().default(false),
   department: z.string().optional().nullable(),
   siteOfficeId: z.string().optional().nullable(),
   location: z.string().optional().nullable()

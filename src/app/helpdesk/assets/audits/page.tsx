@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, CheckCircle, ArrowLeft } from "lucide-react";
+import { RefreshCw, CheckCircle, ArrowLeft, X } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ interface AuditRecord {
   remarks: string | null;
   isConfirmed: boolean;
   isMatched: boolean;
+  isPersonal: boolean;
   isSynced: boolean;
   createdAt: string;
   existingAsset?: {
@@ -88,7 +89,7 @@ export default function AdminAuditReviewPage() {
       const res = await fetch("/api/helpdesk/site-offices?limit=200");
       const json = await res.json();
       if (json.success) {
-        setSiteOffices(json.data || []);
+        setSiteOffices(json.data.siteOffices || json.data || []);
       }
     } catch (err) {
       console.error("Failed to load site offices:", err);
@@ -295,9 +296,11 @@ export default function AdminAuditReviewPage() {
                 ) : (
                   audits.map((a) => {
                     // Match State computing
-                    let badge = <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">NEW DEVICE</Badge>;
+                    let badge = <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">NEW SUBMISSION</Badge>;
                     if (a.isSynced) {
                       badge = <Badge className="bg-slate-100 text-slate-700 border-slate-200 text-[10px]">SYNCED</Badge>;
+                    } else if (a.isPersonal) {
+                      badge = <Badge className="bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800 text-[10px]">PERSONAL DEVICE</Badge>;
                     } else if (a.isMatched) {
                       badge = <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">PERFECT MATCH</Badge>;
                     } else if (a.isConfirmed) {
@@ -351,229 +354,299 @@ export default function AdminAuditReviewPage() {
         </main>
       </div>
 
-      {/* Reconcile Dialog Cockpit */}
+      {/* Reconcile Dialog Cockpit (Right-side Drawer Layout) */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-800 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black flex items-center gap-2">
-              Reconcile Audit - S/N: <span className="font-mono text-emerald-400">{selectedAudit?.serialNumber}</span>
-            </DialogTitle>
-            <DialogDescription className="text-slate-400 text-xs">
-              Compare user-submitted details with the existing database record and modify if necessary before syncing.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent 
+          showCloseButton={false}
+          className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] lg:w-[35vw] md:w-[50vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-slate-900 border-l border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-slate-100"
+        >
+          {selectedAudit && (() => {
+            const hasExistingAsset = !!selectedAudit.existingAsset;
+            const custodianMatch = selectedAudit.custodianName.toLowerCase().trim() === (selectedAudit.existingAsset?.assignedStaff?.name || "").toLowerCase().trim() &&
+                                   selectedAudit.employeeNo.toLowerCase().trim() === (selectedAudit.existingAsset?.assignedStaff?.employeeId || "").toLowerCase().trim();
+            const assetNoMatch = (selectedAudit.assetNumber || "") === (selectedAudit.existingAsset?.assetNumber || "");
+            const brandMatch = selectedAudit.brand.toLowerCase().trim() === (selectedAudit.existingAsset?.brand || "").toLowerCase().trim();
+            const modelMatch = selectedAudit.model.toLowerCase().trim() === (selectedAudit.existingAsset?.model || "").toLowerCase().trim();
+            const deviceTypeMatch = selectedAudit.deviceType === selectedAudit.existingAsset?.deviceType;
+            const deptMatch = (selectedAudit.department || "").toLowerCase().trim() === (selectedAudit.existingAsset?.department || "").toLowerCase().trim();
+            const siteOfficeMatch = selectedAudit.siteOfficeId === selectedAudit.existingAsset?.siteOfficeId;
+            const locationMatch = (selectedAudit.location || "").toLowerCase().trim() === (selectedAudit.existingAsset?.location || "").toLowerCase().trim();
 
-          {selectedAudit && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 text-xs">
-              {/* Left Side: Side-by-Side Comparison */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Comparison Dashboard</h3>
-                <div className="border border-slate-800 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-3 bg-slate-950 p-2 font-bold border-b border-slate-800">
-                    <div>Field</div>
-                    <div>Submitted</div>
-                    <div>Live DB</div>
+            const allFieldsMatch = hasExistingAsset && 
+              custodianMatch && assetNoMatch && brandMatch && modelMatch && 
+              deviceTypeMatch && deptMatch && siteOfficeMatch && locationMatch;
+
+            return (
+              <>
+                {/* Drawer Header */}
+                <div className="relative p-5 pb-4 flex-shrink-0 bg-slate-950 border-b border-slate-800">
+                  <div className="absolute top-0 right-0 p-4.5">
+                    <button 
+                      type="button"
+                      onClick={() => setIsOpen(false)} 
+                      className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
+                  <DialogTitle className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                    Reconcile Audit - S/N: <span className="font-mono text-emerald-450">{selectedAudit.serialNumber}</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-400 text-[11px] mt-0.5">
+                    Compare user-submitted details and sync with database inventory.
+                  </DialogDescription>
+                </div>
+
+                {/* Drawer Scrollable Body (Vertical Stack Layout) */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-5">
                   
-                  {[
-                    { 
-                      label: "Custodian", 
-                      sub: `${selectedAudit.custodianName} (${selectedAudit.employeeNo})`, 
-                      live: selectedAudit.existingAsset?.assignedStaff 
-                        ? `${selectedAudit.existingAsset.assignedStaff.name} (${selectedAudit.existingAsset.assignedStaff.employeeId})` 
-                        : "N/A",
-                      match: selectedAudit.custodianName.toLowerCase().trim() === (selectedAudit.existingAsset?.assignedStaff?.name || "").toLowerCase().trim() &&
-                             selectedAudit.employeeNo.toLowerCase().trim() === (selectedAudit.existingAsset?.assignedStaff?.employeeId || "").toLowerCase().trim()
-                    },
-                    { 
-                      label: "Asset Number", 
-                      sub: selectedAudit.assetNumber || "N/A", 
-                      live: selectedAudit.existingAsset?.assetNumber || "N/A",
-                      match: (selectedAudit.assetNumber || "") === (selectedAudit.existingAsset?.assetNumber || "")
-                    },
-                    { 
-                      label: "Brand", 
-                      sub: selectedAudit.brand, 
-                      live: selectedAudit.existingAsset?.brand || "N/A",
-                      match: selectedAudit.brand.toLowerCase().trim() === (selectedAudit.existingAsset?.brand || "").toLowerCase().trim()
-                    },
-                    { 
-                      label: "Model", 
-                      sub: selectedAudit.model, 
-                      live: selectedAudit.existingAsset?.model || "N/A",
-                      match: selectedAudit.model.toLowerCase().trim() === (selectedAudit.existingAsset?.model || "").toLowerCase().trim()
-                    },
-                    { 
-                      label: "Device Type", 
-                      sub: selectedAudit.deviceType, 
-                      live: selectedAudit.existingAsset?.deviceType || "N/A",
-                      match: selectedAudit.deviceType === selectedAudit.existingAsset?.deviceType
-                    },
-                    { 
-                      label: "Department", 
-                      sub: selectedAudit.department || "N/A", 
-                      live: selectedAudit.existingAsset?.department || "N/A",
-                      match: (selectedAudit.department || "").toLowerCase().trim() === (selectedAudit.existingAsset?.department || "").toLowerCase().trim()
-                    },
-                    { 
-                      label: "Site Office", 
-                      sub: siteOffices.find(o => o.id === selectedAudit.siteOfficeId)?.name || "N/A", 
-                      live: selectedAudit.existingAsset?.siteOfficeName || "N/A",
-                      match: selectedAudit.siteOfficeId === selectedAudit.existingAsset?.siteOfficeId
-                    },
-                    { 
-                      label: "Location", 
-                      sub: selectedAudit.location || "N/A", 
-                      live: selectedAudit.existingAsset?.location || "N/A",
-                      match: (selectedAudit.location || "").toLowerCase().trim() === (selectedAudit.existingAsset?.location || "").toLowerCase().trim()
-                    },
-                  ].map((row, idx) => (
-                    <div key={idx} className={`grid grid-cols-3 p-2.5 border-b border-slate-800/60 align-middle ${
-                      row.match ? "bg-emerald-950/15 text-emerald-400" : "bg-rose-950/15 text-rose-300"
-                    }`}>
-                      <div className="font-semibold">{row.label}</div>
-                      <div className="truncate pr-1">{row.sub}</div>
-                      <div className="truncate">{row.live}</div>
-                    </div>
-                  ))}
-                </div>
+                  {/* Section 1: Comparison Dashboard */}
+                  <div className="space-y-2.5">
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                      Comparison Dashboard
+                    </h3>
+                    
+                    {selectedAudit.isPersonal ? (
+                      <div className="bg-purple-950/20 border border-purple-900/40 text-purple-300 p-3 rounded-lg text-[10px]">
+                        This is a user-reported <strong>Personal Device</strong>. It does not exist in the company inventory. Syncing will resolve the audit request without database asset updates.
+                      </div>
+                    ) : !hasExistingAsset ? (
+                      <div className="bg-blue-950/20 border border-blue-900/40 text-blue-300 p-3 rounded-lg text-[10px]">
+                        <strong>New / Unregistered Device:</strong> This serial number does not exist in the database inventory yet. Syncing will register it as a new asset.
+                      </div>
+                    ) : allFieldsMatch ? (
+                      <div className="bg-emerald-950/20 border border-emerald-900/40 text-emerald-300 p-3 rounded-lg text-[10px]">
+                        <strong>All Details Match:</strong> The audited details match the database record perfectly. No discrepancies detected!
+                      </div>
+                    ) : (
+                      <div className="bg-amber-950/20 border border-amber-900/40 text-amber-300 p-3 rounded-lg text-[10px]">
+                        <strong>Discrepancies Detected:</strong> Some details do not match the database. Check the highlighted rows below.
+                      </div>
+                    )}
 
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                  <span className="font-bold text-slate-400 block">User Remarks & Checklist:</span>
-                  <p className="mt-1 text-slate-300 italic">{selectedAudit.remarks || "—"}</p>
-                </div>
-              </div>
-
-              {/* Right Side: Edit / Sync Form */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Sync Configurations (Edit prior to save)</h3>
-                
-                <div className="space-y-3.5 bg-slate-950/50 p-4 rounded-xl border border-slate-800">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Asset Number</label>
-                      <Input 
-                        value={editAssetNumber} 
-                        onChange={e => setEditAssetNumber(e.target.value)} 
-                        className="h-8 text-xs bg-slate-900 border-slate-850 text-white"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Device Type</label>
-                      <Select value={editDeviceType} onValueChange={setEditDeviceType}>
-                        <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-850 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-850 text-white">
-                          <SelectItem value="LAPTOP">Laptop</SelectItem>
-                          <SelectItem value="DESKTOP">Desktop</SelectItem>
-                          <SelectItem value="MOBILE">Mobile Phone</SelectItem>
-                          <SelectItem value="PRINTER">Printer</SelectItem>
-                          <SelectItem value="NETWORK">Network Device</SelectItem>
-                          <SelectItem value="OTHER">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Brand</label>
-                      <Input 
-                        value={editBrand} 
-                        onChange={e => setEditBrand(e.target.value)} 
-                        className="h-8 text-xs bg-slate-900 border-slate-855 text-white"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Model</label>
-                      <Input 
-                        value={editModel} 
-                        onChange={e => setEditModel(e.target.value)} 
-                        className="h-8 text-xs bg-slate-900 border-slate-855 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Department</label>
-                      <Input 
-                        value={editDepartment} 
-                        onChange={e => setEditDepartment(e.target.value)} 
-                        className="h-8 text-xs bg-slate-900 border-slate-855 text-white"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Site Office</label>
-                      <Select 
-                        value={editSiteOfficeId || "none"} 
-                        onValueChange={val => setEditSiteOfficeId(val === "none" ? "" : val)}
-                      >
-                        <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-855 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-855 text-white max-h-40 overflow-y-auto">
-                          <SelectItem value="none">Not Specified</SelectItem>
-                          {siteOffices.map((office) => (
-                            <SelectItem key={office.id} value={office.id}>{office.name}</SelectItem>
+                    <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/20">
+                      <table className="w-full table-fixed border-collapse text-[11px]">
+                        <thead>
+                          <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-bold text-left">
+                            <th className="w-[30%] p-2.5">Field</th>
+                            <th className="w-[35%] p-2.5">Submitted</th>
+                            <th className="w-[35%] p-2.5">Live DB</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { 
+                              label: "Custodian", 
+                              sub: `${selectedAudit.custodianName} (${selectedAudit.employeeNo})`, 
+                              live: selectedAudit.existingAsset?.assignedStaff 
+                                ? `${selectedAudit.existingAsset.assignedStaff.name} (${selectedAudit.existingAsset.assignedStaff.employeeId})` 
+                                : "N/A",
+                              match: custodianMatch
+                            },
+                            { 
+                              label: "Asset No", 
+                              sub: selectedAudit.assetNumber || "N/A", 
+                              live: selectedAudit.existingAsset?.assetNumber || "N/A",
+                              match: assetNoMatch
+                            },
+                            { 
+                              label: "Brand", 
+                              sub: selectedAudit.brand, 
+                              live: selectedAudit.existingAsset?.brand || "N/A",
+                              match: brandMatch
+                            },
+                            { 
+                              label: "Model", 
+                              sub: selectedAudit.model, 
+                              live: selectedAudit.existingAsset?.model || "N/A",
+                              match: modelMatch
+                            },
+                            { 
+                              label: "Device Type", 
+                              sub: selectedAudit.deviceType, 
+                              live: selectedAudit.existingAsset?.deviceType || "N/A",
+                              match: deviceTypeMatch
+                            },
+                            { 
+                              label: "Department", 
+                              sub: selectedAudit.department || "N/A", 
+                              live: selectedAudit.existingAsset?.department || "N/A",
+                              match: deptMatch
+                            },
+                            { 
+                              label: "Site Office", 
+                              sub: (siteOffices || []).find(o => o.id === selectedAudit.siteOfficeId)?.name || "N/A", 
+                              live: selectedAudit.existingAsset?.siteOfficeName || "N/A",
+                              match: siteOfficeMatch
+                            },
+                            { 
+                              label: "Location", 
+                              sub: selectedAudit.location || "N/A", 
+                              live: selectedAudit.existingAsset?.location || "N/A",
+                              match: locationMatch
+                            },
+                          ].map((row, idx) => (
+                            <tr 
+                              key={idx} 
+                              className={`border-b border-slate-800/40 transition-colors ${
+                                row.match 
+                                  ? "bg-emerald-950/5 text-emerald-400 hover:bg-emerald-950/10" 
+                                  : "bg-amber-950/5 text-amber-300 hover:bg-amber-950/10"
+                              }`}
+                            >
+                              <td className="p-2.5 font-semibold align-top">{row.label}</td>
+                              <td className="p-2.5 whitespace-normal break-words pr-1.5">{row.sub}</td>
+                              <td className="p-2.5 whitespace-normal break-words text-slate-400">{row.live}</td>
+                            </tr>
                           ))}
-                        </SelectContent>
-                      </Select>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Location</label>
-                      <Input 
-                        value={editLocation} 
-                        onChange={e => setEditLocation(e.target.value)} 
-                        className="h-8 text-xs bg-slate-900 border-slate-855 text-white"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Asset Status</label>
-                      <Select value={editStatus} onValueChange={setEditStatus}>
-                        <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-855 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-900 border-slate-855 text-white">
-                          <SelectItem value="ACTIVE">Active</SelectItem>
-                          <SelectItem value="UNDER_REPAIR">Under Repair</SelectItem>
-                          <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
-                          <SelectItem value="SPARE">Spare Inventory</SelectItem>
-                          <SelectItem value="FAULTY">Faulty</SelectItem>
-                          <SelectItem value="DISPOSED">Disposed</SelectItem>
-                          <SelectItem value="TRANSFERRED">Transferred</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {/* Section 2: User Remarks */}
+                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1">
+                    <span className="font-bold text-slate-400 block uppercase text-[9px] tracking-wider">User Remarks & Checklist</span>
+                    <p className="text-[11px] text-slate-200 italic whitespace-normal break-words">{selectedAudit.remarks || "No comments provided."}</p>
+                  </div>
+
+                  {/* Section 3: Sync Configurations Form */}
+                  <div className="space-y-2.5">
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                      Sync Configurations (Edit fields to resolve details)
+                    </h3>
+                    
+                    <div className="space-y-3.5 bg-slate-950/30 p-4 rounded-xl border border-slate-800">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Asset Number</label>
+                          <Input 
+                            value={editAssetNumber} 
+                            onChange={e => setEditAssetNumber(e.target.value)} 
+                            className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus-visible:ring-emerald-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Device Type</label>
+                          <Select value={editDeviceType} onValueChange={setEditDeviceType}>
+                            <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus:ring-emerald-500">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                              <SelectItem value="LAPTOP">Laptop</SelectItem>
+                              <SelectItem value="DESKTOP">Desktop</SelectItem>
+                              <SelectItem value="MOBILE">Mobile Phone</SelectItem>
+                              <SelectItem value="PRINTER">Printer</SelectItem>
+                              <SelectItem value="NETWORK">Network Device</SelectItem>
+                              <SelectItem value="OTHER">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Brand</label>
+                          <Input 
+                            value={editBrand} 
+                            onChange={e => setEditBrand(e.target.value)} 
+                            className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus-visible:ring-emerald-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Model</label>
+                          <Input 
+                            value={editModel} 
+                            onChange={e => setEditModel(e.target.value)} 
+                            className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus-visible:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Department</label>
+                          <Input 
+                            value={editDepartment} 
+                            onChange={e => setEditDepartment(e.target.value)} 
+                            className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus-visible:ring-emerald-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Site Office</label>
+                          <Select 
+                            value={editSiteOfficeId || "none"} 
+                            onValueChange={val => setEditSiteOfficeId(val === "none" ? "" : val)}
+                          >
+                            <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus:ring-emerald-500">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-slate-800 text-white max-h-40 overflow-y-auto">
+                              <SelectItem value="none">Not Specified</SelectItem>
+                              {(siteOffices || []).map((office) => (
+                                <SelectItem key={office.id} value={office.id}>{office.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Location</label>
+                          <Input 
+                            value={editLocation} 
+                            onChange={e => setEditLocation(e.target.value)} 
+                            className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus-visible:ring-emerald-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Asset Status</label>
+                          <Select value={editStatus} onValueChange={setEditStatus}>
+                            <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-800 text-white focus:ring-emerald-500">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                              <SelectItem value="ACTIVE">Active</SelectItem>
+                              <SelectItem value="UNDER_REPAIR">Under Repair</SelectItem>
+                              <SelectItem value="DECOMMISSIONED">Decommissioned</SelectItem>
+                              <SelectItem value="SPARE">Spare Inventory</SelectItem>
+                              <SelectItem value="FAULTY">Faulty</SelectItem>
+                              <SelectItem value="DISPOSED">Disposed</SelectItem>
+                              <SelectItem value="TRANSFERRED">Transferred</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 pt-2">
+                {/* Drawer Sticky Footer */}
+                <div className="p-4 bg-slate-950/80 border-t border-slate-800 flex gap-3 flex-shrink-0">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleReject(selectedAudit.id)}
-                    className="flex-1 text-xs border-red-800 text-red-400 bg-red-950/20 hover:bg-red-950/40"
+                    className="flex-1 h-9 text-xs border-red-900 text-red-400 bg-red-950/10 hover:bg-red-950/30 hover:text-red-300 transition-colors"
                   >
-                    Ignore / Reject Report
+                    Ignore Report
                   </Button>
                   
                   <Button
                     type="button"
                     onClick={() => handleApproveSync(selectedAudit.id)}
                     disabled={syncingId === selectedAudit.id}
-                    className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                    className="flex-1 h-9 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors"
                   >
-                    {syncingId === selectedAudit.id ? "Syncing..." : "Approve & Sync Details"}
+                    {syncingId === selectedAudit.id ? "Syncing..." : "Approve & Sync"}
                   </Button>
                 </div>
-              </div>
-            </div>
-          )}
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

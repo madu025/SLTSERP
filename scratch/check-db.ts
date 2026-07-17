@@ -8,8 +8,8 @@ async function main() {
   const assets = await prisma.iTAsset.findMany({ take: 5 });
   console.log('Sample Assets:', JSON.stringify(assets, null, 2));
 
-  const staffCount = await prisma.staff.count();
-  console.log(`Total Staff in DB: ${staffCount}`);
+  const staff = await prisma.staff.findMany({ take: 5, select: { id: true, name: true, employeeId: true } });
+  console.log('Sample Staff:', JSON.stringify(staff, null, 2));
 
   const userCount = await prisma.user.count();
   console.log(`Total Users in DB: ${userCount}`);
