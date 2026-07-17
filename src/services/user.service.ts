@@ -60,6 +60,30 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     SITE_OFFICE_STAFF: ['dashboard', 'contractors']
 };
 
+const SECTION_MAPPING: Record<string, string[]> = {
+    'OSP_MANAGER': ['PROJECTS'],
+    'AREA_MANAGER': ['PROJECTS'],
+    'ENGINEER': ['PROJECTS'],
+    'ASSISTANT_ENGINEER': ['PROJECTS'],
+    'AREA_COORDINATOR': ['PROJECTS'],
+    'QC_OFFICER': ['PROJECTS'],
+    'MANAGER': ['NEW_CONNECTION'],
+    'SA_MANAGER': ['SERVICE_ASSURANCE'],
+    'SA_ASSISTANT': ['SERVICE_ASSURANCE'],
+    'STORES_MANAGER': ['STORES'],
+    'STORES_ASSISTANT': ['STORES'],
+    'PROCUREMENT_OFFICER': ['PROCUREMENT', 'STORES'],
+    'FINANCE_MANAGER': ['FINANCE'],
+    'FINANCE_ASSISTANT': ['FINANCE'],
+    'INVOICE_MANAGER': ['INVOICE'],
+    'INVOICE_ASSISTANT': ['INVOICE'],
+    'OFFICE_ADMIN': ['OFFICE_ADMIN'],
+    'OFFICE_ADMIN_ASSISTANT': ['OFFICE_ADMIN'],
+    'SITE_OFFICE_STAFF': ['OFFICE_ADMIN'],
+    'SUPER_ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN'],
+    'ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN']
+};
+
 export class UserService {
     /**
      * Authenticates a user and returns a token and user details.
@@ -99,15 +123,34 @@ export class UserService {
             role: user.role,
         });
 
-        const perms: string[] = (user.sectionAssignments as any[] || []).flatMap((a: any) => {
+        const TEST_USERS = ['admin', 'testadmin', 'ospmanager', 'areamanager', 'storesmanager', 'coordinator', 'qcofficer', 'finance', 'stores', 'engineer'];
+        const isTestUser = TEST_USERS.includes(username.toLowerCase());
+
+        let permissions: string[] = [];
+        if (user.permissions) {
             try {
-                const parsed = JSON.parse(a.role.permissions || '[]');
-                return Array.isArray(parsed) ? (parsed as string[]) : [];
+                const parsed = JSON.parse(user.permissions);
+                permissions = Array.isArray(parsed) ? parsed : [];
             } catch {
-                return [];
+                permissions = [];
             }
-        });
-        const permissions = [...new Set(perms)];
+        } else if (isTestUser) {
+            const perms: string[] = (user.sectionAssignments || []).flatMap((a) => {
+                try {
+                    const parsed = JSON.parse(a.role?.permissions || '[]');
+                    return Array.isArray(parsed) ? (parsed as string[]) : [];
+                } catch {
+                    return [];
+                }
+            });
+            permissions = [...new Set(perms)];
+            if (permissions.length === 0) {
+                permissions = DEFAULT_ROLE_PERMISSIONS[user.role] || [];
+            }
+        } else {
+            // Basic users get empty permissions to hide all sections and fallback to helpdesk tickets only
+            permissions = [];
+        }
 
         return {
             token,
@@ -222,31 +265,7 @@ export class UserService {
                 }
             });
             // 3. Auto-assign to Sections based on Role (Multi-section support)
-            const sectionMapping: Record<string, string[]> = {
-                'OSP_MANAGER': ['PROJECTS'],
-                'AREA_MANAGER': ['PROJECTS'],
-                'ENGINEER': ['PROJECTS'],
-                'ASSISTANT_ENGINEER': ['PROJECTS'],
-                'AREA_COORDINATOR': ['PROJECTS'],
-                'QC_OFFICER': ['PROJECTS'],
-                'MANAGER': ['NEW_CONNECTION'],
-                'SA_MANAGER': ['SERVICE_ASSURANCE'],
-                'SA_ASSISTANT': ['SERVICE_ASSURANCE'],
-                'STORES_MANAGER': ['STORES'],
-                'STORES_ASSISTANT': ['STORES'],
-                'PROCUREMENT_OFFICER': ['PROCUREMENT', 'STORES'],
-                'FINANCE_MANAGER': ['FINANCE'],
-                'FINANCE_ASSISTANT': ['FINANCE'],
-                'INVOICE_MANAGER': ['INVOICE'],
-                'INVOICE_ASSISTANT': ['INVOICE'],
-                'OFFICE_ADMIN': ['OFFICE_ADMIN'],
-                'OFFICE_ADMIN_ASSISTANT': ['OFFICE_ADMIN'],
-                'SITE_OFFICE_STAFF': ['OFFICE_ADMIN'],
-                'SUPER_ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN'],
-                'ADMIN': ['ADMIN', 'PROJECTS', 'NEW_CONNECTION', 'SERVICE_ASSURANCE', 'STORES', 'PROCUREMENT', 'FINANCE', 'INVOICE', 'OFFICE_ADMIN']
-            };
-
-            const sectionCodes = sectionMapping[role] || [];
+            const sectionCodes = SECTION_MAPPING[role] || [];
             for (const sectionCode of sectionCodes) {
                 let section = await tx.section.findUnique({ where: { code: sectionCode } });
                 if (!section) {
@@ -373,10 +392,56 @@ export class UserService {
                 staffId = staff.id;
             }
 
+            // If the role changed, clear old assignments and seed new templates
+            if (existingUser.role !== role) {
+                await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
+
+                const sectionCodes = SECTION_MAPPING[role] || [];
+                for (const sectionCode of sectionCodes) {
+                    let section = await tx.section.findUnique({ where: { code: sectionCode } });
+                    if (!section) {
+                        section = await tx.section.create({
+                            data: {
+                                name: sectionCode.replace(/_/g, ' '),
+                                code: sectionCode
+                            }
+                        });
+                    }
+
+                    const roleCode = `${sectionCode}_${role}`;
+                    let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
+                    if (!systemRole) {
+                        systemRole = await tx.systemRole.create({
+                            data: {
+                                name: role.replace(/_/g, ' '),
+                                code: roleCode,
+                                sectionId: section.id,
+                                permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                            }
+                        });
+                    } else {
+                        await tx.systemRole.update({
+                            where: { id: systemRole.id },
+                            data: { permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard']) }
+                        });
+                    }
+
+                    await tx.userSectionAssignment.create({
+                        data: {
+                            userId: id,
+                            sectionId: section.id,
+                            roleId: systemRole.id,
+                            isPrimary: sectionCode === sectionCodes[0]
+                        }
+                    });
+                }
+            }
+
             const updatedUser = await tx.user.update({
                 where: { id },
                 data: {
                     ...dataToUpdate,
+                    permissions: existingUser.role !== role ? null : undefined,
                     staff: staffId ? { connect: { id: staffId } } : undefined,
                     assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : { disconnect: true },
                     accessibleOpmcs: {

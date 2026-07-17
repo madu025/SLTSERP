@@ -675,8 +675,8 @@ export const hasAccess = (
         return !!itemTitle && ['IT Help Desk', 'User Dashboard', 'Create Ticket'].includes(itemTitle);
     }
     
-    // If the user has dynamic permissions configured, prioritize them
-    if (userPermissions && userPermissions.length > 0 && permissionId) {
+    // If the user has dynamic permissions configured (even if empty []), prioritize them
+    if (userPermissions && permissionId) {
         return userPermissions.includes(permissionId);
     }
 

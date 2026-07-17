@@ -8,6 +8,11 @@ export async function GET(
 ) {
     try {
         const { userId } = await params;
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
         const assignments = await prisma.userSectionAssignment.findMany({
             where: { userId: userId },
             include: {
@@ -16,7 +21,20 @@ export async function GET(
             }
         });
 
-        return NextResponse.json(assignments);
+        const mapped = assignments.map(a => {
+            if (user?.permissions) {
+                return {
+                    ...a,
+                    role: {
+                        ...a.role,
+                        permissions: user.permissions
+                    }
+                };
+            }
+            return a;
+        });
+
+        return NextResponse.json(mapped);
     } catch (error) {
         console.error('Error fetching permissions:', error);
         return NextResponse.json({ error: 'Failed to fetch permissions' }, { status: 500 });
@@ -37,23 +55,13 @@ export async function PATCH(
             return NextResponse.json({ error: 'Permissions must be an array' }, { status: 400 });
         }
 
-        // Get user's section assignments
-        const assignments = await prisma.userSectionAssignment.findMany({
-            where: { userId: userId },
-            include: { role: true }
+        // Update permissions directly on User model to prevent leak to other users sharing the same role
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                permissions: JSON.stringify(permissions)
+            }
         });
-
-        // Update permissions for all roles
-        const permissionsJson = JSON.stringify(permissions);
-
-        await Promise.all(
-            assignments.map(assignment =>
-                prisma.systemRole.update({
-                    where: { id: assignment.roleId },
-                    data: { permissions: permissionsJson }
-                })
-            )
-        );
 
         return NextResponse.json({ message: 'Permissions updated successfully' });
     } catch (error) {
