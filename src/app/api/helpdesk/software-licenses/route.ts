@@ -6,8 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req) => {
   const url = new URL(req.url);
-  const page = parseInt(url.searchParams.get("page") || "1");
-  const limit = parseInt(url.searchParams.get("limit") || "20");
+  const isExport = url.searchParams.get("export") === "true";
+  const page = isExport ? 1 : parseInt(url.searchParams.get("page") || "1");
+  const limit = isExport ? 100000 : parseInt(url.searchParams.get("limit") || "20");
   const search = url.searchParams.get("search") || "";
   const status = url.searchParams.get("status") || undefined;
 

@@ -30,7 +30,10 @@ import {
   Tag,
   Clipboard,
   X,
-  Pencil
+  Pencil,
+  FileSpreadsheet,
+  Download,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -101,6 +104,8 @@ export default function SoftwareLicensesDashboard() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingAllocations, setExportingAllocations] = useState(false);
   
   // Form states - Create Software License
   const [licenseForm, setLicenseForm] = useState({
@@ -122,6 +127,75 @@ export default function SoftwareLicensesDashboard() {
     assignedEmail: "",
     remarks: ""
   });
+
+  const handleExportLicensesToExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (statusFilter !== "ALL") params.append("status", statusFilter);
+      params.append("export", "true");
+
+      const res = await fetch(`/api/helpdesk/software-licenses?${params.toString()}&_t=${Date.now()}`);
+      if (!res.ok) throw new Error("Failed to fetch licenses");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data.licenses)) {
+        const rows = json.data.licenses.map((lic: any) => ({
+          "Software Name": lic.name,
+          "License Key": lic.key || "—",
+          "Vendor": lic.vendor || "Direct Purchase",
+          "Total Seats": lic.totalLicenses || 1,
+          "Allocated Seats": lic._count?.assignments || 0,
+          "Available Seats": Math.max(0, (lic.totalLicenses || 1) - (lic._count?.assignments || 0)),
+          "Purchase Cost (LKR)": lic.purchaseCost || 0,
+          "Expiry Date": lic.expiryDate ? new Date(lic.expiryDate).toISOString().split('T')[0] : "Lifetime",
+          "Status": lic.status || "—",
+          "Remarks": lic.remarks || "—"
+        }));
+
+        const XLSX = await import("xlsx");
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Licenses");
+        XLSX.writeFile(workbook, `Software_Licenses_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Excel sheet downloaded successfully!");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export software licenses.");
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleExportAllocationsToExcel = async () => {
+    if (!selectedLicense || !selectedLicense.assignments || selectedLicense.assignments.length === 0) return;
+    setExportingAllocations(true);
+    try {
+      const rows = selectedLicense.assignments.map((as: any) => ({
+        "Allocation Target": as.assignedUser ? "User" : "Hardware Asset",
+        "Assigned Name": as.assignedUser ? (as.assignedUser.name || as.assignedUser.username) : `Asset: ${as.assignedAsset?.assetNumber}`,
+        "Employee ID": as.assignedUser ? (as.assignedUser.employeeId || "—") : "—",
+        "Assigned Email": as.assignedEmail || "—",
+        "Hardware Serial": as.assignedAsset ? as.assignedAsset.serialNumber : "—",
+        "Hardware Model": as.assignedAsset ? `${as.assignedAsset.brand} ${as.assignedAsset.model}` : "—",
+        "Allocation Date": as.assignedAt ? new Date(as.assignedAt).toISOString().split('T')[0] : "—",
+        "Remarks": as.remarks || "—"
+      }));
+
+      const XLSX = await import("xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Allocations");
+      XLSX.writeFile(workbook, `${selectedLicense.name.replace(/[^a-zA-Z0-9]/g, '_')}_Seats_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success("Seats allocation list exported successfully!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export allocation seats.");
+    } finally {
+      setExportingAllocations(false);
+    }
+  };
 
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
@@ -584,6 +658,21 @@ export default function SoftwareLicensesDashboard() {
                     <SelectItem value="DECOMMISSIONED" className="text-xs">Decommissioned</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={handleExportLicensesToExcel}
+                  disabled={exportingExcel}
+                  className="h-8.5 rounded-xl border-border/50 bg-card hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 gap-1.5 px-3"
+                >
+                  {exportingExcel ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  )}
+                  Export
+                </Button>
                 <Button size="sm" onClick={fetchLicenses} className="h-8.5 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800">
                   Search
                 </Button>
@@ -1023,8 +1112,27 @@ export default function SoftwareLicensesDashboard() {
 
               {/* Assignments Section */}
               <div className="space-y-3">
-                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <Clipboard className="w-3.5 h-3.5" /> Allocated Seats ({selectedLicense.assignments?.length || 0})
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center justify-between w-full">
+                  <span className="flex items-center gap-1.5">
+                    <Clipboard className="w-3.5 h-3.5" /> Allocated Seats ({selectedLicense.assignments?.length || 0})
+                  </span>
+                  {selectedLicense.assignments && selectedLicense.assignments.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      disabled={exportingAllocations}
+                      onClick={handleExportAllocationsToExcel}
+                      className="h-6 text-[9px] gap-1 hover:text-emerald-600 dark:hover:text-emerald-400 font-bold p-1 cursor-pointer flex items-center"
+                    >
+                      {exportingAllocations ? (
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-3 w-3" />
+                      )}
+                      <span>Export Seats</span>
+                    </Button>
+                  )}
                 </h3>
 
                 {selectedLicense.assignments?.length === 0 ? (

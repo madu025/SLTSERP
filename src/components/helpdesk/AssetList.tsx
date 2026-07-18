@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store } from "lucide-react";
+import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store, FileSpreadsheet, Download } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateAssetSchema, UpdateAssetSchema, CreateAssetHandoverSchema } from "@/lib/validations/helpdesk.schema";
@@ -91,6 +91,56 @@ export default function AssetList({
   onRefresh
 }: AssetListProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  const handleExportToExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (typeFilter !== "ALL") params.append("deviceType", typeFilter);
+      if (statusFilter !== "ALL") params.append("status", statusFilter);
+      params.append("export", "true");
+
+      const res = await fetch(`/api/helpdesk/assets?${params.toString()}&_t=${Date.now()}`);
+      if (!res.ok) throw new Error("Failed to fetch assets for export");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data.assets)) {
+        const rows = json.data.assets.map((asset: any) => ({
+          "Asset Number": asset.assetNumber || "—",
+          "Serial Number": asset.serialNumber || "—",
+          "Device Type": asset.deviceType || "—",
+          "Brand": asset.brand || "—",
+          "Model": asset.model || "—",
+          "Custodian Name": asset.assignedStaff?.name || "—",
+          "Custodian Employee ID": asset.assignedStaff?.employeeId || "—",
+          "Custodian Designation": asset.assignedStaff?.designation || "—",
+          "Department": asset.department || "—",
+          "Site Office": asset.siteOffice?.name || "—",
+          "Location": asset.location || "—",
+          "Status": asset.status || "—",
+          "Purchase Cost (LKR)": asset.purchaseCost || 0,
+          "Purchase Date": asset.purchaseDate ? new Date(asset.purchaseDate).toISOString().split('T')[0] : "—",
+          "Warranty Expiry": asset.warrantyExpiry ? new Date(asset.warrantyExpiry).toISOString().split('T')[0] : "—",
+          "Audited Reconciled": asset.isAudited ? "Yes" : "No"
+        }));
+
+        const XLSX = await import("xlsx");
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "IT Assets");
+        XLSX.writeFile(workbook, `IT_Assets_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Excel file downloaded successfully!");
+      } else {
+        throw new Error();
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to export assets list.");
+    } finally {
+      setExportingExcel(false);
+    }
+  };
   const [submitting, setSubmitting] = useState(false);
   const [editAsset, setEditAsset] = useState<ITAsset | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -563,6 +613,22 @@ export default function AssetList({
                 </SelectContent>
               </Select>
             </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              onClick={handleExportToExcel}
+              disabled={exportingExcel}
+              className="h-8.5 gap-1.5 transition-all bg-card hover:bg-slate-100 dark:hover:bg-slate-800 text-xs border border-border/60 shrink-0 w-full sm:w-auto font-bold rounded-xl px-4 text-slate-700 dark:text-slate-200"
+            >
+              {exportingExcel ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              )}
+              Export Excel
+            </Button>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>

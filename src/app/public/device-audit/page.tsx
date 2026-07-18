@@ -434,10 +434,10 @@ interface DBAsset {
             </div>
 
             <div className="flex flex-col items-center gap-1.5">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center border font-bold text-xs transition-all ${getStepStatusClass(step, "DEVICES")}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center border font-bold text-sm transition-all ${getStepStatusClass(step, "DEVICES")}`}>
                 2
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Devices & Condition</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Devices & Condition</span>
             </div>
           </div>
         )}
@@ -445,15 +445,15 @@ interface DBAsset {
         {/* STEP 1: CUSTODIAN PROFILE */}
         {step === "CUSTODIAN" && (
           <div className="space-y-4">
-            <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
-              <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
+              <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <User className="w-4 h-4 text-emerald-600" />
                 Who is auditing these devices?
               </h3>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Employee ID / EPF No</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Employee ID / EPF No</label>
                   <Input
                     placeholder="e.g. 604, 618"
                     value={employeeNo}
@@ -463,49 +463,49 @@ interface DBAsset {
                         setEmployeeNo(val);
                       }
                     }}
-                    className="h-8.5 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500"
+                    className="h-10 text-sm bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center justify-between">
                     <span>Full Name</span>
-                    {fetchingStaff && <span className="text-[9px] text-emerald-600 animate-pulse lowercase font-normal">fetching...</span>}
-                    {!fetchingStaff && staffFound && <span className="text-[9px] text-emerald-600 font-bold lowercase flex items-center gap-0.5"><Check className="w-2.5 h-2.5" /> verified</span>}
+                    {fetchingStaff && <span className="text-[10px] text-emerald-600 animate-pulse lowercase font-normal">fetching...</span>}
+                    {!fetchingStaff && staffFound && <span className="text-[10px] text-emerald-600 font-bold lowercase flex items-center gap-0.5"><Check className="w-2.5 h-2.5" /> verified</span>}
                   </label>
                   <Input
                     placeholder="Auto-loaded from DB"
                     value={custodianName}
                     onChange={(e) => setCustodianName(e.target.value)}
                     disabled={staffFound || fetchingStaff}
-                    className={`h-8.5 text-xs border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500 ${
-                      staffFound ? "bg-slate-100 dark:bg-slate-900 text-slate-500 cursor-not-allowed border-emerald-250 dark:border-emerald-800" : "bg-white dark:bg-slate-955"
+                    className={`h-10 text-sm border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500 ${
+                      staffFound ? "bg-slate-100 dark:bg-slate-900 text-slate-550 cursor-not-allowed border-emerald-250 dark:border-emerald-800" : "bg-white dark:bg-slate-955"
                     }`}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Department</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Department</label>
                   <Input
                     placeholder="e.g. IT, Finance, HR"
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="h-8.5 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500"
+                    className="h-10 text-sm bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Site Office</label>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Site Office</label>
                   <Select
                     value={siteOfficeId || "none"}
                     onValueChange={(val) => setSiteOfficeId(val === "none" ? "" : val)}
                   >
-                    <SelectTrigger className="h-8.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-emerald-500">
+                    <SelectTrigger className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-emerald-500">
                       <SelectValue placeholder="Select Site Office" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 max-h-52 overflow-y-auto">
+                    <SelectContent className="bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800 max-h-52 overflow-y-auto">
                       <SelectItem value="none">Not Specified</SelectItem>
                       {siteOffices.map((office) => (
                         <SelectItem key={office.id} value={office.id}>{office.name}</SelectItem>
@@ -516,12 +516,12 @@ interface DBAsset {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase">Location / Floor / Room</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Location / Floor / Room</label>
                 <Input
                   placeholder="e.g. 2nd Floor, Server Room"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="h-8.5 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500"
+                  className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus-visible:ring-emerald-500"
                 />
               </div>
             </div>
@@ -529,7 +529,7 @@ interface DBAsset {
             <Button
               onClick={handleCustodianNext}
               disabled={fetchingStaff || !employeeNo.trim() || !custodianName.trim()}
-              className="w-full h-10 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md flex items-center justify-center gap-1.5 transition-all"
+              className="w-full h-11 text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md flex items-center justify-center gap-1.5 transition-all"
             >
               Continue to Device Details
               <ArrowRight className="w-4 h-4" />
@@ -542,10 +542,10 @@ interface DBAsset {
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* 💻 LAPTOP CARD SECTION */}
-            <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
               <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 pb-2">
-                <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Laptop className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Laptop className="w-4.5 h-4.5 text-emerald-600" />
                   Laptop Configuration
                 </h3>
                 
@@ -566,7 +566,7 @@ interface DBAsset {
                     }
                   }}
                 >
-                  <SelectTrigger className="h-7 text-[10px] w-36 bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-850">
+                  <SelectTrigger className="h-8.5 text-xs w-36 bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-850">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850">
@@ -580,16 +580,16 @@ interface DBAsset {
               {laptopMode === "COMPANY" && (
                 <div className="space-y-4">
                   {/* Quick Sync Agent Recommendation Banner */}
-                  <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/25 rounded-xl p-4 space-y-3 text-[11px] text-slate-800 dark:text-slate-200">
+                  <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/25 rounded-xl p-4 space-y-3 text-xs text-slate-800 dark:text-slate-200">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-400">
-                        <ShieldCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                        <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                         <span>Quick Sync & Auto-Audit (නිර්දේශිතයි)</span>
                       </div>
-                      <span className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider">Recommended</span>
+                      <span className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider">Recommended</span>
                     </div>
                     
-                    <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-350">
+                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-350">
                       ඔබගේ ලැප්ටොප් පරිගණකයේ විස්තර (Serial Number, OS configuration, Hardware specifications) ස්වයංක්‍රීයවම ERP පද්ධතියට සම්බන්ධ කිරීමට, පහත දැක්වෙන **SLTS ERP Desktop Sync Agent** ස්ථාපනය කරන්න. එය ස්ථාපනය කිරීමෙන් පසු මෙම Form එක පිරවීම අවශ්‍ය නොවේ.
                     </p>
 
@@ -597,43 +597,43 @@ interface DBAsset {
                       <a
                         href="/downloads/SLTSERPagent_setup.exe"
                         download
-                        className="inline-flex items-center gap-1.5 text-[10.5px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg shadow-sm transition-all"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg shadow-sm transition-all"
                       >
-                        Download Desktop Agent <ExternalLink className="w-3.5 h-3.5" />
+                        Download Desktop Agent <ExternalLink className="w-4 h-4" />
                       </a>
                     </div>
 
                     {/* Step-by-Step Instructions */}
                     <div className="mt-3 border-t border-slate-200 dark:border-slate-800/80 pt-3 space-y-2">
-                      <h4 className="text-[9.5px] font-bold text-slate-700 dark:text-slate-350 uppercase tracking-wide">Installation Steps (පිළිපැදිය යුතු පියවර):</h4>
+                      <h4 className="text-[10px] font-bold text-slate-700 dark:text-slate-350 uppercase tracking-wide">Installation Steps (පිළිපැදිය යුතු පියවර):</h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-1.5">
-                        <div className="bg-white/40 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/60 p-2.5 rounded-lg space-y-1">
-                          <div className="flex items-center gap-1">
-                            <span className="w-4 h-4 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[9px] font-bold">1</span>
-                            <span className="font-bold text-[9.5px]">Download Setup</span>
+                        <div className="bg-white/40 dark:bg-slate-955/20 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-lg space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-4.5 h-4.5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+                            <span className="font-bold text-[10px]">Download Setup</span>
                           </div>
-                          <p className="text-[9px] text-slate-500 leading-relaxed">
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
                             Click above button to download <code>SLTSERPagent_setup.exe</code>.
                           </p>
                         </div>
 
-                        <div className="bg-white/40 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/60 p-2.5 rounded-lg space-y-1">
-                          <div className="flex items-center gap-1">
-                            <span className="w-4 h-4 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[9px] font-bold">2</span>
-                            <span className="font-bold text-[9.5px]">Install Agent</span>
+                        <div className="bg-white/40 dark:bg-slate-955/20 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-lg space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-4.5 h-4.5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                            <span className="font-bold text-[10px]">Install Agent</span>
                           </div>
-                          <p className="text-[9px] text-slate-500 leading-relaxed">
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
                             Run setup file & follow the installation wizard.
                           </p>
                         </div>
 
-                        <div className="bg-white/40 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/60 p-2.5 rounded-lg space-y-1">
-                          <div className="flex items-center gap-1">
-                            <span className="w-4 h-4 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[9px] font-bold">3</span>
-                            <span className="font-bold text-[9.5px]">Auto-Sync Done</span>
+                        <div className="bg-white/40 dark:bg-slate-955/20 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-lg space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-4.5 h-4.5 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
+                            <span className="font-bold text-[10px]">Auto-Sync Done</span>
                           </div>
-                          <p className="text-[9px] text-slate-500 leading-relaxed">
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
                             The agent will query motherboard S/N & sync automatically.
                           </p>
                         </div>
@@ -642,15 +642,15 @@ interface DBAsset {
                   </div>
 
                   {laptopFound && !laptopUseDifferent ? (
-                    <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-3 rounded-lg flex justify-between items-start gap-2 animate-fade-in">
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-4 rounded-lg flex justify-between items-start gap-2 animate-fade-in">
                       <div className="flex gap-2.5 items-start">
-                        <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                        <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                         <div>
-                          <h4 className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400">Assigned Company Laptop Detected</h4>
-                          <p className="text-[10px] text-slate-600 dark:text-slate-350">
-                            Specs: <span className="font-semibold text-slate-800 dark:text-slate-200">{laptopBrand} {laptopModel}</span>
+                          <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-400">Assigned Company Laptop Detected</h4>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
+                            Specs: <span className="font-semibold text-slate-900 dark:text-slate-100">{laptopBrand} {laptopModel}</span>
                           </p>
-                          <p className="text-[9px] text-slate-400 font-mono">S/N: {laptopSerial}</p>
+                          <p className="text-sm text-slate-500 font-mono mt-0.5">S/N: {laptopSerial}</p>
                         </div>
                       </div>
                       <Button
@@ -663,7 +663,7 @@ interface DBAsset {
                           setLaptopIsConfirmed(false);
                           setLaptopFound(false);
                         }}
-                        className="text-[9px] text-amber-600 dark:text-amber-500 font-semibold p-0 h-auto"
+                        className="text-xs text-amber-600 dark:text-amber-500 font-semibold p-0 h-auto"
                       >
                         Change S/N
                       </Button>
@@ -672,7 +672,7 @@ interface DBAsset {
                     <div className="space-y-3 animate-fade-in">
                       {laptopUseDifferent && assignedAssets.some(a => a.deviceType === "LAPTOP") && (
                         <div className="flex justify-between items-center">
-                          <span className="text-[9px] text-amber-500 font-semibold">Custom Laptop Entry Mode</span>
+                          <span className="text-xs text-amber-500 font-semibold">Custom Laptop Entry Mode</span>
                           <Button
                             variant="link"
                             type="button"
@@ -687,7 +687,7 @@ interface DBAsset {
                                 setLaptopIsConfirmed(true);
                               }
                             }}
-                            className="text-[9px] text-emerald-600 p-0 h-auto"
+                            className="text-xs text-emerald-600 p-0 h-auto"
                           >
                             Revert to Assigned
                           </Button>
@@ -695,10 +695,10 @@ interface DBAsset {
                       )}
 
                       <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Laptop Serial Number (S/N)</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Laptop Serial Number (S/N)</label>
                         <div className="flex gap-2">
                           <div className="relative flex-1">
-                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                            <Search className="absolute left-2.5 top-3 h-4 w-4 text-slate-400" />
                             <Input
                               placeholder="Type Laptop S/N"
                               value={laptopSerial}
@@ -708,19 +708,19 @@ interface DBAsset {
                                 setLaptopFound(false);
                               }}
                               onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleSearchDevice("LAPTOP");
-                                }
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleSearchDevice("LAPTOP");
+                                  }
                               }}
-                              className="pl-8 h-8.5 text-xs bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
+                              className="pl-9 h-10 text-sm bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
                             />
                           </div>
                           <Button
                             type="button"
                             onClick={() => handleSearchDevice("LAPTOP")}
                             disabled={laptopSearching || !laptopSerial.trim()}
-                            className="h-8.5 px-3.5 text-[10px] font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700"
+                            className="h-10 px-4 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700"
                           >
                             {laptopSearching ? "Looking up..." : "Search"}
                           </Button>
@@ -731,20 +731,20 @@ interface DBAsset {
                       {laptopSerial.trim().length >= 4 && (
                         <div className="transition-all duration-300">
                           {laptopSearching ? null : laptopIsConfirmed && laptopFound ? (
-                            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-3 rounded-lg flex gap-2 items-start animate-fade-in text-[10px] text-emerald-800 dark:text-emerald-400">
-                              <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
+                            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-3.5 rounded-lg flex gap-2 items-start animate-fade-in text-xs text-emerald-800 dark:text-emerald-400">
+                              <ShieldCheck className="h-5 w-5 shrink-0 mt-0.5" />
                               <span>Recognized in inventory database: <strong>{laptopBrand} {laptopModel}</strong></span>
                             </div>
                           ) : (
-                            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-250 dark:border-amber-800/40 p-3 rounded-lg space-y-2 animate-fade-in">
-                              <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-400">
-                                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                            <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-250 dark:border-amber-800/40 p-4 rounded-lg space-y-3 animate-fade-in">
+                              <div className="flex gap-2 items-start text-xs text-amber-800 dark:text-amber-400">
+                                <AlertTriangle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
                                 <span>Device not found in DB. Provide specifications manually:</span>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-0.5">
-                                  <label className="text-[8px] font-bold text-slate-500 uppercase">Brand</label>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Brand</label>
                                   <Select
                                     value={laptopCustomBrand ? "Other" : (LAPTOP_BRANDS.includes(laptopBrand) ? laptopBrand : "")}
                                     onValueChange={(val) => {
@@ -757,7 +757,7 @@ interface DBAsset {
                                       }
                                     }}
                                   >
-                                    <SelectTrigger className="h-7 text-[10px] bg-white dark:bg-slate-950 border-slate-200">
+                                    <SelectTrigger className="h-10 text-sm bg-white dark:bg-slate-950 border-slate-200">
                                       <SelectValue placeholder="Brand" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-white dark:bg-slate-950 border-slate-200">
@@ -769,25 +769,25 @@ interface DBAsset {
                                   </Select>
                                 </div>
 
-                                <div className="space-y-0.5">
-                                  <label className="text-[8px] font-bold text-slate-500 uppercase">Model</label>
+                                <div className="space-y-1">
+                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Model</label>
                                   <Input
                                     placeholder="e.g. ThinkPad E15"
                                     value={laptopModel}
                                     onChange={(e) => setLaptopModel(e.target.value)}
-                                    className="h-7 text-[10px] bg-white dark:bg-slate-955 border-slate-200"
+                                    className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200"
                                   />
                                 </div>
                               </div>
 
                               {laptopCustomBrand && (
-                                <div className="space-y-0.5">
-                                  <label className="text-[8px] font-bold text-slate-500 uppercase">Specify Brand Name</label>
+                                <div className="space-y-1">
+                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Specify Brand Name</label>
                                   <Input
                                     placeholder="Type Brand"
                                     value={laptopBrand}
                                     onChange={(e) => setLaptopBrand(e.target.value)}
-                                    className="h-7 text-[10px] bg-white dark:bg-slate-955 border-slate-200"
+                                    className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200"
                                   />
                                 </div>
                               )}
@@ -797,11 +797,9 @@ interface DBAsset {
                       )}
                     </div>
                   )}
-
-                  {/* Laptop Conditions & Remarks Section */}
-                  <div className="bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-150 dark:border-slate-850/80 space-y-3">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                      <HelpCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <div className="bg-white dark:bg-slate-950 p-4 rounded-lg border border-slate-150 dark:border-slate-850/80 space-y-3">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                      <HelpCircle className="w-4 h-4 text-emerald-600" />
                       Laptop Condition
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -823,13 +821,13 @@ interface DBAsset {
                                 }
                               });
                             }}
-                            className={`flex items-center gap-2 p-2 rounded border text-left text-[11px] font-medium transition-all ${
+                            className={`flex items-center gap-2 p-2.5 rounded border text-left text-xs font-medium transition-all ${
                               isChecked
                                 ? "bg-emerald-50/50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400"
                                 : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-900/60 dark:hover:bg-slate-900 dark:border-slate-800 dark:text-slate-350"
                             }`}
                           >
-                            <div className={`w-3 h-3 rounded flex items-center justify-center border transition-all ${
+                            <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all ${
                               isChecked ? "bg-emerald-600 border-emerald-600 text-white" : "bg-transparent border-slate-300 dark:border-slate-700"
                             }`}>
                               {isChecked && <Check className="w-2.5 h-2.5" />}
@@ -840,12 +838,12 @@ interface DBAsset {
                       })}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-bold text-slate-500 uppercase">Laptop Comments / Remarks</label>
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Laptop Comments / Remarks</label>
                       <Input
                         placeholder="Describe any laptop keyboard, battery or display issues..."
                         value={laptopRemarks}
                         onChange={(e) => setLaptopRemarks(e.target.value)}
-                        className="h-7 text-[10px] bg-white dark:bg-slate-950 border-slate-200"
+                        className="h-10 text-sm bg-white dark:bg-slate-950 border-slate-200"
                       />
                     </div>
                   </div>
@@ -853,25 +851,25 @@ interface DBAsset {
               )}
 
               {laptopMode === "PERSONAL" && (
-                <div className="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg text-[10px] text-slate-550 flex gap-2">
-                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-500 shrink-0" />
+                <div className="bg-slate-100 dark:bg-slate-900/60 p-3.5 rounded-lg text-xs text-slate-650 flex gap-2">
+                  <CheckCircle className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-500 shrink-0" />
                   <span>You have reported using your <strong>Personal Laptop</strong>. We will record this status. No technical specifications are saved.</span>
                 </div>
               )}
 
               {laptopMode === "NONE" && (
-                <div className="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg text-[10px] text-slate-550 flex gap-2">
-                  <AlertTriangle className="h-4 w-4 text-slate-400 shrink-0" />
+                <div className="bg-slate-100 dark:bg-slate-900/60 p-3.5 rounded-lg text-xs text-slate-650 flex gap-2">
+                  <AlertTriangle className="h-4.5 w-4.5 text-slate-400 shrink-0" />
                   <span>You have reported that you do <strong>not use</strong> a laptop for your work.</span>
                 </div>
               )}
             </div>
 
             {/* 📱 MOBILE CARD SECTION */}
-            <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-4">
               <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 pb-2">
-                <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Smartphone className="w-4.5 h-4.5 text-emerald-600" />
                   Mobile Phone Configuration
                 </h3>
                 
@@ -892,7 +890,7 @@ interface DBAsset {
                     }
                   }}
                 >
-                  <SelectTrigger className="h-7 text-[10px] w-36 bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-850">
+                  <SelectTrigger className="h-8.5 text-xs w-36 bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-850">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-850">
@@ -906,15 +904,15 @@ interface DBAsset {
               {mobileMode === "COMPANY" && (
                 <div className="space-y-4">
                   {mobileFound && !mobileUseDifferent ? (
-                    <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-3 rounded-lg flex justify-between items-start gap-2 animate-fade-in">
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-4 rounded-lg flex justify-between items-start gap-2 animate-fade-in">
                       <div className="flex gap-2.5 items-start">
-                        <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                        <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                         <div>
-                          <h4 className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400">Assigned Company Phone Detected</h4>
-                          <p className="text-[10px] text-slate-600 dark:text-slate-350">
-                            Specs: <span className="font-semibold text-slate-800 dark:text-slate-200">{mobileBrand} {mobileModel}</span>
+                          <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-400">Assigned Company Phone Detected</h4>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 mt-0.5">
+                            Specs: <span className="font-semibold text-slate-900 dark:text-slate-100">{mobileBrand} {mobileModel}</span>
                           </p>
-                          <p className="text-[9px] text-slate-400 font-mono">S/N: {mobileSerial}</p>
+                          <p className="text-sm text-slate-500 font-mono mt-0.5">S/N: {mobileSerial}</p>
                         </div>
                       </div>
                       <Button
@@ -927,7 +925,7 @@ interface DBAsset {
                           setMobileIsConfirmed(false);
                           setMobileFound(false);
                         }}
-                        className="text-[9px] text-amber-600 dark:text-amber-500 font-semibold p-0 h-auto"
+                        className="text-xs text-amber-600 dark:text-amber-500 font-semibold p-0 h-auto"
                       >
                         Change S/N
                       </Button>
@@ -936,7 +934,7 @@ interface DBAsset {
                     <div className="space-y-3 animate-fade-in">
                       {mobileUseDifferent && assignedAssets.some(a => a.deviceType === "MOBILE") && (
                         <div className="flex justify-between items-center">
-                          <span className="text-[9px] text-amber-500 font-semibold">Custom Phone Entry Mode</span>
+                          <span className="text-xs text-amber-500 font-semibold">Custom Phone Entry Mode</span>
                           <Button
                             variant="link"
                             type="button"
@@ -951,7 +949,7 @@ interface DBAsset {
                                 setMobileIsConfirmed(true);
                               }
                             }}
-                            className="text-[9px] text-emerald-600 p-0 h-auto"
+                            className="text-xs text-emerald-600 p-0 h-auto"
                           >
                             Revert to Assigned
                           </Button>
@@ -959,10 +957,10 @@ interface DBAsset {
                       )}
 
                       <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Mobile Serial / IMEI Number</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Mobile Serial / IMEI Number</label>
                         <div className="flex gap-2">
                           <div className="relative flex-1">
-                            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                            <Search className="absolute left-2.5 top-3 h-4 w-4 text-slate-400" />
                             <Input
                               placeholder="Type Mobile S/N or IMEI"
                               value={mobileSerial}
@@ -977,14 +975,14 @@ interface DBAsset {
                                   handleSearchDevice("MOBILE");
                                 }
                               }}
-                              className="pl-8 h-8.5 text-xs bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
+                              className="pl-9 h-10 text-sm bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
                             />
                           </div>
                           <Button
                             type="button"
                             onClick={() => handleSearchDevice("MOBILE")}
                             disabled={mobileSearching || !mobileSerial.trim()}
-                            className="h-8.5 px-3.5 text-[10px] font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700"
+                            className="h-10 px-4 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700"
                           >
                             {mobileSearching ? "Looking up..." : "Search"}
                           </Button>
@@ -995,20 +993,20 @@ interface DBAsset {
                       {mobileSerial.trim().length >= 4 && (
                         <div className="transition-all duration-300">
                           {mobileSearching ? null : mobileIsConfirmed && mobileFound ? (
-                            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-3 rounded-lg flex gap-2 items-start animate-fade-in text-[10px] text-emerald-800 dark:text-emerald-400">
-                              <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
+                            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-800/40 p-3.5 rounded-lg flex gap-2 items-start animate-fade-in text-xs text-emerald-800 dark:text-emerald-400">
+                              <ShieldCheck className="h-5 w-5 shrink-0 mt-0.5" />
                               <span>Recognized in inventory database: <strong>{mobileBrand} {mobileModel}</strong></span>
                             </div>
                           ) : (
-                            <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-250 dark:border-amber-800/40 p-3 rounded-lg space-y-2 animate-fade-in">
-                              <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-400">
-                                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                            <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-250 dark:border-amber-800/40 p-4 rounded-lg space-y-3 animate-fade-in">
+                              <div className="flex gap-2 items-start text-xs text-amber-800 dark:text-amber-400">
+                                <AlertTriangle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
                                 <span>Phone not in database. Provide details manually:</span>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-0.5">
-                                  <label className="text-[8px] font-bold text-slate-500 uppercase">Brand</label>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Brand</label>
                                   <Select
                                     value={mobileCustomBrand ? "Other" : (MOBILE_BRANDS.includes(mobileBrand) ? mobileBrand : "")}
                                     onValueChange={(val) => {
@@ -1021,7 +1019,7 @@ interface DBAsset {
                                       }
                                     }}
                                   >
-                                    <SelectTrigger className="h-7 text-[10px] bg-white dark:bg-slate-950 border-slate-200">
+                                    <SelectTrigger className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200">
                                       <SelectValue placeholder="Brand" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-white dark:bg-slate-955 border-slate-200">
@@ -1033,25 +1031,25 @@ interface DBAsset {
                                   </Select>
                                 </div>
 
-                                <div className="space-y-0.5">
-                                  <label className="text-[8px] font-bold text-slate-500 uppercase">Model</label>
+                                <div className="space-y-1">
+                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Model</label>
                                   <Input
                                     placeholder="e.g. Galaxy A34, Redmi 12"
                                     value={mobileModel}
                                     onChange={(e) => setMobileModel(e.target.value)}
-                                    className="h-7 text-[10px] bg-white dark:bg-slate-955 border-slate-200"
+                                    className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200"
                                   />
                                 </div>
                               </div>
 
                               {mobileCustomBrand && (
-                                <div className="space-y-0.5">
-                                  <label className="text-[8px] font-bold text-slate-500 uppercase">Specify Brand Name</label>
+                                <div className="space-y-1">
+                                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Specify Brand Name</label>
                                   <Input
                                     placeholder="Type Brand"
                                     value={mobileBrand}
                                     onChange={(e) => setMobileBrand(e.target.value)}
-                                    className="h-7 text-[10px] bg-white dark:bg-slate-955 border-slate-200"
+                                    className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200"
                                   />
                                 </div>
                               )}
@@ -1063,9 +1061,9 @@ interface DBAsset {
                   )}
 
                   {/* Mobile Conditions & Remarks Section */}
-                  <div className="bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-150 dark:border-slate-850/80 space-y-3">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                      <HelpCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <div className="bg-white dark:bg-slate-950 p-4 rounded-lg border border-slate-150 dark:border-slate-850/80 space-y-3">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                      <HelpCircle className="w-4 h-4 text-emerald-600" />
                       Mobile Phone Condition
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1087,13 +1085,13 @@ interface DBAsset {
                                 }
                               });
                             }}
-                            className={`flex items-center gap-2 p-2 rounded border text-left text-[11px] font-medium transition-all ${
+                            className={`flex items-center gap-2 p-2.5 rounded border text-left text-xs font-medium transition-all ${
                               isChecked
                                 ? "bg-emerald-50/50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400"
                                 : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-900/60 dark:hover:bg-slate-900 dark:border-slate-800 dark:text-slate-355"
                             }`}
                           >
-                            <div className={`w-3 h-3 rounded flex items-center justify-center border transition-all ${
+                            <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-all ${
                               isChecked ? "bg-emerald-600 border-emerald-600 text-white" : "bg-transparent border-slate-300 dark:border-slate-700"
                             }`}>
                               {isChecked && <Check className="w-2.5 h-2.5" />}
@@ -1104,12 +1102,12 @@ interface DBAsset {
                       })}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-bold text-slate-500 uppercase">Mobile Comments / Remarks</label>
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Mobile Comments / Remarks</label>
                       <Input
                         placeholder="Describe any mobile screen cracks, button defects or battery drain issues..."
                         value={mobileRemarks}
                         onChange={(e) => setMobileRemarks(e.target.value)}
-                        className="h-7 text-[10px] bg-white dark:bg-slate-955 border-slate-200"
+                        className="h-10 text-sm bg-white dark:bg-slate-955 border-slate-200"
                       />
                     </div>
                   </div>
@@ -1117,25 +1115,25 @@ interface DBAsset {
               )}
 
               {mobileMode === "PERSONAL" && (
-                <div className="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg text-[10px] text-slate-550 flex gap-2">
-                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-500 shrink-0" />
+                <div className="bg-slate-100 dark:bg-slate-900/60 p-3.5 rounded-lg text-xs text-slate-650 flex gap-2">
+                  <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-500 shrink-0" />
                   <span>You have reported using your <strong>Personal Mobile Phone</strong>. We will record this status. No technical specifications are saved.</span>
                 </div>
               )}
 
               {mobileMode === "NONE" && (
-                <div className="bg-slate-100 dark:bg-slate-900/60 p-3 rounded-lg text-[10px] text-slate-550 flex gap-2">
-                  <AlertTriangle className="h-4 w-4 text-slate-400 shrink-0" />
+                <div className="bg-slate-100 dark:bg-slate-900/60 p-3.5 rounded-lg text-xs text-slate-650 flex gap-2">
+                  <AlertTriangle className="h-5 w-5 text-slate-400 shrink-0" />
                   <span>You have reported that you do <strong>not use</strong> a mobile phone for company work.</span>
                 </div>
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button
                 type="button"
                 onClick={() => setStep("CUSTODIAN")}
-                className="w-1/3 h-10 text-xs border border-slate-200 dark:border-slate-800 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5"
+                className="w-1/3 h-11 text-sm font-semibold border border-slate-200 dark:border-slate-800 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
@@ -1143,7 +1141,7 @@ interface DBAsset {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="w-2/3 h-10 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md flex items-center justify-center gap-1.5"
+                className="w-2/3 h-11 text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md flex items-center justify-center gap-2 transition-all duration-300"
               >
                 {submitting ? "Submitting..." : "Submit Audit Report"}
                 <CheckCircle className="w-4 h-4" />
@@ -1157,13 +1155,13 @@ interface DBAsset {
           <div className="text-center space-y-6 py-4 flex flex-col items-center">
             <CheckCircle className="h-16 w-16 text-emerald-500 animate-bounce" />
             <div className="space-y-2">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Audit Verification Submitted</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Audit Verification Submitted</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
                 Thank you for completing your hardware reconciliation. The IT asset team will review the submitted information.
               </p>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 w-full text-left space-y-2 text-xs">
+            <div className="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 w-full text-left space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Employee ID:</span>
                 <span className="font-semibold text-slate-900 dark:text-white">{employeeNo}</span>
@@ -1173,7 +1171,7 @@ interface DBAsset {
                 <span className="font-semibold text-slate-900 dark:text-white">{custodianName}</span>
               </div>
               {laptopMode !== "NONE" && (
-                <div className="flex justify-between border-t border-dashed border-slate-250 dark:border-slate-800 pt-2">
+                <div className="flex justify-between border-t border-dashed border-slate-250 dark:border-slate-800 pt-3">
                   <span className="text-slate-500 dark:text-slate-400">Laptop Status:</span>
                   <span className="font-semibold text-slate-900 dark:text-white">
                     {laptopMode === "PERSONAL" ? "Personal Laptop" : `${laptopBrand} ${laptopModel}`}
@@ -1181,7 +1179,7 @@ interface DBAsset {
                 </div>
               )}
               {mobileMode !== "NONE" && (
-                <div className="flex justify-between border-t border-dashed border-slate-250 dark:border-slate-800 pt-2">
+                <div className="flex justify-between border-t border-dashed border-slate-250 dark:border-slate-800 pt-3">
                   <span className="text-slate-500 dark:text-slate-400">Mobile Status:</span>
                   <span className="font-semibold text-slate-900 dark:text-white">
                     {mobileMode === "PERSONAL" ? "Personal Phone" : `${mobileBrand} ${mobileModel}`}
@@ -1204,7 +1202,7 @@ interface DBAsset {
                 setMobileRemarks("");
                 setStep("CUSTODIAN");
               }}
-              className="w-full h-10 text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white"
+              className="w-full h-11 text-sm font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white"
             >
               Verify Another Employee Profile
             </Button>
