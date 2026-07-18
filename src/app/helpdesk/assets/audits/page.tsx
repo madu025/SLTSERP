@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, CheckCircle, ArrowLeft, X, Trash2 } from "lucide-react";
+import { RefreshCw, CheckCircle, ArrowLeft, X, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogFooter,
   DialogTitle,
   DialogDescription
 } from "@/components/ui/dialog";
@@ -67,6 +69,8 @@ export default function AdminAuditReviewPage() {
   const [loading, setLoading] = useState(true);
   const [audits, setAudits] = useState<AuditRecord[]>([]);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [rejectConfirmId, setRejectConfirmId] = useState<string | null>(null);
 
   // Site offices dropdown state
   const [siteOffices, setSiteOffices] = useState<{ id: string; name: string }[]>([]);
@@ -158,7 +162,6 @@ export default function AdminAuditReviewPage() {
   };
 
   const handleReject = async (auditId: string) => {
-    if (!confirm("Are you sure you want to ignore/reject this audit submission?")) return;
     try {
       const res = await fetch(`/api/helpdesk/assets/audits?auditId=${auditId}`, {
         method: "PATCH"
@@ -174,11 +177,12 @@ export default function AdminAuditReviewPage() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to reject audit");
+    } finally {
+      setRejectConfirmId(null);
     }
   };
 
   const handleDelete = async (auditId: string) => {
-    if (!confirm("Are you sure you want to permanently delete this audit submission from the system? This action cannot be undone.")) return;
     try {
       const res = await fetch(`/api/helpdesk/assets/audits?auditId=${auditId}`, {
         method: "DELETE"
@@ -194,6 +198,8 @@ export default function AdminAuditReviewPage() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete audit");
+    } finally {
+      setDeleteConfirmId(null);
     }
   };
 
@@ -401,7 +407,7 @@ export default function AdminAuditReviewPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDelete(a.id)}
+                              onClick={() => setDeleteConfirmId(a.id)}
                               className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-950/20"
                               title="Delete Submission"
                             >
@@ -448,7 +454,7 @@ export default function AdminAuditReviewPage() {
                   <div className="absolute top-0 right-0 p-4.5 flex items-center gap-2">
                     <button 
                       type="button"
-                      onClick={() => handleDelete(selectedAudit.id)}
+                      onClick={() => setDeleteConfirmId(selectedAudit.id)}
                       className="p-1.5 rounded-full hover:bg-red-950/30 text-red-400 hover:text-red-300 transition-colors"
                       title="Delete Submission"
                     >
@@ -740,7 +746,7 @@ export default function AdminAuditReviewPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => handleReject(selectedAudit.id)}
+                    onClick={() => setRejectConfirmId(selectedAudit.id)}
                     className="flex-1 h-9 text-xs border-red-900 text-red-400 bg-red-950/10 hover:bg-red-950/30 hover:text-red-300 transition-colors"
                   >
                     Ignore Report
@@ -758,6 +764,61 @@ export default function AdminAuditReviewPage() {
               </>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmId} onOpenChange={(o) => !o && setDeleteConfirmId(null)}>
+        <DialogContent className="rounded-2xl border border-slate-800 shadow-2xl p-0 overflow-hidden bg-slate-900 text-slate-100 max-w-md">
+          <DialogHeader className="px-6 py-4 bg-slate-950 border-b border-slate-800/80 flex flex-row items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-red-950/40 border border-red-900/40 flex items-center justify-center">
+              <Trash2 className="w-4 h-4 text-red-400" />
+            </div>
+            <div>
+              <DialogTitle className="text-sm font-extrabold text-white">Delete Submission</DialogTitle>
+              <DialogDescription className="text-[10px] text-slate-400">Permanent removal from the audit system.</DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="px-6 py-6 space-y-3">
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Are you sure you want to permanently delete this audit submission? This action cannot be undone and the record will be removed.
+            </p>
+            <div className="p-2.5 bg-red-950/20 rounded-lg border border-red-900/30 text-[9px] font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5" /> Warning: The submission data will be lost forever.
+            </div>
+          </div>
+          <DialogFooter className="px-6 py-4 bg-slate-950 border-t border-slate-800/80 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)} className="h-8.5 px-4 text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)} className="h-8.5 px-4 bg-red-600 hover:bg-red-500 text-white font-bold text-xs">
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ignore Confirmation Dialog */}
+      <Dialog open={!!rejectConfirmId} onOpenChange={(o) => !o && setRejectConfirmId(null)}>
+        <DialogContent className="rounded-2xl border border-slate-800 shadow-2xl p-0 overflow-hidden bg-slate-900 text-slate-100 max-w-md">
+          <DialogHeader className="px-6 py-4 bg-slate-950 border-b border-slate-800/80 flex flex-row items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-amber-950/40 border border-amber-900/40 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+            </div>
+            <div>
+              <DialogTitle className="text-sm font-extrabold text-white">Ignore Report</DialogTitle>
+              <DialogDescription className="text-[10px] text-slate-400">Mark submission as rejected.</DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="px-6 py-6 space-y-3">
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Are you sure you want to ignore and reject this audit submission? It will be removed from your active review list.
+            </p>
+          </div>
+          <DialogFooter className="px-6 py-4 bg-slate-950 border-t border-slate-800/80 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setRejectConfirmId(null)} className="h-8.5 px-4 text-xs font-bold text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">Cancel</Button>
+            <Button onClick={() => rejectConfirmId && handleReject(rejectConfirmId)} className="h-8.5 px-4 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs">
+              Confirm Ignore
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

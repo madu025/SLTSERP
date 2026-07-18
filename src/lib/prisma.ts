@@ -49,12 +49,21 @@ const readReplicaUrl = process.env.READ_REPLICA_URL
     ? getSafeDatabaseUrl(process.env.READ_REPLICA_URL, isWorker)
     : primaryUrl;
 
-const readClient = globalForPrisma.readClient ?? new PrismaClient({
-    datasourceUrl: readReplicaUrl,
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-});
+const hasDistinctReplica = !!(
+    process.env.READ_REPLICA_URL &&
+    process.env.READ_REPLICA_URL !== process.env.DATABASE_URL
+);
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.readClient = readClient;
+const readClient = hasDistinctReplica
+    ? (globalForPrisma.readClient ?? new PrismaClient({
+        datasourceUrl: readReplicaUrl,
+        log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+      }))
+    : primaryClient;
+
+if (hasDistinctReplica && process.env.NODE_ENV !== 'production') {
+    globalForPrisma.readClient = readClient;
+}
 
 /**
  * Enhanced Prisma Client with:
