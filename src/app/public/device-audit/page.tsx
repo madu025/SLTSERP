@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, Building, HelpCircle, Check, ArrowRight, ArrowLeft, ExternalLink } from "lucide-react";
+import { Laptop, Smartphone, Search, CheckCircle, AlertTriangle, ShieldCheck, User, HelpCircle, Check, ArrowRight, ArrowLeft, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 const LAPTOP_BRANDS = ["HP", "Lenovo", "Dell", "Asus", "Acer", "MSI", "Apple"];
@@ -42,8 +42,18 @@ export default function PublicDeviceAuditPage() {
   const [siteOfficeId, setSiteOfficeId] = useState("");
   const [location, setLocation] = useState("");
 
+interface DBAsset {
+  id: string;
+  serialNumber: string;
+  assetNumber?: string | null;
+  deviceType: "LAPTOP" | "MOBILE" | "DESKTOP" | "PRINTER" | "NETWORK" | "OTHER";
+  brand?: string | null;
+  model?: string | null;
+  status: string;
+}
+
   // Assigned Assets returned from DB (to show for confirmation)
-  const [assignedAssets, setAssignedAssets] = useState<any[]>([]);
+  const [assignedAssets, setAssignedAssets] = useState<DBAsset[]>([]);
 
   // Laptop State
   const [laptopMode, setLaptopMode] = useState<"COMPANY" | "PERSONAL" | "NONE">("COMPANY");
@@ -103,11 +113,11 @@ export default function PublicDeviceAuditPage() {
           setStaffFound(true);
           setCustodianName(staff.name);
           
-          const assets = staff.assignedITAssets || [];
+          const assets: DBAsset[] = staff.assignedITAssets || [];
           setAssignedAssets(assets);
 
-          // Reset Laptop config
-          const dbLaptop = assets.find((a: any) => a.deviceType === "LAPTOP");
+           // Reset Laptop config
+          const dbLaptop = assets.find((a) => a.deviceType === "LAPTOP");
           if (dbLaptop) {
             setLaptopMode("COMPANY");
             setLaptopSerial(dbLaptop.serialNumber);
@@ -127,7 +137,7 @@ export default function PublicDeviceAuditPage() {
           }
 
           // Reset Mobile config
-          const dbMobile = assets.find((a: any) => a.deviceType === "MOBILE");
+          const dbMobile = assets.find((a) => a.deviceType === "MOBILE");
           if (dbMobile) {
             setMobileMode("COMPANY");
             setMobileSerial(dbMobile.serialNumber);
@@ -541,7 +551,7 @@ export default function PublicDeviceAuditPage() {
                 
                 <Select
                   value={laptopMode}
-                  onValueChange={(val: any) => {
+                  onValueChange={(val: "COMPANY" | "PERSONAL" | "NONE") => {
                     setLaptopMode(val);
                     if (val === "PERSONAL") {
                       setLaptopSerial(`PERSONAL-LAPTOP-${employeeNo}`);
@@ -570,22 +580,65 @@ export default function PublicDeviceAuditPage() {
               {laptopMode === "COMPANY" && (
                 <div className="space-y-4">
                   {/* Quick Sync Agent Recommendation Banner */}
-                  <div className="bg-gradient-to-r from-sky-500/10 to-indigo-500/10 border border-sky-500/20 rounded-lg p-3 space-y-1.5 text-[11px] text-sky-850 dark:text-sky-400">
-                    <div className="flex items-center gap-1.5 font-bold">
-                      <ShieldCheck className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-                      <span>Quick Sync Option (නිර්දේශිතයි)</span>
+                  <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/25 rounded-xl p-4 space-y-3 text-[11px] text-slate-800 dark:text-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-400">
+                        <ShieldCheck className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Quick Sync & Auto-Audit (නිර්දේශිතයි)</span>
+                      </div>
+                      <span className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider">Recommended</span>
                     </div>
-                    <p className="text-[10px] leading-relaxed">
-                      ලැප්ටොප් පරිගණකයේ විස්තර ස්වයංක්‍රීයවම ERP පද්ධතියට ඇතුළත් කිරීමට, පහත සබැඳියෙන් <strong>Asset Sync Agent (Setup)</strong> බාගත කර ස්ථාපනය කරන්න. ඉන්පසු මෙම පෝරමය (Form) පිරවීම අවශ්‍ය නොවේ.
+                    
+                    <p className="text-[10px] leading-relaxed text-slate-600 dark:text-slate-350">
+                      ඔබගේ ලැප්ටොප් පරිගණකයේ විස්තර (Serial Number, OS configuration, Hardware specifications) ස්වයංක්‍රීයවම ERP පද්ධතියට සම්බන්ධ කිරීමට, පහත දැක්වෙන **SLTS ERP Desktop Sync Agent** ස්ථාපනය කරන්න. එය ස්ථාපනය කිරීමෙන් පසු මෙම Form එක පිරවීම අවශ්‍ය නොවේ.
                     </p>
-                    <a
-                      href="https://sltelecomservices-my.sharepoint.com/:u:/g/personal/prasad_slts_lk/IQB9Wk4AeMExTIo5BucEDSp9ASnv1QSbhs7IWfPvyF0Ms9k?e=44Gcg7"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-350 underline"
-                    >
-                      Download Setup Agent (MSI Installer) <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <a
+                        href="/downloads/SLTSERPagent_setup.exe"
+                        download
+                        className="inline-flex items-center gap-1.5 text-[10.5px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg shadow-sm transition-all"
+                      >
+                        Download Desktop Agent <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+
+                    {/* Step-by-Step Instructions */}
+                    <div className="mt-3 border-t border-slate-200 dark:border-slate-800/80 pt-3 space-y-2">
+                      <h4 className="text-[9.5px] font-bold text-slate-700 dark:text-slate-350 uppercase tracking-wide">Installation Steps (පිළිපැදිය යුතු පියවර):</h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-1.5">
+                        <div className="bg-white/40 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/60 p-2.5 rounded-lg space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="w-4 h-4 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[9px] font-bold">1</span>
+                            <span className="font-bold text-[9.5px]">Download Setup</span>
+                          </div>
+                          <p className="text-[9px] text-slate-500 leading-relaxed">
+                            Click above button to download <code>SLTSERPagent_setup.exe</code>.
+                          </p>
+                        </div>
+
+                        <div className="bg-white/40 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/60 p-2.5 rounded-lg space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="w-4 h-4 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[9px] font-bold">2</span>
+                            <span className="font-bold text-[9.5px]">Install Agent</span>
+                          </div>
+                          <p className="text-[9px] text-slate-500 leading-relaxed">
+                            Run setup file & follow the installation wizard.
+                          </p>
+                        </div>
+
+                        <div className="bg-white/40 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/60 p-2.5 rounded-lg space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="w-4 h-4 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center text-[9px] font-bold">3</span>
+                            <span className="font-bold text-[9.5px]">Auto-Sync Done</span>
+                          </div>
+                          <p className="text-[9px] text-slate-500 leading-relaxed">
+                            The agent will query motherboard S/N & sync automatically.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {laptopFound && !laptopUseDifferent ? (
@@ -625,12 +678,14 @@ export default function PublicDeviceAuditPage() {
                             type="button"
                             onClick={() => {
                               const dbLap = assignedAssets.find(a => a.deviceType === "LAPTOP");
-                              setLaptopUseDifferent(false);
-                              setLaptopSerial(dbLap.serialNumber);
-                              setLaptopBrand(dbLap.brand);
-                              setLaptopModel(dbLap.model);
-                              setLaptopFound(true);
-                              setLaptopIsConfirmed(true);
+                              if (dbLap) {
+                                setLaptopUseDifferent(false);
+                                setLaptopSerial(dbLap.serialNumber);
+                                setLaptopBrand(dbLap.brand || "");
+                                setLaptopModel(dbLap.model || "");
+                                setLaptopFound(true);
+                                setLaptopIsConfirmed(true);
+                              }
                             }}
                             className="text-[9px] text-emerald-600 p-0 h-auto"
                           >
@@ -822,7 +877,7 @@ export default function PublicDeviceAuditPage() {
                 
                 <Select
                   value={mobileMode}
-                  onValueChange={(val: any) => {
+                  onValueChange={(val: "COMPANY" | "PERSONAL" | "NONE") => {
                     setMobileMode(val);
                     if (val === "PERSONAL") {
                       setMobileSerial(`PERSONAL-MOBILE-${employeeNo}`);
@@ -887,12 +942,14 @@ export default function PublicDeviceAuditPage() {
                             type="button"
                             onClick={() => {
                               const dbMob = assignedAssets.find(a => a.deviceType === "MOBILE");
-                              setMobileUseDifferent(false);
-                              setMobileSerial(dbMob.serialNumber);
-                              setMobileBrand(dbMob.brand);
-                              setMobileModel(dbMob.model);
-                              setMobileFound(true);
-                              setMobileIsConfirmed(true);
+                              if (dbMob) {
+                                setMobileUseDifferent(false);
+                                setMobileSerial(dbMob.serialNumber);
+                                setMobileBrand(dbMob.brand || "");
+                                setMobileModel(dbMob.model || "");
+                                setMobileFound(true);
+                                setMobileIsConfirmed(true);
+                              }
                             }}
                             className="text-[9px] text-emerald-600 p-0 h-auto"
                           >
