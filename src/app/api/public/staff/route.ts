@@ -1,9 +1,22 @@
 import { apiHandler } from "@/lib/api-handler";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, getClientIp } from "@/lib/agent-auth";
+import { NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (req) => {
+  const ip = getClientIp(req);
+  
+  // Rate limit: 10 requests per minute per IP
+  const isAllowed = await rateLimit(ip, 10, 60);
+  if (!isAllowed) {
+    return NextResponse.json(
+      { success: false, message: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   const url = new URL(req.url);
   const employeeNo = url.searchParams.get("employeeNo") || "";
 

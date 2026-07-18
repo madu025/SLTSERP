@@ -22,6 +22,9 @@ const CreateAuditSchema = z.object({
   location: z.string().optional().nullable()
 });
 
+import { rateLimit, getClientIp } from "@/lib/agent-auth";
+import { NextResponse } from "next/server";
+
 // GET: List all audits (Admin only)
 export const GET = apiHandler(
   async () => {
@@ -35,6 +38,17 @@ export const GET = apiHandler(
 // POST: Submit a public audit response (No auth checks so anyone can access it)
 export const POST = apiHandler(
   async (req, _params, body) => {
+    const ip = getClientIp(req);
+
+    // Rate limit: 5 audit submissions per minute per IP
+    const isAllowed = await rateLimit(ip, 5, 60);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { success: false, message: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     return await HelpdeskAuditService.submitAudit(body);
   },
   {

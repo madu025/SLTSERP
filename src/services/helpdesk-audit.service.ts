@@ -220,6 +220,12 @@ export class HelpdeskAuditService {
       // Provision user account for staff member if not exists
       await HelpdeskService.ensureUserAccountForStaff(staff.id, tx as any);
 
+      // Fetch linked user account
+      const user = await tx.user.findFirst({
+        where: { staffId: staff.id },
+        select: { id: true }
+      });
+
       if (audit.isPersonal) {
         // Skip ITAsset inventory syncing for personal devices
         const updatedAudit = await tx.iTAssetAudit.update({
@@ -276,6 +282,7 @@ export class HelpdeskAuditService {
             siteOfficeId,
             location,
             assignedStaffId: staff.id,
+            assignedUserId: user?.id || null,
             imei2,
             simNumber,
             mdmEnrolled
@@ -318,6 +325,7 @@ export class HelpdeskAuditService {
             siteOfficeId,
             location,
             assignedStaffId: staff.id,
+            assignedUserId: user?.id || null,
             imei2,
             simNumber,
             mdmEnrolled
