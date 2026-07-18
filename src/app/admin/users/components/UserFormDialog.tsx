@@ -25,6 +25,7 @@ const userSchema = z.object({
     opmcIds: z.array(z.string()),
     supervisorId: z.string().optional(),
     assignedStoreId: z.string().optional(),
+    status: z.string().optional(),
 });
 
 export type UserFormValues = z.infer<typeof userSchema>;
@@ -77,7 +78,7 @@ export function UserFormDialog({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(userSchema) as any,
         defaultValues: initialData || {
-            username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
+            username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none', status: 'active'
         }
     });
 
@@ -90,12 +91,12 @@ export function UserFormDialog({
         if (initialData) {
             form.reset(initialData);
             const section = Object.entries(ROLE_CATEGORIES).find(([, roles]) => roles.includes(initialData.role))?.[0] || null;
-            setTimeout(() => setSelectedSection(section), 0);
+            setSelectedSection(section), 0;
         } else {
             form.reset({
-                username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none'
+                username: '', email: '', password: '', name: '', role: '', employeeId: '', opmcIds: [], supervisorId: '', assignedStoreId: 'none', status: 'active'
             });
-            setTimeout(() => { setSelectedSection(null); setStep(1); }, 0);
+            setSelectedSection(null); setStep(1);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, initialData?.id]);
@@ -220,13 +221,34 @@ export function UserFormDialog({
                                         )} />
                                     </div>
 
-                                    <FormField control={form.control} name="email" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Email Address</FormLabel>
-                                            <FormControl><Input type="email" placeholder="e.g. name@slt.lk" className="h-10 text-sm" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={form.control} name="email" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Email Address</FormLabel>
+                                                <FormControl><Input type="email" placeholder="e.g. name@slt.lk" className="h-10 text-sm" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+
+                                        <FormField control={form.control} name="status" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[11px] font-bold uppercase text-slate-500">Account Status</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value || 'active'}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="h-10 text-sm">
+                                                            <SelectValue placeholder="Select Status..." />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="active">Active</SelectItem>
+                                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                                        <SelectItem value="resigned">Resigned</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </div>
 
                                     <FormField control={form.control} name="password" render={({ field }) => (
                                         <FormItem>

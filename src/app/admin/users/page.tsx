@@ -19,6 +19,7 @@ interface UserData {
     email: string;
     name: string | null;
     role: string;
+    status: string;
     employeeId?: string | null;
     createdAt: string;
     assignedStoreId?: string | null;
@@ -198,9 +199,18 @@ export default function UserRegistrationPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                    <span className="px-2 py-0.5 rounded-full text-[9px] bg-slate-100 text-slate-600 border border-slate-200 font-semibold tracking-wide">
-                                                        {u.role.replace(/_/g, ' ')}
-                                                    </span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] bg-slate-100 text-slate-600 border border-slate-200 font-semibold tracking-wide">
+                                                            {u.role.replace(/_/g, ' ')}
+                                                        </span>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] border font-bold uppercase tracking-wider ${
+                                                            u.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-250' :
+                                                            u.status === 'resigned' ? 'bg-rose-50 text-rose-700 border-rose-250' :
+                                                            'bg-slate-100 text-slate-600 border-slate-200'
+                                                        }`}>
+                                                            {u.status || 'active'}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-2 text-slate-500">
                                                     <div className="flex flex-wrap gap-1">
@@ -259,6 +269,7 @@ export default function UserRegistrationPage() {
                         ...selectedUser,
                         name: selectedUser.name || '',
                         employeeId: selectedUser.employeeId || '',
+                        status: selectedUser.status || 'active',
                         opmcIds: selectedUser.accessibleOpmcs?.map(o => o.id) || [],
                         supervisorId: selectedUser.supervisor?.id || '',
                         assignedStoreId: selectedUser.assignedStoreId || 'none'

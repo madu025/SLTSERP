@@ -22,6 +22,7 @@ interface CreateUserData {
     opmcIds?: string[];
     supervisorId?: string;
     assignedStoreId?: string;
+    status?: string;
 }
 
 interface UpdateUserData {
@@ -34,6 +35,7 @@ interface UpdateUserData {
     opmcIds?: string[];
     supervisorId?: string;
     assignedStoreId?: string;
+    status?: string;
 }
 
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -106,7 +108,7 @@ export class UserService {
             }
         });
 
-        if (!user) {
+        if (!user || user.status !== 'active') {
             throw new Error('INVALID_CREDENTIALS');
         }
 
@@ -172,13 +174,20 @@ export class UserService {
     static async getUsers(page: number, limit: number, search?: string) {
         const skip = (page - 1) * limit;
 
-        const where: Prisma.UserWhereInput = {};
+        const where: Prisma.UserWhereInput = {
+            status: { not: 'deleted' }
+        };
         if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
-                { employeeId: { contains: search, mode: 'insensitive' } },
-                { username: { contains: search, mode: 'insensitive' } }
+            where.AND = [
+                { status: { not: 'deleted' } },
+                {
+                    OR: [
+                        { name: { contains: search, mode: 'insensitive' } },
+                        { email: { contains: search, mode: 'insensitive' } },
+                        { employeeId: { contains: search, mode: 'insensitive' } },
+                        { username: { contains: search, mode: 'insensitive' } }
+                    ]
+                }
             ];
         }
 
@@ -192,6 +201,7 @@ export class UserService {
                     email: true,
                     name: true,
                     role: true,
+                    status: true,
                     createdAt: true,
                     staffId: true,
                     assignedStoreId: true,
@@ -219,7 +229,7 @@ export class UserService {
      * Creates a new user with transactional section assignments
      */
     static async createUser(data: CreateUserData, currentUserId: string) {
-        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = data;
+        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
 
         // Validate OPMC requirement for New Connection & Service Assurance
         const requiresOPMC = ['MANAGER', 'SA_MANAGER', 'SA_ASSISTANT'].includes(role);
@@ -262,6 +272,7 @@ export class UserService {
                     password: hashedPassword,
                     name,
                     role: role || 'ENGINEER',
+                    status: status || 'active',
                     staff: staffId ? { connect: { id: staffId } } : undefined,
                     assignedStore: assignedStoreId && assignedStoreId !== 'none' ? { connect: { id: assignedStoreId } } : undefined,
                     accessibleOpmcs: {
@@ -355,7 +366,7 @@ export class UserService {
      * Updates an existing user record
      */
     static async updateUser(id: string, data: UpdateUserData, currentUserId: string) {
-        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId } = data;
+        const { username, email, password, name, role, employeeId, opmcIds, supervisorId, assignedStoreId, status } = data;
 
         const existingUser = await prisma.user.findUnique({ where: { id }, include: { staff: true } });
         if (!existingUser) throw new Error('USER_NOT_FOUND');
@@ -371,11 +382,13 @@ export class UserService {
             role: Role;
             password?: string;
             mustChangePassword?: boolean;
+            status?: string;
         } = {
             username,
             email,
             name,
             role,
+            status,
         };
 
         if (password && password.length > 0) {
@@ -484,9 +497,6 @@ export class UserService {
         return userWithoutPassword;
     }
 
-    /**
-     * Deletes a user record by ID
-     */
     static async deleteUser(id: string) {
         const user = await prisma.user.findUnique({ where: { id } });
         if (!user) throw new Error('USER_NOT_FOUND');
@@ -495,7 +505,26 @@ export class UserService {
             throw new Error('CANNOT_DELETE_SUPER_ADMIN');
         }
 
-        await prisma.user.delete({ where: { id } });
+        try {
+            // Delete cascade-safe related records to avoid blockages
+            await prisma.userSectionAssignment.deleteMany({ where: { userId: id } });
+            await prisma.notification.deleteMany({ where: { userId: id } });
+            await prisma.notificationPreference.deleteMany({ where: { userId: id } });
+            await prisma.pushSubscription.deleteMany({ where: { userId: id } });
+
+            // Attempt physical deletion
+            await prisma.user.delete({ where: { id } });
+        } catch (error: any) {
+            // Fallback to soft delete if a foreign key constraint prevents physical deletion (Prisma Code P2003)
+            if (error.code === 'P2003') {
+                await prisma.user.update({
+                    where: { id },
+                    data: { status: 'deleted' }
+                });
+            } else {
+                throw error;
+            }
+        }
         return { success: true };
     }
 
