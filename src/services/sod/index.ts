@@ -277,11 +277,14 @@ export class ServiceOrderService {
         return SODQueryService.getOspFtthItems();
     }
 
-    static async bulkImportLegacyServiceOrders(rows: any[], skipMaterials?: boolean) {
+    static async bulkImportLegacyServiceOrders(
+        rows: Parameters<typeof SODImportService.bulkImportLegacyServiceOrders>[0], 
+        skipMaterials?: boolean
+    ) {
         return SODImportService.bulkImportLegacyServiceOrders(rows, skipMaterials);
     }
-
-    static async bridgeSync(payload: any) {
+ 
+    static async bridgeSync(payload: Parameters<typeof SODSyncService.bridgeSync>[0]) {
         return SODSyncService.bridgeSync(payload);
     }
 }

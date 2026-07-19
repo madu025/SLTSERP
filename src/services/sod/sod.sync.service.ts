@@ -6,7 +6,7 @@ import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
 import { SodUtils } from './sod.utils';
-import { SodStatus, SOD_COMPLETION_STATUSES, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
+import { SodStatus, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
 import { MaterialUsageInput } from './sod-types';
 interface SyncStats {
     queuedCount: number;

@@ -338,7 +338,7 @@ export class ContractorLifecycleService {
     /**
      * Save contractor teams, handling upserts, store assignments, and members
      */
-    static async saveContractorTeams(contractorId: string, teams: any[]) {
+    static async saveContractorTeams(contractorId: string, teams: TeamInput[]) {
         const existingTeams = await prisma.contractorTeam.findMany({
             where: { contractorId },
             select: { id: true }
@@ -350,7 +350,7 @@ export class ContractorLifecycleService {
         });
 
         const existingIds = existingTeams.map(t => t.id);
-        const incomingIds = teams.filter((t: any) => t.id && !t.id.startsWith('temp')).map((t: any) => t.id);
+        const incomingIds = teams.filter((t: TeamInput) => t.id && !t.id.startsWith('temp')).map((t: TeamInput) => t.id as string);
         const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
 
         await prisma.$transaction(async (tx) => {
@@ -390,8 +390,8 @@ export class ContractorLifecycleService {
 
                 if (team.storeAssignments && team.storeAssignments.length > 0) {
                     await tx.teamStoreAssignment.createMany({
-                        data: team.storeAssignments.map((sa: any) => ({
-                            teamId,
+                        data: team.storeAssignments.map((sa: { storeId: string; isPrimary?: boolean }) => ({
+                            teamId: teamId as string,
                             storeId: sa.storeId,
                             isPrimary: sa.isPrimary || false
                         }))
@@ -405,8 +405,8 @@ export class ContractorLifecycleService {
                 });
                 const curMemIds = currentMembers.map(m => m.id);
                 const incMemIds = (team.members || [])
-                    .filter((m: any) => m.id && !m.id.startsWith('mem'))
-                    .map((m: any) => m.id);
+                    .filter((m: TeamMemberInput) => m.id && !m.id.startsWith('mem'))
+                    .map((m: TeamMemberInput) => m.id as string);
 
                 const memsToDelete = curMemIds.filter(id => !incMemIds.includes(id));
                 if (memsToDelete.length > 0) {

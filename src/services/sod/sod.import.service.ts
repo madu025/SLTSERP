@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { addJob, statsUpdateQueue } from '../../lib/queue';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
 
@@ -315,7 +316,7 @@ export class SODImportService {
                         }
                     }
 
-                    const createData: Record<string, unknown> = {
+                    const createData: Prisma.ServiceOrderUncheckedCreateInput = {
                         soNum,
                         opmcId: opmc.id,
                         rtom: opmc.rtom,
@@ -337,8 +338,7 @@ export class SODImportService {
                         createData.contractorId = contractorId;
                     }
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    await (prisma.serviceOrder as any).create({
+                    await prisma.serviceOrder.create({
                         data: {
                             ...createData,
                             ...(materialUsageData.length > 0 && {

@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { apiHandler } from '@/lib/api-handler';
 import { ServiceOrderService } from '@/services/sod.service';
 import { bridgeSyncSchema } from '@/lib/validations/service-order.schema';
+import { z } from 'zod';
 import { redis } from '@/lib/redis';
 
 export async function OPTIONS() {
@@ -29,7 +29,7 @@ export const GET = apiHandler(async (request: Request) => {
         return { success: false, message: 'No bridge data found' };
     }
 
-    const scraped = (rawData.scrapedData as any);
+    const scraped = rawData.scrapedData as Record<string, unknown>;
     return {
         success: true,
         materialDetails: scraped?.materialDetails || [],
@@ -38,7 +38,7 @@ export const GET = apiHandler(async (request: Request) => {
     };
 });
 
-export const POST = apiHandler(async (_req, _params, payload: any) => {
+export const POST = apiHandler(async (_req, _params, payload: z.infer<typeof bridgeSyncSchema>) => {
     const soNum = payload.soNum;
     if (!soNum) {
         throw new Error('Service Order Number is required for sync.');

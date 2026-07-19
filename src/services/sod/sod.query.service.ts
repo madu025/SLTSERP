@@ -564,8 +564,7 @@ export class SODQueryService {
      * Get OSP FTTH items for manual mapping
      */
     static async getOspFtthItems() {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return await (prisma.inventoryItem as any).findMany({
+        return await prisma.inventoryItem.findMany({
             where: {
                 isOspFtth: true
             },

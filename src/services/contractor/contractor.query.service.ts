@@ -18,7 +18,7 @@ export class ContractorQueryService {
                 include: { accessibleOpmcs: { select: { id: true } } }
             });
             if (user) {
-                opmcIds = user.accessibleOpmcs.map((o: any) => o.id);
+                opmcIds = user.accessibleOpmcs.map((o: { id: string }) => o.id);
             }
         }
         

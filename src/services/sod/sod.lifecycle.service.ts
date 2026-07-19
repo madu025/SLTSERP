@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ServiceOrderUpdateData } from './sod-types';
+import { TransactionClient } from '../inventory/types';
 import { SODInvoicingService } from './sod.invoicing.service';
 import { ServiceOrderRepository } from '@/repositories/service-order.repository';
 import { eventBus } from '@/lib/events/event-bus';
@@ -120,7 +121,7 @@ export class SODLifecycleService {
         serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null },
         updateData: Prisma.ServiceOrderUncheckedUpdateInput,
         userId: string = 'SYSTEM',
-        tx?: any
+        tx?: TransactionClient
     ) {
         // Track status history if status changed
         if (serviceOrder.status && serviceOrder.status !== oldOrder.status) {

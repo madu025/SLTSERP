@@ -1,118 +1,84 @@
-import { NextResponse } from 'next/server';
 import { ServiceOrderService } from '@/services/sod.service';
 import { serviceOrderCreateSchema, serviceOrderPatchSchema, serviceOrderUpdateSchema } from '@/lib/validations/service-order.schema';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError, ErrorCode } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
 // GET service orders with pagination and summary metrics
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const params = {
-            rtomId: searchParams.get('rtomId') || searchParams.get('opmcId') || '',
-            filter: searchParams.get('filter') || 'pending',
-            search: searchParams.get('search') || undefined,
-            statusFilter: searchParams.get('statusFilter') || undefined,
-            patFilter: searchParams.get('patFilter') || undefined,
-            matFilter: searchParams.get('matFilter') || undefined,
-            page: parseInt(searchParams.get('page') || '1'),
-            limit: parseInt(searchParams.get('limit') || '50'),
-            cursor: searchParams.get('cursor') || undefined,
-            month: searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined,
-            year: searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined,
-        };
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const params = {
+        rtomId: searchParams.get('rtomId') || searchParams.get('opmcId') || '',
+        filter: searchParams.get('filter') || 'pending',
+        search: searchParams.get('search') || undefined,
+        statusFilter: searchParams.get('statusFilter') || undefined,
+        patFilter: searchParams.get('patFilter') || undefined,
+        matFilter: searchParams.get('matFilter') || undefined,
+        page: parseInt(searchParams.get('page') || '1'),
+        limit: parseInt(searchParams.get('limit') || '50'),
+        cursor: searchParams.get('cursor') || undefined,
+        month: searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined,
+        year: searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined,
+    };
 
-        if (!params.rtomId) {
-            return NextResponse.json({ message: 'RTOM selection is required' }, { status: 400 });
-        }
-
-        const userId = request.headers.get('x-user-id') || 'SYSTEM';
-        const result = await ServiceOrderService.getServiceOrders(userId, params);
-        return NextResponse.json(result);
-
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error('Error fetching service orders:', error);
-        return NextResponse.json({ message: 'Error fetching service orders', debug: msg }, { status: 500 });
+    if (!params.rtomId) {
+        throw AppError.badRequest('RTOM selection is required');
     }
-}
+
+    const userId = request.headers.get('x-user-id') || 'SYSTEM';
+    const result = await ServiceOrderService.getServiceOrders(userId, params);
+    return result;
+}, { rawResponse: true });
 
 // POST - Create manual service order
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const validation = serviceOrderCreateSchema.safeParse(body);
-        if (!validation.success) {
-            return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
-        }
-
-        /* 
-        const { rtom: _, ...serviceOrderData } = validation.data;
-        const serviceOrder = await ServiceOrderService.createServiceOrder(serviceOrderData);
-        return NextResponse.json(serviceOrder);
-        */
-        return NextResponse.json({ message: 'Manual creation not implemented' }, { status: 501 });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error('Error creating service order:', error);
-        return NextResponse.json({ message: 'Error creating service order', debug: msg }, { status: 500 });
-    }
-}
+export const POST = apiHandler(
+    async () => {
+        throw new AppError('Manual creation not implemented', ErrorCode.INTERNAL_ERROR, 501);
+    },
+    { schema: serviceOrderCreateSchema }
+);
 
 // PUT - Update service order
-export async function PUT(request: Request) {
-    try {
-        const body = await request.json();
-
-        // Zod Validation
-        const validation = serviceOrderUpdateSchema.safeParse(body);
-        if (!validation.success) {
-            return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
+export const PUT = apiHandler(
+    async (request, params, body) => {
+        const { id, ...updateData } = body;
+        if (!id) {
+            throw AppError.badRequest('Service Order ID required');
         }
-
-        const { id, ...updateData } = validation.data;
+        
         const userId = request.headers.get('x-user-id') || undefined;
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
-        return NextResponse.json(serviceOrder);
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        if (msg === 'ID_REQUIRED') {
-            return NextResponse.json({ message: 'Service Order ID required' }, { status: 400 });
+        try {
+            const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+            return serviceOrder;
+        } catch (error: unknown) {
+            const err = error as Error;
+            if (err?.message === 'ID_REQUIRED') throw AppError.badRequest('Service Order ID required');
+            throw error;
         }
-        console.error('Error updating service order:', error);
-        return NextResponse.json({ message: 'Error updating service order', debug: msg }, { status: 500 });
-    }
-}
+    },
+    { schema: serviceOrderUpdateSchema, rawResponse: true }
+);
 
 // PATCH - Update SLTS Status query or Contractor assignment
-export async function PATCH(request: Request) {
-    try {
-        const body = await request.json();
-
-        // Zod Validation
-        const validation = serviceOrderPatchSchema.safeParse(body);
-        if (!validation.success) {
-            return NextResponse.json({ message: 'Validation failed', errors: validation.error.format() }, { status: 400 });
+export const PATCH = apiHandler(
+    async (request, params, body) => {
+        const { id, ...updateData } = body;
+        if (!id) {
+            throw AppError.badRequest('Service Order ID required');
         }
 
-        const { id, ...updateData } = validation.data;
         const userId = request.headers.get('x-user-id') || undefined;
-
-        const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
-        return NextResponse.json(serviceOrder);
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        if (msg === 'ID_REQUIRED') {
-            return NextResponse.json({ message: 'Service Order ID required' }, { status: 400 });
+        try {
+            const serviceOrder = await ServiceOrderService.patchServiceOrder(id, updateData, userId);
+            return serviceOrder;
+        } catch (error: unknown) {
+            const err = error as Error;
+            if (err?.message === 'ID_REQUIRED') throw AppError.badRequest('Service Order ID required');
+            if (err?.message === 'INVALID_STATUS') throw AppError.badRequest('Invalid SLTS Status');
+            if (err?.message === 'COMPLETED_DATE_REQUIRED') throw AppError.badRequest('Completed date is required for COMPLETED or RETURN status');
+            throw error;
         }
-        if (msg === 'INVALID_STATUS') {
-            return NextResponse.json({ message: 'Invalid SLTS Status' }, { status: 400 });
-        }
-        if (msg === 'COMPLETED_DATE_REQUIRED') {
-            return NextResponse.json({ message: 'Completed date is required for COMPLETED or RETURN status' }, { status: 400 });
-        }
-
-        console.error('Error updating service order:', error);
-        return NextResponse.json({ message: 'Error updating service order', debug: msg }, { status: 500 });
-    }
-}
+    },
+    { schema: serviceOrderPatchSchema, rawResponse: true }
+);

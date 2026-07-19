@@ -1,64 +1,55 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { apiHandler } from '@/lib/api-handler';
+import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
 // GET: List collected CPEs with filter options
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const contractorId = searchParams.get('contractorId') || undefined;
-        const status = searchParams.get('status') || undefined; // PENDING_HANDBACK, HANDED_BACK
-        const deviceType = searchParams.get('deviceType') || undefined;
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const contractorId = searchParams.get('contractorId') || undefined;
+    const status = searchParams.get('status') || undefined;
+    const deviceType = searchParams.get('deviceType') || undefined;
 
-        const whereClause: any = {};
-        if (contractorId) whereClause.contractorId = contractorId;
-        if (status) whereClause.status = status;
-        if (deviceType) whereClause.deviceType = deviceType;
+    const whereClause: Prisma.CollectedCPEWhereInput = {};
+    if (contractorId) whereClause.contractorId = contractorId;
+    if (status) whereClause.status = status;
+    if (deviceType) whereClause.deviceType = deviceType;
 
-        const cpes = await prisma.collectedCPE.findMany({
-            where: whereClause,
-            include: {
-                serviceOrder: {
-                    select: {
-                        soNum: true,
-                        voiceNumber: true,
-                        completedDate: true
-                    }
-                },
-                contractor: {
-                    select: {
-                        name: true
-                    }
+    const cpes = await prisma.collectedCPE.findMany({
+        where: whereClause,
+        include: {
+            serviceOrder: {
+                select: {
+                    soNum: true,
+                    voiceNumber: true,
+                    completedDate: true
                 }
             },
-            orderBy: {
-                collectedDate: 'desc'
+            contractor: {
+                select: {
+                    name: true
+                }
             }
-        });
+        },
+        orderBy: {
+            collectedDate: 'desc'
+        }
+    });
 
-        return NextResponse.json({ success: true, data: cpes });
+    return { success: true, data: cpes };
+}, { rawResponse: true });
 
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error('Error fetching collected CPEs:', error);
-        return NextResponse.json({ success: false, message: 'Error fetching collected CPEs', error: msg }, { status: 500 });
-    }
-}
+const cpeHandbackSchema = z.object({
+    ids: z.array(z.string()).min(1, 'IDs array is required'),
+    handbackReference: z.string().min(1, 'Handback reference is required')
+});
 
 // POST: Submit a handback receipt to SLT (Bulk mark as HANDED_BACK)
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
+export const POST = apiHandler(
+    async (request, params, body) => {
         const { ids, handbackReference } = body;
-
-        if (!ids || !Array.isArray(ids) || ids.length === 0) {
-            return NextResponse.json({ success: false, message: 'IDs array is required' }, { status: 400 });
-        }
-
-        if (!handbackReference) {
-            return NextResponse.json({ success: false, message: 'Handback reference is required' }, { status: 400 });
-        }
 
         const result = await prisma.$transaction(async (tx) => {
             return await tx.collectedCPE.updateMany({
@@ -74,15 +65,11 @@ export async function POST(request: Request) {
             });
         });
 
-        return NextResponse.json({ 
-            success: true, 
+        return { 
+            success: true,
             message: `Successfully handed back ${result.count} CPEs to SLT.`,
             count: result.count 
-        });
-
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : String(error);
-        console.error('Error during CPE handback submission:', error);
-        return NextResponse.json({ success: false, message: 'Error during CPE handback submission', error: msg }, { status: 500 });
-    }
-}
+        };
+    },
+    { schema: cpeHandbackSchema, rawResponse: true }
+);

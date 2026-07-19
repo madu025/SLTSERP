@@ -1,6 +1,7 @@
 import { ContractorStatus } from '@prisma/client';
 
 export interface TeamMemberInput {
+    id?: string;
     name: string;
     nic?: string;
     idCopyNumber?: string;
@@ -24,6 +25,8 @@ export interface TeamInput {
     storeIds?: string[];
     primaryStoreId?: string;
     sltCode?: string;
+    status?: string;
+    storeAssignments?: { storeId: string; isPrimary?: boolean }[];
     members: TeamMemberInput[];
 }
 

@@ -104,7 +104,7 @@
     * `syncTeams(contractorId: string, teams: TeamInput[], defaultOpmcId: string | null, tx: TransactionClient): any`
     * `deleteContractor(id: string): any`
     * `getContractorTeams(contractorId: string): any`
-    * `saveContractorTeams(contractorId: string, teams: any[]): any`
+    * `saveContractorTeams(contractorId: string, teams: TeamInput[]): any`
     * `assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean): any`
     * `removeTeamStore(teamId: string, storeId: string): any`
 
