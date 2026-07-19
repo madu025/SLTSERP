@@ -312,16 +312,16 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <div className="flex-none px-5 py-3 space-y-3">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex-none px-5 py-2 space-y-2">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <div>
-                                <div className="flex items-center gap-2.5">
-                                    <Layers className="w-6 h-6 text-primary" />
-                                    <h1 className="text-2xl font-bold text-foreground tracking-tight">{pageTitle}</h1>
+                                <div className="flex items-center gap-2">
+                                    <Layers className="w-5 h-5 text-primary" />
+                                    <h1 className="text-xl font-bold text-foreground tracking-tight">{pageTitle}</h1>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 text-muted-foreground hover:text-foreground ml-1"
+                                        className="h-6 w-6 text-muted-foreground hover:text-foreground ml-0.5"
                                         onClick={() => {
                                             const newVal = !showMetrics;
                                             setShowMetrics(newVal);
@@ -329,24 +329,24 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                         }}
                                         title={showMetrics ? "Hide Summary Metrics" : "Show Summary Metrics"}
                                     >
-                                        {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                        {showMetrics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                                     </Button>
                                 </div>
-                                <p className="text-xs uppercase tracking-widest font-bold text-muted-foreground mt-0.5">Service Order Management</p>
+                                <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground mt-0.5">Service Order Management</p>
                             </div>
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-9 px-4 text-sm shadow-sm border-border/40 hover:bg-muted"
+                                    className="h-8 px-3 text-xs shadow-sm border-border/40 hover:bg-muted"
                                     onClick={() => syncMutation.mutate()}
                                     disabled={!selectedRtomId || syncMutation.isPending}
                                 >
-                                    <RefreshCw className={`w-4 h-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                                    <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
                                     Update from Portal
                                 </Button>
-                                {filterType === 'pending' && <Button size="sm" className="h-9 px-4 text-sm bg-primary hover:bg-primary-dark text-white font-semibold shadow-sm" onClick={() => setShowManualModal(true)} disabled={!selectedRtomId}><Plus className="w-4 h-4 mr-2" /> Manual Entry</Button>}
-                                {filterType === 'pending' && <Button variant="outline" size="sm" className="h-9 px-4 text-sm border-emerald-500/20 text-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 shadow-sm" onClick={() => setShowExcelModal(true)}><FileSpreadsheet className="w-4 h-4 mr-2" /> Excel Import</Button>}
+                                {filterType === 'pending' && <Button size="sm" className="h-8 px-3 text-xs bg-primary hover:bg-primary-dark text-white font-semibold shadow-sm" onClick={() => setShowManualModal(true)} disabled={!selectedRtomId}><Plus className="w-3.5 h-3.5 mr-1.5" /> Manual Entry</Button>}
+                                {filterType === 'pending' && <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-emerald-500/20 text-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 shadow-sm" onClick={() => setShowExcelModal(true)}><FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" /> Excel Import</Button>}
                             </div>
                         </div>
 
@@ -354,11 +354,11 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                             <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
                         )}
 
-                        <div className="bg-card p-2.5 rounded-xl border border-border/40 shadow-sm flex flex-wrap gap-2.5 items-center">
-                             <div className="flex items-center gap-2 px-2.5 py-1.5 bg-muted rounded-lg border border-border/20">
-                                 <Filter className="w-4 h-4 text-muted-foreground" />
+                        <div className="bg-card px-2.5 py-1.5 rounded-lg border border-border/40 shadow-sm flex flex-wrap gap-2 items-center">
+                             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-md border border-border/20">
+                                 <Filter className="w-3.5 h-3.5 text-muted-foreground" />
                                  <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
-                                     <SelectTrigger className="h-9 border-none bg-transparent w-[150px] focus:ring-0 shadow-none font-bold text-sm"><SelectValue placeholder="RTOM" /></SelectTrigger>
+                                     <SelectTrigger className="h-7 border-none bg-transparent w-[130px] focus:ring-0 shadow-none font-bold text-xs"><SelectValue placeholder="RTOM" /></SelectTrigger>
                                      <SelectContent>
                                          {safeOpmcs.length > 0 ? safeOpmcs.map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.rtom}</SelectItem>) : <SelectItem value="error" disabled>No RTOMs Available</SelectItem>}
                                      </SelectContent>
@@ -367,16 +367,16 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                              {/* Date Range Picker for completed/return views */}
                              {filterType !== 'pending' && (
-                                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted rounded-lg border border-border/20">
-                                     <Calendar className="w-4 h-4 text-muted-foreground" />
+                                 <div className="flex items-center gap-1 px-2 py-0.5 bg-muted rounded-md border border-border/20">
+                                     <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                                      <Select value={selectedMonth} onValueChange={(v) => { setSelectedMonth(v); setCurrentPage(1); }}>
-                                         <SelectTrigger className="h-8 border-none bg-transparent w-[85px] focus:ring-0 shadow-none text-sm font-bold"><SelectValue /></SelectTrigger>
+                                         <SelectTrigger className="h-7 border-none bg-transparent w-[75px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
                                          <SelectContent>
                                              {['1','2','3','4','5','6','7','8','9','10','11','12'].map(m => <SelectItem key={m} value={m} className="text-xs">{new Date(2000, Number(m)-1).toLocaleString('default', { month: 'short' })}</SelectItem>)}
                                          </SelectContent>
                                      </Select>
                                      <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setCurrentPage(1); }}>
-                                         <SelectTrigger className="h-8 border-none bg-transparent w-[70px] focus:ring-0 shadow-none text-sm font-bold"><SelectValue /></SelectTrigger>
+                                         <SelectTrigger className="h-7 border-none bg-transparent w-[60px] focus:ring-0 shadow-none text-xs font-bold"><SelectValue /></SelectTrigger>
                                          <SelectContent>
                                              {['2024','2025','2026'].map(y => <SelectItem key={y} value={y} className="text-xs">{y}</SelectItem>)}
                                          </SelectContent>
@@ -384,15 +384,15 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                  </div>
                              )}
 
-                             <div className="flex-1 relative flex items-center min-w-[220px]">
-                                 <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-                                 <Input placeholder="Search orders, customers, numbers..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="h-9 pl-10 bg-muted/30 border-border/40 text-sm" />
+                             <div className="flex-1 relative flex items-center min-w-[180px]">
+                                 <Search className="absolute left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                 <Input placeholder="Search orders, customers, numbers..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="h-7 pl-8 bg-muted/30 border-border/40 text-xs" />
                              </div>
 
-                             <div className="flex items-center gap-2">
-                                 {/* Status Filter - Expanded */}
+                             <div className="flex items-center gap-1.5">
+                                 {/* Status Filter */}
                                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
-                                     <SelectTrigger className="h-9 w-[150px] border-border/40 bg-card text-sm font-semibold"><SelectValue /></SelectTrigger>
+                                     <SelectTrigger className="h-7 w-[130px] border-border/40 bg-card text-xs font-semibold"><SelectValue /></SelectTrigger>
                                      <SelectContent>
                                          <SelectItem value="DEFAULT" className="text-xs">Filter by Status</SelectItem>
                                          <SelectItem value="ALL" className="text-xs">Show All</SelectItem>
@@ -406,7 +406,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                                  {/* PAT Filter */}
                                  <Select value={patFilter} onValueChange={(v) => { setPatFilter(v); setCurrentPage(1); }}>
-                                     <SelectTrigger className="h-9 w-[130px] border-border/40 bg-card text-sm font-semibold"><SelectValue placeholder="PAT" /></SelectTrigger>
+                                     <SelectTrigger className="h-7 w-[100px] border-border/40 bg-card text-xs font-semibold"><SelectValue placeholder="PAT" /></SelectTrigger>
                                      <SelectContent>
                                          <SelectItem value="ALL" className="text-xs">All PAT</SelectItem>
                                          <SelectItem value="READY" className="text-xs text-emerald-500 font-bold">Invoicable</SelectItem>
@@ -419,7 +419,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                                  {/* Material Filter */}
                                  <Select value={matFilter} onValueChange={(v) => { setMatFilter(v); setCurrentPage(1); }}>
-                                     <SelectTrigger className="h-9 w-[120px] border-border/40 bg-card text-sm font-semibold"><SelectValue placeholder="Material" /></SelectTrigger>
+                                     <SelectTrigger className="h-7 w-[100px] border-border/40 bg-card text-xs font-semibold"><SelectValue placeholder="Material" /></SelectTrigger>
                                      <SelectContent>
                                          <SelectItem value="ALL" className="text-xs">All Material</SelectItem>
                                          <SelectItem value="PENDING" className="text-xs text-amber-500">Mat Pending</SelectItem>
@@ -429,14 +429,14 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
 
                                  {/* Clear Filters */}
                                  {(statusFilter !== 'DEFAULT' || patFilter !== 'ALL' || matFilter !== 'ALL') && (
-                                     <Button variant="ghost" size="sm" className="h-9 px-2.5 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setCurrentPage(1); }} title="Clear all filters">
-                                         <X className="w-4 h-4" />
+                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-rose-500" onClick={() => { setStatusFilter(filterType === 'completed' ? 'ALL' : 'DEFAULT'); setPatFilter(pageTitle === 'Invoicable Service Orders' ? 'READY' : 'ALL'); setMatFilter('ALL'); setCurrentPage(1); }} title="Clear all filters">
+                                         <X className="w-3.5 h-3.5" />
                                      </Button>
                                  )}
 
                                  {/* CSV Export */}
-                                 <Button variant="outline" size="sm" className="h-9 px-3 border-blue-500/20 text-blue-500 bg-blue-500/5 hover:bg-blue-500/10 shadow-sm" onClick={handleExportCSV} title="Export CSV">
-                                     <Download className="w-4 h-4" />
+                                 <Button variant="outline" size="sm" className="h-7 px-2.5 border-blue-500/20 text-blue-500 bg-blue-500/5 hover:bg-blue-500/10 shadow-sm" onClick={handleExportCSV} title="Export CSV">
+                                     <Download className="w-3.5 h-3.5" />
                                  </Button>
                              </div>
                         </div>

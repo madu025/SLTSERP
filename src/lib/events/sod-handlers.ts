@@ -20,8 +20,54 @@ export function registerSODEventHandlers() {
             console.error('[EVENT-HANDLER-ERROR] Failed to handle status change stats update:', err);
         }
 
-        // 2. Return Specific logic: Notification only
-        // NOTE: Material rollback is now handled INSIDE the main PATCH transaction in sod/index.ts
+        // 2. COMPLETED → Notify managers/engineers
+        if (newStatus === 'COMPLETED') {
+            try {
+                const { prisma } = await import('../prisma');
+                const order = await prisma.serviceOrder.findUnique({
+                    where: { id: serviceOrderId },
+                    select: { soNum: true, customerName: true, opmcId: true, materialUsage: true, collectedCPEs: { select: { id: true } } }
+                });
+                if (order) {
+                    const { DomainNotificationPolicies } = await import('../../services/notification/domain-policies.service');
+                    await DomainNotificationPolicies.notifySODCompleted({
+                        soNum: order.soNum,
+                        customerName: order.customerName || undefined,
+                        completedByUserId: userId,
+                        opmcId: order.opmcId || undefined,
+                        materialsCount: Array.isArray(order.materialUsage) ? order.materialUsage.length : 0,
+                        cpeCount: order.collectedCPEs?.length || 0,
+                    });
+                }
+            } catch (err) {
+                console.error('[EVENT-HANDLER-ERROR] Failed to send completion notification:', err);
+            }
+        }
+
+        // 3. ASSIGNED → Notify assigned team + managers
+        if (newStatus === 'ASSIGNED' && oldStatus !== 'ASSIGNED') {
+            try {
+                const { prisma } = await import('../prisma');
+                const order = await prisma.serviceOrder.findUnique({
+                    where: { id: serviceOrderId },
+                    select: { soNum: true, customerName: true, opmcId: true, contractorId: true, contractor: { select: { name: true } } }
+                });
+                if (order) {
+                    const { DomainNotificationPolicies } = await import('../../services/notification/domain-policies.service');
+                    await DomainNotificationPolicies.notifySODAssignment({
+                        soNum: order.soNum,
+                        customerName: order.customerName || undefined,
+                        contractorName: order.contractor?.name || undefined,
+                        opmcId: order.opmcId || undefined,
+                    });
+                }
+            } catch (err) {
+                console.error('[EVENT-HANDLER-ERROR] Failed to send assignment notification:', err);
+            }
+        }
+
+        // 4. RETURN → Notify managers
+        // NOTE: Material rollback is handled INSIDE the main PATCH transaction in sod/index.ts
         // for atomic consistency. This handler only sends the return notification.
         if (newStatus === 'RETURN') {
             try {

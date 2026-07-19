@@ -72,11 +72,11 @@ export const GET = apiHandler(async (req) => {
       }
     }),
 
-    // 4. Service Orders notifications
+    // 4. Service Orders notifications (startsWith to catch /service-orders, /service-orders/completed, etc.)
     prisma.notification.findMany({
       where: {
         userId,
-        link: "/service-orders",
+        link: { startsWith: "/service-orders" },
         isRead: false
       },
       select: {

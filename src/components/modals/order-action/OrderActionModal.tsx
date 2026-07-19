@@ -196,7 +196,7 @@ export default function OrderActionModal({
                         <div className="space-y-2">
                             <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Order Completed Successfully</h2>
                             <p className="text-sm font-semibold text-slate-500 font-mono">SO-NUM: {orderData?.soNum || 'N/A'}</p>
-                            <p className="text-xs text-slate-450 font-medium">Customer has been notified via SMS. Materials inventory counts have been updated successfully.</p>
+                            <p className="text-xs text-slate-450 font-medium">Materials inventory counts have been updated. Managers have been notified of this completion.</p>
                         </div>
                         <div className="flex w-full gap-3 mt-4">
                             <Button 

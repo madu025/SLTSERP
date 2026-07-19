@@ -71,6 +71,20 @@ export const POST = apiHandler<unknown, CreatePaymentSchema>(
             due_date: new Date(body.due_date),
         });
 
+        // Fire notification to finance managers (non-blocking)
+        try {
+            const { DomainNotificationPolicies } = await import('@/services/notification/domain-policies.service');
+            await DomainNotificationPolicies.notifyPaymentReceived({
+                id: (payment as any).id || '',
+                amount: body.base_amount,
+                payer: (invoice as any)?.client?.name || (invoice as any)?.clientName || 'Client',
+                invoiceNumber: (invoice as any)?.invoiceNumber || body.invoice_id,
+                projectId: (invoice as any)?.projectId || undefined,
+            });
+        } catch (e) {
+            console.error('[PAYMENT-NOTIFY] Failed to send payment notification:', e);
+        }
+
         return payment;
     },
     { schema: createPaymentSchema }
