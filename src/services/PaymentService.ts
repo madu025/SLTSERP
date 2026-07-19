@@ -73,10 +73,10 @@ export class PaymentService {
     try {
       // O(1) - Batch fetch all unique tax configs upfront (fixes N+1 query problem)
       const taxConfigIds = [...new Set(data.items.map(i => i.tax_config_id).filter(Boolean))] as string[];
-      const taxConfigs = taxConfigIds.length > 0
-        ? await prisma.vMTaxConfig.findMany({ where: { id: { in: taxConfigIds } } })
+      const taxConfigs: { id: string; tax_rate_percent: number; tax_inclusive: boolean }[] = taxConfigIds.length > 0
+        ? await prisma.vMTaxConfig.findMany({ where: { id: { in: taxConfigIds } } }) as { id: string; tax_rate_percent: number; tax_inclusive: boolean }[]
         : [];
-      const taxConfigMap = new Map(taxConfigs.map((tc: { id: string; tax_rate_percent: number; tax_inclusive: boolean }) => [tc.id, tc]));
+      const taxConfigMap = new Map<string, { id: string; tax_rate_percent: number; tax_inclusive: boolean }>(taxConfigs.map((tc) => [tc.id, tc]));
 
       // Calculate totals
       let subtotal = 0;

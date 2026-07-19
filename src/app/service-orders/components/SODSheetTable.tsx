@@ -5,6 +5,7 @@ import { ServiceOrder } from "@/types/service-order";
 import { Contractor } from "@/components/modals/order-action/types";
 import { Info, MessageSquare, CheckCircle2, Loader2, Check, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface SODSheetTableProps {
     orders: ServiceOrder[];
@@ -26,6 +27,9 @@ export function SODSheetTable(props: SODSheetTableProps) {
         filterType,
         contractors,
         selectedIds,
+        toggleSelect,
+        toggleAll,
+        isAllSelected,
         onSort,
         sortConfig,
         onUpdateField,
@@ -200,6 +204,9 @@ export function SODSheetTable(props: SODSheetTableProps) {
             <table className="w-full border-collapse text-left table-fixed">
                 <thead className="bg-muted/80 border-b border-border/40 sticky top-0 z-40 backdrop-blur-md">
                     <tr className="text-muted-foreground font-black uppercase tracking-tight text-[9px]">
+                        <th className="w-[36px] px-1 py-1.5 border-r border-border/20 text-center">
+                            <Checkbox checked={isAllSelected} onCheckedChange={() => toggleAll()} className="border-border/40 data-[state=checked]:bg-primary" />
+                        </th>
                         <th className="w-[100px] px-2 py-1.5 border-r border-border/20 md:sticky md:left-0 bg-muted/90 z-50">
                             <div className="flex flex-col gap-1">
                                 <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("soNum")}>
@@ -334,6 +341,12 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                             onClick={(e) => e.stopPropagation()}
                                             className="h-5 px-1 py-0.5 text-[8.5px] w-full bg-background border border-border/40 rounded focus:border-primary focus:outline-none placeholder:opacity-50 font-sans font-normal text-foreground"
                                         />
+                                    </div>
+                                </th>
+                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-emerald-500 dark:text-emerald-400">Revenue</span>
+                                        <span className="text-[7px] text-muted-foreground font-normal normal-case">Rs. Amount</span>
                                     </div>
                                 </th>
                             </>
@@ -599,6 +612,10 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                     selectedIds.has(order.id) ? "bg-primary/5" : ""
                                 }`}
                             >
+                                {/* Checkbox */}
+                                <td className="px-1 text-center border-r border-border/15">
+                                    <Checkbox checked={selectedIds.has(order.id)} onCheckedChange={() => toggleSelect(order.id)} className="border-border/40 data-[state=checked]:bg-primary" />
+                                </td>
                                 {/* SO Number (Read-only, clickable details) */}
                                 <td className="px-2 font-mono font-bold text-[10px] border-r border-border/15 md:sticky md:left-0 bg-card z-20 hover:bg-primary/[0.02] dark:hover:bg-primary/[0.04]">
                                     <div className="flex items-center gap-1">
@@ -699,6 +716,14 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                                 </button>
                                             )}
                                             {renderCellStatus(order.id, "comments")}
+                                        </td>
+
+                                        {/* Revenue / Contractor Amount */}
+                                        <td className="px-2 border-r border-border/15 text-[10px]">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-black text-emerald-500 font-mono">{order.revenueAmount ? `Rs.${Number(order.revenueAmount).toLocaleString()}` : "-"}</span>
+                                                {order.contractorAmount ? <span className="text-[8px] text-blue-400 font-bold font-mono">Con: Rs.{Number(order.contractorAmount).toLocaleString()}</span> : null}
+                                            </div>
                                         </td>
                                     </>
                                 )}
@@ -942,8 +967,14 @@ export function SODSheetTable(props: SODSheetTableProps) {
                         ))
                     ) : (
                         <tr>
-                            <td colSpan={20} className="px-3 py-20 text-center text-muted-foreground text-xs italic">
-                                No Service Orders found for the active filters.
+                            <td colSpan={20} className="px-3 py-16 text-center">
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="w-10 h-10 rounded-xl bg-muted/60 border border-border/30 flex items-center justify-center">
+                                        <Info className="w-5 h-5 text-muted-foreground/30" />
+                                    </div>
+                                    <p className="text-xs font-semibold text-muted-foreground">No matching records</p>
+                                    <p className="text-[10px] text-muted-foreground/60">Try adjusting column filters above</p>
+                                </div>
                             </td>
                         </tr>
                     )}
