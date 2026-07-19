@@ -2015,6 +2015,7 @@
 | `/api/helpdesk/assets/search-by-serial` | [route.ts](src/app/api/helpdesk/assets/search-by-serial/route.ts) | `GET` |
 | `/api/helpdesk/assets/stats` | [route.ts](src/app/api/helpdesk/assets/stats/route.ts) | `GET` |
 | `/api/helpdesk/assets/[id]/handover` | [route.ts](src/app/api/helpdesk/assets/[id]/handover/route.ts) | `POST`, `GET` |
+| `/api/helpdesk/assets/[id]/history` | [route.ts](src/app/api/helpdesk/assets/[id]/history/route.ts) | `GET` |
 | `/api/helpdesk/assets/[id]` | [route.ts](src/app/api/helpdesk/assets/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
 | `/api/helpdesk/assets/[id]/units` | [route.ts](src/app/api/helpdesk/assets/[id]/units/route.ts) | `GET`, `POST`, `PUT`, `DELETE` |
 | `/api/helpdesk/reports` | [route.ts](src/app/api/helpdesk/reports/route.ts) | `GET` |
@@ -2022,6 +2023,7 @@
 | `/api/helpdesk/software-licenses` | [route.ts](src/app/api/helpdesk/software-licenses/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/software-licenses/[id]/assignments` | [route.ts](src/app/api/helpdesk/software-licenses/[id]/assignments/route.ts) | `POST`, `DELETE` |
 | `/api/helpdesk/software-licenses/[id]` | [route.ts](src/app/api/helpdesk/software-licenses/[id]/route.ts) | `GET`, `PUT`, `DELETE` |
+| `/api/helpdesk/staff/[id]/assets` | [route.ts](src/app/api/helpdesk/staff/[id]/assets/route.ts) | `GET` |
 | `/api/helpdesk/tickets` | [route.ts](src/app/api/helpdesk/tickets/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/tickets/[id]` | [route.ts](src/app/api/helpdesk/tickets/[id]/route.ts) | `GET`, `PUT` |
 | `/api/helpdesk/tickets/[id]/updates` | [route.ts](src/app/api/helpdesk/tickets/[id]/updates/route.ts) | `GET`, `POST` |
@@ -2070,8 +2072,10 @@
 | `/api/login` | [route.ts](src/app/api/login/route.ts) | `POST` |
 | `/api/logout` | [route.ts](src/app/api/logout/route.ts) | `POST` |
 | `/api/maintenance/fix-dates` | [route.ts](src/app/api/maintenance/fix-dates/route.ts) | `GET` |
+| `/api/notifications/analytics` | [route.ts](src/app/api/notifications/analytics/route.ts) | `GET` |
 | `/api/notifications/cleanup` | [route.ts](src/app/api/notifications/cleanup/route.ts) | `POST`, `GET` |
 | `/api/notifications/preferences` | [route.ts](src/app/api/notifications/preferences/route.ts) | `GET`, `POST` |
+| `/api/notifications/push` | [route.ts](src/app/api/notifications/push/route.ts) | `POST`, `DELETE` |
 | `/api/notifications` | [route.ts](src/app/api/notifications/route.ts) | `PATCH`, `DELETE` |
 | `/api/notifications/scheduler` | [route.ts](src/app/api/notifications/scheduler/route.ts) | `GET`, `POST` |
 | `/api/notifications/sidebar-counts` | [route.ts](src/app/api/notifications/sidebar-counts/route.ts) | `GET` |

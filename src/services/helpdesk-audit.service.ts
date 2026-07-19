@@ -218,7 +218,7 @@ export class HelpdeskAuditService {
       }
 
       // Provision user account for staff member if not exists
-      await HelpdeskService.ensureUserAccountForStaff(staff.id, tx as any);
+      await HelpdeskService.ensureUserAccountForStaff(staff.id, tx as Parameters<typeof HelpdeskService.ensureUserAccountForStaff>[1]);
 
       // Fetch linked user account
       const user = await tx.user.findFirst({
@@ -365,5 +365,98 @@ export class HelpdeskAuditService {
 
       return updatedAudit;
     });
+  }
+
+  static async getAuditGaps() {
+    // Fetch all active audits that are not personal devices and not rejected
+    const audits = await prisma.iTAssetAudit.findMany({
+      where: {
+        isRejected: false,
+        isPersonal: false
+      }
+    });
+
+    // Fetch all assets to properly identify unregistered and mismatched devices
+    const allAssets = await prisma.iTAsset.findMany({
+      include: {
+        assignedStaff: true,
+        siteOffice: true
+      }
+    });
+
+    const auditSerials = new Set(audits.map(a => a.serialNumber.toLowerCase().trim()));
+    const allAssetSerials = new Set(allAssets.map(a => a.serialNumber.toLowerCase().trim()));
+
+    // 1. Missing Audits: Assets that have an assigned staff, but no audit was submitted
+    const missingAudits = allAssets
+      .filter(asset => asset.assignedStaffId !== null) // Ensure it's assigned to someone
+      .filter(asset => !auditSerials.has(asset.serialNumber.toLowerCase().trim()))
+      .map(asset => ({
+        assetId: asset.id,
+        assetNumber: asset.assetNumber,
+        serialNumber: asset.serialNumber,
+        brand: asset.brand,
+        model: asset.model,
+        deviceType: asset.deviceType,
+        assignedStaffName: asset.assignedStaff?.name || 'Unknown',
+        assignedStaffId: asset.assignedStaff?.employeeId || 'Unknown',
+        department: asset.department,
+        siteOffice: asset.siteOffice?.name,
+        location: asset.location
+      }));
+    
+    // 2. Unregistered Devices: Audits submitted for serial numbers that do not exist in the DB AT ALL
+    const unregisteredDevices = audits
+      .filter(audit => !allAssetSerials.has(audit.serialNumber.toLowerCase().trim()))
+      .map(audit => ({
+        auditId: audit.id,
+        serialNumber: audit.serialNumber,
+        brand: audit.brand,
+        model: audit.model,
+        deviceType: audit.deviceType,
+        custodianName: audit.custodianName,
+        employeeNo: audit.employeeNo,
+        department: audit.department,
+        location: audit.location
+      }));
+
+    // 3. Mismatched Data: Audits that matched an existing asset, but the details didn't match perfectly
+    const mismatchedData = audits
+      .filter(audit => allAssetSerials.has(audit.serialNumber.toLowerCase().trim()) && audit.isMatched === false)
+      .map(audit => {
+        const matchedAsset = allAssets.find(a => a.serialNumber.toLowerCase().trim() === audit.serialNumber.toLowerCase().trim());
+        
+        return {
+          auditId: audit.id,
+          serialNumber: audit.serialNumber,
+          auditDetails: {
+            brand: audit.brand,
+            model: audit.model,
+            custodianName: audit.custodianName,
+            employeeNo: audit.employeeNo,
+            department: audit.department,
+            location: audit.location
+          },
+          systemDetails: matchedAsset ? {
+            brand: matchedAsset.brand,
+            model: matchedAsset.model,
+            custodianName: matchedAsset.assignedStaff?.name || null,
+            employeeNo: matchedAsset.assignedStaff?.employeeId || null,
+            department: matchedAsset.department,
+            location: matchedAsset.location
+          } : null
+        };
+      });
+
+    return {
+      missingAudits,
+      unregisteredDevices,
+      mismatchedData,
+      summary: {
+        totalMissing: missingAudits.length,
+        totalUnregistered: unregisteredDevices.length,
+        totalMismatched: mismatchedData.length
+      }
+    };
   }
 }
