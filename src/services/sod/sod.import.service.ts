@@ -153,18 +153,10 @@ export class SODImportService {
         }
 
         // Get all inventory items with their import aliases
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const inventoryItemsRaw = await (prisma.inventoryItem as any).findMany({
+        // Get all inventory items with their import aliases
+        const inventoryItems = await prisma.inventoryItem.findMany({
             select: { id: true, code: true, name: true, importAliases: true, unitPrice: true, costPrice: true }
         });
-        const inventoryItems = inventoryItemsRaw as Array<{
-            id: string;
-            code: string | null;
-            name: string;
-            importAliases: string[];
-            unitPrice: number | null;
-            costPrice: number | null;
-        }>;
 
         // Build alias -> itemId map
         const aliasMap: Record<string, string> = {};
@@ -176,7 +168,6 @@ export class SODImportService {
             }
         }
 
-        // Get ALL contractors for mapping
         const allContractors = await prisma.contractor.findMany({
             select: { id: true, name: true, opmcId: true }
         });
@@ -191,6 +182,25 @@ export class SODImportService {
                 contractorMap[c.opmcId][c.name.toUpperCase().trim()] = c.id;
             }
         }
+
+        // Fetch configs globally
+        const allRevConfigs = await prisma.sODRevenueConfig.findMany({
+            where: { isActive: true },
+            orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
+        });
+        const revConfigMap = new Map<string | null, typeof allRevConfigs[0]>();
+        allRevConfigs.forEach(c => revConfigMap.set(c.rtomId, c));
+
+        const allPayConfigs = await prisma.contractorPaymentConfig.findMany({
+            where: { isActive: true },
+            include: { tiers: true },
+            orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
+        });
+        const payConfigMap = new Map<string | null, typeof allPayConfigs[0]>();
+        allPayConfigs.forEach(c => payConfigMap.set(c.rtomId, c));
+
+        const inventoryItemMap = new Map<string, typeof inventoryItems[0]>();
+        inventoryItems.forEach(i => inventoryItemMap.set(i.id, i));
 
         // Fetch SLTPATStatus records to recover real SO_NUMs by Voice Number
         const patRecords = await prisma.sLTPATStatus.findMany({
@@ -260,17 +270,10 @@ export class SODImportService {
                     let revenueAmount = 0;
                     let contractorAmount = 0;
 
-                    const revConfig = await prisma.sODRevenueConfig.findFirst({
-                        where: { OR: [{ rtomId: opmc.id }, { rtomId: null }], isActive: true },
-                        orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
-                    });
+                    const revConfig = revConfigMap.get(opmc.id) || revConfigMap.get(null);
                     if (revConfig) revenueAmount = revConfig.revenuePerSOD ?? 0;
 
-                    const payConfig = await prisma.contractorPaymentConfig.findFirst({
-                        where: { OR: [{ rtomId: opmc.id }, { rtomId: null }], isActive: true },
-                        include: { tiers: true },
-                        orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
-                    });
+                    const payConfig = payConfigMap.get(opmc.id) || payConfigMap.get(null);
                     if (payConfig && payConfig.tiers && payConfig.tiers.length > 0) {
                         const dist = row.dropWireDistance || 0;
                         const matchingTier = payConfig.tiers.find(t => dist >= t.minDistance && dist <= t.maxDistance);
@@ -293,15 +296,19 @@ export class SODImportService {
                         for (const [idOrAlias, quantity] of Object.entries(row.materials)) {
                             const qtyVal = Number(quantity);
                             if (qtyVal && qtyVal > 0) {
-                                const item = inventoryItems.find(i => i.id === idOrAlias || i.importAliases.includes(idOrAlias));
+                                let item = inventoryItemMap.get(idOrAlias);
+                                if (!item) {
+                                    const mappedId = aliasMap[idOrAlias.toUpperCase().trim()];
+                                    if (mappedId) item = inventoryItemMap.get(mappedId);
+                                }
                                 if (item) {
                                     materialUsageData.push({
                                         itemId: item.id,
                                         quantity: qtyVal,
                                         unit: 'Nos',
                                         usageType: 'USED',
-                                        unitPrice: item.unitPrice || 0,
-                                        costPrice: item.costPrice || 0
+                                        unitPrice: Number(item.unitPrice || 0),
+                                        costPrice: Number(item.costPrice || 0)
                                     });
                                 }
                             }

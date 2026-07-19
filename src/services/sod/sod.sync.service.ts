@@ -5,7 +5,9 @@ import { addJob, statsUpdateQueue, sodSyncQueue } from '../../lib/queue';
 import { SODMaterialService } from './sod.material.service';
 import { LedgerService } from '../finance/ledger.service';
 import { SODReturnClassifierService } from './sod-return-classifier.service';
-
+import { SodUtils } from './sod.utils';
+import { SodStatus, SOD_COMPLETION_STATUSES, SOD_RETURN_STATUSES } from '@/lib/constants/sod-constants';
+import { MaterialUsageInput } from './sod-types';
 interface SyncStats {
     queuedCount: number;
     jobIds: string[];
@@ -76,8 +78,10 @@ export class SODSyncService {
                 select: { id: true, soNum: true, sltsPatStatus: true, hoPatStatus: true }
             });
 
+            const sltDataMap = new Map(sltData.map(item => [item.SO_NUM, item]));
+
             for (const order of matchingOrders) {
-                const match = sltData.find(item => item.SO_NUM === order.soNum);
+                const match = sltDataMap.get(order.soNum);
                 if (match) {
                     const status = match.CON_STATUS;
                     await prisma.serviceOrder.update({
@@ -205,8 +209,9 @@ export class SODSyncService {
                     select: { id: true, soNum: true, sltsPatStatus: true }
                 });
 
+                const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
                 for (const order of ordersToUpdate) {
-                    const match = batch.find((b: SLTPATData) => b.SO_NUM === order.soNum);
+                    const match = batchMap.get(order.soNum);
                     if (match) {
                         await prisma.serviceOrder.update({
                             where: { id: order.id },
@@ -326,8 +331,9 @@ export class SODSyncService {
                     select: { id: true, soNum: true }
                 });
 
+                const batchMap = new Map(batch.map((b: SLTPATData) => [b.SO_NUM, b]));
                 for (const order of ordersToUpdate) {
-                    const match = batch.find((b: SLTPATData) => b.SO_NUM === order.soNum);
+                    const match = batchMap.get(order.soNum);
                     if (match) {
                         await prisma.$transaction(async (tx) => {
                             await tx.serviceOrder.update({
@@ -618,41 +624,7 @@ export class SODSyncService {
     /**
      * Parse scraped master details
      */
-    private static deepParse(masterData: Record<string, string>) {
-        const mashed = masterData['SERVICE ORDER DETAILS'] || "";
-        if (!mashed || mashed.length < 50) return {};
-
-        const extracted: Record<string, string> = {};
-        const keywords = [
-            'RTOM', 'SERVICE ORDER', 'CIRCUIT', 'SERVICE', 'RECEIVED DATE',
-            'CUSTOMER NAME', 'CONTACT NO', 'ADDRESS', 'STATUS', 'STATUS DATE',
-            'ORDER TYPE', 'TASK', 'PACKAGE', 'EQUIPMENT CLASS',
-            'EQUIPMENT PURCHASE FROM SLT', 'SALES PERSON', 'DP LOOP',
-            'CONTRACTOR', 'TEAM', 'CON_NAME', 'MOBILE_TEAM'
-        ];
-
-        keywords.forEach((key) => {
-            const start = mashed.indexOf(key);
-            if (start === -1) return;
-
-            let end = mashed.length;
-            for (let j = 0; j < keywords.length; j++) {
-                const nextKey = keywords[j];
-                const nextIdx = mashed.indexOf(nextKey, start + key.length);
-                if (nextIdx !== -1 && nextIdx < end) {
-                    end = nextIdx;
-                }
-            }
-
-            let val = mashed.substring(start + key.length, end).trim();
-            if (key === 'RTOM') val = val.replace('R-', '');
-            if (key === 'CIRCUIT') val = val.split(' ')[0];
-
-            extracted[key] = val;
-        });
-
-        return extracted;
-    }
+    // deepParse has been moved to SodUtils
 
     /**
      * Process bridge sync from chrome extension
@@ -694,7 +666,7 @@ export class SODSyncService {
             });
         }
 
-        const deepData = this.deepParse(masterData);
+        const deepData = SodUtils.deepParse(masterData);
 
         const mapping: Partial<Prisma.ServiceOrderUncheckedUpdateInput> = {
             rtom: masterData['RTOM'] || deepData['RTOM'],
@@ -792,31 +764,22 @@ export class SODSyncService {
             updatedAt: new Date(),
         };
 
-        const safeParseDate = (dateStr: string | Date | undefined | null) => {
-            if (!dateStr) return undefined;
-            if (dateStr instanceof Date) return dateStr;
-            if (typeof dateStr === 'string' && dateStr.trim() === "") return undefined;
-            const d = new Date(dateStr);
-            return isNaN(d.getTime()) ? undefined : d;
-        };
-
-        const rcvDate = safeParseDate(masterData['RECEIVED DATE'] || this.deepParse(masterData)['RECEIVED DATE']);
+        const rcvDate = SodUtils.safeParseDate(masterData['RECEIVED DATE'] || SodUtils.deepParse(masterData)['RECEIVED DATE']);
         if (rcvDate) dataToUpdate.receivedDate = rcvDate;
 
-        const stDate = safeParseDate(masterData['STATUS DATE'] || this.deepParse(masterData)['STATUS DATE']);
+        const stDate = SodUtils.safeParseDate(masterData['STATUS DATE'] || SodUtils.deepParse(masterData)['STATUS DATE']);
         if (stDate) dataToUpdate.statusDate = stDate;
 
-        const returnStatuses = ['RETURN', 'RETURNED', 'REJECTED', 'CANCELLED', 'CANCEL', 'COMPLETED-RETURN'];
         const statusStr = typeof mapping.status === 'string' ? mapping.status : '';
         const currentStatus = statusStr.toUpperCase();
 
-        if (mapping.status === 'COMPLETED' || mapping.status === 'INSTALL_CLOSED' || mapping.status === 'PROV_CLOSED') {
-            if (!mapping.sltsStatus) dataToUpdate.sltsStatus = 'COMPLETED';
-            const d = safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
+        if (mapping.status === SodStatus.COMPLETED || mapping.status === SodStatus.INSTALL_CLOSED || mapping.status === SodStatus.PROV_CLOSED) {
+            if (!mapping.sltsStatus) dataToUpdate.sltsStatus = SodStatus.COMPLETED;
+            const d = SodUtils.safeParseDate(masterData['COMPLETED DATE'] || masterData['COMPLETED_DATE'] || stDate);
             if (d) dataToUpdate.completedDate = d;
-            if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = 'COMPLETED';
-        } else if (returnStatuses.includes(currentStatus)) {
-            dataToUpdate.sltsStatus = 'RETURN';
+            if (dataToUpdate.completedDate) dataToUpdate.sltsStatus = SodStatus.COMPLETED;
+        } else if (SOD_RETURN_STATUSES.includes(currentStatus)) {
+            dataToUpdate.sltsStatus = SodStatus.RETURN;
             const rawReason = masterData['RETURN REASON'] || masterData['REJECTION REASON'] || statusStr || 'Returned in external portal';
             const classification = SODReturnClassifierService.classify(rawReason);
             dataToUpdate.returnReason = classification.category;
@@ -832,7 +795,7 @@ export class SODSyncService {
                 where: {
                     OR: [
                         { name: { contains: teamName.trim(), mode: 'insensitive' } },
-                        { sltCode: { equals: teamCode, mode: 'insensitive' } }
+                        { sltCode: teamCode.trim().toUpperCase() }
                     ]
                 }
             });
@@ -872,9 +835,8 @@ export class SODSyncService {
                     await LedgerService.rollbackSodTransaction(tx, serviceOrder.id);
                 }
 
-                if (isCompleting || (updated.sltsStatus === 'COMPLETED' && materialDetails.length > 0)) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const usagesInput: any[] = [];
+                if (isCompleting || (updated.sltsStatus === SodStatus.COMPLETED && materialDetails.length > 0)) {
+                    const usagesInput: MaterialUsageInput[] = [];
                     for (const mat of materialDetails) {
                         const code = mat.CODE || mat.TYPE;
                         const name = mat.NAME;
@@ -884,8 +846,8 @@ export class SODSyncService {
                             let item = await tx.inventoryItem.findFirst({
                                 where: {
                                     OR: [
-                                        { code: { equals: code, mode: 'insensitive' } },
-                                        { name: { equals: name, mode: 'insensitive' } },
+                                        { code: code ? code.trim().toUpperCase() : undefined },
+                                        { name: name ? { equals: name, mode: 'insensitive' } : undefined },
                                         { importAliases: { has: code || "" } },
                                         { importAliases: { has: name || "" } }
                                     ]
@@ -905,9 +867,9 @@ export class SODSyncService {
                             if (item) {
                                 usagesInput.push({
                                     itemId: item.id,
-                                    quantity: qty,
+                                    quantity: qty.toString(),
                                     usageType: 'PORTAL_SYNC',
-                                    serialNumber: matSerial || null,
+                                    serialNumber: matSerial || undefined,
                                     comment: `Auto-synced from Portal`
                                 });
                             }
@@ -1032,8 +994,8 @@ export class SODSyncService {
                     let item = await prisma.inventoryItem.findFirst({
                         where: {
                             OR: [
-                                { code: { equals: code, mode: 'insensitive' } },
-                                { name: { equals: name, mode: 'insensitive' } },
+                                { code: code ? code.trim().toUpperCase() : undefined },
+                                { name: name ? { equals: name, mode: 'insensitive' } : undefined },
                                 { importAliases: { has: code || "" } },
                                 { importAliases: { has: name || "" } }
                             ]

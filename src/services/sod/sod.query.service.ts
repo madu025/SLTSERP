@@ -423,11 +423,11 @@ export class SODQueryService {
     }
 
     /**
-     * Get first extension raw data record by soNum (case insensitive)
+     * Get first extension raw data record by soNum
      */
     static async getExtensionRawData(soNum: string) {
         return await prisma.extensionRawData.findFirst({
-            where: { soNum: { equals: soNum, mode: 'insensitive' } },
+            where: { soNum: soNum.trim().toUpperCase() },
             orderBy: { createdAt: 'desc' }
         });
     }
@@ -509,8 +509,10 @@ export class SODQueryService {
             }
         });
 
+        const internalOrderMap = new Map(internalOrders.map(io => [io.soNum, io]));
+
         const orders = results.map(r => {
-            const internal = internalOrders.find(io => io.soNum === r.soNum);
+            const internal = internalOrderMap.get(r.soNum);
 
             return {
                 id: r.id,

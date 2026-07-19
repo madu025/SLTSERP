@@ -3,6 +3,11 @@ import { HelpdeskService } from "./helpdesk.service";
 import { ITDeviceType, ITAssetStatus } from "@prisma/client";
 
 export class HelpdeskAuditService {
+  /**
+   * Submits a new IT Asset Audit.
+   * @timeComplexity O(1) amortized, assuming DB indices on serialNumber
+   * @spaceComplexity O(1) constant memory for the payload
+   */
   static async submitAudit(data: {
     serialNumber: string;
     assetNumber?: string | null;
@@ -20,8 +25,8 @@ export class HelpdeskAuditService {
     location?: string | null;
   }) {
     const isPers = data.isPersonal ?? false;
-    const empNo = data.employeeNo.trim();
-    const serial = isPers ? `PERSONAL-${data.deviceType}-${empNo}` : data.serialNumber.trim();
+    const empNo = data.employeeNo.trim().toUpperCase();
+    const serial = isPers ? `PERSONAL-${data.deviceType}-${empNo}` : data.serialNumber.trim().toUpperCase();
     const brand = isPers ? "Personal" : data.brand.trim();
     const model = isPers ? "Personal Device" : data.model.trim();
     
@@ -36,10 +41,7 @@ export class HelpdeskAuditService {
       // Check if the device exists in active inventory
       const existingAsset = await prisma.iTAsset.findFirst({
         where: {
-          serialNumber: {
-            equals: serial,
-            mode: 'insensitive'
-          }
+          serialNumber: serial
         },
         include: {
           assignedStaff: true
@@ -61,7 +63,7 @@ export class HelpdeskAuditService {
     const auditRecord = await prisma.iTAssetAudit.create({
       data: {
         serialNumber: serial,
-        assetNumber: isPers ? null : (data.assetNumber?.trim() || null),
+        assetNumber: isPers ? null : (data.assetNumber?.trim().toUpperCase() || null),
         deviceType: data.deviceType,
         brand: brand,
         model: model,
@@ -82,6 +84,11 @@ export class HelpdeskAuditService {
     return auditRecord;
   }
 
+  /**
+   * Fetch all audits and map to corresponding IT Assets.
+   * @timeComplexity O(N + M) where N = number of audits, M = number of matching assets
+   * @spaceComplexity O(N + M) to store maps and returned objects
+   */
   static async getAudits() {
     const audits = await prisma.iTAssetAudit.findMany({
       where: {
@@ -92,12 +99,11 @@ export class HelpdeskAuditService {
       }
     });
 
-    const serials = audits.map(a => a.serialNumber);
+    const serials = audits.map(a => a.serialNumber.toUpperCase());
     const existingAssets = await prisma.iTAsset.findMany({
       where: {
         serialNumber: {
-          in: serials,
-          mode: 'insensitive'
+          in: serials
         }
       },
       include: {
@@ -117,8 +123,15 @@ export class HelpdeskAuditService {
       }
     });
 
+    // O(M) time & space: create lookup map for faster matching
+    const assetMap = new Map<string, typeof existingAssets[0]>();
+    for (const asset of existingAssets) {
+      assetMap.set(asset.serialNumber.toLowerCase().trim(), asset);
+    }
+
+    // O(N) time & space
     return audits.map(audit => {
-      const asset = existingAssets.find(ea => ea.serialNumber.toLowerCase() === audit.serialNumber.toLowerCase());
+      const asset = assetMap.get(audit.serialNumber.toLowerCase().trim());
       return {
         ...audit,
         existingAsset: asset ? {
@@ -145,6 +158,11 @@ export class HelpdeskAuditService {
     });
   }
 
+  /**
+   * Rejects an audit by ID.
+   * @timeComplexity O(1) DB update by primary key
+   * @spaceComplexity O(1)
+   */
   static async rejectAudit(auditId: string) {
     return prisma.iTAssetAudit.update({
       where: { id: auditId },
@@ -152,12 +170,22 @@ export class HelpdeskAuditService {
     });
   }
 
+  /**
+   * Deletes an audit by ID.
+   * @timeComplexity O(1) DB delete by primary key
+   * @spaceComplexity O(1)
+   */
   static async deleteAudit(auditId: string) {
     return prisma.iTAssetAudit.delete({
       where: { id: auditId }
     });
   }
 
+  /**
+   * Synchronizes an audit to the live inventory and performs necessary auto-provisioning.
+   * @timeComplexity O(1) time per record, assuming DB lookups use indexed fields (serialNumber, assetNumber)
+   * @spaceComplexity O(1) constant overhead for merging objects and making DB calls
+   */
   static async syncAuditToInventory(auditId: string, updatedData?: {
     brand?: string;
     model?: string;
@@ -187,7 +215,7 @@ export class HelpdeskAuditService {
     const brand = updatedData?.brand?.trim() || audit.brand;
     const model = updatedData?.model?.trim() || audit.model;
     const deviceType = updatedData?.deviceType || audit.deviceType;
-    const assetNumber = updatedData?.assetNumber !== undefined ? (updatedData.assetNumber?.trim() || null) : audit.assetNumber;
+    const assetNumber = updatedData?.assetNumber !== undefined ? (updatedData.assetNumber?.trim().toUpperCase() || null) : audit.assetNumber;
     const department = updatedData?.department !== undefined ? (updatedData.department?.trim() || null) : audit.department;
     const siteOfficeId = updatedData?.siteOfficeId !== undefined ? (updatedData.siteOfficeId?.trim() || null) : audit.siteOfficeId;
     const location = updatedData?.location !== undefined ? (updatedData.location?.trim() || null) : audit.location;
@@ -200,10 +228,7 @@ export class HelpdeskAuditService {
       // 1. Find or create staff member
       let staff = await tx.staff.findFirst({
         where: {
-          employeeId: {
-            equals: audit.employeeNo,
-            mode: 'insensitive'
-          }
+          employeeId: audit.employeeNo.toUpperCase()
         }
       });
 
@@ -242,10 +267,7 @@ export class HelpdeskAuditService {
       if (assetNumber) {
         const duplicateAsset = await tx.iTAsset.findFirst({
           where: {
-            assetNumber: {
-              equals: assetNumber,
-              mode: 'insensitive'
-            },
+            assetNumber: assetNumber,
             serialNumber: {
               not: audit.serialNumber
             }
@@ -259,10 +281,7 @@ export class HelpdeskAuditService {
       // 3. Find or create ITAsset
       const existingAsset = await tx.iTAsset.findFirst({
         where: {
-          serialNumber: {
-            equals: audit.serialNumber,
-            mode: 'insensitive'
-          }
+          serialNumber: audit.serialNumber.toUpperCase()
         }
       });
 
@@ -367,6 +386,11 @@ export class HelpdeskAuditService {
     });
   }
 
+  /**
+   * Identifies gaps between physical audits and system inventory.
+   * @timeComplexity O(N + M) where N is number of audits and M is number of assets
+   * @spaceComplexity O(N + M) to store maps and result arrays
+   */
   static async getAuditGaps() {
     // Fetch all active audits that are not personal devices and not rejected
     const audits = await prisma.iTAssetAudit.findMany({
@@ -384,13 +408,19 @@ export class HelpdeskAuditService {
       }
     });
 
+    // O(N) time & space
     const auditSerials = new Set(audits.map(a => a.serialNumber.toLowerCase().trim()));
-    const allAssetSerials = new Set(allAssets.map(a => a.serialNumber.toLowerCase().trim()));
+    
+    // O(M) time & space
+    const assetMap = new Map<string, typeof allAssets[0]>();
+    for (const asset of allAssets) {
+      assetMap.set(asset.serialNumber.toLowerCase().trim(), asset);
+    }
 
     // 1. Missing Audits: Assets that have an assigned staff, but no audit was submitted
+    // O(M) time filtering
     const missingAudits = allAssets
-      .filter(asset => asset.assignedStaffId !== null) // Ensure it's assigned to someone
-      .filter(asset => !auditSerials.has(asset.serialNumber.toLowerCase().trim()))
+      .filter(asset => asset.assignedStaffId !== null && !auditSerials.has(asset.serialNumber.toLowerCase().trim()))
       .map(asset => ({
         assetId: asset.id,
         assetNumber: asset.assetNumber,
@@ -406,8 +436,9 @@ export class HelpdeskAuditService {
       }));
     
     // 2. Unregistered Devices: Audits submitted for serial numbers that do not exist in the DB AT ALL
+    // O(N) time filtering
     const unregisteredDevices = audits
-      .filter(audit => !allAssetSerials.has(audit.serialNumber.toLowerCase().trim()))
+      .filter(audit => !assetMap.has(audit.serialNumber.toLowerCase().trim()))
       .map(audit => ({
         auditId: audit.id,
         serialNumber: audit.serialNumber,
@@ -421,10 +452,11 @@ export class HelpdeskAuditService {
       }));
 
     // 3. Mismatched Data: Audits that matched an existing asset, but the details didn't match perfectly
+    // O(N) time filtering (O(1) lookups via assetMap)
     const mismatchedData = audits
-      .filter(audit => allAssetSerials.has(audit.serialNumber.toLowerCase().trim()) && audit.isMatched === false)
+      .filter(audit => assetMap.has(audit.serialNumber.toLowerCase().trim()) && audit.isMatched === false)
       .map(audit => {
-        const matchedAsset = allAssets.find(a => a.serialNumber.toLowerCase().trim() === audit.serialNumber.toLowerCase().trim());
+        const matchedAsset = assetMap.get(audit.serialNumber.toLowerCase().trim());
         
         return {
           auditId: audit.id,

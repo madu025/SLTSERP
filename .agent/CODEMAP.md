@@ -489,6 +489,7 @@
     simNumber?: string | null;
     mdmEnrolled?: boolean | null;
   }, adminUserId?: string | null): any`
+    * `getAuditGaps(): any`
 
 ### [helpdesk.service.ts](src/services/helpdesk.service.ts)
 * **Class**: `HelpdeskService`
@@ -1742,6 +1743,12 @@
         commentsList?: { date?: string; user?: string; comment?: string }[];
     }): any`
 
+### [sod.utils.ts](src/services/sod/sod.utils.ts)
+* **Class**: `SodUtils`
+  * **Methods**:
+    * `deepParse(masterData: Record<string, string>): Record<string, string>`
+    * `safeParseDate(dateStr: string | Date | undefined | null): Date | undefined`
+
 ### [sod-auto-completion.service.ts](src/services/sod-auto-completion.service.ts)
 * **Class**: `SODAutoCompletionService`
   * **Methods**:
@@ -2010,6 +2017,7 @@
 | `/api/gis/upload` | [route.ts](src/app/api/gis/upload/route.ts) | `POST` |
 | `/api/gis/wms/[[...path]]` | [route.ts](src/app/api/gis/wms/[[...path]]/route.ts) | `GET`, `POST`, `OPTIONS` |
 | `/api/health` | [route.ts](src/app/api/health/route.ts) | `GET` |
+| `/api/helpdesk/assets/audits/gaps` | [route.ts](src/app/api/helpdesk/assets/audits/gaps/route.ts) | `GET` |
 | `/api/helpdesk/assets/audits` | [route.ts](src/app/api/helpdesk/assets/audits/route.ts) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `/api/helpdesk/assets` | [route.ts](src/app/api/helpdesk/assets/route.ts) | `GET`, `POST` |
 | `/api/helpdesk/assets/search-by-serial` | [route.ts](src/app/api/helpdesk/assets/search-by-serial/route.ts) | `GET` |
