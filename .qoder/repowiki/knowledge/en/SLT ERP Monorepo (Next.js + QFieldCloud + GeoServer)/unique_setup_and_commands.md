@@ -1,0 +1,1 @@
+`npm run dev` boots the Next.js dev server; `npm run build` generates the Prisma client then builds the standalone Next.js app; `npm run db:sync` runs the top-level `scripts/db-sync.js` helper; `docker compose up -d` starts the full stack (app + redis + pgadmin); `docker compose -f docker-compose.prod.yml up -d` switches to the production Nginx-backed compose file.

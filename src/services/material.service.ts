@@ -22,6 +22,7 @@ export class MaterialService {
 
     /**
      * Get Monthly Reconciliation Summary for a Contractor
+     * @timeComplexity O(n) where n = total items across all queries (parallel execution)
      */
     static async getReconciliation(params: {
         contractorId: string;
@@ -30,87 +31,83 @@ export class MaterialService {
     }) {
         const { contractorId, storeId, month } = params;
 
-        // 1. Fetch Issues
-        const issues = await prisma.contractorMaterialIssue.findMany({
-            where: { contractorId, storeId, month },
-            select: {
-                id: true,
-                items: {
-                    select: {
-                        quantity: true,
-                        item: {
-                            select: { id: true, code: true, name: true, unit: true }
-                        }
-                    }
-                }
-            }
-        });
-
-        // 2. Fetch Usage from SODs
-        // We need to link SODs to the contractor and storeId.
-        // ServiceOrder has contractorId and opmcId. OPMC has a storeId.
-        // GAP 5 FIX: Filter by sltsStatus=COMPLETED so we only count finalized consumption.
-        // RETURN'd SODs have their materialUsage deleted on rollback, so they naturally
-        // won't appear here. This is correct — returned SODs don't consume materials.
+        // Calculate month boundaries
         const monthStart = new Date(`${month}-01`);
         const monthEnd = new Date(monthStart);
         monthEnd.setMonth(monthEnd.getMonth() + 1);
 
-        const sodUsage = await prisma.sODMaterialUsage.findMany({
-            where: {
-                serviceOrder: {
+        // O(1) parallel queries - Execute all 4 DB queries concurrently instead of sequentially
+        const [issues, sodUsage, returns, wastages] = await Promise.all([
+            // 1. Fetch Issues
+            prisma.contractorMaterialIssue.findMany({
+                where: { contractorId, storeId, month },
+                select: {
+                    id: true,
+                    items: {
+                        select: {
+                            quantity: true,
+                            item: {
+                                select: { id: true, code: true, name: true, unit: true }
+                            }
+                        }
+                    }
+                }
+            }),
+            // 2. Fetch Usage from SODs (COMPLETED only - RETURN'd SODs have materialUsage deleted on rollback)
+            prisma.sODMaterialUsage.findMany({
+                where: {
+                    serviceOrder: {
+                        contractorId,
+                        opmc: { storeId },
+                        sltsStatus: 'COMPLETED',
+                        completedDate: {
+                            gte: monthStart,
+                            lt: monthEnd
+                        }
+                    }
+                },
+                select: {
+                    quantity: true,
+                    usageType: true,
+                    item: {
+                        select: { id: true, code: true, name: true, unit: true }
+                    }
+                }
+            }),
+            // 3. Fetch Returns
+            prisma.contractorMaterialReturn.findMany({
+                where: { contractorId, storeId, month, status: 'ACCEPTED' },
+                select: {
+                    items: {
+                        select: {
+                            quantity: true,
+                            item: {
+                                select: { id: true, code: true, name: true, unit: true }
+                            }
+                        }
+                    }
+                }
+            }),
+            // 4. Fetch Direct Wastage (Reported)
+            prisma.contractorWastage.findMany({
+                where: {
                     contractorId,
-                    opmc: { storeId },
-                    sltsStatus: 'COMPLETED',
-                    completedDate: {
-                        gte: monthStart,
-                        lt: monthEnd
-                    }
-                }
-            },
-            select: {
-                quantity: true,
-                usageType: true,
-                item: {
-                    select: { id: true, code: true, name: true, unit: true }
-                }
-            }
-        });
-
-        // 3. Fetch Returns
-        const returns = await prisma.contractorMaterialReturn.findMany({
-            where: { contractorId, storeId, month, status: 'ACCEPTED' },
-            select: {
-                items: {
-                    select: {
-                        quantity: true,
-                        item: {
-                            select: { id: true, code: true, name: true, unit: true }
+                    storeId,
+                    month,
+                    status: 'APPROVED'
+                },
+                select: {
+                    items: {
+                        select: {
+                            quantity: true,
+                            item: {
+                                select: { id: true, code: true, name: true, unit: true }
+                            }
                         }
                     }
                 }
-            }
-        });
-
-        // 3.5 Fetch Direct Wastage (Reported)
-        const wastages = await prisma.contractorWastage.findMany({
-            where: {
-                contractorId,
-                storeId,
-                month,
-                status: 'APPROVED'
-            },
-            select: {
-                items: {
-                    select: {
-                        quantity: true,
-                        item: {
-                            select: { id: true, code: true, name: true, unit: true }
-                        }
-                    }
-                }
-            }
-        });
+            })
+        ]);
 
         // 4. Aggregate by Item
         const itemStats: Record<string, MaterialStats> = {};

@@ -94,6 +94,46 @@ export class StockService {
     }
 
     /**
+     * Pick batches from pre-fetched available store batches list in-memory using FIFO
+     */
+    static pickStoreBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+        const qtyToPick = this.round(requiredQty);
+        // Filter batches for this itemId in memory
+        const itemBatches = availableBatches.filter(b => b.itemId === itemId);
+
+        const pickedBatches: PickedBatch[] = [];
+        let remainingToPick = qtyToPick;
+
+        for (const stock of itemBatches) {
+            if (remainingToPick <= 0) break;
+            const available = this.round(stock.quantity);
+            const take = Math.min(available, remainingToPick);
+            pickedBatches.push({
+                batchId: stock.batchId,
+                quantity: this.round(take),
+                batch: stock.batch
+            });
+            remainingToPick = this.round(remainingToPick - take);
+            // Reflect the decrement in the local array item quantity so future picks in the same transaction loop are correct
+            stock.quantity = this.round(stock.quantity - take);
+        }
+
+        if (this.round(remainingToPick) > 0) {
+            if (allowShortage) {
+                pickedBatches.push({
+                    batchId: null,
+                    quantity: this.round(remainingToPick),
+                    batch: { unitPrice: 0, costPrice: 0 } as any
+                });
+            } else {
+                throw new Error(`INSUFFICIENT_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+            }
+        }
+
+        return pickedBatches;
+    }
+
+    /**
      * Pick batches from a contractor based on FIFO with locking
      */
     static async pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]> {
@@ -113,6 +153,44 @@ export class StockService {
                 batch: stock.batch
             });
             remainingToPick = this.round(remainingToPick - take);
+        }
+
+        if (this.round(remainingToPick) > 0) {
+            if (allowShortage) {
+                pickedBatches.push({
+                    batchId: null,
+                    quantity: this.round(remainingToPick),
+                    batch: { unitPrice: 0, costPrice: 0 } as any
+                });
+            } else {
+                throw new Error(`INSUFFICIENT_CONTRACTOR_BATCH_STOCK_FOR_ITEM_${itemId}: Missing ${remainingToPick}`);
+            }
+        }
+
+        return pickedBatches;
+    }
+
+    /**
+     * Pick batches from pre-fetched available contractor batches list in-memory using FIFO
+     */
+    static pickContractorBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[] {
+        const qtyToPick = this.round(requiredQty);
+        const itemBatches = availableBatches.filter(b => b.itemId === itemId);
+
+        const pickedBatches: PickedBatch[] = [];
+        let remainingToPick = qtyToPick;
+
+        for (const stock of itemBatches) {
+            if (remainingToPick <= 0) break;
+            const available = this.round(stock.quantity);
+            const take = Math.min(available, remainingToPick);
+            pickedBatches.push({
+                batchId: stock.batchId,
+                quantity: this.round(take),
+                batch: stock.batch
+            });
+            remainingToPick = this.round(remainingToPick - take);
+            stock.quantity = this.round(stock.quantity - take);
         }
 
         if (this.round(remainingToPick) > 0) {

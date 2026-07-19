@@ -1,0 +1,51 @@
+schema_version: 1
+module_path: ""
+title: SLT ERP Monorepo (Next.js + QFieldCloud + GeoServer)
+scope:
+    - README.md
+    - AGENTS.md
+    - SOUL.md
+    - IDENTITY.md
+    - TOOLS.md
+    - USER.md
+    - AI_SURVEY_PLANNING_STATUS.md
+    - HEARTBEAT.md
+    - .gitignore
+    - package.json
+    - next.config.ts
+    - tsconfig.json
+    - Dockerfile
+    - Dockerfile.prod
+    - docker-compose.yml
+    - docker-compose.prod.yml
+    - docker-entrypoint.sh
+    - components.json
+    - eslint.config.mjs
+    - postcss.config.mjs
+    - playwright.config.ts
+    - .dockerignore
+    - .git.code-workspace
+    - BOM-R-AD-2023-09-09-24030409.csv
+    - LAPTOP DISTRIBUTION.xlsx
+    - NEW FTTH SOFT FORMAT JUNE -2026.xlsm
+    - OSP O365 License .xlsx
+    - OSP_Staff.xlsx
+    - SLTSERP.code-workspace
+    - audit_100_point.md
+    - audit_100_point_sinhala.md
+    - audit_span_distances_report.md
+    - audit_tree_branching_report.md
+    - backup-database.bat
+    - check.js
+    - check2.js
+    - cloudflared.exe
+    - docker-compose.prod.fixed.yml
+    - logo5.png
+    - openclaw-workspace-state.json
+    - package-lock.json
+    - restore-database.bat
+    - scratch-test.ts
+    - smart-deploy.ps1
+source_files: []
+depends_on: []
+related_to: []

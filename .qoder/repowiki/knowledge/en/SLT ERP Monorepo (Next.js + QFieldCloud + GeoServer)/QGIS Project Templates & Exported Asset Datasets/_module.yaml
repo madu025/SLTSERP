@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: qgis_data_assets
+title: QGIS Project Templates & Exported Asset Datasets
+scope:
+    - QGIS Project Template/
+    - KL-SVK-0567/
+    - SM-HJJ-0508-AB/
+source_files: []
+depends_on: []
+related_to:
+    - path: infra_deploy

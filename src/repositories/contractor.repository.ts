@@ -28,6 +28,21 @@ export class ContractorRepository {
     }
 
     /**
+     * Find available batches for multiple items in bulk (FIFO order with bulk locking)
+     */
+    static async findAvailableBatchesBulk(contractorId: string, itemIds: string[], tx: any) {
+        if (itemIds.length === 0) return [];
+        // Lock rows for update in bulk
+        await tx.$executeRaw`SELECT id FROM "ContractorBatchStock" WHERE "contractorId" = ${contractorId} AND "itemId" = ANY(${itemIds}) AND "quantity" > 0 FOR UPDATE`;
+
+        return tx.contractorBatchStock.findMany({
+            where: { contractorId, itemId: { in: itemIds }, quantity: { gt: 0 } },
+            include: { batch: true },
+            orderBy: { batch: { createdAt: 'asc' } }
+        });
+    }
+
+    /**
      * Update contractor batch stock
      */
     static async updateBatchStock(contractorId: string, batchId: string, quantity: number, tx: any) {

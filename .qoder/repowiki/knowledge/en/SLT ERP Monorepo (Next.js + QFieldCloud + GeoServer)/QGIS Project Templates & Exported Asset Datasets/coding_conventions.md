@@ -1,0 +1,4 @@
+- Layer names follow a fixed SLT vocabulary (TP, Poles, ODF, MH, HH, FTC, FJ, FDP, Road_EOPs, Risers, Ducts, Cables) and each gets its own file or table rather than being merged into a single dataset.
+- Per-project exports prefix every filename with the project code (e.g. `KL-SVK-0567_`, `SM-HJJ-0508_`) so datasets from different projects never collide when unpacked together.
+- Each export bundle mirrors the same logical layer set across formats — a `.gpkg`, `.shp`, `.csv`, `.geojson`, and `.kml` are produced side-by-side under `GeoPackage/`, `Shapes/`, `CSV/`, `GeoJSON/`, `KMZ/` respectively.
+- QField-ready projects mark every layer with `isOfflineEditable=true` and `QFieldSync/action=offline` custom properties, and point sources at a relative `./data.gpkg|layername=...` path using the OGR provider.

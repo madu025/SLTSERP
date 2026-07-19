@@ -1,0 +1,1 @@
+Docker images, compose stack, and Nginx reverse-proxy configuration that deploy the QFieldCloud + GeoServer application with a PostGIS-backed database.

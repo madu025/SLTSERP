@@ -1,0 +1,1 @@
+Collection of one-off data-import, seed, verification and maintenance scripts (TypeScript/JavaScript/Python/PowerShell) that operate directly on the Prisma database or call Next.js API route handlers.

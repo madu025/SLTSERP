@@ -1,0 +1,1 @@
+Docker Compose v3.8 with official images `tomcat:9-jdk17-temurin`, `postgis/postgis:16-3.4`, `minio/minio:latest`, `opengisch/qfieldcloud:latest`, and `nginx:alpine`; GeoServer 2.25.2 WAR downloaded at build time from SourceForge.

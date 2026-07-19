@@ -1,0 +1,1 @@
+QGIS 4.0.3-Norrköping projects (`.qgz`), SQLite/GeoPackage as the canonical vector store, WGS 84 (EPSG:4326) CRS across all outputs, and QFieldSync custom properties (`isOfflineEditable=true`, `QFieldSync/action=offline`) to enable offline mobile editing.

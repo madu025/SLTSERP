@@ -1,0 +1,1 @@
+Starter QGIS project templates and per-project export bundles (GeoPackage, Shapefile, CSV, GeoJSON, KML) of SLT fiber-asset layers for desktop and QField offline editing.

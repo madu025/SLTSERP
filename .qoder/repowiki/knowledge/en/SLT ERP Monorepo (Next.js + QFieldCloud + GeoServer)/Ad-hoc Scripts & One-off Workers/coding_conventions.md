@@ -1,0 +1,4 @@
+- Scripts expose an async `main()` function and invoke it at the bottom with `.catch(console.error)` plus `process.exit(1)` on failure.
+- DB access goes through the shared `../src/lib/prisma` singleton (or `new PrismaClient()` in older JS files) rather than constructing connections inline.
+- Integration tests import Next.js Route Handler functions directly (`import { POST as loginPOST } from '../src/app/api/auth/agent-login/route'`) and call them with synthetic `Request` objects instead of spinning up an HTTP server.
+- Each script is idempotent: it prunes test rows first (`deleteMany` / `deleteMany({ where })`) before creating fixtures, so re-runs do not accumulate duplicates.

@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: docs_memory
+title: Project Documentation, Agent Playbook & AI Task Registry
+scope:
+    - docs/
+    - memory/
+    - .agent/
+    - ai-tasks/
+source_files: []
+depends_on: []
+related_to: []

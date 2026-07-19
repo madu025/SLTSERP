@@ -1,0 +1,3 @@
+- All services communicate through environment variables defined at the root compose level (`DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `NEXTAUTH_SECRET`, `CRON_SECRET`) — no per-module env files.
+- Prisma schema lives under `prisma/schema` and is referenced both by `package.json` prisma config and every script/service via the generated client.
+- Containerized artifacts follow a multi-stage pattern: deps → builder → node:22-alpine runner, with migrations applied in `docker-entrypoint.sh` before the process starts.

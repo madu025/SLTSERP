@@ -96,14 +96,28 @@ export class NotificationService {
         metadata?: any;
     }) {
         try {
-            // For each user, ensure they don't exceed 50 notifications
-            for (const userId of userIds) {
-                const count = await NotificationRepository.count({ userId });
-                if (count >= 50) {
+            // Check notification counts in bulk using GroupBy
+            const counts = await prisma.notification.groupBy({
+                by: ['userId'],
+                where: { userId: { in: userIds } },
+                _count: { _all: true }
+            });
+
+            const countMap = new Map<string, number>();
+            for (const c of counts) {
+                countMap.set(c.userId, c._count._all);
+            }
+
+            const usersWithExcess = userIds.filter(userId => (countMap.get(userId) || 0) >= 50);
+
+            if (usersWithExcess.length > 0) {
+                for (const userId of usersWithExcess) {
+                    const currentCount = countMap.get(userId) || 0;
+                    const deleteCount = (currentCount - 50) + 1;
                     const excess = await NotificationRepository.findMany({
                         where: { userId },
                         orderBy: { createdAt: 'asc' },
-                        take: 1,
+                        take: deleteCount,
                         select: { id: true }
                     });
                     if (excess.length > 0) {

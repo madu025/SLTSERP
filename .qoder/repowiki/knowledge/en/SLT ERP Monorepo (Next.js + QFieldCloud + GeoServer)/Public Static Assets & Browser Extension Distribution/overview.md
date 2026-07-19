@@ -1,0 +1,1 @@
+Serves static site assets, the SLT-ERP browser extension source and signed builds, downloadable installers, Excel invoice templates, and a service worker for PWA support.

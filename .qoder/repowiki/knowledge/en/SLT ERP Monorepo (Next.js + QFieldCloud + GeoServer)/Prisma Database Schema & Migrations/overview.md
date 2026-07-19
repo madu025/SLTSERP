@@ -1,0 +1,1 @@
+Prisma ORM configuration, multi-file domain schema, PostgreSQL migrations, and seed scripts for the SLT ERP application's relational data layer.

@@ -11,47 +11,60 @@ export class AppointmentNotificationService {
             const todayEnd = new Date(todayStart);
             todayEnd.setDate(todayEnd.getDate() + 1);
 
-            // Fetch users to process
+            // 1. Fetch users to process
             const users = await prisma.user.findMany({
                 where: userId ? { id: userId } : {},
                 include: { accessibleOpmcs: true }
             });
 
-            for (const user of users) {
-                const opmcIds = user.accessibleOpmcs.map(o => o.id);
-                
-                // Construct query to find active scheduled appointments for today
-                const whereClause: Prisma.ServiceOrderWhereInput = {
+            if (users.length === 0) return;
+
+            // 2. Fetch all active scheduled appointments for today in a single query
+            const allAppointments = await prisma.serviceOrder.findMany({
+                where: {
                     scheduledDate: {
                         gte: todayStart,
                         lt: todayEnd
                     },
                     sltsStatus: { notIn: ["COMPLETED", "RETURN"] }
-                };
-
-                // Filter by OPMC for non-admin users
-                if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
-                    if (opmcIds.length === 0) continue; // Skip if user has no assigned OPMCs
-                    whereClause.opmcId = { in: opmcIds };
                 }
+            });
 
-                const appointments = await prisma.serviceOrder.findMany({
-                    where: whereClause
+            if (allAppointments.length === 0) return;
+
+            // 3. Fetch all system notifications sent today to build an in-memory sent set
+            const todayNotifications = await prisma.notification.findMany({
+                where: {
+                    createdAt: { gte: todayStart, lt: todayEnd },
+                    type: 'SYSTEM'
+                },
+                select: { userId: true, title: true }
+            });
+
+            const sentSet = new Set<string>();
+            for (const n of todayNotifications) {
+                sentSet.add(`${n.userId}:${n.title}`);
+            }
+
+            // 4. Process notifications per user in-memory
+            for (const user of users) {
+                const opmcIds = new Set(user.accessibleOpmcs.map(o => o.id));
+                
+                // Filter appointments matching user OPMC visibility in-memory
+                const userAppointments = allAppointments.filter(sod => {
+                    if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
+                        return true;
+                    }
+                    return sod.opmcId && opmcIds.has(sod.opmcId);
                 });
 
-                for (const sod of appointments) {
-                    // 1. Notify user about today's scheduled appointments
+                for (const sod of userAppointments) {
+                    // A. Daily Appointment Announcement
                     const todayTitle = `Today Appointment: ${sod.soNum}`;
                     const todayMsg = `Appointment scheduled today for Customer: ${sod.customerName || 'N/A'}${sod.scheduledTime ? ` at ${sod.scheduledTime}` : ''}. DP: ${sod.dp || '-'}`;
                     
-                    const existingToday = await prisma.notification.findFirst({
-                        where: {
-                            userId: user.id,
-                            title: todayTitle
-                        }
-                    });
-
-                    if (!existingToday) {
+                    const todayKey = `${user.id}:${todayTitle}`;
+                    if (!sentSet.has(todayKey)) {
                         await NotificationService.send({
                             userId: user.id,
                             title: todayTitle,
@@ -60,9 +73,10 @@ export class AppointmentNotificationService {
                             priority: 'MEDIUM',
                             link: `/service-orders?search=${sod.soNum}`
                         });
+                        sentSet.add(todayKey);
                     }
 
-                    // 2. Proactive reminders: 2 hours, 1 hour, 30 minutes before appointment time
+                    // B. Proactive timing reminders
                     if (sod.scheduledDate && sod.scheduledTime) {
                         const [hoursStr, minutesStr] = sod.scheduledTime.split(':');
                         const hours = parseInt(hoursStr, 10);
@@ -75,18 +89,12 @@ export class AppointmentNotificationService {
                             const diffMs = appointmentTime.getTime() - now.getTime();
                             const diffMinutes = Math.round(diffMs / 60000);
 
-                            // Helper function to send reminder if within the target time range
                             const checkAndSendReminder = async (label: string, minLimit: number, maxLimit: number, text: string) => {
                                 if (diffMinutes >= minLimit && diffMinutes <= maxLimit) {
                                     const reminderTitle = `${label} Reminder: ${sod.soNum}`;
-                                    const existingReminder = await prisma.notification.findFirst({
-                                        where: {
-                                            userId: user.id,
-                                            title: reminderTitle
-                                        }
-                                    });
+                                    const reminderKey = `${user.id}:${reminderTitle}`;
 
-                                    if (!existingReminder) {
+                                    if (!sentSet.has(reminderKey)) {
                                         await NotificationService.send({
                                             userId: user.id,
                                             title: reminderTitle,
@@ -95,18 +103,14 @@ export class AppointmentNotificationService {
                                             priority: 'HIGH',
                                             link: `/service-orders?search=${sod.soNum}`
                                         });
+                                        sentSet.add(reminderKey);
                                     }
                                 }
                             };
 
-                            // Range checks to prevent missed notifications due to minor timing variations
-                            // 2 hours reminder (90 to 130 minutes before)
+                            // Proactive reminder windows
                             await checkAndSendReminder("2h", 90, 130, "2 hours");
-
-                            // 1 hour reminder (45 to 75 minutes before)
                             await checkAndSendReminder("1h", 45, 75, "1 hour");
-
-                            // 30 minutes reminder (15 to 40 minutes before)
                             await checkAndSendReminder("30m", 15, 40, "30 minutes");
                         }
                     }

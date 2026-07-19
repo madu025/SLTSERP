@@ -1,0 +1,3 @@
+- Daily developer notes in `memory/` follow a strict `YYYY-MM-DD.md` filename convention with a top-level `# Daily Notes: <date>` heading and bullet-point entries describing what was refactored and how it was verified.
+- Agent-facing guidelines in `.agent/AGENTS.md` enforce a layered rule set grouped by concern (API handlers, GIS/OpenLayers sizing, Next.js cache busting, DB egress, code-map usage) so agents can grep for the relevant section before making changes.
+- AI task backlogs use a single JSON state file with an `agent_instructions` block declaring `pick_policy`, `claim`, and `complete` semantics, and tasks carry `id`, `status`, `dependencies`, `estimate_hours`, and `outputs` fields so an agent can drive the board autonomously.

@@ -1,0 +1,1 @@
+Repository of human-readable system manuals, stores workflow guides, daily developer memory notes, agent coding conventions, and the vehicle-management AI task backlog.

@@ -790,7 +790,9 @@
     * `getStoreBatches(storeId: string, itemId?: string): Promise<InventoryBatchStock[]>`
     * `getContractorBatches(contractorId: string, itemId?: string): Promise<ContractorBatchStock[]>`
     * `pickStoreBatchesFIFO(tx: TransactionClient, storeId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
+    * `pickStoreBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
     * `pickContractorBatchesFIFO(tx: TransactionClient, contractorId: string, itemId: string, requiredQty: number, allowShortage: boolean = false): Promise<PickedBatch[]>`
+    * `pickContractorBatchesFIFOBulk(availableBatches: any[], itemId: string, requiredQty: number, allowShortage: boolean = false): PickedBatch[]`
     * `initializeStock(storeId: string, items: { itemId: string; quantity: string | number }[], reason?: string, userId?: string): any`
     * `createStockIssue(data: {
         storeId: string;
@@ -1660,8 +1662,8 @@
         endDate?: string;
     }): any`
     * `getOspFtthItems(): any`
-    * `bulkImportLegacyServiceOrders(rows: any[], skipMaterials?: boolean): any`
-    * `bridgeSync(payload: any): any`
+    * `bulkImportLegacyServiceOrders(rows: Parameters<typeof SODImportService.bulkImportLegacyServiceOrders>[0], skipMaterials?: boolean): any`
+    * `bridgeSync(payload: Parameters<typeof SODSyncService.bridgeSync>[0]): any`
 
 ### [sod-return-classifier.service.ts](src/services/sod/sod-return-classifier.service.ts)
 * **Class**: `SODReturnClassifierService`
@@ -1696,7 +1698,7 @@
   * **Methods**:
     * `validateStatusTransition(id: string, soNum: string, newStatus?: string, oldStatus?: string): any`
     * `prepareStatusTransition(oldOrder: { sltsStatus: string; status: string | null; statusDate: Date | null; comments: string | null; returnReason: string | null; sltsPatStatus?: string | null; opmcPatStatus?: string | null; hoPatStatus?: string | null; isInvoicable?: boolean }, data: ServiceOrderUpdateData): Promise<Prisma.ServiceOrderUncheckedUpdateInput>`
-    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: any): any`
+    * `handlePostUpdate(oldOrder: { status: string | null; sltsStatus: string | null; statusDate: Date | null }, serviceOrder: { id: string; status: string; sltsStatus: string; opmcId: string; soNum: string; returnReason: string | null }, updateData: Prisma.ServiceOrderUncheckedUpdateInput, userId: string = 'SYSTEM', tx?: TransactionClient): any`
 
 ### [sod.material.service.ts](src/services/sod/sod.material.service.ts)
 * **Class**: `SODMaterialService`

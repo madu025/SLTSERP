@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: infra_deploy
+title: Containerized Infrastructure & Reverse Proxy
+scope:
+    - docker/
+    - nginx/
+    - postgres-init/
+    - .github/
+source_files: []
+depends_on: []
+related_to:
+    - path: qgis_data_assets

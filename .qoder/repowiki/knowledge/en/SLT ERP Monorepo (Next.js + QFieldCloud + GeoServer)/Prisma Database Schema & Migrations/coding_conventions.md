@@ -1,0 +1,5 @@
+- Every model uses `id String @id @default(cuid())` as the primary key and pairs `createdAt DateTime @default(now())` / `updatedAt DateTime @updatedAt` audit timestamps.
+- Domain-specific enums (Role, ContractorStatus, VehicleTypeEnum, etc.) are declared once in `schema/enums.prisma` and reused across model files instead of inline string literals.
+- Cross-cutting concerns (generator + datasource) live in `schema/_base.prisma` and are included by each fragment so every sub-schema is independently valid.
+- Seed scripts prefer idempotent `upsert({ where: { uniqueField }, create: ..., update: ... })` calls keyed on business identifiers (username, rtom, name) rather than raw `create`.
+- Foreign keys are expressed via Prisma relation fields with explicit `fields:` / `references:` tuples and named relations (e.g. `@relation("UserSupervisor")`, `@relation("ContractorArmApproval")`) instead of relying on implicit naming.

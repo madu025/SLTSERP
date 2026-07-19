@@ -67,46 +67,51 @@ interface PrismaInvoiceModel {
 export class PaymentService {
   /**
    * Create an invoice
+   * @timeComplexity O(n) where n = number of items (single batch fetch for tax configs)
    */
   async createInvoice(data: CreateInvoiceDTO): Promise<Invoice> {
     try {
+      // O(1) - Batch fetch all unique tax configs upfront (fixes N+1 query problem)
+      const taxConfigIds = [...new Set(data.items.map(i => i.tax_config_id).filter(Boolean))] as string[];
+      const taxConfigs = taxConfigIds.length > 0
+        ? await prisma.vMTaxConfig.findMany({ where: { id: { in: taxConfigIds } } })
+        : [];
+      const taxConfigMap = new Map(taxConfigs.map((tc: { id: string; tax_rate_percent: number; tax_inclusive: boolean }) => [tc.id, tc]));
+
       // Calculate totals
       let subtotal = 0;
       let totalTax = 0;
 
-      // Process items and calculate taxes
-      const processedItems = await Promise.all(
-        data.items.map(async (item) => {
-          const lineTotal = item.quantity * item.unit_price;
-          subtotal += lineTotal;
+      // O(n) - Process items with O(1) tax config lookups
+      const processedItems = data.items.map((item) => {
+        const lineTotal = item.quantity * item.unit_price;
+        subtotal += lineTotal;
 
-          // Get tax config if provided
-          let lineTax = 0;
-          if (item.tax_config_id) {
-            const taxConfig = await prisma.vMTaxConfig.findUnique({
-              where: { id: item.tax_config_id },
-            });
-
-            if (taxConfig) {
-              lineTax = this.calculateTax(lineTotal, taxConfig.tax_rate_percent, taxConfig.tax_inclusive);
-            }
+        // O(1) lookup from pre-fetched map
+        let lineTax = 0;
+        let taxRatePercent: number | null = null;
+        if (item.tax_config_id) {
+          const taxConfig = taxConfigMap.get(item.tax_config_id);
+          if (taxConfig) {
+            taxRatePercent = taxConfig.tax_rate_percent;
+            lineTax = this.calculateTax(lineTotal, taxConfig.tax_rate_percent, taxConfig.tax_inclusive);
           }
+        }
 
-          totalTax += lineTax;
+        totalTax += lineTax;
 
-          return {
-            description: item.description,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            line_total: lineTotal,
-            tax_config_id: item.tax_config_id,
-            tax_rate_percent: item.tax_config_id ? (await this.getTaxRate(item.tax_config_id)) : null,
-            line_tax: lineTax,
-            item_type: item.item_type,
-            reference_id: item.reference_id,
-          };
-        })
-      );
+        return {
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          line_total: lineTotal,
+          tax_config_id: item.tax_config_id,
+          tax_rate_percent: taxRatePercent,
+          line_tax: lineTax,
+          item_type: item.item_type,
+          reference_id: item.reference_id,
+        };
+      });
 
       const totalAmount = subtotal + totalTax;
 
@@ -348,6 +353,7 @@ export class PaymentService {
 
   /**
    * Generate financial report for payments
+   * @timeComplexity O(n) - Single pass aggregation for all metrics
    */
   async getPaymentReport(filters: {
     from_date: Date;
@@ -372,13 +378,15 @@ export class PaymentService {
         include: { invoice: true },
       });
 
-      // Group by payment type
+      // O(n) - Single pass aggregation for all metrics
       const byType: Record<string, { count: number; total_base: number; total_tax: number; total_amount: number }> = {};
+      const statusBreakdown = { completed: 0, pending: 0, partial: 0, overdue: 0 };
       let totalAmount = 0;
       let totalTax = 0;
       let totalBase = 0;
 
-      (payments as unknown as PrismaPaymentModel[]).forEach((payment) => {
+      for (const payment of payments as unknown as PrismaPaymentModel[]) {
+        // Aggregate by type
         if (!byType[payment.payment_type]) {
           byType[payment.payment_type] = {
             count: 0,
@@ -392,10 +400,17 @@ export class PaymentService {
         byType[payment.payment_type].total_tax += payment.tax_amount;
         byType[payment.payment_type].total_amount += payment.total_amount;
 
+        // Aggregate totals
         totalAmount += payment.total_amount;
         totalTax += payment.tax_amount;
         totalBase += payment.base_amount;
-      });
+
+        // Aggregate status breakdown (O(1) lookup)
+        const statusKey = payment.status.toLowerCase() as keyof typeof statusBreakdown;
+        if (statusKey in statusBreakdown) {
+          statusBreakdown[statusKey] += 1;
+        }
+      }
 
       return {
         period: {
@@ -409,12 +424,7 @@ export class PaymentService {
           total_amount: parseFloat(totalAmount.toFixed(2)),
         },
         by_type: byType,
-        status_breakdown: {
-          completed: (payments as unknown as PrismaPaymentModel[]).filter((p) => p.status === 'COMPLETED').length,
-          pending: (payments as unknown as PrismaPaymentModel[]).filter((p) => p.status === 'PENDING').length,
-          partial: (payments as unknown as PrismaPaymentModel[]).filter((p) => p.status === 'PARTIAL').length,
-          overdue: (payments as unknown as PrismaPaymentModel[]).filter((p) => p.status === 'OVERDUE').length,
-        },
+        status_breakdown: statusBreakdown,
       };
     } catch (error) {
       throw new Error(`Failed to generate payment report: ${(error as Error).message}`);

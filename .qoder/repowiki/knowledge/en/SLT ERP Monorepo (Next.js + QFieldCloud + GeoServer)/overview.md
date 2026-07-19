@@ -1,0 +1,1 @@
+Top-level monorepo that wires a Next.js 16 app, Prisma data layer, BullMQ/Redis workers, and a Docker Compose stack into the SLT fiber-asset ERP with QField offline editing.

@@ -1,0 +1,7 @@
+The root is the orchestration surface for several sibling modules rather than application code itself:
+- `package.json` declares the single Node 24 runtime and scripts (`dev`, `build`, `start`, `db:sync`, `test:e2e`) that drive the Next.js server, Prisma client generation, and Playwright E2E suite.
+- `next.config.ts` sets `output: 'standalone'` so the build produces a self-contained `.next/standalone` bundle consumed by the container runner.
+- `Dockerfile` (multi-stage) builds the Next.js app, then copies only `public`, `prisma`, `node_modules`, `scripts`, and the standalone output into a minimal `node:22-alpine` runner; `docker-entrypoint.sh` runs `prisma migrate deploy` before exec-ing `node server.js`.
+- `docker-compose.yml` composes the app with Redis (BullMQ queue backend), PgAdmin, and an optional Postgres service on the shared `sltserp-network`; environment variables (`DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `NEXTAUTH_SECRET`, `CRON_SECRET`) are the contract between the Next.js API routes and the database/schema/queue layers.
+- The `workers_and_scripts` module plugs in via the same `DATABASE_URL`/`REDIS_URL` env and the generated Prisma Client, while `infra_deploy` provides the production Nginx reverse-proxy variant (`docker-compose.prod.yml`, `Dockerfile.prod`).
+- Shared static content (`public_assets`) and QGIS project templates (`qgis_data_assets`) are baked into the image or mounted as volumes, and `docs_memory` sits alongside as human-readable reference material.

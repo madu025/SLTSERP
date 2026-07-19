@@ -83,6 +83,24 @@ export class InventoryRepository {
     }
 
     /**
+     * Find available batches for multiple items in bulk (FIFO order with bulk locking)
+     */
+    static async findAvailableBatchesBulk(storeId: string, itemIds: string[], tx: any) {
+        if (itemIds.length === 0) return [];
+        // Lock rows for update in bulk to prevent double allocation race conditions
+        await tx.$executeRaw`SELECT id FROM "InventoryBatchStock" WHERE "storeId" = ${storeId} AND "itemId" = ANY(${itemIds}) AND "quantity" > 0 FOR UPDATE`;
+
+        return (tx as any).inventoryBatchStock.findMany({
+            where: { storeId, itemId: { in: itemIds }, quantity: { gt: 0 } },
+            include: { batch: true },
+            orderBy: [
+                { batch: { expiryDate: { sort: 'asc', nulls: 'last' } } },
+                { batch: { createdAt: 'asc' } }
+            ]
+        });
+    }
+
+    /**
      * Update batch quantity
      */
     static async updateBatchStock(storeId: string, batchId: string, quantity: number, tx: any) {

@@ -1,0 +1,1 @@
+Chrome Extension Manifest V3; PWA via a top-level `sw.js`; Excel macro templates (`.xlsm`) used as invoice generators.

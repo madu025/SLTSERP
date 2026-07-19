@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: workers_and_scripts
+title: Ad-hoc Scripts & One-off Workers
+scope:
+    - scripts/
+    - scratch/
+source_files: []
+depends_on: []
+related_to:
+    - path: database_schema

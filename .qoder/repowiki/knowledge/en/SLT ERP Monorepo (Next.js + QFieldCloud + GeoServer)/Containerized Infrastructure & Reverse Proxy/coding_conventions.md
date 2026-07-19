@@ -1,0 +1,4 @@
+- All mutable runtime state is persisted via named Docker volumes rather than bind mounts (e.g. `qfield_db_data`, `qfield_storage_data`, `qfield_media`, `qfield_static`).
+- Each long-running service declares a `healthcheck` with `interval`/`timeout`/`retries` so dependent services can use `condition: service_healthy` in `depends_on`.
+- Secrets and host-specific values are injected through environment variables with `${VAR:-default}` fallbacks instead of hard-coded credentials.
+- Postgres initialization scripts follow the `NN-name.sh` naming convention and run inside the entrypoint's `docker-entrypoint-initdb.d` directory.

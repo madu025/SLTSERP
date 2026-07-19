@@ -14,18 +14,58 @@ export class ROPService {
             select: { id: true, code: true, name: true, minLevel: true }
         });
 
+        // 2. Pre-fetch usages for all items in a single query
+        const allUsages = await prisma.sODMaterialUsage.findMany({
+            where: {
+                createdAt: { gte: ninetyDaysAgo },
+                usageType: { in: ['USED', 'USED_F1', 'USED_G1', 'PORTAL_SYNC', 'WASTAGE'] }
+            },
+            select: { itemId: true, quantity: true, createdAt: true }
+        });
+
+        // Group usages by itemId
+        const usageMap = new Map<string, Array<{ quantity: number; createdAt: Date }>>();
+        for (const u of allUsages) {
+            if (u.itemId) {
+                const list = usageMap.get(u.itemId) || [];
+                list.push({ quantity: u.quantity, createdAt: u.createdAt });
+                usageMap.set(u.itemId, list);
+            }
+        }
+
+        // 3. Pre-fetch stock requests for all items in a single query
+        const allRequests = await prisma.stockRequest.findMany({
+            where: {
+                receivedDate: { not: null },
+                createdAt: { gte: ninetyDaysAgo }
+            },
+            select: {
+                createdAt: true,
+                receivedDate: true,
+                items: {
+                    select: { itemId: true }
+                }
+            }
+        });
+
+        // Group lead times by itemId
+        const requestMap = new Map<string, Array<{ createdAt: Date; receivedDate: Date }>>();
+        for (const req of allRequests) {
+            for (const reqItem of req.items) {
+                if (reqItem.itemId) {
+                    const list = requestMap.get(reqItem.itemId) || [];
+                    list.push({ createdAt: req.createdAt, receivedDate: req.receivedDate! });
+                    requestMap.set(reqItem.itemId, list);
+                }
+            }
+        }
+
         const results = [];
+        const updatePromises = [];
 
         for (const item of items) {
             // A. Calculate Consumption (Daily Demand)
-            const usages = await prisma.sODMaterialUsage.findMany({
-                where: {
-                    itemId: item.id,
-                    createdAt: { gte: ninetyDaysAgo },
-                    usageType: { in: ['USED', 'USED_F1', 'USED_G1', 'PORTAL_SYNC', 'WASTAGE'] }
-                },
-                select: { quantity: true, createdAt: true }
-            });
+            const usages = usageMap.get(item.id) || [];
 
             // Map quantities by day
             const dailyQuantities: Record<string, number> = {};
@@ -46,18 +86,10 @@ export class ROPService {
                 : 0;
 
             // B. Calculate Lead Time (Procurement Duration)
-            // Duration between request date (createdAt) and receiving date (receivedDate)
-            const requests = await prisma.stockRequest.findMany({
-                where: {
-                    items: { some: { itemId: item.id } },
-                    receivedDate: { not: null },
-                    createdAt: { gte: ninetyDaysAgo }
-                },
-                select: { createdAt: true, receivedDate: true }
-            });
+            const requests = requestMap.get(item.id) || [];
 
             const leadTimesInDays = requests.map(r => {
-                const diffTime = Math.abs(r.receivedDate!.getTime() - r.createdAt.getTime());
+                const diffTime = Math.abs(r.receivedDate.getTime() - r.createdAt.getTime());
                 return Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))); // minimum of 1 day
             });
 
@@ -78,17 +110,20 @@ export class ROPService {
             const rop = (avgDailyDemand * avgLeadTime) + safetyStockFinal;
             const ropFinal = Math.max(0, Math.round(rop * 100) / 100);
 
-            // D. Write dynamic ROP back to the Item Safety Stock Level
-            await prisma.inventoryItem.update({
-                where: { id: item.id },
-                data: { minLevel: ropFinal }
-            });
+            // D. Push update promises
+            updatePromises.push(
+                prisma.inventoryItem.update({
+                    where: { id: item.id },
+                    data: { minLevel: ropFinal }
+                })
+            );
 
-            // E. Propagate dynamic safety levels to individual stores for low stock checks
-            await prisma.inventoryStock.updateMany({
-                where: { itemId: item.id },
-                data: { minLevel: ropFinal }
-            });
+            updatePromises.push(
+                prisma.inventoryStock.updateMany({
+                    where: { itemId: item.id },
+                    data: { minLevel: ropFinal }
+                })
+            );
 
             results.push({
                 itemId: item.id,
@@ -101,6 +136,12 @@ export class ROPService {
                 safetyStock: safetyStockFinal,
                 reorderPoint: ropFinal
             });
+        }
+
+        // E. Run update transactions in chunked batches
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < updatePromises.length; i += BATCH_SIZE) {
+            await prisma.$transaction(updatePromises.slice(i, i + BATCH_SIZE));
         }
 
         return results;

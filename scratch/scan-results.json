@@ -1,0 +1,674 @@
+[
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 46,
+    "content": "await tx.inventoryItem.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 43"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 104,
+    "content": "const batch = await (tx as any).inventoryBatch.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 94"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 121,
+    "content": "await (tx as any).gRNItem.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 94"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 129,
+    "content": "await (tx as any).inventoryBatchStock.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 94"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 141,
+    "content": "await (tx as any).inventoryStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 94"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 170,
+    "content": "const existingSerial = await tx.inventoryItemSerial.findUnique({",
+    "type": "Database/Service call 'await' inside loop starting at line 94"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 175,
+    "content": "await tx.inventoryItemSerial.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 94"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 186,
+    "content": "await tx.inventoryItemSerial.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 94"
+  },
+  {
+    "file": "src\\services\\inventory\\grn.service.ts",
+    "line": 248,
+    "content": "await (tx as any).stockRequestItem.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 237"
+  },
+  {
+    "file": "src\\services\\inventory\\issue.service.ts",
+    "line": 65,
+    "content": "const pickedBatches = await StockService.pickStoreBatchesFIFO(transaction, storeId, item.itemId, qty);",
+    "type": "Database/Service call 'await' inside loop starting at line 60"
+  },
+  {
+    "file": "src\\services\\inventory\\issue.service.ts",
+    "line": 236,
+    "content": "const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);",
+    "type": "Database/Service call 'await' inside loop starting at line 231"
+  },
+  {
+    "file": "src\\services\\inventory\\issue.service.ts",
+    "line": 241,
+    "content": "await (tx as any).contractorBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 231"
+  },
+  {
+    "file": "src\\services\\inventory\\issue.service.ts",
+    "line": 248,
+    "content": "await (tx as any).inventoryBatchStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 231"
+  },
+  {
+    "file": "src\\services\\inventory\\issue.service.ts",
+    "line": 263,
+    "content": "await (tx as any).contractorStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 231"
+  },
+  {
+    "file": "src\\services\\inventory\\issue.service.ts",
+    "line": 270,
+    "content": "await (tx as any).inventoryStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 231"
+  },
+  {
+    "file": "src\\services\\inventory\\issue.service.ts",
+    "line": 283,
+    "content": "await tx.inventoryItemSerial.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 231"
+  },
+  {
+    "file": "src\\services\\inventory\\item.service.ts",
+    "line": 96,
+    "content": "await InventoryRepository.updateItem(u.id, u.data as Prisma.InventoryItemUpdateInput, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 95"
+  },
+  {
+    "file": "src\\services\\inventory\\item.service.ts",
+    "line": 116,
+    "content": "await ContractorRepository.upsertStock(stock.contractorId, targetId, stock.quantity, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 115"
+  },
+  {
+    "file": "src\\services\\inventory\\item.service.ts",
+    "line": 123,
+    "content": "await InventoryRepository.upsertStock(stock.storeId, targetId, stock.quantity, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 122"
+  },
+  {
+    "file": "src\\services\\inventory\\mrn.service.ts",
+    "line": 126,
+    "content": "const itemMeta = await tx.inventoryItem.findUnique({",
+    "type": "Database/Service call 'await' inside loop starting at line 125"
+  },
+  {
+    "file": "src\\services\\inventory\\mrn.service.ts",
+    "line": 133,
+    "content": "const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, mrn.storeId, item.itemId, item.quantity);",
+    "type": "Database/Service call 'await' inside loop starting at line 125"
+  },
+  {
+    "file": "src\\services\\inventory\\mrn.service.ts",
+    "line": 137,
+    "content": "await (tx as any).inventoryBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 125"
+  },
+  {
+    "file": "src\\services\\inventory\\mrn.service.ts",
+    "line": 144,
+    "content": "await (tx as any).inventoryStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 125"
+  },
+  {
+    "file": "src\\services\\inventory\\rop.service.ts",
+    "line": 21,
+    "content": "const usages = await prisma.sODMaterialUsage.findMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 19"
+  },
+  {
+    "file": "src\\services\\inventory\\rop.service.ts",
+    "line": 50,
+    "content": "const requests = await prisma.stockRequest.findMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 19"
+  },
+  {
+    "file": "src\\services\\inventory\\rop.service.ts",
+    "line": 82,
+    "content": "await prisma.inventoryItem.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 19"
+  },
+  {
+    "file": "src\\services\\inventory\\rop.service.ts",
+    "line": 88,
+    "content": "await prisma.inventoryStock.updateMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 19"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 62,
+    "content": "const customItem = await prisma.inventoryItem.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 56"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 266,
+    "content": "await StockRequestRepository.updateItem(item.id, { approvedQty: item.approvedQty || 0 }, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 265"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 344,
+    "content": "await StockRequestRepository.updateItem(reqItem.id, { issuedQty }, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 346,
+    "content": "const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, stockReq.toStoreId!, reqItem.itemId, issuedQty);",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 351,
+    "content": "await InventoryRepository.updateBatchStock(stockReq.toStoreId!, picked.batchId, -picked.quantity, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 354,
+    "content": "await prismaTx.inventoryBatchStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 368,
+    "content": "await InventoryRepository.upsertStock(stockReq.toStoreId!, reqItem.itemId, -issuedQty, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 369,
+    "content": "await InventoryRepository.upsertStock(transitStoreId, reqItem.itemId, issuedQty, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 372,
+    "content": "await InventoryRepository.createTransaction({",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 388,
+    "content": "await InventoryRepository.createTransaction({",
+    "type": "Database/Service call 'await' inside loop starting at line 337"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 442,
+    "content": "await StockRequestRepository.updateItem(reqItem.id, { receivedQty }, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 445,
+    "content": "const movements = await StockRequestRepository.findTransactionItems(stockReq.requestNr, transitStoreId, reqItem.itemId, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 459,
+    "content": "await prismaTx.inventoryBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 465,
+    "content": "await prismaTx.inventoryBatchStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 481,
+    "content": "await InventoryRepository.upsertStock(transitStoreId, reqItem.itemId, -receivedQty, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 482,
+    "content": "await InventoryRepository.upsertStock(stockReq.fromStoreId!, reqItem.itemId, receivedQty, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 485,
+    "content": "await InventoryRepository.createTransaction({",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock-request.service.ts",
+    "line": 501,
+    "content": "await InventoryRepository.createTransaction({",
+    "type": "Database/Service call 'await' inside loop starting at line 432"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 146,
+    "content": "const currentStock = await InventoryRepository.findStock(storeId, item.itemId, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 142"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 154,
+    "content": "const itemData = await InventoryRepository.findItemById(item.itemId, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 142"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 156,
+    "content": "const batch = await InventoryRepository.createBatch({",
+    "type": "Database/Service call 'await' inside loop starting at line 142"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 164,
+    "content": "await InventoryRepository.createBatchStock({",
+    "type": "Database/Service call 'await' inside loop starting at line 142"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 172,
+    "content": "const pickedBatches = await this.pickStoreBatchesFIFO(tx, storeId, item.itemId, reduceQty);",
+    "type": "Database/Service call 'await' inside loop starting at line 142"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 175,
+    "content": "await InventoryRepository.updateBatchStock(storeId, picked.batchId!, -picked.quantity, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 142"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 180,
+    "content": "await InventoryRepository.upsertStock(storeId, item.itemId, diff, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 142"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 238,
+    "content": "const serialRecord = await tx.inventoryItemSerial.findUnique({",
+    "type": "Database/Service call 'await' inside loop starting at line 232"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 278,
+    "content": "const existingStock = await InventoryRepository.findStock(storeId, item.itemId, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 275"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 285,
+    "content": "const pickedBatches = await this.pickStoreBatchesFIFO(tx, storeId, item.itemId, quantity);",
+    "type": "Database/Service call 'await' inside loop starting at line 275"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 288,
+    "content": "await tx.inventoryBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 275"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 302,
+    "content": "await InventoryRepository.updateStock(storeId, item.itemId, { quantity: { decrement: quantity } }, tx);",
+    "type": "Database/Service call 'await' inside loop starting at line 275"
+  },
+  {
+    "file": "src\\services\\inventory\\stock.service.ts",
+    "line": 310,
+    "content": "await tx.inventoryItemSerial.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 275"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 176,
+    "content": "let vtBatch = await tx.inventoryBatch.findFirst({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 181,
+    "content": "vtBatch = await tx.inventoryBatch.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 192,
+    "content": "await tx.contractorBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 197,
+    "content": "await tx.contractorBatchStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 213,
+    "content": "await tx.contractorStock.updateMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 218,
+    "content": "await tx.contractorStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 237,
+    "content": "const contractor = await tx.contractor.findUnique({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 244,
+    "content": "const fallbackStore = await tx.inventoryStore.findFirst({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 247,
+    "content": "txStoreId = fallbackStore?.id || (await tx.inventoryStore.findFirst())?.id;",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\virtual-swap.service.ts",
+    "line": 254,
+    "content": "await tx.inventoryTransaction.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 169"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 52,
+    "content": "const issues = await prisma.contractorMaterialIssue.findMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 35"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 127,
+    "content": "const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, contractorId, item.itemId, qty);",
+    "type": "Database/Service call 'await' inside loop starting at line 123"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 130,
+    "content": "await (tx as any).contractorBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 123"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 137,
+    "content": "await (tx as any).contractorStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 123"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 175,
+    "content": "const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, storeId, item.itemId, qty);",
+    "type": "Database/Service call 'await' inside loop starting at line 170"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 179,
+    "content": "await (tx as any).inventoryBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 170"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 192,
+    "content": "await (tx as any).inventoryStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 170"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 263,
+    "content": "const itemMeta = await tx.inventoryItem.findUnique({",
+    "type": "Database/Service call 'await' inside loop starting at line 259"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 270,
+    "content": "const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, wastage.contractorId, item.itemId, qty);",
+    "type": "Database/Service call 'await' inside loop starting at line 259"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 273,
+    "content": "await (tx as any).contractorBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 259"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 280,
+    "content": "await (tx as any).contractorStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 259"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 322,
+    "content": "const itemMeta = await tx.inventoryItem.findUnique({",
+    "type": "Database/Service call 'await' inside loop starting at line 318"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 329,
+    "content": "const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, txRecord.storeId, item.itemId, qty);",
+    "type": "Database/Service call 'await' inside loop starting at line 318"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 333,
+    "content": "await (tx as any).inventoryTransactionItem.delete({",
+    "type": "Database/Service call 'await' inside loop starting at line 318"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 340,
+    "content": "await (tx as any).inventoryBatchStock.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 318"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 348,
+    "content": "await (tx as any).inventoryTransactionItem.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 318"
+  },
+  {
+    "file": "src\\services\\inventory\\wastage.service.ts",
+    "line": 359,
+    "content": "await (tx as any).inventoryStock.upsert({",
+    "type": "Database/Service call 'await' inside loop starting at line 318"
+  },
+  {
+    "file": "src\\services\\finance\\ledger.service.ts",
+    "line": 195,
+    "content": "await tx.journalEntry.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 185"
+  },
+  {
+    "file": "src\\services\\finance\\ledger.service.ts",
+    "line": 408,
+    "content": "return await tx.journalEntry.create({",
+    "type": "Database/Service call 'await' inside loop starting at line 407"
+  },
+  {
+    "file": "src\\services\\invoice\\invoice.retention.service.ts",
+    "line": 32,
+    "content": "await prisma.invoice.update({",
+    "type": "Database/Service call 'await' inside loop starting at line 24"
+  },
+  {
+    "file": "src\\services\\notification\\appointment-notification.service.ts",
+    "line": 38,
+    "content": "const appointments = await prisma.serviceOrder.findMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 20"
+  },
+  {
+    "file": "src\\services\\notification\\appointment-notification.service.ts",
+    "line": 47,
+    "content": "const existingToday = await prisma.notification.findFirst({",
+    "type": "Database/Service call 'await' inside loop starting at line 20"
+  },
+  {
+    "file": "src\\services\\notification\\appointment-notification.service.ts",
+    "line": 55,
+    "content": "await NotificationService.send({",
+    "type": "Database/Service call 'await' inside loop starting at line 20"
+  },
+  {
+    "file": "src\\services\\notification\\appointment-notification.service.ts",
+    "line": 82,
+    "content": "const existingReminder = await prisma.notification.findFirst({",
+    "type": "Database/Service call 'await' inside loop starting at line 20"
+  },
+  {
+    "file": "src\\services\\notification\\appointment-notification.service.ts",
+    "line": 90,
+    "content": "await NotificationService.send({",
+    "type": "Database/Service call 'await' inside loop starting at line 20"
+  },
+  {
+    "file": "src\\services\\notification\\domain-policies.service.ts",
+    "line": 153,
+    "content": "await NotificationService.send({",
+    "type": "Database/Service call 'await' inside loop starting at line 152"
+  },
+  {
+    "file": "src\\services\\notification\\domain-policies.service.ts",
+    "line": 453,
+    "content": "await NotificationRetryService.enqueue({",
+    "type": "Database/Service call 'await' inside loop starting at line 447"
+  },
+  {
+    "file": "src\\services\\notification\\domain-policies.service.ts",
+    "line": 466,
+    "content": "await NotificationService.notifyByRole({",
+    "type": "Database/Service call 'await' inside loop starting at line 447"
+  },
+  {
+    "file": "src\\services\\notification\\domain-policies.service.ts",
+    "line": 553,
+    "content": "await NotificationService.notifyByRole({",
+    "type": "Database/Service call 'await' inside loop starting at line 551"
+  },
+  {
+    "file": "src\\services\\notification\\index.ts",
+    "line": 101,
+    "content": "const count = await NotificationRepository.count({ userId });",
+    "type": "Database/Service call 'await' inside loop starting at line 100"
+  },
+  {
+    "file": "src\\services\\notification\\index.ts",
+    "line": 103,
+    "content": "const excess = await NotificationRepository.findMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 100"
+  },
+  {
+    "file": "src\\services\\notification\\index.ts",
+    "line": 110,
+    "content": "await NotificationRepository.deleteMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 100"
+  },
+  {
+    "file": "src\\services\\notification\\notification-policy.service.ts",
+    "line": 259,
+    "content": "await NotificationService.notifyByRole({",
+    "type": "Database/Service call 'await' inside loop starting at line 255"
+  },
+  {
+    "file": "src\\services\\notification\\notification-policy.service.ts",
+    "line": 271,
+    "content": "const admins = await (await import('@/lib/prisma')).primaryClient.user.findMany({",
+    "type": "Database/Service call 'await' inside loop starting at line 255"
+  },
+  {
+    "file": "src\\services\\notification\\notification-policy.service.ts",
+    "line": 277,
+    "content": "await EmailService.sendMail({",
+    "type": "Database/Service call 'await' inside loop starting at line 255"
+  },
+  {
+    "file": "src\\services\\notification\\reminder-scheduler.service.ts",
+    "line": 134,
+    "content": "const alreadySent = await prisma.notification.findFirst({",
+    "type": "Database/Service call 'await' inside loop starting at line 115"
+  },
+  {
+    "file": "src\\services\\notification\\reminder-scheduler.service.ts",
+    "line": 209,
+    "content": "await NotificationRetryService.enqueue({",
+    "type": "Database/Service call 'await' inside loop starting at line 205"
+  },
+  {
+    "file": "src\\services\\notification\\reminder-scheduler.service.ts",
+    "line": 328,
+    "content": "const { NotificationPolicyService } = await import('./notification-policy.service');",
+    "type": "Database/Service call 'await' inside loop starting at line 322"
+  },
+  {
+    "file": "src\\services\\notification\\reminder-scheduler.service.ts",
+    "line": 329,
+    "content": "await NotificationPolicyService.notifyLowStock(",
+    "type": "Database/Service call 'await' inside loop starting at line 322"
+  },
+  {
+    "file": "src\\services\\notification\\retry.service.ts",
+    "line": 118,
+    "content": "await NotificationService.send({",
+    "type": "Database/Service call 'await' inside loop starting at line 111"
+  },
+  {
+    "file": "src\\services\\notification\\retry.service.ts",
+    "line": 145,
+    "content": "const { failed } = await PushNotificationService.sendToUser(userId, pushPayload);",
+    "type": "Database/Service call 'await' inside loop starting at line 111"
+  },
+  {
+    "file": "src\\services\\notification\\retry.service.ts",
+    "line": 158,
+    "content": "await EmailService.sendMail({",
+    "type": "Database/Service call 'await' inside loop starting at line 111"
+  },
+  {
+    "file": "src\\services\\notification\\retry.service.ts",
+    "line": 207,
+    "content": "await NotificationService.send({",
+    "type": "Database/Service call 'await' inside loop starting at line 203"
+  },
+  {
+    "file": "src\\services\\notification\\retry.service.ts",
+    "line": 217,
+    "content": "await PushNotificationService.sendToUser(task.payload.userId, task.payload.pushPayload);",
+    "type": "Database/Service call 'await' inside loop starting at line 203"
+  }
+]

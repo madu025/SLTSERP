@@ -393,12 +393,13 @@ export class ReportService {
         ...data
       }));
 
-      const summary = {
-        total: orders.length,
-        completed: orders.filter(o => o.sltsStatus === 'COMPLETED').length,
-        pending: orders.filter(o => o.sltsStatus === 'INPROGRESS').length,
-        returned: orders.filter(o => o.sltsStatus === 'RETURN').length
-      };
+      // O(n) - Single pass summary aggregation instead of 4 separate filters
+      const summary = { total: orders.length, completed: 0, pending: 0, returned: 0 };
+      for (const o of orders) {
+        if (o.sltsStatus === 'COMPLETED') summary.completed++;
+        else if (o.sltsStatus === 'INPROGRESS') summary.pending++;
+        else if (o.sltsStatus === 'RETURN') summary.returned++;
+      }
 
       return {
         performanceData,

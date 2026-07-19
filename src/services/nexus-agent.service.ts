@@ -104,21 +104,33 @@ export class NexusAgentService {
 
     /**
      * Autonomous Stock Self-Healing: Search for stores with excess stock to cover low-stock stores
+     * @timeComplexity O(n) - Single pass grouping + single pass matching
+     * @spaceComplexity O(n) - Map for grouping stocks by itemId
      */
     static async getSelfHealingProposals(): Promise<NexusAction[]> {
         const stocks = await prisma.inventoryStock.findMany({
             include: { item: true, store: true }
         });
 
+        // O(n) - Group stocks by itemId for O(1) lookup
+        const stocksByItem = new Map<string, typeof stocks>();
+        for (const s of stocks) {
+            if (!stocksByItem.has(s.itemId)) {
+                stocksByItem.set(s.itemId, []);
+            }
+            stocksByItem.get(s.itemId)!.push(s);
+        }
+
         const lowStock = stocks.filter(s => Number(s.quantity) <= Number(s.minLevel));
         const proposals: NexusAction[] = [];
 
+        // O(m) where m = lowStock.length, with O(k) lookup per item (k = stores per item)
         for (const ls of lowStock) {
             const shortageQty = Math.ceil(Number(ls.minLevel) - Number(ls.quantity) + 10);
             
-            // Find a store holding the same item with surplus stock
-            const excessStock = stocks.find(s => 
-                s.itemId === ls.itemId && 
+            // O(k) lookup instead of O(n) - only check stores with same item
+            const candidates = stocksByItem.get(ls.itemId) || [];
+            const excessStock = candidates.find(s => 
                 s.storeId !== ls.storeId && 
                 Number(s.quantity) > (Number(s.minLevel) + shortageQty + 20)
             );

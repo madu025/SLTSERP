@@ -4,6 +4,8 @@ import { StockService } from './stock.service';
 import { AuditService } from '../audit.service';
 import { TransactionClient } from './types';
 import { LedgerService } from '../finance/ledger.service';
+import { ContractorRepository } from '@/repositories/contractor.repository';
+import { InventoryRepository } from '@/repositories/inventory.repository';
 
 export class WastageService {
     /**
@@ -28,6 +30,19 @@ export class WastageService {
             where: { id: { in: items.map(i => i.itemId) } }
         });
 
+        // Pre-fetch contractor issues once outside the loop
+        let contractorIssues: any[] = [];
+        if (contractorId) {
+            const targetMonth = month || new Date().toISOString().slice(0, 7);
+            contractorIssues = await prisma.contractorMaterialIssue.findMany({
+                where: {
+                    contractorId,
+                    month: targetMonth
+                },
+                include: { items: true }
+            });
+        }
+
         let requiresApproval = false;
         let totalWastageValue = 0;
         const excessDetails: string[] = [];
@@ -48,18 +63,9 @@ export class WastageService {
 
             // Validate wastage percentage limits for contractor issues
             if (contractorId) {
-                const targetMonth = month || new Date().toISOString().slice(0, 7);
-                const issues = await prisma.contractorMaterialIssue.findMany({
-                    where: {
-                        contractorId,
-                        month: targetMonth
-                    },
-                    include: { items: true }
-                });
-
                 let totalIssued = 0;
-                for (const issue of issues) {
-                    const issueItem = issue.items.find(i => i.itemId === item.itemId);
+                for (const issue of contractorIssues) {
+                    const issueItem = issue.items.find((i: any) => i.itemId === item.itemId);
                     if (issueItem) {
                         totalIssued += Number(issueItem.quantity);
                     }
@@ -254,24 +260,30 @@ export class WastageService {
             if (wastage) {
                 if (wastage.status !== 'PENDING') throw new Error('ALREADY_PROCESSED');
 
+                const itemIds = wastage.items.map((i: any) => i.itemId);
+                const itemMetas = await tx.inventoryItem.findMany({
+                    where: { id: { in: itemIds } },
+                    select: { id: true, costPrice: true, unitPrice: true }
+                });
+                const metaMap = new Map(itemMetas.map(m => [m.id, m]));
+
+                const availableBatches = await ContractorRepository.findAvailableBatchesBulk(wastage.contractorId, itemIds, tx);
+
                 let totalWastageValue = 0;
                 // Apply DEDUCTIONS
                 for (const item of wastage.items) {
                     const qty = StockService.round(item.quantity);
                     if (qty <= 0) continue;
 
-                    const itemMeta = await tx.inventoryItem.findUnique({
-                        where: { id: item.itemId },
-                        select: { costPrice: true, unitPrice: true }
-                    });
+                    const itemMeta = metaMap.get(item.itemId);
                     const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
                     totalWastageValue += qty * price;
 
-                    const pickedBatches = await StockService.pickContractorBatchesFIFO(tx, wastage.contractorId, item.itemId, qty);
+                    const pickedBatches = StockService.pickContractorBatchesFIFOBulk(availableBatches, item.itemId, qty);
                     for (const picked of pickedBatches) {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         await (tx as any).contractorBatchStock.update({
-                            where: { contractorId_batchId: { contractorId: wastage.contractorId, batchId: picked.batchId } },
+                            where: { contractorId_batchId: { contractorId: wastage.contractorId, batchId: picked.batchId! } },
                             data: { quantity: { decrement: picked.quantity } }
                         });
                     }
@@ -313,20 +325,26 @@ export class WastageService {
                     throw new Error('ALREADY_PROCESSED');
                 }
 
+                const itemIds = txRecord.items.map((i: any) => i.itemId);
+                const itemMetas = await tx.inventoryItem.findMany({
+                    where: { id: { in: itemIds } },
+                    select: { id: true, costPrice: true, unitPrice: true }
+                });
+                const metaMap = new Map(itemMetas.map(m => [m.id, m]));
+
+                const availableBatches = await InventoryRepository.findAvailableBatchesBulk(txRecord.storeId, itemIds, tx);
+
                 let totalWastageValue = 0;
                 // Apply deductions for store wastage
                 for (const item of txRecord.items) {
                     const qty = StockService.round(Math.abs(item.quantity));
                     if (qty <= 0) continue;
 
-                    const itemMeta = await tx.inventoryItem.findUnique({
-                        where: { id: item.itemId },
-                        select: { costPrice: true, unitPrice: true }
-                    });
+                    const itemMeta = metaMap.get(item.itemId);
                     const price = Number(itemMeta?.costPrice || itemMeta?.unitPrice || 0);
                     totalWastageValue += qty * price;
 
-                    const pickedBatches = await StockService.pickStoreBatchesFIFO(tx, txRecord.storeId, item.itemId, qty);
+                    const pickedBatches = StockService.pickStoreBatchesFIFOBulk(availableBatches, item.itemId, qty);
 
                     // Delete the pending log item and recreate it split by batchIds
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any

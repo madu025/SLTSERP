@@ -1,0 +1,1 @@
+Node 24 / Next.js 16 (standalone output) + Prisma 6 over PostgreSQL/PostGIS, BullMQ + ioredis for background jobs, Tailwind CSS v4 + Radix UI, Playwright for E2E, Docker Compose for local dev and production compose stacks.

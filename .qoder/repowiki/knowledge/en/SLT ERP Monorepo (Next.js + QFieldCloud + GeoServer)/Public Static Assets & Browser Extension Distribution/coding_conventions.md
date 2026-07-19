@@ -1,0 +1,2 @@
+- Each extension distribution mirrors the same file layout (`manifest.json`, `background.js`, `content-*.js`, `popup.*`, `icon.png`) so different builds can be swapped without changing paths.
+- Versioned extension artifacts are named `<product>-v<major>.<minor>.<patch>.zip` and stored under `extension-builds/` rather than embedded inline.

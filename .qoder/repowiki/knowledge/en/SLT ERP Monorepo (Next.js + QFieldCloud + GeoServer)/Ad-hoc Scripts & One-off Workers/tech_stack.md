@@ -1,0 +1,1 @@
+Node.js + TypeScript (ts-node / next dev runtime) for DB and API-route tests, Python 3 for QGIS asset patches, PowerShell for Windows-side server management, Prisma Client for all DB access, `xlsx` for spreadsheet parsing, Redis for rate-limit tests.

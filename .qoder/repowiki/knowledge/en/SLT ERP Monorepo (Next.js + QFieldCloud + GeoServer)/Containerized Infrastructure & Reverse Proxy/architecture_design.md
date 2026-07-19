@@ -1,0 +1,6 @@
+Three independent container assets plus one compose stack:
+- `docker/geoserver/Dockerfile` builds a Tomcat 9/JDK17 image that downloads a pinned GeoServer 2.25.2 WAR and overlays a custom `web.xml` to enable CORS; data/logs live under `/opt/geoserver_data`.
+- `docker/qfieldcloud/docker-compose.qfield.yml` defines the self-hosted QFieldCloud stack (`qfield-db` on `postgis/postgis:16-3.4`, `qfield-storage` on MinIO, `qfield-api` and `qfield-worker` from `opengisch/qfieldcloud:latest`) exposing ports 8100/8101/8102, with healthchecks and shared named volumes for DB, storage, media, and static files.
+- `nginx/Dockerfile.nginx` + `nginx/conf.d/default.conf` build an Alpine-based reverse proxy that forwards all traffic to `http://app:3000` (the main SLTSERP app) with WebSocket upgrade headers and a 20 MB body limit.
+- `postgres-init/01-init.sh` is mounted into Postgres' `docker-entrypoint-initdb.d` to create PostGIS/raster/fuzzystrmatch extensions and a read-only `readonly_user` at first boot.
+Dependency direction is outward only: Dockerfiles/compose pull public images; there are no cross-references between these directories — they are consumed by the top-level `docker-compose.yml` of the parent project.

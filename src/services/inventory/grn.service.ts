@@ -161,19 +161,42 @@ export class GRNService {
                     batchId: batch.id
                 });
 
-                // E. If the item is serialized, upsert serial records
+                // E. If the item is serialized, upsert serial records in bulk
                 if (item.serials && Array.isArray(item.serials) && item.serials.length > 0) {
-                    for (const sn of item.serials) {
-                        const serialNum = sn.trim();
-                        if (!serialNum) continue;
-
-                        const existingSerial = await tx.inventoryItemSerial.findUnique({
-                            where: { serialNumber: serialNum }
+                    const snList = item.serials.map((s: string) => s.trim()).filter(Boolean);
+                    if (snList.length > 0) {
+                        const existingSerials = await tx.inventoryItemSerial.findMany({
+                            where: { serialNumber: { in: snList } }
                         });
+                        const existingMap = new Map(existingSerials.map(s => [s.serialNumber, s]));
 
-                        if (existingSerial) {
-                            await tx.inventoryItemSerial.update({
-                                where: { id: existingSerial.id },
+                        const toUpdateIds: string[] = [];
+                        const toCreateData: Prisma.InventoryItemSerialUncheckedCreateInput[] = [];
+
+                        for (const sn of snList) {
+                            const existing = existingMap.get(sn);
+                            if (existing) {
+                                toUpdateIds.push(existing.id);
+                            } else {
+                                toCreateData.push({
+                                    itemId: item.itemId,
+                                    serialNumber: sn,
+                                    status: 'IN_STORE',
+                                    storeId,
+                                    locator: item.locator || null
+                                } as Prisma.InventoryItemSerialUncheckedCreateInput);
+                            }
+                        }
+
+                        if (toCreateData.length > 0) {
+                            await tx.inventoryItemSerial.createMany({
+                                data: toCreateData
+                            });
+                        }
+
+                        if (toUpdateIds.length > 0) {
+                            await tx.inventoryItemSerial.updateMany({
+                                where: { id: { in: toUpdateIds } },
                                 data: {
                                     status: 'IN_STORE',
                                     storeId,
@@ -181,16 +204,6 @@ export class GRNService {
                                     sodId: null,
                                     locator: item.locator || null
                                 } as Prisma.InventoryItemSerialUncheckedUpdateInput
-                            });
-                        } else {
-                            await tx.inventoryItemSerial.create({
-                                data: {
-                                    itemId: item.itemId,
-                                    serialNumber: serialNum,
-                                    status: 'IN_STORE',
-                                    storeId,
-                                    locator: item.locator || null
-                                } as Prisma.InventoryItemSerialUncheckedCreateInput
                             });
                         }
                     }
