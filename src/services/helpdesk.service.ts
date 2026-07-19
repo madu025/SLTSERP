@@ -368,18 +368,56 @@ export class HelpdeskService {
         physicallyInStores: data.physicallyInStores === null ? null : (data.physicallyInStores ?? undefined)
       } as unknown as Parameters<typeof HelpdeskRepository.updateAsset>[1], tx);
 
-      // Create handover log for the current (new) asset to record exchange
-      if (data.isExchange && data.oldLaptopSerial && oldAsset.assignedStaffId) {
-        await tx.assetHandoverLog.create({
-          data: {
-            assetId: id,
-            transactionType: 'EXCHANGED',
-            performedById: userId,
-            targetStaffId: oldAsset.assignedStaffId,
-            condition: 'Good',
-            remarks: `Exchanged with old laptop S/N: ${data.oldLaptopSerial}`
+      // Process Laptop Exchange Logic (Old Device Return)
+      if (data.isExchange && data.oldLaptopSerial) {
+        const oldLaptop = await tx.iTAsset.findFirst({
+          where: {
+            serialNumber: {
+              equals: data.oldLaptopSerial,
+              mode: 'insensitive'
+            }
           }
         });
+
+        if (oldLaptop) {
+          const finalOldStatus = (data.oldLaptopStatus || 'DECOMMISSIONED') as import('@prisma/client').ITAssetStatus;
+          
+          // 1. Update the old laptop custodian & status
+          await tx.iTAsset.update({
+            where: { id: oldLaptop.id },
+            data: {
+              assignedStaffId: null,
+              status: finalOldStatus,
+              physicallyInStores: true
+            }
+          });
+
+          // 2. Create handover log for the old laptop (Return to Store)
+          await tx.assetHandoverLog.create({
+            data: {
+              assetId: oldLaptop.id,
+              transactionType: 'RETURNED_TO_STORE',
+              performedById: userId,
+              targetStaffId: oldAsset.assignedStaffId || null,
+              condition: data.oldLaptopStatus || 'DECOMMISSIONED',
+              remarks: `Returned via device exchange for S/N: ${data.serialNumber || oldAsset.serialNumber}`
+            }
+          });
+        }
+
+        // 3. Create handover log for the current (new) asset to record exchange
+        if (oldAsset.assignedStaffId || finalAssignedStaffId) {
+          await tx.assetHandoverLog.create({
+            data: {
+              assetId: id,
+              transactionType: 'EXCHANGED',
+              performedById: userId,
+              targetStaffId: finalAssignedStaffId || oldAsset.assignedStaffId || '',
+              condition: 'Good',
+              remarks: `Exchanged with old laptop S/N: ${data.oldLaptopSerial}`
+            }
+          });
+        }
       }
 
       if (finalAssignedStaffId) {
@@ -629,7 +667,7 @@ export class HelpdeskService {
       });
 
       // Update asset assignment dynamically based on transaction
-      if (data.transactionType === 'ISSUED_TO_USER' && data.targetStaffId) {
+      if ((data.transactionType === 'ISSUED_TO_USER' || data.transactionType === 'EXCHANGED') && data.targetStaffId) {
         await tx.iTAsset.update({
           where: { id: assetId },
           data: { assignedStaffId: data.targetStaffId }

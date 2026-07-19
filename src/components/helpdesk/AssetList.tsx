@@ -2,14 +2,21 @@ import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store, FileSpreadsheet, Download } from "lucide-react";
+import { Laptop, Monitor, Phone, Printer, Network, HardDrive, User, Plus, Pencil, Trash2, AlertTriangle, ClipboardList, RefreshCw, X, Layers, Search, Store, FileSpreadsheet, Download, History, MoreHorizontal } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CreateAssetSchema, UpdateAssetSchema, CreateAssetHandoverSchema } from "@/lib/validations/helpdesk.schema";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 import { z } from "zod";
 
@@ -158,6 +165,57 @@ export default function AssetList({
   const [loadingHandovers, setLoadingHandovers] = useState(false);
   const [handoverSubmitting, setHandoverSubmitting] = useState(false);
 
+  // History Timeline States
+  const [historyAsset, setHistoryAsset] = useState<ITAsset | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [historyTimeline, setHistoryTimeline] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const openHistoryDialog = async (asset: ITAsset) => {
+    setHistoryAsset(asset);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch(`/api/helpdesk/assets/${asset.id}/history?_t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) setHistoryTimeline(json.data);
+        else if (Array.isArray(json)) setHistoryTimeline(json);
+      }
+    } catch (err) {
+      console.error("Failed to load asset history:", err);
+      toast.error("Failed to load audit history");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Staff Custody Profile States
+  const [profileStaff, setProfileStaff] = useState<any>(null);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(false);
+
+  const fetchStaffProfile = async (staffId: string) => {
+    setLoadingProfile(true);
+    setProfileData(null);
+    try {
+      const res = await fetch(`/api/helpdesk/staff/${staffId}/assets?_t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) setProfileData(json.data);
+        else setProfileData(json);
+      }
+    } catch (err) {
+      console.error("Failed to load staff profile:", err);
+      toast.error("Failed to load staff profile details");
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const openStaffProfile = (staff: any) => {
+    setProfileStaff(staff);
+    fetchStaffProfile(staff.id);
+  };
   // Units Drawer States
   const [selectedAssetForUnits, setSelectedAssetForUnits] = useState<ITAsset | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -207,10 +265,12 @@ export default function AssetList({
     defaultValues: {
       transactionType: "ISSUED_TO_USER" as const,
       targetStaffId: "",
-      condition: "",
+      condition: "Good",
       remarks: ""
     }
   });
+
+  const watchedTxType = handoverForm.watch("transactionType");
 
   const fetchHandoverLogs = async (assetId: string) => {
     setLoadingHandovers(true);
@@ -236,6 +296,10 @@ export default function AssetList({
 
   const handleHandoverSubmit = async (data: z.infer<typeof CreateAssetHandoverSchema>) => {
     if (!handoverAsset) return;
+    if ((data.transactionType === "ISSUED_TO_USER" || data.transactionType === "EXCHANGED") && !data.targetStaffId) {
+      toast.error("Please select a Target Staff member for this transaction.");
+      return;
+    }
     setHandoverSubmitting(true);
     try {
       const res = await fetch(`/api/helpdesk/assets/${handoverAsset.id}/handover`, {
@@ -1040,10 +1104,14 @@ export default function AssetList({
                    </TableCell>
                   <TableCell className="py-2.5 text-foreground/80">
                     {asset.assignedStaff ? (
-                      <div className="flex items-center gap-1">
-                        <User className="h-3.5 w-3.5 text-primary" />
+                      <button
+                        type="button"
+                        onClick={() => openStaffProfile(asset.assignedStaff)}
+                        className="flex items-center gap-1 hover:underline text-primary text-left font-semibold transition-colors"
+                      >
+                        <User className="h-3.5 w-3.5" />
                         <span>{asset.assignedStaff.name}</span>
-                      </div>
+                      </button>
                     ) : (
                       <span className="italic text-muted-foreground/50">None (Spare)</span>
                     )}
@@ -1067,43 +1135,45 @@ export default function AssetList({
                   <TableCell className="py-2.5">{getStatusBadge(asset.status, asset.physicallyInStores)}</TableCell>
                   {isStaff && (
                     <TableCell className="py-2.5">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                          onClick={() => openEditDialog(asset)}
-                          title="Edit asset"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
-                          onClick={() => setDeleteConfirm(asset)}
-                          title="Delete asset"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-indigo-500 hover:bg-indigo-500/10"
-                          onClick={() => openHandoverDialog(asset)}
-                          title="Handover Log"
-                        >
-                          <ClipboardList className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10"
-                          onClick={() => openUnitsDrawer(asset)}
-                          title="Manage Units (Serials)"
-                        >
-                          <Layers className="h-3.5 w-3.5" />
-                        </Button>
+                      <div className="flex items-center justify-end pr-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 hover:bg-slate-100 dark:hover:bg-slate-800 text-muted-foreground rounded-lg"
+                              title="Actions"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 bg-card border border-border/60 text-xs">
+                            <DropdownMenuItem onClick={() => openEditDialog(asset)} className="cursor-pointer gap-2 py-2">
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Edit Specifications</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openHandoverDialog(asset)} className="cursor-pointer gap-2 py-2">
+                              <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Custodian Handover</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openHistoryDialog(asset)} className="cursor-pointer gap-2 py-2">
+                              <History className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Lifecycle History</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openUnitsDrawer(asset)} className="cursor-pointer gap-2 py-2">
+                              <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Manage Serial Units</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="border-border/30" />
+                            <DropdownMenuItem 
+                              onClick={() => setDeleteConfirm(asset)} 
+                              className="cursor-pointer gap-2 py-2 text-rose-600 dark:text-rose-400 focus:text-rose-700 dark:focus:text-rose-350 focus:bg-rose-50 dark:focus:bg-rose-950/20"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Delete Asset</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   )}
@@ -1561,42 +1631,75 @@ export default function AssetList({
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Transaction Type</label>
                     <Select
                       defaultValue="ISSUED_TO_USER"
-                      onValueChange={(v) => handoverForm.setValue("transactionType", v as z.infer<typeof CreateAssetHandoverSchema>["transactionType"])}
+                      value={watchedTxType}
+                      onValueChange={(v) => {
+                        handoverForm.setValue("transactionType", v as z.infer<typeof CreateAssetHandoverSchema>["transactionType"]);
+                        if (v === "RETURNED_TO_STORE") {
+                          handoverForm.setValue("targetStaffId", "");
+                        }
+                      }}
                     >
                       <SelectTrigger className="h-8 text-xs bg-card">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-card">
-                        <SelectItem value="ISSUED_TO_USER">Issue to User</SelectItem>
-                        <SelectItem value="RETURNED_TO_STORE">Return to Store</SelectItem>
-                        <SelectItem value="EXCHANGED">Exchange</SelectItem>
+                        <SelectItem value="ISSUED_TO_USER">Issue to Staff (Assign Custodian)</SelectItem>
+                        <SelectItem value="RETURNED_TO_STORE">Return to Store (Mark as Spare)</SelectItem>
+                        <SelectItem value="EXCHANGED">Device Exchange / Swap</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Target Staff (Custodian)</label>
-                    <Select
-                      onValueChange={(v) => handoverForm.setValue("targetStaffId", v || null)}
-                    >
-                      <SelectTrigger className="h-8 text-xs bg-card">
-                        <SelectValue placeholder="Select staff (if issuing)" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card">
-                        <SelectItem value="">N/A (Returned)</SelectItem>
-                        {usersList.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {watchedTxType === "RETURNED_TO_STORE" ? (
+                      <div className="h-8 bg-slate-100 dark:bg-slate-900/60 border border-border/30 rounded flex items-center px-3 text-[10px] text-muted-foreground italic select-none">
+                        N/A (Returned to Stores)
+                      </div>
+                    ) : (
+                      <Select
+                        value={handoverForm.watch("targetStaffId") || ""}
+                        onValueChange={(v) => handoverForm.setValue("targetStaffId", v || "")}
+                      >
+                        <SelectTrigger className="h-8 text-xs bg-card">
+                          <SelectValue placeholder="Select staff member" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card max-h-[160px]">
+                          <SelectItem value="">Select custodian...</SelectItem>
+                          {usersList.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name} ({u.employeeId})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
+
+                {watchedTxType === "RETURNED_TO_STORE" && (
+                  <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 p-2.5 rounded text-[10.5px] leading-relaxed">
+                    💡 <strong>Return to Store Info:</strong> The custodian assignment will be removed, and the asset status will automatically revert to Available Spare in store inventory.
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Condition</label>
-                    <Input {...handoverForm.register("condition")} placeholder="e.g. Brand New, Used - Good" className="h-8 text-xs bg-card" />
+                    <Select
+                      value={handoverForm.watch("condition") || "Good"}
+                      onValueChange={(v) => handoverForm.setValue("condition", v)}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-card">
+                        <SelectValue placeholder="Select condition" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card">
+                        <SelectItem value="Brand New">Brand New</SelectItem>
+                        <SelectItem value="Good">Good / Working</SelectItem>
+                        <SelectItem value="Fair">Fair / Used</SelectItem>
+                        <SelectItem value="Faulty">Faulty / Broken</SelectItem>
+                        <SelectItem value="Under Repair">Under Repair</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Remarks</label>
@@ -1864,6 +1967,240 @@ export default function AssetList({
 
             <div className="p-5 border-t border-border/40 bg-slate-50 dark:bg-slate-900/20 shrink-0 flex justify-end">
               <Button variant="outline" size="sm" onClick={() => setSelectedAssetForUnits(null)} className="h-8 text-xs">Close</Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* History Dialog (Side Drawer layout matching Edit Asset Drawer) */}
+      <Dialog open={!!historyAsset} onOpenChange={(open) => !open && setHistoryAsset(null)}>
+        {historyAsset && (
+          <DialogContent 
+            showCloseButton={false}
+            className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[35vw] md:w-[35vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+          >
+            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+              <div className="absolute top-0 right-0 p-5">
+                <button 
+                  type="button"
+                  onClick={() => setHistoryAsset(null)}
+                  className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <DialogTitle className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <History className="h-4 w-4 text-cyan-600 dark:text-cyan-400 animate-pulse" />
+                Audit Trail & Lifecycle History
+              </DialogTitle>
+              <DialogDescription className="text-[10px] text-muted-foreground mt-0.5">
+                Chronological logs for {historyAsset.brand} {historyAsset.model} ({historyAsset.assetNumber})
+              </DialogDescription>
+            </div>
+
+            <div className="flex-grow overflow-y-auto p-5 space-y-5">
+              {loadingHistory ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-2 text-muted-foreground text-xs">
+                  <RefreshCw className="h-5 w-5 animate-spin text-cyan-600" />
+                  <span>Fetching historical log stream...</span>
+                </div>
+              ) : historyTimeline.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground text-xs italic">
+                  No lifecycle history recorded for this device yet.
+                </div>
+              ) : (
+                <div className="relative pl-5 border-l border-slate-250 dark:border-slate-800 space-y-5 ml-1.5 text-[11px]">
+                  {historyTimeline.map((event, idx) => {
+                    let iconBg = "bg-primary/15 text-primary border-primary/25";
+                    let icon = "🤝";
+
+                    if (event.type === "SYSTEM_UPDATE") {
+                      iconBg = "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25";
+                      icon = "⚙️";
+                    } else if (event.type === "AGENT_SYNC") {
+                      iconBg = "bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/25";
+                      icon = "🔄";
+                    }
+
+                    return (
+                      <div key={event.id || idx} className="relative group pl-1">
+                        {/* Timeline dot */}
+                        <div className={`absolute -left-[29px] top-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-[9px] shadow-sm z-10 ${iconBg}`}>
+                          {icon}
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="font-extrabold text-slate-850 dark:text-slate-100 text-xs">{event.title}</span>
+                            <span className="text-[9px] text-muted-foreground font-mono">
+                              {new Date(event.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          
+                          <p className="text-slate-650 dark:text-slate-300 leading-relaxed text-[10.5px]">
+                            {event.description}
+                          </p>
+
+                          {event.meta && (event.meta.remarks || event.meta.condition) && (
+                            <div className="mt-1 text-[9.5px] bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-900/50 font-mono text-muted-foreground leading-normal">
+                              {event.meta.condition && <div>Condition: <span className="font-semibold text-foreground">{event.meta.condition}</span></div>}
+                              {event.meta.remarks && <div className="mt-0.5">Remarks: <span className="italic text-foreground/90">"{event.meta.remarks}"</span></div>}
+                            </div>
+                          )}
+
+                          {event.user && (
+                            <div className="flex items-center gap-1 mt-1 text-[9px] text-muted-foreground">
+                              <span>Action by:</span>
+                              <span className="text-primary font-bold">{event.user.name}</span>
+                              {event.user.username && <span>({event.user.username})</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 dark:border-slate-900 bg-slate-50 dark:bg-slate-900/10 flex justify-end flex-shrink-0">
+              <Button size="sm" variant="outline" onClick={() => setHistoryAsset(null)} className="h-8 text-xs font-semibold">
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* Staff Custody Profile Side Drawer */}
+      <Dialog open={!!profileStaff} onOpenChange={(open) => !open && setProfileStaff(null)}>
+        {profileStaff && (
+          <DialogContent 
+            showCloseButton={false}
+            className="fixed !inset-y-0 !right-0 !top-0 !left-auto !translate-x-0 !translate-y-0 !h-full w-[40vw] md:w-[40vw] sm:w-full !max-w-none flex flex-col !p-0 !gap-0 overflow-hidden bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right !rounded-none text-foreground"
+          >
+            <div className="relative p-6 pb-4 flex-shrink-0 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60">
+              <div className="absolute top-0 right-0 p-5">
+                <button 
+                  type="button"
+                  onClick={() => setProfileStaff(null)} 
+                  className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <DialogTitle className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                Staff Custody Profile
+              </DialogTitle>
+              <p className="text-[10px] text-muted-foreground mt-1">Details & custody assets mapping for {profileStaff.name}</p>
+            </div>
+            
+            <div className="flex-grow overflow-y-auto p-6 space-y-6">
+              {loadingProfile ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-2 text-muted-foreground text-xs">
+                  <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                  <span>Loading custody profile...</span>
+                </div>
+              ) : !profileData ? (
+                <div className="text-center py-10 text-muted-foreground text-xs italic">
+                  Failed to load profile data.
+                </div>
+              ) : (
+                <div className="space-y-6 text-xs">
+                  {/* Staff Info Card */}
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 space-y-2">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400">Employee Details</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Name</span>
+                        <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Employee EPF No</span>
+                        <span className="font-bold text-slate-850 dark:text-slate-200 font-mono">{profileData.staff.employeeId}</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-slate-500 block text-[10px]">Designation</span>
+                        <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.designation}</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-slate-500 block text-[10px]">OPMC / Area</span>
+                        <span className="font-bold text-slate-850 dark:text-slate-200">{profileData.staff.area || "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Assets Assigned */}
+                  <div className="space-y-2.5">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400">Currently Assigned Devices ({profileData.activeAssets.length})</h4>
+                    {profileData.activeAssets.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic pl-1">No devices currently assigned to this user.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {profileData.activeAssets.map((asset: any) => (
+                          <div key={asset.id} className="p-3 bg-card border border-border/50 rounded-lg flex justify-between items-center">
+                            <div className="space-y-0.5">
+                              <p className="font-bold text-slate-850 dark:text-slate-200">{asset.brand} {asset.model}</p>
+                              <p className="text-[10px] text-muted-foreground font-mono">S/N: {asset.serialNumber} | Asset No: {asset.assetNumber}</p>
+                            </div>
+                            <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">
+                              {asset.deviceType}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Handover Log History */}
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400">Custody Handover Log History ({profileData.handovers.length})</h4>
+                    {profileData.handovers.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic pl-1">No handover log history found for this user.</p>
+                    ) : (
+                      <div className="relative pl-4 border-l border-slate-200 dark:border-slate-800 space-y-4 ml-1">
+                        {profileData.handovers.map((log: any, idx: number) => {
+                          const isIssue = log.transactionType === "ISSUED_TO_USER";
+                          const isExchange = log.transactionType === "EXCHANGED";
+                          const title = isIssue ? "Received Device" : isExchange ? "Exchanged Device" : "Returned Device";
+                          const badgeColor = isIssue 
+                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
+                            : isExchange 
+                            ? "bg-cyan-500/10 text-cyan-600 border-cyan-500/20" 
+                            : "bg-amber-500/10 text-amber-600 border-amber-500/20";
+                          
+                          return (
+                            <div key={log.id || idx} className="relative group pl-1 text-[11px]">
+                              {/* Dot */}
+                              <div className={`absolute -left-[23px] top-0.5 w-3.5 h-3.5 rounded-full border bg-white dark:bg-slate-950 flex items-center justify-center text-[7px] ${badgeColor}`}>
+                                {isIssue ? "🤝" : isExchange ? "🔄" : "📥"}
+                              </div>
+                              <div className="space-y-0.5">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="font-extrabold text-slate-800 dark:text-slate-100">{title}</span>
+                                  <span className="text-[9px] text-muted-foreground font-mono">
+                                    {new Date(log.date).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="text-slate-650 dark:text-slate-300">
+                                  {log.asset.brand} {log.asset.model} ({log.asset.assetNumber})
+                                </p>
+                                {log.condition && <p className="text-[10px] text-slate-500">Condition: {log.condition}</p>}
+                                {log.remarks && <p className="text-[10px] text-slate-500 italic">"{log.remarks}"</p>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 dark:border-slate-900 bg-slate-50 dark:bg-slate-900/10 flex justify-end flex-shrink-0">
+               <Button variant="outline" size="sm" onClick={() => setProfileStaff(null)} className="h-8 text-xs font-semibold">Close</Button>
             </div>
           </DialogContent>
         )}
