@@ -42,36 +42,24 @@ export const GET = apiHandler(async (req) => {
     materialRequestsCount,
     materialApprovalsCount
   ] = await Promise.all([
-    // 1. Project/Workflow approvals
-    prisma.projectApprovalStep.count({
+    // 1. Project/Workflow approvals (Unread Notifications)
+    prisma.notification.count({
       where: {
-        status: "PENDING",
-        OR: [
-          { assignedUserId: userId },
-          {
-            AND: [
-              { assignedUserId: null },
-              { roleRequired: userRole }
-            ]
-          }
-        ]
+        userId,
+        link: { startsWith: "/projects" },
+        isRead: false
       }
     }),
 
-    // 2. IT Help Desk
-    prisma.ticket.count({
-      where: isITStaff
-        ? {
-            status: {
-              in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_FOR_USER", "WAITING_FOR_PARTS"]
-            }
-          }
-        : {
-            userId,
-            status: {
-              in: ["OPEN", "ASSIGNED", "IN_PROGRESS", "WAITING_FOR_USER", "WAITING_FOR_PARTS"]
-            }
-          }
+    // 2. IT Help Desk (Unread Notifications)
+    prisma.notification.count({
+      where: {
+        userId,
+        link: {
+          startsWith: "/helpdesk"
+        },
+        isRead: false
+      }
     }),
 
     // 3. User Accessible OPMCs
@@ -96,47 +84,41 @@ export const GET = apiHandler(async (req) => {
       }
     }),
 
-    // 5. Procurement Approvals
-    prisma.stockRequest.count({
+    // 5. Procurement Approvals (Unread Notifications)
+    prisma.notification.count({
       where: {
-        workflowStage: "REQUEST",
-        status: "PENDING"
+        userId,
+        link: { startsWith: "/admin/inventory" },
+        isRead: false
       }
     }),
 
-    // 6. Contractor Registration Approvals
-    prisma.contractor.count({
+    // 6. Contractor Registration Approvals (Unread Notifications)
+    prisma.notification.count({
       where: {
-        status: {
-          in: ["ARM_PENDING", "OSP_PENDING"]
-        }
+        userId,
+        link: { startsWith: "/admin/contractors" },
+        isRead: false
       }
     }),
 
-    // 7. Material Requests
-    prisma.stockRequest.count({
+    // 7. Material Requests (Unread Notifications)
+    prisma.notification.count({
       where: {
-        requestedById: userId,
-        status: "PENDING"
+        userId,
+        link: { startsWith: "/inventory/requests" },
+        isRead: false
       }
     }),
 
-    // 8. Material Approvals
-    userRole === 'SUPER_ADMIN'
-      ? prisma.stockRequest.count({
-          where: {
-            status: "PENDING",
-            workflowStage: {
-              in: ['ARM_APPROVAL', 'STORES_MANAGER_APPROVAL', 'OSP_MANAGER_APPROVAL', 'MAIN_STORE_RELEASE', 'SUB_STORE_RECEIVE']
-            }
-          }
-        })
-      : prisma.stockRequest.count({
-          where: {
-            workflowStage: stage,
-            status: "PENDING"
-          }
-        })
+    // 8. Material Approvals (Unread Notifications)
+    prisma.notification.count({
+      where: {
+        userId,
+        link: { startsWith: "/inventory/approvals" },
+        isRead: false
+      }
+    })
   ]);
 
   let serviceOrdersCount = 0;

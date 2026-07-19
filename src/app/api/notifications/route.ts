@@ -5,9 +5,13 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export const PATCH = apiHandler(async (request, context, { user }) => {
+export const PATCH = apiHandler(async (request) => {
+    const userId = request.headers.get('x-user-id');
+    if (!userId) return new Response('Unauthorized', { status: 401 });
+
     const { searchParams } = new URL(request.url);
     const link = searchParams.get('link');
+    const linkPrefix = searchParams.get('linkPrefix');
     const type = searchParams.get('type');
     let opmcId = searchParams.get('opmcId');
     const rtom = searchParams.get('rtom');
@@ -22,18 +26,26 @@ export const PATCH = apiHandler(async (request, context, { user }) => {
         }
     }
 
-    if (link) {
-        await NotificationService.markLinkAsRead(user.id, link, opmcId);
+    if (linkPrefix) {
+        await prisma.notification.updateMany({
+            where: { userId, link: { startsWith: linkPrefix }, isRead: false },
+            data: { isRead: true }
+        });
+    } else if (link) {
+        await NotificationService.markLinkAsRead(userId, link, opmcId);
     } else if (type) {
-        await NotificationService.markTypeAsRead(user.id, type);
+        await NotificationService.markTypeAsRead(userId, type);
     } else {
-        await NotificationService.markAllAsRead(user.id);
+        await NotificationService.markAllAsRead(userId);
     }
     return { success: true };
 });
 
-export const DELETE = apiHandler(async (request, context, { user }) => {
-    await NotificationService.deleteAll(user.id);
+export const DELETE = apiHandler(async (request) => {
+    const userId = request.headers.get('x-user-id');
+    if (!userId) return new Response('Unauthorized', { status: 401 });
+    
+    await NotificationService.deleteAll(userId);
     return { success: true };
 }, {
     audit: {

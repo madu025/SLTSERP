@@ -595,7 +595,7 @@ interface DBAsset {
 
                     <div className="flex flex-wrap gap-2 pt-1">
                       <a
-                        href="/downloads/SLTSERPagent_setup.exe"
+                        href="https://github.com/madu025/SLTSERPAGENT/releases/download/v1.0.0/SLTSERPagent_setup.exe"
                         download
                         className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg shadow-sm transition-all"
                       >

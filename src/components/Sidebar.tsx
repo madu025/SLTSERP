@@ -6,8 +6,9 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { SIDEBAR_MENU, hasAccess } from '@/config/sidebar-menu';
 import SyncStatus from './SyncStatus';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Bell, X, CheckCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Bell, X, CheckCheck, BellRing, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface User {
     id: string;
@@ -27,6 +28,32 @@ interface SidebarNotification {
     isRead: boolean;
     createdAt: string;
 }
+
+const playNotificationSound = () => {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+        const audioCtx = new AudioContext();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        oscillator.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1); // up to A6
+        
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+        // Ignore audio playback errors (e.g. strict autoplay policies before user interaction)
+    }
+};
 
 const ROLE_LABELS: Record<string, string> = {
     SUPER_ADMIN: 'Super Administrator',
@@ -57,6 +84,8 @@ function SidebarContent() {
     const [notifications, setNotifications] = useState<SidebarNotification[]>([]);
     const [showDrawer, setShowDrawer] = useState(false);
     const [loadingNotifications, setLoadingNotifications] = useState(false);
+    
+    const { isSupported, isSubscribed, permission, subscribe, unsubscribe } = usePushNotifications();
 
     const [menuCounts, setMenuCounts] = useState<Record<string, number>>({
         approvals: 0,
@@ -125,13 +154,13 @@ function SidebarContent() {
         }
     }, [user?.id]);
 
-    const handleMarkAllRead = async () => {
+    const handleMarkAllRead = async (silent = false) => {
         try {
             const res = await fetch('/api/notifications', { method: 'PATCH' });
             if (res.ok) {
                 setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
                 setUnreadCount(0);
-                toast.success("All notifications marked as read");
+                if (!silent) toast.success("All notifications marked as read");
             }
         } catch (err) {
             console.error("Failed to mark all notifications read:", err);
@@ -173,24 +202,26 @@ function SidebarContent() {
     useEffect(() => {
         if (!mounted || !user?.id) return;
 
-        const matchedLinks = [
-            '/service-orders',
-            '/helpdesk',
-            '/procurement/approvals',
-            '/inventory/stock',
-            '/projects',
-            '/contractors',
-            '/invoices',
-            '/payments'
-        ];
 
-        const match = matchedLinks.find(link => pathname.startsWith(link));
-        if (match) {
-            let url = `/api/notifications?link=${match}`;
-            if (match === '/service-orders' && currentRtom) {
-                url += `&rtom=${currentRtom}`;
-            }
-            fetch(url, { method: 'PATCH' })
+        // Auto-clear notifications when visiting a page with a badge
+        const currentLink = pathname;
+        if (currentLink && currentLink !== '/') {
+            const getClearablePrefix = (path: string) => {
+                if (path.startsWith('/helpdesk')) return '/helpdesk';
+                if (path.startsWith('/projects')) return '/projects';
+                if (path.startsWith('/service-orders')) return '/service-orders';
+                if (path.startsWith('/admin/inventory')) return '/admin/inventory';
+                if (path.startsWith('/admin/contractors')) return '/admin/contractors';
+                if (path.startsWith('/inventory/requests')) return '/inventory/requests';
+                if (path.startsWith('/inventory/approvals')) return '/inventory/approvals';
+                return path;
+            };
+
+            const prefix = getClearablePrefix(currentLink);
+
+            fetch(`/api/notifications?linkPrefix=${encodeURIComponent(prefix)}`, {
+                method: 'PATCH',
+            })
                 .then(res => {
                     if (res.ok) {
                         fetchNotifications();
@@ -225,6 +256,11 @@ function SidebarContent() {
                         // It's a user notification, refresh drawer & counts
                         fetchNotifications();
                         fetchMenuCounts();
+                        
+                        if (data.priority === 'CRITICAL' || data.priority === 'HIGH') {
+                            playNotificationSound();
+                        }
+                        
                         window.dispatchEvent(new CustomEvent('slts-notification', { detail: data }));
                     }
                 } catch (e) {
@@ -532,7 +568,7 @@ function SidebarContent() {
                                                     )}
                                                 </div>
 
-                                                 {!isCollapsed && getMenuCount(item.title) > 0 && !isExpanded && (
+                                                 {!isCollapsed && getMenuCount(item.title) > 0 && (
                                                      <div
                                                          className="ml-2 flex items-center justify-center h-4 min-w-[16px] rounded-full text-[8.5px] font-black text-white px-1.5 shadow-sm flex-shrink-0 mr-1 border border-[#ffffff10]"
                                                          style={{
@@ -715,7 +751,13 @@ function SidebarContent() {
                 {mounted && user && (
                     <div className="px-3 py-1 flex-shrink-0">
                         <button
-                            onClick={() => setShowDrawer(!showDrawer)}
+                            onClick={() => {
+                                const willShow = !showDrawer;
+                                setShowDrawer(willShow);
+                                if (willShow && unreadCount > 0) {
+                                    handleMarkAllRead(true);
+                                }
+                            }}
                             className="w-full flex items-center justify-between p-2 rounded-xl transition-all duration-200 group/notif cursor-pointer relative"
                             style={{
                                 background: showDrawer ? 'rgba(0, 114, 187, 0.2)' : 'transparent',
@@ -876,10 +918,31 @@ function SidebarContent() {
                             <h3 className="text-xs font-black text-white">Notifications</h3>
                             <p className="text-[9px] text-primary/70 uppercase font-bold tracking-wider mt-0.5">{unreadCount} Unread Activities</p>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 items-center">
+                            {isSupported && (
+                                <button
+                                    onClick={async () => {
+                                        if (isSubscribed) {
+                                            await unsubscribe();
+                                            toast.success("Desktop alerts disabled");
+                                        } else {
+                                            if (permission === 'denied') {
+                                                toast.error("Please enable notifications in browser settings");
+                                            } else {
+                                                const success = await subscribe();
+                                                if (success) toast.success("Desktop alerts enabled!");
+                                            }
+                                        }
+                                    }}
+                                    className="p-1 rounded hover:bg-white/5 text-primary transition-colors cursor-pointer mr-1"
+                                    title={isSubscribed ? "Disable Desktop Alerts" : "Enable Desktop Alerts"}
+                                >
+                                    {isSubscribed ? <BellRing className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5 text-white/40" />}
+                                </button>
+                            )}
                             {unreadCount > 0 && (
                                 <button
-                                    onClick={handleMarkAllRead}
+                                    onClick={() => handleMarkAllRead(false)}
                                     className="p-1 rounded hover:bg-white/5 text-primary transition-colors cursor-pointer"
                                     title="Mark all read"
                                 >

@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const count = await prisma.notification.count({ where: { link: { startsWith: '/helpdesk' }, isRead: false } }); console.log('Unread helpdesk notifications:', count); } main().finally(() => prisma.$disconnect());

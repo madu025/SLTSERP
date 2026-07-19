@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { const notifications = await prisma.notification.findMany({ where: { link: { startsWith: '/helpdesk' }, isRead: false }, take: 15 }); console.log(notifications); } main().finally(() => prisma.$disconnect());
