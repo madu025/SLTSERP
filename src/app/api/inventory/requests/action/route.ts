@@ -1,35 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
-import { requireAuth } from '@/lib/server-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-export async function POST(req: NextRequest) {
-    try {
-        const user = await requireAuth(['STORES_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'STORES_ASSISTANT', 'AREA_MANAGER']);
-        const data = await req.json();
-        const { requestId, action, remarks, allocation } = data;
+export const POST = apiHandler(async (request, _params, body) => {
+    const userId = request.headers.get('x-user-id') || 'SYSTEM';
+    const { requestId, action, remarks, allocation } = body;
 
-        if (!requestId || !action) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            );
-        }
-
-        const result = await InventoryService.processStockRequestAction({
-            requestId,
-            action,
-            userId: user.id,
-            remarks,
-            items: allocation
-        });
-
-        return NextResponse.json(result);
-    } catch (error: unknown) {
-        console.error('Action processing error:', error);
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to process action' },
-            { status: 500 }
-        );
+    if (!requestId || !action) {
+        throw AppError.badRequest('Missing required fields');
     }
-}
 
+    const result = await InventoryService.processStockRequestAction({
+        requestId,
+        action,
+        userId,
+        remarks,
+        items: allocation
+    });
+
+    return result;
+}, {
+    roles: ['STORES_MANAGER', 'OSP_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'STORES_ASSISTANT', 'AREA_MANAGER'],
+    audit: { action: 'UPDATE', entity: 'STOCK_REQUEST' },
+    rawResponse: true
+});

@@ -258,7 +258,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice</span>
@@ -384,7 +384,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[90px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[110px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice</span>
@@ -492,7 +492,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         />
                                     </div>
                                 </th>
-                                <th className="w-[80px] px-2 py-1.5 border-r border-border/20">
+                                <th className="w-[100px] px-2 py-1.5 border-r border-border/20">
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between cursor-pointer hover:text-foreground transition-colors" onClick={() => onSort("voiceNumber")}>
                                             <span>Voice</span>
@@ -642,7 +642,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[175px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
+                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
                                         
@@ -737,7 +737,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[210px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
+                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
                                         
@@ -822,7 +822,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         <td className="px-2 border-r border-border/15 py-1 text-[10px] text-foreground" title={`${order.customerName || ""} - ${order.address || ""}`}>
                                             <div className="max-w-[175px] flex flex-col gap-0.5">
                                                 <span className="font-bold truncate leading-tight">{order.customerName || "-"}</span>
-                                                {order.address && <span className="text-muted-foreground font-normal whitespace-normal break-words leading-tight">{order.address}</span>}
+                                                {order.address && <span className="text-muted-foreground font-normal truncate leading-tight">{order.address}</span>}
                                             </div>
                                         </td>
 
@@ -832,7 +832,7 @@ export function SODSheetTable(props: SODSheetTableProps) {
                                         </td>
 
                                         {/* DP (Read-only) */}
-                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] font-mono text-foreground whitespace-normal break-words" title={order.dp || ""}>
+                                        <td className="px-2 border-r border-border/15 py-1 text-[10px] font-mono text-foreground truncate max-w-[120px]" title={order.dp || ""}>
                                             {order.dp || "-"}
                                         </td>
 

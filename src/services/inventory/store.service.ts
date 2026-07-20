@@ -198,4 +198,15 @@ export class StoreService {
             console.error('Failed to check low stock:', error);
         }
     }
+
+    /**
+     * Check low stock for all items in a store
+     */
+    static async checkAllLowStock(storeId: string): Promise<number> {
+        const stocks = await InventoryRepository.findManyStocks({ storeId });
+        for (const stock of stocks) {
+            await StoreService.checkLowStock(storeId, stock.itemId);
+        }
+        return stocks.length;
+    }
 }

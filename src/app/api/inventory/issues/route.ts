@@ -1,35 +1,38 @@
-import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
 import { createStockIssue } from '@/actions/inventory-actions';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-// POST: Create Stock Issue
-export async function POST(request: Request) {
+export const dynamic = 'force-dynamic';
+
+export const POST = apiHandler(async (request, _params, body) => {
     try {
-        const body = await request.json();
         const result = await createStockIssue(body);
 
         if (result.success) {
-            return NextResponse.json(result.data);
+            return result.data;
         } else {
-            return NextResponse.json({ error: result.error }, { status: 400 });
+            throw AppError.badRequest(result.error);
         }
     } catch (error: any) {
         console.error("Error creating stock issue:", error);
-        return NextResponse.json({ error: 'Failed to create stock issue', debug: error.message }, { status: 500 });
+        throw AppError.internal('Failed to create stock issue: ' + error.message);
     }
-}
+}, {
+    audit: { action: 'CREATE', entity: 'STOCK_ISSUE' },
+    rawResponse: true
+});
 
-// GET: Fetch Stock Issues
-export async function GET(request: Request) {
+export const GET = apiHandler(async (request) => {
     try {
         const { searchParams } = new URL(request.url);
         const storeId = searchParams.get('storeId') || undefined;
         const issueType = searchParams.get('issueType') || undefined;
 
         const issues = await InventoryService.getStockIssues({ storeId, issueType });
-        return NextResponse.json(issues);
+        return issues;
     } catch (error) {
         console.error("Error fetching stock issues:", error);
-        return NextResponse.json({ error: "Failed to fetch stock issues" }, { status: 500 });
+        throw AppError.internal("Failed to fetch stock issues");
     }
-}
+}, { rawResponse: true });

@@ -78,6 +78,34 @@ export const sodImportWorker = new Worker(
             if (p.voiceNumber) voiceToSoMap[p.voiceNumber.trim()] = p.soNum;
         }
 
+        // Pre-fetch all active configs to resolve them in-memory (eliminating N+1 database reads in the loop)
+        const activeRevConfigs = await prisma.sODRevenueConfig.findMany({
+            where: { isActive: true },
+            orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
+        });
+        const activePayConfigs = await prisma.contractorPaymentConfig.findMany({
+            where: { isActive: true },
+            include: { tiers: true },
+            orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
+        });
+
+        const getRevenueAmount = (opmcId: string) => {
+            const config = activeRevConfigs.find(c => c.rtomId === opmcId) || activeRevConfigs.find(c => c.rtomId === null);
+            return config?.revenuePerSOD ?? 0;
+        };
+
+        const getContractorAmount = (opmcId: string, dist: number) => {
+            const config = activePayConfigs.find(c => c.rtomId === opmcId) || activePayConfigs.find(c => c.rtomId === null);
+            if (config && config.tiers && config.tiers.length > 0) {
+                const matchingTier = config.tiers.find(t => dist >= t.minDistance && dist <= t.maxDistance);
+                if (matchingTier) return matchingTier.amount;
+                
+                const sorted = [...config.tiers].sort((a, b) => b.maxDistance - a.maxDistance);
+                if (dist > sorted[0].maxDistance) return sorted[0].amount;
+            }
+            return 0;
+        };
+
         // 2. Processing
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -104,30 +132,9 @@ export const sodImportWorker = new Worker(
                 const opmcContractors = contractorMap[opmc.id] || {};
                 const contractorId = row.contractorName ? opmcContractors[row.contractorName.toUpperCase().trim()] || null : null;
 
-                // Revenue & Payment Snapshots
-                let revenueAmount = 0;
-                let contractorAmount = 0;
-
-                const revConfig = await prisma.sODRevenueConfig.findFirst({
-                    where: { OR: [{ rtomId: opmc.id }, { rtomId: null }], isActive: true },
-                    orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
-                });
-                if (revConfig) revenueAmount = revConfig.revenuePerSOD ?? 0;
-
-                const payConfig = await prisma.contractorPaymentConfig.findFirst({
-                    where: { OR: [{ rtomId: opmc.id }, { rtomId: null }], isActive: true },
-                    include: { tiers: true },
-                    orderBy: { rtomId: { sort: 'asc', nulls: 'last' } }
-                });
-                if (payConfig && payConfig.tiers && payConfig.tiers.length > 0) {
-                    const dist = row.dropWireDistance || 0;
-                    const matchingTier = payConfig.tiers.find(t => dist >= t.minDistance && dist <= t.maxDistance);
-                    if (matchingTier) contractorAmount = matchingTier.amount;
-                    else {
-                        const sorted = [...payConfig.tiers].sort((a, b) => b.maxDistance - a.maxDistance);
-                        if (dist > sorted[0].maxDistance) contractorAmount = sorted[0].amount;
-                    }
-                }
+                // Revenue & Payment Snapshots (resolved in memory)
+                const revenueAmount = getRevenueAmount(opmc.id);
+                const contractorAmount = getContractorAmount(opmc.id, row.dropWireDistance || 0);
 
                 const materialUsageData: Array<{ itemId: string; quantity: number; unit: string; usageType: string; unitPrice: number; costPrice: number }> = [];
                 if (!skipMaterials && row.materials) {

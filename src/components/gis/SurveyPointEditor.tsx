@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
@@ -153,6 +153,35 @@ interface SurveyPointEditorProps {
   projectId: string;
   height?: string;
   className?: string;
+}
+
+// ─── Map Resize Handler to prevent grey map/disappearance ─────────────────────
+function MapResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+    if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      const container = map.getContainer();
+      if (container) {
+        resizeObserver.observe(container);
+      }
+      return () => {
+        clearTimeout(timer);
+        resizeObserver.disconnect();
+      };
+    }
+
+    return () => clearTimeout(timer);
+  }, [map]);
+
+  return null;
 }
 
 export function SurveyPointEditor({
@@ -354,6 +383,7 @@ export function SurveyPointEditor({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <MapResizeHandler />
 
         {points.map((point) => (
           <DraggableMarker

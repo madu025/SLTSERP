@@ -107,7 +107,13 @@ export default function ProjectWorkflowTracker({ project }: ProjectWorkflowTrack
   const fetchWorkflow = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/projects/${project.id}/workflow`);
+      const res = await fetch(`/api/projects/${project.id}/workflow?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setWorkflow(data);

@@ -1,24 +1,22 @@
-import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-export async function GET(
-    request: Request,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const { id } = await params;
-        if (!id) {
-            return NextResponse.json({ error: 'Store ID is required' }, { status: 400 });
-        }
+export const dynamic = 'force-dynamic';
 
-        const store = await InventoryService.getStore(id);
-        if (!store) {
-            return NextResponse.json({ error: 'Store not found' }, { status: 404 });
-        }
-
-        return NextResponse.json(store);
-    } catch (error: unknown) {
-        console.error('Error fetching store:', error);
-        return NextResponse.json({ error: 'Failed to fetch store' }, { status: 500 });
+export const GET = apiHandler(async (request, params) => {
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    if (!id) {
+        throw AppError.badRequest('Store ID is required');
     }
-}
+
+    const store = await InventoryService.getStore(id);
+    if (!store) {
+        throw AppError.notFound('Store not found');
+    }
+
+    return store;
+}, {
+    rawResponse: true
+});

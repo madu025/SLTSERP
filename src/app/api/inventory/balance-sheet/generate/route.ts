@@ -1,30 +1,24 @@
-import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { contractorId, storeId, month } = body; // month in "YYYY-MM" format
+export const POST = apiHandler(async (request, _params, body) => {
+    const { contractorId, storeId, month } = body; 
 
-        if (!contractorId || !storeId || !month) {
-            return NextResponse.json({ message: 'Missing required parameters' }, { status: 400 });
-        }
-
-        const reportData = await InventoryService.generateReportData({
-            contractorId,
-            storeId,
-            month
-        });
-
-        return NextResponse.json({
-            month,
-            contractorId,
-            storeId,
-            items: reportData
-        });
-
-    } catch (error) {
-        console.error('Error generating balance sheet:', error);
-        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    if (!contractorId || !storeId || !month) {
+        throw AppError.badRequest('Missing required parameters');
     }
-}
+
+    const reportData = await InventoryService.generateReportData({
+        contractorId,
+        storeId,
+        month
+    });
+
+    return {
+        month,
+        contractorId,
+        storeId,
+        items: reportData
+    };
+}, { rawResponse: true });

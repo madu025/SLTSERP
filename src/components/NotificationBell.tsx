@@ -143,7 +143,13 @@ export default function NotificationBell() {
         queryFn: async () => {
             if (!userId) return [];
             try {
-                const res = await fetch(`/api/notifications`);
+                const res = await fetch(`/api/notifications?_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: {
+                        'Pragma': 'no-cache',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
                 if (!res.ok) return [];
                 const json = await res.json();
                 return Array.isArray(json.data) ? json.data : [];

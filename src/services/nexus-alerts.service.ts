@@ -91,17 +91,28 @@ export class NexusAlertsService {
       });
     });
 
-    // Write to database, avoiding duplicates for identical active titles
-    for (const alert of activeAlerts) {
-      const existing = await prisma.nexusAlert.findFirst({
+    // Write to database, avoiding duplicates for identical active titles in a single batch operation
+    if (activeAlerts.length > 0) {
+      const activeTitles = activeAlerts.map(a => a.title);
+      
+      // Batch query existing unread alerts with matching titles
+      const existingAlerts = await prisma.nexusAlert.findMany({
         where: {
-          title: alert.title,
+          title: { in: activeTitles },
           isRead: false
-        }
+        },
+        select: { title: true }
       });
-
-      if (!existing) {
-        await prisma.nexusAlert.create({ data: alert });
+      
+      const existingTitlesSet = new Set(existingAlerts.map(a => a.title));
+      
+      // Filter out duplicate active alerts
+      const alertsToInsert = activeAlerts.filter(a => !existingTitlesSet.has(a.title));
+      
+      if (alertsToInsert.length > 0) {
+        await prisma.nexusAlert.createMany({
+          data: alertsToInsert
+        });
       }
     }
   }

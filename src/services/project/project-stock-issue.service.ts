@@ -20,18 +20,20 @@ export class ProjectStockIssueService {
         const count = await prisma.stockIssue.count();
         const issueNumber = `ISS-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
 
-        // Verify stock availability (Preliminary check)
-        for (const item of items) {
-            const stock = await prisma.inventoryStock.findUnique({
-                where: {
-                    storeId_itemId: {
-                        storeId: storeId,
-                        itemId: item.itemId
-                    }
-                },
-                include: { item: true }
-            });
+        // Verify stock availability (Preliminary check - batched to avoid N+1 queries)
+        const itemIds = items.map(i => i.itemId);
+        const stocks = await prisma.inventoryStock.findMany({
+            where: {
+                storeId: storeId,
+                itemId: { in: itemIds }
+            },
+            include: { item: true }
+        });
 
+        const stockMap = new Map(stocks.map(s => [s.itemId, s]));
+
+        for (const item of items) {
+            const stock = stockMap.get(item.itemId);
             if (!stock || Number(stock.quantity) < parseFloat(item.quantity.toString())) {
                 throw new Error(`INSUFFICIENT_STOCK: Insufficient stock for item: ${stock?.item.name || item.itemId}`);
             }
@@ -105,11 +107,19 @@ export class ProjectStockIssueService {
             throw new Error('ISSUE_NOT_PENDING');
         }
 
-        // Verify stock availability
+        // Verify stock availability (batched to avoid N+1 queries)
+        const issueItemIds = issue.items.map(i => i.itemId);
+        const issueStocks = await prisma.inventoryStock.findMany({
+            where: {
+                storeId: issue.storeId,
+                itemId: { in: issueItemIds }
+            }
+        });
+
+        const issueStockMap = new Map(issueStocks.map(s => [s.itemId, s]));
+
         for (const item of issue.items) {
-            const stock = await prisma.inventoryStock.findUnique({
-                where: { storeId_itemId: { storeId: issue.storeId, itemId: item.itemId } }
-            });
+            const stock = issueStockMap.get(item.itemId);
             if (!stock || Number(stock.quantity) < item.quantity) {
                 throw new Error(`INSUFFICIENT_STOCK: Insufficient stock for item ID: ${item.itemId}`);
             }

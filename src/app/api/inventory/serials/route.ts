@@ -1,60 +1,23 @@
-import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
-import { handleApiError, ApiError } from '@/lib/api-utils';
-import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/server-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-export async function GET(request: Request) {
-    try {
-        let user;
-        try {
-            user = await requireAuth();
-        } catch {
-            throw new ApiError('Unauthorized', 401);
-        }
+export const dynamic = 'force-dynamic';
 
-        const allowedRoles = ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'];
-        if (!allowedRoles.includes(user.role)) {
-            throw new ApiError('Forbidden', 403);
-        }
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const storeId = searchParams.get('storeId') || undefined;
+    const itemId = searchParams.get('itemId') || undefined;
+    const search = searchParams.get('search') || undefined;
+    const staffId = searchParams.get('staffId') || undefined;
 
-        const { searchParams } = new URL(request.url);
-        const storeId = searchParams.get('storeId');
-        const itemId = searchParams.get('itemId');
-        const search = searchParams.get('search');
-        const staffId = searchParams.get('staffId');
-
-        if (!storeId && !itemId) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const where: any = {};
-            if (search) {
-                where.serialNumber = { contains: search, mode: 'insensitive' };
-            }
-            if (staffId) {
-                where.assignedStaffId = staffId;
-            }
-
-            const serials = await prisma.inventoryItemSerial.findMany({
-                where,
-                include: {
-                    item: true,
-                    store: true,
-                    assignedStaff: true
-                },
-                orderBy: { updatedAt: 'desc' },
-                take: 100
-            });
-            return NextResponse.json(serials);
-        }
-
-        if (!storeId || !itemId) {
-            return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
-        }
-
-        const serials = await InventoryService.getItemSerials(storeId, itemId);
-
-        return NextResponse.json(serials);
-    } catch (error) {
-        return handleApiError(error);
+    if (!storeId && !itemId && !search && !staffId) {
+        throw AppError.badRequest('MISSING_PARAMS');
     }
-}
+
+    const serials = await InventoryService.getAllSerials({ storeId, itemId, search, staffId });
+    return serials;
+}, {
+    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'],
+    rawResponse: true
+});

@@ -1,29 +1,24 @@
-import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-// POST: Save/Freeze Balance Sheet
-export async function POST(request: Request) {
+export const POST = apiHandler(async (request, _params, body) => {
+    const userId = request.headers.get('x-user-id');
+    
     try {
-        const userId = request.headers.get('x-user-id');
-        if (!userId) {
-            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-        }
-
-        const body = await request.json();
-
         const result = await InventoryService.saveBalanceSheet({
             ...body,
             userId
         });
-
-        return NextResponse.json({ message: 'Balance sheet saved successfully', id: result.id });
-
+        return { message: 'Balance sheet saved successfully', id: result.id };
     } catch (error: any) {
         if (error.message === 'MISSING_FIELDS') {
-            return NextResponse.json({ message: 'Missing fields' }, { status: 400 });
+            throw AppError.badRequest('Missing fields');
         }
-
         console.error('Error saving balance sheet:', error);
-        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+        throw AppError.internal('Internal Server Error');
     }
-}
+}, {
+    audit: { action: 'CREATE', entity: 'BALANCE_SHEET' },
+    rawResponse: true
+});

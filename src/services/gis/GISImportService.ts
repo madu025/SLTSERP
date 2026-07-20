@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { WorkflowEngine } from '../WorkflowEngine';
+import { randomUUID } from 'crypto';
 import { gisParser } from '@/lib/gis/gis-parser';
 import { gisValidator } from '@/lib/gis/gis-validator';
 import { projectTypeDetector } from '@/lib/gis/project-type-detector';
@@ -1616,85 +1617,105 @@ export class GISImportService {
           const stageTemplateBySeq = new Map(existingStageTemplates.map(s => [s.sequence, s]));
 
           // Create stage templates if they don't exist, and backfill any missing sub-templates
+          const stagesToCreate: any[] = [];
+          const tasksToCreate: any[] = [];
+          const checklistsToCreate: any[] = [];
+          const approvalsToCreate: any[] = [];
+          const stageTemplatesToBackfillChecklist: { id: string; name: string; reqPhotos: boolean }[] = [];
+          const stageTemplatesToBackfillApproval: { id: string; name: string }[] = [];
+
           for (const stageDef of workflowDef.stages) {
             let stageTemplate = stageTemplateByName.get(stageDef.name) || stageTemplateBySeq.get(stageDef.sequence);
 
             if (!stageTemplate) {
-              // Create new stage template
-              stageTemplate = await prisma.workflowStageTemplate.create({
-                data: {
-                  name: stageDef.name,
-                  description: `Stage ${stageDef.sequence}: ${stageDef.name}`,
-                  sequence: stageDef.sequence,
-                  workflowTemplateId: template.id,
-                  reqApproval: stageDef.reqApproval,
-                  reqChecklist: stageDef.reqChecklist,
-                  reqPhotos: stageDef.reqPhotos,
-                  reqDocuments: stageDef.reqDocuments,
-                  reqOTDR: stageDef.reqOTDR,
-                  reqGPS: stageDef.reqGPS,
-                },
-                include: {
-                  checklistTemplates: true,
-                  approvalTemplates: true,
-                },
+              const generatedId = randomUUID();
+              stagesToCreate.push({
+                id: generatedId,
+                name: stageDef.name,
+                description: `Stage ${stageDef.sequence}: ${stageDef.name}`,
+                sequence: stageDef.sequence,
+                workflowTemplateId: template.id,
+                reqApproval: stageDef.reqApproval,
+                reqChecklist: stageDef.reqChecklist,
+                reqPhotos: stageDef.reqPhotos,
+                reqDocuments: stageDef.reqDocuments,
+                reqOTDR: stageDef.reqOTDR,
+                reqGPS: stageDef.reqGPS,
               });
 
               // Create task templates for the new stage
               for (const taskDef of stageDef.tasks) {
-                await prisma.workflowTaskTemplate.create({
-                  data: {
-                    name: taskDef,
-                    description: `${stageDef.name} - ${taskDef}`,
-                    priority: 'MEDIUM',
-                    stageTemplateId: stageTemplate.id,
-                  },
+                tasksToCreate.push({
+                  name: taskDef,
+                  description: `${stageDef.name} - ${taskDef}`,
+                  priority: 'MEDIUM',
+                  stageTemplateId: generatedId,
                 });
               }
-            } else if (stageTemplate.name !== stageDef.name) {
-              // Align the name of the stage template with the code registry definitions
-              stageTemplate = await prisma.workflowStageTemplate.update({
-                where: { id: stageTemplate.id },
-                data: { name: stageDef.name },
-                include: {
-                  checklistTemplates: true,
-                  approvalTemplates: true,
-                },
-              });
-            }
 
-            // Backfill checklist templates if stage requires checklist but has none
-            // This fixes templates created by prior versions that omitted checklists
-            if (stageDef.reqChecklist && stageTemplate.checklistTemplates.length === 0) {
-              const checklistItems = getDefaultChecklist(stageDef.name, stageDef.reqPhotos);
-              for (const clItem of checklistItems) {
-                await prisma.workflowChecklistTemplate.create({
-                  data: {
-                    stageTemplateId: stageTemplate.id,
-                    label: clItem.label,
-                    isMandatory: clItem.isMandatory,
-                  },
+              if (stageDef.reqChecklist) {
+                stageTemplatesToBackfillChecklist.push({ id: generatedId, name: stageDef.name, reqPhotos: stageDef.reqPhotos });
+              }
+              if (stageDef.reqApproval) {
+                stageTemplatesToBackfillApproval.push({ id: generatedId, name: stageDef.name });
+              }
+            } else {
+              if (stageTemplate.name !== stageDef.name) {
+                // Align the name of the stage template with the code registry definitions
+                await prisma.workflowStageTemplate.update({
+                  where: { id: stageTemplate.id },
+                  data: { name: stageDef.name },
                 });
               }
-              logger.info(`Backfilled ${checklistItems.length} checklist templates for stage "${stageDef.name}"`);
-            }
 
-            // Backfill approval templates if stage requires approval but has none
-            // This fixes templates created by prior versions that omitted approvals
-            if (stageDef.reqApproval && stageTemplate.approvalTemplates.length === 0) {
-              const approvalLevels = getDefaultApprovals();
-              for (const apItem of approvalLevels) {
-                await prisma.workflowApprovalTemplate.create({
-                  data: {
-                    stageTemplateId: stageTemplate.id,
-                    level: apItem.level,
-                    role: apItem.role,
-                  },
-                });
+              // Backfill checklist templates if stage requires checklist but has none
+              if (stageDef.reqChecklist && stageTemplate.checklistTemplates.length === 0) {
+                stageTemplatesToBackfillChecklist.push({ id: stageTemplate.id, name: stageDef.name, reqPhotos: stageDef.reqPhotos });
               }
-              logger.info(`Backfilled ${approvalLevels.length} approval templates for stage "${stageDef.name}"`);
+
+              // Backfill approval templates if stage requires approval but has none
+              if (stageDef.reqApproval && stageTemplate.approvalTemplates.length === 0) {
+                stageTemplatesToBackfillApproval.push({ id: stageTemplate.id, name: stageDef.name });
+              }
             }
           }
+
+          // Create stages in bulk
+          if (stagesToCreate.length > 0) {
+            await prisma.workflowStageTemplate.createMany({
+              data: stagesToCreate,
+            });
+          }
+
+          // Generate backfill items
+          for (const item of stageTemplatesToBackfillChecklist) {
+            const checklistItems = getDefaultChecklist(item.name, item.reqPhotos);
+            for (const clItem of checklistItems) {
+              checklistsToCreate.push({
+                stageTemplateId: item.id,
+                label: clItem.label,
+                isMandatory: clItem.isMandatory,
+              });
+            }
+          }
+
+          for (const item of stageTemplatesToBackfillApproval) {
+            const approvalLevels = getDefaultApprovals();
+            for (const apItem of approvalLevels) {
+              approvalsToCreate.push({
+                stageTemplateId: item.id,
+                level: apItem.level,
+                role: apItem.role,
+              });
+            }
+          }
+
+          // Execute bulk insertions concurrently
+          await Promise.all([
+            tasksToCreate.length > 0 ? prisma.workflowTaskTemplate.createMany({ data: tasksToCreate }) : Promise.resolve(),
+            checklistsToCreate.length > 0 ? prisma.workflowChecklistTemplate.createMany({ data: checklistsToCreate }) : Promise.resolve(),
+            approvalsToCreate.length > 0 ? prisma.workflowApprovalTemplate.createMany({ data: approvalsToCreate }) : Promise.resolve(),
+          ]);
         }
 
         // Initialize project workflow using the WorkflowEngine

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { getDistance } from 'ol/sphere'; // Wait, let's use a pure JS Haversine implementation to avoid any library loading issues in Node backend environment
+import RBush from 'rbush';
 
 /**
  * pure JS Haversine formula implementation for backend distance calculations (in meters)
@@ -24,6 +24,31 @@ interface Coordinate {
     lng: number;
 }
 
+interface RBushLineItem {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    type: 'LineString';
+    projectCode: string;
+    projectName: string;
+    coords: [number, number][];
+}
+
+interface RBushPointItem {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    type: 'Point';
+    projectCode: string;
+    projectName: string;
+    assetType: string;
+    coord: [number, number];
+}
+
+type RBushGISItem = RBushLineItem | RBushPointItem;
+
 export class GISRouteOptimizerService {
     /**
      * Optimizes a planned route by detecting overlaps with all active/completed routes in the database.
@@ -33,7 +58,12 @@ export class GISRouteOptimizerService {
         // 1. Fetch current planned route
         const currentRoute = await prisma.gISRoute.findUnique({
             where: { id: routeId },
-            include: { project: true }
+            select: {
+                geojsonData: true,
+                project: {
+                    select: { name: true, projectCode: true }
+                }
+            }
         });
 
         if (!currentRoute || !currentRoute.geojsonData) {
@@ -41,20 +71,73 @@ export class GISRouteOptimizerService {
         }
 
         // 2. Fetch all completed/approved routes from other projects (As-Built maps)
+        // Selectively fetch to avoid database egress issues (don't load heavy metadata column)
         const completedRoutesRaw = await prisma.gISRoute.findMany({
             where: {
                 projectId: { not: projectId },
                 status: "APPROVED",
                 isActive: true
             },
-            include: {
+            select: {
+                geojsonData: true,
                 project: {
                     select: { name: true, projectCode: true }
                 }
             }
         });
 
-        const completedRoutes = completedRoutesRaw.filter(r => r.geojsonData !== null);
+        // 3. Build spatial index using RBush
+        const spatialIndex = new RBush<RBushGISItem>();
+        const indexItems: RBushGISItem[] = [];
+
+        for (const route of completedRoutesRaw) {
+            if (!route.geojsonData) continue;
+            const projectCode = route.project?.projectCode || 'Unknown';
+            const projectName = route.project?.name || 'Completed Project';
+
+            const features = (route.geojsonData as any).features || [];
+            for (const feature of features) {
+                const geom = feature.geometry;
+                if (!geom) continue;
+
+                if (geom.type === 'LineString' && Array.isArray(geom.coordinates)) {
+                    const coords = geom.coordinates;
+                    for (let i = 0; i < coords.length - 1; i++) {
+                        const p1 = coords[i];
+                        const p2 = coords[i + 1];
+                        indexItems.push({
+                            minX: Math.min(p1[0], p2[0]),
+                            minY: Math.min(p1[1], p2[1]),
+                            maxX: Math.max(p1[0], p2[0]),
+                            maxY: Math.max(p1[1], p2[1]),
+                            type: 'LineString',
+                            projectCode,
+                            projectName,
+                            coords: [p1, p2]
+                        });
+                    }
+                } else if (geom.type === 'Point' && Array.isArray(geom.coordinates)) {
+                    const coord = geom.coordinates;
+                    const layer = (feature.properties?.layer || feature.properties?.Layer || '').toUpperCase();
+                    const assetType = layer.includes('POLE') ? 'Pole' : layer.includes('CHAMBER') ? 'Chamber' : 'Joint';
+                    indexItems.push({
+                        minX: coord[0],
+                        minY: coord[1],
+                        maxX: coord[0],
+                        maxY: coord[1],
+                        type: 'Point',
+                        projectCode,
+                        projectName,
+                        assetType,
+                        coord: [coord[0], coord[1]]
+                    });
+                }
+            }
+        }
+
+        if (indexItems.length > 0) {
+            spatialIndex.load(indexItems);
+        }
 
         const plannedFeatures = (currentRoute.geojsonData as any).features || [];
         const optimizedFeatures: any[] = [];
@@ -84,8 +167,8 @@ export class GISRouteOptimizerService {
                     const dist = calculateHaversineDistance(start.lat, start.lng, end.lat, end.lng);
                     segmentLength += dist;
 
-                    // Check if this sub-segment is close to any completed route
-                    const isOverlapping = this.checkSegmentOverlap(start, end, completedRoutes, toleranceMeters);
+                    // Check if this sub-segment is close to any completed route in the R-Tree
+                    const isOverlapping = this.checkSegmentOverlap(start, end, spatialIndex, toleranceMeters);
 
                     if (isOverlapping.overlapping) {
                         overlapLength += dist;
@@ -131,7 +214,7 @@ export class GISRouteOptimizerService {
             } else if (geom.type === 'Point' && Array.isArray(geom.coordinates)) {
                 // If it's a point asset (Pole/Chamber/Closure)
                 const pt: Coordinate = { lng: geom.coordinates[0], lat: geom.coordinates[1] };
-                const closeAsset = this.findClosestAsset(pt, completedRoutes, toleranceMeters);
+                const closeAsset = this.findClosestAsset(pt, spatialIndex, toleranceMeters);
 
                 if (closeAsset) {
                     optimizedFeatures.push({
@@ -178,12 +261,12 @@ export class GISRouteOptimizerService {
     }
 
     /**
-     * Checks if a planned cable segment overlaps with any completed OSP routes
+     * Checks if a planned cable segment overlaps with any completed OSP routes using RBush spatial index
      */
     private static checkSegmentOverlap(
         start: Coordinate,
         end: Coordinate,
-        completedRoutes: any[],
+        spatialIndex: RBush<RBushGISItem>,
         toleranceMeters: number
     ): { overlapping: boolean; projectCode?: string; projectName?: string } {
         // Midpoint of the segment
@@ -192,20 +275,29 @@ export class GISRouteOptimizerService {
             lng: (start.lng + end.lng) / 2
         };
 
-        for (const route of completedRoutes) {
-            const features = (route.geojsonData as any)?.features || [];
-            for (const f of features) {
-                if (f.geometry?.type === 'LineString' && Array.isArray(f.geometry.coordinates)) {
-                    // Check distance from our segment's midpoint to the completed line's coordinates
-                    for (const coord of f.geometry.coordinates) {
-                        const dist = calculateHaversineDistance(mid.lat, mid.lng, coord[1], coord[0]);
-                        if (dist <= toleranceMeters) {
-                            return {
-                                overlapping: true,
-                                projectCode: route.project?.projectCode || 'Unknown',
-                                projectName: route.project?.name || 'Completed Project'
-                            };
-                        }
+        const latBuf = toleranceMeters / 111320;
+        const lonBuf = toleranceMeters / (111320 * Math.cos(mid.lat * Math.PI / 180));
+
+        const searchBox = {
+            minX: mid.lng - lonBuf,
+            minY: mid.lat - latBuf,
+            maxX: mid.lng + lonBuf,
+            maxY: mid.lat + latBuf
+        };
+
+        const nearby = spatialIndex.search(searchBox);
+
+        for (const item of nearby) {
+            if (item.type === 'LineString') {
+                // Check distance from our segment's midpoint to the completed line segment's vertices
+                for (const coord of item.coords) {
+                    const dist = calculateHaversineDistance(mid.lat, mid.lng, coord[1], coord[0]);
+                    if (dist <= toleranceMeters) {
+                        return {
+                            overlapping: true,
+                            projectCode: item.projectCode,
+                            projectName: item.projectName
+                        };
                     }
                 }
             }
@@ -215,26 +307,34 @@ export class GISRouteOptimizerService {
     }
 
     /**
-     * Checks if a point asset is already close to an existing surveyed asset from another project
+     * Checks if a point asset is already close to an existing surveyed asset using RBush spatial index
      */
     private static findClosestAsset(
         pt: Coordinate,
-        completedRoutes: any[],
+        spatialIndex: RBush<RBushGISItem>,
         toleranceMeters: number
     ) {
-        for (const route of completedRoutes) {
-            const features = (route.geojsonData as any)?.features || [];
-            for (const f of features) {
-                if (f.geometry?.type === 'Point' && Array.isArray(f.geometry.coordinates)) {
-                    const dist = calculateHaversineDistance(pt.lat, pt.lng, f.geometry.coordinates[1], f.geometry.coordinates[0]);
-                    if (dist <= toleranceMeters) {
-                        const layer = (f.properties?.layer || f.properties?.Layer || '').toUpperCase();
-                        return {
-                            projectName: route.project?.name,
-                            projectCode: route.project?.projectCode,
-                            assetType: layer.includes('POLE') ? 'Pole' : layer.includes('CHAMBER') ? 'Chamber' : 'Joint'
-                        };
-                    }
+        const latBuf = toleranceMeters / 111320;
+        const lonBuf = toleranceMeters / (111320 * Math.cos(pt.lat * Math.PI / 180));
+
+        const searchBox = {
+            minX: pt.lng - lonBuf,
+            minY: pt.lat - latBuf,
+            maxX: pt.lng + lonBuf,
+            maxY: pt.lat + latBuf
+        };
+
+        const nearby = spatialIndex.search(searchBox);
+
+        for (const item of nearby) {
+            if (item.type === 'Point') {
+                const dist = calculateHaversineDistance(pt.lat, pt.lng, item.coord[1], item.coord[0]);
+                if (dist <= toleranceMeters) {
+                    return {
+                        projectName: item.projectName,
+                        projectCode: item.projectCode,
+                        assetType: item.assetType
+                    };
                 }
             }
         }

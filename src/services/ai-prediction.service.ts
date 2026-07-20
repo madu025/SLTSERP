@@ -245,17 +245,28 @@ export class AiPredictionService {
       _sum: { quantity: true, actualQuantity: true },
     });
 
+    const materialIds = boqDemand.map(d => d.materialId).filter(Boolean) as string[];
+
+    // Batch query stock levels for all demanded materials in a single query
+    const stockLevels = await prisma.inventoryStock.groupBy({
+      by: ['itemId'],
+      where: { itemId: { in: materialIds } },
+      _sum: { quantity: true },
+    });
+
+    const stockMap = new Map<string, number>();
+    for (const stock of stockLevels) {
+      if (stock.itemId) {
+        stockMap.set(stock.itemId, stock._sum.quantity ? Number(stock._sum.quantity) : 0);
+      }
+    }
+
     const predictions = [];
     for (const demand of boqDemand) {
       if (!demand.materialId) continue;
 
-      const stockLevel = await prisma.inventoryStock.aggregate({
-        where: { itemId: demand.materialId },
-        _sum: { quantity: true },
-      });
-
       const required = (demand._sum.quantity ?? 0) - (demand._sum.actualQuantity ?? 0);
-      const available = stockLevel._sum.quantity ? Number(stockLevel._sum.quantity) : 0;
+      const available = stockMap.get(demand.materialId) ?? 0;
       const shortfall = required - available;
 
       if (shortfall > 0) {

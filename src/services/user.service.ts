@@ -288,57 +288,42 @@ export class UserService {
             });
             // 3. Auto-assign to Sections based on Role (Multi-section support)
             const sectionCodes = SECTION_MAPPING[role] || [];
-            for (const sectionCode of sectionCodes) {
-                let section = await tx.section.findUnique({ where: { code: sectionCode } });
-                if (!section) {
-                    section = await tx.section.create({
-                        data: {
-                            name: sectionCode.replace(/_/g, ' '),
-                            code: sectionCode
-                        }
-                    });
-                }
+            
+            // Optimize with Promise.all and upsert to avoid O(M) blocking sequential queries
+            await Promise.all(sectionCodes.map(async (sectionCode) => {
+                const section = await tx.section.upsert({
+                    where: { code: sectionCode },
+                    create: { name: sectionCode.replace(/_/g, ' '), code: sectionCode },
+                    update: {}
+                });
 
                 const roleCode = `${sectionCode}_${role}`;
-                let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
-                if (!systemRole) {
-                    systemRole = await tx.systemRole.create({
-                        data: {
-                            name: role.replace(/_/g, ' '),
-                            code: roleCode,
-                            sectionId: section.id,
-                            permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
-                        }
-                    });
-                } else {
-                    // Update permissions in case the default seed changed or role template is updated
-                    await tx.systemRole.update({
-                        where: { id: systemRole.id },
-                        data: { permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard']) }
-                    });
-                }
-
-                // Check for existing assignment to prevent duplicates
-                const existingAssignment = await tx.userSectionAssignment.findUnique({
-                    where: {
-                        userId_sectionId: {
-                            userId: user.id,
-                            sectionId: section.id
-                        }
+                const systemRole = await tx.systemRole.upsert({
+                    where: { code: roleCode },
+                    create: {
+                        name: role.replace(/_/g, ' '),
+                        code: roleCode,
+                        sectionId: section.id,
+                        permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                    },
+                    update: {
+                        permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
                     }
                 });
 
-                if (!existingAssignment) {
-                    await tx.userSectionAssignment.create({
-                        data: {
-                            userId: user.id,
-                            sectionId: section.id,
-                            roleId: systemRole.id,
-                            isPrimary: sectionCode === sectionCodes[0]
-                        }
-                    });
-                }
-            }
+                await tx.userSectionAssignment.upsert({
+                    where: {
+                        userId_sectionId: { userId: user.id, sectionId: section.id }
+                    },
+                    create: {
+                        userId: user.id,
+                        sectionId: section.id,
+                        roleId: systemRole.id,
+                        isPrimary: sectionCode === sectionCodes[0]
+                    },
+                    update: {}
+                });
+            }));
 
             return user;
         });
@@ -421,34 +406,27 @@ export class UserService {
                 await tx.userSectionAssignment.deleteMany({ where: { userId: id } });
 
                 const sectionCodes = SECTION_MAPPING[role] || [];
-                for (const sectionCode of sectionCodes) {
-                    let section = await tx.section.findUnique({ where: { code: sectionCode } });
-                    if (!section) {
-                        section = await tx.section.create({
-                            data: {
-                                name: sectionCode.replace(/_/g, ' '),
-                                code: sectionCode
-                            }
-                        });
-                    }
+                
+                await Promise.all(sectionCodes.map(async (sectionCode) => {
+                    const section = await tx.section.upsert({
+                        where: { code: sectionCode },
+                        create: { name: sectionCode.replace(/_/g, ' '), code: sectionCode },
+                        update: {}
+                    });
 
                     const roleCode = `${sectionCode}_${role}`;
-                    let systemRole = await tx.systemRole.findUnique({ where: { code: roleCode } });
-                    if (!systemRole) {
-                        systemRole = await tx.systemRole.create({
-                            data: {
-                                name: role.replace(/_/g, ' '),
-                                code: roleCode,
-                                sectionId: section.id,
-                                permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
-                            }
-                        });
-                    } else {
-                        await tx.systemRole.update({
-                            where: { id: systemRole.id },
-                            data: { permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard']) }
-                        });
-                    }
+                    const systemRole = await tx.systemRole.upsert({
+                        where: { code: roleCode },
+                        create: {
+                            name: role.replace(/_/g, ' '),
+                            code: roleCode,
+                            sectionId: section.id,
+                            permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                        },
+                        update: {
+                            permissions: JSON.stringify(DEFAULT_ROLE_PERMISSIONS[role] || ['dashboard'])
+                        }
+                    });
 
                     await tx.userSectionAssignment.create({
                         data: {
@@ -458,7 +436,7 @@ export class UserService {
                             isPrimary: sectionCode === sectionCodes[0]
                         }
                     });
-                }
+                }));
             }
 
             const updatedUser = await tx.user.update({
@@ -516,7 +494,7 @@ export class UserService {
             await prisma.user.delete({ where: { id } });
         } catch (error: any) {
             // Fallback to soft delete if a foreign key constraint prevents physical deletion (Prisma Code P2003)
-            if (error.code === 'P2003') {
+            if (error?.code === 'P2003') {
                 await prisma.user.update({
                     where: { id },
                     data: { status: 'deleted' }

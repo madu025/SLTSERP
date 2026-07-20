@@ -1,48 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
 import { VendorService } from "@/services/vendor.service";
+import { apiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/error";
 
-type Params = Promise<{ id: string }>;
+export const dynamic = 'force-dynamic';
 
 // GET /api/vendors/[id] - Get vendor details by ID
-export async function GET(request: NextRequest, { params }: { params: Params }) {
-    try {
-        const { id } = await params;
-        const vendor = await VendorService.getVendorById(id);
-        
-        if (!vendor) {
-            return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
-        }
-        
-        return NextResponse.json(vendor);
-    } catch (error: unknown) {
-        console.error("Error fetching vendor:", error);
-        return NextResponse.json({ error: "Failed to fetch vendor" }, { status: 500 });
+export const GET = apiHandler(async (request, params) => {
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const vendor = await VendorService.getVendorById(id);
+    
+    if (!vendor) {
+        throw AppError.notFound("Vendor not found");
     }
-}
+    
+    return vendor;
+}, { rawResponse: true });
 
 // PUT /api/vendors/[id] - Update vendor details
-export async function PUT(request: NextRequest, { params }: { params: Params }) {
-    try {
-        const { id } = await params;
-        const body = await request.json();
-        const vendor = await VendorService.updateVendor(id, body);
-        return NextResponse.json(vendor);
-    } catch (error: unknown) {
-        console.error("Error updating vendor:", error);
-        const errorMsg = error instanceof Error ? error.message : "Failed to update vendor";
-        return NextResponse.json({ error: errorMsg }, { status: 500 });
-    }
-}
+export const PUT = apiHandler(async (request, params, body) => {
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const vendor = await VendorService.updateVendor(id, body);
+    return vendor;
+}, { rawResponse: true });
 
 // DELETE /api/vendors/[id] - Soft delete vendor
-export async function DELETE(request: NextRequest, { params }: { params: Params }) {
-    try {
-        const { id } = await params;
-        const vendor = await VendorService.deleteVendor(id);
-        return NextResponse.json({ message: "Vendor deactivated successfully", vendor });
-    } catch (error: unknown) {
-        console.error("Error deleting vendor:", error);
-        const errorMsg = error instanceof Error ? error.message : "Failed to delete vendor";
-        return NextResponse.json({ error: errorMsg }, { status: 500 });
-    }
-}
+export const DELETE = apiHandler(async (request, params) => {
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const vendor = await VendorService.deleteVendor(id);
+    return { message: "Vendor deactivated successfully", vendor };
+}, { rawResponse: true });

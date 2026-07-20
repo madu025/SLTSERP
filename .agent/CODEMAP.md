@@ -158,6 +158,11 @@
     * `assignTeamStore(teamId: string, storeId: string, isPrimary?: boolean): any`
     * `removeTeamStore(teamId: string, storeId: string): any`
 
+### [dashboard-alert.service.ts](src/services/dashboard-alert.service.ts)
+* **Class**: `DashboardAlertService`
+  * **Methods**:
+    * `getDashboardAlerts(userId: string, userRole: string): Promise<{ alerts: AlertItem[] }>`
+
 ### [executive-dashboard.service.ts](src/services/executive-dashboard.service.ts)
 * **Class**: `ExecutiveDashboardService`
   * **Methods**:
@@ -810,6 +815,7 @@
         issueType?: string;
     }): Promise<StockIssue[]>`
     * `getItemSerials(storeId: string, itemId: string): any`
+    * `getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }): any`
 
 ### [store.service.ts](src/services/inventory/store.service.ts)
 * **Class**: `StoreService`
@@ -833,6 +839,7 @@
     * `getStore(id: string): Promise<StoreWithDetails | null>`
     * `deleteStore(id: string): Promise<void>`
     * `checkLowStock(storeId: string, itemId: string): Promise<void>`
+    * `checkAllLowStock(storeId: string): Promise<number>`
 
 ### [transaction.service.ts](src/services/inventory/transaction.service.ts)
 * **Class**: `TransactionService`
@@ -1586,6 +1593,12 @@
     * `updateProject(id: string, updateData: UpdateProjectInput): any`
     * `deleteProject(id: string, userRole?: string | null): any`
 
+### [project-dashboard.service.ts](src/services/project-dashboard.service.ts)
+* **Class**: `ProjectDashboardService`
+  * **Methods**:
+    * `getProjectStats(userId: string, userRole: string): any`
+    * `getProjectOverview(userId: string, userRole: string): any`
+
 ### [qfieldcloud-sync.service.ts](src/services/qfieldcloud-sync.service.ts)
 * **Class**: `QFieldCloudSyncService`
   * **Methods**:
@@ -1763,6 +1776,11 @@
     * `startBackgroundProcess(): void`
     * `stopBackgroundProcess(): void`
     * `getStatus(): { isRunning: boolean; hasInterval: boolean }`
+
+### [sod-dashboard.service.ts](src/services/sod-dashboard.service.ts)
+* **Class**: `ServiceOrderDashboardService`
+  * **Methods**:
+    * `getServiceOrderStats(params: { userId: string, filterRegion: string, filterRtom: string }): any`
 
 ### [sod-scraper.service.ts](src/services/sod-scraper.service.ts)
 * **Class**: `SODDetailsScraper`

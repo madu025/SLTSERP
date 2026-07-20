@@ -232,6 +232,9 @@ model User {
 
   @@index([role])
   @@index([supervisorId])
+  @@index([name])
+  @@index([employeeId])
+  @@index([username])
 }
 
 model Notification {
@@ -446,6 +449,7 @@ model ProjectBOQItem {
   @@index([projectId])
   @@index([category])
   @@index([source])
+  @@index([materialId])
 }
 
 model ProjectMilestone {

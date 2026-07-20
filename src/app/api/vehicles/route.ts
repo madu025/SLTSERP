@@ -1,53 +1,43 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { NextResponse } from 'next/server';
 import VehicleService from '@/services/VehicleService';
 import { VehicleStatusEnum, OwnershipTypeEnum } from '@prisma/client';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const site_id = searchParams.get('site_id');
-        const status = searchParams.get('status');
-        const ownership = searchParams.get('ownership');
-        const page = parseInt(searchParams.get('page') || '1');
-        const limit = parseInt(searchParams.get('limit') || '20');
+export const dynamic = 'force-dynamic';
 
-        const filters: any = {};
-        if (site_id) filters.site_id = site_id;
-        if (status) filters.status = status as VehicleStatusEnum;
-        if (ownership) filters.ownership = ownership as OwnershipTypeEnum;
-        filters.page = page;
-        filters.limit = limit;
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const site_id = searchParams.get('site_id');
+    const status = searchParams.get('status');
+    const ownership = searchParams.get('ownership');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
 
-        const { data, total } = await VehicleService.listVehicles(filters);
+    const filters: any = {};
+    if (site_id) filters.site_id = site_id;
+    if (status) filters.status = status as VehicleStatusEnum;
+    if (ownership) filters.ownership = ownership as OwnershipTypeEnum;
+    filters.page = page;
+    filters.limit = limit;
 
-        return NextResponse.json({
-            success: true,
-            data,
-            meta: { total, page, limit, pages: Math.ceil(total / limit) },
-        });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
+    const { data, total } = await VehicleService.listVehicles(filters);
+
+    return {
+        data,
+        meta: { total, page, limit, pages: Math.ceil(total / limit) }
+    };
+});
+
+export const POST = apiHandler(async (request, _params, body) => {
+    const { registration_number, chassis_number, assigned_site_id } = body;
+
+    if (!registration_number || !chassis_number || !assigned_site_id) {
+        throw AppError.badRequest('Missing required fields: registration_number, chassis_number, assigned_site_id');
     }
-}
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { registration_number, chassis_number, assigned_site_id } = body;
-
-        if (!registration_number || !chassis_number || !assigned_site_id) {
-            return NextResponse.json({
-                success: false,
-                error: { code: 'VALIDATION_ERROR', message: 'Missing required fields: registration_number, chassis_number, assigned_site_id' },
-            }, { status: 400 });
-        }
-
-        const vehicle = await VehicleService.createVehicle(body);
-
-        return NextResponse.json({ success: true, data: vehicle }, { status: 201 });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } }, { status: 500 });
-    }
-}
+    return await VehicleService.createVehicle(body);
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
+    audit: { action: 'CREATE', entity: 'VEHICLE' }
+});
 

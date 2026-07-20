@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { ProjectStageInstance } from '@prisma/client';
 import { updateProjectProgressOnStageChange } from '@/lib/project-progress';
+import { randomUUID } from 'crypto';
 
 export class WorkflowEngine {
   /**
@@ -35,10 +36,14 @@ export class WorkflowEngine {
       },
     });
 
-    // 3. Clone each stage template and its sub-items
-    for (const stageTemp of template.stages) {
-      const stageInstance = await prisma.projectStageInstance.create({
-        data: {
+    // 3. Clone each stage template and its sub-items in batches using pre-generated IDs
+    const stagesData = template.stages.map(stageTemp => {
+      const generatedId = randomUUID();
+      return {
+        id: generatedId,
+        stageTemp,
+        dbData: {
+          id: generatedId,
           projectWorkflowInstanceId: projectWorkflow.id,
           name: stageTemp.name,
           description: stageTemp.description,
@@ -52,46 +57,62 @@ export class WorkflowEngine {
           reqDocuments: stageTemp.reqDocuments,
           reqOTDR: stageTemp.reqOTDR,
           reqGPS: stageTemp.reqGPS,
-        },
+        }
+      };
+    });
+
+    if (stagesData.length > 0) {
+      await prisma.projectStageInstance.createMany({
+        data: stagesData.map(s => s.dbData),
       });
+    }
+
+    const tasksData: any[] = [];
+    const checklistsData: any[] = [];
+    const approvalsData: any[] = [];
+
+    for (const stage of stagesData) {
+      const stageTemp = stage.stageTemp;
+      const stageId = stage.id;
 
       // Clone tasks
       if (stageTemp.taskTemplates.length > 0) {
-        await prisma.projectTaskInstance.createMany({
-          data: stageTemp.taskTemplates.map(t => ({
-            stageId: stageInstance.id,
-            name: t.name,
-            description: t.description,
-            priority: t.priority,
-            status: 'PENDING',
-          })),
-        });
+        tasksData.push(...stageTemp.taskTemplates.map(t => ({
+          stageId,
+          name: t.name,
+          description: t.description,
+          priority: t.priority,
+          status: 'PENDING',
+        })));
       }
 
       // Clone checklists
       if (stageTemp.checklistTemplates.length > 0) {
-        await prisma.projectChecklistInstance.createMany({
-          data: stageTemp.checklistTemplates.map(c => ({
-            stageId: stageInstance.id,
-            label: c.label,
-            isMandatory: c.isMandatory,
-            isCompleted: false,
-          })),
-        });
+        checklistsData.push(...stageTemp.checklistTemplates.map(c => ({
+          stageId,
+          label: c.label,
+          isMandatory: c.isMandatory,
+          isCompleted: false,
+        })));
       }
 
       // Clone approvals
       if (stageTemp.approvalTemplates.length > 0) {
-        await prisma.projectApprovalInstance.createMany({
-          data: stageTemp.approvalTemplates.map(a => ({
-            stageId: stageInstance.id,
-            level: a.level,
-            role: a.role,
-            status: 'PENDING',
-          })),
-        });
+        approvalsData.push(...stageTemp.approvalTemplates.map(a => ({
+          stageId,
+          level: a.level,
+          role: a.role,
+          status: 'PENDING',
+        })));
       }
     }
+
+    // Execute bulk insertions concurrently
+    await Promise.all([
+      tasksData.length > 0 ? prisma.projectTaskInstance.createMany({ data: tasksData }) : Promise.resolve(),
+      checklistsData.length > 0 ? prisma.projectChecklistInstance.createMany({ data: checklistsData }) : Promise.resolve(),
+      approvalsData.length > 0 ? prisma.projectApprovalInstance.createMany({ data: approvalsData }) : Promise.resolve(),
+    ]);
 
     // Set current stage to the first stage sequence
     const firstStage = await prisma.projectStageInstance.findFirst({

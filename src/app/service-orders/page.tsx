@@ -280,6 +280,24 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
         }
     };
 
+    const handleBulkCopy = () => {
+        const selected = serviceOrders.filter(o => selectedIds.has(o.id));
+        const formattedText = selected.map(order => {
+            let text = `Voice Number: ${order.voiceNumber || 'N/A'}\n`;
+            text += `Customer Name: ${order.customerName || 'N/A'}\n`;
+            if (order.address) text += `Address: ${order.address}\n`;
+            if (order.dp) text += `DP: ${order.dp}\n`;
+            if (order.comments) text += `Comments: ${order.comments}\n`;
+            return text.trim();
+        }).join('\n\n------------------------\n\n');
+
+        navigator.clipboard.writeText(formattedText).then(() => {
+            toast.success(`${selected.length} orders copied to clipboard`);
+        }).catch(() => {
+            toast.error("Failed to copy to clipboard");
+        });
+    };
+
     const handleExportCSV = () => {
         if (serviceOrders.length === 0) { toast.error("No data to export"); return; }
         const headers = ["SO Number", "Customer", "Voice Number", "Status", "SLTS Status", "Contractor", "LEA", "Package", "Completed Date", "Revenue", "Contractor Amount"];
@@ -312,7 +330,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
             <main className="flex-1 flex flex-col min-w-0 h-full">
                 <Header />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <div className="flex-none px-5 py-2 space-y-2">
+                    <div className="flex-none px-5 py-1 space-y-1">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                             <div>
                                 <div className="flex items-center gap-2">
@@ -354,7 +372,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                             <SODSummary filterType={filterType} summary={summary} missingCount={serviceOrders.filter((o: ServiceOrder) => o.comments?.includes('[MISSING FROM SYNC')).length} />
                         )}
 
-                        <div className="bg-card px-2.5 py-1.5 rounded-lg border border-border/40 shadow-sm flex flex-wrap gap-2 items-center">
+                        <div className="bg-card px-2 py-1 rounded-md border border-border/40 shadow-sm flex flex-wrap gap-1.5 items-center">
                              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-muted rounded-md border border-border/20">
                                  <Filter className="w-3.5 h-3.5 text-muted-foreground" />
                                  <Select value={selectedRtomId} onValueChange={handleOpmcChange}>
@@ -442,7 +460,7 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                         </div>
                     </div>
 
-                    <div className="flex-1 mx-5 mb-4 bg-card rounded-2xl border border-border/40 shadow-sm flex flex-col min-h-0 overflow-hidden relative">
+                    <div className="flex-1 mx-5 mb-2 bg-card rounded-xl border border-border/40 shadow-sm flex flex-col min-h-0 overflow-hidden relative">
                         {/* Bulk Action Overlay */}
                         {selectedIds.size > 0 && (
                             <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 dark:bg-slate-800 text-white px-6 py-2.5 rounded-full shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
@@ -450,7 +468,10 @@ function ServiceOrdersContent({ filterType = 'pending', pageTitle = 'Service Ord
                                 <div className="flex items-center gap-1">
                                     <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-white rounded-full" onClick={() => handleBulkAction('ASSIGN')}>Assign Team</Button>
                                     <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-emerald-400 rounded-full" onClick={() => handleBulkAction('COMPLETE')}>Complete</Button>
-                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-rose-400 rounded-full" onClick={() => handleBulkAction('DELETE')}>Remove</Button>
+                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-blue-400 rounded-full" onClick={handleBulkCopy}>Copy</Button>
+                                    {Array.from(selectedIds).every(id => serviceOrders.find(o => o.id === id)?.isManualEntry) && (
+                                        <Button variant="ghost" size="sm" className="h-8 px-3 text-xs font-bold uppercase hover:bg-slate-700/60 text-rose-400 rounded-full" onClick={() => handleBulkAction('DELETE')}>Remove</Button>
+                                    )}
                                     <button onClick={() => toggleAll()} className="ml-2 p-1.5 hover:bg-slate-700 rounded-full transition-colors" title="Clear selection"><X className="w-4 h-4" /></button>
                                 </div>
                             </div>

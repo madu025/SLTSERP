@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { rentalPaymentService } from '@/services/RentalPaymentService';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
+export const dynamic = 'force-dynamic';
 
 interface RequestBody {
   action: 'create' | 'submit' | 'check' | 'recommend' | 'approve' | 'reject' | 'save-agreement';
@@ -17,234 +16,176 @@ interface RequestBody {
 
 /**
  * GET /api/vehicles/[id]/rental-summary
- *   Query params: ?mode=preview&year=2026&month=6  -> Preview calculation
- *   Query params: ?year=2026&month=6                 -> Fetch existing summary
- *   No query params                                  -> List all summaries for this vehicle
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const mode = searchParams.get('mode');
-    const year = searchParams.get('year') ? parseInt(searchParams.get('year')!, 10) : undefined;
-    const month = searchParams.get('month') ? parseInt(searchParams.get('month')!, 10) : undefined;
+export const GET = apiHandler(async (request, params) => {
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get('mode');
+  const year = searchParams.get('year') ? parseInt(searchParams.get('year')!, 10) : undefined;
+  const month = searchParams.get('month') ? parseInt(searchParams.get('month')!, 10) : undefined;
 
-    const rentalVehicle = await rentalPaymentService.getRentalVehicleByVehicleId(id);
+  const rentalVehicle = await rentalPaymentService.getRentalVehicleByVehicleId(id);
 
-    if (!rentalVehicle) {
-      return NextResponse.json(
-        { success: false, error: { code: 'NOT_FOUND', message: 'Rental vehicle not found for this vehicle' } },
-        { status: 404 }
-      );
-    }
-
-    // Mode: preview - calculate without saving
-    if (mode === 'preview' && year && month) {
-      const preview = await rentalPaymentService.previewSummary({
-        rentalVehicleId: rentalVehicle.id,
-        year,
-        month,
-      });
-
-      return NextResponse.json({ success: true, data: preview });
-    }
-
-    // Fetch specific summary if year/month provided
-    if (year && month) {
-      const summary = await rentalPaymentService.getSummary(rentalVehicle.id, year, month);
-
-      if (!summary) {
-        return NextResponse.json(
-          { success: false, error: { code: 'NOT_FOUND', message: 'No summary found for this period' } },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json({ success: true, data: summary });
-    }
-
-    // List all summaries
-    const summaries = await rentalPaymentService.listSummaries(rentalVehicle.id);
-
-    return NextResponse.json({
-      success: true,
-      data: summaries,
-      meta: { 
-        rentalVehicleId: rentalVehicle.id, 
-        total: summaries.length,
-        rentalVehicle
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { success: false, error: { code: 'SERVER_ERROR', message } },
-      { status: 500 }
-    );
+  if (!rentalVehicle) {
+    throw AppError.notFound('Rental vehicle not found for this vehicle');
   }
-}
+
+  // Mode: preview - calculate without saving
+  if (mode === 'preview' && year && month) {
+    const preview = await rentalPaymentService.previewSummary({
+      rentalVehicleId: rentalVehicle.id,
+      year,
+      month,
+    });
+    return { success: true, data: preview };
+  }
+
+  // Fetch specific summary if year/month provided
+  if (year && month) {
+    const summary = await rentalPaymentService.getSummary(rentalVehicle.id, year, month);
+    if (!summary) {
+      throw AppError.notFound('No summary found for this period');
+    }
+    return { success: true, data: summary };
+  }
+
+  // List all summaries
+  const summaries = await rentalPaymentService.listSummaries(rentalVehicle.id);
+
+  return {
+    success: true,
+    data: summaries,
+    meta: { 
+      rentalVehicleId: rentalVehicle.id, 
+      total: summaries.length,
+      rentalVehicle
+    },
+  };
+}, { rawResponse: true });
 
 /**
  * POST /api/vehicles/[id]/rental-summary
- *   Body: { action: "create"|"submit"|"check"|"recommend"|"approve"|"reject", year, month, userId, userName, remarks }
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { id } = await params;
-    const body = (await request.json()) as RequestBody;
-    const { action, year, month, userId, userName, remarks } = body;
+export const POST = apiHandler(async (request, params, body: RequestBody) => {
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+  const { action, year, month, userId, userName, remarks } = body;
 
-    const rentalVehicle = await rentalPaymentService.getRentalVehicleByVehicleId(id);
-
-    if (action === 'save-agreement') {
-      const result = await rentalPaymentService.upsertRentalVehicle(id, body);
-      return NextResponse.json({ success: true, data: result });
-    }
-
-    if (!rentalVehicle) {
-      return NextResponse.json(
-        { success: false, error: { code: 'NOT_FOUND', message: 'Rental vehicle not found for this vehicle' } },
-        { status: 404 }
-      );
-    }
-
-    const rentalVehicleId = rentalVehicle.id;
-
-    switch (action) {
-      case 'create': {
-        if (!year || !month) {
-          return NextResponse.json(
-            { success: false, error: { code: 'VALIDATION_ERROR', message: 'year and month are required' } },
-            { status: 400 }
-          );
-        }
-
-        const summary = await rentalPaymentService.saveSummary(
-          { rentalVehicleId, year, month },
-          userId ? { id: userId, name: userName || userId } : undefined
-        );
-
-        return NextResponse.json({ success: true, data: summary }, { status: 201 });
-      }
-
-      case 'submit': {
-        if (!body.summaryId) {
-          return NextResponse.json(
-            { success: false, error: { code: 'VALIDATION_ERROR', message: 'summaryId is required' } },
-            { status: 400 }
-          );
-        }
-        const result = await rentalPaymentService.submitSummary(
-          body.summaryId,
-          userId ? { id: userId, name: userName || userId } : undefined
-        );
-        return NextResponse.json({ success: true, data: result });
-      }
-
-      case 'check': {
-        if (!body.summaryId) {
-          return NextResponse.json(
-            { success: false, error: { code: 'VALIDATION_ERROR', message: 'summaryId is required' } },
-            { status: 400 }
-          );
-        }
-        if (!userId) {
-          return NextResponse.json(
-            { success: false, error: { code: 'VALIDATION_ERROR', message: 'userId is required for check action' } },
-            { status: 400 }
-          );
-        }
-        const result = await rentalPaymentService.checkSummary(
-          body.summaryId,
-          { id: userId, name: userName || userId },
-          remarks
-        );
-        return NextResponse.json({ success: true, data: result });
-      }
-
-      case 'recommend': {
-        if (!body.summaryId || !userId) {
-          return NextResponse.json(
-            { success: false, error: { code: 'VALIDATION_ERROR', message: 'summaryId and userId are required' } },
-            { status: 400 }
-          );
-        }
-        const result = await rentalPaymentService.recommendSummary(
-          body.summaryId,
-          { id: userId, name: userName || userId },
-          remarks
-        );
-        return NextResponse.json({ success: true, data: result });
-      }
-
-      case 'approve': {
-        if (!body.summaryId || !userId) {
-          return NextResponse.json(
-            { success: false, error: { code: 'VALIDATION_ERROR', message: 'summaryId and userId are required' } },
-            { status: 400 }
-          );
-        }
-        const result = await rentalPaymentService.approveSummary(
-          body.summaryId,
-          { id: userId, name: userName || userId },
-          remarks
-        );
-        return NextResponse.json({ success: true, data: result });
-      }
-
-      case 'reject': {
-        if (!body.summaryId || !userId || !remarks) {
-          return NextResponse.json(
-            { success: false, error: { code: 'VALIDATION_ERROR', message: 'summaryId, userId, and remarks are required for rejection' } },
-            { status: 400 }
-          );
-        }
-        const result = await rentalPaymentService.rejectSummary(
-          body.summaryId,
-          { id: userId, name: userName || userId },
-          remarks
-        );
-        return NextResponse.json({ success: true, data: result });
-      }
-
-      default:
-        return NextResponse.json(
-          { success: false, error: { code: 'VALIDATION_ERROR', message: `Unknown action: ${action}` } },
-          { status: 400 }
-        );
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { success: false, error: { code: 'SERVER_ERROR', message } },
-      { status: 500 }
-    );
+  if (action === 'save-agreement') {
+    const result = await rentalPaymentService.upsertRentalVehicle(id, body);
+    return { success: true, data: result };
   }
-}
+
+  const rentalVehicle = await rentalPaymentService.getRentalVehicleByVehicleId(id);
+
+  if (!rentalVehicle) {
+    throw AppError.notFound('Rental vehicle not found for this vehicle');
+  }
+
+  const rentalVehicleId = rentalVehicle.id;
+
+  switch (action) {
+    case 'create': {
+      if (!year || !month) {
+        throw AppError.badRequest('year and month are required');
+      }
+
+      const summary = await rentalPaymentService.saveSummary(
+        { rentalVehicleId, year, month },
+        userId ? { id: userId, name: userName || userId } : undefined
+      );
+
+      return { success: true, data: summary };
+    }
+
+    case 'submit': {
+      if (!body.summaryId) {
+        throw AppError.badRequest('summaryId is required');
+      }
+      const result = await rentalPaymentService.submitSummary(
+        body.summaryId,
+        userId ? { id: userId, name: userName || userId } : undefined
+      );
+      return { success: true, data: result };
+    }
+
+    case 'check': {
+      if (!body.summaryId) {
+        throw AppError.badRequest('summaryId is required');
+      }
+      if (!userId) {
+        throw AppError.badRequest('userId is required for check action');
+      }
+      const result = await rentalPaymentService.checkSummary(
+        body.summaryId,
+        { id: userId, name: userName || userId },
+        remarks
+      );
+      return { success: true, data: result };
+    }
+
+    case 'recommend': {
+      if (!body.summaryId || !userId) {
+        throw AppError.badRequest('summaryId and userId are required');
+      }
+      const result = await rentalPaymentService.recommendSummary(
+        body.summaryId,
+        { id: userId, name: userName || userId },
+        remarks
+      );
+      return { success: true, data: result };
+    }
+
+    case 'approve': {
+      if (!body.summaryId || !userId) {
+        throw AppError.badRequest('summaryId and userId are required');
+      }
+      const result = await rentalPaymentService.approveSummary(
+        body.summaryId,
+        { id: userId, name: userName || userId },
+        remarks
+      );
+      return { success: true, data: result };
+    }
+
+    case 'reject': {
+      if (!body.summaryId || !userId || !remarks) {
+        throw AppError.badRequest('summaryId, userId, and remarks are required for rejection');
+      }
+      const result = await rentalPaymentService.rejectSummary(
+        body.summaryId,
+        { id: userId, name: userName || userId },
+        remarks
+      );
+      return { success: true, data: result };
+    }
+
+    default:
+      throw AppError.badRequest(`Unknown action: ${action}`);
+  }
+}, {
+  roles: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
+  audit: { action: 'POST_ACTION', entity: 'RENTAL_SUMMARY' },
+  rawResponse: true
+});
 
 /**
  * DELETE /api/vehicles/[id]/rental-summary?summaryId=xxx
  */
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const summaryId = searchParams.get('summaryId');
+export const DELETE = apiHandler(async (request) => {
+  const { searchParams } = new URL(request.url);
+  const summaryId = searchParams.get('summaryId');
 
-    if (!summaryId) {
-      return NextResponse.json(
-        { success: false, error: { code: 'VALIDATION_ERROR', message: 'summaryId query param is required' } },
-        { status: 400 }
-      );
-    }
-
-    await rentalPaymentService.deleteSummary(summaryId);
-
-    return NextResponse.json({ success: true, data: { message: 'Summary deleted successfully' } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { success: false, error: { code: 'SERVER_ERROR', message } },
-      { status: 500 }
-    );
+  if (!summaryId) {
+    throw AppError.badRequest('summaryId query param is required');
   }
-}
+
+  await rentalPaymentService.deleteSummary(summaryId);
+
+  return { success: true, data: { message: 'Summary deleted successfully' } };
+}, {
+  roles: ['SUPER_ADMIN', 'ADMIN', 'OFFICE_ADMIN'],
+  audit: { action: 'DELETE', entity: 'RENTAL_SUMMARY' },
+  rawResponse: true
+});

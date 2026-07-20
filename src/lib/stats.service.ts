@@ -98,12 +98,62 @@ export class StatsService {
 
     /**
      * Full system-wide recalculation of dashboard stats.
+     * Uses bulk groupBy aggregations to avoid O(N) queries across all OPMCs.
      */
     static async globalRecalculate() {
-        const opmcs = await prisma.oPMC.findMany({ select: { id: true } });
-        for (const opmc of opmcs) {
-            await this.syncOpmcStats(opmc.id);
-        }
+        const opmcs = await prisma.oPMC.findMany({ select: { id: true, rtom: true } });
+        
+        const currentYear = new Date().getFullYear();
+        const currentYearStart = new Date(`${currentYear}-01-01T00:00:00Z`);
+        const nextYearStart = new Date(`${currentYear + 1}-01-01T00:00:00Z`);
+
+        const [sodStats, patStats, sltsPatStats] = await Promise.all([
+            prisma.serviceOrder.groupBy({
+                by: ['opmcId', 'sltsStatus'],
+                where: {
+                    OR: [
+                        { receivedDate: { gte: currentYearStart, lt: nextYearStart } },
+                        { statusDate: { gte: currentYearStart, lt: nextYearStart } },
+                        { completedDate: { gte: currentYearStart, lt: nextYearStart } }
+                    ]
+                },
+                _count: { _all: true }
+            }),
+            prisma.serviceOrder.groupBy({
+                by: ['opmcId', 'patStatus'],
+                where: { statusDate: { gte: currentYearStart, lt: nextYearStart } },
+                _count: { _all: true }
+            }),
+            prisma.serviceOrder.groupBy({
+                by: ['opmcId', 'sltsPatStatus'],
+                where: { statusDate: { gte: currentYearStart, lt: nextYearStart } },
+                _count: { _all: true }
+            })
+        ]);
+
+        const updates = opmcs.map(opmc => {
+            const pending = sodStats.find(s => s.opmcId === opmc.id && s.sltsStatus === 'INPROGRESS')?._count._all || 0;
+            const completed = sodStats.find(s => s.opmcId === opmc.id && s.sltsStatus === 'COMPLETED')?._count._all || 0;
+            const returned = sodStats.find(s => s.opmcId === opmc.id && s.sltsStatus === 'RETURN')?._count._all || 0;
+
+            const patPassed = patStats.find(s => s.opmcId === opmc.id && s.patStatus === 'PASS')?._count._all || 0;
+            const patRejected = patStats.find(s => s.opmcId === opmc.id && s.patStatus === 'REJECTED')?._count._all || 0;
+            const sltsPatRejected = sltsPatStats.find(s => s.opmcId === opmc.id && s.sltsPatStatus === 'REJECTED')?._count._all || 0;
+
+            return {
+                opmcId: opmc.id,
+                rtom: opmc.rtom,
+                pending, completed, returned, patPassed, patRejected, sltsPatRejected
+            };
+        });
+
+        await prisma.$transaction(
+            updates.map(data => prisma.dashboardStat.upsert({
+                where: { opmcId: data.opmcId },
+                create: data,
+                update: data
+            }))
+        );
     }
 
     /**

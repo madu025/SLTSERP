@@ -489,9 +489,22 @@ export class GISAutoPlanService {
         let bestCable: PlannedCable | null = null;
         let bestPtIdx = -1;
 
+        const LAT_DEG_PER_M = 1.0 / 111320;
+        const LNG_DEG_PER_M = 1.0 / (111320 * 0.99); // Sri Lanka approximate longitude factor
+
         for (const cb of nonDrops) {
           for (let idx = 0; idx < cb.coordinates.length; idx++) {
             const pt = cb.coordinates[idx];
+
+            // Branch-and-bound bounding box pre-filter
+            if (closestDist !== Infinity) {
+              const maxDLat = closestDist * LAT_DEG_PER_M;
+              if (Math.abs(bLat - pt[1]) > maxDLat) continue;
+
+              const maxDLng = closestDist * LNG_DEG_PER_M;
+              if (Math.abs(bLon - pt[0]) > maxDLng) continue;
+            }
+
             const d = GISGeometry.getDistanceMeters(bLat, bLon, pt[1], pt[0]);
             if (d < closestDist) {
               closestDist = d;
@@ -507,6 +520,16 @@ export class GISAutoPlanService {
           let minCDist = Infinity;
           for (let idx = 0; idx < bestCable.coordinates.length; idx++) {
             const pt = bestCable.coordinates[idx];
+
+            // Branch-and-bound bounding box pre-filter
+            if (minCDist !== Infinity) {
+              const maxDLat = minCDist * LAT_DEG_PER_M;
+              if (Math.abs(cLat - pt[1]) > maxDLat) continue;
+
+              const maxDLng = minCDist * LNG_DEG_PER_M;
+              if (Math.abs(cLon - pt[0]) > maxDLng) continue;
+            }
+
             const d = GISGeometry.getDistanceMeters(cLat, cLon, pt[1], pt[0]);
             if (d < minCDist) {
               minCDist = d;
@@ -1037,16 +1060,32 @@ export class GISAutoPlanService {
           let bestBFrom = 0;
           let bestSharedCount = 0;
 
+          const LAT_TOL = 10.0 / 111320;
+          const LNG_TOL = 10.0 / (111320 * 0.99);
+
           for (let aIdx = 0; aIdx < cableA.coordinates.length; aIdx++) {
+            const ptA = cableA.coordinates[aIdx];
             for (let bIdx = 0; bIdx < cableB.coordinates.length; bIdx++) {
+              const ptB = cableB.coordinates[bIdx];
+
+              // Fast delta bounding box pre-filter to bypass slow Haversine formula
+              if (Math.abs(ptA[1] - ptB[1]) > LAT_TOL || Math.abs(ptA[0] - ptB[0]) > LNG_TOL) {
+                continue;
+              }
+
               let sharedCount = 0;
               while (
                 aIdx + sharedCount < cableA.coordinates.length &&
                 bIdx + sharedCount < cableB.coordinates.length
               ) {
-                const ptA = cableA.coordinates[aIdx + sharedCount];
-                const ptB = cableB.coordinates[bIdx + sharedCount];
-                const d = GISGeometry.getDistanceMeters(ptA[1], ptA[0], ptB[1], ptB[0]);
+                const pA = cableA.coordinates[aIdx + sharedCount];
+                const pB = cableB.coordinates[bIdx + sharedCount];
+
+                if (Math.abs(pA[1] - pB[1]) > LAT_TOL || Math.abs(pA[0] - pB[0]) > LNG_TOL) {
+                  break;
+                }
+
+                const d = GISGeometry.getDistanceMeters(pA[1], pA[0], pB[1], pB[0]);
                 if (d > 10.0) break; // Not close enough to be the same path
                 sharedCount++;
               }

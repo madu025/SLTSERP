@@ -32,6 +32,14 @@ export class AppError extends Error {
         return new AppError(message, ErrorCode.NOT_FOUND, 404);
     }
 
+    static unauthorized(message: string) {
+        return new AppError(message, ErrorCode.UNAUTHORIZED, 401);
+    }
+
+    static forbidden(message: string) {
+        return new AppError(message, ErrorCode.FORBIDDEN, 403);
+    }
+
     static validation(message: string, details?: any) {
         return new AppError(message, ErrorCode.VALIDATION_ERROR, 422, details);
     }

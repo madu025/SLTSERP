@@ -1,58 +1,42 @@
-import { NextRequest, NextResponse } from "next/server";
 import { VendorService } from "@/services/vendor.service";
+import { apiHandler } from "@/lib/api-handler";
+import { AppError } from "@/lib/error";
+
+export const dynamic = 'force-dynamic';
 
 // GET /api/vendors - List vendors with optional search
-export async function GET(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const search = searchParams.get("search");
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
 
-        const vendors = await VendorService.getVendors(search);
-        return NextResponse.json(vendors);
-    } catch (error) {
-        console.error("Error fetching vendors:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch vendors" },
-            { status: 500 }
-        );
-    }
-}
+    const vendors = await VendorService.getVendors(search);
+    return vendors;
+}, { rawResponse: true });
 
 // POST /api/vendors - Create a new vendor with auto-generated code
-export async function POST(request: NextRequest) {
+export const POST = apiHandler(async (request, _params, body) => {
     try {
-        const body = await request.json();
         const vendor = await VendorService.createVendor(body);
-        return NextResponse.json(vendor, { status: 201 });
-    } catch (error) {
-        console.error("Error creating vendor:", error);
-        const err = error as Error & { code?: string };
-        const message = err.message;
+        return vendor;
+    } catch (error: any) {
+        const message = error.message;
 
         if (message === 'NAME_REQUIRED') {
-            return NextResponse.json(
-                { error: "Vendor name is required" },
-                { status: 400 }
-            );
+            throw AppError.badRequest("Vendor name is required");
         }
 
         if (message === 'VENDOR_EXISTS') {
-            return NextResponse.json(
-                { error: "A vendor with this name already exists" },
-                { status: 400 }
-            );
+            throw AppError.badRequest("A vendor with this name already exists");
         }
 
-        if (err.code === "P2002") {
-            return NextResponse.json(
-                { error: "A vendor with this code already exists" },
-                { status: 400 }
-            );
+        if (error.code === "P2002") {
+            throw AppError.badRequest("A vendor with this code already exists");
         }
 
-        return NextResponse.json(
-            { error: "Failed to create vendor" },
-            { status: 500 }
-        );
+        throw error;
     }
-}
+}, {
+    roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE_MANAGER'],
+    audit: { action: 'CREATE', entity: 'VENDOR' },
+    rawResponse: true
+});

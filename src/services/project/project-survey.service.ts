@@ -268,30 +268,38 @@ export class ProjectSurveyService {
     const results = [];
     let totalBOQItems = 0;
 
+    // 1. Fetch inventory items once (eliminating N+1 database queries in the loop)
+    const inventoryItems = await prisma.inventoryItem.findMany({
+      where: {
+        OR: [
+          { name: { contains: 'Pole', mode: 'insensitive' } },
+          { name: { contains: 'Fiber', mode: 'insensitive' } },
+          { name: { contains: 'Cable', mode: 'insensitive' } },
+          { name: { contains: 'Chamber', mode: 'insensitive' } },
+          { name: { contains: 'Closure', mode: 'insensitive' } },
+          { name: { contains: 'Splice', mode: 'insensitive' } }
+        ]
+      },
+      take: 50
+    });
+
+    const findRate = (keywords: string[], defaultRate: number): number => {
+      const m = inventoryItems.find(i => keywords.some(k => i.name?.toLowerCase().includes(k.toLowerCase())));
+      return m?.unitPrice ? Number(m.unitPrice) : defaultRate;
+    };
+
+    // 2. Delete existing project BOQ items once beforehand (Logic Fix: Prevents second route from deleting first route's items)
+    await prisma.projectBOQItem.deleteMany({
+      where: { projectId, remarks: { contains: 'GIS survey' } }
+    });
+
+    const allPboqItems: any[] = [];
+
     for (const gisRoute of routes) {
       const poleCount = gisRoute.poles.length;
       const chamberCount = gisRoute.chambers.length;
       const closureCount = gisRoute.closures.length;
       const totalCableLength = gisRoute.cableSegments.reduce((sum, seg) => sum + (seg.length || 0), 0);
-
-      const inventoryItems = await prisma.inventoryItem.findMany({
-        where: {
-          OR: [
-            { name: { contains: 'Pole', mode: 'insensitive' } },
-            { name: { contains: 'Fiber', mode: 'insensitive' } },
-            { name: { contains: 'Cable', mode: 'insensitive' } },
-            { name: { contains: 'Chamber', mode: 'insensitive' } },
-            { name: { contains: 'Closure', mode: 'insensitive' } },
-            { name: { contains: 'Splice', mode: 'insensitive' } }
-          ]
-        },
-        take: 50
-      });
-
-      const findRate = (keywords: string[], defaultRate: number): number => {
-        const m = inventoryItems.find(i => keywords.some(k => i.name?.toLowerCase().includes(k.toLowerCase())));
-        return m?.unitPrice ? Number(m.unitPrice) : defaultRate;
-      };
 
       const items = [];
 
@@ -387,17 +395,7 @@ export class ProjectSurveyService {
         remarks: item.sourceReference
       }));
 
-      const existing = await prisma.projectBOQItem.findMany({
-        where: { projectId, remarks: { contains: 'GIS survey' } }
-      });
-
-      if (existing.length > 0) {
-        await prisma.projectBOQItem.deleteMany({
-          where: { id: { in: existing.map(i => i.id) } }
-        });
-      }
-
-      await prisma.projectBOQItem.createMany({ data: pboqItems });
+      allPboqItems.push(...pboqItems);
 
       await prisma.gISRoute.update({
         where: { id: gisRoute.id },
@@ -412,6 +410,11 @@ export class ProjectSurveyService {
         totalEstimated,
         projectBOQItems: pboqItems.length
       });
+    }
+
+    // 3. Batch create all BOQ items for the project after the loop (resolves N+1 writes)
+    if (allPboqItems.length > 0) {
+      await prisma.projectBOQItem.createMany({ data: allPboqItems });
     }
 
     const totalBOQ = results.reduce((s, r) => s + (r.totalEstimated || 0), 0);

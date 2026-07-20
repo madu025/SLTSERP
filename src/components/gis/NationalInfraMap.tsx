@@ -38,6 +38,35 @@ function MapRecenter({ center }: { center: [number, number] }) {
   return null;
 }
 
+// ─── Map Resize Handler to prevent grey map/disappearance ─────────────────────
+function MapResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+    if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      const container = map.getContainer();
+      if (container) {
+        resizeObserver.observe(container);
+      }
+      return () => {
+        clearTimeout(timer);
+        resizeObserver.disconnect();
+      };
+    }
+
+    return () => clearTimeout(timer);
+  }, [map]);
+
+  return null;
+}
+
 export default function NationalInfraMap() {
   const [routes, setRoutes] = useState<GISRouteData[]>([]);
   const [filteredRoutes, setFilteredRoutes] = useState<GISRouteData[]>([]);
@@ -266,6 +295,7 @@ export default function NationalInfraMap() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapRecenter center={mapCenter} />
+            <MapResizeHandler />
 
             {/* Render all routes */}
             {filteredRoutes.map((r) => {

@@ -24,7 +24,13 @@ export default function ProjectVariationOrders({ project }: ProjectVariationOrde
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch(`/api/projects/${project.id}/variations`);
+      const res = await fetch(`/api/projects/${project.id}/variations?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
+      });
       const data = await res.json();
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); }

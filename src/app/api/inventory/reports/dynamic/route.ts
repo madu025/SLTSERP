@@ -1,14 +1,12 @@
-import { NextResponse } from 'next/server';
 import { DynamicReportService } from '@/services/inventory/dynamic-report.service';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-export async function POST(request: Request) {
+export const POST = apiHandler(async (request, _params, body) => {
     try {
-        const body = await request.json();
         const report = await DynamicReportService.generateReport(body);
-        return NextResponse.json({ success: true, data: report });
-    } catch (error: unknown) {
-        const err = error as Error;
-        console.error('Dynamic Report Generation Error:', error);
-        return NextResponse.json({ success: false, error: err.message || 'Failed to generate report' }, { status: 400 });
+        return { success: true, data: report };
+    } catch (error: any) {
+        throw AppError.badRequest(error.message || 'Failed to generate report');
     }
-}
+}, { rawResponse: true });

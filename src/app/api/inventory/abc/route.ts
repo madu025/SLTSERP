@@ -1,17 +1,15 @@
-import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-export async function GET() {
+export const GET = apiHandler(async () => {
     try {
         const report = await InventoryService.generateAbcReport();
-        return NextResponse.json({
+        return {
             success: true,
             data: report
-        });
+        };
     } catch (err: any) {
-        return NextResponse.json({
-            success: false,
-            error: err.message || String(err)
-        }, { status: 500 });
+        throw AppError.internal(err.message || String(err));
     }
-}
+}, { rawResponse: true });

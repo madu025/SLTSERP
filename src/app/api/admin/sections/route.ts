@@ -1,54 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { SectionService } from '@/services/section.service';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-// GET - Fetch all sections
-export async function GET() {
-    try {
-        const sections = await prisma.section.findMany({
-            include: {
-                _count: {
-                    select: {
-                        roles: true,
-                        userAssignments: true
-                    }
-                }
-            },
-            orderBy: { name: 'asc' }
-        });
+export const GET = apiHandler(async () => {
+    return SectionService.getSections();
+}, { rawResponse: true });
 
-        return NextResponse.json(sections);
-    } catch (error) {
-        console.error('Error fetching sections:', error);
-        return NextResponse.json({ error: 'Failed to fetch sections' }, { status: 500 });
+export const POST = apiHandler(async (request) => {
+    const role = request.headers.get('x-user-role');
+    const userId = request.headers.get('x-user-id');
+
+    if (role !== 'SUPER_ADMIN') {
+        throw AppError.forbidden('Only Super Admins can manage sections');
     }
-}
 
-// POST - Create new section
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { name, code, description, icon, color } = body;
-
-        if (!name || !code) {
-            return NextResponse.json({ error: 'Name and code are required' }, { status: 400 });
-        }
-
-        const section = await prisma.section.create({
-            data: {
-                name,
-                code: code.toUpperCase(),
-                description,
-                icon,
-                color
-            }
-        });
-
-        return NextResponse.json(section, { status: 201 });
-    } catch (error: any) {
-        console.error('Error creating section:', error);
-        if (error.code === 'P2002') {
-            return NextResponse.json({ error: 'Section with this code already exists' }, { status: 400 });
-        }
-        return NextResponse.json({ error: 'Failed to create section' }, { status: 500 });
+    const body = await request.json();
+    if (!body.name || !body.code) {
+        throw AppError.badRequest('Name and code are required');
     }
-}
+
+    return SectionService.createSection(body, userId || 'system');
+}, { rawResponse: true });

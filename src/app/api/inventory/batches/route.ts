@@ -1,41 +1,27 @@
-import { NextResponse } from 'next/server';
 import { InventoryService } from '@/services/inventory.service';
-import { requireAuth } from '@/lib/server-utils';
-import { ApiError, handleApiError } from '@/lib/api-utils';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-    try {
-        let user;
-        try {
-            user = await requireAuth();
-        } catch {
-            throw new ApiError('Unauthorized', 401);
-        }
+export const GET = apiHandler(async (request) => {
+    const { searchParams } = new URL(request.url);
+    const storeId = searchParams.get('storeId');
+    const contractorId = searchParams.get('contractorId');
+    const itemId = searchParams.get('itemId') || undefined;
 
-        const allowedRoles = ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'];
-        if (!allowedRoles.includes(user.role)) {
-            throw new ApiError('Forbidden', 403);
-        }
-
-        const { searchParams } = new URL(request.url);
-        const storeId = searchParams.get('storeId');
-        const contractorId = searchParams.get('contractorId');
-        const itemId = searchParams.get('itemId') || undefined;
-
-        if (storeId) {
-            const batches = await InventoryService.getStoreBatches(storeId, itemId);
-            return NextResponse.json(batches);
-        }
-
-        if (contractorId) {
-            const batches = await InventoryService.getContractorBatches(contractorId, itemId);
-            return NextResponse.json(batches);
-        }
-
-        return NextResponse.json({ error: 'Store ID or Contractor ID is required' }, { status: 400 });
-    } catch (error) {
-        return handleApiError(error);
+    if (storeId) {
+        const batches = await InventoryService.getStoreBatches(storeId, itemId);
+        return batches;
     }
-}
+
+    if (contractorId) {
+        const batches = await InventoryService.getContractorBatches(contractorId, itemId);
+        return batches;
+    }
+
+    throw AppError.badRequest('Store ID or Contractor ID is required');
+}, {
+    roles: ['STORES_MANAGER', 'STORES_ASSISTANT', 'ADMIN', 'SUPER_ADMIN', 'OSP_MANAGER', 'AREA_MANAGER'],
+    rawResponse: true
+});

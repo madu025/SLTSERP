@@ -264,6 +264,41 @@ export class GISCandidateScoring {
       return type === 'motorway' || type === 'trunk' || type === 'primary' || type === 'secondary' || (road.lanes !== undefined && road.lanes >= 4);
     };
 
+    // Index all major road segments in an R-Tree for fast spatial queries
+    interface MajorRoadSegmentItem {
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+      p1: [number, number];
+      p2: [number, number];
+    }
+    const majorRoadIndex = new RBush<MajorRoadSegmentItem>();
+    const majorRoadItems: MajorRoadSegmentItem[] = [];
+
+    for (const road of roads) {
+      const type = road.highwayType ? road.highwayType.toLowerCase() : '';
+      const isMajor = type === 'motorway' || type === 'trunk' || type === 'primary' || type === 'secondary' || (road.lanes && road.lanes >= 4);
+      if (isMajor && Array.isArray(road.coordinates)) {
+        for (let i = 0; i < road.coordinates.length - 1; i++) {
+          const p1 = road.coordinates[i];
+          const p2 = road.coordinates[i + 1];
+          majorRoadItems.push({
+            minX: Math.min(p1[0], p2[0]),
+            minY: Math.min(p1[1], p2[1]),
+            maxX: Math.max(p1[0], p2[0]),
+            maxY: Math.max(p1[1], p2[1]),
+            p1: [p1[0], p1[1]],
+            p2: [p2[0], p2[1]]
+          });
+        }
+      }
+    }
+
+    if (majorRoadItems.length > 0) {
+      majorRoadIndex.load(majorRoadItems);
+    }
+
     // Track which building IDs are covered
     const coveredBuildingIds = new Set<number>();
     const dpCoveredBuildings = new Map<string, Building[]>();
@@ -283,21 +318,24 @@ export class GISCandidateScoring {
           const dist = GISGeometry.getDistanceMeters(candidate.lat, candidate.lon, dp.lat, dp.lon);
           if (dist < MIN_DP_SPACING) {
             let separatedByMajor = false;
-            for (const road of roads) {
-              const type = road.highwayType ? road.highwayType.toLowerCase() : '';
-              const isMajor = type === 'motorway' || type === 'trunk' || type === 'primary' || type === 'secondary' || (road.lanes && road.lanes >= 4);
-              if (isMajor) {
-                for (let i = 0; i < road.coordinates.length - 1; i++) {
-                  if (GISGeometry.doLineSegmentsIntersect(
-                    [candidate.lon, candidate.lat], [dp.lon, dp.lat],
-                    road.coordinates[i], road.coordinates[i+1]
-                  )) {
-                    separatedByMajor = true;
-                    break;
-                  }
-                }
+            
+            // Search major road R-Tree for potential intersections
+            const searchBox = {
+              minX: Math.min(candidate.lon, dp.lon),
+              minY: Math.min(candidate.lat, dp.lat),
+              maxX: Math.max(candidate.lon, dp.lon),
+              maxY: Math.max(candidate.lat, dp.lat)
+            };
+            const nearbyRoads = majorRoadIndex.search(searchBox);
+            
+            for (const rSeg of nearbyRoads) {
+              if (GISGeometry.doLineSegmentsIntersect(
+                [candidate.lon, candidate.lat], [dp.lon, dp.lat],
+                rSeg.p1, rSeg.p2
+              )) {
+                separatedByMajor = true;
+                break;
               }
-              if (separatedByMajor) break;
             }
 
             if (!separatedByMajor) {
@@ -326,21 +364,24 @@ export class GISCandidateScoring {
           if (effectiveDist <= SERVICE_RADIUS) {
             // AI Support: Do not count this building if connecting to it crosses a major road
             let crossesMajorRoad = false;
-            for (const road of roads) {
-              const type = road.highwayType ? road.highwayType.toLowerCase() : '';
-              const isMajor = type === 'motorway' || type === 'trunk' || type === 'primary' || type === 'secondary' || (road.lanes && road.lanes >= 4);
-              if (isMajor) {
-                for (let i = 0; i < road.coordinates.length - 1; i++) {
-                  if (GISGeometry.doLineSegmentsIntersect(
-                    [b.lon, b.lat], [candidate.lon, candidate.lat],
-                    road.coordinates[i], road.coordinates[i+1]
-                  )) {
-                    crossesMajorRoad = true;
-                    break;
-                  }
-                }
+            
+            // Search major road R-Tree for potential intersections
+            const searchBox = {
+              minX: Math.min(b.lon, candidate.lon),
+              minY: Math.min(b.lat, candidate.lat),
+              maxX: Math.max(b.lon, candidate.lon),
+              maxY: Math.max(b.lat, candidate.lat)
+            };
+            const nearbyRoads = majorRoadIndex.search(searchBox);
+
+            for (const rSeg of nearbyRoads) {
+              if (GISGeometry.doLineSegmentsIntersect(
+                [b.lon, b.lat], [candidate.lon, candidate.lat],
+                rSeg.p1, rSeg.p2
+              )) {
+                crossesMajorRoad = true;
+                break;
               }
-              if (crossesMajorRoad) break;
             }
 
             if (!crossesMajorRoad) {

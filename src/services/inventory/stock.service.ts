@@ -475,4 +475,29 @@ export class StockService {
             orderBy: { serialNumber: 'asc' }
         });
     }
+
+    /**
+     * Get serials with advanced filtering
+     */
+    static async getAllSerials(filters: { storeId?: string, itemId?: string, search?: string, staffId?: string }) {
+        const { storeId, itemId, search, staffId } = filters;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const where: any = {};
+        
+        if (storeId) where.storeId = storeId;
+        if (itemId) where.itemId = itemId;
+        if (search) where.serialNumber = { contains: search, mode: 'insensitive' };
+        if (staffId) where.assignedStaffId = staffId;
+
+        return await prisma.inventoryItemSerial.findMany({
+            where,
+            include: {
+                item: true,
+                store: true,
+                assignedStaff: true
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 100
+        });
+    }
 }

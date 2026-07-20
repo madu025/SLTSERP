@@ -127,21 +127,28 @@ export class NotificationService {
             const usersWithExcess = userIds.filter(userId => (countMap.get(userId) || 0) >= 50);
 
             if (usersWithExcess.length > 0) {
-                for (const userId of usersWithExcess) {
-                    const currentCount = countMap.get(userId) || 0;
-                    const deleteCount = (currentCount - 50) + 1;
-                    const excess = await NotificationRepository.findMany({
-                        where: { userId },
-                        orderBy: { createdAt: 'asc' },
-                        take: deleteCount,
-                        select: { id: true }
-                    });
-                    if (excess.length > 0) {
-                        await NotificationRepository.deleteMany({
-                            id: { in: excess.map((n: { id: string }) => n.id) }
-                        });
+                // Fire and forget the deletion loop to avoid blocking the broadcast
+                Promise.resolve().then(async () => {
+                    for (const userId of usersWithExcess) {
+                        try {
+                            const currentCount = countMap.get(userId) || 0;
+                            const deleteCount = (currentCount - 50) + 1;
+                            const excess = await NotificationRepository.findMany({
+                                where: { userId },
+                                orderBy: { createdAt: 'asc' },
+                                take: deleteCount,
+                                select: { id: true }
+                            });
+                            if (excess.length > 0) {
+                                await NotificationRepository.deleteMany({
+                                    id: { in: excess.map((n: { id: string }) => n.id) }
+                                });
+                            }
+                        } catch (err) {
+                            console.error(`Failed to cleanup excess notifications for ${userId}:`, err);
+                        }
                     }
-                }
+                }).catch(console.error);
             }
 
             // Filter userIds based on preferences
@@ -204,7 +211,8 @@ export class NotificationService {
                     ...(opmcId ? {
                         OR: [
                             { accessibleOpmcs: { some: { id: opmcId } } },
-                            { role: { in: ['SUPER_ADMIN', 'ADMIN'] } } // Admins/SuperAdmins are global
+                            // Admins, Managers, IT, and Procurement are often global section heads
+                            { role: { in: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'PROCUREMENT_OFFICER', 'ENGINEER', 'OFFICE_ADMIN', 'OFFICE_ADMIN_ASSISTANT'] } } 
                         ]
                     } : {})
                 },

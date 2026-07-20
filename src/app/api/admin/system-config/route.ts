@@ -1,47 +1,25 @@
+import { SystemConfigService } from '@/services/system-config.service';
+import { apiHandler } from '@/lib/api-handler';
+import { AppError } from '@/lib/error';
 
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+export const GET = apiHandler(async () => {
+    return SystemConfigService.getConfigs();
+}, { rawResponse: true });
 
-export async function GET() {
-    try {
-        // Use raw query to fetch configs (model not in client)
-        const configs: any[] = await prisma.$queryRaw`SELECT * FROM "SystemConfig"`;
+export const POST = apiHandler(async (request) => {
+    const role = request.headers.get('x-user-role');
+    const userId = request.headers.get('x-user-id');
 
-        // Convert array to object
-        const configMap = configs.reduce((acc: Record<string, string>, curr: any) => {
-            acc[curr.key] = curr.value;
-            return acc;
-        }, {} as Record<string, string>);
-
-        return NextResponse.json(configMap);
-    } catch (error) {
-        console.error("Config fetch error:", error);
-        return NextResponse.json({ message: 'Error fetching configs' }, { status: 500 });
+    if (role !== 'SUPER_ADMIN') {
+        throw AppError.forbidden('Only Super Admins can modify system config');
     }
-}
 
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-        const { key, value, description } = body;
+    const body = await request.json();
+    const { key, value, description } = body;
 
-        if (!key || value === undefined) {
-            return NextResponse.json({ message: 'Key and Value required' }, { status: 400 });
-        }
-
-        // Upsert using raw SQL standard for Postgres
-        // Note: Manual handling of updatedAt since Prisma middleware won't run
-        const result: any[] = await prisma.$queryRaw`
-            INSERT INTO "SystemConfig" ("key", "value", "description", "updatedAt")
-            VALUES (${key}, ${value}, ${description}, NOW())
-            ON CONFLICT ("key") 
-            DO UPDATE SET "value" = ${value}, "description" = ${description}, "updatedAt" = NOW()
-            RETURNING *
-        `;
-
-        return NextResponse.json(result[0]);
-    } catch (error) {
-        console.error("Config update error:", error);
-        return NextResponse.json({ message: 'Error updating config' }, { status: 500 });
+    if (!key || value === undefined) {
+        throw AppError.badRequest('Key and Value required');
     }
-}
+
+    return SystemConfigService.updateConfig(key, value, description, userId || 'system');
+}, { rawResponse: true });

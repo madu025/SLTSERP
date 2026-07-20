@@ -40,6 +40,7 @@ export class InventoryService {
     static getStore = StoreService.getStore;
     static deleteStore = StoreService.deleteStore;
     static checkLowStock = StoreService.checkLowStock;
+    static checkAllLowStock = StoreService.checkAllLowStock;
 
     // --- STOCK MANAGEMENT ---
     static getStock = StockService.getStock;
@@ -51,6 +52,7 @@ export class InventoryService {
     static createStockIssue = StockService.createStockIssue;
     static getStockIssues = StockService.getStockIssues;
     static getItemSerials = StockService.getItemSerials;
+    static getAllSerials = StockService.getAllSerials;
 
     // --- GRN MANAGEMENT ---
     static getGRNs = GRNService.getGRNs;
